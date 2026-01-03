@@ -79,6 +79,84 @@ FactoryBot.define do
           strategy: 'array_split',
           batch_size: 10
         }
+      when 'start'
+        { node_type: 'start' }
+      when 'end'
+        { node_type: 'end' }
+      when 'ci_trigger'
+        {
+          repository_id: SecureRandom.uuid,
+          workflow_id: 'ci.yml',
+          ref: 'main',
+          action: 'workflow_dispatch',
+          inputs: {}
+        }
+      when 'ci_wait_status'
+        {
+          repository_id: SecureRandom.uuid,
+          run_id: nil,
+          poll_interval: 30,
+          timeout: 3600,
+          expected_status: 'success'
+        }
+      when 'ci_cancel'
+        {
+          repository_id: SecureRandom.uuid,
+          run_id: nil
+        }
+      when 'ci_get_logs'
+        {
+          repository_id: SecureRandom.uuid,
+          run_id: nil,
+          job_id: nil
+        }
+      when 'git_commit_status'
+        {
+          repository_id: SecureRandom.uuid,
+          sha: nil,
+          state: 'pending',
+          context: 'ci/powernode',
+          description: 'Build in progress',
+          target_url: nil
+        }
+      when 'git_create_check'
+        {
+          repository_id: SecureRandom.uuid,
+          sha: nil,
+          name: 'Powernode Check',
+          status: 'in_progress',
+          conclusion: nil,
+          output: {}
+        }
+      when 'kb_article'
+        {
+          action: 'create',
+          title: 'Sample KB Article',
+          content: 'Article content',
+          category_id: SecureRandom.uuid,
+          status: 'draft'
+        }
+      when 'page'
+        {
+          action: 'create',
+          title: 'Sample Page',
+          slug: 'sample-page',
+          content: 'Page content',
+          status: 'draft'
+        }
+      when 'mcp_operation'
+        {
+          operation_type: 'tool',
+          mcp_server_id: SecureRandom.uuid,
+          mcp_tool_id: SecureRandom.uuid,
+          parameters: {}
+        }
+      when 'error_handler'
+        {
+          error_types: [ 'timeout', 'api_error' ],
+          actions: { 'timeout': 'retry' },
+          max_retries: 3
+        }
       else
         {}
       end
@@ -598,6 +676,89 @@ FactoryBot.define do
           prompt_name: 'analyze_data',
           prompt_description: 'Analyze the provided data set',
           arguments: { data_format: 'json', output_format: 'summary' }
+        }
+      end
+    end
+
+    # CI/CD Node Types
+
+    trait :ci_trigger do
+      node_type { 'ci_trigger' }
+      name { 'CI Trigger' }
+      configuration do
+        {
+          repository_id: SecureRandom.uuid,
+          workflow_id: 'ci.yml',
+          ref: 'main',
+          action: 'workflow_dispatch',
+          inputs: {}
+        }
+      end
+    end
+
+    trait :ci_wait_status do
+      node_type { 'ci_wait_status' }
+      name { 'Wait for CI Status' }
+      configuration do
+        {
+          repository_id: SecureRandom.uuid,
+          run_id: nil,
+          poll_interval: 30,
+          timeout: 3600,
+          expected_status: 'success'
+        }
+      end
+    end
+
+    trait :ci_cancel do
+      node_type { 'ci_cancel' }
+      name { 'Cancel CI Run' }
+      configuration do
+        {
+          repository_id: SecureRandom.uuid,
+          run_id: nil
+        }
+      end
+    end
+
+    trait :ci_get_logs do
+      node_type { 'ci_get_logs' }
+      name { 'Get CI Logs' }
+      configuration do
+        {
+          repository_id: SecureRandom.uuid,
+          run_id: nil,
+          job_id: nil
+        }
+      end
+    end
+
+    trait :git_commit_status do
+      node_type { 'git_commit_status' }
+      name { 'Set Commit Status' }
+      configuration do
+        {
+          repository_id: SecureRandom.uuid,
+          sha: nil,
+          state: 'pending',
+          context: 'ci/powernode',
+          description: 'Build in progress',
+          target_url: nil
+        }
+      end
+    end
+
+    trait :git_create_check do
+      node_type { 'git_create_check' }
+      name { 'Create Check Run' }
+      configuration do
+        {
+          repository_id: SecureRandom.uuid,
+          sha: nil,
+          name: 'Powernode Check',
+          status: 'in_progress',
+          conclusion: nil,
+          output: {}
         }
       end
     end

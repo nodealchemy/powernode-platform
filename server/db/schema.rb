@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_15_000006) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_03_040001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -587,7 +587,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_15_000006) do
     t.index ["mcp_tool_id", "mcp_tool_version"], name: "index_workflow_nodes_on_mcp_tool_and_version"
     t.index ["mcp_tool_id"], name: "index_ai_workflow_nodes_on_mcp_tool_id"
     t.index ["plugin_id"], name: "index_ai_workflow_nodes_on_plugin_id"
-    t.check_constraint "node_type::text = ANY (ARRAY['start'::character varying::text, 'end'::character varying::text, 'trigger'::character varying::text, 'ai_agent'::character varying::text, 'prompt_template'::character varying::text, 'data_processor'::character varying::text, 'transform'::character varying::text, 'condition'::character varying::text, 'loop'::character varying::text, 'delay'::character varying::text, 'merge'::character varying::text, 'split'::character varying::text, 'database'::character varying::text, 'file'::character varying::text, 'validator'::character varying::text, 'email'::character varying::text, 'notification'::character varying::text, 'api_call'::character varying::text, 'webhook'::character varying::text, 'scheduler'::character varying::text, 'human_approval'::character varying::text, 'sub_workflow'::character varying::text, 'kb_article'::character varying::text, 'page'::character varying::text, 'mcp_operation'::character varying::text])", name: "ai_workflow_nodes_type_check"
+    t.check_constraint "node_type::text = ANY (ARRAY['start'::character varying::text, 'end'::character varying::text, 'trigger'::character varying::text, 'ai_agent'::character varying::text, 'prompt_template'::character varying::text, 'data_processor'::character varying::text, 'transform'::character varying::text, 'condition'::character varying::text, 'loop'::character varying::text, 'delay'::character varying::text, 'merge'::character varying::text, 'split'::character varying::text, 'database'::character varying::text, 'file'::character varying::text, 'validator'::character varying::text, 'email'::character varying::text, 'notification'::character varying::text, 'api_call'::character varying::text, 'webhook'::character varying::text, 'scheduler'::character varying::text, 'human_approval'::character varying::text, 'sub_workflow'::character varying::text, 'kb_article'::character varying::text, 'page'::character varying::text, 'mcp_operation'::character varying::text, 'ci_trigger'::character varying::text, 'ci_wait_status'::character varying::text, 'ci_get_logs'::character varying::text, 'ci_cancel'::character varying::text, 'git_commit_status'::character varying::text, 'git_create_check'::character varying::text])", name: "ai_workflow_nodes_type_check"
     t.check_constraint "retry_count >= 0", name: "ai_workflow_nodes_retry_check"
     t.check_constraint "timeout_seconds > 0", name: "ai_workflow_nodes_timeout_check"
   end
@@ -1700,6 +1700,31 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_15_000006) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "valid_gateway_job_status"
   end
 
+  create_table "git_pipeline_approvals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "git_pipeline_id", null: false
+    t.uuid "account_id", null: false
+    t.string "gate_name", null: false
+    t.string "environment"
+    t.text "description"
+    t.string "status", default: "pending", null: false
+    t.uuid "requested_by_id"
+    t.uuid "responded_by_id"
+    t.text "response_comment"
+    t.datetime "responded_at"
+    t.datetime "expires_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.jsonb "required_approvers", default: [], null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_git_pipeline_approvals_on_account_id"
+    t.index ["expires_at"], name: "index_git_pipeline_approvals_on_expires_at"
+    t.index ["git_pipeline_id", "gate_name"], name: "index_git_pipeline_approvals_on_git_pipeline_id_and_gate_name", unique: true
+    t.index ["git_pipeline_id"], name: "index_git_pipeline_approvals_on_git_pipeline_id"
+    t.index ["requested_by_id"], name: "index_git_pipeline_approvals_on_requested_by_id"
+    t.index ["responded_by_id"], name: "index_git_pipeline_approvals_on_responded_by_id"
+    t.index ["status"], name: "index_git_pipeline_approvals_on_status"
+  end
+
   create_table "git_pipeline_jobs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "git_pipeline_id", null: false
     t.uuid "account_id", null: false
@@ -1728,6 +1753,37 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_15_000006) do
     t.index ["git_pipeline_id"], name: "index_git_pipeline_jobs_on_git_pipeline_id"
     t.index ["runner_name"], name: "index_git_pipeline_jobs_on_runner_name"
     t.index ["status"], name: "index_git_pipeline_jobs_on_status"
+  end
+
+  create_table "git_pipeline_schedules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "git_repository_id", null: false
+    t.uuid "account_id", null: false
+    t.uuid "created_by_id"
+    t.string "name", null: false
+    t.string "description"
+    t.string "cron_expression", null: false
+    t.string "timezone", default: "UTC", null: false
+    t.string "ref", null: false
+    t.string "workflow_file"
+    t.jsonb "inputs", default: {}, null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "next_run_at"
+    t.datetime "last_run_at"
+    t.string "last_run_status"
+    t.integer "run_count", default: 0, null: false
+    t.integer "success_count", default: 0, null: false
+    t.integer "failure_count", default: 0, null: false
+    t.integer "consecutive_failures", default: 0, null: false
+    t.uuid "last_pipeline_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_git_pipeline_schedules_on_account_id"
+    t.index ["created_by_id"], name: "index_git_pipeline_schedules_on_created_by_id"
+    t.index ["git_repository_id", "name"], name: "index_git_pipeline_schedules_on_git_repository_id_and_name", unique: true
+    t.index ["git_repository_id"], name: "index_git_pipeline_schedules_on_git_repository_id"
+    t.index ["is_active"], name: "index_git_pipeline_schedules_on_is_active"
+    t.index ["last_pipeline_id"], name: "index_git_pipeline_schedules_on_last_pipeline_id"
+    t.index ["next_run_at"], name: "index_git_pipeline_schedules_on_next_run_at"
   end
 
   create_table "git_pipelines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1877,6 +1933,35 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_15_000006) do
     t.index ["webhook_configured"], name: "index_git_repositories_on_webhook_configured"
   end
 
+  create_table "git_runners", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "git_provider_credential_id", null: false
+    t.uuid "git_repository_id"
+    t.uuid "account_id", null: false
+    t.string "external_id", null: false
+    t.string "name", null: false
+    t.string "runner_scope", default: "repository", null: false
+    t.string "status", default: "offline", null: false
+    t.boolean "busy", default: false, null: false
+    t.jsonb "labels", default: [], null: false
+    t.string "os"
+    t.string "architecture"
+    t.string "version"
+    t.integer "total_jobs_run", default: 0, null: false
+    t.integer "successful_jobs", default: 0, null: false
+    t.integer "failed_jobs", default: 0, null: false
+    t.datetime "last_seen_at", precision: nil
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_git_runners_on_account_id"
+    t.index ["busy"], name: "index_git_runners_on_busy"
+    t.index ["git_provider_credential_id", "external_id"], name: "idx_git_runners_on_credential_and_external_id", unique: true
+    t.index ["git_provider_credential_id"], name: "index_git_runners_on_git_provider_credential_id"
+    t.index ["git_repository_id"], name: "index_git_runners_on_git_repository_id"
+    t.index ["last_seen_at"], name: "index_git_runners_on_last_seen_at"
+    t.index ["runner_scope"], name: "index_git_runners_on_runner_scope"
+    t.index ["status"], name: "index_git_runners_on_status"
+  end
+
   create_table "git_webhook_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "git_repository_id"
     t.uuid "git_provider_id", null: false
@@ -1908,6 +1993,30 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_15_000006) do
     t.index ["git_repository_id"], name: "index_git_webhook_events_on_git_repository_id"
     t.index ["status", "retry_count"], name: "index_git_webhook_events_on_status_and_retry_count"
     t.index ["status"], name: "index_git_webhook_events_on_status"
+  end
+
+  create_table "git_workflow_triggers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_workflow_trigger_id", null: false
+    t.uuid "git_repository_id"
+    t.string "event_type", null: false
+    t.string "branch_pattern", default: "*"
+    t.string "path_pattern"
+    t.jsonb "event_filters", default: {}, null: false
+    t.jsonb "payload_mapping", default: {}, null: false
+    t.boolean "is_active", default: true, null: false
+    t.string "status", default: "active", null: false
+    t.integer "trigger_count", default: 0, null: false
+    t.datetime "last_triggered_at", precision: nil
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ai_workflow_trigger_id"], name: "index_git_workflow_triggers_on_ai_workflow_trigger_id"
+    t.index ["event_type", "is_active"], name: "index_git_workflow_triggers_on_event_type_active"
+    t.index ["event_type"], name: "index_git_workflow_triggers_on_event_type"
+    t.index ["git_repository_id", "event_type"], name: "index_git_workflow_triggers_on_repo_and_event"
+    t.index ["git_repository_id"], name: "index_git_workflow_triggers_on_git_repository_id"
+    t.index ["is_active"], name: "index_git_workflow_triggers_on_is_active"
+    t.index ["status"], name: "index_git_workflow_triggers_on_status"
   end
 
   create_table "impersonation_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3548,8 +3657,16 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_15_000006) do
   add_foreign_key "file_versions", "accounts"
   add_foreign_key "file_versions", "file_objects"
   add_foreign_key "file_versions", "users", column: "created_by_id"
+  add_foreign_key "git_pipeline_approvals", "accounts", on_delete: :cascade
+  add_foreign_key "git_pipeline_approvals", "git_pipelines", on_delete: :cascade
+  add_foreign_key "git_pipeline_approvals", "users", column: "requested_by_id", on_delete: :nullify
+  add_foreign_key "git_pipeline_approvals", "users", column: "responded_by_id", on_delete: :nullify
   add_foreign_key "git_pipeline_jobs", "accounts", on_delete: :cascade
   add_foreign_key "git_pipeline_jobs", "git_pipelines", on_delete: :cascade
+  add_foreign_key "git_pipeline_schedules", "accounts", on_delete: :cascade
+  add_foreign_key "git_pipeline_schedules", "git_pipelines", column: "last_pipeline_id", on_delete: :nullify
+  add_foreign_key "git_pipeline_schedules", "git_repositories", on_delete: :cascade
+  add_foreign_key "git_pipeline_schedules", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "git_pipelines", "accounts", on_delete: :cascade
   add_foreign_key "git_pipelines", "git_repositories", on_delete: :cascade
   add_foreign_key "git_provider_credentials", "accounts", on_delete: :cascade
@@ -3557,9 +3674,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_15_000006) do
   add_foreign_key "git_provider_credentials", "users", on_delete: :nullify
   add_foreign_key "git_repositories", "accounts", on_delete: :cascade
   add_foreign_key "git_repositories", "git_provider_credentials", on_delete: :cascade
+  add_foreign_key "git_runners", "accounts", on_delete: :cascade
+  add_foreign_key "git_runners", "git_provider_credentials", on_delete: :cascade
+  add_foreign_key "git_runners", "git_repositories", on_delete: :cascade
   add_foreign_key "git_webhook_events", "accounts", on_delete: :cascade
   add_foreign_key "git_webhook_events", "git_providers", on_delete: :cascade
   add_foreign_key "git_webhook_events", "git_repositories", on_delete: :cascade
+  add_foreign_key "git_workflow_triggers", "ai_workflow_triggers"
+  add_foreign_key "git_workflow_triggers", "git_repositories"
   add_foreign_key "impersonation_sessions", "users", column: "impersonated_user_id"
   add_foreign_key "impersonation_sessions", "users", column: "impersonator_id"
   add_foreign_key "invitations", "accounts"

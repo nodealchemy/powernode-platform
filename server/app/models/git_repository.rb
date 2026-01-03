@@ -13,6 +13,8 @@ class GitRepository < ApplicationRecord
   has_one :git_provider, through: :git_provider_credential
   has_many :git_webhook_events, dependent: :destroy
   has_many :git_pipelines, dependent: :destroy
+  has_many :git_pipeline_schedules, dependent: :destroy
+  has_many :git_runners, dependent: :destroy
 
   # Delegations
   delegate :provider_type, to: :git_provider, allow_nil: true

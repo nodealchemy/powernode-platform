@@ -307,6 +307,76 @@ export interface WebhookNodeData extends BaseWorkflowNodeData {
   };
 }
 
+// ===== CI/CD NODE DATA TYPES =====
+
+/** CI Trigger node data */
+export interface CiTriggerNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    repository_id?: string;
+    workflow_id?: string;
+    ref?: string;
+    trigger_action?: 'workflow_dispatch' | 'repository_dispatch' | 'create_run';
+    inputs?: Record<string, string>;
+  };
+}
+
+/** CI Wait Status node data */
+export interface CiWaitStatusNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    repository_id?: string;
+    run_id?: string;
+    expected_status?: 'success' | 'failure' | 'completed' | 'any';
+    poll_interval_seconds?: number;
+    timeout_seconds?: number;
+  };
+}
+
+/** CI Cancel node data */
+export interface CiCancelNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    repository_id?: string;
+    run_id?: string;
+    reason?: string;
+  };
+}
+
+/** CI Get Logs node data */
+export interface CiGetLogsNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    repository_id?: string;
+    run_id?: string;
+    job_id?: string;
+    include_steps?: boolean;
+    max_log_size?: number;
+  };
+}
+
+/** Git Commit Status node data */
+export interface GitCommitStatusNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    repository_id?: string;
+    sha?: string;
+    state?: 'pending' | 'success' | 'failure' | 'error';
+    context?: string;
+    description?: string;
+    target_url?: string;
+  };
+}
+
+/** Git Create Check node data */
+export interface GitCreateCheckNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    repository_id?: string;
+    sha?: string;
+    name?: string;
+    status?: 'queued' | 'in_progress' | 'completed';
+    conclusion?: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required';
+    title?: string;
+    summary?: string;
+    details_url?: string;
+  };
+}
+
 /** Union type for all node data types */
 export type WorkflowNodeData =
   | AiAgentNodeData
@@ -333,7 +403,13 @@ export type WorkflowNodeData =
   | TransformNodeData
   | TriggerNodeData
   | ValidatorNodeData
-  | WebhookNodeData;
+  | WebhookNodeData
+  | CiTriggerNodeData
+  | CiWaitStatusNodeData
+  | CiCancelNodeData
+  | CiGetLogsNodeData
+  | GitCommitStatusNodeData
+  | GitCreateCheckNodeData;
 
 // ===== REACTFLOW NODE TYPES =====
 // Full node types for use with NodeProps<T>
@@ -388,6 +464,18 @@ export type TriggerNode = Node<TriggerNodeData, 'trigger'>;
 export type ValidatorNode = Node<ValidatorNodeData, 'validator'>;
 /** Webhook workflow node type */
 export type WebhookNode = Node<WebhookNodeData, 'webhook'>;
+/** CI Trigger workflow node type */
+export type CiTriggerNode = Node<CiTriggerNodeData, 'ci_trigger'>;
+/** CI Wait Status workflow node type */
+export type CiWaitStatusNode = Node<CiWaitStatusNodeData, 'ci_wait_status'>;
+/** CI Cancel workflow node type */
+export type CiCancelNode = Node<CiCancelNodeData, 'ci_cancel'>;
+/** CI Get Logs workflow node type */
+export type CiGetLogsNode = Node<CiGetLogsNodeData, 'ci_get_logs'>;
+/** Git Commit Status workflow node type */
+export type GitCommitStatusNode = Node<GitCommitStatusNodeData, 'git_commit_status'>;
+/** Git Create Check workflow node type */
+export type GitCreateCheckNode = Node<GitCreateCheckNodeData, 'git_create_check'>;
 
 /** Union of all workflow node types */
 export type WorkflowNode =
@@ -415,4 +503,10 @@ export type WorkflowNode =
   | TransformNode
   | TriggerNode
   | ValidatorNode
-  | WebhookNode;
+  | WebhookNode
+  | CiTriggerNode
+  | CiWaitStatusNode
+  | CiCancelNode
+  | CiGetLogsNode
+  | GitCommitStatusNode
+  | GitCreateCheckNode;

@@ -330,3 +330,270 @@ export interface UpdateProviderData {
   web_base_url?: string;
   is_active?: boolean;
 }
+
+// Git Runner Types (CI/CD Self-Hosted Runners)
+
+export type RunnerStatus = 'online' | 'offline' | 'busy';
+export type RunnerScope = 'repository' | 'organization' | 'enterprise';
+
+export interface GitRunner {
+  id: string;
+  external_id: string;
+  name: string;
+  status: RunnerStatus;
+  busy: boolean;
+  runner_scope: RunnerScope;
+  labels: string[];
+  os?: string;
+  architecture?: string;
+  version?: string;
+  success_rate: number;
+  total_jobs_run: number;
+  last_seen_at?: string;
+  provider_type: string;
+  repository_id?: string;
+  credential_id: string;
+}
+
+export interface GitRunnerDetail extends GitRunner {
+  successful_jobs: number;
+  failed_jobs: number;
+  failure_rate: number;
+  recently_active: boolean;
+  repository?: {
+    id: string;
+    name: string;
+    full_name: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RunnerStats {
+  total: number;
+  online: number;
+  offline: number;
+  busy: number;
+}
+
+export interface GitRunnersResponse {
+  runners: GitRunner[];
+  stats: RunnerStats;
+  pagination: PaginationInfo;
+}
+
+export interface RunnerRegistrationToken {
+  token: string;
+  expires_at?: string;
+}
+
+export interface RunnerRemovalToken {
+  token: string;
+  expires_at?: string;
+}
+
+export interface SyncRunnersResult {
+  message: string;
+  synced_count: number;
+}
+
+// Git Pipeline Schedule Types
+
+export interface GitPipelineSchedule {
+  id: string;
+  name: string;
+  cron_expression: string;
+  timezone: string;
+  ref: string;
+  workflow_file?: string;
+  is_active: boolean;
+  next_run_at?: string;
+  last_run_at?: string;
+  last_run_status?: 'success' | 'failure' | 'skipped';
+  run_count: number;
+  success_rate: number;
+  repository_id: string;
+}
+
+export interface GitPipelineScheduleDetail extends GitPipelineSchedule {
+  description?: string;
+  inputs: Record<string, string>;
+  success_count: number;
+  failure_count: number;
+  consecutive_failures: number;
+  human_schedule: string;
+  next_runs: string[];
+  overdue: boolean;
+  last_pipeline_id?: string;
+  created_by_id?: string;
+  repository: {
+    id: string;
+    name: string;
+    full_name: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GitPipelineSchedulesResponse {
+  schedules: GitPipelineSchedule[];
+  pagination: PaginationInfo;
+}
+
+export interface CreateScheduleData {
+  name: string;
+  cron_expression: string;
+  timezone: string;
+  ref: string;
+  description?: string;
+  workflow_file?: string;
+  inputs?: Record<string, string>;
+  is_active?: boolean;
+}
+
+// Git Pipeline Approval Types
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
+
+export interface GitPipelineApproval {
+  id: string;
+  gate_name: string;
+  environment?: string;
+  status: ApprovalStatus;
+  expires_at?: string;
+  responded_at?: string;
+  can_respond: boolean;
+  can_user_approve: boolean;
+  pipeline: {
+    id: string;
+    name: string;
+    status: string;
+  };
+  requested_by?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  created_at: string;
+}
+
+export interface GitPipelineApprovalDetail extends GitPipelineApproval {
+  description?: string;
+  response_comment?: string;
+  metadata: Record<string, unknown>;
+  required_approvers: string[];
+  time_until_expiry?: number;
+  response_time?: number;
+  responded_by?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  repository?: {
+    id: string;
+    name: string;
+    full_name: string;
+  };
+  updated_at: string;
+}
+
+export interface ApprovalStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  expired: number;
+}
+
+export interface GitPipelineApprovalsResponse {
+  approvals: GitPipelineApproval[];
+  stats: ApprovalStats;
+  pagination: PaginationInfo;
+}
+
+// Git Workflow Trigger Types (AI Workflow Integration)
+
+export type GitWorkflowTriggerStatus = 'active' | 'paused' | 'disabled' | 'error';
+
+export type GitEventType =
+  | 'push'
+  | 'pull_request'
+  | 'pull_request_review'
+  | 'pull_request_comment'
+  | 'issue'
+  | 'issue_comment'
+  | 'commit_comment'
+  | 'create'
+  | 'delete'
+  | 'fork'
+  | 'release'
+  | 'tag'
+  | 'workflow_run'
+  | 'check_run'
+  | 'check_suite'
+  | 'deployment'
+  | 'deployment_status'
+  | 'status'
+  | 'merge_group';
+
+export interface GitWorkflowTrigger {
+  id: string;
+  event_type: GitEventType;
+  branch_pattern: string;
+  path_pattern?: string;
+  is_active: boolean;
+  status: GitWorkflowTriggerStatus;
+  trigger_count: number;
+  last_triggered_at?: string;
+  ai_workflow_trigger_id: string;
+  git_repository_id?: string;
+  created_at: string;
+}
+
+export interface GitWorkflowTriggerDetail extends GitWorkflowTrigger {
+  event_filters: Record<string, unknown>;
+  payload_mapping: Record<string, string>;
+  metadata: Record<string, unknown>;
+  ai_workflow: {
+    id: string;
+    name: string;
+    status: string;
+  };
+  ai_workflow_trigger: {
+    id: string;
+    name: string;
+    trigger_type: string;
+  };
+  git_repository?: {
+    id: string;
+    name: string;
+    full_name: string;
+  };
+  updated_at: string;
+}
+
+export interface CreateGitWorkflowTriggerData {
+  event_type: GitEventType;
+  branch_pattern: string;
+  path_pattern?: string;
+  event_filters?: Record<string, unknown>;
+  payload_mapping?: Record<string, string>;
+  git_repository_id?: string;
+  is_active?: boolean;
+}
+
+export interface GitWorkflowTriggersResponse {
+  git_triggers: GitWorkflowTrigger[];
+  pagination?: PaginationInfo;
+}
+
+export interface TestGitTriggerResult {
+  matched: boolean;
+  extracted_variables: Record<string, unknown>;
+  match_details: {
+    event_type_match: boolean;
+    branch_match: boolean;
+    path_match: boolean;
+    filters_match: boolean;
+  };
+}

@@ -12,6 +12,18 @@ import {
   GitPipelineJobDetail,
   GitWebhookEvent,
   GitWebhookEventDetail,
+  GitRunner,
+  GitRunnerDetail,
+  RunnerStats,
+  RunnerRegistrationToken,
+  RunnerRemovalToken,
+  SyncRunnersResult,
+  GitPipelineSchedule,
+  GitPipelineScheduleDetail,
+  CreateScheduleData,
+  GitPipelineApproval,
+  GitPipelineApprovalDetail,
+  ApprovalStats,
   AvailableProvider,
   CreateCredentialData,
   CreateProviderData,
@@ -21,6 +33,10 @@ import {
   PaginationInfo,
   PipelineStats,
   WebhookEventStats,
+  GitWorkflowTrigger,
+  GitWorkflowTriggerDetail,
+  CreateGitWorkflowTriggerData,
+  TestGitTriggerResult,
 } from '../types';
 
 // Helper type for API responses
@@ -542,5 +558,426 @@ export const gitProvidersApi = {
       event: GitWebhookEvent;
     }>>(`/git/webhook_events/${id}/retry`);
     return response.data.data;
+  },
+
+  // ================================
+  // RUNNERS (CI/CD Self-Hosted)
+  // ================================
+
+  /**
+   * Get all runners
+   */
+  getRunners: async (params?: {
+    page?: number;
+    per_page?: number;
+    status?: string;
+    scope?: string;
+    credential_id?: string;
+    repository_id?: string;
+    search?: string;
+    sort?: string;
+    direction?: 'asc' | 'desc';
+  }): Promise<{
+    runners: GitRunner[];
+    stats: RunnerStats;
+    pagination: PaginationInfo;
+  }> => {
+    const response = await apiClient.get<ApiResponse<{
+      runners: GitRunner[];
+      stats: RunnerStats;
+      pagination: PaginationInfo;
+    }>>('/git/runners', { params });
+    return response.data.data;
+  },
+
+  /**
+   * Get a specific runner
+   */
+  getRunner: async (id: string): Promise<GitRunnerDetail> => {
+    const response = await apiClient.get<ApiResponse<{
+      runner: GitRunnerDetail;
+    }>>(`/git/runners/${id}`);
+    return response.data.data.runner;
+  },
+
+  /**
+   * Delete a runner
+   */
+  deleteRunner: async (id: string): Promise<{ message: string }> => {
+    const response = await apiClient.delete<ApiResponse<{
+      message: string;
+    }>>(`/git/runners/${id}`);
+    return response.data.data;
+  },
+
+  /**
+   * Sync runners from providers
+   */
+  syncRunners: async (params?: {
+    credential_id?: string;
+    repository_id?: string;
+  }): Promise<SyncRunnersResult> => {
+    const response = await apiClient.post<ApiResponse<SyncRunnersResult>>(
+      '/git/runners/sync',
+      params
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Get registration token for a runner
+   */
+  getRunnerRegistrationToken: async (
+    id: string
+  ): Promise<RunnerRegistrationToken> => {
+    const response = await apiClient.post<ApiResponse<RunnerRegistrationToken>>(
+      `/git/runners/${id}/registration_token`
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Get removal token for a runner
+   */
+  getRunnerRemovalToken: async (id: string): Promise<RunnerRemovalToken> => {
+    const response = await apiClient.post<ApiResponse<RunnerRemovalToken>>(
+      `/git/runners/${id}/removal_token`
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Update runner labels
+   */
+  updateRunnerLabels: async (
+    id: string,
+    labels: string[]
+  ): Promise<GitRunnerDetail> => {
+    const response = await apiClient.put<ApiResponse<{
+      runner: GitRunnerDetail;
+    }>>(`/git/runners/${id}/labels`, { labels });
+    return response.data.data.runner;
+  },
+
+  // ================================
+  // PIPELINE SCHEDULES
+  // ================================
+
+  /**
+   * Get schedules for a repository
+   */
+  getSchedules: async (
+    repositoryId: string,
+    params?: {
+      page?: number;
+      per_page?: number;
+      active?: boolean;
+      status?: string;
+      sort?: string;
+      direction?: 'asc' | 'desc';
+    }
+  ): Promise<{
+    schedules: GitPipelineSchedule[];
+    pagination: PaginationInfo;
+  }> => {
+    const response = await apiClient.get<ApiResponse<{
+      schedules: GitPipelineSchedule[];
+      pagination: PaginationInfo;
+    }>>(`/git/repositories/${repositoryId}/schedules`, { params });
+    return response.data.data;
+  },
+
+  /**
+   * Get a specific schedule
+   */
+  getSchedule: async (id: string): Promise<GitPipelineScheduleDetail> => {
+    const response = await apiClient.get<ApiResponse<{
+      schedule: GitPipelineScheduleDetail;
+    }>>(`/git/pipeline_schedules/${id}`);
+    return response.data.data.schedule;
+  },
+
+  /**
+   * Create a new schedule
+   */
+  createSchedule: async (
+    repositoryId: string,
+    data: CreateScheduleData
+  ): Promise<GitPipelineScheduleDetail> => {
+    const response = await apiClient.post<ApiResponse<{
+      schedule: GitPipelineScheduleDetail;
+    }>>(`/git/repositories/${repositoryId}/schedules`, { schedule: data });
+    return response.data.data.schedule;
+  },
+
+  /**
+   * Update a schedule
+   */
+  updateSchedule: async (
+    id: string,
+    data: Partial<CreateScheduleData>
+  ): Promise<GitPipelineScheduleDetail> => {
+    const response = await apiClient.put<ApiResponse<{
+      schedule: GitPipelineScheduleDetail;
+    }>>(`/git/pipeline_schedules/${id}`, { schedule: data });
+    return response.data.data.schedule;
+  },
+
+  /**
+   * Delete a schedule
+   */
+  deleteSchedule: async (id: string): Promise<{ message: string }> => {
+    const response = await apiClient.delete<ApiResponse<{
+      message: string;
+    }>>(`/git/pipeline_schedules/${id}`);
+    return response.data.data;
+  },
+
+  /**
+   * Trigger a schedule manually
+   */
+  triggerSchedule: async (id: string): Promise<{ message: string; pipeline_id?: string }> => {
+    const response = await apiClient.post<ApiResponse<{
+      message: string;
+      pipeline_id?: string;
+    }>>(`/git/pipeline_schedules/${id}/trigger`);
+    return response.data.data;
+  },
+
+  /**
+   * Pause a schedule
+   */
+  pauseSchedule: async (id: string): Promise<GitPipelineScheduleDetail> => {
+    const response = await apiClient.post<ApiResponse<{
+      schedule: GitPipelineScheduleDetail;
+    }>>(`/git/pipeline_schedules/${id}/pause`);
+    return response.data.data.schedule;
+  },
+
+  /**
+   * Resume a schedule
+   */
+  resumeSchedule: async (id: string): Promise<GitPipelineScheduleDetail> => {
+    const response = await apiClient.post<ApiResponse<{
+      schedule: GitPipelineScheduleDetail;
+    }>>(`/git/pipeline_schedules/${id}/resume`);
+    return response.data.data.schedule;
+  },
+
+  // ================================
+  // PIPELINE APPROVALS
+  // ================================
+
+  /**
+   * Get all approvals
+   */
+  getApprovals: async (params?: {
+    page?: number;
+    per_page?: number;
+    status?: string;
+    environment?: string;
+    pipeline_id?: string;
+    sort?: string;
+    direction?: 'asc' | 'desc';
+  }): Promise<{
+    approvals: GitPipelineApproval[];
+    stats: ApprovalStats;
+    pagination: PaginationInfo;
+  }> => {
+    const response = await apiClient.get<ApiResponse<{
+      approvals: GitPipelineApproval[];
+      stats: ApprovalStats;
+      pagination: PaginationInfo;
+    }>>('/git/pipeline_approvals', { params });
+    return response.data.data;
+  },
+
+  /**
+   * Get pending approvals
+   */
+  getPendingApprovals: async (): Promise<{
+    approvals: GitPipelineApproval[];
+    count: number;
+  }> => {
+    const response = await apiClient.get<ApiResponse<{
+      approvals: GitPipelineApproval[];
+      count: number;
+    }>>('/git/pipeline_approvals/pending');
+    return response.data.data;
+  },
+
+  /**
+   * Get a specific approval
+   */
+  getApproval: async (id: string): Promise<GitPipelineApprovalDetail> => {
+    const response = await apiClient.get<ApiResponse<{
+      approval: GitPipelineApprovalDetail;
+    }>>(`/git/pipeline_approvals/${id}`);
+    return response.data.data.approval;
+  },
+
+  /**
+   * Approve a pipeline request
+   */
+  approveRequest: async (
+    id: string,
+    comment?: string
+  ): Promise<{ approval: GitPipelineApprovalDetail; message: string }> => {
+    const response = await apiClient.post<ApiResponse<{
+      approval: GitPipelineApprovalDetail;
+      message: string;
+    }>>(`/git/pipeline_approvals/${id}/approve`, { comment });
+    return response.data.data;
+  },
+
+  /**
+   * Reject a pipeline request
+   */
+  rejectRequest: async (
+    id: string,
+    comment?: string
+  ): Promise<{ approval: GitPipelineApprovalDetail; message: string }> => {
+    const response = await apiClient.post<ApiResponse<{
+      approval: GitPipelineApprovalDetail;
+      message: string;
+    }>>(`/git/pipeline_approvals/${id}/reject`, { comment });
+    return response.data.data;
+  },
+
+  /**
+   * Cancel an approval request
+   */
+  cancelApprovalRequest: async (
+    id: string
+  ): Promise<{ approval: GitPipelineApprovalDetail; message: string }> => {
+    const response = await apiClient.post<ApiResponse<{
+      approval: GitPipelineApprovalDetail;
+      message: string;
+    }>>(`/git/pipeline_approvals/${id}/cancel`);
+    return response.data.data;
+  },
+
+  // ================================
+  // GIT WORKFLOW TRIGGERS (AI Integration)
+  // ================================
+
+  /**
+   * Get git triggers for a workflow trigger
+   */
+  getWorkflowGitTriggers: async (
+    triggerId: string
+  ): Promise<GitWorkflowTrigger[]> => {
+    const response = await apiClient.get<ApiResponse<{
+      git_triggers: GitWorkflowTrigger[];
+      count: number;
+    }>>(`/ai/triggers/${triggerId}/git_triggers`);
+    return response.data.data?.git_triggers || [];
+  },
+
+  /**
+   * Get all git triggers for a workflow
+   */
+  getWorkflowAllGitTriggers: async (
+    workflowId: string
+  ): Promise<GitWorkflowTrigger[]> => {
+    const response = await apiClient.get<ApiResponse<{
+      git_triggers: GitWorkflowTrigger[];
+      count: number;
+    }>>(`/ai/workflows/${workflowId}/git_triggers`);
+    return response.data.data?.git_triggers || [];
+  },
+
+  /**
+   * Get a specific git trigger
+   */
+  getGitTrigger: async (
+    triggerId: string,
+    gitTriggerId: string
+  ): Promise<GitWorkflowTriggerDetail> => {
+    const response = await apiClient.get<ApiResponse<{
+      git_trigger: GitWorkflowTriggerDetail;
+    }>>(`/ai/triggers/${triggerId}/git_triggers/${gitTriggerId}`);
+    return response.data.data.git_trigger;
+  },
+
+  /**
+   * Create a git workflow trigger
+   */
+  createGitTrigger: async (
+    triggerId: string,
+    data: CreateGitWorkflowTriggerData
+  ): Promise<GitWorkflowTriggerDetail> => {
+    const response = await apiClient.post<ApiResponse<{
+      git_trigger: GitWorkflowTriggerDetail;
+    }>>(`/ai/triggers/${triggerId}/git_triggers`, { git_trigger: data });
+    return response.data.data.git_trigger;
+  },
+
+  /**
+   * Update a git workflow trigger
+   */
+  updateGitTrigger: async (
+    triggerId: string,
+    gitTriggerId: string,
+    data: Partial<CreateGitWorkflowTriggerData>
+  ): Promise<GitWorkflowTriggerDetail> => {
+    const response = await apiClient.put<ApiResponse<{
+      git_trigger: GitWorkflowTriggerDetail;
+    }>>(`/ai/triggers/${triggerId}/git_triggers/${gitTriggerId}`, { git_trigger: data });
+    return response.data.data.git_trigger;
+  },
+
+  /**
+   * Delete a git workflow trigger
+   */
+  deleteGitTrigger: async (
+    triggerId: string,
+    gitTriggerId: string
+  ): Promise<{ message: string }> => {
+    const response = await apiClient.delete<ApiResponse<{
+      message: string;
+    }>>(`/ai/triggers/${triggerId}/git_triggers/${gitTriggerId}`);
+    return response.data.data;
+  },
+
+  /**
+   * Test a git trigger with sample payload
+   */
+  testGitTrigger: async (
+    triggerId: string,
+    gitTriggerId: string,
+    samplePayload: Record<string, unknown>
+  ): Promise<TestGitTriggerResult> => {
+    const response = await apiClient.post<ApiResponse<TestGitTriggerResult>>(
+      `/ai/triggers/${triggerId}/git_triggers/${gitTriggerId}/test`,
+      { sample_payload: samplePayload }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Activate a git trigger
+   */
+  activateGitTrigger: async (
+    triggerId: string,
+    gitTriggerId: string
+  ): Promise<GitWorkflowTriggerDetail> => {
+    const response = await apiClient.post<ApiResponse<{
+      git_trigger: GitWorkflowTriggerDetail;
+    }>>(`/ai/triggers/${triggerId}/git_triggers/${gitTriggerId}/activate`);
+    return response.data.data.git_trigger;
+  },
+
+  /**
+   * Pause a git trigger
+   */
+  pauseGitTrigger: async (
+    triggerId: string,
+    gitTriggerId: string
+  ): Promise<GitWorkflowTriggerDetail> => {
+    const response = await apiClient.post<ApiResponse<{
+      git_trigger: GitWorkflowTriggerDetail;
+    }>>(`/ai/triggers/${triggerId}/git_triggers/${gitTriggerId}/pause`);
+    return response.data.data.git_trigger;
   },
 };

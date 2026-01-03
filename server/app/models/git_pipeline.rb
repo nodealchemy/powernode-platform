@@ -18,6 +18,7 @@ class GitPipeline < ApplicationRecord
   has_one :git_provider_credential, through: :git_repository
   has_one :git_provider, through: :git_repository
   has_many :git_pipeline_jobs, dependent: :destroy
+  has_many :git_pipeline_approvals, dependent: :destroy
 
   # Delegations
   delegate :provider_type, :full_name, to: :git_repository, prefix: :repository, allow_nil: true

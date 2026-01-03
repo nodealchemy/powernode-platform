@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { GitProvidersPage } from '../components/GitProvidersPage';
 import { useGitProviders, useGitCredentials } from '../hooks/useGitProviders';
@@ -99,31 +98,37 @@ describe('GitProvidersPage', () => {
     {
       id: 'github',
       name: 'GitHub',
+      slug: 'github',
       provider_type: 'github',
       description: 'Connect to GitHub',
       supports_oauth: true,
       supports_pat: true,
       supports_ci_cd: true,
+      capabilities: ['repositories', 'webhooks', 'ci_cd', 'oauth'],
       configured: true,
     },
     {
       id: 'gitlab',
       name: 'GitLab',
+      slug: 'gitlab',
       provider_type: 'gitlab',
       description: 'Connect to GitLab',
       supports_oauth: true,
       supports_pat: true,
       supports_ci_cd: true,
+      capabilities: ['repositories', 'webhooks', 'ci_cd', 'oauth'],
       configured: false,
     },
     {
       id: 'gitea',
       name: 'Gitea',
+      slug: 'gitea',
       provider_type: 'gitea',
       description: 'Connect to Gitea',
       supports_oauth: false,
       supports_pat: true,
       supports_ci_cd: true,
+      capabilities: ['repositories', 'webhooks', 'ci_cd'],
       configured: false,
     },
   ];
@@ -137,11 +142,9 @@ describe('GitProvidersPage', () => {
         email: 'test@example.com',
         permissions: ['git.providers.create', 'git.providers.read'],
       },
-      loading: false,
       isAuthenticated: true,
-      login: jest.fn(),
-      logout: jest.fn(),
-      refreshToken: jest.fn(),
+      isLoading: false,
+      permissions: ['git.providers.create', 'git.providers.read'],
     } as ReturnType<typeof useAuth>);
 
     mockUseNotification.mockReturnValue({
@@ -149,14 +152,12 @@ describe('GitProvidersPage', () => {
     } as ReturnType<typeof useNotification>);
 
     mockUseGitProviders.mockReturnValue({
+      providers: [],
       availableProviders: mockProviders,
       loading: false,
       error: null,
+      refresh: jest.fn(),
       refreshAvailable: mockRefreshAvailable,
-      credentials: [],
-      credentialsLoading: false,
-      credentialsError: null,
-      fetchCredentials: jest.fn(),
     } as ReturnType<typeof useGitProviders>);
 
     mockUseGitCredentials.mockReturnValue({
@@ -165,8 +166,10 @@ describe('GitProvidersPage', () => {
       error: null,
       refresh: jest.fn(),
       createCredential: jest.fn(),
+      updateCredential: jest.fn(),
       deleteCredential: jest.fn(),
-      testConnection: jest.fn(),
+      testCredential: jest.fn(),
+      makeDefault: jest.fn(),
       syncRepositories: jest.fn(),
     } as ReturnType<typeof useGitCredentials>);
   });
@@ -174,14 +177,12 @@ describe('GitProvidersPage', () => {
   describe('loading state', () => {
     it('renders loading spinner when loading', () => {
       mockUseGitProviders.mockReturnValue({
+        providers: [],
         availableProviders: [],
         loading: true,
         error: null,
+        refresh: jest.fn(),
         refreshAvailable: mockRefreshAvailable,
-        credentials: [],
-        credentialsLoading: false,
-        credentialsError: null,
-        fetchCredentials: jest.fn(),
       } as ReturnType<typeof useGitProviders>);
 
       const { container } = render(<GitProvidersPage />);
@@ -195,14 +196,12 @@ describe('GitProvidersPage', () => {
   describe('error state', () => {
     it('renders error message when there is an error', () => {
       mockUseGitProviders.mockReturnValue({
+        providers: [],
         availableProviders: [],
         loading: false,
         error: 'Failed to load providers',
+        refresh: jest.fn(),
         refreshAvailable: mockRefreshAvailable,
-        credentials: [],
-        credentialsLoading: false,
-        credentialsError: null,
-        fetchCredentials: jest.fn(),
       } as ReturnType<typeof useGitProviders>);
 
       render(<GitProvidersPage />);
@@ -214,14 +213,12 @@ describe('GitProvidersPage', () => {
   describe('empty state', () => {
     it('renders empty state when no providers available', () => {
       mockUseGitProviders.mockReturnValue({
+        providers: [],
         availableProviders: [],
         loading: false,
         error: null,
+        refresh: jest.fn(),
         refreshAvailable: mockRefreshAvailable,
-        credentials: [],
-        credentialsLoading: false,
-        credentialsError: null,
-        fetchCredentials: jest.fn(),
       } as ReturnType<typeof useGitProviders>);
 
       render(<GitProvidersPage />);
@@ -270,14 +267,12 @@ describe('GitProvidersPage', () => {
 
     it('renders unconfigured providers correctly', () => {
       mockUseGitProviders.mockReturnValue({
+        providers: [],
         availableProviders: mockProviders.filter((p) => !p.configured),
         loading: false,
         error: null,
+        refresh: jest.fn(),
         refreshAvailable: mockRefreshAvailable,
-        credentials: [],
-        credentialsLoading: false,
-        credentialsError: null,
-        fetchCredentials: jest.fn(),
       } as ReturnType<typeof useGitProviders>);
 
       render(<GitProvidersPage />);
@@ -364,11 +359,9 @@ describe('GitProvidersPage', () => {
           email: 'test@example.com',
           permissions: ['git.providers.read'], // No create permission
         },
-        loading: false,
         isAuthenticated: true,
-        login: jest.fn(),
-        logout: jest.fn(),
-        refreshToken: jest.fn(),
+        isLoading: false,
+        permissions: ['git.providers.read'],
       } as ReturnType<typeof useAuth>);
 
       render(<GitProvidersPage />);

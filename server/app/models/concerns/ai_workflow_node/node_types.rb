@@ -91,4 +91,46 @@ module AiWorkflowNode::NodeTypes
 
     configuration["operation_type"]
   end
+
+  # CI/CD node type check methods
+  def ci_trigger_node?
+    node_type == "ci_trigger"
+  end
+
+  def ci_wait_status_node?
+    node_type == "ci_wait_status"
+  end
+
+  def ci_get_logs_node?
+    node_type == "ci_get_logs"
+  end
+
+  def ci_cancel_node?
+    node_type == "ci_cancel"
+  end
+
+  def git_commit_status_node?
+    node_type == "git_commit_status"
+  end
+
+  def git_create_check_node?
+    node_type == "git_create_check"
+  end
+
+  # CI/CD helper methods
+  def ci_node?
+    %w[ci_trigger ci_wait_status ci_get_logs ci_cancel git_commit_status git_create_check].include?(node_type)
+  end
+
+  def ci_trigger_action
+    return nil unless ci_trigger_node?
+
+    configuration["trigger_action"]
+  end
+
+  def git_commit_status_state
+    return nil unless git_commit_status_node?
+
+    configuration["state"]
+  end
 end

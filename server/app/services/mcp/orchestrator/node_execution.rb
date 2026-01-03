@@ -194,6 +194,19 @@ module Mcp
           Mcp::NodeExecutors::McpResource
         when "mcp_prompt"
           Mcp::NodeExecutors::McpPrompt
+        # CI/CD node types
+        when "ci_trigger"
+          Mcp::NodeExecutors::CiTrigger
+        when "ci_wait_status"
+          Mcp::NodeExecutors::CiWaitStatus
+        when "ci_get_logs"
+          Mcp::NodeExecutors::CiGetLogs
+        when "ci_cancel"
+          Mcp::NodeExecutors::CiCancel
+        when "git_commit_status"
+          Mcp::NodeExecutors::GitCommitStatus
+        when "git_create_check"
+          Mcp::NodeExecutors::GitCreateCheck
         else
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "Unknown node type: #{node_type}"
         end

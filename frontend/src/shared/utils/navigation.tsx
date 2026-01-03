@@ -4,7 +4,7 @@ import {
   FileText, Package, UserCheck, Store, Smartphone,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
   HardDrive, Workflow, Activity, Server, GitBranch,
-  Play, Webhook
+  Play, Webhook, Clock, ShieldCheck
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -353,9 +353,36 @@ export const adminNavigationOverrides = {
           description: 'View and retry webhook events',
           permissions: ['git.webhooks.read'],
           order: 3
+        },
+        {
+          id: 'ci-cd-runners',
+          name: 'Runners',
+          href: '/app/ci-cd/runners',
+          icon: Server,
+          description: 'Manage self-hosted CI/CD runners',
+          permissions: ['git.runners.read'],
+          order: 4
+        },
+        {
+          id: 'ci-cd-schedules',
+          name: 'Schedules',
+          href: '/app/ci-cd/schedules',
+          icon: Clock,
+          description: 'Manage scheduled pipeline executions',
+          permissions: ['git.schedules.read'],
+          order: 5
+        },
+        {
+          id: 'ci-cd-approvals',
+          name: 'Approvals',
+          href: '/app/ci-cd/approvals',
+          icon: ShieldCheck,
+          description: 'Review and respond to pipeline approval requests',
+          permissions: ['git.approvals.read'],
+          order: 6
         }
       ],
-      permissions: ['git.pipelines.read'],
+      permissions: ['git.pipelines.read', 'git.runners.read', 'git.schedules.read', 'git.approvals.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 17

@@ -7,7 +7,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
-  let(:workflow) { create(:ai_workflow, :with_simple_chain, account: account) }
+  let(:workflow) { create(:ai_workflow, :active, :with_simple_chain, account: account) }
   let(:workflow_run) do
     create(:ai_workflow_run,
       ai_workflow: workflow,
@@ -419,7 +419,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
   describe 'execution modes' do
     # Create workflow without :with_simple_chain to avoid duplicate nodes
-    let(:execution_workflow) { create(:ai_workflow, account: account) }
+    let(:execution_workflow) { create(:ai_workflow, :active, account: account) }
     let(:execution_user) { create(:user, account: account) }
     let(:execution_workflow_run) do
       create(:ai_workflow_run, ai_workflow: execution_workflow, account: account, triggered_by_user: execution_user, status: 'initializing')

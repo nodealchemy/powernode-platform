@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { PipelineStatsCards } from '../components/PipelineStatsCards';
 import type { PipelineStats } from '../types';

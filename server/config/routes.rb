@@ -154,6 +154,7 @@ Rails.application.routes.draw do
               patch :processing
               patch :processed
               patch :failed
+              post :trigger_workflows
             end
           end
 
@@ -165,9 +166,10 @@ Rails.application.routes.draw do
             end
           end
 
-          resources :credentials, only: [ :show ] do
+          resources :credentials, only: [ :index, :show ] do
             member do
               get :decrypted
+              get :repositories
             end
           end
 
@@ -183,6 +185,17 @@ Rails.application.routes.draw do
               post :broadcast
               post :error
               post :status
+            end
+          end
+
+          # Runners sync (for worker service)
+          resources :runners, only: [] do
+            collection do
+              post :sync
+            end
+            member do
+              put :status, action: :update_status
+              post :job_completed
             end
           end
         end
@@ -1230,6 +1243,46 @@ Rails.application.routes.draw do
             post :retry
           end
         end
+
+        # CI/CD Runners (self-hosted runners management)
+        resources :runners, only: [ :index, :show, :destroy ] do
+          collection do
+            post :sync
+          end
+
+          member do
+            post :registration_token
+            post :removal_token
+            put :labels, action: :update_labels
+          end
+        end
+
+        # Pipeline Schedules (scheduled/cron pipelines)
+        resources :pipeline_schedules, only: [ :show, :update, :destroy ] do
+          member do
+            post :trigger
+            post :pause
+            post :resume
+          end
+        end
+
+        # Repository-scoped schedule creation
+        scope "repositories/:repository_id" do
+          resources :schedules, controller: "pipeline_schedules", only: [ :index, :create ]
+        end
+
+        # Pipeline Approvals (approval gates for deployments)
+        resources :pipeline_approvals, only: [ :index, :show ] do
+          collection do
+            get :pending
+          end
+
+          member do
+            post :approve
+            post :reject
+            post :cancel
+          end
+        end
       end
 
       # ===================================================================
@@ -1319,7 +1372,17 @@ Rails.application.routes.draw do
               post :webhook_endpoint, path: "webhook"
               post :event_endpoint, path: "event"
             end
+
+            # Git workflow triggers - maps git events to workflow triggers
+            resources :git_triggers, controller: "workflow_git_triggers" do
+              member do
+                post :test
+              end
+            end
           end
+
+          # All git triggers for a workflow (across all triggers)
+          get "git_triggers", to: "workflow_git_triggers#workflow_index", as: :workflow_git_triggers
 
           # Nested versions
           resources :versions, controller: "workflows" do
@@ -1343,6 +1406,20 @@ Rails.application.routes.draw do
           member do
             post :dry_run, action: :workflows_dry_run
             get "dry_run/validate", action: :workflows_dry_run_validate
+          end
+        end
+
+        # ===================================================================
+        # Git Workflow Triggers - Top-level routes for managing git triggers
+        # Used for CRUD operations when trigger_id is provided as a param
+        # ===================================================================
+        resources :workflow_git_triggers, only: [ :index, :show, :create, :update, :destroy ] do
+          member do
+            post :test
+          end
+
+          collection do
+            get :workflow_index
           end
         end
 

@@ -9,7 +9,7 @@ import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useWebhookEvents } from '../hooks/useWebhookEvents';
 import type { GitWebhookEvent, WebhookEventFilters } from '../types';
 
@@ -117,7 +117,7 @@ const StatsCard: React.FC<{ label: string; value: number | string; color: string
 
 const WebhookEventsPageContent: React.FC = () => {
   const navigate = useNavigate();
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<WebhookEventFilters>({
     status: 'all',

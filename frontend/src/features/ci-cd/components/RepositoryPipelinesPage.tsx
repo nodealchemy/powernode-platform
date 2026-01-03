@@ -9,7 +9,7 @@ import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { gitProvidersApi } from '@/features/git-providers/services/gitProvidersApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { PipelineStatsCards } from './PipelineStatsCards';
 import type { GitPipeline, PipelineStats, PaginationInfo, PipelineFilters } from '../types';
 import type { GitRepository } from '@/features/git-providers/types';
@@ -142,7 +142,7 @@ const PipelineRow: React.FC<PipelineRowProps> = ({ pipeline, onClick, onCancel, 
 const RepositoryPipelinesPageContent: React.FC = () => {
   const { repositoryId } = useParams<{ repositoryId: string }>();
   const navigate = useNavigate();
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const [repository, setRepository] = useState<GitRepository | null>(null);
   const [pipelines, setPipelines] = useState<GitPipeline[]>([]);

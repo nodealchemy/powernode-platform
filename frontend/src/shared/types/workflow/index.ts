@@ -42,6 +42,13 @@ export type {
   TriggerNodeData,
   ValidatorNodeData,
   WebhookNodeData,
+  // CI/CD node data types
+  CiTriggerNodeData,
+  CiWaitStatusNodeData,
+  CiCancelNodeData,
+  CiGetLogsNodeData,
+  GitCommitStatusNodeData,
+  GitCreateCheckNodeData,
   WorkflowNodeData,
   // ReactFlow node types
   AiAgentNode,
@@ -69,6 +76,13 @@ export type {
   TriggerNode,
   ValidatorNode,
   WebhookNode,
+  // CI/CD ReactFlow node types
+  CiTriggerNode,
+  CiWaitStatusNode,
+  CiCancelNode,
+  CiGetLogsNode,
+  GitCommitStatusNode,
+  GitCreateCheckNode,
   WorkflowNode
 } from './workflow-node-data';
 

@@ -286,6 +286,122 @@ module Git
       { success: false, error: e.message }
     end
 
+    # GitHub Actions Runners (Self-Hosted)
+
+    def list_runners(owner, repo)
+      result = get("/repos/#{owner}/#{repo}/actions/runners")
+      {
+        total_count: result["total_count"],
+        runners: (result["runners"] || []).map { |runner| normalize_runner(runner) }
+      }
+    end
+
+    def list_org_runners(org)
+      result = get("/orgs/#{org}/actions/runners")
+      {
+        total_count: result["total_count"],
+        runners: (result["runners"] || []).map { |runner| normalize_runner(runner) }
+      }
+    end
+
+    def get_runner(owner, repo, runner_id)
+      result = get("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}")
+      normalize_runner(result)
+    end
+
+    def get_org_runner(org, runner_id)
+      result = get("/orgs/#{org}/actions/runners/#{runner_id}")
+      normalize_runner(result)
+    end
+
+    def delete_runner(owner, repo, runner_id)
+      delete("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}")
+      { success: true }
+    rescue NotFoundError
+      { success: true } # Already deleted
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def delete_org_runner(org, runner_id)
+      delete("/orgs/#{org}/actions/runners/#{runner_id}")
+      { success: true }
+    rescue NotFoundError
+      { success: true } # Already deleted
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def runner_registration_token(owner, repo)
+      result = post("/repos/#{owner}/#{repo}/actions/runners/registration-token")
+      {
+        token: result["token"],
+        expires_at: result["expires_at"]
+      }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def org_runner_registration_token(org)
+      result = post("/orgs/#{org}/actions/runners/registration-token")
+      {
+        token: result["token"],
+        expires_at: result["expires_at"]
+      }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def runner_removal_token(owner, repo)
+      result = post("/repos/#{owner}/#{repo}/actions/runners/remove-token")
+      {
+        token: result["token"],
+        expires_at: result["expires_at"]
+      }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def org_runner_removal_token(org)
+      result = post("/orgs/#{org}/actions/runners/remove-token")
+      {
+        token: result["token"],
+        expires_at: result["expires_at"]
+      }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def add_runner_labels(owner, repo, runner_id, labels)
+      result = post("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}/labels", { labels: labels })
+      {
+        success: true,
+        labels: (result["labels"] || []).map { |l| l["name"] }
+      }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def remove_runner_label(owner, repo, runner_id, label)
+      result = delete("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}/labels/#{label}")
+      {
+        success: true,
+        labels: (result["labels"] || []).map { |l| l["name"] }
+      }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def set_runner_labels(owner, repo, runner_id, labels)
+      result = put("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}/labels", { labels: labels })
+      {
+        success: true,
+        labels: (result["labels"] || []).map { |l| l["name"] }
+      }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
     # Commit Statuses
 
     def get_commit_statuses(owner, repo, ref)
@@ -413,6 +529,21 @@ module Git
       # We'd need to make a request to get them, but for test_connection
       # we can just return an empty array and let the user check their scopes
       []
+    end
+
+    def normalize_runner(runner)
+      return nil unless runner
+
+      {
+        id: runner["id"].to_s,
+        name: runner["name"],
+        status: runner["status"],
+        busy: runner["busy"] || false,
+        os: runner["os"],
+        labels: (runner["labels"] || []).map { |l| l.is_a?(Hash) ? l["name"] : l },
+        architecture: nil, # GitHub doesn't provide this directly
+        version: nil # GitHub doesn't provide this directly
+      }
     end
 
     def symbolize_keys(hash)

@@ -57,7 +57,69 @@ module Api
             render json: { success: true, data: { status: @event.status } }
           end
 
+          # POST /api/v1/internal/git/webhook_events/:id/trigger_workflows
+          # Find matching GitWorkflowTriggers and execute associated AI workflows
+          def trigger_workflows
+            triggered_workflows = []
+
+            # Find all active git workflow triggers that match this event
+            matching_triggers = find_matching_triggers
+
+            matching_triggers.each do |git_trigger|
+              begin
+                # Trigger the workflow through the parent AI workflow trigger
+                workflow_run = git_trigger.trigger!(@event)
+
+                if workflow_run
+                  triggered_workflows << {
+                    git_trigger_id: git_trigger.id,
+                    workflow_id: git_trigger.ai_workflow.id,
+                    workflow_name: git_trigger.ai_workflow.name,
+                    run_id: workflow_run.run_id
+                  }
+
+                  Rails.logger.info "[WEBHOOK_TRIGGER] Triggered workflow '#{git_trigger.ai_workflow.name}' " \
+                                   "from event #{@event.id} (#{@event.event_type})"
+                end
+              rescue StandardError => e
+                Rails.logger.error "[WEBHOOK_TRIGGER] Failed to trigger workflow from git trigger " \
+                                  "#{git_trigger.id}: #{e.message}"
+                # Continue to next trigger even if one fails
+              end
+            end
+
+            render json: {
+              success: true,
+              data: {
+                triggered_count: triggered_workflows.count,
+                triggered_workflows: triggered_workflows,
+                event_id: @event.id,
+                event_type: @event.event_type
+              }
+            }
+          end
+
           private
+
+          # Find GitWorkflowTriggers that match this webhook event
+          def find_matching_triggers
+            # Query for active triggers matching the event type
+            triggers = GitWorkflowTrigger.active
+                                        .for_event(@event.event_type)
+
+            # Filter to repository-specific or global triggers
+            if @event.git_repository_id.present?
+              triggers = triggers.where(
+                git_repository_id: [nil, @event.git_repository_id]
+              )
+            else
+              triggers = triggers.global
+            end
+
+            # Further filter by matching event criteria
+            triggers.includes(:ai_workflow_trigger, ai_workflow_trigger: :ai_workflow)
+                   .select { |trigger| trigger.matches_event?(@event) }
+          end
 
           def set_event
             @event = GitWebhookEvent.includes(:git_repository, :git_provider).find(params[:id])

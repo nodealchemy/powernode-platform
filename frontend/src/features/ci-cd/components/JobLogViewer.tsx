@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Download, Copy, Check, ArrowDown, Loader2, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { gitProvidersApi } from '@/features/git-providers/services/gitProvidersApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useJobLogsWebSocket } from '../hooks/useJobLogsWebSocket';
 
 interface JobLogViewerProps {
@@ -80,7 +80,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
   const [autoScroll, setAutoScroll] = useState(true);
   const [copied, setCopied] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   // Determine which logs to display
   const logs = usePolling ? pollingLogs : wsLogs;

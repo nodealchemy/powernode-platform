@@ -28,6 +28,13 @@ import { NotificationNode } from '../nodes/NotificationNode';
 import { KbArticleNode } from '../nodes/KbArticleNode';
 import { PageNode } from '../nodes/PageNode';
 import { McpOperationNode } from '../nodes/McpOperationNode';
+// CI/CD Integration Nodes
+import { CiTriggerNode } from '../nodes/CiTriggerNode';
+import { CiWaitStatusNode } from '../nodes/CiWaitStatusNode';
+import { CiGetLogsNode } from '../nodes/CiGetLogsNode';
+import { CiCancelNode } from '../nodes/CiCancelNode';
+import { GitCommitStatusNode } from '../nodes/GitCommitStatusNode';
+import { GitCreateCheckNode } from '../nodes/GitCreateCheckNode';
 
 // Node types mapping for React Flow
 export const NODE_TYPES = {
@@ -66,6 +73,13 @@ export const NODE_TYPES = {
   page: PageNode,
   // MCP Operation: unified node with operation_type parameter (tool, resource, prompt)
   mcp_operation: McpOperationNode,
+  // CI/CD Integration Nodes
+  ci_trigger: CiTriggerNode,
+  ci_wait_status: CiWaitStatusNode,
+  ci_get_logs: CiGetLogsNode,
+  ci_cancel: CiCancelNode,
+  git_commit_status: GitCommitStatusNode,
+  git_create_check: GitCreateCheckNode,
 } as const;
 
 export type NodeTypeKey = keyof typeof NODE_TYPES;

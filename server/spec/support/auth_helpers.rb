@@ -85,6 +85,7 @@ module AuthHelpers
 
   # Alias for convenience
   alias_method :sign_in, :sign_in_as_user
+  alias_method :sign_in_user, :sign_in_as_user
 
   # Generate service token for internal API authentication (worker service)
   def service_token

@@ -4,6 +4,7 @@ import {
   Bot,
   Globe,
   GitBranch,
+  GitCommit,
   RotateCcw,
   Search,
   Plus,
@@ -27,7 +28,11 @@ import {
   Play,
   Square,
   BookOpen,
-  Wrench
+  Wrench,
+  PlayCircle,
+  Timer,
+  XOctagon,
+  ClipboardCheck
 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 
@@ -167,6 +172,37 @@ const nodeColorThemes = {
     bg: 'bg-node-mcp-operation',
     indicator: 'bg-node-mcp-operation',
     text: 'text-node-mcp-operation'
+  },
+  // CI/CD Integration Node Types
+  'ci_trigger': {
+    bg: 'bg-gradient-to-r from-orange-500 to-orange-600',
+    indicator: 'bg-theme-warning',
+    text: 'text-theme-warning'
+  },
+  'ci_wait_status': {
+    bg: 'bg-gradient-to-r from-amber-500 to-amber-600',
+    indicator: 'bg-amber-500',
+    text: 'text-amber-600'
+  },
+  'ci_get_logs': {
+    bg: 'bg-gradient-to-r from-slate-500 to-slate-600',
+    indicator: 'bg-slate-500',
+    text: 'text-slate-600'
+  },
+  'ci_cancel': {
+    bg: 'bg-gradient-to-r from-red-500 to-red-600',
+    indicator: 'bg-theme-danger',
+    text: 'text-theme-danger'
+  },
+  'git_commit_status': {
+    bg: 'bg-gradient-to-r from-purple-500 to-purple-600',
+    indicator: 'bg-theme-interactive-primary',
+    text: 'text-theme-interactive-primary'
+  },
+  'git_create_check': {
+    bg: 'bg-gradient-to-r from-indigo-500 to-indigo-600',
+    indicator: 'bg-indigo-500',
+    text: 'text-indigo-600'
   }
 } as const;
 
@@ -376,10 +412,59 @@ const nodeTypes: NodeTypeDefinition[] = [
     icon: <Wrench className="h-4 w-4" />,
     category: 'MCP',
     color: 'mcp_operation'
+  },
+  // CI/CD Integration Nodes
+  {
+    type: 'ci_trigger',
+    label: 'CI Trigger',
+    description: 'Trigger CI/CD pipelines (GitHub Actions, GitLab CI)',
+    icon: <PlayCircle className="h-4 w-4" />,
+    category: 'CI/CD',
+    color: 'ci_trigger'
+  },
+  {
+    type: 'ci_wait_status',
+    label: 'CI Wait Status',
+    description: 'Wait for pipeline to reach expected status',
+    icon: <Timer className="h-4 w-4" />,
+    category: 'CI/CD',
+    color: 'ci_wait_status'
+  },
+  {
+    type: 'ci_get_logs',
+    label: 'CI Get Logs',
+    description: 'Fetch logs from CI/CD pipeline jobs',
+    icon: <FileText className="h-4 w-4" />,
+    category: 'CI/CD',
+    color: 'ci_get_logs'
+  },
+  {
+    type: 'ci_cancel',
+    label: 'CI Cancel',
+    description: 'Cancel a running CI/CD pipeline',
+    icon: <XOctagon className="h-4 w-4" />,
+    category: 'CI/CD',
+    color: 'ci_cancel'
+  },
+  {
+    type: 'git_commit_status',
+    label: 'Commit Status',
+    description: 'Update commit status on Git provider',
+    icon: <GitCommit className="h-4 w-4" />,
+    category: 'CI/CD',
+    color: 'git_commit_status'
+  },
+  {
+    type: 'git_create_check',
+    label: 'Create Check',
+    description: 'Create GitHub check run for commits',
+    icon: <ClipboardCheck className="h-4 w-4" />,
+    category: 'CI/CD',
+    color: 'git_create_check'
   }
 ];
 
-const categories = ['All', 'Control', 'AI', 'MCP', 'Integration', 'Data', 'Communication', 'Content'];
+const categories = ['All', 'Control', 'AI', 'MCP', 'Integration', 'CI/CD', 'Data', 'Communication', 'Content'];
 
 export const NodePalette: React.FC<NodePaletteProps> = ({
   onAddNode,

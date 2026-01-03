@@ -31,6 +31,12 @@ module Git
       # Process based on event type
       result = process_event(event)
 
+      # Trigger matching AI workflows if event was processed successfully
+      if result[:success] && result[:action] != "skipped"
+        workflow_result = trigger_matching_workflows(event)
+        result[:triggered_workflows] = workflow_result[:triggered_count] if workflow_result[:triggered_count] > 0
+      end
+
       # Mark as processed or failed
       if result[:success]
         api_client.patch(
@@ -251,6 +257,45 @@ module Git
         action: "generic_processed",
         event_type: event["event_type"]
       }
+    end
+
+    # Trigger AI workflows that match this git event
+    def trigger_matching_workflows(event)
+      event_id = event["id"]
+      event_type = event["event_type"]
+
+      log_info "Checking for matching AI workflow triggers",
+               event_id: event_id,
+               event_type: event_type
+
+      begin
+        # Call backend API to find and trigger matching workflows
+        response = api_client.post(
+          "/api/v1/internal/git/webhook_events/#{event_id}/trigger_workflows"
+        )
+
+        triggered_count = response.dig("data", "triggered_count") || 0
+        triggered_workflows = response.dig("data", "triggered_workflows") || []
+
+        if triggered_count > 0
+          log_info "Triggered AI workflows from git event",
+                   event_id: event_id,
+                   triggered_count: triggered_count,
+                   workflow_ids: triggered_workflows.map { |w| w["workflow_id"] }
+        end
+
+        {
+          success: true,
+          triggered_count: triggered_count,
+          triggered_workflows: triggered_workflows
+        }
+      rescue BackendApiClient::ApiError => e
+        # Log but don't fail - workflow triggering is optional
+        log_error "Failed to trigger workflows from git event",
+                  event_id: event_id,
+                  error: e.message
+        { success: false, triggered_count: 0, error: e.message }
+      end
     end
   end
 end

@@ -17,7 +17,7 @@ class AiWorkflowNode < ApplicationRecord
   has_many :target_edges, class_name: "AiWorkflowEdge",
            foreign_key: "target_node_id", primary_key: "node_id", dependent: :destroy
 
-  # Consolidated node types (24 total)
+  # Consolidated node types (30 total - includes CI/CD)
   VALID_NODE_TYPES = %w[
     start end trigger
     ai_agent prompt_template data_processor transform
@@ -27,7 +27,14 @@ class AiWorkflowNode < ApplicationRecord
     api_call webhook scheduler
     human_approval sub_workflow
     kb_article page mcp_operation
+    ci_trigger ci_wait_status ci_get_logs ci_cancel
+    git_commit_status git_create_check
   ].freeze
+
+  # CI/CD node type constants
+  CI_TRIGGER_ACTIONS = %w[workflow_dispatch repository_dispatch create_run].freeze
+  CI_WAIT_STATUS_OPTIONS = %w[success failure completed any].freeze
+  GIT_COMMIT_STATUS_STATES = %w[pending success failure error].freeze
 
   # Valid actions for consolidated node types
   KB_ARTICLE_ACTIONS = %w[create read update search publish].freeze

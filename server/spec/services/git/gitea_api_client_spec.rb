@@ -1009,9 +1009,9 @@ RSpec.describe Git::GiteaApiClient do
       end
 
       it 'returns registration token' do
-        token = client.runner_registration_token(:repo, 'owner', 'repo')
+        result = client.runner_registration_token(:repo, 'owner', 'repo')
 
-        expect(token).to eq('registration_token_abc123')
+        expect(result[:token]).to eq('registration_token_abc123')
       end
     end
 
@@ -1026,9 +1026,9 @@ RSpec.describe Git::GiteaApiClient do
       end
 
       it 'returns organization registration token' do
-        token = client.runner_registration_token(:org, 'myorg')
+        result = client.runner_registration_token(:org, 'myorg')
 
-        expect(token).to eq('org_token_123')
+        expect(result[:token]).to eq('org_token_123')
       end
     end
 
@@ -1043,9 +1043,9 @@ RSpec.describe Git::GiteaApiClient do
       end
 
       it 'returns admin registration token' do
-        token = client.runner_registration_token(:admin)
+        result = client.runner_registration_token(:admin)
 
-        expect(token).to eq('admin_token_456')
+        expect(result[:token]).to eq('admin_token_456')
       end
     end
 
@@ -1055,11 +1055,12 @@ RSpec.describe Git::GiteaApiClient do
           .to_return(status: 403, body: { message: 'Forbidden' }.to_json)
       end
 
-      it 'returns nil and logs error' do
+      it 'returns error hash and logs error' do
         expect(Rails.logger).to receive(:error).with(/Failed to get runner registration token/)
 
-        token = client.runner_registration_token(:repo, 'owner', 'repo')
-        expect(token).to be_nil
+        result = client.runner_registration_token(:repo, 'owner', 'repo')
+        expect(result[:success]).to be false
+        expect(result[:error]).to be_present
       end
     end
 

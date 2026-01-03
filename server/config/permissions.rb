@@ -217,7 +217,20 @@ module Permissions
     "git.pipelines.logs" => "View pipeline logs",
 
     # Git Webhook Events
-    "git.webhooks.read" => "View Git webhook events"
+    "git.webhooks.read" => "View Git webhook events",
+
+    # Git CI/CD Runners
+    "git.runners.read" => "View CI/CD runners",
+    "git.runners.manage" => "Manage CI/CD runners (delete, labels)",
+    "git.runners.token" => "Generate runner registration/removal tokens",
+
+    # Git Pipeline Schedules
+    "git.schedules.read" => "View pipeline schedules",
+    "git.schedules.manage" => "Create, edit, delete pipeline schedules",
+
+    # Git Pipeline Approvals
+    "git.approvals.read" => "View pipeline approval requests",
+    "git.approvals.manage" => "Approve or reject pipeline requests"
   }.freeze
 
   # Admin Permissions - Administrative operations
@@ -365,7 +378,13 @@ module Permissions
     "admin.git.webhooks.read" => "View all Git webhook events",
     "admin.git.webhooks.manage" => "Manage Git webhook events",
     "admin.git.pipelines.read" => "View all CI/CD pipelines",
-    "admin.git.pipelines.manage" => "Manage all CI/CD pipelines"
+    "admin.git.pipelines.manage" => "Manage all CI/CD pipelines",
+    "admin.git.runners.read" => "View all CI/CD runners",
+    "admin.git.runners.manage" => "Manage all CI/CD runners",
+    "admin.git.schedules.read" => "View all pipeline schedules",
+    "admin.git.schedules.manage" => "Manage all pipeline schedules",
+    "admin.git.approvals.read" => "View all pipeline approvals",
+    "admin.git.approvals.manage" => "Manage all pipeline approvals"
   }.freeze
 
   # System Permissions - Worker & automation operations
@@ -547,7 +566,10 @@ module Permissions
         "git.repositories.read", "git.repositories.delete", "git.repositories.sync",
         "git.repositories.webhooks.manage",
         "git.pipelines.read", "git.pipelines.trigger", "git.pipelines.cancel", "git.pipelines.logs",
-        "git.webhooks.read"
+        "git.webhooks.read",
+        "git.runners.read", "git.runners.manage", "git.runners.token",
+        "git.schedules.read", "git.schedules.manage",
+        "git.approvals.read", "git.approvals.manage"
       ]
     },
 

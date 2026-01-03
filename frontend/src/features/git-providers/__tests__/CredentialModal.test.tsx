@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CredentialModal } from '../components/CredentialModal';
@@ -32,21 +31,27 @@ describe('CredentialModal', () => {
   const githubProvider: AvailableProvider = {
     id: 'provider-github',
     name: 'GitHub',
+    slug: 'github',
     provider_type: 'github',
     description: 'Connect to GitHub',
     supports_oauth: true,
     supports_pat: true,
     supports_ci_cd: true,
+    capabilities: ['repositories', 'webhooks', 'ci_cd', 'oauth'],
+    configured: false,
   };
 
   const giteaProvider: AvailableProvider = {
     id: 'provider-gitea',
     name: 'Gitea',
+    slug: 'gitea',
     provider_type: 'gitea',
     description: 'Connect to Gitea',
     supports_oauth: false,
     supports_pat: true,
     supports_ci_cd: true,
+    capabilities: ['repositories', 'webhooks', 'ci_cd'],
+    configured: false,
   };
 
   const defaultProps = {
@@ -60,14 +65,16 @@ describe('CredentialModal', () => {
     jest.clearAllMocks();
 
     mockUseGitCredentials.mockReturnValue({
-      createCredential: mockCreateCredential,
       credentials: [],
       loading: false,
       error: null,
-      fetchCredentials: jest.fn(),
-      testCredential: jest.fn(),
+      refresh: jest.fn(),
+      createCredential: mockCreateCredential,
+      updateCredential: jest.fn(),
       deleteCredential: jest.fn(),
+      testCredential: jest.fn(),
       makeDefault: jest.fn(),
+      syncRepositories: jest.fn(),
     } as ReturnType<typeof useGitCredentials>);
 
     mockCreateCredential.mockResolvedValue({ id: 'new-cred' });
@@ -126,6 +133,7 @@ describe('CredentialModal', () => {
         ...githubProvider,
         id: 'provider-gitlab',
         name: 'GitLab',
+        slug: 'gitlab',
         provider_type: 'gitlab',
       };
 

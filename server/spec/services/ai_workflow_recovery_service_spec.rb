@@ -448,7 +448,7 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
     end
 
     describe '#resume_from_checkpoint' do
-      let(:resume_node) { workflow.ai_workflow_nodes.second } # Use actual workflow node
+      let(:resume_node) { workflow.ai_workflow_nodes.find_by(node_type: 'start') } # Use start node which has outgoing edge
       let(:checkpoint) do
         {
           id: SecureRandom.uuid,

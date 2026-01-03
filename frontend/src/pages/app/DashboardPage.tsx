@@ -53,6 +53,10 @@ import {
   PipelineDetailPage,
   WebhookEventsPage,
   WebhookEventDetailPage,
+  RunnersPage,
+  RunnerDetailPage,
+  PipelineSchedulesPage,
+  PipelineApprovalsPage,
 } from '@/features/ci-cd';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
@@ -509,6 +513,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/ci-cd/repositories/:repositoryId/pipelines/:pipelineId" element={<PipelineDetailPage />} />
         <Route path="/ci-cd/webhooks" element={<WebhookEventsPage />} />
         <Route path="/ci-cd/webhooks/:eventId" element={<WebhookEventDetailPage />} />
+        <Route path="/ci-cd/runners" element={<RunnersPage />} />
+        <Route path="/ci-cd/runners/:id" element={<RunnerDetailPage />} />
+        <Route path="/ci-cd/schedules" element={<PipelineSchedulesPage />} />
+        <Route path="/ci-cd/approvals" element={<PipelineApprovalsPage />} />
         <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />
         <Route path="/system/api-keys" element={<ApiKeysPage />} />
         

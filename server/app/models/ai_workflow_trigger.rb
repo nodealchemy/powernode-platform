@@ -6,6 +6,7 @@ class AiWorkflowTrigger < ApplicationRecord
 
   # Associations
   has_many :ai_workflow_runs, dependent: :nullify
+  has_many :git_workflow_triggers, dependent: :destroy
 
   # Validations
   validates :name, presence: true, length: { maximum: 255 }
@@ -399,6 +400,10 @@ class AiWorkflowTrigger < ApplicationRecord
         ai_agent_completed ai_agent_failed
         workflow_completed workflow_failed
         custom_event
+        git_push git_pull_request git_pull_request_review
+        git_workflow_run git_check_run git_deployment
+        git_release git_tag git_issue git_issue_comment
+        pipeline_completed pipeline_failed pipeline_cancelled
       ]
 
       invalid_types = event_types - valid_event_types

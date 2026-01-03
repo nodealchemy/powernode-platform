@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Copy, Check, ChevronRight, ChevronDown, Search } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface WebhookPayloadViewerProps {
   payload: Record<string, unknown>;
@@ -157,7 +157,7 @@ export const WebhookPayloadViewer: React.FC<WebhookPayloadViewerProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [copied, setCopied] = useState(false);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const handleCopy = async () => {
     try {

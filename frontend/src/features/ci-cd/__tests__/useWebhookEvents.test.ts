@@ -15,30 +15,37 @@ describe('useWebhookEvents', () => {
     {
       id: 'event-1',
       event_type: 'push',
-      status: 'processed',
-      payload: { ref: 'refs/heads/main' },
+      status: 'processed' as const,
+      retry_count: 0,
+      retryable: false,
       created_at: new Date().toISOString(),
+      provider: { id: 'provider-1', name: 'GitHub', type: 'github' },
     },
     {
       id: 'event-2',
       event_type: 'pull_request',
-      status: 'pending',
-      payload: { action: 'opened' },
+      status: 'pending' as const,
+      retry_count: 0,
+      retryable: true,
       created_at: new Date().toISOString(),
+      provider: { id: 'provider-1', name: 'GitHub', type: 'github' },
     },
   ];
 
   const mockStats = {
-    total: 100,
+    total_events: 100,
     processed: 90,
     pending: 5,
     failed: 5,
+    today_count: 10,
+    today_processed: 8,
+    today_failed: 1,
   };
 
   it('fetches webhook events on mount', async () => {
     mockGitProvidersApi.getWebhookEvents.mockResolvedValue({
       events: mockEvents,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
       stats: mockStats,
     });
 
@@ -57,7 +64,7 @@ describe('useWebhookEvents', () => {
   it('supports filtering by event type', async () => {
     mockGitProvidersApi.getWebhookEvents.mockResolvedValue({
       events: [mockEvents[0]],
-      pagination: { current_page: 1, total_pages: 1, total_count: 1 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 1 },
       stats: mockStats,
     });
 
@@ -76,7 +83,7 @@ describe('useWebhookEvents', () => {
   it('supports filtering by status', async () => {
     mockGitProvidersApi.getWebhookEvents.mockResolvedValue({
       events: [mockEvents[1]],
-      pagination: { current_page: 1, total_pages: 1, total_count: 1 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 1 },
       stats: mockStats,
     });
 
@@ -94,7 +101,7 @@ describe('useWebhookEvents', () => {
   it('handles pagination', async () => {
     mockGitProvidersApi.getWebhookEvents.mockResolvedValue({
       events: mockEvents,
-      pagination: { current_page: 1, total_pages: 5, total_count: 100 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 5, total_count: 100 },
       stats: mockStats,
     });
 
@@ -106,6 +113,7 @@ describe('useWebhookEvents', () => {
 
     expect(result.current.pagination).toEqual({
       current_page: 1,
+      per_page: 20,
       total_pages: 5,
       total_count: 100,
     });
@@ -114,13 +122,21 @@ describe('useWebhookEvents', () => {
   it('provides retry function for failed events', async () => {
     mockGitProvidersApi.getWebhookEvents.mockResolvedValue({
       events: mockEvents,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
       stats: mockStats,
     });
 
     mockGitProvidersApi.retryWebhookEvent.mockResolvedValue({
       message: 'Retry initiated',
-      event: { id: 'event-1', status: 'pending' },
+      event: {
+        id: 'event-1',
+        event_type: 'push',
+        status: 'pending' as const,
+        retry_count: 1,
+        retryable: true,
+        created_at: new Date().toISOString(),
+        provider: { id: 'provider-1', name: 'GitHub', type: 'github' },
+      },
     });
 
     const { result } = renderHook(() => useWebhookEvents());
@@ -154,7 +170,7 @@ describe('useWebhookEvents', () => {
   it('provides refresh function', async () => {
     mockGitProvidersApi.getWebhookEvents.mockResolvedValue({
       events: mockEvents,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
       stats: mockStats,
     });
 
@@ -180,7 +196,7 @@ describe('useWebhookEvents', () => {
   it('excludes "all" status from API call', async () => {
     mockGitProvidersApi.getWebhookEvents.mockResolvedValue({
       events: mockEvents,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
       stats: mockStats,
     });
 

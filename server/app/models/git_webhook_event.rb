@@ -62,6 +62,11 @@ class GitWebhookEvent < ApplicationRecord
 
   # Instance Methods
 
+  # Convenience method to get provider type string
+  def provider
+    git_provider&.provider_type
+  end
+
   def pending?
     status == "pending"
   end

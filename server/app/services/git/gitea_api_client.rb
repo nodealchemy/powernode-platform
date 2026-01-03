@@ -246,10 +246,44 @@ module Git
              end
 
       result = post(path)
-      result["token"]
+      {
+        token: result["token"],
+        expires_at: nil # Gitea doesn't provide expiry
+      }
     rescue ApiError => e
       Rails.logger.error "Failed to get runner registration token: #{e.message}"
-      nil
+      { success: false, error: e.message }
+    end
+
+    def delete_runner(runner_id)
+      delete("/admin/actions/runners/#{runner_id}")
+      { success: true }
+    rescue NotFoundError
+      { success: true } # Already deleted
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def runner_removal_token(scope = :repo, owner = nil, repo = nil)
+      # Gitea doesn't have a separate removal token endpoint
+      # The registration token can be used for removal as well
+      runner_registration_token(scope, owner, repo)
+    end
+
+    def update_runner_labels(runner_id, labels)
+      # Gitea requires updating the full runner object
+      # First get the runner, then update with new labels
+      runner = get_runner(runner_id)
+      return { success: false, error: "Runner not found" } unless runner
+
+      payload = { labels: labels }
+      result = patch("/admin/actions/runners/#{runner_id}", payload)
+      {
+        success: true,
+        labels: (result["labels"] || []).map { |l| l.is_a?(Hash) ? l["name"] : l }
+      }
+    rescue ApiError => e
+      { success: false, error: e.message }
     end
 
     # Commit Statuses

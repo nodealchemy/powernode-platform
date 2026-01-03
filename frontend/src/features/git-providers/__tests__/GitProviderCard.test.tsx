@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GitProviderCard } from '../components/GitProviderCard';
 import { AvailableProvider } from '../types';
@@ -16,11 +15,13 @@ describe('GitProviderCard', () => {
   const mockProvider: AvailableProvider = {
     id: 'github',
     name: 'GitHub',
+    slug: 'github',
     provider_type: 'github',
     description: 'Connect to GitHub repositories',
     supports_oauth: true,
     supports_pat: true,
     supports_ci_cd: true,
+    capabilities: ['repositories', 'webhooks', 'ci_cd', 'oauth'],
     configured: false,
   };
 
@@ -66,10 +67,11 @@ describe('GitProviderCard', () => {
     });
 
     it('renders provider icon for GitLab', () => {
-      const gitlabProvider = {
+      const gitlabProvider: AvailableProvider = {
         ...mockProvider,
         id: 'gitlab',
         name: 'GitLab',
+        slug: 'gitlab',
         provider_type: 'gitlab',
       };
 
@@ -80,10 +82,11 @@ describe('GitProviderCard', () => {
     });
 
     it('renders provider icon for Gitea', () => {
-      const giteaProvider = {
+      const giteaProvider: AvailableProvider = {
         ...mockProvider,
         id: 'gitea',
         name: 'Gitea',
+        slug: 'gitea',
         provider_type: 'gitea',
       };
 
@@ -94,9 +97,10 @@ describe('GitProviderCard', () => {
     });
 
     it('renders fallback icon for unknown provider type', () => {
-      const unknownProvider = {
+      const unknownProvider: AvailableProvider = {
         ...mockProvider,
         provider_type: 'unknown',
+        slug: 'unknown',
       };
 
       render(<GitProviderCard {...defaultProps} provider={unknownProvider} />);
@@ -137,7 +141,7 @@ describe('GitProviderCard', () => {
     });
 
     it('does not show OAuth badge when supports_oauth is false', () => {
-      const noOAuthProvider = {
+      const noOAuthProvider: AvailableProvider = {
         ...mockProvider,
         supports_oauth: false,
       };
@@ -148,7 +152,7 @@ describe('GitProviderCard', () => {
     });
 
     it('does not show PAT badge when supports_pat is false', () => {
-      const noPatProvider = {
+      const noPatProvider: AvailableProvider = {
         ...mockProvider,
         supports_pat: false,
       };
@@ -159,7 +163,7 @@ describe('GitProviderCard', () => {
     });
 
     it('does not show CI/CD badge when supports_ci_cd is false', () => {
-      const noCiCdProvider = {
+      const noCiCdProvider: AvailableProvider = {
         ...mockProvider,
         supports_ci_cd: false,
       };
@@ -241,9 +245,10 @@ describe('GitProviderCard', () => {
     });
 
     it('applies GitLab styling', () => {
-      const gitlabProvider = {
+      const gitlabProvider: AvailableProvider = {
         ...mockProvider,
         provider_type: 'gitlab',
+        slug: 'gitlab',
       };
 
       const { container } = render(
@@ -254,9 +259,10 @@ describe('GitProviderCard', () => {
     });
 
     it('applies Gitea styling', () => {
-      const giteaProvider = {
+      const giteaProvider: AvailableProvider = {
         ...mockProvider,
         provider_type: 'gitea',
+        slug: 'gitea',
       };
 
       const { container } = render(
@@ -291,7 +297,7 @@ describe('GitProviderCard', () => {
 
   describe('without description', () => {
     it('renders without description', () => {
-      const providerWithoutDescription = {
+      const providerWithoutDescription: AvailableProvider = {
         ...mockProvider,
         description: undefined,
       };

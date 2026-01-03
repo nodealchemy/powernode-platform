@@ -9,7 +9,7 @@ import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { gitProvidersApi } from '@/features/git-providers/services/gitProvidersApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { JobsList } from './JobsList';
 import { JobLogViewer } from './JobLogViewer';
 import type { GitPipelineDetail, GitPipelineJob } from '../types';
@@ -64,7 +64,7 @@ const formatDuration = (seconds: number): string => {
 
 const PipelineDetailPageContent: React.FC = () => {
   const { repositoryId, pipelineId } = useParams<{ repositoryId: string; pipelineId: string }>();
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const [pipeline, setPipeline] = useState<GitPipelineDetail | null>(null);
   const [loading, setLoading] = useState(true);

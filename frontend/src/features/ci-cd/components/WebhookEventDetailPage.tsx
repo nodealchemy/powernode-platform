@@ -9,7 +9,7 @@ import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { gitProvidersApi } from '@/features/git-providers/services/gitProvidersApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { WebhookPayloadViewer } from './WebhookPayloadViewer';
 import type { GitWebhookEventDetail } from '@/features/git-providers/types';
 
@@ -43,7 +43,7 @@ const StatusBadge: React.FC<{ status: string; large?: boolean }> = ({ status, la
 
 const WebhookEventDetailPageContent: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const [event, setEvent] = useState<GitWebhookEventDetail | null>(null);
   const [loading, setLoading] = useState(true);

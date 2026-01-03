@@ -16,34 +16,68 @@ describe('useCICDDashboard', () => {
       id: 'repo-1',
       name: 'project-a',
       full_name: 'org/project-a',
-      provider_type: 'github',
+      owner: 'org',
+      default_branch: 'main',
+      is_private: false,
+      is_fork: false,
+      is_archived: false,
       webhook_configured: true,
+      stars_count: 10,
+      forks_count: 2,
+      open_issues_count: 5,
+      open_prs_count: 1,
+      topics: [],
+      created_at: new Date().toISOString(),
+      provider_type: 'github',
+      credential_id: 'cred-1',
     },
     {
       id: 'repo-2',
       name: 'project-b',
       full_name: 'org/project-b',
-      provider_type: 'github',
+      owner: 'org',
+      default_branch: 'main',
+      is_private: false,
+      is_fork: false,
+      is_archived: false,
       webhook_configured: false,
+      stars_count: 5,
+      forks_count: 1,
+      open_issues_count: 2,
+      open_prs_count: 0,
+      topics: [],
+      created_at: new Date().toISOString(),
+      provider_type: 'github',
+      credential_id: 'cred-1',
     },
   ];
 
   const mockPipelines = [
     {
       id: 'pipeline-1',
+      external_id: 'ext-1',
       name: 'CI Build',
-      status: 'completed',
-      conclusion: 'success',
+      status: 'completed' as const,
+      conclusion: 'success' as const,
       branch_name: 'main',
       sha: 'abc123',
+      total_jobs: 3,
+      completed_jobs: 3,
+      failed_jobs: 0,
+      progress_percentage: 100,
       created_at: new Date().toISOString(),
     },
     {
       id: 'pipeline-2',
+      external_id: 'ext-2',
       name: 'Deploy',
-      status: 'running',
+      status: 'running' as const,
       branch_name: 'develop',
       sha: 'def456',
+      total_jobs: 2,
+      completed_jobs: 1,
+      failed_jobs: 0,
+      progress_percentage: 50,
       created_at: new Date().toISOString(),
     },
   ];
@@ -63,12 +97,12 @@ describe('useCICDDashboard', () => {
   it('fetches repositories and pipelines on mount', async () => {
     mockGitProvidersApi.getRepositories.mockResolvedValue({
       repositories: mockRepositories,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
     });
 
     mockGitProvidersApi.getPipelines.mockResolvedValue({
       pipelines: mockPipelines,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
       stats: mockStats,
     });
 
@@ -87,12 +121,12 @@ describe('useCICDDashboard', () => {
   it('fetches pipelines for each repository', async () => {
     mockGitProvidersApi.getRepositories.mockResolvedValue({
       repositories: mockRepositories,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
     });
 
     mockGitProvidersApi.getPipelines.mockResolvedValue({
       pipelines: mockPipelines,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
       stats: mockStats,
     });
 
@@ -110,7 +144,7 @@ describe('useCICDDashboard', () => {
   it('returns empty arrays when no repositories', async () => {
     mockGitProvidersApi.getRepositories.mockResolvedValue({
       repositories: [],
-      pagination: { current_page: 1, total_pages: 0, total_count: 0 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 0, total_count: 0 },
     });
 
     const { result } = renderHook(() => useCICDDashboard());
@@ -139,12 +173,12 @@ describe('useCICDDashboard', () => {
   it('provides refresh function', async () => {
     mockGitProvidersApi.getRepositories.mockResolvedValue({
       repositories: mockRepositories,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
     });
 
     mockGitProvidersApi.getPipelines.mockResolvedValue({
       pipelines: mockPipelines,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
       stats: mockStats,
     });
 
@@ -170,12 +204,12 @@ describe('useCICDDashboard', () => {
   it('aggregates stats from multiple repositories', async () => {
     mockGitProvidersApi.getRepositories.mockResolvedValue({
       repositories: mockRepositories,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
     });
 
     mockGitProvidersApi.getPipelines.mockResolvedValue({
       pipelines: mockPipelines,
-      pagination: { current_page: 1, total_pages: 1, total_count: 2 },
+      pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 },
       stats: mockStats,
     });
 

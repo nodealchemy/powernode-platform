@@ -31,14 +31,13 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
     # Stub ActionCable broadcasting
     stub_action_cable_broadcasting
 
-    # Create some completed node executions for testing
-    workflow.ai_workflow_nodes.first(2).each do |node|
-      create(:ai_workflow_node_execution, :completed,
-        ai_workflow_run: workflow_run,
-        ai_workflow_node: node,
-        node_id: node.node_id
-      )
-    end
+    # Create some completed node executions for testing (only first node, leave others for individual tests)
+    node = workflow.ai_workflow_nodes.first
+    create(:ai_workflow_node_execution, :completed,
+      ai_workflow_run: workflow_run,
+      ai_workflow_node: node,
+      node_id: node.node_id
+    )
   end
 
   describe '#initialize' do

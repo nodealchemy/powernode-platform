@@ -33,6 +33,7 @@ RSpec.describe Git::WebhookProcessingJob, type: :job do
     allow(BackendApiClient).to receive(:new).and_return(api_client_double)
     allow(api_client_double).to receive(:get).and_return({ 'data' => sample_event })
     allow(api_client_double).to receive(:patch).and_return({ 'success' => true })
+    allow(api_client_double).to receive(:post).and_return({ 'success' => true })
     # Mock idempotency methods
     allow(job_instance).to receive(:already_processed?).and_return(false)
     allow(job_instance).to receive(:mark_processed)
