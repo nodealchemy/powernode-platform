@@ -5,9 +5,6 @@ export { WebhookDetails } from './components/WebhookDetails';
 export { WebhookStats } from './components/WebhookStats';
 export { WebhookTest } from './components/WebhookTest';
 export { WebhookModal } from './components/WebhookModal';
-export { EnhancedWebhookConsole } from './components/EnhancedWebhookConsole';
-export { ConsoleCreateWebhookModal } from './components/ConsoleCreateWebhookModal';
-export { ConsoleWebhookDetailsModal } from './components/ConsoleWebhookDetailsModal';
 
 // Services
 export { webhooksApi } from './services/webhooksApi';
