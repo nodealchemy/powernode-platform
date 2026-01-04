@@ -25,6 +25,7 @@ import { WebhookDetails } from '@/features/webhooks/components/WebhookDetails';
 import { WebhookStats } from '@/features/webhooks/components/WebhookStats';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 type ViewMode = 'list' | 'details' | 'stats';
@@ -32,6 +33,7 @@ type ViewMode = 'list' | 'details' | 'stats';
 const WebhookManagementPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
 
   // Check webhook permissions (matching backend controller)
   const canReadWebhooks = hasPermissions(user, ['webhook.read']) || hasPermissions(user, ['webhook.create', 'webhook.edit', 'webhook.delete']);
@@ -175,28 +177,32 @@ const WebhookManagementPage: React.FC = () => {
   };
 
   // Handle webhook deletion
-  const handleDeleteWebhook = async (webhookId: string) => {
+  const handleDeleteWebhook = (webhookId: string) => {
     if (!canDeleteWebhooks) {
       showNotification('You do not have permission to delete webhooks', 'error');
       return;
     }
 
-    if (!window.confirm('Are you sure you want to delete this webhook? This action cannot be undone.')) {
-      return;
-    }
+    confirm({
+      title: 'Delete Webhook',
+      message: 'Are you sure you want to delete this webhook? This action cannot be undone and may affect integrations.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const response = await webhooksApi.deleteWebhook(webhookId);
 
-    try {
-      const response = await webhooksApi.deleteWebhook(webhookId);
-
-      if (response.success) {
-        showNotification(response.message || 'Webhook deleted successfully', 'success');
-        loadWebhooks(pagination.current_page);
-      } else {
-        showNotification(response.error || 'Failed to delete webhook', 'error');
+          if (response.success) {
+            showNotification(response.message || 'Webhook deleted successfully', 'success');
+            loadWebhooks(pagination.current_page);
+          } else {
+            showNotification(response.error || 'Failed to delete webhook', 'error');
+          }
+        } catch (_error) {
+          showNotification('An unexpected error occurred while deleting the webhook', 'error');
+        }
       }
-    } catch (_error) {
-      showNotification('An unexpected error occurred while deleting the webhook', 'error');
-    }
+    });
   };
 
   // Handle webhook status toggle
@@ -487,6 +493,7 @@ const WebhookManagementPage: React.FC = () => {
         webhook={selectedWebhook || undefined}
         mode="edit"
       />
+      {ConfirmationDialog}
     </PageContainer>
   );
 };

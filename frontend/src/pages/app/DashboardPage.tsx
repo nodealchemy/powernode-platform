@@ -37,6 +37,9 @@ import WebhookManagementPage from '@/pages/app/WebhookManagementPage';
 // Import marketplace pages
 import { MarketplacePage } from '@/pages/app/marketplace/MarketplacePage';
 import { ItemDetailPage } from '@/pages/app/marketplace/ItemDetailPage';
+import { AppsPage } from '@/pages/app/marketplace/AppsPage';
+import { AppDetailPage } from '@/pages/app/marketplace/AppDetailPage';
+import { MyAppsPage } from '@/pages/app/marketplace/MyAppsPage';
 
 // Import admin pages
 import { AdminSettingsPage } from '@/pages/app/admin/AdminSettingsPage';
@@ -60,6 +63,8 @@ import {
 } from '@/features/ci-cd';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
+import { AdminPluginsPage } from '@/pages/app/admin/AdminPluginsPage';
+import { AdminImpersonationPage } from '@/pages/app/admin/AdminImpersonationPage';
 
 // Test page
 import { TestWebSocket } from '@/pages/app/TestWebSocket';
@@ -544,6 +549,13 @@ const DashboardPage: React.FC = () => {
         {/* Marketplace Pages - Unified Interface */}
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/marketplace/:type/:id" element={<ItemDetailPage />} />
+        <Route path="/marketplace/apps" element={<AppsPage />} />
+        <Route path="/marketplace/apps/:id" element={<AppDetailPage />} />
+        <Route path="/marketplace/my-apps" element={<MyAppsPage />} />
+        <Route path="/marketplace/subscriptions/:id/settings" element={<Navigate to="/app/subscriptions" replace />} />
+
+        {/* Subscription Routes */}
+        <Route path="/subscriptions/:id/usage" element={<Navigate to="/app/business/analytics" replace />} />
 
         {/* Integration Pages */}
         <Route path="/integrations" element={<IntegrationsPage />} />
@@ -560,6 +572,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/roles" element={<AdminRolesPage />} />
         <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
+        <Route path="/admin/marketplace/apps/:id/edit" element={<Navigate to="/app/admin/marketplace" replace />} />
+        <Route path="/admin/plugins" element={<AdminPluginsPage />} />
+        <Route path="/admin/impersonation" element={<AdminImpersonationPage />} />
         <Route path="/system/workers/*" element={<SystemWorkersPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
         <Route path="/admin" element={<Navigate to="/app/admin/settings" replace />} />

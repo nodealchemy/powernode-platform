@@ -8,6 +8,7 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { gitProvidersApi } from '@/features/git-providers/services/gitProvidersApi';
@@ -202,6 +203,7 @@ const RunnerDetailPageContent: React.FC = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
   const { currentUser } = useAuth();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [runner, setRunner] = useState<GitRunnerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -229,16 +231,21 @@ const RunnerDetailPageContent: React.FC = () => {
 
   const handleDelete = async () => {
     if (!runner) return;
-    if (!window.confirm(`Are you sure you want to delete runner "${runner.name}"? This action cannot be undone.`)) {
-      return;
-    }
-    try {
-      await gitProvidersApi.deleteRunner(runner.id);
-      showNotification('Runner deleted successfully', 'success');
-      navigate('/app/ci-cd/runners');
-    } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Failed to delete runner', 'error');
-    }
+    confirm({
+      title: 'Delete Runner',
+      message: `Are you sure you want to delete runner "${runner.name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await gitProvidersApi.deleteRunner(runner.id);
+          showNotification('Runner deleted successfully', 'success');
+          navigate('/app/ci-cd/runners');
+        } catch (err) {
+          showNotification(err instanceof Error ? err.message : 'Failed to delete runner', 'error');
+        }
+      }
+    });
   };
 
   const handleUpdateLabels = async (labels: string[]) => {
@@ -430,6 +437,7 @@ const RunnerDetailPageContent: React.FC = () => {
             </div>
           </div>
         </div>
+      {ConfirmationDialog}
       </div>
     </PageContainer>
   );

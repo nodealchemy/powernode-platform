@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Service } from '@/shared/services/serviceApi';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface ServiceListProps {
@@ -29,6 +30,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
   onStatusChange
 }) => {
   const { addNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [showActions, setShowActions] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -174,9 +176,15 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (window.confirm(`Are you sure you want to revoke "${service.name}"? This action cannot be undone.`)) {
-                        handleAction(() => onStatusChange('revoke'), 'revoke');
-                      }
+                      confirm({
+                        title: 'Revoke Service',
+                        message: `Are you sure you want to revoke "${service.name}"? This action cannot be undone.`,
+                        confirmLabel: 'Revoke',
+                        variant: 'danger',
+                        onConfirm: async () => {
+                          await handleAction(() => onStatusChange('revoke'), 'revoke');
+                        }
+                      });
                     }}
                     disabled={loading === 'revoke'}
                     className="block w-full text-left px-4 py-2 text-sm text-theme-error hover:bg-theme-surface-hover disabled:opacity-50 transition-colors duration-150"
@@ -184,15 +192,21 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
                     {loading === 'revoke' ? 'Revoking...' : 'Revoke'}
                   </button>
                 )}
-                
+
                 <div className="border-t border-theme my-1"></div>
-                
+
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (window.confirm(`Are you sure you want to delete "${service.name}"? This action cannot be undone.`)) {
-                      handleAction(() => onDelete(), 'delete');
-                    }
+                    confirm({
+                      title: 'Delete Service',
+                      message: `Are you sure you want to delete "${service.name}"? This action cannot be undone.`,
+                      confirmLabel: 'Delete',
+                      variant: 'danger',
+                      onConfirm: async () => {
+                        await handleAction(() => onDelete(), 'delete');
+                      }
+                    });
                   }}
                   disabled={loading === 'delete'}
                   className="block w-full text-left px-4 py-2 text-sm text-theme-error hover:bg-theme-surface-hover disabled:opacity-50"
@@ -210,6 +224,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-theme-interactive-primary"></div>
         </div>
       )}
+      {ConfirmationDialog}
     </div>
   );
 };

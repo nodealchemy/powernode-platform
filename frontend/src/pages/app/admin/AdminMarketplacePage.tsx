@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Plus, 
-  RefreshCw, 
+import { useNavigate } from 'react-router-dom';
+import {
+  Plus,
+  RefreshCw,
   Search,
   Filter,
   Eye,
@@ -27,6 +28,7 @@ interface AdminMarketplacePageProps {
 }
 
 export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ className = '' }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'apps' | 'listings' | 'reviews' | 'analytics'>('apps');
   const [apps, setApps] = useState<App[]>([]);
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
@@ -603,11 +605,13 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
               <Button variant="outline" onClick={() => setShowDetails(false)}>
                 Close
               </Button>
-              <Button 
+              <Button
                 variant="primary"
                 onClick={() => {
-                  // TODO: Navigate to app edit page
-                  showNotification('App editing coming soon', 'info');
+                  if (selectedApp) {
+                    setShowDetails(false);
+                    navigate(`/app/admin/marketplace/apps/${selectedApp.id}/edit`);
+                  }
                 }}
               >
                 Edit App

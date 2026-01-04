@@ -4,7 +4,8 @@ import {
   FileText, Package, UserCheck, Store, Smartphone,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
   HardDrive, Workflow, Activity, Server, GitBranch,
-  Play, Webhook, Clock, ShieldCheck, Puzzle, Database, BookOpen
+  Play, Webhook, Clock, ShieldCheck, Puzzle, Database, BookOpen,
+  UserCog
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -547,13 +548,31 @@ export const adminNavigationOverrides = {
           order: 4
         },
         {
+          id: 'plugins-admin',
+          name: 'Plugins',
+          href: '/app/admin/plugins',
+          icon: Puzzle,
+          description: 'Manage installed plugins and extensions',
+          permissions: ['admin.plugins.read'],
+          order: 5
+        },
+        {
+          id: 'impersonation-admin',
+          name: 'Impersonation',
+          href: '/app/admin/impersonation',
+          icon: UserCog,
+          description: 'User impersonation for support and debugging',
+          permissions: ['admin.impersonation.read'],
+          order: 6
+        },
+        {
           id: 'settings',
           name: 'Settings',
           href: '/app/admin/settings',
           icon: Settings,
           description: 'Platform configuration and settings',
           permissions: ['admin.settings.read'],
-          order: 5
+          order: 7
         }
       ],
       permissions: ['admin.access'],

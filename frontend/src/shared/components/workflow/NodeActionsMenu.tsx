@@ -88,9 +88,11 @@ export const NodeActionsMenu: React.FC<NodeActionsMenuProps> = ({
 };
 
 // Default handlers for combined actions
+// Note: The confirm parameter should be passed from the useConfirmation hook in the parent component
 export const createNodeActionsHandlers = (
   onNodeDelete?: (nodeId: string) => void,
-  onNotify?: (message: string, type?: 'success' | 'error' | 'info') => void
+  onNotify?: (message: string, type?: 'success' | 'error' | 'info') => void,
+  confirmFn?: (opts: { title: string; message: string; confirmLabel: string; variant: 'danger' | 'warning'; onConfirm: () => Promise<void> }) => void
 ) => {
   const copyToClipboard = async (text: string) => {
     try {
@@ -103,9 +105,23 @@ export const createNodeActionsHandlers = (
 
   return {
     onDelete: (nodeId: string) => {
-      if (window.confirm('Are you sure you want to delete this node?')) {
-        onNodeDelete?.(nodeId);
-        onNotify?.('Node deleted', 'success');
+      if (confirmFn) {
+        confirmFn({
+          title: 'Delete Node',
+          message: 'Are you sure you want to delete this node?',
+          confirmLabel: 'Delete',
+          variant: 'danger',
+          onConfirm: async () => {
+            onNodeDelete?.(nodeId);
+            onNotify?.('Node deleted', 'success');
+          }
+        });
+      } else {
+        // Fallback to window.confirm if no confirmFn provided (for backward compatibility)
+        if (window.confirm('Are you sure you want to delete this node?')) {
+          onNodeDelete?.(nodeId);
+          onNotify?.('Node deleted', 'success');
+        }
       }
     },
 

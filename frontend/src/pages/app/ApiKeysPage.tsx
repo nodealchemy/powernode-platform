@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiKeysApi } from '@/features/api-keys/services/apiKeysApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { ApiKeyModal } from '@/features/api-keys/components/ApiKeyModal';
 import { Key, RefreshCw } from 'lucide-react';
@@ -8,14 +9,15 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const ApiKeysPage: React.FC = () => {
   const { addNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [stats, setStats] = useState({
     requestsToday: 0,
-    apiUptime: '99.9%',
-    avgResponseTime: '45ms'
+    totalRequests: 0,
+    activeKeys: 0
   });
 
   useEffect(() => {
@@ -31,9 +33,9 @@ export const ApiKeysPage: React.FC = () => {
       if (response.success) {
         setApiKeys(response.data.api_keys);
         setStats({
-          requestsToday: response.data.stats.requests_today,
-          apiUptime: '99.9%', // TODO: Get from backend
-          avgResponseTime: '45ms' // TODO: Get from backend
+          requestsToday: response.data.stats?.requests_today || 0,
+          totalRequests: response.data.stats?.total_keys || 0,
+          activeKeys: response.data.api_keys?.filter((k: { status: string }) => k.status === 'active').length || 0
         });
       } else {
         setError(response.error || 'Failed to load API keys');
@@ -58,20 +60,26 @@ export const ApiKeysPage: React.FC = () => {
     loadApiKeys(); // Refresh the API keys list
   };
 
-  const handleRegenerateKey = async (id: string) => {
-    if (!window.confirm('Are you sure you want to regenerate this API key? This will invalidate the current key.')) return;
-
-    try {
-      const response = await apiKeysApi.regenerateApiKey(id);
-      if (response.success) {
-        loadApiKeys();
-        addNotification({ type: 'success', message: 'API key regenerated successfully' });
-      } else {
-        addNotification({ type: 'error', message: response.error || 'Failed to regenerate API key' });
+  const handleRegenerateKey = (id: string) => {
+    confirm({
+      title: 'Regenerate API Key',
+      message: 'Are you sure you want to regenerate this API key? This will invalidate the current key and any integrations using it will stop working.',
+      confirmLabel: 'Regenerate',
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          const response = await apiKeysApi.regenerateApiKey(id);
+          if (response.success) {
+            loadApiKeys();
+            addNotification({ type: 'success', message: 'API key regenerated successfully' });
+          } else {
+            addNotification({ type: 'error', message: response.error || 'Failed to regenerate API key' });
+          }
+        } catch (_error) {
+          addNotification({ type: 'error', message: 'Failed to regenerate API key' });
+        }
       }
-    } catch (_error) {
-      addNotification({ type: 'error', message: 'Failed to regenerate API key' });
-    }
+    });
   };
 
   const handleToggleStatus = async (id: string) => {
@@ -265,12 +273,14 @@ export const ApiKeysPage: React.FC = () => {
             <p className="text-sm text-theme-secondary">API Calls Today</p>
           </div>
           <div className="bg-theme-background rounded-lg p-4 border border-theme">
-            <h3 className="text-2xl font-bold text-theme-primary">{stats.apiUptime}</h3>
-            <p className="text-sm text-theme-secondary">API Uptime</p>
+            <h3 className="text-2xl font-bold text-theme-primary">
+              {apiKeysApi.formatUsageCount(stats.totalRequests)}
+            </h3>
+            <p className="text-sm text-theme-secondary">Total API Calls</p>
           </div>
           <div className="bg-theme-background rounded-lg p-4 border border-theme">
-            <h3 className="text-2xl font-bold text-theme-primary">{stats.avgResponseTime}</h3>
-            <p className="text-sm text-theme-secondary">Avg Response Time</p>
+            <h3 className="text-2xl font-bold text-theme-primary">{stats.activeKeys}</h3>
+            <p className="text-sm text-theme-secondary">Active Keys</p>
           </div>
         </div>
           </div>
@@ -282,6 +292,7 @@ export const ApiKeysPage: React.FC = () => {
         onClose={handleModalClose}
         onSuccess={handleModalSuccess}
       />
+      {ConfirmationDialog}
     </PageContainer>
   );
 };

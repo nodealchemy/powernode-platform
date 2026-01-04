@@ -13,28 +13,19 @@ module Api
             credentials = credentials.where(account_id: params[:account_id]) if params[:account_id].present?
             credentials = credentials.active if params[:active] == "true"
 
-            render json: {
-              success: true,
-              data: credentials.map { |c| serialize_credential(c) }
-            }
+            render_success(credentials.map { |c| serialize_credential(c) })
           end
 
           # GET /api/v1/internal/git/credentials/:id
           def show
-            render json: {
-              success: true,
-              data: serialize_credential(@credential)
-            }
+            render_success(serialize_credential(@credential))
           end
 
           # GET /api/v1/internal/git/credentials/:id/repositories
           def repositories
             repos = @credential.git_repositories
 
-            render json: {
-              success: true,
-              data: repos.map { |repo| serialize_repository(repo) }
-            }
+            render_success(repos.map { |repo| serialize_repository(repo) })
           end
 
           # GET /api/v1/internal/git/credentials/:id/decrypted
@@ -42,24 +33,20 @@ module Api
             # Worker can access decrypted credentials for API operations
             credentials = @credential.credentials
 
-            render json: {
-              success: true,
-              data: {
-                id: @credential.id,
-                auth_type: @credential.auth_type,
-                credentials: credentials,
-                provider: {
-                  id: @credential.git_provider.id,
-                  provider_type: @credential.git_provider.provider_type,
-                  api_base_url: @credential.git_provider.api_base_url,
-                  web_base_url: @credential.git_provider.web_base_url
-                }
+            render_success({
+              id: @credential.id,
+              auth_type: @credential.auth_type,
+              credentials: credentials,
+              provider: {
+                id: @credential.git_provider.id,
+                provider_type: @credential.git_provider.provider_type,
+                api_base_url: @credential.git_provider.api_base_url,
+                web_base_url: @credential.git_provider.web_base_url
               }
-            }
+            })
           rescue StandardError => e
             Rails.logger.error "Failed to decrypt Git credential #{@credential.id}: #{e.message}"
-            render json: { success: false, error: "Failed to decrypt credentials" },
-                   status: :internal_server_error
+            render_error("Failed to decrypt credentials", status: :internal_server_error)
           end
 
           private
@@ -67,8 +54,7 @@ module Api
           def set_credential
             @credential = GitProviderCredential.includes(:git_provider).find(params[:id])
           rescue ActiveRecord::RecordNotFound
-            render json: { success: false, error: "Credential not found" },
-                   status: :not_found
+            render_error("Credential not found", status: :not_found)
           end
 
           def serialize_credential(credential)

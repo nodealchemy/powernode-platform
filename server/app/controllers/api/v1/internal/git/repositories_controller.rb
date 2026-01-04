@@ -13,7 +13,7 @@ module Api
           def create
             credential = GitProviderCredential.find_by(id: params[:credential_id])
             unless credential
-              render json: { success: false, error: "Credential not found" }, status: :not_found
+              render_error("Credential not found", status: :not_found)
               return
             end
 
@@ -51,34 +51,26 @@ module Api
             )
 
             if repository.save
-              render json: {
-                success: true,
-                data: serialize_repository(repository),
+              render_success({
+                **serialize_repository(repository),
                 created: repository.previously_new_record?
-              }
+              })
             else
-              render json: {
-                success: false,
-                error: repository.errors.full_messages.join(", ")
-              }, status: :unprocessable_content
+              render_validation_error(repository)
             end
           end
 
           # GET /api/v1/internal/git/repositories/:id
           def show
-            render json: {
-              success: true,
-              data: serialize_repository(@repository)
-            }
+            render_success(serialize_repository(@repository))
           end
 
           # PATCH /api/v1/internal/git/repositories/:id
           def update
             if @repository.update(repository_params)
-              render json: { success: true, data: serialize_repository(@repository) }
+              render_success(serialize_repository(@repository))
             else
-              render json: { success: false, error: @repository.errors.full_messages.join(", ") },
-                     status: :unprocessable_content
+              render_validation_error(@repository)
             end
           end
 
@@ -87,13 +79,10 @@ module Api
             # Worker can sync branches data
             branches_data = params[:branches] || []
 
-            render json: {
-              success: true,
-              data: {
-                repository_id: @repository.id,
-                synced_count: branches_data.count
-              }
-            }
+            render_success({
+              repository_id: @repository.id,
+              synced_count: branches_data.count
+            })
           end
 
           # POST /api/v1/internal/git/repositories/:id/sync_commits
@@ -101,13 +90,10 @@ module Api
             # Worker can sync commits data
             commits_data = params[:commits] || []
 
-            render json: {
-              success: true,
-              data: {
-                repository_id: @repository.id,
-                synced_count: commits_data.count
-              }
-            }
+            render_success({
+              repository_id: @repository.id,
+              synced_count: commits_data.count
+            })
           end
 
           # POST /api/v1/internal/git/repositories/:id/sync_pipelines
@@ -145,14 +131,11 @@ module Api
               synced << pipeline if pipeline.save
             end
 
-            render json: {
-              success: true,
-              data: {
-                repository_id: @repository.id,
-                synced_count: synced.count,
-                pipeline_ids: synced.map(&:id)
-              }
-            }
+            render_success({
+              repository_id: @repository.id,
+              synced_count: synced.count,
+              pipeline_ids: synced.map(&:id)
+            })
           end
 
           private
@@ -161,8 +144,7 @@ module Api
             @repository = GitRepository.includes(:git_provider_credential, git_provider_credential: :git_provider)
                                        .find(params[:id])
           rescue ActiveRecord::RecordNotFound
-            render json: { success: false, error: "Repository not found" },
-                   status: :not_found
+            render_error("Repository not found", status: :not_found)
           end
 
           def repository_params
@@ -180,8 +162,7 @@ module Api
             # This adds an extra layer of validation for git-specific operations
             return if internal_request?
 
-            render json: { success: false, error: "Unauthorized internal access" },
-                   status: :forbidden
+            render_error("Unauthorized internal access", status: :forbidden)
           end
 
           def internal_request?

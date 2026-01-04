@@ -3,21 +3,30 @@ import { useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { SubscriptionsList } from '@/features/marketplace/components/SubscriptionsList';
 import { RefreshCw, Store } from 'lucide-react';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const SubscriptionsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { addNotification } = useNotifications();
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const handleSubscriptionAction = (action: string, _subscriptionId: string) => {
+  const handleSubscriptionAction = (action: string, subscriptionId: string) => {
     switch (action) {
       case 'view-usage':
-        // TODO: Navigate to usage details or show modal
+        // Navigate to analytics with subscription filter for usage data
+        navigate(`/app/business/analytics?subscription=${subscriptionId}&view=usage`);
         break;
       case 'view-analytics':
-        // TODO: Navigate to analytics details or show modal
+        // Navigate to analytics with subscription filter
+        navigate(`/app/business/analytics?subscription=${subscriptionId}`);
         break;
       case 'configure':
-        // TODO: Show configuration modal
+        // Navigate to subscription settings
+        addNotification({
+          type: 'info',
+          message: 'Opening subscription settings...'
+        });
+        navigate(`/app/marketplace/subscriptions/${subscriptionId}/settings`);
         break;
       default:
         // Refresh list for other actions (pause, resume, cancel, etc.)

@@ -3,6 +3,7 @@ import { Workflow, Maximize2, X } from 'lucide-react';
 import { Node, Edge } from '@xyflow/react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { WorkflowBuilderProvider } from './WorkflowBuilder';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -66,6 +67,9 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
     setLayoutOrientation(orientation);
     localStorage.setItem('workflowLayoutOrientation', orientation);
   }, []);
+
+  // Confirmation dialog
+  const { confirm, ConfirmationDialog } = useConfirmation();
 
   // Check permissions
   const canUpdateWorkflows = currentUser?.permissions?.includes('ai.workflows.update');
@@ -204,10 +208,16 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
   // Handle close with unsaved changes warning
   const handleClose = () => {
     if (hasChanges) {
-      const confirmClose = window.confirm(
-        'You have unsaved changes. Are you sure you want to close without saving?'
-      );
-      if (!confirmClose) return;
+      confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to close without saving?',
+        confirmLabel: 'Close Without Saving',
+        variant: 'warning',
+        onConfirm: async () => {
+          onClose();
+        }
+      });
+      return;
     }
     onClose();
   };
@@ -316,6 +326,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
             className="h-full w-full"
           />
         </div>
+        {ConfirmationDialog}
       </div>
     </Modal>
   );

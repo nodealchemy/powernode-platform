@@ -6,6 +6,7 @@ import { usersApi, User, UserFormData, UserStats } from '@/features/users/servic
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { UserRolesModal } from '@/features/users/components/UserRolesModal';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { UserPlus, RefreshCw, Filter, Download } from 'lucide-react';
 
@@ -26,6 +27,7 @@ const UsersPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
@@ -249,12 +251,18 @@ const UsersPage: React.FC = () => {
           await Promise.all(userIds.map(id => usersApi.activateUser(id)));
           break;
         case 'delete':
-          if (window.confirm(`Are you sure you want to delete ${selectedUsers.size} users? This action cannot be undone.`)) {
-            await Promise.all(userIds.map(id => usersApi.deleteUser(id)));
-          } else {
-            return;
-          }
-          break;
+          confirm({
+            title: 'Delete Team Members',
+            message: `Are you sure you want to delete ${selectedUsers.size} team member${selectedUsers.size > 1 ? 's' : ''}? This action cannot be undone.`,
+            confirmLabel: 'Delete',
+            variant: 'danger',
+            onConfirm: async () => {
+              await Promise.all(userIds.map(id => usersApi.deleteUser(id)));
+              await loadData();
+              setSelectedUsers(new Set());
+            }
+          });
+          return;
         case 'export':
           const selectedUserData = filteredUsers.filter(u => selectedUsers.has(u.id));
           exportUsers(selectedUserData);
@@ -628,6 +636,7 @@ const UsersPage: React.FC = () => {
             onClose={handleRoleModalClose}
             onUserUpdated={handleUserRolesUpdated}
           />
+          {ConfirmationDialog}
         </>
       )}
     </PageContainer>

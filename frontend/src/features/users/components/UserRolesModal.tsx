@@ -3,6 +3,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { usersApi, User } from '../services/usersApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Shield, Users, UserCheck, UserX, Plus, Minus, Lock } from 'lucide-react';
@@ -21,6 +22,7 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
   onUserUpdated
 }) => {
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [availableRoles, setAvailableRoles] = useState<Array<{ value: string; label: string; description: string; canAssign?: boolean }>>([]);
   const [loading, setLoading] = useState(true);
@@ -59,21 +61,31 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
     const role = availableRoles.find(r => r.value === roleValue);
     const isCurrentlyAssigned = userRoles.includes(roleValue);
     const isRestricted = role && role.canAssign === false;
-    
+
     // For restricted roles, only allow removal if currently assigned
     if (isRestricted && !isCurrentlyAssigned) {
       showNotification('You do not have permission to assign this role', 'warning');
       return;
     }
-    
+
     // For restricted roles that are currently assigned, show a confirmation for removal
     if (isRestricted && isCurrentlyAssigned) {
-      const confirmRemoval = window.confirm(
-        `You are removing a restricted role "${role.label}". You won't be able to reassign it later. Continue?`
-      );
-      if (!confirmRemoval) return;
+      confirm({
+        title: 'Remove Restricted Role',
+        message: `You are removing a restricted role "${role.label}". You won't be able to reassign it later. Continue?`,
+        confirmLabel: 'Remove',
+        variant: 'warning',
+        onConfirm: async () => {
+          applyRoleToggle(roleValue, isCurrentlyAssigned);
+        }
+      });
+      return;
     }
-    
+
+    applyRoleToggle(roleValue, isCurrentlyAssigned);
+  };
+
+  const applyRoleToggle = (roleValue: string, isCurrentlyAssigned: boolean) => {
     const isPendingAdd = pendingChanges.toAdd.includes(roleValue);
     const isPendingRemove = pendingChanges.toRemove.includes(roleValue);
 
@@ -425,6 +437,7 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
             </Button>
           </div>
         </div>
+        {ConfirmationDialog}
       </div>
     </Modal>
   );

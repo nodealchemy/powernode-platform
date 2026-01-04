@@ -18,6 +18,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { DropdownMenu } from '@/shared/components/ui/DropdownMenu';
 import { Avatar } from '@/shared/components/ui/Avatar';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { providersApi } from '@/shared/services/ai';
 import type { AiProvider } from '@/shared/types/ai';
@@ -39,7 +40,41 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
 }) => {
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { addNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
+
+  const handleDeleteProvider = () => {
+    confirm({
+      title: 'Delete Provider',
+      message: `Are you sure you want to delete "${provider.name}"? This action cannot be undone and will remove all associated configurations.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          setDeleting(true);
+          await providersApi.deleteProvider(provider.id);
+          addNotification({
+            type: 'success',
+            title: 'Provider Deleted',
+            message: `${provider.name} has been deleted successfully`
+          });
+          onUpdate();
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to delete provider:', error);
+          }
+          addNotification({
+            type: 'error',
+            title: 'Delete Failed',
+            message: 'Failed to delete provider. Please try again.'
+          });
+        } finally {
+          setDeleting(false);
+        }
+      }
+    });
+  };
 
   const handleTestConnection = async () => {
     try {
@@ -175,17 +210,9 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       },
       {
         icon: Trash2,
-        label: 'Delete Provider',
-        onClick: () => {
-          if (window.confirm(`Are you sure you want to delete ${provider.name}? This action cannot be undone.`)) {
-            // TODO: Implement delete handler
-            addNotification({
-              type: 'info',
-              title: 'Delete Provider',
-              message: 'Provider deletion will be implemented soon'
-            });
-          }
-        },
+        label: deleting ? 'Deleting...' : 'Delete Provider',
+        onClick: handleDeleteProvider,
+        disabled: deleting,
         danger: true
       }
     ] : [])
@@ -352,6 +379,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
           </div>
         </div>
       )}
+      {ConfirmationDialog}
     </Card>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Worker, WorkerConfig, workerApi } from '@/features/workers/services/workerApi';
 import { SettingsCard, ToggleSettingItem, FormField, Input } from '@/features/admin/components/settings/SettingsComponents';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import {
   Shield,
@@ -55,15 +56,16 @@ interface WorkerSettingsProps {
   onUpdate?: (workerId: string, config: WorkerConfig) => Promise<void>;
 }
 
-export const WorkerSettings: React.FC<WorkerSettingsProps> = ({ 
-  worker, 
-  onUpdate 
+export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
+  worker,
+  onUpdate
 }) => {
   const [config, setConfig] = useState<WorkerConfig>(defaultConfig);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
 
   useEffect(() => {
     loadWorkerConfig();
@@ -160,20 +162,26 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
   };
 
   const resetToDefaults = async () => {
-    if (window.confirm('Reset all worker settings to defaults? This cannot be undone.')) {
-      setLoading(true);
-      try {
-        const result = await workerApi.resetWorkerConfig(worker.id);
-        setConfig(result.config);
-        showNotification(result.message || 'Worker settings reset to defaults', 'success');
-      } catch (error) {
-        // Fallback to local reset if API fails
-        setConfig(defaultConfig);
-        showNotification('Worker settings reset to defaults (locally)', 'info');
-      } finally {
-        setLoading(false);
+    confirm({
+      title: 'Reset Worker Settings',
+      message: 'Reset all worker settings to defaults? This cannot be undone.',
+      confirmLabel: 'Reset',
+      variant: 'warning',
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const result = await workerApi.resetWorkerConfig(worker.id);
+          setConfig(result.config);
+          showNotification(result.message || 'Worker settings reset to defaults', 'success');
+        } catch (error) {
+          // Fallback to local reset if API fails
+          setConfig(defaultConfig);
+          showNotification('Worker settings reset to defaults (locally)', 'info');
+        } finally {
+          setLoading(false);
+        }
       }
-    }
+    });
   };
 
   if (loading) {
@@ -618,6 +626,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
           </div>
         </div>
       </SettingsCard>
+      {ConfirmationDialog}
     </div>
   );
 };

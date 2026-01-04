@@ -7,6 +7,7 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Plus, RefreshCw, Edit2, Trash2, Users, Shield } from 'lucide-react';
 import { rolesApi, Role, Permission } from '@/features/roles/services/rolesApi';
@@ -16,6 +17,7 @@ import { RoleUsersModal } from '@/features/roles/components/RoleUsersModal';
 export const AdminRolesPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,17 +97,21 @@ export const AdminRolesPage: React.FC = () => {
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete the role "${role.name}"?`)) {
-      return;
-    }
-
-    try {
-      await rolesApi.deleteRole(role.id);
-      showNotification('Role deleted successfully', 'success');
-      loadRoles();
-    } catch (error: unknown) {
-      showNotification(error instanceof Error ? error.message : 'Failed to delete role', 'error');
-    }
+    confirm({
+      title: 'Delete Role',
+      message: `Are you sure you want to delete the role "${role.name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await rolesApi.deleteRole(role.id);
+          showNotification('Role deleted successfully', 'success');
+          loadRoles();
+        } catch (error: unknown) {
+          showNotification(error instanceof Error ? error.message : 'Failed to delete role', 'error');
+        }
+      }
+    });
   };
 
   const handleViewUsers = (role: Role) => {
@@ -403,6 +409,7 @@ export const AdminRolesPage: React.FC = () => {
           onClose={() => setShowUsersModal(false)}
         />
       )}
+      {ConfirmationDialog}
     </PageContainer>
   );
 };

@@ -3,6 +3,7 @@ import { Search, Filter, RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { SubscriptionCard } from './SubscriptionCard';
 import { useAppSubscriptions } from '../hooks/useAppSubscriptions';
 
@@ -31,6 +32,7 @@ export const SubscriptionsList = forwardRef<SubscriptionsListRef, SubscriptionsL
 }, ref) => {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const { confirm, ConfirmationDialog } = useConfirmation();
 
   const {
     subscriptions,
@@ -75,11 +77,17 @@ export const SubscriptionsList = forwardRef<SubscriptionsListRef, SubscriptionsL
     onSubscriptionAction?.('resume', id);
   };
 
-  const handleCancel = async (id: string, reason?: string) => {
-    if (window.confirm('Are you sure you want to cancel this subscription?')) {
-      await cancelSubscription(id, reason);
-      onSubscriptionAction?.('cancel', id);
-    }
+  const handleCancel = async (id: string, reason?: string): Promise<void> => {
+    confirm({
+      title: 'Cancel Subscription',
+      message: 'Are you sure you want to cancel this subscription? You will lose access to the app at the end of your billing period.',
+      confirmLabel: 'Cancel Subscription',
+      variant: 'warning',
+      onConfirm: async () => {
+        await cancelSubscription(id, reason);
+        onSubscriptionAction?.('cancel', id);
+      }
+    });
   };
 
   const handleUpgrade = async (id: string, newPlanId: string) => {
@@ -243,6 +251,7 @@ export const SubscriptionsList = forwardRef<SubscriptionsListRef, SubscriptionsL
           Showing {filteredSubscriptions.length} of {pagination.total_count} subscriptions
         </div>
       )}
+      {ConfirmationDialog}
     </div>
   );
 });

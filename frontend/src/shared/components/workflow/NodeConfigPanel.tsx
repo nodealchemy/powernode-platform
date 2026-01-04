@@ -13,6 +13,7 @@ import { Textarea } from '@/shared/components/ui/Textarea';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Button } from '@/shared/components/ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { agentsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import type { AiAgent } from '@/shared/types/ai';
@@ -116,6 +117,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   className = ''
 }) => {
   const { isAuthenticated } = useAuth();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [agents, setAgents] = useState<AiAgent[]>([]);
   const [loadingAgents, setLoadingAgents] = useState(false);
   const agentsLoadedRef = useRef(false);
@@ -354,9 +356,17 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   };
 
   const handleDelete = () => {
-    if (onDelete && window.confirm(`Are you sure you want to delete the node "${config.name}"?`)) {
-      onDelete(node.id);
-      onClose();
+    if (onDelete) {
+      confirm({
+        title: 'Delete Node',
+        message: `Are you sure you want to delete the node "${config.name}"?`,
+        confirmLabel: 'Delete',
+        variant: 'danger',
+        onConfirm: async () => {
+          onDelete(node.id);
+          onClose();
+        }
+      });
     }
   };
 
@@ -625,6 +635,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           </ul>
         </div>
       )}
+      {ConfirmationDialog}
     </div>
   );
 };

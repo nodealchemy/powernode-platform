@@ -263,9 +263,6 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
     }
   };
 
-  // TODO: Implement agent status toggle functionality
-  // const handleToggleStatus = async () => { ... }
-
   const getProviderOptions = () => {
     if (!providers || !Array.isArray(providers)) {
       return [];
@@ -507,7 +504,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
             <h4 className="text-sm font-semibold text-theme-primary border-b border-theme pb-2">
               Advanced Configuration
             </h4>
-            
+
             <TextAreaField
               label="System Prompt"
               name="system_prompt"
@@ -518,6 +515,53 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
               showCharacterCount
               helpText="Instructions that define the agent's behavior and personality"
             />
+          </div>
+
+          {/* Status Toggle */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-theme-primary border-b border-theme pb-2">
+              Agent Status
+            </h4>
+
+            <label className="flex items-center justify-between p-4 bg-theme-surface border border-theme rounded-lg cursor-pointer hover:bg-theme-surface-hover transition-colors">
+              <div className="flex items-center gap-3">
+                <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+                  form.values.is_active
+                    ? 'bg-theme-success bg-opacity-10'
+                    : 'bg-theme-muted bg-opacity-10'
+                }`}>
+                  <Brain className={`h-5 w-5 ${
+                    form.values.is_active ? 'text-theme-success' : 'text-theme-muted'
+                  }`} />
+                </div>
+                <div>
+                  <div className="font-medium text-theme-primary">
+                    {form.values.is_active ? 'Agent Active' : 'Agent Inactive'}
+                  </div>
+                  <div className="text-sm text-theme-secondary">
+                    {form.values.is_active
+                      ? 'This agent is available for workflows and conversations'
+                      : 'This agent is disabled and cannot be used'
+                    }
+                  </div>
+                </div>
+              </div>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={form.values.is_active}
+                  onChange={(e) => form.setValue('is_active', e.target.checked)}
+                  className="sr-only"
+                />
+                <div className={`w-11 h-6 rounded-full transition-colors ${
+                  form.values.is_active ? 'bg-theme-success' : 'bg-theme-muted'
+                }`}>
+                  <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
+                    form.values.is_active ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </div>
+              </div>
+            </label>
           </div>
 
           {/* Provider Info Card */}

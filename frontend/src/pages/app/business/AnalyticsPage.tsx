@@ -19,7 +19,7 @@ import { AnalyticsExportModal } from '@/features/analytics/components/AnalyticsE
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { RefreshCw, Download, Lock } from 'lucide-react';
+import { RefreshCw, Download, Lock, Clock } from 'lucide-react';
 
 // Types and utilities
 import type { AnalyticsData } from '@/features/analytics/types';
@@ -33,6 +33,27 @@ import {
 
 // Re-export for backwards compatibility
 export type { AnalyticsData } from '@/features/analytics/types';
+
+// Format relative time for last updated display
+const formatRelativeTime = (date: Date | null): string => {
+  if (!date) return '';
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+
+  if (diffSeconds < 60) {
+    return 'just now';
+  } else if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+  } else {
+    return date.toLocaleString();
+  }
+};
 
 interface AnalyticsPageProps {}
 
@@ -72,7 +93,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
           }
         }
       } : prevData);
-      // setLastUpdated(new Date()); // TODO: Display last updated timestamp
+      setLastUpdated(new Date());
     }
   }, []);
 
@@ -95,7 +116,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   const [error, setError] = useState<string | null>(null);
   const [usingFallbackData, setUsingFallbackData] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-  // const [lastUpdated, setLastUpdated] = useState<Date | null>(null); // TODO: Display last updated timestamp
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
   // Check permissions before loading analytics
   const canViewAnalytics = hasPermissions(user, ['ai.analytics.read', 'admin.access']);
@@ -199,7 +220,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       // Type assertion is safe here since we've populated all required fields
       setData(analyticsData as AnalyticsData);
       isInitialLoad.current = false;
-      // setLastUpdated(new Date()); // TODO: Display last updated timestamp
+      setLastUpdated(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
     } finally {
@@ -344,12 +365,18 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       breadcrumbs={getBreadcrumbs()}
       actions={pageActions}
     >
-      {/* Date Range Filter */}
-      <div className="mb-6">
+      {/* Date Range Filter with Last Updated */}
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <DateRangeFilter
           dateRange={dateRange}
           onChange={handleDateRangeChange}
         />
+        {lastUpdated && (
+          <div className="flex items-center gap-2 text-sm text-theme-secondary">
+            <Clock className="h-4 w-4" />
+            <span>Last updated: {formatRelativeTime(lastUpdated)}</span>
+          </div>
+        )}
       </div>
 
       {/* Fallback Data Notification */}

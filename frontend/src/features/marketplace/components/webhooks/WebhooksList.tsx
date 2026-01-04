@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { WebhookCard } from './WebhookCard';
 import { WebhookFormModal } from './WebhookFormModal';
 import { WebhookTestModal } from './WebhookTestModal';
@@ -34,7 +35,8 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
   const [modalType, setModalType] = useState<'edit' | 'test' | 'analytics' | 'deliveries' | null>(null);
 
   const { showNotification } = useNotifications();
-  
+  const { confirm, ConfirmationDialog } = useConfirmation();
+
   // Combine local filters with prop filters
   const combinedFilters: AppWebhookFilters = {
     ...filters,
@@ -123,18 +125,22 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
   };
 
   const handleRegenerateSecret = async (webhook: AppWebhook) => {
-    if (!window.confirm('Are you sure you want to regenerate the secret token? This will invalidate the current secret and may cause webhook deliveries to fail until you update your endpoint.')) {
-      return;
-    }
-    
-    try {
-      await regenerateSecret(webhook.id);
-      showNotification(`Secret regenerated for "${webhook.name}". Update your endpoint with the new secret.`, 'warning');
-      onWebhookAction?.('regenerate-secret', webhook.id);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      showNotification(`Failed to regenerate secret: ${errorMessage}`, 'error');
-    }
+    confirm({
+      title: 'Regenerate Secret Token',
+      message: 'Are you sure you want to regenerate the secret token? This will invalidate the current secret and may cause webhook deliveries to fail until you update your endpoint.',
+      confirmLabel: 'Regenerate',
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          await regenerateSecret(webhook.id);
+          showNotification(`Secret regenerated for "${webhook.name}". Update your endpoint with the new secret.`, 'warning');
+          onWebhookAction?.('regenerate-secret', webhook.id);
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          showNotification(`Failed to regenerate secret: ${errorMessage}`, 'error');
+        }
+      }
+    });
   };
 
   const handleWebhookCreated = (webhook: AppWebhook) => {
@@ -420,6 +426,7 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
           webhook={selectedWebhook}
         />
       )}
+      {ConfirmationDialog}
     </div>
   );
 };

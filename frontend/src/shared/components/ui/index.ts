@@ -10,6 +10,7 @@ export * from './Badge';
 export * from './Button';
 export * from './Card';
 export * from './Modal';
+export * from './ConfirmationModal';
 export * from './StatusIndicator';
 export * from './LoadingSpinner';
 export * from './Pagination';

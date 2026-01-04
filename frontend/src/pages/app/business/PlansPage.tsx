@@ -12,12 +12,14 @@ import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Plus, RefreshCw } from 'lucide-react';
 
 export const PlansPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const notificationRef = useRef(showNotification);
   notificationRef.current = showNotification;
   
@@ -157,18 +159,22 @@ export const PlansPage: React.FC = () => {
     }
   };
 
-  const handleDeletePlan = async (planId: string) => {
-    if (!window.confirm('Are you sure you want to delete this plan? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      await plansApi.deletePlan(planId);
-      showSuccess('Plan deleted successfully');
-      loadPlans();
-    } catch (_error) {
-      showError('Failed to delete plan');
-    }
+  const handleDeletePlan = (planId: string) => {
+    confirm({
+      title: 'Delete Plan',
+      message: 'Are you sure you want to delete this plan? This action cannot be undone. Active subscribers will be affected.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await plansApi.deletePlan(planId);
+          showSuccess('Plan deleted successfully');
+          loadPlans();
+        } catch (_error) {
+          showError('Failed to delete plan');
+        }
+      }
+    });
   };
 
   const handlePlanSaved = () => {
@@ -631,6 +637,7 @@ export const PlansPage: React.FC = () => {
         showSuccess={showSuccess}
         showError={showError}
       />
+      {ConfirmationDialog}
         </>
       )}
     </PageContainer>

@@ -6,6 +6,7 @@ import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { gitProvidersApi } from '@/features/git-providers/services/gitProvidersApi';
@@ -147,6 +148,7 @@ const RunnersPageContent: React.FC = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
   const { currentUser } = useAuth();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [runners, setRunners] = useState<GitRunner[]>([]);
   const [stats, setStats] = useState<RunnerStats | null>(null);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
@@ -197,16 +199,21 @@ const RunnersPageContent: React.FC = () => {
   };
 
   const handleDelete = async (runner: GitRunner) => {
-    if (!window.confirm(`Are you sure you want to delete runner "${runner.name}"?`)) {
-      return;
-    }
-    try {
-      await gitProvidersApi.deleteRunner(runner.id);
-      showNotification('Runner deleted successfully', 'success');
-      fetchRunners();
-    } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Failed to delete runner', 'error');
-    }
+    confirm({
+      title: 'Delete Runner',
+      message: `Are you sure you want to delete runner "${runner.name}"?`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await gitProvidersApi.deleteRunner(runner.id);
+          showNotification('Runner deleted successfully', 'success');
+          fetchRunners();
+        } catch (err) {
+          showNotification(err instanceof Error ? err.message : 'Failed to delete runner', 'error');
+        }
+      }
+    });
   };
 
   const breadcrumbs = [
@@ -356,6 +363,7 @@ const RunnersPageContent: React.FC = () => {
             )}
           </>
         )}
+        {ConfirmationDialog}
       </div>
     </PageContainer>
   );

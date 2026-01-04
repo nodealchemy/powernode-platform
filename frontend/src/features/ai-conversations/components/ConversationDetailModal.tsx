@@ -15,7 +15,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
-import { agentsApi } from '@/shared/services/ai';
+import { agentsApi, conversationsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { AiConversation, AiMessage } from '@/shared/types/ai';
@@ -54,7 +54,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
 
   const [conversation, setConversation] = useState<AiConversation | null>(null);
   const [messages, setMessages] = useState<AiMessage[]>([]);
-  const [stats] = useState<ConversationStats | null>(null);
+  const [stats, setStats] = useState<ConversationStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,11 +78,14 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
       const messages = await agentsApi.getMessages(agentId, conversationId);
       setMessages(messages);
 
-      // TODO: Re-implement conversation stats when API method is available
       // Load conversation stats
-      // const statsResponse = await agentsApi.getConversationStats(conversationId);
-      // const stats = statsResponse.data?.data || statsResponse.data || statsResponse;
-      // setStats(stats);
+      try {
+        const conversationStats = await conversationsApi.getConversationStats(conversationId);
+        setStats(conversationStats);
+      } catch (statsError) {
+        // Stats are optional - don't fail the whole load if they're not available
+        console.warn('Failed to load conversation stats:', statsError);
+      }
 
     } catch (error) {
       console.error('Failed to load conversation:', error);

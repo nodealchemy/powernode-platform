@@ -5,6 +5,7 @@ import { startImpersonation } from '@/shared/services/slices/authSlice';
 import { usersApi, User, UserFormData, UserStats } from '@/features/users/services/usersApi';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { UserPlus, RefreshCw, Filter, Download } from 'lucide-react';
 import { UserRolesModal } from '@/features/users/components/UserRolesModal';
@@ -25,6 +26,7 @@ const AdminUsersPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
@@ -235,12 +237,18 @@ const AdminUsersPage: React.FC = () => {
           await Promise.all(userIds.map(id => usersApi.activateUser(id)));
           break;
         case 'delete':
-          if (window.confirm(`Are you sure you want to delete ${selectedUsers.size} users? This action cannot be undone.`)) {
-            await Promise.all(userIds.map(id => usersApi.deleteUser(id)));
-          } else {
-            return;
-          }
-          break;
+          confirm({
+            title: 'Delete Users',
+            message: `Are you sure you want to delete ${selectedUsers.size} user${selectedUsers.size > 1 ? 's' : ''}? This action cannot be undone.`,
+            confirmLabel: 'Delete',
+            variant: 'danger',
+            onConfirm: async () => {
+              await Promise.all(userIds.map(id => usersApi.deleteUser(id)));
+              await loadData();
+              setSelectedUsers(new Set());
+            }
+          });
+          return;
         case 'export':
           const selectedUserData = filteredUsers.filter(u => selectedUsers.has(u.id));
           exportUsers(selectedUserData);
@@ -382,14 +390,54 @@ const AdminUsersPage: React.FC = () => {
   const handleUserAction = async (user: User, action: 'suspend' | 'activate' | 'unlock' | 'reset_password' | 'resend_verification') => {
     // Confirmation for sensitive actions
     if (action === 'suspend') {
-      if (!window.confirm(`Are you sure you want to suspend ${user.name}? They will lose access to the platform.`)) {
-        return;
-      }
+      confirm({
+        title: 'Suspend User',
+        message: `Are you sure you want to suspend ${user.name}? They will lose access to the platform until reactivated.`,
+        confirmLabel: 'Suspend',
+        variant: 'warning',
+        onConfirm: async () => {
+          setActionLoading(true);
+          setOpenDropdownUserId(null);
+          try {
+            const response = await usersApi.suspendUser(user.id, 'Suspended by administrator');
+            if (response.success) {
+              await loadData();
+            } else {
+              showNotification(response.message || 'Failed to suspend user', 'error');
+            }
+          } catch {
+            showNotification('Failed to suspend user. Please try again.', 'error');
+          } finally {
+            setActionLoading(false);
+          }
+        }
+      });
+      return;
     }
     if (action === 'activate') {
-      if (!window.confirm(`Are you sure you want to activate ${user.name}?`)) {
-        return;
-      }
+      confirm({
+        title: 'Activate User',
+        message: `Are you sure you want to activate ${user.name}? They will regain access to the platform.`,
+        confirmLabel: 'Activate',
+        variant: 'info',
+        onConfirm: async () => {
+          setActionLoading(true);
+          setOpenDropdownUserId(null);
+          try {
+            const response = await usersApi.activateUser(user.id);
+            if (response.success) {
+              await loadData();
+            } else {
+              showNotification(response.message || 'Failed to activate user', 'error');
+            }
+          } catch {
+            showNotification('Failed to activate user. Please try again.', 'error');
+          } finally {
+            setActionLoading(false);
+          }
+        }
+      });
+      return;
     }
 
     try {
@@ -398,12 +446,6 @@ const AdminUsersPage: React.FC = () => {
       let response;
 
       switch (action) {
-        case 'suspend':
-          response = await usersApi.suspendUser(user.id, 'Suspended by administrator');
-          break;
-        case 'activate':
-          response = await usersApi.activateUser(user.id);
-          break;
         case 'unlock':
           response = await usersApi.unlockUser(user.id);
           break;
@@ -585,6 +627,7 @@ const AdminUsersPage: React.FC = () => {
             onClose={() => { setShowRolesModal(false); setSelectedUser(null); }}
             onUserUpdated={() => { loadData(); }}
           />
+          {ConfirmationDialog}
         </>
       )}
     </PageContainer>
