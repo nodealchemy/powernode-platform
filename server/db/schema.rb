@@ -10,10 +10,11 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_03_040001) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
+  enable_extension "vector"
 
   create_table "account_delegations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
@@ -245,6 +246,41 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_03_040001) do
     t.index ["status"], name: "index_ai_agents_on_status"
   end
 
+  create_table "ai_context_access_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_persistent_context_id", null: false
+    t.uuid "ai_context_entry_id"
+    t.uuid "account_id", null: false
+    t.uuid "user_id"
+    t.uuid "ai_agent_id"
+    t.string "action", null: false
+    t.string "access_type"
+    t.string "request_id"
+    t.string "ip_address"
+    t.string "user_agent"
+    t.jsonb "previous_value"
+    t.jsonb "new_value"
+    t.jsonb "changes_summary", default: {}
+    t.jsonb "metadata", default: {}
+    t.boolean "success", default: true
+    t.text "error_message"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["access_type"], name: "index_ai_context_access_logs_on_access_type"
+    t.index ["account_id", "created_at"], name: "idx_access_logs_account_created"
+    t.index ["account_id"], name: "index_ai_context_access_logs_on_account_id"
+    t.index ["action"], name: "index_ai_context_access_logs_on_action"
+    t.index ["ai_agent_id"], name: "index_ai_context_access_logs_on_ai_agent_id"
+    t.index ["ai_context_entry_id"], name: "index_ai_context_access_logs_on_ai_context_entry_id"
+    t.index ["ai_persistent_context_id", "action"], name: "idx_access_logs_context_action"
+    t.index ["ai_persistent_context_id"], name: "index_ai_context_access_logs_on_ai_persistent_context_id"
+    t.index ["success"], name: "index_ai_context_access_logs_on_success"
+    t.index ["user_id"], name: "index_ai_context_access_logs_on_user_id"
+  end
+
+# Could not dump table "ai_context_entries" because of following StandardError
+#   Unknown type 'vector' for column 'embedding'
+
+
   create_table "ai_conversations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "user_id", null: false
@@ -317,6 +353,41 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_03_040001) do
     t.index ["sequence_number"], name: "index_ai_messages_on_sequence_number"
     t.index ["status"], name: "index_ai_messages_on_status"
     t.index ["user_id"], name: "index_ai_messages_on_user_id"
+  end
+
+  create_table "ai_persistent_contexts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_id"
+    t.uuid "created_by_user_id"
+    t.string "context_id", null: false
+    t.string "name", null: false
+    t.text "description"
+    t.string "context_type", null: false
+    t.string "scope", null: false
+    t.jsonb "context_data", default: {}
+    t.jsonb "metadata", default: {}
+    t.jsonb "access_control", default: {}
+    t.jsonb "retention_policy", default: {}
+    t.datetime "expires_at"
+    t.datetime "archived_at"
+    t.integer "version", default: 1
+    t.integer "data_size_bytes", default: 0
+    t.integer "entry_count", default: 0
+    t.datetime "last_accessed_at"
+    t.integer "access_count", default: 0
+    t.datetime "last_modified_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "ai_agent_id"], name: "idx_contexts_account_agent"
+    t.index ["account_id", "context_type"], name: "idx_contexts_account_type"
+    t.index ["account_id"], name: "index_ai_persistent_contexts_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_persistent_contexts_on_ai_agent_id"
+    t.index ["archived_at"], name: "index_ai_persistent_contexts_on_archived_at"
+    t.index ["context_id"], name: "index_ai_persistent_contexts_on_context_id", unique: true
+    t.index ["context_type"], name: "index_ai_persistent_contexts_on_context_type"
+    t.index ["created_by_user_id"], name: "index_ai_persistent_contexts_on_created_by_user_id"
+    t.index ["expires_at"], name: "index_ai_persistent_contexts_on_expires_at"
+    t.index ["scope"], name: "index_ai_persistent_contexts_on_scope"
   end
 
   create_table "ai_provider_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2039,6 +2110,139 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_03_040001) do
     t.index ["started_at"], name: "index_impersonation_sessions_on_started_at"
   end
 
+  create_table "integration_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "created_by_user_id"
+    t.string "name", null: false
+    t.string "credential_type", null: false
+    t.text "encrypted_credentials", null: false
+    t.string "encryption_key_id", null: false
+    t.datetime "token_expires_at"
+    t.text "encrypted_refresh_token"
+    t.jsonb "scopes", default: []
+    t.jsonb "metadata", default: {}
+    t.boolean "is_active", default: true
+    t.datetime "last_used_at"
+    t.datetime "last_validated_at"
+    t.string "validation_status"
+    t.integer "consecutive_failures", default: 0
+    t.text "last_error"
+    t.datetime "expires_at"
+    t.datetime "rotated_at"
+    t.uuid "rotated_from_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "credential_type"], name: "idx_credentials_account_type"
+    t.index ["account_id", "name"], name: "index_integration_credentials_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_integration_credentials_on_account_id"
+    t.index ["created_by_user_id"], name: "index_integration_credentials_on_created_by_user_id"
+    t.index ["credential_type"], name: "index_integration_credentials_on_credential_type"
+    t.index ["expires_at"], name: "index_integration_credentials_on_expires_at"
+    t.index ["is_active"], name: "index_integration_credentials_on_is_active"
+  end
+
+  create_table "integration_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "integration_instance_id", null: false
+    t.uuid "account_id", null: false
+    t.uuid "triggered_by_user_id"
+    t.string "execution_id", null: false
+    t.string "status", default: "pending", null: false
+    t.jsonb "input_data", default: {}
+    t.jsonb "output_data", default: {}
+    t.jsonb "error_details", default: {}
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.integer "duration_ms"
+    t.string "trigger_type"
+    t.string "trigger_source"
+    t.jsonb "trigger_metadata", default: {}
+    t.integer "attempt_number", default: 1
+    t.integer "max_attempts", default: 3
+    t.datetime "next_retry_at"
+    t.uuid "parent_execution_id"
+    t.decimal "cost_estimate", precision: 10, scale: 6
+    t.jsonb "resource_usage", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "idx_executions_account_created"
+    t.index ["account_id"], name: "index_integration_executions_on_account_id"
+    t.index ["execution_id"], name: "index_integration_executions_on_execution_id", unique: true
+    t.index ["integration_instance_id", "status"], name: "idx_executions_instance_status"
+    t.index ["integration_instance_id"], name: "index_integration_executions_on_integration_instance_id"
+    t.index ["parent_execution_id"], name: "index_integration_executions_on_parent_execution_id"
+    t.index ["status"], name: "index_integration_executions_on_status"
+    t.index ["trigger_type"], name: "index_integration_executions_on_trigger_type"
+    t.index ["triggered_by_user_id"], name: "index_integration_executions_on_triggered_by_user_id"
+  end
+
+  create_table "integration_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "integration_template_id", null: false
+    t.uuid "integration_credential_id"
+    t.uuid "created_by_user_id"
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.text "description"
+    t.string "status", default: "pending"
+    t.jsonb "configuration", default: {}
+    t.jsonb "runtime_state", default: {}
+    t.jsonb "health_metrics", default: {}
+    t.integer "execution_count", default: 0
+    t.integer "success_count", default: 0
+    t.integer "failure_count", default: 0
+    t.decimal "average_duration_ms", precision: 10, scale: 2
+    t.datetime "last_executed_at"
+    t.datetime "last_success_at"
+    t.datetime "last_failure_at"
+    t.text "last_error"
+    t.datetime "last_health_check_at"
+    t.string "health_status"
+    t.integer "consecutive_failures", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "slug"], name: "index_integration_instances_on_account_id_and_slug", unique: true
+    t.index ["account_id", "status"], name: "idx_instances_account_status"
+    t.index ["account_id"], name: "index_integration_instances_on_account_id"
+    t.index ["created_by_user_id"], name: "index_integration_instances_on_created_by_user_id"
+    t.index ["health_status"], name: "index_integration_instances_on_health_status"
+    t.index ["integration_credential_id"], name: "index_integration_instances_on_integration_credential_id"
+    t.index ["integration_template_id"], name: "index_integration_instances_on_integration_template_id"
+    t.index ["status"], name: "index_integration_instances_on_status"
+  end
+
+  create_table "integration_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.string "integration_type", null: false
+    t.string "category"
+    t.string "version", default: "1.0.0"
+    t.text "description"
+    t.string "icon_url"
+    t.string "documentation_url"
+    t.jsonb "configuration_schema", default: {}
+    t.jsonb "credential_requirements", default: {}
+    t.jsonb "capabilities", default: []
+    t.jsonb "input_schema", default: {}
+    t.jsonb "output_schema", default: {}
+    t.jsonb "default_configuration", default: {}
+    t.jsonb "metadata", default: {}
+    t.jsonb "supported_providers", default: []
+    t.boolean "is_public", default: false
+    t.boolean "is_featured", default: false
+    t.boolean "is_active", default: true
+    t.integer "usage_count", default: 0
+    t.integer "install_count", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["category"], name: "index_integration_templates_on_category"
+    t.index ["integration_type"], name: "index_integration_templates_on_integration_type"
+    t.index ["is_active"], name: "index_integration_templates_on_is_active"
+    t.index ["is_featured"], name: "index_integration_templates_on_is_featured"
+    t.index ["is_public", "is_active"], name: "idx_templates_public_active"
+    t.index ["is_public"], name: "index_integration_templates_on_is_public"
+    t.index ["slug"], name: "index_integration_templates_on_slug", unique: true
+  end
+
   create_table "invitations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "inviter_id", null: false
@@ -3560,6 +3764,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_03_040001) do
   add_foreign_key "ai_agents", "accounts", on_delete: :cascade
   add_foreign_key "ai_agents", "ai_providers"
   add_foreign_key "ai_agents", "users", column: "creator_id", on_delete: :restrict
+  add_foreign_key "ai_context_access_logs", "accounts"
+  add_foreign_key "ai_context_access_logs", "ai_agents"
+  add_foreign_key "ai_context_access_logs", "ai_context_entries"
+  add_foreign_key "ai_context_access_logs", "ai_persistent_contexts"
+  add_foreign_key "ai_context_access_logs", "users"
+  add_foreign_key "ai_context_entries", "ai_agents"
+  add_foreign_key "ai_context_entries", "ai_persistent_contexts"
+  add_foreign_key "ai_context_entries", "users", column: "created_by_user_id"
   add_foreign_key "ai_conversations", "accounts", on_delete: :cascade
   add_foreign_key "ai_conversations", "ai_agents", on_delete: :nullify
   add_foreign_key "ai_conversations", "ai_providers", on_delete: :restrict
@@ -3568,6 +3780,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_03_040001) do
   add_foreign_key "ai_messages", "ai_conversations", on_delete: :cascade
   add_foreign_key "ai_messages", "ai_messages", column: "parent_message_id", on_delete: :nullify
   add_foreign_key "ai_messages", "users", on_delete: :nullify
+  add_foreign_key "ai_persistent_contexts", "accounts"
+  add_foreign_key "ai_persistent_contexts", "ai_agents"
+  add_foreign_key "ai_persistent_contexts", "users", column: "created_by_user_id"
   add_foreign_key "ai_provider_credentials", "accounts", on_delete: :cascade
   add_foreign_key "ai_provider_credentials", "ai_providers", on_delete: :cascade
   add_foreign_key "ai_provider_plugins", "plugins"
@@ -3684,6 +3899,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_03_040001) do
   add_foreign_key "git_workflow_triggers", "git_repositories"
   add_foreign_key "impersonation_sessions", "users", column: "impersonated_user_id"
   add_foreign_key "impersonation_sessions", "users", column: "impersonator_id"
+  add_foreign_key "integration_credentials", "accounts"
+  add_foreign_key "integration_credentials", "users", column: "created_by_user_id"
+  add_foreign_key "integration_executions", "accounts"
+  add_foreign_key "integration_executions", "integration_instances"
+  add_foreign_key "integration_executions", "users", column: "triggered_by_user_id"
+  add_foreign_key "integration_instances", "accounts"
+  add_foreign_key "integration_instances", "integration_credentials"
+  add_foreign_key "integration_instances", "integration_templates"
+  add_foreign_key "integration_instances", "users", column: "created_by_user_id"
   add_foreign_key "invitations", "accounts"
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "invoice_line_items", "invoices"

@@ -1,0 +1,204 @@
+# frozen_string_literal: true
+
+module Api
+  module V1
+    module Integrations
+      class InstancesController < ApplicationController
+        before_action :authenticate_user!
+        before_action :set_instance, only: [:show, :update, :destroy, :activate, :deactivate, :test, :execute]
+
+        # GET /api/v1/integrations/instances
+        def index
+          authorize_action!("integrations.read")
+
+          instances = IntegrationRegistryService.list_instances(
+            account: current_account,
+            filters: instance_filters,
+            **pagination_params
+          )
+
+          render_success(
+            instances: instances.map(&:instance_summary),
+            pagination: pagination_meta(instances)
+          )
+        end
+
+        # GET /api/v1/integrations/instances/:id
+        def show
+          authorize_action!("integrations.read")
+
+          render_success(instance: @instance.instance_details)
+        end
+
+        # POST /api/v1/integrations/instances
+        def create
+          authorize_action!("integrations.create")
+
+          instance = IntegrationRegistryService.install_template(
+            account: current_account,
+            template_identifier: params[:template_id],
+            attributes: instance_params,
+            created_by: current_user
+          )
+
+          render_success(instance: instance.instance_details, status: :created)
+        rescue IntegrationRegistryService::TemplateNotFoundError
+          render_not_found("Template")
+        rescue IntegrationRegistryService::ValidationError => e
+          render_error(e.message, status: :unprocessable_entity)
+        end
+
+        # PATCH /api/v1/integrations/instances/:id
+        def update
+          authorize_action!("integrations.update")
+
+          instance = IntegrationRegistryService.update_instance(
+            account: current_account,
+            instance_id: @instance.id,
+            attributes: instance_params
+          )
+
+          render_success(instance: instance.instance_details)
+        rescue IntegrationRegistryService::ValidationError => e
+          render_error(e.message, status: :unprocessable_entity)
+        end
+
+        # DELETE /api/v1/integrations/instances/:id
+        def destroy
+          authorize_action!("integrations.delete")
+
+          IntegrationRegistryService.uninstall_instance(
+            account: current_account,
+            instance_id: @instance.id
+          )
+
+          render_success(message: "Integration uninstalled")
+        end
+
+        # POST /api/v1/integrations/instances/:id/activate
+        def activate
+          authorize_action!("integrations.update")
+
+          instance = IntegrationRegistryService.activate_instance(
+            account: current_account,
+            instance_id: @instance.id
+          )
+
+          render_success(instance: instance.instance_details)
+        rescue IntegrationRegistryService::ValidationError => e
+          render_error(e.message, status: :unprocessable_entity)
+        end
+
+        # POST /api/v1/integrations/instances/:id/deactivate
+        def deactivate
+          authorize_action!("integrations.update")
+
+          instance = IntegrationRegistryService.deactivate_instance(
+            account: current_account,
+            instance_id: @instance.id
+          )
+
+          render_success(instance: instance.instance_details)
+        end
+
+        # POST /api/v1/integrations/instances/:id/test
+        def test
+          authorize_action!("integrations.execute")
+
+          result = IntegrationExecutionService.test_connection(instance: @instance)
+
+          render_success(result: result)
+        end
+
+        # POST /api/v1/integrations/instances/:id/execute
+        def execute
+          authorize_action!("integrations.execute")
+
+          unless @instance.status == "active"
+            return render_error("Integration is not active", status: :unprocessable_entity)
+          end
+
+          result = IntegrationExecutionService.execute(
+            instance: @instance,
+            input: execution_input,
+            triggered_by: current_user,
+            context: { request_id: request.request_id }
+          )
+
+          if result[:success]
+            render_success(result: result)
+          else
+            render_error(result[:error], status: :unprocessable_entity, data: { execution_id: result[:execution_id] })
+          end
+        end
+
+        # GET /api/v1/integrations/instances/:id/health
+        def health
+          authorize_action!("integrations.read")
+
+          health = IntegrationExecutionService.health_check(instance: @instance)
+
+          render_success(health: health)
+        end
+
+        # GET /api/v1/integrations/instances/:id/stats
+        def stats
+          authorize_action!("integrations.read")
+
+          stats = IntegrationExecutionService.execution_stats(
+            instance: @instance,
+            period: (params[:period] || 30).to_i.days
+          )
+
+          render_success(stats: stats)
+        end
+
+        private
+
+        def set_instance
+          @instance = IntegrationRegistryService.find_instance(
+            account: current_account,
+            instance_id: params[:id]
+          )
+        rescue IntegrationRegistryService::InstanceNotFoundError
+          render_not_found("Integration instance")
+        end
+
+        def instance_params
+          params.require(:instance).permit(
+            :name, :slug, :credential_id,
+            configuration: {}
+          )
+        end
+
+        def instance_filters
+          {
+            status: params[:status],
+            type: params[:type]
+          }.compact
+        end
+
+        def execution_input
+          params.permit(:method, :path, :workflow_id, :ref, :tool,
+                        body: {}, headers: {}, query_params: {}, inputs: {}, arguments: {})
+                .to_h
+        end
+
+        def authorize_action!(permission)
+          unless current_user.has_permission?(permission)
+            render_forbidden("You don't have permission to perform this action")
+          end
+        end
+
+        def pagination_meta(collection)
+          {
+            current_page: collection.current_page,
+            total_pages: collection.total_pages,
+            total_count: collection.total_count,
+            per_page: collection.limit_value
+          }
+        end
+      end
+    end
+  end
+end

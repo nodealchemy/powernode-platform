@@ -230,7 +230,32 @@ module Permissions
 
     # Git Pipeline Approvals
     "git.approvals.read" => "View pipeline approval requests",
-    "git.approvals.manage" => "Approve or reject pipeline requests"
+    "git.approvals.manage" => "Approve or reject pipeline requests",
+
+    # Integration Templates & Instances
+    "integrations.read" => "View integration templates and instances",
+    "integrations.create" => "Create integration instances",
+    "integrations.update" => "Update integration instances",
+    "integrations.delete" => "Delete integration instances",
+    "integrations.execute" => "Execute integrations",
+    "integrations.credentials.read" => "View integration credentials",
+    "integrations.credentials.create" => "Create integration credentials",
+    "integrations.credentials.update" => "Update integration credentials",
+    "integrations.credentials.delete" => "Delete integration credentials",
+
+    # AI Persistent Context
+    "ai.context.read" => "View AI persistent contexts",
+    "ai.context.create" => "Create AI persistent contexts",
+    "ai.context.update" => "Update AI persistent contexts",
+    "ai.context.delete" => "Delete AI persistent contexts",
+    "ai.context.search" => "Search AI context entries",
+    "ai.context.export" => "Export AI contexts",
+    "ai.context.import" => "Import AI contexts",
+
+    # AI Agent Memory
+    "ai.memory.read" => "View AI agent memory",
+    "ai.memory.write" => "Write to AI agent memory",
+    "ai.memory.manage" => "Manage AI agent memory (clear, archive)"
   }.freeze
 
   # Admin Permissions - Administrative operations
@@ -384,7 +409,28 @@ module Permissions
     "admin.git.schedules.read" => "View all pipeline schedules",
     "admin.git.schedules.manage" => "Manage all pipeline schedules",
     "admin.git.approvals.read" => "View all pipeline approvals",
-    "admin.git.approvals.manage" => "Manage all pipeline approvals"
+    "admin.git.approvals.manage" => "Manage all pipeline approvals",
+
+    # Integration Administration
+    "admin.integrations.read" => "View all integration instances",
+    "admin.integrations.manage" => "Manage all integration instances",
+    "admin.integrations.templates.read" => "View all integration templates",
+    "admin.integrations.templates.create" => "Create integration templates",
+    "admin.integrations.templates.edit" => "Edit integration templates",
+    "admin.integrations.templates.delete" => "Delete integration templates",
+    "admin.integrations.templates.publish" => "Publish/unpublish integration templates",
+    "admin.integrations.credentials.read" => "View all integration credentials",
+    "admin.integrations.credentials.manage" => "Manage all integration credentials",
+    "admin.integrations.executions.read" => "View all integration executions",
+    "admin.integrations.executions.manage" => "Manage all integration executions",
+
+    # AI Context Administration
+    "admin.ai.context.read" => "View all AI persistent contexts",
+    "admin.ai.context.manage" => "Manage all AI persistent contexts",
+    "admin.ai.context.delete" => "Delete any AI context",
+    "admin.ai.context.export" => "Export all AI contexts",
+    "admin.ai.memory.read" => "View all AI agent memory",
+    "admin.ai.memory.manage" => "Manage all AI agent memory"
   }.freeze
 
   # System Permissions - Worker & automation operations
@@ -459,6 +505,18 @@ module Permissions
     "system.ai.rotate_keys" => "Rotate AI encryption keys",
     "system.ai.backup" => "Backup AI data",
     "system.ai.sync" => "Sync AI provider data",
+
+    # Integration System Operations
+    "system.integrations.execute" => "Execute integration instances",
+    "system.integrations.health_check" => "Perform integration health checks",
+    "system.integrations.sync" => "Sync integration data",
+    "system.integrations.rotate_credentials" => "Rotate integration credentials",
+
+    # AI Context System Operations
+    "system.ai.context.cleanup" => "Clean up expired AI contexts",
+    "system.ai.context.archive" => "Archive old AI contexts",
+    "system.ai.context.sync" => "Sync AI context data",
+    "system.ai.context.generate_embeddings" => "Generate embeddings for context entries",
 
     # Git System Operations
     "system.git.process_webhooks" => "Process Git webhook events",
@@ -569,7 +627,15 @@ module Permissions
         "git.webhooks.read",
         "git.runners.read", "git.runners.manage", "git.runners.token",
         "git.schedules.read", "git.schedules.manage",
-        "git.approvals.read", "git.approvals.manage"
+        "git.approvals.read", "git.approvals.manage",
+        # Integration permissions
+        "integrations.read", "integrations.create", "integrations.update", "integrations.delete", "integrations.execute",
+        "integrations.credentials.read", "integrations.credentials.create",
+        "integrations.credentials.update", "integrations.credentials.delete",
+        # AI Context permissions
+        "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
+        "ai.context.search", "ai.context.export", "ai.context.import",
+        "ai.memory.read", "ai.memory.write", "ai.memory.manage"
       ]
     },
 
@@ -702,7 +768,13 @@ module Permissions
         "ai.messages.read", "ai.messages.create",
         # Git system permissions
         "system.git.process_webhooks", "system.git.sync_repositories",
-        "system.git.sync_pipelines", "system.git.access_credentials"
+        "system.git.sync_pipelines", "system.git.access_credentials",
+        # Integration permissions for worker jobs
+        "integrations.read", "integrations.execute",
+        "integrations.credentials.read",
+        # AI Context permissions for worker jobs
+        "ai.context.read", "ai.context.update",
+        "ai.memory.read", "ai.memory.write"
       ]
     },
 
@@ -766,7 +838,15 @@ module Permissions
         "git.repositories.read", "git.repositories.delete", "git.repositories.sync",
         "git.repositories.webhooks.manage",
         "git.pipelines.read", "git.pipelines.trigger", "git.pipelines.cancel", "git.pipelines.logs",
-        "git.webhooks.read"
+        "git.webhooks.read",
+        # Integration permissions
+        "integrations.read", "integrations.create", "integrations.update", "integrations.delete", "integrations.execute",
+        "integrations.credentials.read", "integrations.credentials.create",
+        "integrations.credentials.update", "integrations.credentials.delete",
+        # AI Context permissions
+        "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
+        "ai.context.search", "ai.context.export", "ai.context.import",
+        "ai.memory.read", "ai.memory.write", "ai.memory.manage"
       ]
     }
   }.freeze

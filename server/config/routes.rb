@@ -1658,7 +1658,55 @@ Rails.application.routes.draw do
         post "marketplace/updates/apply", controller: "marketplace", action: :apply_updates
 
         # ===================================================================
-        # 7. AGENT TEAMS CONTROLLER - CrewAI-style team orchestration
+        # 9. PERSISTENT CONTEXT CONTROLLER - Cross-session AI memory
+        # ===================================================================
+        # Knowledge bases, agent memory, and shared context management
+        # ===================================================================
+
+        resources :contexts do
+          member do
+            post :search
+            post :archive
+            post :unarchive
+            get :export
+            post :clone
+          end
+
+          collection do
+            post :import
+            get :stats
+          end
+
+          # Nested entries
+          resources :entries, controller: "context_entries" do
+            member do
+              post :archive
+              post :unarchive
+              post :boost
+              get :history
+            end
+
+            collection do
+              post :bulk, action: :bulk_create
+            end
+          end
+        end
+
+        # Agent Memory - convenient shorthand for agent-specific memory
+        scope "agents/:agent_id" do
+          get "memory", to: "agent_memory#index"
+          post "memory", to: "agent_memory#create"
+          get "memory/stats", to: "agent_memory#stats"
+          post "memory/search", to: "agent_memory#search"
+          post "memory/clear", to: "agent_memory#clear"
+          post "memory/sync", to: "agent_memory#sync"
+          get "memory/:key", to: "agent_memory#show"
+          patch "memory/:key", to: "agent_memory#update"
+          delete "memory/:key", to: "agent_memory#destroy"
+        end
+
+        # ===================================================================
+        # 10. AGENT TEAMS CONTROLLER - CrewAI-style team orchestration
         # ===================================================================
         resources :agent_teams do
           member do
@@ -1716,6 +1764,56 @@ Rails.application.routes.draw do
         collection do
           get :supported
           get :aggregate_stats, path: "stats"
+        end
+      end
+
+      # ===================================================================
+      # EXTERNAL INTEGRATION FRAMEWORK
+      # ===================================================================
+      # Multi-tenancy integration system with GitHub Actions, webhooks,
+      # MCP servers, and REST API support
+      # ===================================================================
+
+      namespace :integrations do
+        # Templates (system-wide, admin-managed)
+        resources :templates do
+          collection do
+            get :search
+            get :categories
+            get :types
+          end
+        end
+
+        # Instances (per-account installations)
+        resources :instances do
+          member do
+            post :activate
+            post :deactivate
+            post :test
+            post :execute
+            get :health
+            get :stats
+          end
+        end
+
+        # Credentials (per-account secrets)
+        resources :credentials do
+          member do
+            post :rotate
+            post :verify
+          end
+        end
+
+        # Executions (history and management)
+        resources :executions, only: [ :index, :show ] do
+          member do
+            post :retry
+            post :cancel
+          end
+
+          collection do
+            get :stats
+          end
         end
       end
 

@@ -207,6 +207,8 @@ module Mcp
           Mcp::NodeExecutors::GitCommitStatus
         when "git_create_check"
           Mcp::NodeExecutors::GitCreateCheck
+        when "integration_execute"
+          Mcp::NodeExecutors::IntegrationExecute
         else
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "Unknown node type: #{node_type}"
         end

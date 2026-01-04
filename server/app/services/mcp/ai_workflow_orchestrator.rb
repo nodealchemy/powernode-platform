@@ -143,6 +143,9 @@ module Mcp
       @state_machine.initialize_state(@execution_context)
       @monitor.start_monitoring(@execution_context)
 
+      # Load persistent contexts (agent memories, knowledge bases)
+      load_persistent_contexts
+
       serializable_context = @execution_context.except(:node_results).deep_dup
       @workflow_run.update!(
         status: "initializing",

@@ -82,6 +82,19 @@ import { WorkflowMonitoringPage } from './ai/WorkflowMonitoringPage';
 import { WorkflowValidationStatisticsPage } from './ai/WorkflowValidationStatisticsPage';
 import { AIAnalyticsPage } from './ai/AIAnalyticsPage';
 
+// AI Context Pages
+import { AgentMemoryPage } from './ai/AgentMemoryPage';
+import { KnowledgeBasePage as AIKnowledgeBasePage } from './ai/KnowledgeBasePage';
+import { ContextDetailPage } from './ai/ContextDetailPage';
+
+// Integration Pages
+import {
+  IntegrationsPage,
+  IntegrationsMarketplacePage,
+  IntegrationDetailPage,
+  NewIntegrationPage,
+} from '@/pages/app/integrations';
+
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
   const navigate = useNavigate();
@@ -476,6 +489,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
         <Route path="/ai/agent-teams" element={<AgentTeamsPage />} />
+        <Route path="/ai/knowledge" element={<AIKnowledgeBasePage />} />
+        <Route path="/ai/contexts" element={<AIKnowledgeBasePage />} />
+        <Route path="/ai/contexts/:id" element={<ContextDetailPage />} />
+        <Route path="/ai/agents/:agentId/memory" element={<AgentMemoryPage />} />
         
         {/* Core Pages */}
         <Route path="/content/pages" element={<PagesPage />} />
@@ -527,6 +544,13 @@ const DashboardPage: React.FC = () => {
         {/* Marketplace Pages - Unified Interface */}
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/marketplace/:type/:id" element={<ItemDetailPage />} />
+
+        {/* Integration Pages */}
+        <Route path="/integrations" element={<IntegrationsPage />} />
+        <Route path="/integrations/marketplace" element={<IntegrationsMarketplacePage />} />
+        <Route path="/integrations/new" element={<NewIntegrationPage />} />
+        <Route path="/integrations/new/:templateId" element={<NewIntegrationPage />} />
+        <Route path="/integrations/:id" element={<IntegrationDetailPage />} />
         
         {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />

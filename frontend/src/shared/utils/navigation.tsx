@@ -4,7 +4,7 @@ import {
   FileText, Package, UserCheck, Store, Smartphone,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
   HardDrive, Workflow, Activity, Server, GitBranch,
-  Play, Webhook, Clock, ShieldCheck
+  Play, Webhook, Clock, ShieldCheck, Puzzle, Database, BookOpen
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -124,9 +124,27 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Browse MCP servers and tools',
           permissions: ['ai_orchestration.read', 'admin.access'],
           order: 9
+        },
+        {
+          id: 'ai-knowledge',
+          name: 'Knowledge Base',
+          href: '/app/ai/knowledge',
+          icon: BookOpen,
+          description: 'Manage AI knowledge and context storage',
+          permissions: ['ai.context.read'],
+          order: 10
+        },
+        {
+          id: 'ai-contexts',
+          name: 'Contexts',
+          href: '/app/ai/contexts',
+          icon: Database,
+          description: 'Browse and manage AI persistent contexts',
+          permissions: ['ai.context.read'],
+          order: 11
         }
       ],
-      permissions: ['ai.providers.read', 'ai.agents.read', 'ai.workflows.read', 'ai.conversations.read'],
+      permissions: ['ai.providers.read', 'ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 5
@@ -221,6 +239,34 @@ export const defaultNavigationConfig: NavigationConfig = {
       collapsible: true,
       defaultExpanded: true,
       order: 16
+    },
+    {
+      id: 'integrations',
+      name: 'Integrations',
+      items: [
+        {
+          id: 'integrations-marketplace',
+          name: 'Marketplace',
+          href: '/app/integrations/marketplace',
+          icon: Store,
+          description: 'Browse available integration templates',
+          permissions: ['integrations.read'],
+          order: 1
+        },
+        {
+          id: 'integrations-installed',
+          name: 'Installed',
+          href: '/app/integrations',
+          icon: Puzzle,
+          description: 'Manage your installed integrations',
+          permissions: ['integrations.read'],
+          order: 2
+        }
+      ],
+      permissions: ['integrations.read'],
+      collapsible: true,
+      defaultExpanded: true,
+      order: 17
     }
   ],
   
@@ -385,7 +431,7 @@ export const adminNavigationOverrides = {
       permissions: ['git.pipelines.read', 'git.runners.read', 'git.schedules.read', 'git.approvals.read'],
       collapsible: true,
       defaultExpanded: true,
-      order: 17
+      order: 18
     },
     {
       id: 'system',
@@ -458,7 +504,7 @@ export const adminNavigationOverrides = {
       permissions: ['webhook.read', 'admin.audit.read', 'api.manage_keys', 'admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'git.providers.read'],
       collapsible: true,
       defaultExpanded: false,
-      order: 18
+      order: 19
     },
     {
       id: 'administration',

@@ -17,7 +17,7 @@ class AiWorkflowNode < ApplicationRecord
   has_many :target_edges, class_name: "AiWorkflowEdge",
            foreign_key: "target_node_id", primary_key: "node_id", dependent: :destroy
 
-  # Consolidated node types (30 total - includes CI/CD)
+  # Consolidated node types (31 total - includes CI/CD and integrations)
   VALID_NODE_TYPES = %w[
     start end trigger
     ai_agent prompt_template data_processor transform
@@ -29,6 +29,7 @@ class AiWorkflowNode < ApplicationRecord
     kb_article page mcp_operation
     ci_trigger ci_wait_status ci_get_logs ci_cancel
     git_commit_status git_create_check
+    integration_execute
   ].freeze
 
   # CI/CD node type constants

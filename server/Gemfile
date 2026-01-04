@@ -136,3 +136,4 @@ gem "rotp", "~> 6.3"
 gem "rqrcode", "~> 2.2"
 
 gem "redis", "~> 5.4"
+gem 'pgvector'
