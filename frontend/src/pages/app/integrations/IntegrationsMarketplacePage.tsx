@@ -96,14 +96,14 @@ export function IntegrationsMarketplacePage() {
                 placeholder="Search integrations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
               />
             </div>
             <div className="flex gap-2">
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value as IntegrationType | '')}
-                className="px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
               >
                 {integrationTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -114,7 +114,7 @@ export function IntegrationsMarketplacePage() {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
               >
                 <option value="">All Categories</option>
                 {Object.keys(categories).map((cat) => (
@@ -132,7 +132,7 @@ export function IntegrationsMarketplacePage() {
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-theme-primary border-t-transparent" />
             </div>
           ) : filteredTemplates.length === 0 ? (
-            <div className="text-center py-12 bg-theme-card border border-theme rounded-lg">
+            <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
               <p className="text-theme-secondary">No integrations found</p>
               {hasFilters && (
                 <button
@@ -174,7 +174,7 @@ export function IntegrationsMarketplacePage() {
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className="p-4 bg-theme-card border border-theme rounded-lg hover:border-theme-primary transition-colors text-left"
+                  className="p-4 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors text-left"
                 >
                   <h3 className="font-medium text-theme-primary">{category}</h3>
                   <p className="text-sm text-theme-tertiary mt-1">

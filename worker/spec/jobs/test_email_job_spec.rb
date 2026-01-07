@@ -1,185 +1,199 @@
 # frozen_string_literal: true
 
-require_relative '../spec_helper'
-require_relative '../../app/jobs/test_email_job'
+require 'spec_helper'
 
 RSpec.describe TestEmailJob do
+  let(:job) { described_class.new }
   let(:email_address) { 'test@example.com' }
   let(:account_id) { 'account_123' }
+  let(:email_service) { instance_double(EmailConfigurationService) }
+  let(:settings) do
+    {
+      smtp_host: 'smtp.example.com',
+      smtp_port: 587,
+      smtp_domain: 'example.com',
+      smtp_username: 'user@example.com',
+      smtp_password: 'password123',
+      smtp_authentication: true,
+      smtp_encryption: 'tls',
+      smtp_from_address: 'noreply@example.com'
+    }
+  end
 
   before do
-    # Clear any previous emails
-    ActionMailer::Base.deliveries.clear
-    
-    # Mock logger to prevent output during tests
-    allow_any_instance_of(TestEmailJob).to receive(:logger).and_return(
-      instance_double('Logger', info: nil, warn: nil, error: nil, level: Logger::INFO)
-    )
+    allow(job).to receive(:logger).and_return(Logger.new(nil))
+    allow(EmailConfigurationService).to receive(:instance).and_return(email_service)
+    allow(email_service).to receive(:fetch_settings)
+    allow(email_service).to receive(:settings).and_return(settings)
   end
 
   describe '#execute' do
-    context 'in test environment' do
+    context 'with successful email delivery' do
+      let(:mail_message) { instance_double(Mail::Message) }
+
       before do
-        allow(PowernodeWorker.application).to receive(:env).and_return('test')
+        allow(Mail).to receive(:defaults)
+        allow(Mail).to receive(:new).and_return(mail_message)
+        allow(mail_message).to receive(:from)
+        allow(mail_message).to receive(:to)
+        allow(mail_message).to receive(:subject)
+        allow(mail_message).to receive(:html_part)
+        allow(mail_message).to receive(:text_part)
+        allow(mail_message).to receive(:deliver!)
       end
 
-      it 'simulates email delivery without sending actual email' do
-        job = TestEmailJob.new
-        
-        expect {
-          job.execute(email_address, account_id)
-        }.not_to raise_error
-        
-        # In test environment, no actual email should be delivered
-        expect(ActionMailer::Base.deliveries).to be_empty
-      end
+      it 'refreshes email settings before sending' do
+        expect(email_service).to receive(:fetch_settings).with(force_refresh: true)
 
-      it 'handles hash format parameters' do
-        job = TestEmailJob.new
-        hash_params = {
-          'email' => email_address,
-          'account_id' => account_id
-        }
-        
-        expect {
-          job.execute(hash_params)
-        }.not_to raise_error
-      end
-
-      it 'handles missing email address gracefully' do
-        job = TestEmailJob.new
-        
-        expect {
-          job.execute(nil)
-        }.not_to raise_error
-      end
-
-      it 'logs appropriate messages for test environment' do
-        logger = instance_double('Logger')
-        allow_any_instance_of(TestEmailJob).to receive(:logger).and_return(logger)
-        
-        # Allow all log messages to be flexible since the job logs multiple things
-        allow(logger).to receive(:info)
-        allow(logger).to receive(:warn)
-        allow(logger).to receive(:error)
-        allow(logger).to receive(:level).and_return(Logger::INFO)
-        
-        # Verify specific key messages are logged
-        expect(logger).to receive(:info).with(/Sending test email to configured recipient/)
-        expect(logger).to receive(:info).with(/Test environment detected/)
-        expect(logger).to receive(:info).with(/Test email would be sent to/)
-        expect(logger).to receive(:info).with(/Email delivery simulation completed/)
-        
-        job = TestEmailJob.new
-        job.execute(email_address, account_id)
-      end
-    end
-
-    context 'in development environment' do
-      before do
-        allow(PowernodeWorker.application).to receive(:env).and_return('development')
-        
-        # Mock EmailConfigurationService
-        email_service = instance_double('EmailConfigurationService')
-        allow(EmailConfigurationService).to receive(:instance).and_return(email_service)
-        allow(email_service).to receive(:fetch_settings)
-        allow(email_service).to receive(:settings).and_return({ provider: 'smtp' })
-        
-        # Mock NotificationMailer
-        mailer = instance_double('ActionMailer::MessageDelivery')
-        allow(NotificationMailer).to receive(:test_email).and_return(mailer)
-        allow(mailer).to receive(:deliver_now)
-      end
-
-      it 'attempts to send real email in development' do
-        job = TestEmailJob.new
-        
-        expect(EmailConfigurationService.instance).to receive(:fetch_settings)
-        expect(NotificationMailer).to receive(:test_email).with(email_address)
-        
-        job.execute(email_address, account_id)
-      end
-    end
-
-    context 'audit logging' do
-      let(:api_client) { instance_double('ApiClient') }
-      
-      before do
-        allow(PowernodeWorker.application).to receive(:env).and_return('test')
-        allow_any_instance_of(TestEmailJob).to receive(:api_client).and_return(api_client)
-        allow(api_client).to receive(:post)
-        
-        # Mock SystemWorkerAuth
-        system_auth = instance_double('SystemWorkerAuth')
-        allow(SystemWorkerAuth).to receive(:instance).and_return(system_auth)
-        allow(system_auth).to receive(:create_api_client).and_return(api_client)
-        
-        # Mock EmailConfigurationService for audit log
-        email_service = instance_double('EmailConfigurationService')
-        allow(EmailConfigurationService).to receive(:instance).and_return(email_service)
-        allow(email_service).to receive(:settings).and_return({ provider: 'smtp' })
-      end
-
-      it 'creates audit log for successful test email' do
-        expect(api_client).to receive(:post).with(
-          '/api/v1/audit_logs',
-          hash_including(
-            action: 'test_email_sent',
-            resource_type: 'TestEmail',
-            source: 'worker'
-          )
-        )
-        
-        job = TestEmailJob.new
-        job.execute(email_address, account_id)
-      end
-
-      it 'uses system worker authentication when account_id provided' do
-        expect(SystemWorkerAuth.instance).to receive(:create_api_client).with(account_id)
-        
-        job = TestEmailJob.new
-        job.execute(email_address, account_id)
-      end
-
-      it 'uses default authentication when no account_id provided' do
-        expect_any_instance_of(TestEmailJob).to receive(:api_client)
-        
-        job = TestEmailJob.new
         job.execute(email_address)
       end
+
+      it 'configures mail delivery settings' do
+        expect(Mail).to receive(:defaults)
+
+        job.execute(email_address)
+      end
+
+      it 'sends the email' do
+        expect(mail_message).to receive(:deliver!)
+
+        job.execute(email_address)
+      end
+
+      it 'returns success result' do
+        result = job.execute(email_address)
+
+        expect(result[:success]).to be true
+        expect(result[:email]).to eq(email_address)
+        expect(result[:sent_at]).to be_present
+      end
+
+      it 'accepts optional account_id parameter' do
+        result = job.execute(email_address, account_id)
+
+        expect(result[:success]).to be true
+      end
     end
 
-    context 'error handling' do
+    context 'when email settings refresh fails' do
       before do
-        allow(PowernodeWorker.application).to receive(:env).and_return('development')
-        
-        # Mock services to raise error
-        allow(EmailConfigurationService).to receive(:instance).and_raise(StandardError.new('Service error'))
+        allow(email_service).to receive(:fetch_settings).and_raise(StandardError.new('API error'))
+
+        # Still allow the email to be sent with cached settings
+        mail_message = instance_double(Mail::Message)
+        allow(Mail).to receive(:defaults)
+        allow(Mail).to receive(:new).and_return(mail_message)
+        allow(mail_message).to receive(:from)
+        allow(mail_message).to receive(:to)
+        allow(mail_message).to receive(:subject)
+        allow(mail_message).to receive(:html_part)
+        allow(mail_message).to receive(:text_part)
+        allow(mail_message).to receive(:deliver!)
       end
 
-      it 'handles errors gracefully and creates failure audit log' do
-        api_client = instance_double('ApiClient')
-        
-        # Mock SystemWorkerAuth since account_id is provided
-        system_auth = instance_double('SystemWorkerAuth')
-        allow(SystemWorkerAuth).to receive(:instance).and_return(system_auth)
-        allow(system_auth).to receive(:create_api_client).with(account_id).and_return(api_client)
-        allow(api_client).to receive(:post)
-        
-        job = TestEmailJob.new
-        
-        expect(api_client).to receive(:post).with(
-          '/api/v1/audit_logs',
-          hash_including(
-            action: 'test_email_failed',
-            resource_type: 'TestEmail'
-          )
-        )
-        
-        expect {
-          job.execute(email_address, account_id)
-        }.to raise_error(StandardError, 'Service error')
+      it 'continues with cached settings without raising error' do
+        # Job should continue with cached settings even when refresh fails
+        result = job.execute(email_address)
+        expect(result[:success]).to be true
       end
+    end
+
+    context 'with SMTP authentication error' do
+      before do
+        allow(Mail).to receive(:defaults)
+        mail_message = instance_double(Mail::Message)
+        allow(Mail).to receive(:new).and_return(mail_message)
+        allow(mail_message).to receive(:from)
+        allow(mail_message).to receive(:to)
+        allow(mail_message).to receive(:subject)
+        allow(mail_message).to receive(:html_part)
+        allow(mail_message).to receive(:text_part)
+        allow(mail_message).to receive(:deliver!).and_raise(
+          Net::SMTPAuthenticationError.new('535 Authentication failed')
+        )
+      end
+
+      it 'raises descriptive error' do
+        expect {
+          job.execute(email_address)
+        }.to raise_error(/SMTP authentication failed/)
+      end
+    end
+
+    context 'with SMTP server busy error' do
+      before do
+        allow(Mail).to receive(:defaults)
+        mail_message = instance_double(Mail::Message)
+        allow(Mail).to receive(:new).and_return(mail_message)
+        allow(mail_message).to receive(:from)
+        allow(mail_message).to receive(:to)
+        allow(mail_message).to receive(:subject)
+        allow(mail_message).to receive(:html_part)
+        allow(mail_message).to receive(:text_part)
+        allow(mail_message).to receive(:deliver!).and_raise(
+          Net::SMTPServerBusy.new('421 Too many connections')
+        )
+      end
+
+      it 'raises descriptive error' do
+        expect {
+          job.execute(email_address)
+        }.to raise_error(/SMTP server is busy/)
+      end
+    end
+
+    context 'with connection timeout' do
+      before do
+        allow(Mail).to receive(:defaults)
+        mail_message = instance_double(Mail::Message)
+        allow(Mail).to receive(:new).and_return(mail_message)
+        allow(mail_message).to receive(:from)
+        allow(mail_message).to receive(:to)
+        allow(mail_message).to receive(:subject)
+        allow(mail_message).to receive(:html_part)
+        allow(mail_message).to receive(:text_part)
+        allow(mail_message).to receive(:deliver!).and_raise(
+          Net::OpenTimeout.new('Connection timed out')
+        )
+      end
+
+      it 'raises descriptive error' do
+        expect {
+          job.execute(email_address)
+        }.to raise_error(/Could not connect to SMTP server/)
+      end
+    end
+
+    context 'with generic error' do
+      before do
+        allow(Mail).to receive(:defaults)
+        mail_message = instance_double(Mail::Message)
+        allow(Mail).to receive(:new).and_return(mail_message)
+        allow(mail_message).to receive(:from)
+        allow(mail_message).to receive(:to)
+        allow(mail_message).to receive(:subject)
+        allow(mail_message).to receive(:html_part)
+        allow(mail_message).to receive(:text_part)
+        allow(mail_message).to receive(:deliver!).and_raise(
+          StandardError.new('Unknown error')
+        )
+      end
+
+      it 'raises wrapped error' do
+        expect {
+          job.execute(email_address)
+        }.to raise_error(/Failed to send test email/)
+      end
+    end
+  end
+
+  describe 'job configuration' do
+    it 'uses the email queue' do
+      expect(described_class.sidekiq_options['queue']).to eq('email')
+    end
+
+    it 'retries once' do
+      expect(described_class.sidekiq_options['retry']).to eq(1)
     end
   end
 end

@@ -14,6 +14,15 @@ class BaseWorkerService
 
   attr_reader :api_client
 
+  # Logger accessor - uses PowernodeWorker logger or falls back to STDOUT
+  def logger
+    @logger ||= if defined?(PowernodeWorker) && PowernodeWorker.application.respond_to?(:logger)
+                  PowernodeWorker.application.logger
+                else
+                  Logger.new($stdout)
+                end
+  end
+
   # Standardized logging methods
   def log_info(message, **metadata)
     logger.info format_log_message(message, **metadata)

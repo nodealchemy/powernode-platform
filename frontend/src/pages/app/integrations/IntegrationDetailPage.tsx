@@ -206,17 +206,17 @@ export function IntegrationDetailPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-theme-card border border-theme rounded-lg p-4">
+          <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Total Executions</p>
             <p className="text-2xl font-semibold text-theme-primary mt-1">
               {instance.execution_count}
             </p>
           </div>
-          <div className="bg-theme-card border border-theme rounded-lg p-4">
+          <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Success Rate</p>
             <p className="text-2xl font-semibold text-theme-success mt-1">{successRate}%</p>
           </div>
-          <div className="bg-theme-card border border-theme rounded-lg p-4">
+          <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Avg. Duration</p>
             <p className="text-2xl font-semibold text-theme-primary mt-1">
               {stats?.stats.avg_execution_time_ms
@@ -224,7 +224,7 @@ export function IntegrationDetailPage() {
                 : '-'}
             </p>
           </div>
-          <div className="bg-theme-card border border-theme rounded-lg p-4">
+          <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Last Executed</p>
             <p className="text-sm font-medium text-theme-primary mt-2">
               {instance.last_executed_at
@@ -258,7 +258,7 @@ export function IntegrationDetailPage() {
           <div className="space-y-6">
             {/* Health Status */}
             {instance.health_metrics && (
-              <div className="bg-theme-card border border-theme rounded-lg p-4">
+              <div className="bg-theme-surface border border-theme rounded-lg p-4">
                 <h3 className="text-sm font-medium text-theme-primary mb-3">Health Status</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
@@ -331,7 +331,7 @@ export function IntegrationDetailPage() {
         {activeTab === 'config' && (
           <div className="space-y-6">
             {/* Configuration */}
-            <div className="bg-theme-card border border-theme rounded-lg p-4">
+            <div className="bg-theme-surface border border-theme rounded-lg p-4">
               <h3 className="text-sm font-medium text-theme-primary mb-3">Configuration</h3>
               {Object.keys(instance.configuration).length > 0 ? (
                 <pre className="text-sm text-theme-secondary bg-theme-surface p-4 rounded-lg overflow-x-auto">
@@ -344,7 +344,7 @@ export function IntegrationDetailPage() {
 
             {/* Credential */}
             {instance.integration_credential && (
-              <div className="bg-theme-card border border-theme rounded-lg p-4">
+              <div className="bg-theme-surface border border-theme rounded-lg p-4">
                 <h3 className="text-sm font-medium text-theme-primary mb-3">Credential</h3>
                 <div className="flex items-center gap-3">
                   <div>
@@ -360,7 +360,7 @@ export function IntegrationDetailPage() {
             )}
 
             {/* Danger Zone */}
-            <div className="bg-theme-card border border-theme-error rounded-lg p-4">
+            <div className="bg-theme-surface border border-theme-error rounded-lg p-4">
               <h3 className="text-sm font-medium text-theme-error mb-3">Danger Zone</h3>
               <p className="text-sm text-theme-secondary mb-4">
                 Deleting this integration will remove all associated data and execution history.

@@ -98,12 +98,12 @@ export function IntegrationsPage() {
       actions={[
         {
           label: 'Browse Marketplace',
-          onClick: () => navigate('/app/integrations/marketplace'),
-          variant: 'secondary',
+          onClick: () => navigate('/app/automation/integrations/marketplace'),
+          variant: 'outline',
         },
         {
           label: 'Add Integration',
-          onClick: () => navigate('/app/integrations/new'),
+          onClick: () => navigate('/app/automation/integrations/new'),
           variant: 'primary',
         },
       ]}
@@ -111,25 +111,25 @@ export function IntegrationsPage() {
       <div className="space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-theme-card border border-theme rounded-lg p-4">
+          <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Total Integrations</p>
             <p className="text-2xl font-semibold text-theme-primary mt-1">
               {instances.length}
             </p>
           </div>
-          <div className="bg-theme-card border border-theme rounded-lg p-4">
+          <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Active</p>
             <p className="text-2xl font-semibold text-theme-success mt-1">
               {activeCount}
             </p>
           </div>
-          <div className="bg-theme-card border border-theme rounded-lg p-4">
+          <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Errors</p>
-            <p className="text-2xl font-semibold text-theme-error mt-1">
+            <p className="text-2xl font-semibold text-theme-danger mt-1">
               {errorCount}
             </p>
           </div>
-          <div className="bg-theme-card border border-theme rounded-lg p-4">
+          <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <p className="text-xs text-theme-tertiary">Total Executions</p>
             <p className="text-2xl font-semibold text-theme-primary mt-1">
               {instances.reduce((sum, i) => sum + i.execution_count, 0)}
@@ -142,7 +142,7 @@ export function IntegrationsPage() {
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value as InstanceStatus | '')}
-            className="px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           >
             {statusOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -153,7 +153,7 @@ export function IntegrationsPage() {
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value as IntegrationType | '')}
-            className="px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           >
             {typeOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -169,18 +169,18 @@ export function IntegrationsPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-theme-primary border-t-transparent" />
           </div>
         ) : instances.length === 0 ? (
-          <div className="text-center py-12 bg-theme-card border border-theme rounded-lg">
+          <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
             <div className="text-4xl mb-4">📦</div>
             <h3 className="text-lg font-medium text-theme-primary">No integrations yet</h3>
             <p className="text-theme-secondary mt-1">
               Browse the marketplace to add your first integration
             </p>
-            <a
-              href="/app/integrations/marketplace"
+            <button
+              onClick={() => navigate('/app/automation/integrations/marketplace')}
               className="inline-block mt-4 px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
             >
               Browse Marketplace
-            </a>
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
