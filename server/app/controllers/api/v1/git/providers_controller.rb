@@ -6,10 +6,10 @@ module Api
       class ProvidersController < ApplicationController
         before_action :set_provider, only: %i[
           show update destroy
-          credentials create_credential destroy_credential test_credential make_default
+          credentials create_credential destroy_credential test_credential make_default sync_repositories
           oauth_authorize oauth_callback
         ]
-        before_action :set_credential, only: %i[destroy_credential test_credential make_default]
+        before_action :set_credential, only: %i[destroy_credential test_credential make_default sync_repositories]
         before_action :validate_permissions
 
         # GET /api/v1/git/providers
@@ -171,6 +171,31 @@ module Api
           })
         end
 
+        # POST /api/v1/git/providers/:id/credentials/:credential_id/sync_repositories
+        def sync_repositories
+          result = GitProviderManagementService.sync_repositories(
+            @credential,
+            page: params[:page]&.to_i || 1,
+            per_page: params[:per_page]&.to_i || 100,
+            include_archived: params[:include_archived] == "true",
+            include_forks: params[:include_forks] == "true"
+          )
+
+          if result[:success]
+            render_success({
+              synced_count: result[:synced_count],
+              error_count: result[:error_count],
+              repositories: result[:repositories]&.map { |r| serialize_repository(r) },
+              errors: result[:errors],
+              message: "Synced #{result[:synced_count]} repositories"
+            })
+          else
+            render_error(result[:error], status: :unprocessable_content)
+          end
+        rescue GitProviderManagementService::CredentialError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         # ============================================
         # OAUTH FLOW
         # ============================================
@@ -250,6 +275,8 @@ module Api
             require_permission("git.credentials.update")
           when "oauth_authorize", "oauth_callback"
             require_permission("git.credentials.create")
+          when "sync_repositories"
+            require_permission("git.repositories.sync")
           end
         end
 
@@ -337,6 +364,27 @@ module Api
             can_be_used: credential.can_be_used?,
             git_provider: serialize_provider(credential.git_provider)
           )
+        end
+
+        def serialize_repository(repository)
+          {
+            id: repository.id,
+            name: repository.name,
+            full_name: repository.full_name,
+            owner: repository.owner,
+            description: repository.description,
+            default_branch: repository.default_branch,
+            web_url: repository.web_url,
+            is_private: repository.is_private,
+            is_fork: repository.is_fork,
+            is_archived: repository.is_archived,
+            stars_count: repository.stars_count,
+            forks_count: repository.forks_count,
+            languages: repository.languages,
+            topics: repository.topics,
+            last_synced_at: repository.last_synced_at&.iso8601,
+            created_at: repository.created_at.iso8601
+          }
         end
       end
     end

@@ -194,7 +194,7 @@ export function ContextDetailPage() {
           },
         ]}
       >
-        <div className="max-w-2xl mx-auto bg-theme-card border border-theme rounded-lg p-6">
+        <div className="max-w-2xl mx-auto bg-theme-surface border border-theme rounded-lg p-6">
           <EntryEditor
             entry={editingEntry || undefined}
             contextId={context.id}
@@ -256,31 +256,31 @@ export function ContextDetailPage() {
         {/* Stats */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="bg-theme-card border border-theme rounded-lg p-4">
+            <div className="bg-theme-surface border border-theme rounded-lg p-4">
               <p className="text-xs text-theme-tertiary">Total Entries</p>
               <p className="text-2xl font-semibold text-theme-primary mt-1">
                 {stats.stats.total_entries}
               </p>
             </div>
-            <div className="bg-theme-card border border-theme rounded-lg p-4">
+            <div className="bg-theme-surface border border-theme rounded-lg p-4">
               <p className="text-xs text-theme-tertiary">Data Size</p>
               <p className="text-2xl font-semibold text-theme-primary mt-1">
                 {contextApi.formatBytes(stats.stats.data_size_bytes)}
               </p>
             </div>
-            <div className="bg-theme-card border border-theme rounded-lg p-4">
+            <div className="bg-theme-surface border border-theme rounded-lg p-4">
               <p className="text-xs text-theme-tertiary">With Embeddings</p>
               <p className="text-2xl font-semibold text-theme-primary mt-1">
                 {stats.stats.entries_with_embeddings}
               </p>
             </div>
-            <div className="bg-theme-card border border-theme rounded-lg p-4">
+            <div className="bg-theme-surface border border-theme rounded-lg p-4">
               <p className="text-xs text-theme-tertiary">Avg Importance</p>
               <p className="text-2xl font-semibold text-theme-primary mt-1">
                 {(stats.stats.avg_importance_score * 100).toFixed(0)}%
               </p>
             </div>
-            <div className="bg-theme-card border border-theme rounded-lg p-4">
+            <div className="bg-theme-surface border border-theme rounded-lg p-4">
               <p className="text-xs text-theme-tertiary">Total Accesses</p>
               <p className="text-2xl font-semibold text-theme-primary mt-1">
                 {stats.stats.access_count_total}
@@ -318,12 +318,12 @@ export function ContextDetailPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filter entries..."
-                className="flex-1 px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                className="flex-1 px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
               />
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value as EntryType | '')}
-                className="px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
               >
                 {entryTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -335,7 +335,7 @@ export function ContextDetailPage() {
 
             {/* Entries List */}
             {entries.length === 0 ? (
-              <div className="text-center py-12 bg-theme-card border border-theme rounded-lg">
+              <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
                 <div className="text-4xl mb-4">📄</div>
                 <h3 className="text-lg font-medium text-theme-primary">No entries yet</h3>
                 <p className="text-theme-secondary mt-1">Add your first entry to this context</p>
@@ -352,7 +352,7 @@ export function ContextDetailPage() {
                   <button
                     key={entry.id}
                     onClick={() => handleExpandEntry(entry)}
-                    className="w-full text-left p-4 bg-theme-card border border-theme rounded-lg hover:border-theme-primary transition-colors"
+                    className="w-full text-left p-4 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
@@ -395,7 +395,7 @@ export function ContextDetailPage() {
         {activeTab === 'settings' && (
           <div className="space-y-6 max-w-2xl">
             {/* Retention Policy */}
-            <div className="bg-theme-card border border-theme rounded-lg p-6">
+            <div className="bg-theme-surface border border-theme rounded-lg p-6">
               <h3 className="text-lg font-medium text-theme-primary mb-4">Retention Policy</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -432,7 +432,7 @@ export function ContextDetailPage() {
             </div>
 
             {/* Danger Zone */}
-            <div className="bg-theme-card border border-theme-error rounded-lg p-6">
+            <div className="bg-theme-surface border border-theme-error rounded-lg p-6">
               <h3 className="text-lg font-medium text-theme-error mb-4">Danger Zone</h3>
               <div className="space-y-4">
                 {context.is_archived ? (

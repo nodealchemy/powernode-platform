@@ -348,6 +348,54 @@ module Git
       { success: false, error: e.message }
     end
 
+    # Commit Viewing - Comprehensive Git View Capabilities
+
+    def get_commit(owner, repo, sha)
+      project_path = "#{owner}/#{repo}"
+      commit = get("/projects/#{CGI.escape(project_path)}/repository/commits/#{sha}")
+      diff = get("/projects/#{CGI.escape(project_path)}/repository/commits/#{sha}/diff")
+      normalize_commit_detail(commit, diff)
+    end
+
+    def get_commit_diff(owner, repo, sha)
+      project_path = "#{owner}/#{repo}"
+      commit = get("/projects/#{CGI.escape(project_path)}/repository/commits/#{sha}")
+      diff = get("/projects/#{CGI.escape(project_path)}/repository/commits/#{sha}/diff")
+      normalize_gitlab_diff(commit, diff)
+    end
+
+    def compare_commits(owner, repo, base, head)
+      project_path = "#{owner}/#{repo}"
+      result = get("/projects/#{CGI.escape(project_path)}/repository/compare", from: base, to: head)
+      normalize_gitlab_comparison(result)
+    end
+
+    def get_file_content(owner, repo, path, ref = nil)
+      project_path = "#{owner}/#{repo}"
+      params = { ref: ref || "HEAD" }
+      result = get("/projects/#{CGI.escape(project_path)}/repository/files/#{CGI.escape(path)}", params)
+      normalize_gitlab_file_content(result)
+    rescue NotFoundError
+      nil
+    end
+
+    def get_tree(owner, repo, sha, recursive: false)
+      project_path = "#{owner}/#{repo}"
+      params = { ref: sha, per_page: 100 }
+      params[:recursive] = true if recursive
+      result = get("/projects/#{CGI.escape(project_path)}/repository/tree", params)
+      normalize_gitlab_tree(result, sha)
+    end
+
+    def list_tags(owner, repo, options = {})
+      project_path = "#{owner}/#{repo}"
+      page = options[:page] || 1
+      per_page = options[:per_page] || 100
+
+      result = get("/projects/#{CGI.escape(project_path)}/repository/tags", page: page, per_page: per_page)
+      result.map { |tag| normalize_gitlab_tag(tag) }
+    end
+
     protected
 
     def configure_auth(conn)
@@ -630,6 +678,276 @@ module Git
         fingerprint: key["fingerprint"],
         read_only: !key["can_push"],
         created_at: key["created_at"]
+      }
+    end
+
+    def normalize_commit_detail(commit, diff_files = [])
+      return nil unless commit
+
+      sha = commit["id"]
+      parent_ids = commit["parent_ids"] || []
+      stats = commit["stats"] || {}
+
+      files = (diff_files || []).map { |f| normalize_gitlab_commit_file(f) }
+
+      {
+        sha: sha,
+        short_sha: commit["short_id"] || sha[0, 7],
+        message: commit["message"] || "",
+        title: commit["title"] || (commit["message"] || "").split("\n").first || "",
+        body: (commit["message"] || "").split("\n")[1..]&.join("\n")&.strip,
+        author: {
+          name: commit["author_name"],
+          email: commit["author_email"],
+          date: commit["authored_date"],
+          username: nil,
+          avatar_url: nil
+        },
+        committer: {
+          name: commit["committer_name"],
+          email: commit["committer_email"],
+          date: commit["committed_date"],
+          username: nil,
+          avatar_url: nil
+        },
+        authored_date: commit["authored_date"],
+        committed_date: commit["committed_date"],
+        web_url: commit["web_url"],
+        parent_shas: parent_ids,
+        is_merge: parent_ids.length > 1,
+        is_verified: false,
+        verification: nil,
+        stats: {
+          additions: stats["additions"] || files.sum { |f| f[:additions] },
+          deletions: stats["deletions"] || files.sum { |f| f[:deletions] },
+          total: stats["total"] || files.sum { |f| f[:changes] },
+          files_changed: files.length
+        },
+        files: files,
+        tree_sha: nil
+      }
+    end
+
+    def normalize_gitlab_commit_file(file)
+      return nil unless file
+
+      patch = file["diff"] || ""
+      additions = patch.lines.count { |l| l.start_with?("+") && !l.start_with?("+++") }
+      deletions = patch.lines.count { |l| l.start_with?("-") && !l.start_with?("---") }
+
+      {
+        sha: nil,
+        filename: file["new_path"] || file["old_path"],
+        status: determine_file_status(file),
+        additions: additions,
+        deletions: deletions,
+        changes: additions + deletions,
+        patch: patch,
+        previous_filename: file["renamed_file"] ? file["old_path"] : nil,
+        blob_url: nil,
+        raw_url: nil,
+        contents_url: nil
+      }
+    end
+
+    def determine_file_status(file)
+      return "added" if file["new_file"]
+      return "removed" if file["deleted_file"]
+      return "renamed" if file["renamed_file"]
+      "modified"
+    end
+
+    def normalize_gitlab_diff(commit, diff_files)
+      return nil unless commit
+
+      files = (diff_files || []).map { |f| normalize_gitlab_file_diff(f) }
+      parent_ids = commit["parent_ids"] || []
+
+      {
+        base_sha: parent_ids.first || "",
+        head_sha: commit["id"],
+        stats: {
+          additions: files.sum { |f| f[:additions] },
+          deletions: files.sum { |f| f[:deletions] },
+          total: files.sum { |f| f[:changes] },
+          files_changed: files.length
+        },
+        files: files
+      }
+    end
+
+    def normalize_gitlab_file_diff(file)
+      return nil unless file
+
+      patch = file["diff"] || ""
+      additions = patch.lines.count { |l| l.start_with?("+") && !l.start_with?("+++") }
+      deletions = patch.lines.count { |l| l.start_with?("-") && !l.start_with?("---") }
+
+      {
+        filename: file["new_path"] || file["old_path"],
+        status: determine_file_status(file),
+        additions: additions,
+        deletions: deletions,
+        changes: additions + deletions,
+        previous_filename: file["renamed_file"] ? file["old_path"] : nil,
+        hunks: parse_gitlab_patch_hunks(patch),
+        is_binary: file["diff"].blank? && !file["new_file"] && !file["deleted_file"],
+        is_large: false,
+        truncated: false,
+        raw_patch: patch
+      }
+    end
+
+    def parse_gitlab_patch_hunks(patch)
+      return [] if patch.blank?
+
+      hunks = []
+      current_hunk = nil
+      old_line = 0
+      new_line = 0
+
+      patch.lines.each do |line|
+        if line.start_with?("@@")
+          match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/)
+          if match
+            current_hunk = {
+              header: line.chomp,
+              old_start: match[1].to_i,
+              old_lines: match[2]&.to_i || 1,
+              new_start: match[3].to_i,
+              new_lines: match[4]&.to_i || 1,
+              lines: []
+            }
+            hunks << current_hunk
+            old_line = current_hunk[:old_start]
+            new_line = current_hunk[:new_start]
+          end
+        elsif current_hunk
+          line_type = case line[0]
+                      when "+" then "addition"
+                      when "-" then "deletion"
+                      when " " then "context"
+                      else "context"
+                      end
+
+          diff_line = {
+            type: line_type,
+            content: line[1..].to_s.chomp
+          }
+
+          case line_type
+          when "deletion"
+            diff_line[:old_line_number] = old_line
+            old_line += 1
+          when "addition"
+            diff_line[:new_line_number] = new_line
+            new_line += 1
+          when "context"
+            diff_line[:old_line_number] = old_line
+            diff_line[:new_line_number] = new_line
+            old_line += 1
+            new_line += 1
+          end
+
+          current_hunk[:lines] << diff_line
+        end
+      end
+
+      hunks
+    end
+
+    def normalize_gitlab_comparison(comparison)
+      return nil unless comparison
+
+      commits = comparison["commits"] || []
+      diffs = comparison["diffs"] || []
+
+      files = diffs.map { |f| normalize_gitlab_commit_file(f) }
+
+      {
+        url: nil,
+        status: commits.any? ? "ahead" : "identical",
+        ahead_by: commits.length,
+        behind_by: 0,
+        total_commits: commits.length,
+        base_commit: commits.first ? normalize_commit_detail(commits.first) : nil,
+        head_commit: commits.last ? normalize_commit_detail(commits.last) : nil,
+        merge_base_commit: nil,
+        commits: commits.map { |c| normalize_commit_detail(c) },
+        files: files,
+        diff_stats: {
+          additions: files.sum { |f| f[:additions] },
+          deletions: files.sum { |f| f[:deletions] },
+          total: files.sum { |f| f[:changes] },
+          files_changed: files.length
+        }
+      }
+    end
+
+    def normalize_gitlab_file_content(content)
+      return nil unless content
+
+      decoded_content = nil
+      if content["encoding"] == "base64" && content["content"]
+        decoded_content = Base64.decode64(content["content"]) rescue nil
+      end
+
+      is_binary = decoded_content && !decoded_content.valid_encoding?
+
+      {
+        name: content["file_name"],
+        path: content["file_path"],
+        sha: content["blob_id"],
+        size: content["size"] || 0,
+        type: "file",
+        content: is_binary ? nil : decoded_content,
+        encoding: is_binary ? "none" : "utf-8",
+        download_url: nil,
+        web_url: nil,
+        is_binary: is_binary,
+        lines_count: is_binary ? nil : (decoded_content&.lines&.count || 0)
+      }
+    end
+
+    def normalize_gitlab_tree(entries, sha)
+      return nil unless entries
+
+      {
+        sha: sha,
+        url: nil,
+        entries: entries.map { |entry| normalize_gitlab_tree_entry(entry) },
+        truncated: false
+      }
+    end
+
+    def normalize_gitlab_tree_entry(entry)
+      return nil unless entry
+
+      {
+        path: entry["path"],
+        name: entry["name"],
+        type: entry["type"] == "blob" ? "blob" : "tree",
+        mode: entry["mode"],
+        sha: entry["id"],
+        size: nil,
+        url: nil
+      }
+    end
+
+    def normalize_gitlab_tag(tag)
+      return nil unless tag
+
+      {
+        name: tag["name"],
+        sha: tag.dig("commit", "id") || tag["target"],
+        message: tag["message"],
+        web_url: nil,
+        is_release: tag["release"].present?,
+        tagger: tag["tagger"] ? {
+          name: tag["tagger"]["name"],
+          email: tag["tagger"]["email"],
+          date: tag["tagger"]["date"]
+        } : nil
       }
     end
   end

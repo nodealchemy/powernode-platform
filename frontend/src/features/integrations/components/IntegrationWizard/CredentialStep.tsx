@@ -129,7 +129,7 @@ export function CredentialStep({
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="My API Key"
               required
-              className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+              className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
             />
           </div>
 
@@ -146,7 +146,7 @@ export function CredentialStep({
                   credentials: {},
                 })
               }
-              className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+              className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
             >
               {credentialTypes.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -173,7 +173,7 @@ export function CredentialStep({
                 }
                 placeholder="sk-..."
                 required
-                className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
               />
             </div>
           )}
@@ -194,7 +194,7 @@ export function CredentialStep({
                 }
                 placeholder="Bearer token..."
                 required
-                className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
               />
             </div>
           )}
@@ -215,7 +215,7 @@ export function CredentialStep({
                     })
                   }
                   required
-                  className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                  className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
                 />
               </div>
               <div>
@@ -232,7 +232,7 @@ export function CredentialStep({
                     })
                   }
                   required
-                  className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                  className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
                 />
               </div>
             </>

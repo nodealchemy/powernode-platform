@@ -117,7 +117,7 @@ export function AgentMemoryPage() {
         ]}
       >
         {context && (
-          <div className="max-w-2xl mx-auto bg-theme-card border border-theme rounded-lg p-6">
+          <div className="max-w-2xl mx-auto bg-theme-surface border border-theme rounded-lg p-6">
             <EntryEditor
               entry={editingEntry || undefined}
               contextId={context.id}
@@ -154,7 +154,7 @@ export function AgentMemoryPage() {
       <div className="space-y-6">
         {/* Context Info */}
         {context && (
-          <div className="bg-theme-card border border-theme rounded-lg p-4">
+          <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="text-2xl">🧠</div>

@@ -505,6 +505,78 @@ module Git
       symbolize_keys(get("/rate_limit"))
     end
 
+    # Commit Viewing - Comprehensive Git View Capabilities
+
+    def get_commit(owner, repo, sha)
+      result = get("/repos/#{owner}/#{repo}/commits/#{sha}")
+      normalize_commit_detail(result)
+    end
+
+    def get_commit_diff(owner, repo, sha)
+      # GitHub returns diff when Accept header is set to diff format
+      # But we can get structured data from the commit endpoint
+      commit = get("/repos/#{owner}/#{repo}/commits/#{sha}")
+      normalize_commit_diff(commit)
+    end
+
+    def compare_commits(owner, repo, base, head)
+      result = get("/repos/#{owner}/#{repo}/compare/#{base}...#{head}")
+      normalize_comparison(result)
+    end
+
+    def get_file_content(owner, repo, path, ref = nil)
+      params = {}
+      params[:ref] = ref if ref
+      result = get("/repos/#{owner}/#{repo}/contents/#{path}", params)
+      normalize_file_content(result)
+    end
+
+    def get_tree(owner, repo, sha, recursive: false)
+      params = {}
+      params[:recursive] = "1" if recursive
+      result = get("/repos/#{owner}/#{repo}/git/trees/#{sha}", params)
+      normalize_tree(result)
+    end
+
+    def list_tags(owner, repo, options = {})
+      page = options[:page] || 1
+      per_page = options[:per_page] || 100
+
+      result = get("/repos/#{owner}/#{repo}/tags", page: page, per_page: per_page)
+      result.map { |tag| normalize_tag(tag) }
+    end
+
+    def get_tag(owner, repo, tag_name)
+      # First get the tag ref
+      ref = get("/repos/#{owner}/#{repo}/git/refs/tags/#{tag_name}")
+      tag_sha = ref["object"]["sha"]
+
+      # If it's an annotated tag, get the tag object
+      if ref["object"]["type"] == "tag"
+        tag_obj = get("/repos/#{owner}/#{repo}/git/tags/#{tag_sha}")
+        normalize_annotated_tag(tag_obj, tag_name)
+      else
+        # Lightweight tag - points directly to commit
+        { name: tag_name, sha: tag_sha, type: "lightweight" }
+      end
+    rescue NotFoundError
+      nil
+    end
+
+    # Get raw diff patch for a commit
+    def get_commit_patch(owner, repo, sha)
+      # GitHub API supports getting raw patch via Accept header
+      response = connection.get("/repos/#{owner}/#{repo}/commits/#{sha}") do |req|
+        req.headers["Accept"] = "application/vnd.github.patch"
+      end
+
+      if response.status == 200
+        response.body
+      else
+        handle_response(response)
+      end
+    end
+
     protected
 
     def configure_auth(conn)
@@ -543,6 +615,295 @@ module Git
         labels: (runner["labels"] || []).map { |l| l.is_a?(Hash) ? l["name"] : l },
         architecture: nil, # GitHub doesn't provide this directly
         version: nil # GitHub doesn't provide this directly
+      }
+    end
+
+    def normalize_commit_detail(commit)
+      return nil unless commit
+
+      sha = commit["sha"]
+      commit_data = commit["commit"] || {}
+      author = commit_data["author"] || {}
+      committer = commit_data["committer"] || {}
+      github_author = commit["author"] || {}
+      github_committer = commit["committer"] || {}
+      stats = commit["stats"] || {}
+      files = commit["files"] || []
+      parents = commit["parents"] || []
+
+      {
+        sha: sha,
+        short_sha: sha[0, 7],
+        message: commit_data["message"] || "",
+        title: (commit_data["message"] || "").split("\n").first || "",
+        body: (commit_data["message"] || "").split("\n")[1..]&.join("\n")&.strip,
+        author: {
+          name: author["name"],
+          email: author["email"],
+          date: author["date"],
+          username: github_author["login"],
+          avatar_url: github_author["avatar_url"]
+        },
+        committer: {
+          name: committer["name"],
+          email: committer["email"],
+          date: committer["date"],
+          username: github_committer["login"],
+          avatar_url: github_committer["avatar_url"]
+        },
+        authored_date: author["date"],
+        committed_date: committer["date"],
+        web_url: commit["html_url"],
+        parent_shas: parents.map { |p| p["sha"] },
+        is_merge: parents.length > 1,
+        is_verified: commit_data.dig("verification", "verified") || false,
+        verification: commit_data["verification"] ? {
+          verified: commit_data["verification"]["verified"],
+          reason: commit_data["verification"]["reason"],
+          signature: commit_data["verification"]["signature"],
+          payload: commit_data["verification"]["payload"]
+        } : nil,
+        stats: {
+          additions: stats["additions"] || 0,
+          deletions: stats["deletions"] || 0,
+          total: stats["total"] || 0,
+          files_changed: files.length
+        },
+        files: files.map { |f| normalize_commit_file(f) },
+        tree_sha: commit_data.dig("tree", "sha")
+      }
+    end
+
+    def normalize_commit_file(file)
+      return nil unless file
+
+      {
+        sha: file["sha"],
+        filename: file["filename"],
+        status: file["status"],
+        additions: file["additions"] || 0,
+        deletions: file["deletions"] || 0,
+        changes: file["changes"] || 0,
+        patch: file["patch"],
+        previous_filename: file["previous_filename"],
+        blob_url: file["blob_url"],
+        raw_url: file["raw_url"],
+        contents_url: file["contents_url"]
+      }
+    end
+
+    def normalize_commit_diff(commit)
+      return nil unless commit
+
+      files = commit["files"] || []
+      stats = commit["stats"] || {}
+      parents = commit["parents"] || []
+      base_sha = parents.first&.dig("sha") || ""
+
+      {
+        base_sha: base_sha,
+        head_sha: commit["sha"],
+        stats: {
+          additions: stats["additions"] || 0,
+          deletions: stats["deletions"] || 0,
+          total: stats["total"] || 0,
+          files_changed: files.length
+        },
+        files: files.map { |f| normalize_file_diff(f) }
+      }
+    end
+
+    def normalize_file_diff(file)
+      return nil unless file
+
+      patch = file["patch"] || ""
+
+      {
+        filename: file["filename"],
+        status: file["status"],
+        additions: file["additions"] || 0,
+        deletions: file["deletions"] || 0,
+        changes: file["changes"] || 0,
+        previous_filename: file["previous_filename"],
+        hunks: parse_patch_hunks(patch),
+        is_binary: file["patch"].nil? && file["changes"].to_i.zero?,
+        is_large: file["patch"].nil? && file["changes"].to_i.positive?,
+        truncated: false,
+        raw_patch: patch
+      }
+    end
+
+    def parse_patch_hunks(patch)
+      return [] if patch.blank?
+
+      hunks = []
+      current_hunk = nil
+      old_line = 0
+      new_line = 0
+
+      patch.lines.each do |line|
+        if line.start_with?("@@")
+          # Parse hunk header: @@ -old_start,old_lines +new_start,new_lines @@
+          match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/)
+          if match
+            current_hunk = {
+              header: line.chomp,
+              old_start: match[1].to_i,
+              old_lines: match[2]&.to_i || 1,
+              new_start: match[3].to_i,
+              new_lines: match[4]&.to_i || 1,
+              lines: []
+            }
+            hunks << current_hunk
+            old_line = current_hunk[:old_start]
+            new_line = current_hunk[:new_start]
+          end
+        elsif current_hunk
+          line_type = case line[0]
+                      when "+" then "addition"
+                      when "-" then "deletion"
+                      when " " then "context"
+                      else "context"
+                      end
+
+          diff_line = {
+            type: line_type,
+            content: line[1..].to_s.chomp
+          }
+
+          case line_type
+          when "deletion"
+            diff_line[:old_line_number] = old_line
+            old_line += 1
+          when "addition"
+            diff_line[:new_line_number] = new_line
+            new_line += 1
+          when "context"
+            diff_line[:old_line_number] = old_line
+            diff_line[:new_line_number] = new_line
+            old_line += 1
+            new_line += 1
+          end
+
+          current_hunk[:lines] << diff_line
+        end
+      end
+
+      hunks
+    end
+
+    def normalize_comparison(comparison)
+      return nil unless comparison
+
+      commits = comparison["commits"] || []
+      files = comparison["files"] || []
+      base_commit = comparison["base_commit"] || {}
+      head_commit = commits.last || comparison["head_commit"] || {}
+      merge_base = comparison["merge_base_commit"] || base_commit
+
+      {
+        url: comparison["html_url"],
+        status: comparison["status"],
+        ahead_by: comparison["ahead_by"] || 0,
+        behind_by: comparison["behind_by"] || 0,
+        total_commits: comparison["total_commits"] || commits.length,
+        base_commit: normalize_commit_detail(base_commit),
+        head_commit: normalize_commit_detail(head_commit),
+        merge_base_commit: normalize_commit_detail(merge_base),
+        commits: commits.map { |c| normalize_commit_detail(c) },
+        files: files.map { |f| normalize_commit_file(f) },
+        diff_stats: {
+          additions: files.sum { |f| f["additions"].to_i },
+          deletions: files.sum { |f| f["deletions"].to_i },
+          total: files.sum { |f| f["changes"].to_i },
+          files_changed: files.length
+        }
+      }
+    end
+
+    def normalize_file_content(content)
+      return nil unless content
+
+      # Handle directory listing (array response)
+      if content.is_a?(Array)
+        return {
+          type: "dir",
+          entries: content.map { |entry| normalize_tree_entry(entry) }
+        }
+      end
+
+      decoded_content = nil
+      if content["encoding"] == "base64" && content["content"]
+        decoded_content = Base64.decode64(content["content"]) rescue nil
+      end
+
+      is_binary = decoded_content && !decoded_content.valid_encoding?
+
+      {
+        name: content["name"],
+        path: content["path"],
+        sha: content["sha"],
+        size: content["size"] || 0,
+        type: content["type"],
+        content: is_binary ? nil : decoded_content,
+        encoding: is_binary ? "none" : "utf-8",
+        download_url: content["download_url"],
+        web_url: content["html_url"],
+        is_binary: is_binary,
+        lines_count: is_binary ? nil : (decoded_content&.lines&.count || 0)
+      }
+    end
+
+    def normalize_tree(tree)
+      return nil unless tree
+
+      {
+        sha: tree["sha"],
+        url: tree["url"],
+        entries: (tree["tree"] || []).map { |entry| normalize_tree_entry(entry) },
+        truncated: tree["truncated"] || false
+      }
+    end
+
+    def normalize_tree_entry(entry)
+      return nil unless entry
+
+      {
+        path: entry["path"],
+        name: entry["path"]&.split("/")&.last || entry["name"],
+        type: entry["type"] == "blob" ? "blob" : (entry["type"] == "tree" ? "tree" : entry["type"]),
+        mode: entry["mode"],
+        sha: entry["sha"],
+        size: entry["size"],
+        url: entry["url"]
+      }
+    end
+
+    def normalize_tag(tag)
+      return nil unless tag
+
+      {
+        name: tag["name"],
+        sha: tag.dig("commit", "sha") || tag["sha"],
+        web_url: nil, # GitHub doesn't return this directly
+        is_release: false # Would need separate API call
+      }
+    end
+
+    def normalize_annotated_tag(tag, name)
+      return nil unless tag
+
+      {
+        name: name,
+        sha: tag["sha"],
+        message: tag["message"],
+        type: "annotated",
+        tagger: tag["tagger"] ? {
+          name: tag["tagger"]["name"],
+          email: tag["tagger"]["email"],
+          date: tag["tagger"]["date"]
+        } : nil,
+        commit_sha: tag.dig("object", "sha")
       }
     end
 

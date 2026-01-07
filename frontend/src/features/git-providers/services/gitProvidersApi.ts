@@ -37,6 +37,14 @@ import {
   GitWorkflowTriggerDetail,
   CreateGitWorkflowTriggerData,
   TestGitTriggerResult,
+  // Commit and diff types
+  GitCommitDetail,
+  GitDiff,
+  GitCommitComparison,
+  GitFileContent,
+  GitTree,
+  GitTag,
+  GitBranch,
 } from '../types';
 
 // Helper type for API responses
@@ -358,6 +366,106 @@ export const gitProvidersApi = {
       issues: unknown[];
     }>>(`/git/repositories/${id}/issues`, { params });
     return response.data.data?.issues || [];
+  },
+
+  /**
+   * Get tags for a repository
+   */
+  getTags: async (
+    id: string,
+    params?: { page?: number; per_page?: number }
+  ): Promise<GitTag[]> => {
+    const response = await apiClient.get<ApiResponse<{
+      tags: GitTag[];
+    }>>(`/git/repositories/${id}/tags`, { params });
+    return response.data.data?.tags || [];
+  },
+
+  // ================================
+  // COMMIT & DIFF VIEWING
+  // ================================
+
+  /**
+   * Get a specific commit with full details
+   */
+  getCommit: async (repositoryId: string, sha: string): Promise<GitCommitDetail> => {
+    const response = await apiClient.get<ApiResponse<{
+      commit: GitCommitDetail;
+    }>>(`/git/repositories/${repositoryId}/commits/${sha}`);
+    return response.data.data.commit;
+  },
+
+  /**
+   * Get diff for a specific commit
+   */
+  getCommitDiff: async (repositoryId: string, sha: string): Promise<GitDiff> => {
+    const response = await apiClient.get<ApiResponse<{
+      diff: GitDiff;
+    }>>(`/git/repositories/${repositoryId}/commits/${sha}/diff`);
+    return response.data.data.diff;
+  },
+
+  /**
+   * Compare two commits (diff between base and head)
+   */
+  compareCommits: async (
+    repositoryId: string,
+    base: string,
+    head: string
+  ): Promise<GitCommitComparison> => {
+    const response = await apiClient.get<ApiResponse<{
+      comparison: GitCommitComparison;
+    }>>(`/git/repositories/${repositoryId}/compare/${base}...${head}`);
+    return response.data.data.comparison;
+  },
+
+  /**
+   * Get file content at a specific ref
+   */
+  getFileContent: async (
+    repositoryId: string,
+    path: string,
+    ref?: string
+  ): Promise<GitFileContent> => {
+    const params = ref ? { ref } : {};
+    const response = await apiClient.get<ApiResponse<{
+      content: GitFileContent;
+    }>>(`/git/repositories/${repositoryId}/contents/${path}`, { params });
+    return response.data.data.content;
+  },
+
+  /**
+   * Get repository tree (directory listing) at a specific ref
+   */
+  getTree: async (
+    repositoryId: string,
+    sha?: string,
+    recursive?: boolean
+  ): Promise<GitTree> => {
+    const params: { recursive?: string } = {};
+    if (recursive) params.recursive = 'true';
+    const endpoint = sha
+      ? `/git/repositories/${repositoryId}/tree/${sha}`
+      : `/git/repositories/${repositoryId}/tree`;
+    const response = await apiClient.get<ApiResponse<{
+      tree: GitTree;
+      commit_sha: string;
+      path: string;
+    }>>(endpoint, { params });
+    return response.data.data.tree;
+  },
+
+  /**
+   * Get branches with typed response
+   */
+  getBranchesTyped: async (
+    id: string,
+    params?: { page?: number; per_page?: number }
+  ): Promise<GitBranch[]> => {
+    const response = await apiClient.get<ApiResponse<{
+      branches: GitBranch[];
+    }>>(`/git/repositories/${id}/branches`, { params });
+    return response.data.data?.branches || [];
   },
 
   /**

@@ -7,7 +7,9 @@ module Api
         before_action :set_repository, only: %i[
           show destroy
           configure_webhook remove_webhook
-          branches commits pull_requests issues pipelines
+          branches commits commit commit_diff compare
+          pull_requests issues pipelines
+          file_content tree tags
         ]
         before_action :validate_permissions
 
@@ -205,6 +207,116 @@ module Api
           })
         end
 
+        # GET /api/v1/git/repositories/:id/commits/:sha
+        def commit
+          credential = @repository.git_provider_credential
+          return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
+
+          sha = params[:sha]
+          return render_error("SHA is required", status: :bad_request) if sha.blank?
+
+          client = ::Git::ApiClient.for(credential)
+          commit_detail = client.get_commit(@repository.owner, @repository.name, sha)
+
+          render_success({ commit: commit_detail })
+        rescue ::Git::ApiClient::NotFoundError
+          render_error("Commit not found", status: :not_found)
+        rescue ::Git::ApiClient::ApiError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # GET /api/v1/git/repositories/:id/commits/:sha/diff
+        def commit_diff
+          credential = @repository.git_provider_credential
+          return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
+
+          sha = params[:sha]
+          return render_error("SHA is required", status: :bad_request) if sha.blank?
+
+          client = ::Git::ApiClient.for(credential)
+          diff = client.get_commit_diff(@repository.owner, @repository.name, sha)
+
+          render_success({ diff: diff })
+        rescue ::Git::ApiClient::NotFoundError
+          render_error("Commit not found", status: :not_found)
+        rescue ::Git::ApiClient::ApiError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # GET /api/v1/git/repositories/:id/compare/:base...:head
+        def compare
+          credential = @repository.git_provider_credential
+          return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
+
+          base = params[:base]
+          head = params[:head]
+          return render_error("Base and head are required", status: :bad_request) if base.blank? || head.blank?
+
+          client = ::Git::ApiClient.for(credential)
+          comparison = client.compare_commits(@repository.owner, @repository.name, base, head)
+
+          render_success({ comparison: comparison })
+        rescue ::Git::ApiClient::NotFoundError
+          render_error("One or more commits not found", status: :not_found)
+        rescue ::Git::ApiClient::ApiError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # GET /api/v1/git/repositories/:id/contents/*path
+        def file_content
+          credential = @repository.git_provider_credential
+          return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
+
+          path = params[:path]
+          return render_error("Path is required", status: :bad_request) if path.blank?
+
+          ref = params[:ref] || @repository.default_branch
+
+          client = ::Git::ApiClient.for(credential)
+          content = client.get_file_content(@repository.owner, @repository.name, path, ref)
+
+          if content.nil?
+            render_error("File not found", status: :not_found)
+          else
+            render_success({ content: content })
+          end
+        rescue ::Git::ApiClient::NotFoundError
+          render_error("File not found", status: :not_found)
+        rescue ::Git::ApiClient::ApiError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # GET /api/v1/git/repositories/:id/tree/:sha
+        def tree
+          credential = @repository.git_provider_credential
+          return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
+
+          sha = params[:sha] || @repository.default_branch
+          recursive = params[:recursive] == "true"
+
+          client = ::Git::ApiClient.for(credential)
+          tree_data = client.get_tree(@repository.owner, @repository.name, sha, recursive: recursive)
+
+          render_success({ tree: tree_data, commit_sha: sha, path: params[:path] || "" })
+        rescue ::Git::ApiClient::NotFoundError
+          render_error("Tree not found", status: :not_found)
+        rescue ::Git::ApiClient::ApiError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # GET /api/v1/git/repositories/:id/tags
+        def tags
+          credential = @repository.git_provider_credential
+          return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
+
+          client = ::Git::ApiClient.for(credential)
+          tags_list = client.list_tags(@repository.owner, @repository.name, tag_params)
+
+          render_success({ tags: tags_list })
+        rescue ::Git::ApiClient::ApiError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         private
 
         def set_repository
@@ -217,7 +329,7 @@ module Api
 
         def validate_permissions
           case action_name
-          when "index", "show", "branches", "commits", "pull_requests", "issues"
+          when "index", "show", "branches", "commits", "commit", "commit_diff", "compare", "pull_requests", "issues", "file_content", "tree", "tags"
             require_permission("git.repositories.read")
           when "pipelines"
             require_permission("git.pipelines.read")
@@ -291,6 +403,10 @@ module Api
 
         def issue_params
           params.permit(:page, :per_page, :state)
+        end
+
+        def tag_params
+          params.permit(:page, :per_page)
         end
 
         def serialize_repository(repo)

@@ -18,6 +18,7 @@ class AiWorkflowNodeExecution < ApplicationRecord
   belongs_to :ai_agent_execution, optional: true
 
   has_many :ai_workflow_run_logs, dependent: :destroy
+  has_many :approval_tokens, class_name: "AiWorkflowApprovalToken", dependent: :destroy
   delegate :account, to: :ai_workflow_run
   delegate :ai_workflow, to: :ai_workflow_run
 

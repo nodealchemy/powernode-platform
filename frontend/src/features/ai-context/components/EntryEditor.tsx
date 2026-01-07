@@ -176,7 +176,7 @@ export function EntryEditor({
           value={formData.key}
           onChange={(e) => setFormData({ ...formData, key: e.target.value })}
           placeholder="e.g., user_preference_theme, project_deadline"
-          className={`w-full px-4 py-2 bg-theme-input border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
+          className={`w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
             errors.key ? 'border-theme-error' : 'border-theme'
           }`}
         />
@@ -219,7 +219,7 @@ export function EntryEditor({
             onChange={(e) => setFormData({ ...formData, content_text: e.target.value })}
             placeholder="Enter the content text..."
             rows={4}
-            className={`w-full px-4 py-2 bg-theme-input border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
+            className={`w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
               errors.content_text ? 'border-theme-error' : 'border-theme'
             }`}
           />
@@ -233,7 +233,7 @@ export function EntryEditor({
             onChange={(e) => handleContentJsonChange(e.target.value)}
             placeholder='{"key": "value"}'
             rows={6}
-            className={`w-full px-4 py-2 bg-theme-input border rounded-lg text-theme-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-theme-primary ${
+            className={`w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-theme-primary ${
               jsonError || errors.content ? 'border-theme-error' : 'border-theme'
             }`}
           />
@@ -255,7 +255,7 @@ export function EntryEditor({
           value={formData.source || ''}
           onChange={(e) => setFormData({ ...formData, source: e.target.value })}
           placeholder="e.g., user_input, api_response, manual_entry"
-          className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+          className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
         />
       </div>
 
@@ -313,12 +313,12 @@ export function EntryEditor({
             onChange={(e) => setTagInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
             placeholder="Add a tag..."
-            className="flex-1 px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="flex-1 px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           />
           <button
             type="button"
             onClick={handleAddTag}
-            className="px-4 py-2 bg-theme-surface border border-theme text-theme-primary rounded-lg hover:bg-theme-card transition-colors"
+            className="px-4 py-2 bg-theme-surface border border-theme text-theme-primary rounded-lg hover:bg-theme-surface transition-colors"
           >
             Add
           </button>

@@ -79,7 +79,7 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search memories and knowledge..."
-              className="w-full px-4 py-3 bg-theme-input border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+              className="w-full px-4 py-3 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
             />
           </div>
           <button
@@ -104,7 +104,7 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
                   className={`px-3 py-1 text-sm rounded ${
                     searchType === type
                       ? 'bg-theme-primary text-white'
-                      : 'bg-theme-surface text-theme-secondary hover:bg-theme-card'
+                      : 'bg-theme-surface text-theme-secondary hover:bg-theme-surface'
                   }`}
                 >
                   {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -124,7 +124,7 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
                   className={`px-2 py-1 text-xs rounded ${
                     selectedTypes.includes(type)
                       ? contextApi.getEntryTypeColor(type)
-                      : 'bg-theme-surface text-theme-tertiary hover:bg-theme-card'
+                      : 'bg-theme-surface text-theme-tertiary hover:bg-theme-surface'
                   }`}
                 >
                   {contextApi.getEntryTypeLabel(type)}
@@ -156,7 +156,7 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-theme-primary border-t-transparent" />
             </div>
           ) : results.length === 0 ? (
-            <div className="text-center py-12 bg-theme-card border border-theme rounded-lg">
+            <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
               <div className="text-4xl mb-4">🔍</div>
               <h3 className="text-lg font-medium text-theme-primary">No results found</h3>
               <p className="text-theme-secondary mt-1">
@@ -180,7 +180,7 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
 
       {/* Search Tips */}
       {!hasSearched && (
-        <div className="bg-theme-card border border-theme rounded-lg p-6">
+        <div className="bg-theme-surface border border-theme rounded-lg p-6">
           <h3 className="font-medium text-theme-primary mb-3">Search Tips</h3>
           <ul className="space-y-2 text-sm text-theme-secondary">
             <li className="flex items-start gap-2">
@@ -223,7 +223,7 @@ function SearchResultItem({ result, onClick, showContext }: SearchResultItemProp
 
   const content = (
     <div
-      className={`bg-theme-card border border-theme rounded-lg p-4 transition-colors ${
+      className={`bg-theme-surface border border-theme rounded-lg p-4 transition-colors ${
         onClick ? 'hover:border-theme-primary cursor-pointer' : ''
       }`}
       onClick={() => onClick?.(result)}

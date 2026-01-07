@@ -105,7 +105,7 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value as EntryType | '')}
-            className="px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           >
             {entryTypes.map((type) => (
               <option key={type.value} value={type.value}>
@@ -126,7 +126,7 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
 
       {/* Memory List */}
       {memories.length === 0 ? (
-        <div className="text-center py-12 bg-theme-card border border-theme rounded-lg">
+        <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
           <div className="text-4xl mb-4">🧠</div>
           <h3 className="text-lg font-medium text-theme-primary">No memories yet</h3>
           <p className="text-theme-secondary mt-1">
@@ -206,7 +206,7 @@ function MemoryItem({
   onSelect,
 }: MemoryItemProps) {
   return (
-    <div className="bg-theme-card border border-theme rounded-lg overflow-hidden">
+    <div className="bg-theme-surface border border-theme rounded-lg overflow-hidden">
       <button
         onClick={onExpand}
         className="w-full p-4 text-left hover:bg-theme-surface transition-colors"
@@ -249,7 +249,7 @@ function MemoryItem({
                 {expandedEntry.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="px-2 py-0.5 text-xs bg-theme-card text-theme-secondary rounded"
+                    className="px-2 py-0.5 text-xs bg-theme-surface text-theme-secondary rounded"
                   >
                     {tag}
                   </span>
@@ -260,7 +260,7 @@ function MemoryItem({
             {/* Content */}
             <div>
               <p className="text-xs text-theme-tertiary mb-1">Content</p>
-              <pre className="p-3 bg-theme-card rounded text-sm text-theme-secondary overflow-x-auto">
+              <pre className="p-3 bg-theme-surface rounded text-sm text-theme-secondary overflow-x-auto">
                 {JSON.stringify(expandedEntry.content, null, 2)}
               </pre>
             </div>
@@ -298,7 +298,7 @@ function MemoryItem({
               <div className="flex justify-end">
                 <button
                   onClick={() => onSelect(expandedEntry)}
-                  className="px-4 py-2 text-sm text-theme-primary hover:bg-theme-card rounded transition-colors"
+                  className="px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface rounded transition-colors"
                 >
                   Edit Entry
                 </button>

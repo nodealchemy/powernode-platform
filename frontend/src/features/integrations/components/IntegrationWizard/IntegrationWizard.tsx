@@ -159,7 +159,7 @@ export function IntegrationWizard() {
       </div>
 
       {/* Step Content */}
-      <div className="bg-theme-card border border-theme rounded-lg p-6">
+      <div className="bg-theme-surface border border-theme rounded-lg p-6">
         {currentStep === 'template' && (
           <TemplateSelectionStep
             onSelect={handleTemplateSelect}

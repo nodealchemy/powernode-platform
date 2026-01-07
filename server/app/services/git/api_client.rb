@@ -108,6 +108,32 @@ module Git
       raise NotImplementedError
     end
 
+    # Commit viewing methods - comprehensive git view capabilities
+
+    def get_commit(owner, repo, sha)
+      raise NotImplementedError
+    end
+
+    def get_commit_diff(owner, repo, sha)
+      raise NotImplementedError
+    end
+
+    def compare_commits(owner, repo, base, head)
+      raise NotImplementedError
+    end
+
+    def get_file_content(owner, repo, path, ref = nil)
+      raise NotImplementedError
+    end
+
+    def get_tree(owner, repo, sha, recursive: false)
+      raise NotImplementedError
+    end
+
+    def list_tags(owner, repo, options = {})
+      raise NotImplementedError
+    end
+
     protected
 
     def connection

@@ -113,7 +113,7 @@ export function ConfigurationStep({
       <p className="text-xs text-theme-error mt-1">{error}</p>
     );
 
-    const inputClasses = `w-full px-4 py-2 bg-theme-input border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
+    const inputClasses = `w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
       error ? 'border-theme-error' : 'border-theme'
     }`;
 
@@ -290,7 +290,7 @@ export function ConfigurationStep({
             }
           }}
           placeholder="My Integration"
-          className={`w-full px-4 py-2 bg-theme-input border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
+          className={`w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
             errors.name ? 'border-theme-error' : 'border-theme'
           }`}
         />

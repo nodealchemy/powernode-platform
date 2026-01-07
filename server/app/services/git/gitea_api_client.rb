@@ -409,6 +409,49 @@ module Git
       { success: false, error: e.message }
     end
 
+    # Commit Viewing - Comprehensive Git View Capabilities
+
+    def get_commit(owner, repo, sha)
+      # Gitea's git/commits endpoint returns everything including files and stats
+      commit = get("/repos/#{owner}/#{repo}/git/commits/#{sha}")
+      normalize_gitea_commit_detail(commit)
+    end
+
+    def get_commit_diff(owner, repo, sha)
+      commit = get("/repos/#{owner}/#{repo}/git/commits/#{sha}")
+      diff = get("/repos/#{owner}/#{repo}/commits/#{sha}.diff", raw: true) rescue ""
+      normalize_gitea_commit_diff(commit, diff)
+    end
+
+    def compare_commits(owner, repo, base, head)
+      result = get("/repos/#{owner}/#{repo}/compare/#{base}...#{head}")
+      normalize_gitea_comparison(result)
+    end
+
+    def get_file_content(owner, repo, path, ref = nil)
+      params = {}
+      params[:ref] = ref if ref
+      result = get("/repos/#{owner}/#{repo}/contents/#{path}", params)
+      normalize_gitea_file_content(result)
+    rescue NotFoundError
+      nil
+    end
+
+    def get_tree(owner, repo, sha, recursive: false)
+      params = {}
+      params[:recursive] = true if recursive
+      result = get("/repos/#{owner}/#{repo}/git/trees/#{sha}", params)
+      normalize_gitea_tree(result)
+    end
+
+    def list_tags(owner, repo, options = {})
+      page = options[:page] || 1
+      per_page = options[:per_page] || 100
+
+      result = get("/repos/#{owner}/#{repo}/tags", page: page, limit: per_page)
+      result.map { |tag| normalize_gitea_tag(tag) }
+    end
+
     protected
 
     def configure_auth(conn)
@@ -588,6 +631,312 @@ module Git
         "fingerprint" => key["fingerprint"],
         "read_only" => key["read_only"],
         "created_at" => key["created_at"]
+      }
+    end
+
+    def normalize_gitea_commit_detail(commit)
+      return nil unless commit
+
+      sha = commit["sha"]
+      parents = commit["parents"] || []
+      # Gitea nests author/committer info inside 'commit' object
+      commit_data = commit["commit"] || {}
+      author = commit_data["author"] || {}
+      committer = commit_data["committer"] || {}
+      message = commit_data["message"] || ""
+      verification = commit_data["verification"]
+      # Stats and files are directly on the response
+      stats = commit["stats"] || {}
+      files = commit["files"] || []
+
+      {
+        sha: sha,
+        short_sha: sha[0, 7],
+        message: message,
+        title: message.split("\n").first || "",
+        body: message.split("\n")[1..]&.join("\n")&.strip,
+        author: {
+          name: author["name"],
+          email: author["email"],
+          date: author["date"],
+          username: commit.dig("author", "login") || commit.dig("author", "username"),
+          avatar_url: commit.dig("author", "avatar_url")
+        },
+        committer: {
+          name: committer["name"],
+          email: committer["email"],
+          date: committer["date"],
+          username: commit.dig("committer", "login") || commit.dig("committer", "username"),
+          avatar_url: commit.dig("committer", "avatar_url")
+        },
+        authored_date: author["date"],
+        committed_date: committer["date"],
+        web_url: commit["html_url"],
+        parent_shas: parents.map { |p| p["sha"] },
+        is_merge: parents.length > 1,
+        is_verified: verification&.dig("verified") || false,
+        verification: verification ? {
+          verified: verification["verified"],
+          reason: verification["reason"],
+          signature: verification["signature"],
+          payload: verification["payload"]
+        } : nil,
+        stats: {
+          additions: stats["additions"] || 0,
+          deletions: stats["deletions"] || 0,
+          total: stats["total"] || 0,
+          files_changed: files.length
+        },
+        files: files.map { |f| normalize_gitea_commit_file(f) },
+        tree_sha: commit_data.dig("tree", "sha")
+      }
+    end
+
+    def normalize_gitea_commit_file(file)
+      return nil unless file
+
+      {
+        sha: file["sha"],
+        filename: file["filename"],
+        status: file["status"],
+        additions: file["additions"] || 0,
+        deletions: file["deletions"] || 0,
+        changes: file["changes"] || 0,
+        patch: file["patch"],
+        previous_filename: file["previous_filename"],
+        blob_url: nil,
+        raw_url: file["raw_url"],
+        contents_url: file["contents_url"]
+      }
+    end
+
+    def normalize_gitea_commit_diff(commit, raw_diff)
+      return nil unless commit
+
+      files = parse_raw_diff_to_files(raw_diff)
+      parents = commit["parents"] || []
+      # Use stats from commit if available, otherwise calculate from parsed diff
+      commit_stats = commit["stats"] || {}
+
+      {
+        base_sha: parents.first&.dig("sha") || "",
+        head_sha: commit["sha"],
+        stats: {
+          additions: commit_stats["additions"] || files.sum { |f| f[:additions] },
+          deletions: commit_stats["deletions"] || files.sum { |f| f[:deletions] },
+          total: commit_stats["total"] || files.sum { |f| f[:changes] },
+          files_changed: (commit["files"] || files).length
+        },
+        files: files
+      }
+    end
+
+    def parse_raw_diff_to_files(raw_diff)
+      return [] if raw_diff.blank?
+
+      files = []
+      current_file = nil
+
+      raw_diff.lines.each do |line|
+        if line.start_with?("diff --git")
+          files << current_file if current_file
+          match = line.match(%r{diff --git a/(.+) b/(.+)})
+          current_file = {
+            filename: match ? match[2] : "",
+            status: "modified",
+            additions: 0,
+            deletions: 0,
+            changes: 0,
+            previous_filename: nil,
+            hunks: [],
+            is_binary: false,
+            is_large: false,
+            truncated: false,
+            raw_patch: ""
+          }
+        elsif current_file
+          current_file[:raw_patch] += line
+
+          if line.start_with?("new file")
+            current_file[:status] = "added"
+          elsif line.start_with?("deleted file")
+            current_file[:status] = "removed"
+          elsif line.start_with?("rename from")
+            current_file[:status] = "renamed"
+            current_file[:previous_filename] = line.sub("rename from ", "").strip
+          elsif line.start_with?("Binary files")
+            current_file[:is_binary] = true
+          elsif line.start_with?("+") && !line.start_with?("+++")
+            current_file[:additions] += 1
+            current_file[:changes] += 1
+          elsif line.start_with?("-") && !line.start_with?("---")
+            current_file[:deletions] += 1
+            current_file[:changes] += 1
+          end
+        end
+      end
+
+      files << current_file if current_file
+
+      # Parse hunks for each file
+      files.each do |file|
+        file[:hunks] = parse_gitea_patch_hunks(file[:raw_patch])
+      end
+
+      files
+    end
+
+    def parse_gitea_patch_hunks(patch)
+      return [] if patch.blank?
+
+      hunks = []
+      current_hunk = nil
+      old_line = 0
+      new_line = 0
+
+      patch.lines.each do |line|
+        if line.start_with?("@@")
+          match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/)
+          if match
+            current_hunk = {
+              header: line.chomp,
+              old_start: match[1].to_i,
+              old_lines: match[2]&.to_i || 1,
+              new_start: match[3].to_i,
+              new_lines: match[4]&.to_i || 1,
+              lines: []
+            }
+            hunks << current_hunk
+            old_line = current_hunk[:old_start]
+            new_line = current_hunk[:new_start]
+          end
+        elsif current_hunk && !line.start_with?("diff --git", "---", "+++", "index ", "new file", "deleted file", "rename")
+          line_type = case line[0]
+                      when "+" then "addition"
+                      when "-" then "deletion"
+                      when " " then "context"
+                      else next # Skip other lines
+                      end
+
+          diff_line = {
+            type: line_type,
+            content: line[1..].to_s.chomp
+          }
+
+          case line_type
+          when "deletion"
+            diff_line[:old_line_number] = old_line
+            old_line += 1
+          when "addition"
+            diff_line[:new_line_number] = new_line
+            new_line += 1
+          when "context"
+            diff_line[:old_line_number] = old_line
+            diff_line[:new_line_number] = new_line
+            old_line += 1
+            new_line += 1
+          end
+
+          current_hunk[:lines] << diff_line
+        end
+      end
+
+      hunks
+    end
+
+    def normalize_gitea_comparison(comparison)
+      return nil unless comparison
+
+      commits = comparison["commits"] || []
+      files = []
+
+      {
+        url: comparison["html_url"],
+        status: commits.any? ? "ahead" : "identical",
+        ahead_by: commits.length,
+        behind_by: 0,
+        total_commits: commits.length,
+        base_commit: commits.first ? normalize_gitea_commit_detail(commits.first) : nil,
+        head_commit: commits.last ? normalize_gitea_commit_detail(commits.last) : nil,
+        merge_base_commit: nil,
+        commits: commits.map { |c| normalize_gitea_commit_detail(c) },
+        files: files,
+        diff_stats: {
+          additions: files.sum { |f| f[:additions] },
+          deletions: files.sum { |f| f[:deletions] },
+          total: files.sum { |f| f[:changes] },
+          files_changed: files.length
+        }
+      }
+    end
+
+    def normalize_gitea_file_content(content)
+      return nil unless content
+
+      # Handle directory listing (array response)
+      if content.is_a?(Array)
+        return {
+          type: "dir",
+          entries: content.map { |entry| normalize_gitea_tree_entry(entry) }
+        }
+      end
+
+      decoded_content = nil
+      if content["encoding"] == "base64" && content["content"]
+        decoded_content = Base64.decode64(content["content"]) rescue nil
+      end
+
+      is_binary = decoded_content && !decoded_content.valid_encoding?
+
+      {
+        name: content["name"],
+        path: content["path"],
+        sha: content["sha"],
+        size: content["size"] || 0,
+        type: content["type"],
+        content: is_binary ? nil : decoded_content,
+        encoding: is_binary ? "none" : "utf-8",
+        download_url: content["download_url"],
+        web_url: content["html_url"],
+        is_binary: is_binary,
+        lines_count: is_binary ? nil : (decoded_content&.lines&.count || 0)
+      }
+    end
+
+    def normalize_gitea_tree(tree)
+      return nil unless tree
+
+      {
+        sha: tree["sha"],
+        url: tree["url"],
+        entries: (tree["tree"] || []).map { |entry| normalize_gitea_tree_entry(entry) },
+        truncated: tree["truncated"] || false
+      }
+    end
+
+    def normalize_gitea_tree_entry(entry)
+      return nil unless entry
+
+      {
+        path: entry["path"],
+        name: entry["path"]&.split("/")&.last || entry["name"],
+        type: entry["type"] == "blob" ? "blob" : (entry["type"] == "tree" ? "tree" : entry["type"]),
+        mode: entry["mode"],
+        sha: entry["sha"],
+        size: entry["size"],
+        url: entry["url"]
+      }
+    end
+
+    def normalize_gitea_tag(tag)
+      return nil unless tag
+
+      {
+        name: tag["name"],
+        sha: tag.dig("commit", "sha") || tag["id"],
+        message: tag["message"],
+        web_url: nil,
+        is_release: false
       }
     end
   end

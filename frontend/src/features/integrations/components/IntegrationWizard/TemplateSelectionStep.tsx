@@ -84,14 +84,14 @@ export function TemplateSelectionStep({ onSelect, onCancel }: TemplateSelectionS
             placeholder="Search templates..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           />
         </div>
         <div className="flex gap-2">
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value as IntegrationType | '')}
-            className="px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           >
             {integrationTypes.map((type) => (
               <option key={type.value} value={type.value}>
@@ -102,7 +102,7 @@ export function TemplateSelectionStep({ onSelect, onCancel }: TemplateSelectionS
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           >
             <option value="">All Categories</option>
             {Object.keys(categories).map((cat) => (
@@ -151,7 +151,7 @@ export function TemplateSelectionStep({ onSelect, onCancel }: TemplateSelectionS
                   className="w-10 h-10 rounded-lg"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-lg bg-theme-card flex items-center justify-center text-xl">
+                <div className="w-10 h-10 rounded-lg bg-theme-surface flex items-center justify-center text-xl">
                   {integrationsApi.getTypeIcon(template.integration_type)}
                 </div>
               )}

@@ -142,6 +142,10 @@ module AiWorkflowNodeExecution::NodeExecution
     end
 
     request_approval!(approval_message, approvers)
+
+    # Trigger email notifications to approvers
+    trigger_approval_notifications(approvers)
+
     log_info("approval_requested", "Human approval requested", {
       "approvers" => approvers,
       "message" => approval_message
@@ -176,5 +180,20 @@ module AiWorkflowNodeExecution::NodeExecution
     branches = node_configuration("branches") || []
 
     log_info("split_execution_queued", "Split execution queued with strategy: #{split_strategy}")
+  end
+
+  def trigger_approval_notifications(approvers)
+    return if approvers.empty?
+
+    # Enqueue notification job via backend API (worker will create tokens and send emails)
+    WorkerJobService.enqueue_job(
+      job_class: "AiWorkflow::ApprovalNotificationJob",
+      args: [id, approvers],
+      queue: "email"
+    )
+  rescue StandardError => e
+    Rails.logger.error("Failed to trigger approval notifications for node execution #{id}: #{e.message}")
+    # Don't fail the execution - approval is still pending, just notifications failed
+    log_warning("approval_notification_failed", "Failed to send approval notifications: #{e.message}")
   end
 end

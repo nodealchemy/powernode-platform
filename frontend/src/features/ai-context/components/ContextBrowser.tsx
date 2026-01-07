@@ -73,7 +73,7 @@ export function ContextBrowser({
   const renderContextCard = (context: AiPersistentContextSummary) => {
     const content = (
       <div
-        className={`p-4 bg-theme-card border rounded-lg transition-colors ${
+        className={`p-4 bg-theme-surface border rounded-lg transition-colors ${
           selectedId === context.id
             ? 'border-theme-primary bg-theme-primary bg-opacity-5'
             : 'border-theme hover:border-theme-secondary'
@@ -148,13 +148,13 @@ export function ContextBrowser({
             placeholder="Search contexts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           />
         </div>
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as ContextType | '')}
-          className="px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
         >
           {contextTypes.map((type) => (
             <option key={type.value} value={type.value}>
@@ -165,7 +165,7 @@ export function ContextBrowser({
         <select
           value={scopeFilter}
           onChange={(e) => setScopeFilter(e.target.value as ContextScope | '')}
-          className="px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
         >
           {contextScopes.map((scope) => (
             <option key={scope.value} value={scope.value}>
@@ -177,7 +177,7 @@ export function ContextBrowser({
 
       {/* Results */}
       {filteredContexts.length === 0 ? (
-        <div className="text-center py-12 bg-theme-card border border-theme rounded-lg">
+        <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
           <div className="text-4xl mb-4">📦</div>
           <p className="text-theme-secondary">No contexts found</p>
           {(searchQuery || typeFilter || scopeFilter) && (

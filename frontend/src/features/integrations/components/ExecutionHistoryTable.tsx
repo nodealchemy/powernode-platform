@@ -45,7 +45,7 @@ export function ExecutionHistoryTable({
 
   if (isLoading) {
     return (
-      <div className="bg-theme-card border border-theme rounded-lg p-8">
+      <div className="bg-theme-surface border border-theme rounded-lg p-8">
         <div className="flex items-center justify-center">
           <div className="animate-spin rounded-full h-6 w-6 border-2 border-theme-primary border-t-transparent" />
           <span className="ml-2 text-theme-secondary">Loading executions...</span>
@@ -56,14 +56,14 @@ export function ExecutionHistoryTable({
 
   if (executions.length === 0) {
     return (
-      <div className="bg-theme-card border border-theme rounded-lg p-8 text-center">
+      <div className="bg-theme-surface border border-theme rounded-lg p-8 text-center">
         <p className="text-theme-secondary">No execution history yet</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-theme-card border border-theme rounded-lg overflow-hidden">
+    <div className="bg-theme-surface border border-theme rounded-lg overflow-hidden">
       <table className="w-full">
         <thead className="bg-theme-surface border-b border-theme">
           <tr>
@@ -218,7 +218,7 @@ function ExecutionDetails({ execution, onViewDetails }: ExecutionDetailsProps) {
       {execution.input_data && Object.keys(execution.input_data).length > 0 && (
         <div>
           <p className="text-xs text-theme-tertiary mb-2">Input Data</p>
-          <pre className="p-3 bg-theme-card rounded text-xs text-theme-secondary overflow-x-auto">
+          <pre className="p-3 bg-theme-surface rounded text-xs text-theme-secondary overflow-x-auto">
             {JSON.stringify(execution.input_data, null, 2)}
           </pre>
         </div>
@@ -227,7 +227,7 @@ function ExecutionDetails({ execution, onViewDetails }: ExecutionDetailsProps) {
       {execution.output_data && Object.keys(execution.output_data).length > 0 && (
         <div>
           <p className="text-xs text-theme-tertiary mb-2">Output Data</p>
-          <pre className="p-3 bg-theme-card rounded text-xs text-theme-secondary overflow-x-auto">
+          <pre className="p-3 bg-theme-surface rounded text-xs text-theme-secondary overflow-x-auto">
             {JSON.stringify(execution.output_data, null, 2)}
           </pre>
         </div>

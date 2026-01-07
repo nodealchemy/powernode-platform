@@ -12,6 +12,7 @@ class AiProvider < ApplicationRecord
   include AiProvider::ModelManagement
   include AiProvider::Configurable
   include AiProvider::ProviderSetup
+  include AiProvider::CicdIntegration
 
   # Associations
   belongs_to :account

@@ -101,7 +101,7 @@ export function KnowledgeBasePage() {
         {activeTab === 'create' && (
           <div className="max-w-2xl">
             <form onSubmit={handleCreateContext} className="space-y-6">
-              <div className="bg-theme-card border border-theme rounded-lg p-6">
+              <div className="bg-theme-surface border border-theme rounded-lg p-6">
                 <h3 className="text-lg font-medium text-theme-primary mb-4">
                   Create Knowledge Base
                 </h3>
@@ -116,7 +116,7 @@ export function KnowledgeBasePage() {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g., Product Documentation, Company Policies"
-                    className={`w-full px-4 py-2 bg-theme-input border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
+                    className={`w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
                       formErrors.name ? 'border-theme-error' : 'border-theme'
                     }`}
                   />
@@ -135,7 +135,7 @@ export function KnowledgeBasePage() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Describe what this knowledge base contains..."
                     rows={3}
-                    className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                    className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
                   />
                 </div>
 
@@ -152,7 +152,7 @@ export function KnowledgeBasePage() {
                         scope: e.target.value as ContextFormData['scope'],
                       })
                     }
-                    className="w-full px-4 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                    className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
                   >
                     <option value="account">Account-wide</option>
                     <option value="team">Team</option>
@@ -186,7 +186,7 @@ export function KnowledgeBasePage() {
                           })
                         }
                         placeholder="Unlimited"
-                        className="w-full px-3 py-1.5 text-sm bg-theme-input border border-theme rounded text-theme-primary"
+                        className="w-full px-3 py-1.5 text-sm bg-theme-surface border border-theme rounded text-theme-primary"
                       />
                     </div>
                     <div>
@@ -206,7 +206,7 @@ export function KnowledgeBasePage() {
                           })
                         }
                         placeholder="Never expire"
-                        className="w-full px-3 py-1.5 text-sm bg-theme-input border border-theme rounded text-theme-primary"
+                        className="w-full px-3 py-1.5 text-sm bg-theme-surface border border-theme rounded text-theme-primary"
                       />
                     </div>
                   </div>

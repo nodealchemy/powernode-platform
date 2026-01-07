@@ -110,7 +110,7 @@ export function TestConnectionStep({
         {Object.keys(configuration).length > 0 && (
           <div className="pt-4 border-t border-theme">
             <p className="text-xs text-theme-tertiary mb-2">Configuration</p>
-            <pre className="text-xs text-theme-secondary bg-theme-card p-3 rounded overflow-x-auto">
+            <pre className="text-xs text-theme-secondary bg-theme-surface p-3 rounded overflow-x-auto">
               {JSON.stringify(configuration, null, 2)}
             </pre>
           </div>
@@ -141,7 +141,7 @@ export function TestConnectionStep({
           <button
             onClick={handleTestConnection}
             disabled={testStatus === 'testing'}
-            className="px-4 py-2 bg-theme-surface border border-theme text-theme-primary rounded-lg hover:bg-theme-card disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-theme-surface border border-theme text-theme-primary rounded-lg hover:bg-theme-surface disabled:opacity-50 transition-colors"
           >
             {testStatus === 'testing' ? 'Testing...' : 'Test Connection'}
           </button>
@@ -156,7 +156,7 @@ export function TestConnectionStep({
             {template.capabilities.map((capability) => (
               <span
                 key={capability}
-                className="px-2 py-1 text-xs bg-theme-card text-theme-secondary rounded"
+                className="px-2 py-1 text-xs bg-theme-surface text-theme-secondary rounded"
               >
                 {capability}
               </span>
