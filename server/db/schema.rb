@@ -10,11 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_06_205443) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
-  enable_extension "vector"
 
   create_table "account_delegations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
@@ -277,9 +276,39 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
     t.index ["user_id"], name: "index_ai_context_access_logs_on_user_id"
   end
 
-# Could not dump table "ai_context_entries" because of following StandardError
-#   Unknown type 'vector' for column 'embedding'
-
+  create_table "ai_context_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_persistent_context_id", null: false
+    t.uuid "created_by_user_id"
+    t.uuid "ai_agent_id"
+    t.string "entry_key", null: false
+    t.string "entry_type"
+    t.jsonb "content", default: {}, null: false
+    t.text "content_text"
+    t.jsonb "metadata", default: {}
+    t.decimal "importance_score", precision: 5, scale: 4, default: "0.5"
+    t.decimal "relevance_decay_rate", precision: 5, scale: 4, default: "0.0"
+    t.datetime "last_relevance_update"
+    t.string "source_type"
+    t.string "source_id"
+    t.integer "version", default: 1
+    t.uuid "previous_version_id"
+    t.datetime "expires_at"
+    t.datetime "archived_at"
+    t.integer "access_count", default: 0
+    t.datetime "last_accessed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ai_agent_id"], name: "index_ai_context_entries_on_ai_agent_id"
+    t.index ["ai_persistent_context_id", "entry_key"], name: "idx_entries_context_key", unique: true
+    t.index ["ai_persistent_context_id"], name: "index_ai_context_entries_on_ai_persistent_context_id"
+    t.index ["archived_at"], name: "index_ai_context_entries_on_archived_at"
+    t.index ["created_by_user_id"], name: "index_ai_context_entries_on_created_by_user_id"
+    t.index ["entry_type"], name: "index_ai_context_entries_on_entry_type"
+    t.index ["expires_at"], name: "index_ai_context_entries_on_expires_at"
+    t.index ["importance_score"], name: "index_ai_context_entries_on_importance_score"
+    t.index ["previous_version_id"], name: "index_ai_context_entries_on_previous_version_id"
+    t.index ["source_type"], name: "index_ai_context_entries_on_source_type"
+  end
 
   create_table "ai_conversations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
@@ -500,6 +529,28 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
     t.index ["scope"], name: "index_ai_shared_context_pools_on_scope"
   end
 
+  create_table "ai_workflow_approval_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_workflow_node_execution_id", null: false
+    t.uuid "recipient_user_id"
+    t.uuid "responded_by_id"
+    t.string "token_digest", null: false
+    t.string "recipient_email", null: false
+    t.string "status", default: "pending", null: false
+    t.text "response_comment"
+    t.datetime "expires_at", null: false
+    t.datetime "responded_at"
+    t.datetime "email_sent_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ai_workflow_node_execution_id", "status"], name: "idx_ai_workflow_approval_tokens_execution_status"
+    t.index ["ai_workflow_node_execution_id"], name: "idx_on_ai_workflow_node_execution_id_0389e52806"
+    t.index ["recipient_user_id"], name: "index_ai_workflow_approval_tokens_on_recipient_user_id"
+    t.index ["responded_by_id"], name: "index_ai_workflow_approval_tokens_on_responded_by_id"
+    t.index ["status", "expires_at"], name: "idx_ai_workflow_approval_tokens_pending_expiry", where: "((status)::text = 'pending'::text)"
+    t.index ["token_digest"], name: "index_ai_workflow_approval_tokens_on_token_digest", unique: true
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying, 'expired'::character varying]::text[])", name: "ai_workflow_approval_tokens_status_check"
+  end
+
   create_table "ai_workflow_checkpoints", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_run_id", null: false
     t.string "checkpoint_id", null: false
@@ -650,6 +701,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
     t.string "mcp_tool_id", comment: "ID of the MCP tool used by this node"
     t.string "mcp_tool_version"
     t.uuid "plugin_id"
+    t.uuid "shared_prompt_template_id"
     t.index ["ai_workflow_id", "is_end_node"], name: "index_ai_workflow_nodes_on_ai_workflow_id_and_is_end_node"
     t.index ["ai_workflow_id", "is_start_node"], name: "index_ai_workflow_nodes_on_ai_workflow_id_and_is_start_node"
     t.index ["ai_workflow_id", "node_id"], name: "index_workflow_nodes_on_workflow_node_id", unique: true
@@ -658,6 +710,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
     t.index ["mcp_tool_id", "mcp_tool_version"], name: "index_workflow_nodes_on_mcp_tool_and_version"
     t.index ["mcp_tool_id"], name: "index_ai_workflow_nodes_on_mcp_tool_id"
     t.index ["plugin_id"], name: "index_ai_workflow_nodes_on_plugin_id"
+    t.index ["shared_prompt_template_id"], name: "index_ai_workflow_nodes_on_shared_prompt_template_id"
     t.check_constraint "node_type::text = ANY (ARRAY['start'::character varying::text, 'end'::character varying::text, 'trigger'::character varying::text, 'ai_agent'::character varying::text, 'prompt_template'::character varying::text, 'data_processor'::character varying::text, 'transform'::character varying::text, 'condition'::character varying::text, 'loop'::character varying::text, 'delay'::character varying::text, 'merge'::character varying::text, 'split'::character varying::text, 'database'::character varying::text, 'file'::character varying::text, 'validator'::character varying::text, 'email'::character varying::text, 'notification'::character varying::text, 'api_call'::character varying::text, 'webhook'::character varying::text, 'scheduler'::character varying::text, 'human_approval'::character varying::text, 'sub_workflow'::character varying::text, 'kb_article'::character varying::text, 'page'::character varying::text, 'mcp_operation'::character varying::text, 'ci_trigger'::character varying::text, 'ci_wait_status'::character varying::text, 'ci_get_logs'::character varying::text, 'ci_cancel'::character varying::text, 'git_commit_status'::character varying::text, 'git_create_check'::character varying::text])", name: "ai_workflow_nodes_type_check"
     t.check_constraint "retry_count >= 0", name: "ai_workflow_nodes_retry_check"
     t.check_constraint "timeout_seconds > 0", name: "ai_workflow_nodes_timeout_check"
@@ -1329,6 +1382,194 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
     t.index ["expires_at"], name: "index_blacklisted_tokens_on_expires_at"
     t.index ["token"], name: "index_blacklisted_tokens_on_token", unique: true
     t.index ["user_id"], name: "index_blacklisted_tokens_on_user_id"
+  end
+
+  create_table "ci_cd_pipeline_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ci_cd_pipeline_id", null: false
+    t.uuid "ci_cd_repository_id", null: false
+    t.jsonb "overrides", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ci_cd_pipeline_id", "ci_cd_repository_id"], name: "idx_pipeline_repos_on_pipeline_and_repo", unique: true
+    t.index ["ci_cd_pipeline_id"], name: "index_ci_cd_pipeline_repositories_on_ci_cd_pipeline_id"
+    t.index ["ci_cd_repository_id"], name: "index_ci_cd_pipeline_repositories_on_ci_cd_repository_id"
+  end
+
+  create_table "ci_cd_pipeline_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ci_cd_pipeline_id", null: false
+    t.uuid "triggered_by_id"
+    t.string "run_number", null: false
+    t.string "status", default: "pending", null: false
+    t.string "trigger_type", null: false
+    t.jsonb "trigger_context", default: {}, null: false
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.integer "duration_seconds"
+    t.jsonb "outputs", default: {}, null: false
+    t.jsonb "artifacts", default: [], null: false
+    t.text "error_message"
+    t.string "external_run_id"
+    t.string "external_run_url"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ci_cd_pipeline_id", "run_number"], name: "index_ci_cd_pipeline_runs_on_ci_cd_pipeline_id_and_run_number", unique: true
+    t.index ["ci_cd_pipeline_id", "status"], name: "index_ci_cd_pipeline_runs_on_ci_cd_pipeline_id_and_status"
+    t.index ["ci_cd_pipeline_id"], name: "index_ci_cd_pipeline_runs_on_ci_cd_pipeline_id"
+    t.index ["external_run_id"], name: "index_ci_cd_pipeline_runs_on_external_run_id"
+    t.index ["triggered_by_id"], name: "index_ci_cd_pipeline_runs_on_triggered_by_id"
+  end
+
+  create_table "ci_cd_pipeline_steps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ci_cd_pipeline_id", null: false
+    t.string "name", null: false
+    t.string "step_type", null: false
+    t.integer "position", default: 0, null: false
+    t.jsonb "configuration", default: {}, null: false
+    t.jsonb "inputs", default: {}, null: false
+    t.jsonb "outputs", default: [], null: false
+    t.text "condition"
+    t.boolean "continue_on_error", default: false, null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "shared_prompt_template_id"
+    t.boolean "requires_approval", default: false, null: false, comment: "When true, step execution pauses and sends notifications for manual approval"
+    t.jsonb "approval_settings", default: {}, null: false, comment: "Approval config: {\"timeout_hours\": 24, \"notification_recipients\": [], \"require_comment\": false}"
+    t.index ["ci_cd_pipeline_id", "name"], name: "index_ci_cd_pipeline_steps_on_ci_cd_pipeline_id_and_name", unique: true
+    t.index ["ci_cd_pipeline_id", "position"], name: "index_ci_cd_pipeline_steps_on_ci_cd_pipeline_id_and_position"
+    t.index ["ci_cd_pipeline_id"], name: "index_ci_cd_pipeline_steps_on_ci_cd_pipeline_id"
+    t.index ["shared_prompt_template_id"], name: "index_ci_cd_pipeline_steps_on_shared_prompt_template_id"
+  end
+
+  create_table "ci_cd_pipelines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "created_by_id"
+    t.uuid "ci_cd_provider_id"
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.string "pipeline_type", null: false
+    t.text "description"
+    t.jsonb "triggers", default: {}, null: false
+    t.jsonb "steps", default: [], null: false
+    t.jsonb "environment", default: {}, null: false
+    t.jsonb "secret_refs", default: [], null: false
+    t.string "runner_labels", default: ["ubuntu-latest"], array: true
+    t.integer "timeout_minutes", default: 60
+    t.boolean "allow_concurrent", default: false, null: false
+    t.jsonb "features", default: {}, null: false
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_system", default: false, null: false
+    t.integer "version", default: 1, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "ai_provider_id"
+    t.jsonb "notification_recipients", default: [], null: false, comment: "Array of notification recipients: [{\"type\": \"email\"|\"user_id\", \"value\": \"...\"}]"
+    t.jsonb "notification_settings", default: {}, null: false, comment: "Notification preferences: {\"on_approval_required\": true, \"on_completion\": false, \"on_failure\": true}"
+    t.index ["account_id", "is_active"], name: "index_ci_cd_pipelines_on_account_id_and_is_active"
+    t.index ["account_id", "pipeline_type"], name: "index_ci_cd_pipelines_on_account_id_and_pipeline_type"
+    t.index ["account_id", "slug"], name: "index_ci_cd_pipelines_on_account_id_and_slug", unique: true
+    t.index ["account_id"], name: "index_ci_cd_pipelines_on_account_id"
+    t.index ["ai_provider_id"], name: "index_ci_cd_pipelines_on_ai_provider_id"
+    t.index ["ci_cd_provider_id"], name: "index_ci_cd_pipelines_on_ci_cd_provider_id"
+    t.index ["created_by_id"], name: "index_ci_cd_pipelines_on_created_by_id"
+  end
+
+  create_table "ci_cd_providers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "created_by_id"
+    t.string "name", null: false
+    t.string "provider_type", null: false
+    t.string "base_url", null: false
+    t.string "api_version", default: "v1"
+    t.string "credential_key"
+    t.jsonb "configuration", default: {}, null: false
+    t.jsonb "capabilities", default: [], null: false
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_default", default: false, null: false
+    t.datetime "last_health_check_at"
+    t.string "health_status"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "is_default"], name: "index_ci_cd_providers_on_account_id_and_is_default", where: "(is_default = true)"
+    t.index ["account_id", "name"], name: "index_ci_cd_providers_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_ci_cd_providers_on_account_id"
+    t.index ["created_by_id"], name: "index_ci_cd_providers_on_created_by_id"
+  end
+
+  create_table "ci_cd_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ci_cd_provider_id", null: false
+    t.string "name", null: false
+    t.string "full_name", null: false
+    t.string "default_branch", default: "main"
+    t.string "external_id"
+    t.jsonb "settings", default: {}, null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_synced_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "full_name"], name: "index_ci_cd_repositories_on_account_id_and_full_name", unique: true
+    t.index ["account_id"], name: "index_ci_cd_repositories_on_account_id"
+    t.index ["ci_cd_provider_id"], name: "index_ci_cd_repositories_on_ci_cd_provider_id"
+    t.index ["external_id"], name: "index_ci_cd_repositories_on_external_id"
+  end
+
+  create_table "ci_cd_schedules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ci_cd_pipeline_id", null: false
+    t.uuid "created_by_id"
+    t.string "name", null: false
+    t.string "cron_expression", null: false
+    t.string "timezone", default: "UTC"
+    t.jsonb "inputs", default: {}, null: false
+    t.datetime "next_run_at"
+    t.datetime "last_run_at"
+    t.boolean "is_active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ci_cd_pipeline_id", "is_active"], name: "index_ci_cd_schedules_on_ci_cd_pipeline_id_and_is_active"
+    t.index ["ci_cd_pipeline_id"], name: "index_ci_cd_schedules_on_ci_cd_pipeline_id"
+    t.index ["created_by_id"], name: "index_ci_cd_schedules_on_created_by_id"
+    t.index ["next_run_at"], name: "index_ci_cd_schedules_on_next_run_at", where: "(is_active = true)"
+  end
+
+  create_table "ci_cd_step_approval_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "step_execution_id", null: false
+    t.uuid "recipient_user_id"
+    t.uuid "responded_by_id"
+    t.string "token_digest", null: false
+    t.string "recipient_email", null: false
+    t.string "status", default: "pending", null: false
+    t.text "response_comment"
+    t.datetime "expires_at", null: false
+    t.datetime "responded_at"
+    t.datetime "email_sent_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["recipient_user_id"], name: "index_ci_cd_step_approval_tokens_on_recipient_user_id"
+    t.index ["responded_by_id"], name: "index_ci_cd_step_approval_tokens_on_responded_by_id"
+    t.index ["status", "expires_at"], name: "idx_approval_tokens_pending_expiry", where: "((status)::text = 'pending'::text)"
+    t.index ["step_execution_id", "status"], name: "idx_approval_tokens_on_step_execution_and_status"
+    t.index ["step_execution_id"], name: "index_ci_cd_step_approval_tokens_on_step_execution_id"
+    t.index ["token_digest"], name: "index_ci_cd_step_approval_tokens_on_token_digest", unique: true
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying, 'expired'::character varying]::text[])", name: "ci_cd_step_approval_tokens_status_check"
+  end
+
+  create_table "ci_cd_step_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ci_cd_pipeline_run_id", null: false
+    t.uuid "ci_cd_pipeline_step_id", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.integer "duration_seconds"
+    t.jsonb "outputs", default: {}, null: false
+    t.text "logs"
+    t.text "error_message"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ci_cd_pipeline_run_id", "ci_cd_pipeline_step_id"], name: "idx_step_executions_on_run_and_step", unique: true
+    t.index ["ci_cd_pipeline_run_id"], name: "index_ci_cd_step_executions_on_ci_cd_pipeline_run_id"
+    t.index ["ci_cd_pipeline_step_id"], name: "index_ci_cd_step_executions_on_ci_cd_pipeline_step_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'waiting_approval'::character varying, 'success'::character varying, 'failure'::character varying, 'skipped'::character varying]::text[])", name: "ci_cd_step_executions_status_check"
   end
 
   create_table "circuit_breaker_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3339,6 +3580,31 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
     t.index ["task_type"], name: "idx_scheduled_tasks_on_task_type"
   end
 
+  create_table "shared_prompt_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "created_by_id"
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.string "category", null: false
+    t.string "domain", default: "general", null: false
+    t.text "description"
+    t.text "content", null: false
+    t.jsonb "variables", default: [], null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.integer "version", default: 1, null: false
+    t.uuid "parent_template_id"
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_system", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "category"], name: "index_shared_prompt_templates_on_account_id_and_category"
+    t.index ["account_id", "domain"], name: "index_shared_prompt_templates_on_account_id_and_domain"
+    t.index ["account_id", "slug"], name: "index_shared_prompt_templates_on_account_id_and_slug", unique: true
+    t.index ["is_active"], name: "index_shared_prompt_templates_on_is_active"
+    t.index ["is_system"], name: "index_shared_prompt_templates_on_is_system"
+    t.index ["parent_template_id"], name: "index_shared_prompt_templates_on_parent_template_id"
+  end
+
   create_table "site_settings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "key", limit: 255, null: false
     t.text "value"
@@ -3788,6 +4054,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
   add_foreign_key "ai_provider_plugins", "plugins"
   add_foreign_key "ai_providers", "accounts"
   add_foreign_key "ai_shared_context_pools", "ai_workflow_runs", on_delete: :cascade
+  add_foreign_key "ai_workflow_approval_tokens", "ai_workflow_node_executions"
+  add_foreign_key "ai_workflow_approval_tokens", "users", column: "recipient_user_id"
+  add_foreign_key "ai_workflow_approval_tokens", "users", column: "responded_by_id"
   add_foreign_key "ai_workflow_checkpoints", "ai_workflow_runs", on_delete: :cascade
   add_foreign_key "ai_workflow_compensations", "ai_workflow_node_executions", on_delete: :cascade
   add_foreign_key "ai_workflow_compensations", "ai_workflow_runs", on_delete: :cascade
@@ -3799,6 +4068,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
   add_foreign_key "ai_workflow_node_executions", "ai_workflow_runs"
   add_foreign_key "ai_workflow_nodes", "ai_workflows"
   add_foreign_key "ai_workflow_nodes", "plugins"
+  add_foreign_key "ai_workflow_nodes", "shared_prompt_templates", on_delete: :nullify
   add_foreign_key "ai_workflow_run_logs", "ai_workflow_node_executions"
   add_foreign_key "ai_workflow_run_logs", "ai_workflow_runs"
   add_foreign_key "ai_workflow_runs", "accounts"
@@ -3839,6 +4109,27 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
   add_foreign_key "batch_workflow_runs", "accounts"
   add_foreign_key "batch_workflow_runs", "users"
   add_foreign_key "blacklisted_tokens", "users"
+  add_foreign_key "ci_cd_pipeline_repositories", "ci_cd_pipelines", on_delete: :cascade
+  add_foreign_key "ci_cd_pipeline_repositories", "ci_cd_repositories", on_delete: :cascade
+  add_foreign_key "ci_cd_pipeline_runs", "ci_cd_pipelines", on_delete: :cascade
+  add_foreign_key "ci_cd_pipeline_runs", "users", column: "triggered_by_id", on_delete: :nullify
+  add_foreign_key "ci_cd_pipeline_steps", "ci_cd_pipelines", on_delete: :cascade
+  add_foreign_key "ci_cd_pipeline_steps", "shared_prompt_templates", on_delete: :nullify
+  add_foreign_key "ci_cd_pipelines", "accounts", on_delete: :cascade
+  add_foreign_key "ci_cd_pipelines", "ai_providers", on_delete: :nullify
+  add_foreign_key "ci_cd_pipelines", "ci_cd_providers", on_delete: :restrict
+  add_foreign_key "ci_cd_pipelines", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "ci_cd_providers", "accounts", on_delete: :cascade
+  add_foreign_key "ci_cd_providers", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "ci_cd_repositories", "accounts", on_delete: :cascade
+  add_foreign_key "ci_cd_repositories", "ci_cd_providers", on_delete: :cascade
+  add_foreign_key "ci_cd_schedules", "ci_cd_pipelines", on_delete: :cascade
+  add_foreign_key "ci_cd_schedules", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "ci_cd_step_approval_tokens", "ci_cd_step_executions", column: "step_execution_id"
+  add_foreign_key "ci_cd_step_approval_tokens", "users", column: "recipient_user_id"
+  add_foreign_key "ci_cd_step_approval_tokens", "users", column: "responded_by_id"
+  add_foreign_key "ci_cd_step_executions", "ci_cd_pipeline_runs", on_delete: :cascade
+  add_foreign_key "ci_cd_step_executions", "ci_cd_pipeline_steps", on_delete: :cascade
   add_foreign_key "circuit_breaker_events", "circuit_breakers"
   add_foreign_key "cookie_consents", "users"
   add_foreign_key "data_deletion_requests", "accounts"
@@ -3978,6 +4269,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_04_000007) do
   add_foreign_key "role_permissions", "roles"
   add_foreign_key "scheduled_reports", "accounts"
   add_foreign_key "scheduled_reports", "users", column: "created_by_id"
+  add_foreign_key "shared_prompt_templates", "accounts", on_delete: :cascade
+  add_foreign_key "shared_prompt_templates", "shared_prompt_templates", column: "parent_template_id", on_delete: :nullify
+  add_foreign_key "shared_prompt_templates", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "subscriptions", "accounts"
   add_foreign_key "subscriptions", "plans"
   add_foreign_key "system_operations", "users", column: "initiated_by_id"

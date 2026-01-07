@@ -46,16 +46,26 @@ class PowernodeWorker
   def setup_sidekiq
     require 'sidekiq'
     require 'sidekiq/web'
-    
+    require 'sidekiq-scheduler'
+
     Sidekiq.configure_server do |config|
-      config.redis = { 
+      config.redis = {
         url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'),
         size: 20
       }
+
+      # Load scheduler configuration from sidekiq.yml
+      config.on(:startup) do
+        schedule_file = File.join(@root || File.expand_path('../..', __dir__), 'config', 'sidekiq.yml')
+        if File.exist?(schedule_file)
+          Sidekiq.schedule = YAML.safe_load(ERB.new(File.read(schedule_file)).result, permitted_classes: [Symbol], aliases: true).fetch(:schedule, {})
+          SidekiqScheduler::Scheduler.instance.reload_schedule!
+        end
+      end
     end
 
     Sidekiq.configure_client do |config|
-      config.redis = { 
+      config.redis = {
         url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'),
         size: 5
       }

@@ -5,6 +5,7 @@ ruby '3.2.8'
 
 # Background job processing
 gem 'sidekiq', '~> 7.2'
+gem 'sidekiq-scheduler', '~> 5.0'
 
 # HTTP client for API communication
 gem 'faraday', '~> 2.7'

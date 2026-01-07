@@ -519,6 +519,12 @@ GEM
     ruby2_keywords (0.0.5)
     secure_headers (7.1.0)
     securerandom (0.4.1)
+    sentry-rails (5.28.1)
+      railties (>= 5.0)
+      sentry-ruby (~> 5.28.1)
+    sentry-ruby (5.28.1)
+      bigdecimal
+      concurrent-ruby (~> 1.0, >= 1.0.2)
     shoulda-matchers (6.5.0)
       activesupport (>= 5.2.0)
     signet (0.21.0)
@@ -526,6 +532,8 @@ GEM
       faraday (>= 0.17.5, < 3.a)
       jwt (>= 1.5, < 4.0)
       multi_json (~> 1.10)
+    skylight (6.0.4)
+      activesupport (>= 5.2.0)
     solid_cable (3.0.12)
       actioncable (>= 7.2)
       activejob (>= 7.2)
@@ -644,7 +652,10 @@ DEPENDENCIES
   rspec-rails
   rubocop-rails-omakase
   secure_headers (~> 7.1)
+  sentry-rails (~> 5.17)
+  sentry-ruby (~> 5.17)
   shoulda-matchers (~> 6.5)
+  skylight (~> 6.0)
   solid_cable
   solid_cache
   solid_queue

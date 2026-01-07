@@ -45,6 +45,14 @@ class Account < ApplicationRecord
   has_many :git_pipelines, dependent: :destroy
   has_many :git_pipeline_jobs, dependent: :destroy
 
+  # CI/CD Pipeline Management associations
+  has_many :ci_cd_providers, class_name: "CiCd::Provider", dependent: :destroy
+  has_many :ci_cd_pipelines, class_name: "CiCd::Pipeline", dependent: :destroy
+  has_many :ci_cd_repositories, class_name: "CiCd::Repository", dependent: :destroy
+
+  # Shared infrastructure associations
+  has_many :shared_prompt_templates, class_name: "Shared::PromptTemplate", dependent: :destroy
+
   # File Storage associations
   has_many :file_storages, dependent: :destroy
   has_many :file_objects, dependent: :destroy

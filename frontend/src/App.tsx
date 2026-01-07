@@ -31,6 +31,8 @@ import { AcceptInvitationPage } from '@/pages/public/AcceptInvitationPage';
 import { PageViewPage } from '@/pages/public/PageViewPage';
 import { McpOAuthCallbackPage } from '@/pages/public/oauth/McpOAuthCallbackPage';
 import { StatusPage } from '@/pages/public/StatusPage';
+import { ApprovalResponsePage } from '@/features/cicd/pages/ApprovalResponsePage';
+import { ApprovalResponsePage as AiWorkflowApprovalResponsePage } from '@/features/ai-workflows/pages/ApprovalResponsePage';
 
 import './App.css';
 import '@/assets/styles/themes.css';
@@ -289,6 +291,26 @@ const AppContent: React.FC = () => {
           <Route
             path="/status"
             element={<StatusPage />}
+          />
+
+          {/* CI/CD Pipeline Approval Routes (public, token-based auth) */}
+          <Route
+            path="/ci-cd/approve/:token"
+            element={<ApprovalResponsePage />}
+          />
+          <Route
+            path="/ci-cd/reject/:token"
+            element={<ApprovalResponsePage />}
+          />
+
+          {/* AI Workflow Approval Routes (public, token-based auth) */}
+          <Route
+            path="/ai-workflows/approve/:token"
+            element={<AiWorkflowApprovalResponsePage />}
+          />
+          <Route
+            path="/ai-workflows/reject/:token"
+            element={<AiWorkflowApprovalResponsePage />}
           />
 
           {/* OAuth callback routes */}

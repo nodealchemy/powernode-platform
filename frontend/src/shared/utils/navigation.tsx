@@ -3,9 +3,9 @@ import {
   Home, BarChart3, Users, User, Settings, CreditCard,
   FileText, Package, UserCheck, Store, Smartphone,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
-  HardDrive, Workflow, Activity, Server, GitBranch,
-  Play, Webhook, Clock, ShieldCheck, Puzzle, Database, BookOpen,
-  UserCog
+  HardDrive, Workflow, Server, GitBranch, FolderGit2,
+  Webhook, Puzzle, BookOpen,
+  UserCog, Zap, History, FileCode, Key, Layers
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -50,106 +50,7 @@ export const defaultNavigationConfig: NavigationConfig = {
   ],
   
   sections: [
-    {
-      id: 'ai',
-      name: 'AI',
-      items: [
-        {
-          id: 'ai-overview',
-          name: 'Overview',
-          href: '/app/ai',
-          icon: Brain,
-          description: 'AI system dashboard and quick actions',
-          permissions: [],
-          order: 1
-        },
-        {
-          id: 'ai-providers',
-          name: 'Providers',
-          href: '/app/ai/providers',
-          icon: Settings,
-          description: 'Manage AI provider integrations',
-          permissions: ['ai.providers.read'],
-          order: 2
-        },
-        {
-          id: 'ai-agents',
-          name: 'Agents',
-          href: '/app/ai/agents',
-          icon: Bot,
-          description: 'Create and manage AI agents',
-          permissions: ['ai.agents.read'],
-          order: 3
-        },
-        {
-          id: 'ai-workflows',
-          name: 'Workflows',
-          href: '/app/ai/workflows',
-          icon: Workflow,
-          description: 'Design and execute AI workflows and templates',
-          permissions: ['ai.workflows.read'],
-          order: 4
-        },
-        {
-          id: 'ai-conversations',
-          name: 'Conversations',
-          href: '/app/ai/conversations',
-          icon: MessageSquare,
-          description: 'AI-powered conversations',
-          permissions: ['ai.conversations.read'],
-          order: 6
-        },
-        {
-          id: 'ai-analytics',
-          name: 'Analytics',
-          href: '/app/ai/analytics',
-          icon: BarChart3,
-          description: 'AI performance insights',
-          permissions: ['ai.analytics.read'],
-          order: 7
-        },
-        {
-          id: 'ai-monitoring',
-          name: 'Monitoring',
-          href: '/app/ai/monitoring',
-          icon: Activity,
-          description: 'System health and alerts',
-          permissions: ['ai.monitoring.view', 'admin.access'],
-          order: 8
-        },
-        {
-          id: 'ai-mcp',
-          name: 'MCP Browser',
-          href: '/app/ai/mcp',
-          icon: Server,
-          description: 'Browse MCP servers and tools',
-          permissions: ['ai_orchestration.read', 'admin.access'],
-          order: 9
-        },
-        {
-          id: 'ai-knowledge',
-          name: 'Knowledge Base',
-          href: '/app/ai/knowledge',
-          icon: BookOpen,
-          description: 'Manage AI knowledge and context storage',
-          permissions: ['ai.context.read'],
-          order: 10
-        },
-        {
-          id: 'ai-contexts',
-          name: 'Contexts',
-          href: '/app/ai/contexts',
-          icon: Database,
-          description: 'Browse and manage AI persistent contexts',
-          permissions: ['ai.context.read'],
-          order: 11
-        }
-      ],
-      permissions: ['ai.providers.read', 'ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read'],
-      collapsible: true,
-      defaultExpanded: true,
-      order: 5
-    },
+    // Business section first - core operations most users need daily
     {
       id: 'business',
       name: 'Business',
@@ -179,7 +80,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Package,
           description: 'Manage pricing and subscription tiers',
           permissions: [],
-          order: 4
+          order: 3
         },
         {
           id: 'billing',
@@ -188,7 +89,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: CreditCard,
           description: 'Invoices and payment processing',
           permissions: ['admin.billing.read'],
-          order: 5
+          order: 4
         },
         {
           id: 'reports',
@@ -197,13 +98,88 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: FileText,
           description: 'Financial and usage reports',
           permissions: ['analytics.read'],
-          order: 6
+          order: 5
         }
       ],
       collapsible: true,
       defaultExpanded: true,
+      order: 5
+    },
+    // AI section - primary differentiating feature
+    {
+      id: 'ai',
+      name: 'AI',
+      items: [
+        {
+          id: 'ai-overview',
+          name: 'Overview',
+          href: '/app/ai',
+          icon: Brain,
+          description: 'AI system dashboard and quick actions',
+          permissions: [],
+          order: 1
+        },
+        {
+          id: 'ai-agents',
+          name: 'Agents',
+          href: '/app/ai/agents',
+          icon: Bot,
+          description: 'Create and manage AI agents',
+          permissions: ['ai.agents.read'],
+          order: 2
+        },
+        {
+          id: 'ai-conversations',
+          name: 'Conversations',
+          href: '/app/ai/conversations',
+          icon: MessageSquare,
+          description: 'AI-powered conversations',
+          permissions: ['ai.conversations.read'],
+          order: 3
+        },
+        {
+          id: 'ai-workflows',
+          name: 'Workflows',
+          href: '/app/ai/workflows',
+          icon: Workflow,
+          description: 'Visual AI orchestration and flow builder',
+          permissions: ['ai.workflows.read'],
+          order: 4
+        },
+        {
+          id: 'ai-knowledge',
+          name: 'Knowledge',
+          href: '/app/ai/knowledge',
+          icon: BookOpen,
+          description: 'Knowledge base and persistent contexts',
+          permissions: ['ai.context.read'],
+          order: 5
+        },
+        {
+          id: 'ai-analytics',
+          name: 'Analytics',
+          href: '/app/ai/analytics',
+          icon: BarChart3,
+          description: 'AI performance, usage insights, and monitoring',
+          permissions: ['ai.analytics.read'],
+          order: 6
+        },
+        {
+          id: 'ai-providers',
+          name: 'Providers',
+          href: '/app/ai/providers',
+          icon: Brain,
+          description: 'OpenAI, Anthropic, and other AI providers',
+          permissions: ['ai.providers.read'],
+          order: 7
+        }
+      ],
+      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read'],
+      collapsible: true,
+      defaultExpanded: true,
       order: 10
     },
+    // Content section - supporting content management
     {
       id: 'content',
       name: 'Content',
@@ -239,36 +215,8 @@ export const defaultNavigationConfig: NavigationConfig = {
       permissions: ['page.read', 'kb.read', 'files.read'],
       collapsible: true,
       defaultExpanded: true,
-      order: 16
+      order: 15
     },
-    {
-      id: 'integrations',
-      name: 'Integrations',
-      items: [
-        {
-          id: 'integrations-marketplace',
-          name: 'Marketplace',
-          href: '/app/integrations/marketplace',
-          icon: Store,
-          description: 'Browse available integration templates',
-          permissions: ['integrations.read'],
-          order: 1
-        },
-        {
-          id: 'integrations-installed',
-          name: 'Installed',
-          href: '/app/integrations',
-          icon: Puzzle,
-          description: 'Manage your installed integrations',
-          permissions: ['integrations.read'],
-          order: 2
-        }
-      ],
-      permissions: ['integrations.read'],
-      collapsible: true,
-      defaultExpanded: true,
-      order: 17
-    }
   ],
   
   userMenuItems: [
@@ -370,83 +318,103 @@ export const defaultNavigationConfig: NavigationConfig = {
 // Admin-specific navigation overrides
 export const adminNavigationOverrides = {
   sections: [
+    // Automation section - power user features (appears after AI for admins)
     {
-      id: 'ci-cd',
-      name: 'CI/CD',
+      id: 'automation',
+      name: 'Automation',
       items: [
         {
-          id: 'ci-cd-dashboard',
-          name: 'Dashboard',
-          href: '/app/ci-cd',
-          icon: Play,
-          description: 'Pipeline overview and recent activity',
-          permissions: ['git.pipelines.read'],
+          id: 'automation-overview',
+          name: 'Overview',
+          href: '/app/automation',
+          icon: Zap,
+          description: 'Automation overview and recent activity',
+          permissions: ['cicd.pipelines.read', 'git.pipelines.read'],
           order: 1
         },
         {
-          id: 'ci-cd-repositories',
-          name: 'Repositories',
-          href: '/app/ci-cd/repositories',
-          icon: GitBranch,
-          description: 'Repository pipelines and status',
-          permissions: ['git.repositories.read'],
+          id: 'automation-pipelines',
+          name: 'Pipelines',
+          href: '/app/automation/pipelines',
+          icon: Layers,
+          description: 'All pipelines (AI-powered and git-native)',
+          permissions: ['cicd.pipelines.read', 'git.pipelines.read'],
           order: 2
         },
         {
-          id: 'ci-cd-webhooks',
-          name: 'Webhook Events',
-          href: '/app/ci-cd/webhooks',
-          icon: Webhook,
-          description: 'View and retry webhook events',
-          permissions: ['git.webhooks.read'],
+          id: 'automation-runs',
+          name: 'Runs',
+          href: '/app/automation/runs',
+          icon: History,
+          description: 'Pipeline execution history',
+          permissions: ['cicd.runs.read', 'git.pipelines.read'],
           order: 3
         },
         {
-          id: 'ci-cd-runners',
-          name: 'Runners',
-          href: '/app/ci-cd/runners',
-          icon: Server,
-          description: 'Manage self-hosted CI/CD runners',
-          permissions: ['git.runners.read'],
+          id: 'automation-triggers',
+          name: 'Triggers',
+          href: '/app/automation/triggers',
+          icon: Webhook,
+          description: 'Webhooks, schedules, and approvals',
+          permissions: ['git.webhooks.read', 'git.schedules.read', 'git.approvals.read'],
           order: 4
         },
         {
-          id: 'ci-cd-schedules',
-          name: 'Schedules',
-          href: '/app/ci-cd/schedules',
-          icon: Clock,
-          description: 'Manage scheduled pipeline executions',
-          permissions: ['git.schedules.read'],
+          id: 'automation-runners',
+          name: 'Runners',
+          href: '/app/automation/runners',
+          icon: Server,
+          description: 'Self-hosted execution agents',
+          permissions: ['cicd.runners.read', 'git.runners.read'],
           order: 5
         },
         {
-          id: 'ci-cd-approvals',
-          name: 'Approvals',
-          href: '/app/ci-cd/approvals',
-          icon: ShieldCheck,
-          description: 'Review and respond to pipeline approval requests',
-          permissions: ['git.approvals.read'],
+          id: 'automation-templates',
+          name: 'Templates',
+          href: '/app/automation/templates',
+          icon: FileCode,
+          description: 'Pipeline and prompt templates',
+          permissions: ['cicd.prompts.read'],
           order: 6
+        },
+        {
+          id: 'automation-git-providers',
+          name: 'Git Providers',
+          href: '/app/automation/git',
+          icon: GitBranch,
+          description: 'GitHub, GitLab, Gitea, and other git providers',
+          permissions: ['git.providers.read'],
+          order: 7
+        },
+        {
+          id: 'automation-repositories',
+          name: 'Repositories',
+          href: '/app/automation/repositories',
+          icon: FolderGit2,
+          description: 'Synced Git repositories from all providers',
+          permissions: ['git.repositories.read'],
+          order: 8
+        },
+        {
+          id: 'automation-integrations',
+          name: 'Integrations',
+          href: '/app/automation/integrations',
+          icon: Puzzle,
+          description: 'Third-party service integrations and webhooks',
+          permissions: ['integrations.read'],
+          order: 9
         }
       ],
-      permissions: ['git.pipelines.read', 'git.runners.read', 'git.schedules.read', 'git.approvals.read'],
+      permissions: ['cicd.pipelines.read', 'cicd.runs.read', 'cicd.runners.read', 'git.pipelines.read', 'git.runners.read', 'git.providers.read', 'git.repositories.read', 'integrations.read'],
       collapsible: true,
       defaultExpanded: true,
-      order: 18
+      order: 12  // After AI (10), before Content (15)
     },
+    // System section - technical admin features
     {
       id: 'system',
       name: 'System',
       items: [
-        {
-          id: 'api-keys',
-          name: 'API Keys',
-          href: '/app/system/api-keys',
-          icon: '🔑',
-          description: 'Manage API keys and access tokens',
-          permissions: ['api.manage_keys'],
-          order: 1
-        },
         {
           id: 'audit-logs',
           name: 'Audit Logs',
@@ -454,7 +422,7 @@ export const adminNavigationOverrides = {
           icon: '📋',
           description: 'System audit and activity logs',
           permissions: ['admin.audit.read'],
-          order: 2
+          order: 1
         },
         {
           id: 'webhooks',
@@ -463,7 +431,7 @@ export const adminNavigationOverrides = {
           icon: '🔗',
           description: 'Manage webhook endpoints and events',
           permissions: ['webhook.read'],
-          order: 3
+          order: 2
         },
         {
           id: 'services',
@@ -472,7 +440,7 @@ export const adminNavigationOverrides = {
           icon: '🌐',
           description: 'Configure service routing, load balancing, and proxy settings',
           permissions: ['admin.settings.edit'],
-          order: 4
+          order: 3
         },
         {
           id: 'workers',
@@ -481,7 +449,7 @@ export const adminNavigationOverrides = {
           icon: '🤖',
           description: 'Manage background workers and job processing',
           permissions: ['system.workers.read'],
-          order: 5
+          order: 4
         },
         {
           id: 'storage',
@@ -490,23 +458,24 @@ export const adminNavigationOverrides = {
           icon: HardDrive,
           description: 'Configure storage providers for file management',
           permissions: ['admin.storage.manage', 'admin.storage.read'],
-          order: 6
+          order: 5
         },
         {
-          id: 'git-providers',
-          name: 'Git Providers',
-          href: '/app/system/git-providers',
-          icon: GitBranch,
-          description: 'Manage Git provider integrations and CI/CD pipelines',
-          permissions: ['git.providers.read'],
-          order: 7
+          id: 'api-keys',
+          name: 'API Keys',
+          href: '/app/system/api-keys',
+          icon: Key,
+          description: 'API keys and authentication tokens',
+          permissions: ['api.manage_keys'],
+          order: 6
         }
       ],
-      permissions: ['webhook.read', 'admin.audit.read', 'api.manage_keys', 'admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'git.providers.read'],
+      permissions: ['webhook.read', 'admin.audit.read', 'admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'api.manage_keys'],
       collapsible: true,
       defaultExpanded: false,
-      order: 19
+      order: 25  // After Content (15)
     },
+    // Administration section - super admin features (always last)
     {
       id: 'administration',
       name: 'Administration',
@@ -578,7 +547,7 @@ export const adminNavigationOverrides = {
       permissions: ['admin.access'],
       collapsible: true,
       defaultExpanded: false,
-      order: 20
+      order: 30  // Always last
     }
   ]
 };

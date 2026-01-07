@@ -62,7 +62,10 @@ FactoryBot.define do
         {
           timeout: 3600,
           notification_channels: [ 'email', 'slack' ],
-          required_approvers: 1
+          required_approvers: 1,
+          approvers: [
+            { 'type' => 'email', 'value' => 'approver@example.com' }
+          ]
         }
       when 'sub_workflow'
         {
@@ -332,7 +335,10 @@ FactoryBot.define do
           notification_channels: [ 'email', 'webhook' ],
           required_approvers: 2,
           approval_message: 'Please review the workflow output',
-          auto_approve_after: 24 * 3600
+          auto_approve_after: 24 * 3600,
+          approvers: [
+            { 'type' => 'email', 'value' => 'approver@example.com' }
+          ]
         }
       end
     end

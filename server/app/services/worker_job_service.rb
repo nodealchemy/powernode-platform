@@ -247,6 +247,37 @@ class WorkerJobService
         "queue" => "mcp"
       })
     end
+
+    # ==========================================
+    # CI/CD Jobs
+    # ==========================================
+
+    # Enqueue CI/CD step execution job
+    def enqueue_ci_cd_step_execution(step_execution_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "CiCd::StepExecutionJob",
+        "args" => [step_execution_id],
+        "queue" => "ci_cd"
+      })
+    end
+
+    # Enqueue CI/CD pipeline execution job
+    def enqueue_ci_cd_pipeline_execution(pipeline_run_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "CiCd::PipelineExecutionJob",
+        "args" => [pipeline_run_id],
+        "queue" => "ci_cd"
+      })
+    end
+
+    # Enqueue CI/CD approval notification job
+    def enqueue_ci_cd_approval_notification(step_execution_id, recipients)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "CiCd::ApprovalNotificationJob",
+        "args" => [step_execution_id, recipients],
+        "queue" => "email"
+      })
+    end
   end
 
   # Instance methods for compatibility

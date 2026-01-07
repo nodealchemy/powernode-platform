@@ -1,20 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
 # Git
 .git
 .gitignore
 
-# Logs
-log/*
-tmp/*
-*.log
-
 # Test files
-spec/
-test/
 coverage/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__/
+cypress/
 
 # Development files
-.rspec
-.rubocop.yml
+.env.local
 .env.development
 .env.test
 
@@ -34,10 +39,8 @@ docs/
 # CI/CD
 .github/
 
-# Node (if any)
-node_modules/
-
 # Temp files
 *.swp
 *.swo
 *~
+.DS_Store

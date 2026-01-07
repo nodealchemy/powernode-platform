@@ -14,7 +14,6 @@ coverage/
 
 # Development files
 .rspec
-.rubocop.yml
 .env.development
 .env.test
 
@@ -33,9 +32,6 @@ docs/
 
 # CI/CD
 .github/
-
-# Node (if any)
-node_modules/
 
 # Temp files
 *.swp

@@ -5,8 +5,11 @@ Rails.application.routes.draw do
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
-  # Health check endpoint (global, outside API namespace)
+  # Health check endpoints (global, outside API namespace)
   get :health, to: "health#index"
+  get "health/detailed", to: "health#detailed"
+  get "health/ready", to: "health#ready"
+  get "health/live", to: "health#live"
 
   # API Routes
   namespace :api do
@@ -36,6 +39,26 @@ Rails.application.routes.draw do
         get "status/history", to: "status#history"
       end
 
+      # CI/CD Step Approvals (public, token-based auth)
+      namespace :ci_cd do
+        resources :step_approvals, only: [:show], param: :token do
+          member do
+            post :approve
+            post :reject
+          end
+        end
+      end
+
+      # AI Workflow Approval Tokens (public, token-based auth)
+      namespace :ai_workflows do
+        resources :approval_tokens, only: [:show], param: :token do
+          member do
+            post :approve
+            post :reject
+          end
+        end
+      end
+
       # Internal API for worker service
       namespace :internal do
         resources :users, only: [ :show ]
@@ -61,6 +84,13 @@ Rails.application.routes.draw do
 
         # Review notifications
         resources :review_notifications, only: [ :show, :update ]
+
+        # CI/CD Step Approvals (for worker service)
+        resources :step_approvals, only: [:show], param: :step_execution_id do
+          member do
+            post :create_tokens
+          end
+        end
 
         # MCP (Model Context Protocol) internal endpoints
         resources :mcp_servers, only: [ :index, :show, :update ] do
@@ -147,6 +177,23 @@ Rails.application.routes.draw do
           post :validate_services
         end
 
+        # Maintenance internal endpoints (for worker service)
+        namespace :maintenance do
+          # Database backups
+          get "backups/:id", to: "maintenance#show_backup"
+          patch "backups/:id", to: "maintenance#update_backup"
+          post "backups/:id/cleanup", to: "maintenance#cleanup_old_backups"
+
+          # Database restores
+          get "restores/:id", to: "maintenance#show_restore"
+          patch "restores/:id", to: "maintenance#update_restore"
+
+          # Scheduled tasks
+          get :scheduled_tasks, to: "maintenance#list_due_tasks"
+          post "scheduled_tasks/:id/executions", to: "maintenance#create_task_execution"
+          patch "task_executions/:id", to: "maintenance#update_task_execution"
+        end
+
         # Git provider internal endpoints (for worker service)
         namespace :git do
           resources :webhook_events, only: [ :show, :update ] do
@@ -218,6 +265,30 @@ Rails.application.routes.draw do
           collection do
             post :send
             post :security_alert
+          end
+        end
+
+        # CI/CD internal endpoints for worker service
+        namespace :ci_cd do
+          resources :pipeline_runs, only: [ :show, :update ]
+          resources :step_executions, only: [ :show, :create, :update ]
+
+          # Approval token management for worker service
+          resources :approval_tokens, only: [] do
+            collection do
+              post :expire_stale
+              get :pending_count
+            end
+          end
+        end
+
+        # AI Workflow approval management for worker service
+        resources :ai_workflow_approvals, only: [:show], param: :node_execution_id do
+          member do
+            post :create_tokens
+          end
+          collection do
+            post :expire_stale
           end
         end
       end
@@ -1195,6 +1266,7 @@ Rails.application.routes.draw do
           delete "/", to: "providers#destroy_credential"
           post :test, to: "providers#test_credential"
           post :make_default, to: "providers#make_default"
+          post :sync_repositories, to: "providers#sync_repositories"
         end
 
         # Repositories
@@ -1211,6 +1283,18 @@ Rails.application.routes.draw do
             get :pull_requests
             get :issues
             get :pipelines
+            get :tags
+
+            # Commit detail and diff
+            get "commits/:sha", action: :commit, as: :commit_detail
+            get "commits/:sha/diff", action: :commit_diff, as: :commit_diff
+
+            # Compare commits
+            get "compare/:base...:head", action: :compare, as: :compare_commits
+
+            # File content and tree browsing
+            get "contents/*path", action: :file_content, as: :file_content
+            get "tree(/:sha)", action: :tree, as: :tree
           end
         end
 
@@ -1848,6 +1932,75 @@ Rails.application.routes.draw do
           post :deactivate
           patch :configure
           post :set_credential
+        end
+      end
+
+      # ===================================================================
+      # CI/CD PIPELINE MANAGEMENT SYSTEM
+      # ===================================================================
+      # AI-powered CI/CD pipelines with Claude Code integration
+      # Database-driven configuration for Gitea Actions workflows
+      # ===================================================================
+
+      namespace :ci_cd do
+        # Git Providers (Gitea, GitHub, GitLab)
+        resources :providers do
+          member do
+            post :test_connection
+            post :sync_repositories
+          end
+        end
+
+        # AI Configuration (Anthropic, Bedrock, Vertex)
+        resources :ai_configs do
+          member do
+            post :set_default
+          end
+        end
+
+        # Prompt Templates with Liquid templating
+        resources :prompt_templates do
+          member do
+            post :preview
+            post :duplicate
+          end
+        end
+
+        # Pipeline Definitions
+        resources :pipelines do
+          member do
+            post :trigger
+            get :export_yaml
+            post :duplicate
+          end
+
+          # Nested runs
+          resources :runs, controller: "pipeline_runs", only: [:index]
+        end
+
+        # Pipeline Runs (top-level for direct access)
+        resources :pipeline_runs, only: [:index, :show] do
+          member do
+            post :cancel
+            post :retry
+            get :logs
+          end
+        end
+
+        # Scheduled Pipeline Runs
+        resources :schedules do
+          member do
+            post :toggle
+          end
+        end
+
+        # Repository Connections
+        resources :repositories do
+          member do
+            post :sync
+            post :attach_pipeline
+            delete :detach_pipeline
+          end
         end
       end
     end
