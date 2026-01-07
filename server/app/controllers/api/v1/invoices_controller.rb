@@ -100,17 +100,28 @@ class Api::V1::InvoicesController < ApplicationController
       return render_error("Invoice is not eligible for payment retry", status: :unprocessable_entity)
     end
 
-    # Queue payment retry job
-    # PaymentRetryJob.perform_later(@invoice.id)
-
     @invoice.update!(
       last_payment_attempt: Time.current,
       payment_attempts: (@invoice.payment_attempts || 0) + 1
     )
 
+    # Queue payment retry job via worker service
+    begin
+      WorkerJobService.enqueue_job(
+        "Billing::PaymentRetryJob",
+        args: [@invoice.id],
+        queue: "billing_high"
+      )
+      job_queued = true
+    rescue WorkerJobService::WorkerServiceError => e
+      Rails.logger.warn "Worker service unavailable for payment retry: #{e.message}"
+      job_queued = false
+    end
+
     render_success(
-      message: "Payment retry initiated",
-      data: invoice_data(@invoice)
+      message: job_queued ? "Payment retry initiated" : "Retry recorded but worker unavailable",
+      data: invoice_data(@invoice),
+      job_queued: job_queued
     )
   rescue StandardError => e
     render_error("Failed to retry payment: #{e.message}", status: :internal_server_error)

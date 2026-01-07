@@ -323,8 +323,7 @@ module CiCd
     end
 
     def generate_notify_output(config, step_name, pipeline_name)
-      channels = config["channels"] || ["slack"]
-      notify_type = config["type"] || "completion"
+      channels = config["channels"] || ["email"]
 
       logs = <<~LOGS
         Sending notifications...
@@ -332,7 +331,6 @@ module CiCd
 
         Notification summary:
           Pipeline: #{pipeline_name}
-          Type: #{notify_type}
           Channels: #{channels.join(', ')}
           Timestamp: #{Time.current.iso8601}
 
@@ -344,7 +342,6 @@ module CiCd
         outputs: {
           "notified" => true,
           "channels" => channels,
-          "type" => notify_type,
           "message_count" => channels.length,
           "timestamp" => Time.current.iso8601
         }

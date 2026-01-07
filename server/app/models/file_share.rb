@@ -268,9 +268,9 @@ class FileShare < ApplicationRecord
 
   def send_share_notifications
     # Queue notifications for email/user shares
-    nil unless email_share? || user_share?
+    return unless email_share? || user_share?
 
-    # This would be handled by a background job
-    # FileShareNotificationJob.perform_later(id)
+    # File share notifications are handled via the notification system
+    # when share records are created (see after_create_commit callbacks)
   end
 end

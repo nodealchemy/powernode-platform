@@ -137,15 +137,31 @@ module Api
           execution_options[:fail_step] = params[:fail_step].to_i if params[:fail_step].present?
 
           # Queue the pipeline execution job via worker service
-          WorkerJobService.enqueue_job(
-            job_class: "CiCd::PipelineExecutionJob",
-            args: [run.id, execution_options],
-            queue: "ci_cd"
-          )
+          worker_queued = false
+          worker_error = nil
+          begin
+            WorkerJobService.enqueue_job(
+              "CiCd::PipelineExecutionJob",
+              args: [run.id, execution_options],
+              queue: "ci_cd_high"
+            )
+            worker_queued = true
+          rescue WorkerJobService::WorkerServiceError => e
+            Rails.logger.warn "Worker service unavailable, pipeline run created but not executing: #{e.message}"
+            worker_error = e.message
+          end
+
+          message = if worker_queued
+                      "Pipeline triggered successfully"
+                    else
+                      "Pipeline run created but worker service unavailable - run will not execute automatically"
+                    end
 
           render_success({
             pipeline_run: serialize_pipeline_run(run),
-            message: "Pipeline triggered successfully"
+            message: message,
+            worker_queued: worker_queued,
+            worker_error: worker_error
           }, status: :created)
 
           log_audit_event("ci_cd.pipelines.trigger", @pipeline)
@@ -236,10 +252,16 @@ module Api
             pipeline.steps.create!(
               name: step_params[:name],
               step_type: step_params[:step_type],
-              position: index + 1,
-              config: step_params[:config] || {},
-              is_enabled: step_params[:is_enabled] != false,
-              prompt_template_id: step_params[:prompt_template_id]
+              position: step_params[:position] || (index + 1),
+              configuration: step_params[:configuration] || step_params[:config] || {},
+              inputs: step_params[:inputs] || {},
+              outputs: step_params[:outputs] || [],
+              condition: step_params[:condition],
+              continue_on_error: step_params[:continue_on_error] || false,
+              is_active: step_params[:is_active] != false,
+              shared_prompt_template_id: step_params[:shared_prompt_template_id] || step_params[:prompt_template_id],
+              requires_approval: step_params[:requires_approval] || false,
+              approval_settings: step_params[:approval_settings] || {}
             )
           end
         end

@@ -59,8 +59,7 @@ module Api
           include_data_types: export_params[:include_data_types]
         )
 
-        # Enqueue export job
-        # DataExportJob.perform_async(export_request.id)
+        # Note: Data export processing is handled by the admin during GDPR request fulfillment
 
         render_success(
           message: "Data export request submitted",

@@ -52,6 +52,78 @@ module Git
       normalize_repository(result)
     end
 
+    def create_repository(name, options = {})
+      payload = {
+        name: name,
+        description: options[:description] || "",
+        private: options[:private] || false,
+        auto_init: options[:auto_init] != false,
+        default_branch: options[:default_branch] || "master",
+        gitignores: options[:gitignores],
+        license: options[:license],
+        readme: options[:readme] || "Default"
+      }.compact
+
+      result = post("/user/repos", payload)
+      normalize_repository(result)
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def create_org_repository(org, name, options = {})
+      payload = {
+        name: name,
+        description: options[:description] || "",
+        private: options[:private] || false,
+        auto_init: options[:auto_init] != false,
+        default_branch: options[:default_branch] || "master",
+        gitignores: options[:gitignores],
+        license: options[:license],
+        readme: options[:readme] || "Default"
+      }.compact
+
+      result = post("/orgs/#{org}/repos", payload)
+      normalize_repository(result)
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def delete_repository(owner, repo)
+      delete("/repos/#{owner}/#{repo}")
+      { success: true }
+    rescue NotFoundError
+      { success: true } # Already deleted
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def create_file(owner, repo, path, content, options = {})
+      payload = {
+        content: Base64.strict_encode64(content),
+        message: options[:message] || "Create #{path}",
+        branch: options[:branch]
+      }.compact
+
+      result = post("/repos/#{owner}/#{repo}/contents/#{path}", payload)
+      { success: true, content: result }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    def update_file(owner, repo, path, content, sha, options = {})
+      payload = {
+        content: Base64.strict_encode64(content),
+        message: options[:message] || "Update #{path}",
+        sha: sha,
+        branch: options[:branch]
+      }.compact
+
+      result = put("/repos/#{owner}/#{repo}/contents/#{path}", payload)
+      { success: true, content: result }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
     def list_branches(owner, repo, options = {})
       page = options[:page] || 1
       per_page = options[:per_page] || 30

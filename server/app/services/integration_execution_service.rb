@@ -45,18 +45,29 @@ class IntegrationExecutionService
 
       execution = create_execution_record(instance, input, triggered_by, status: "queued")
 
-      # Enqueue the job (job will be created in Phase 4)
-      # IntegrationExecutionJob.perform_later(
-      #   execution_id: execution.id,
-      #   input: input,
-      #   context: context
-      # )
+      # Enqueue the job via worker service
+      begin
+        WorkerJobService.enqueue_job(
+          "Integrations::IntegrationExecutionJob",
+          args: [{
+            execution_id: execution.id,
+            input: input,
+            context: context
+          }],
+          queue: "integrations"
+        )
+        job_queued = true
+      rescue WorkerJobService::WorkerServiceError => e
+        Rails.logger.warn "Worker service unavailable for integration execution: #{e.message}"
+        job_queued = false
+        execution.update!(status: "failed", error_message: "Worker service unavailable")
+      end
 
       {
         success: true,
         execution_id: execution.id,
-        status: "queued",
-        message: "Execution queued successfully"
+        status: job_queued ? "queued" : "failed",
+        message: job_queued ? "Execution queued successfully" : "Worker service unavailable"
       }
     end
 

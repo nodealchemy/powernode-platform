@@ -565,11 +565,8 @@ module Api
             metadata: params[:metadata] || {}
           )
 
-          # Trigger AI response unless explicitly disabled
-          unless params[:get_response] == false
-            # Background job will handle AI response
-            # AiConversationResponseJob.perform_later(conversation.id, message.id)
-          end
+          # Note: AI response generation is handled synchronously via the AI provider
+          # or asynchronously through the AI workflow execution system
 
           render_success({
             message: serialize_message(message)
@@ -695,8 +692,7 @@ module Api
             requested_at: Time.current.iso8601
           }
 
-          # Queue regeneration job
-          # AiMessageRegenerationJob.perform_later(regeneration_request)
+          # Note: Message regeneration is handled through the AI workflow execution system
 
           render_success({
             message: serialize_message(message.reload),

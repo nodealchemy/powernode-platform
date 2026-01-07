@@ -120,9 +120,6 @@ export function useAiConfigs(params: UseAiProvidersForCiCdParams = {}) {
     }
   };
 
-  // Return interface compatible with previous implementation
-  // Note: Create/Update/Delete are not exposed here as provider management
-  // should be done through the main AI Providers page
   return {
     configs: providers,
     meta,
@@ -130,19 +127,6 @@ export function useAiConfigs(params: UseAiProvidersForCiCdParams = {}) {
     error,
     refresh: fetchProviders,
     setDefaultConfig,
-    // These methods are deprecated - provider management should be done via AI Providers page
-    createConfig: async () => {
-      showNotification('Please use the AI Providers page to add new providers', 'info');
-      return null;
-    },
-    updateConfig: async () => {
-      showNotification('Please use the AI Providers page to edit providers', 'info');
-      return null;
-    },
-    deleteConfig: async () => {
-      showNotification('Please use the AI Providers page to remove providers', 'info');
-      return false;
-    },
   };
 }
 

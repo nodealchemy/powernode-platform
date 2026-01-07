@@ -206,7 +206,17 @@ class JobsController
       'CiCd::ApprovalNotificationJob',
       'CiCd::ApprovalExpiryJob',
       'CiCd::StepExecutionJob',
-      'CiCd::PipelineExecutionJob'
+      'CiCd::PipelineExecutionJob',
+      'CiCd::ProviderSyncJob',
+      'CiCd::ScheduleTriggerJob',
+      'CiCd::SecurityScanJob',
+      'CiCd::DeploymentJob',
+      'CiCd::ClaudeInvokeJob',
+      'CiCd::WebhookHandlerJob',
+      # Integration jobs
+      'Integrations::IntegrationExecutionJob',
+      'Integrations::IntegrationHealthCheckJob',
+      'Integrations::CredentialRotationJob'
     ]
 
     allowed_jobs.include?(job_class)

@@ -152,6 +152,13 @@ module AiProvider::ProviderSetup
         capabilities: %w[text_generation chat],
         supported_models: [
           {
+            name: "claude-opus-4.5",
+            id: "claude-opus-4-5-20251101",
+            context_length: 200_000,
+            max_output_tokens: 32_000,
+            cost_per_1k_tokens: { input: 0.015, output: 0.075 }
+          },
+          {
             name: "claude-sonnet-4.5",
             id: "claude-sonnet-4-5-20250929",
             context_length: 200_000,
@@ -159,11 +166,11 @@ module AiProvider::ProviderSetup
             cost_per_1k_tokens: { input: 0.003, output: 0.015 }
           },
           {
-            name: "claude-opus-4.1",
-            id: "claude-opus-4-1-20250805",
+            name: "claude-sonnet-4",
+            id: "claude-sonnet-4-20250514",
             context_length: 200_000,
-            max_output_tokens: 32_000,
-            cost_per_1k_tokens: { input: 0.015, output: 0.075 }
+            max_output_tokens: 64_000,
+            cost_per_1k_tokens: { input: 0.003, output: 0.015 }
           },
           {
             name: "claude-haiku-4.5",
@@ -182,7 +189,7 @@ module AiProvider::ProviderSetup
           required: %w[api_key model]
         },
         configuration: {
-          models: %w[claude-sonnet-4.5 claude-opus-4.1 claude-haiku-4.5],
+          models: %w[claude-opus-4.5 claude-sonnet-4.5 claude-sonnet-4 claude-haiku-4.5],
           default_model: "claude-sonnet-4.5"
         },
         rate_limits: {

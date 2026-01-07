@@ -14,6 +14,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_06_205443) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
+  enable_extension "vector"
 
   create_table "account_delegations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
@@ -276,39 +277,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_06_205443) do
     t.index ["user_id"], name: "index_ai_context_access_logs_on_user_id"
   end
 
-  create_table "ai_context_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_persistent_context_id", null: false
-    t.uuid "created_by_user_id"
-    t.uuid "ai_agent_id"
-    t.string "entry_key", null: false
-    t.string "entry_type"
-    t.jsonb "content", default: {}, null: false
-    t.text "content_text"
-    t.jsonb "metadata", default: {}
-    t.decimal "importance_score", precision: 5, scale: 4, default: "0.5"
-    t.decimal "relevance_decay_rate", precision: 5, scale: 4, default: "0.0"
-    t.datetime "last_relevance_update"
-    t.string "source_type"
-    t.string "source_id"
-    t.integer "version", default: 1
-    t.uuid "previous_version_id"
-    t.datetime "expires_at"
-    t.datetime "archived_at"
-    t.integer "access_count", default: 0
-    t.datetime "last_accessed_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["ai_agent_id"], name: "index_ai_context_entries_on_ai_agent_id"
-    t.index ["ai_persistent_context_id", "entry_key"], name: "idx_entries_context_key", unique: true
-    t.index ["ai_persistent_context_id"], name: "index_ai_context_entries_on_ai_persistent_context_id"
-    t.index ["archived_at"], name: "index_ai_context_entries_on_archived_at"
-    t.index ["created_by_user_id"], name: "index_ai_context_entries_on_created_by_user_id"
-    t.index ["entry_type"], name: "index_ai_context_entries_on_entry_type"
-    t.index ["expires_at"], name: "index_ai_context_entries_on_expires_at"
-    t.index ["importance_score"], name: "index_ai_context_entries_on_importance_score"
-    t.index ["previous_version_id"], name: "index_ai_context_entries_on_previous_version_id"
-    t.index ["source_type"], name: "index_ai_context_entries_on_source_type"
-  end
+# Could not dump table "ai_context_entries" because of following StandardError
+#   Unknown type 'vector' for column 'embedding'
+
 
   create_table "ai_conversations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false

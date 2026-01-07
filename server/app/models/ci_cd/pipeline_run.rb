@@ -94,6 +94,14 @@ module CiCd
       status == 'cancelled'
     end
 
+    def can_cancel?
+      %w[pending queued running].include?(status)
+    end
+
+    def can_retry?
+      %w[failure cancelled].include?(status)
+    end
+
     def current_step
       step_executions.running.first || step_executions.pending.order(:created_at).first
     end

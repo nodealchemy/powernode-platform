@@ -117,13 +117,24 @@ module Api
 
         # POST /api/v1/ci_cd/providers/:id/sync_repositories
         def sync_repositories
-          # Trigger async sync job
-          # CiCd::ProviderSyncJob.perform_async(@provider.id)
+          # Trigger async sync job via worker service
+          begin
+            WorkerJobService.enqueue_job(
+              "CiCd::ProviderSyncJob",
+              args: [@provider.id],
+              queue: "ci_cd_default"
+            )
+            job_queued = true
+          rescue WorkerJobService::WorkerServiceError => e
+            Rails.logger.warn "Worker service unavailable for sync: #{e.message}"
+            job_queued = false
+          end
 
           render_success({
             provider_id: @provider.id,
-            message: "Repository sync initiated",
-            sync_started_at: Time.current
+            message: job_queued ? "Repository sync initiated" : "Sync request received but worker unavailable",
+            sync_started_at: Time.current,
+            job_queued: job_queued
           })
 
           log_audit_event("ci_cd.providers.sync_repositories", @provider)

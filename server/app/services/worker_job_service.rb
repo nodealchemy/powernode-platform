@@ -184,13 +184,23 @@ class WorkerJobService
     end
 
     # Generic enqueue job method
-    def enqueue_job(job_class, args = {})
-      queue = args.delete(:queue) || "default"
-      delay = args.delete(:delay) || 0
+    # @param job_class [String] The job class name
+    # @param options [Hash] Job options:
+    #   - args: [Array] Arguments to pass to the job
+    #   - queue: [String] Queue name (default: "default")
+    #   - delay: [Integer] Delay in seconds before running (default: 0)
+    def enqueue_job(job_class, options = {})
+      options = options.with_indifferent_access
+      job_args = options.delete(:args) || []
+      queue = options.delete(:queue) || "default"
+      delay = options.delete(:delay) || 0
+
+      # Ensure args is always an array
+      job_args = [job_args] unless job_args.is_a?(Array)
 
       payload = {
         "job_class" => job_class,
-        "args" => args.is_a?(Hash) ? [ args ] : [ args ].flatten,
+        "args" => job_args,
         "queue" => queue
       }
       payload["at"] = (Time.current + delay).to_i if delay.positive?
@@ -257,16 +267,16 @@ class WorkerJobService
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "CiCd::StepExecutionJob",
         "args" => [step_execution_id],
-        "queue" => "ci_cd"
+        "queue" => "ci_cd_default"
       })
     end
 
     # Enqueue CI/CD pipeline execution job
-    def enqueue_ci_cd_pipeline_execution(pipeline_run_id)
+    def enqueue_ci_cd_pipeline_execution(pipeline_run_id, options = {})
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "CiCd::PipelineExecutionJob",
-        "args" => [pipeline_run_id],
-        "queue" => "ci_cd"
+        "args" => [pipeline_run_id, options],
+        "queue" => "ci_cd_high"
       })
     end
 

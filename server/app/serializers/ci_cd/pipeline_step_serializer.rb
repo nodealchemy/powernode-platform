@@ -21,6 +21,10 @@ module CiCd
         is_active: @step.is_active,
         output_definitions: @step.output_definitions,
         requires_prompt: @step.requires_prompt?,
+        requires_approval: @step.requires_approval,
+        approval_settings: @step.approval_settings,
+        shared_prompt_template_id: @step.shared_prompt_template_id,
+        shared_prompt_template_name: @step.shared_prompt_template&.name,
         created_at: @step.created_at,
         updated_at: @step.updated_at
       }

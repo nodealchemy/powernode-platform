@@ -117,13 +117,24 @@ module Api
         def sync
           @repository.update!(last_synced_at: Time.current)
 
-          # Trigger async sync job
-          # CiCd::ProviderSyncJob.perform_async(@repository.provider_id, repository_id: @repository.id)
+          # Trigger async sync job via worker service
+          begin
+            WorkerJobService.enqueue_job(
+              "CiCd::ProviderSyncJob",
+              args: [@repository.provider_id, { repository_id: @repository.id }],
+              queue: "ci_cd_default"
+            )
+            job_queued = true
+          rescue WorkerJobService::WorkerServiceError => e
+            Rails.logger.warn "Worker service unavailable for repository sync: #{e.message}"
+            job_queued = false
+          end
 
           render_success({
             repository_id: @repository.id,
-            message: "Repository sync initiated",
-            sync_started_at: Time.current
+            message: job_queued ? "Repository sync initiated" : "Sync request received but worker unavailable",
+            sync_started_at: Time.current,
+            job_queued: job_queued
           })
 
           log_audit_event("ci_cd.repositories.sync", @repository)

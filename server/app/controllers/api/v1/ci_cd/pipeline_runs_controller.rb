@@ -99,8 +99,16 @@ module Api
             triggered_by: current_user
           )
 
-          # Trigger async execution
-          # CiCd::PipelineExecutionJob.perform_async(new_run.id)
+          # Trigger async execution via worker service
+          begin
+            WorkerJobService.enqueue_job(
+              "CiCd::PipelineExecutionJob",
+              args: [new_run.id],
+              queue: "ci_cd_high"
+            )
+          rescue WorkerJobService::WorkerServiceError => e
+            Rails.logger.warn "Worker service unavailable for retry: #{e.message}"
+          end
 
           render_success({
             pipeline_run: serialize_pipeline_run(new_run),

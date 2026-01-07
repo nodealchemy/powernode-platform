@@ -150,6 +150,7 @@ export interface CiCdPipelineFormData {
 export type CiCdStepType =
   | 'checkout'
   | 'claude_execute'
+  | 'ai_workflow'
   | 'post_comment'
   | 'create_pr'
   | 'create_branch'
@@ -178,6 +179,8 @@ export interface CiCdPipelineStep {
   is_active: boolean;
   output_definitions: Record<string, unknown>;
   requires_prompt: boolean;
+  requires_approval?: boolean;
+  approval_settings?: StepApprovalSettings;
   shared_prompt_template_id: string | null;
   shared_prompt_template_name: string | null;
   created_at: string;
@@ -185,6 +188,7 @@ export interface CiCdPipelineStep {
 }
 
 export interface CiCdPipelineStepFormData {
+  id?: string;
   name: string;
   step_type: CiCdStepType;
   position?: number;
