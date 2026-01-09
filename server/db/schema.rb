@@ -10,11 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_06_205443) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
-  enable_extension "vector"
 
   create_table "account_delegations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
@@ -277,9 +276,39 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_06_205443) do
     t.index ["user_id"], name: "index_ai_context_access_logs_on_user_id"
   end
 
-# Could not dump table "ai_context_entries" because of following StandardError
-#   Unknown type 'vector' for column 'embedding'
-
+  create_table "ai_context_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_persistent_context_id", null: false
+    t.uuid "created_by_user_id"
+    t.uuid "ai_agent_id"
+    t.string "entry_key", null: false
+    t.string "entry_type"
+    t.jsonb "content", default: {}, null: false
+    t.text "content_text"
+    t.jsonb "metadata", default: {}
+    t.decimal "importance_score", precision: 5, scale: 4, default: "0.5"
+    t.decimal "relevance_decay_rate", precision: 5, scale: 4, default: "0.0"
+    t.datetime "last_relevance_update"
+    t.string "source_type"
+    t.string "source_id"
+    t.integer "version", default: 1
+    t.uuid "previous_version_id"
+    t.datetime "expires_at"
+    t.datetime "archived_at"
+    t.integer "access_count", default: 0
+    t.datetime "last_accessed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ai_agent_id"], name: "index_ai_context_entries_on_ai_agent_id"
+    t.index ["ai_persistent_context_id", "entry_key"], name: "idx_entries_context_key", unique: true
+    t.index ["ai_persistent_context_id"], name: "index_ai_context_entries_on_ai_persistent_context_id"
+    t.index ["archived_at"], name: "index_ai_context_entries_on_archived_at"
+    t.index ["created_by_user_id"], name: "index_ai_context_entries_on_created_by_user_id"
+    t.index ["entry_type"], name: "index_ai_context_entries_on_entry_type"
+    t.index ["expires_at"], name: "index_ai_context_entries_on_expires_at"
+    t.index ["importance_score"], name: "index_ai_context_entries_on_importance_score"
+    t.index ["previous_version_id"], name: "index_ai_context_entries_on_previous_version_id"
+    t.index ["source_type"], name: "index_ai_context_entries_on_source_type"
+  end
 
   create_table "ai_conversations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
@@ -566,9 +595,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_06_205443) do
 
   create_table "ai_workflow_edges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_id", null: false
-    t.string "edge_id", limit: 100, null: false
-    t.string "source_node_id", limit: 100, null: false
-    t.string "target_node_id", limit: 100, null: false
+    t.string "edge_id", limit: 255, null: false
+    t.string "source_node_id", limit: 255, null: false
+    t.string "target_node_id", limit: 255, null: false
     t.string "source_handle", limit: 50
     t.string "target_handle", limit: 50
     t.string "edge_type", default: "default", null: false
@@ -652,7 +681,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_06_205443) do
 
   create_table "ai_workflow_nodes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_id", null: false
-    t.string "node_id", limit: 100, null: false
+    t.string "node_id", limit: 255, null: false
     t.string "node_type", limit: 50, null: false
     t.string "name", limit: 255, null: false
     t.text "description"
@@ -663,7 +692,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_06_205443) do
     t.boolean "is_start_node", default: false, null: false
     t.boolean "is_end_node", default: false, null: false
     t.boolean "is_error_handler", default: false, null: false
-    t.string "error_node_id", limit: 100
+    t.string "error_node_id", limit: 255
     t.integer "timeout_seconds", default: 300
     t.integer "retry_count", default: 0
     t.datetime "created_at", null: false
@@ -682,7 +711,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_06_205443) do
     t.index ["mcp_tool_id"], name: "index_ai_workflow_nodes_on_mcp_tool_id"
     t.index ["plugin_id"], name: "index_ai_workflow_nodes_on_plugin_id"
     t.index ["shared_prompt_template_id"], name: "index_ai_workflow_nodes_on_shared_prompt_template_id"
-    t.check_constraint "node_type::text = ANY (ARRAY['start'::character varying::text, 'end'::character varying::text, 'trigger'::character varying::text, 'ai_agent'::character varying::text, 'prompt_template'::character varying::text, 'data_processor'::character varying::text, 'transform'::character varying::text, 'condition'::character varying::text, 'loop'::character varying::text, 'delay'::character varying::text, 'merge'::character varying::text, 'split'::character varying::text, 'database'::character varying::text, 'file'::character varying::text, 'validator'::character varying::text, 'email'::character varying::text, 'notification'::character varying::text, 'api_call'::character varying::text, 'webhook'::character varying::text, 'scheduler'::character varying::text, 'human_approval'::character varying::text, 'sub_workflow'::character varying::text, 'kb_article'::character varying::text, 'page'::character varying::text, 'mcp_operation'::character varying::text, 'ci_trigger'::character varying::text, 'ci_wait_status'::character varying::text, 'ci_get_logs'::character varying::text, 'ci_cancel'::character varying::text, 'git_commit_status'::character varying::text, 'git_create_check'::character varying::text])", name: "ai_workflow_nodes_type_check"
+    t.check_constraint "node_type::text = ANY (ARRAY['start'::character varying, 'end'::character varying, 'trigger'::character varying, 'ai_agent'::character varying, 'prompt_template'::character varying, 'data_processor'::character varying, 'transform'::character varying, 'condition'::character varying, 'loop'::character varying, 'delay'::character varying, 'merge'::character varying, 'split'::character varying, 'database'::character varying, 'file'::character varying, 'validator'::character varying, 'email'::character varying, 'notification'::character varying, 'api_call'::character varying, 'webhook'::character varying, 'scheduler'::character varying, 'human_approval'::character varying, 'sub_workflow'::character varying, 'kb_article'::character varying, 'page'::character varying, 'mcp_operation'::character varying, 'ci_trigger'::character varying, 'ci_wait_status'::character varying, 'ci_get_logs'::character varying, 'ci_cancel'::character varying, 'git_commit_status'::character varying, 'git_create_check'::character varying, 'integration_execute'::character varying, 'git_checkout'::character varying, 'git_branch'::character varying, 'git_pull_request'::character varying, 'git_comment'::character varying, 'deploy'::character varying, 'run_tests'::character varying, 'shell_command'::character varying]::text[])", name: "ai_workflow_nodes_type_check"
     t.check_constraint "retry_count >= 0", name: "ai_workflow_nodes_retry_check"
     t.check_constraint "timeout_seconds > 0", name: "ai_workflow_nodes_timeout_check"
   end
@@ -936,9 +965,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_06_205443) do
     t.boolean "is_active", default: true, null: false
     t.text "change_summary"
     t.jsonb "version_metadata", default: {}
+    t.string "workflow_type", limit: 20, default: "ai", null: false
     t.index ["account_id", "name", "version"], name: "index_workflows_on_account_name_version", unique: true
     t.index ["account_id", "slug"], name: "index_ai_workflows_on_account_slug", unique: true
     t.index ["account_id", "status"], name: "index_ai_workflows_on_account_id_and_status"
+    t.index ["account_id", "workflow_type"], name: "index_ai_workflows_on_account_id_and_workflow_type"
     t.index ["account_id"], name: "index_ai_workflows_on_account_id"
     t.index ["creator_id"], name: "index_ai_workflows_on_creator_id"
     t.index ["is_active"], name: "index_ai_workflows_on_is_active"
@@ -948,9 +979,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_06_205443) do
     t.index ["parent_version_id"], name: "index_ai_workflows_on_parent_version_id"
     t.index ["published_at"], name: "index_ai_workflows_on_published_at"
     t.index ["version"], name: "index_ai_workflows_on_version"
+    t.index ["workflow_type"], name: "index_ai_workflows_on_workflow_type"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'active'::character varying::text, 'paused'::character varying::text, 'inactive'::character varying::text, 'archived'::character varying::text])", name: "ai_workflows_status_check"
     t.check_constraint "template_category IS NULL OR template_category::text <> ''::text", name: "ai_workflows_template_category_check"
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'account'::character varying::text, 'public'::character varying::text])", name: "ai_workflows_visibility_check"
+    t.check_constraint "workflow_type::text = ANY (ARRAY['ai'::character varying, 'cicd'::character varying]::text[])", name: "ai_workflows_workflow_type_check"
   end
 
   create_table "api_key_usages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
