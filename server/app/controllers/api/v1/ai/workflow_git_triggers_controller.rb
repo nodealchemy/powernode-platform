@@ -143,10 +143,10 @@ module Api
         def set_ai_workflow_trigger
           # Support both flat routes (trigger_id as param) and nested routes
           if params[:trigger_id].present?
-            @ai_workflow_trigger = AiWorkflowTrigger.joins(:ai_workflow)
+            @ai_workflow_trigger = ::Ai::WorkflowTrigger.joins(:workflow)
                                                    .where(ai_workflows: { account_id: current_user.account_id })
                                                    .find(params[:trigger_id])
-            @workflow = @ai_workflow_trigger.ai_workflow
+            @workflow = @ai_workflow_trigger.workflow
           else
             render_error("Workflow trigger not found", status: :not_found)
           end
@@ -156,11 +156,11 @@ module Api
 
         def set_git_trigger
           # Support both flat routes (id as param) and nested routes
-          @git_trigger = GitWorkflowTrigger.joins(ai_workflow_trigger: :ai_workflow)
+          @git_trigger = GitWorkflowTrigger.joins(ai_workflow_trigger: :workflow)
                                           .where(ai_workflows: { account_id: current_user.account_id })
                                           .find(params[:id])
           @ai_workflow_trigger = @git_trigger.ai_workflow_trigger
-          @workflow = @ai_workflow_trigger.ai_workflow
+          @workflow = @ai_workflow_trigger.workflow
         rescue ActiveRecord::RecordNotFound
           render_error("Git workflow trigger not found", status: :not_found)
         end
@@ -222,8 +222,8 @@ module Api
             payload_mapping: trigger.payload_mapping,
             metadata: trigger.metadata,
             workflow: {
-              id: trigger.ai_workflow.id,
-              name: trigger.ai_workflow.name
+              id: trigger.ai_workflow_trigger.workflow.id,
+              name: trigger.ai_workflow_trigger.workflow.name
             }
           )
         end

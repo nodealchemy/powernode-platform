@@ -4,7 +4,7 @@ module Api
   module V1
     # Privacy dashboard and GDPR compliance endpoints
     class PrivacyController < ApplicationController
-      before_action :authenticate_user!
+      before_action :authenticate_request
 
       # GET /api/v1/privacy/dashboard
       def dashboard

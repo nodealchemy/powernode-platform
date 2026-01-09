@@ -73,12 +73,12 @@ module Api
                 if workflow_run
                   triggered_workflows << {
                     git_trigger_id: git_trigger.id,
-                    workflow_id: git_trigger.ai_workflow.id,
-                    workflow_name: git_trigger.ai_workflow.name,
+                    workflow_id: git_trigger.workflow.id,
+                    workflow_name: git_trigger.workflow.name,
                     run_id: workflow_run.run_id
                   }
 
-                  Rails.logger.info "[WEBHOOK_TRIGGER] Triggered workflow '#{git_trigger.ai_workflow.name}' " \
+                  Rails.logger.info "[WEBHOOK_TRIGGER] Triggered workflow '#{git_trigger.workflow.name}' " \
                                    "from event #{@event.id} (#{@event.event_type})"
                 end
               rescue StandardError => e
@@ -117,7 +117,7 @@ module Api
             end
 
             # Further filter by matching event criteria
-            triggers.includes(:ai_workflow_trigger, ai_workflow_trigger: :ai_workflow)
+            triggers.includes(:trigger, trigger: :workflow)
                    .select { |trigger| trigger.matches_event?(@event) }
           end
 

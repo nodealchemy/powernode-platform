@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::AppReviewsController < ApplicationController
-  before_action :authenticate_user!, except: [ :index, :show, :summary ]
+  before_action :authenticate_request, except: [ :index, :show, :summary ]
   before_action :set_app, only: [ :index, :show, :create, :summary ]
   before_action :set_app_review, only: [ :show, :update, :destroy, :vote, :flag, :moderate ]
   before_action :check_permissions, only: [ :update, :destroy, :flag, :moderate ]

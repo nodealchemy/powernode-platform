@@ -6,13 +6,13 @@
 # RESTful resource controller following the AI Orchestration Redesign pattern.
 #
 # Consolidates:
-# - AiWorkflowsController (workflow CRUD)
-# - AiWorkflowRunsController (execution management)
-# - AiWorkflowExecutionsController (legacy orchestration)
-# - AiWorkflowSchedulesController (scheduling)
-# - AiWorkflowTriggersController (triggers)
-# - AiWorkflowTemplatesController (templates)
-# - AiWorkflowNodeExecutionsController (node executions)
+# - ::Ai::WorkflowsController (workflow CRUD)
+# - ::Ai::WorkflowRunsController (execution management)
+# - ::Ai::WorkflowExecutionsController (legacy orchestration)
+# - ::Ai::WorkflowSchedulesController (scheduling)
+# - ::Ai::WorkflowTriggersController (triggers)
+# - ::Ai::WorkflowTemplatesController (templates)
+# - ::Ai::WorkflowNodeExecutionsController (node executions)
 # - WorkflowVersionsController (versioning)
 # - WorkflowAnalyticsController (analytics)
 # - WorkflowMarketplaceController (marketplace)
@@ -54,7 +54,7 @@ module Api
         # GET /api/v1/ai/workflows
         def index
           workflows = current_user.account.ai_workflows
-                                  .includes(:creator, :ai_workflow_nodes, :ai_workflow_edges)
+                                  .includes(:creator, :nodes, :edges)
 
           workflows = apply_workflow_filters(workflows)
           workflows = apply_sorting(workflows)
@@ -79,7 +79,7 @@ module Api
 
         # POST /api/v1/ai/workflows
         def create
-          @workflow = AiWorkflow.new(workflow_params)
+          @workflow = ::Ai::Workflow.new(workflow_params)
           @workflow.account = current_user.account
           @workflow.creator = current_user
 
@@ -115,7 +115,7 @@ module Api
               if workflow_data[:nodes].any?
                 update_workflow_nodes(workflow_data[:nodes])
               else
-                @workflow.ai_workflow_nodes.destroy_all
+                @workflow.nodes.destroy_all
               end
             end
 
@@ -123,7 +123,7 @@ module Api
               if workflow_data[:edges].any?
                 update_workflow_edges(workflow_data[:edges])
               else
-                @workflow.ai_workflow_edges.destroy_all
+                @workflow.edges.destroy_all
               end
             end
 
@@ -163,7 +163,7 @@ module Api
           ProviderAvailabilityService.validate_workflow_providers!(@workflow)
 
           # Create workflow run
-          run = @workflow.ai_workflow_runs.create!(
+          run = @workflow.runs.create!(
             status: "initializing",
             input_variables: params[:input_variables] || {},
             trigger_type: params[:trigger_type] || "manual",
@@ -236,8 +236,8 @@ module Api
         def export
           export_data = {
             workflow: serialize_workflow_detail(@workflow),
-            nodes: @workflow.ai_workflow_nodes.map { |node| serialize_node_detail(node) },
-            edges: @workflow.ai_workflow_edges.map { |edge| serialize_edge(edge) },
+            nodes: @workflow.nodes.map { |node| serialize_node_detail(node) },
+            edges: @workflow.edges.map { |edge| serialize_edge(edge) },
             metadata: {
               exported_at: Time.current.iso8601,
               exported_by: current_user.email,
@@ -262,7 +262,7 @@ module Api
           end
 
           begin
-            imported_workflow = AiWorkflow.import_from_data(
+            imported_workflow = ::Ai::Workflow.import_from_data(
               import_data,
               current_user.account,
               current_user,
@@ -288,18 +288,18 @@ module Api
             total_workflows: workflows.count,
             active_workflows: workflows.active.count,
             draft_workflows: workflows.draft.count,
-            total_runs: AiWorkflowRun.joins(:ai_workflow)
+            total_runs: ::Ai::WorkflowRun.joins(:workflow)
                                      .where(ai_workflows: { account_id: current_user.account.id })
                                      .count,
-            successful_runs: AiWorkflowRun.joins(:ai_workflow)
+            successful_runs: ::Ai::WorkflowRun.joins(:workflow)
                                           .where(ai_workflows: { account_id: current_user.account.id })
                                           .where(status: "completed")
                                           .count,
-            average_execution_time: AiWorkflowRun.joins(:ai_workflow)
+            average_execution_time: ::Ai::WorkflowRun.joins(:workflow)
                                                  .where(ai_workflows: { account_id: current_user.account.id })
                                                  .where.not(completed_at: nil)
                                                  .average("EXTRACT(epoch FROM (completed_at - started_at))"),
-            recent_activity: workflows.joins(:ai_workflow_runs)
+            recent_activity: workflows.joins(:workflow_runs)
                                      .where(ai_workflow_runs: { created_at: 7.days.ago.. })
                                      .group("ai_workflows.id")
                                      .count
@@ -311,10 +311,10 @@ module Api
         # GET /api/v1/ai/workflows/templates
         def templates
           # Return actual workflow templates from the database
-          templates_scope = AiWorkflow.templates
+          templates_scope = ::Ai::Workflow.templates
                                       .where(visibility: [ "public", "account" ])
-                                      .or(AiWorkflow.templates.where(account_id: current_user.account_id))
-                                      .includes(:creator, :ai_workflow_nodes)
+                                      .or(::Ai::Workflow.templates.where(account_id: current_user.account_id))
+                                      .includes(:creator, :nodes)
 
           # Apply filters
           templates_scope = templates_scope.where(template_category: params[:category]) if params[:category].present?
@@ -359,7 +359,7 @@ module Api
         def create_from_template
           authorize_workflow_action!("ai.workflows.create")
 
-          source_workflow = AiWorkflow.find(params[:id])
+          source_workflow = ::Ai::Workflow.find(params[:id])
 
           # Verify user can access the template
           unless source_workflow.is_template? &&
@@ -393,24 +393,24 @@ module Api
 
             # Duplicate nodes
             node_id_mapping = {}
-            source_workflow.ai_workflow_nodes.each do |node|
+            source_workflow.nodes.each do |node|
               new_node = node.dup
-              new_node.ai_workflow = new_workflow
+              new_node.workflow = new_workflow
               new_node.save!
               node_id_mapping[node.node_id] = new_node.node_id
             end
 
             # Duplicate edges with updated node references
-            source_workflow.ai_workflow_edges.each do |edge|
+            source_workflow.edges.each do |edge|
               new_edge = edge.dup
-              new_edge.ai_workflow = new_workflow
+              new_edge.workflow = new_workflow
               new_edge.save!
             end
 
             # Duplicate variables
-            source_workflow.ai_workflow_variables.each do |variable|
+            source_workflow.variables.each do |variable|
               new_variable = variable.dup
-              new_variable.ai_workflow = new_workflow
+              new_variable.workflow = new_workflow
               new_variable.save!
             end
 
@@ -464,21 +464,21 @@ module Api
           runs = if params[:workflow_id].present?
                   # Nested under specific workflow
                   if current_worker || current_service
-                    workflow = AiWorkflow.find(params[:workflow_id])
+                    workflow = ::Ai::Workflow.find(params[:workflow_id])
                   else
                     workflow = current_user.account.ai_workflows.find(params[:workflow_id])
                   end
-                  workflow.ai_workflow_runs
+                  workflow.runs
           elsif current_worker || current_service
                   # Worker/service context - access all runs across all accounts
-                  AiWorkflowRun.joins(:ai_workflow)
+                  ::Ai::WorkflowRun.joins(:workflow)
           else
                   # User context - All runs across user's account workflows
-                  AiWorkflowRun.joins(:ai_workflow)
+                  ::Ai::WorkflowRun.joins(:workflow)
                               .where(ai_workflows: { account_id: current_user.account_id })
           end
 
-          runs = runs.includes(:ai_workflow, :triggered_by_user, :ai_workflow_node_executions)
+          runs = runs.includes(:workflow, :triggered_by_user, :node_executions)
           runs = apply_run_filters(runs)
           runs = apply_pagination(runs.order(created_at: :desc))
 
@@ -531,7 +531,7 @@ module Api
             return render_error("Unauthorized: this endpoint is for worker services only", status: :forbidden)
           end
 
-          workflow_run = AiWorkflowRun.find_by!(run_id: params[:run_id])
+          workflow_run = ::Ai::WorkflowRun.find_by!(run_id: params[:run_id])
 
           update_params = run_update_params
 
@@ -565,12 +565,12 @@ module Api
             return render_error("Cannot delete workflow run while it is running", status: :unprocessable_content)
           end
 
-          workflow_name = @workflow_run.ai_workflow.name
+          workflow_name = @workflow_run.workflow.name
           run_id = @workflow_run.run_id
 
           # Delete related records
-          AiWorkflowRunLog.where(ai_workflow_run_id: @workflow_run.id).destroy_all
-          AiWorkflowNodeExecution.where(ai_workflow_run_id: @workflow_run.id).destroy_all
+          ::Ai::WorkflowRunLog.where(ai_workflow_run_id: @workflow_run.id).destroy_all
+          ::Ai::WorkflowNodeExecution.where(ai_workflow_run_id: @workflow_run.id).destroy_all
 
           if @workflow_run.destroy
             render_success({
@@ -586,7 +586,7 @@ module Api
 
         # DELETE /api/v1/ai/workflows/:workflow_id/runs
         def runs_destroy_all
-          runs = AiWorkflowRun.joins(:ai_workflow)
+          runs = ::Ai::WorkflowRun.joins(:workflow)
                              .where(ai_workflows: { account_id: current_user.account_id })
 
           runs = apply_run_filters(runs)
@@ -608,10 +608,10 @@ module Api
             deleted_count = 0
             deleted_run_ids = []
 
-            AiWorkflowRun.transaction do
+            ::Ai::WorkflowRun.transaction do
               runs.find_each do |run|
-                AiWorkflowRunLog.where(ai_workflow_run_id: run.id).destroy_all
-                AiWorkflowNodeExecution.where(ai_workflow_run_id: run.id).destroy_all
+                ::Ai::WorkflowRunLog.where(ai_workflow_run_id: run.id).destroy_all
+                ::Ai::WorkflowNodeExecution.where(ai_workflow_run_id: run.id).destroy_all
 
                 if run.destroy
                   deleted_count += 1
@@ -727,8 +727,8 @@ module Api
 
         # GET /api/v1/ai/workflows/:workflow_id/runs/:run_id/logs
         def run_logs
-          logs = @workflow_run.ai_workflow_run_logs
-                             .includes(:ai_workflow_node_execution)
+          logs = @workflow_run.run_logs
+                             .includes(:node_execution)
                              .order(created_at: :desc)
                              .page(params[:page])
                              .per(params[:per_page] || 50)
@@ -742,8 +742,8 @@ module Api
 
         # GET /api/v1/ai/workflows/:workflow_id/runs/:run_id/node_executions
         def run_node_executions
-          executions = @workflow_run.ai_workflow_node_executions
-                                   .includes(:ai_workflow_node)
+          executions = @workflow_run.node_executions
+                                   .includes(:node)
                                    .order(created_at: :asc)
                                    .page(params[:page])
                                    .per(params[:per_page] || 25)
@@ -767,7 +767,7 @@ module Api
         # GET /api/v1/ai/workflows/:workflow_id/runs/:run_id/download
         def run_download
           download_data = prepare_download_data(@workflow_run)
-          filename = "#{@workflow_run.ai_workflow.name.parameterize}-#{@workflow_run.run_id}-#{Date.current}"
+          filename = "#{@workflow_run.workflow.name.parameterize}-#{@workflow_run.run_id}-#{Date.current}"
           format = params[:format] || "json"
 
           case format.downcase
@@ -854,10 +854,10 @@ module Api
 
           if current_worker || current_service
             # Worker/service context - trusted access across all accounts
-            workflow_run = AiWorkflowRun.find_by!(run_id: run_id)
+            workflow_run = ::Ai::WorkflowRun.find_by!(run_id: run_id)
           else
             # User context - scope to user's account
-            workflow_run = AiWorkflowRun.joins(:ai_workflow)
+            workflow_run = ::Ai::WorkflowRun.joins(:workflow)
                                      .where(ai_workflows: { account_id: current_user.account_id })
                                      .find_by!(run_id: run_id)
           end
@@ -881,7 +881,7 @@ module Api
 
           # Check workflow-level timeout
           if @workflow_run.status.in?([ "running", "initializing" ])
-            workflow = @workflow_run.ai_workflow
+            workflow = @workflow_run.workflow
             max_execution_time = workflow.configuration&.dig("max_execution_time") || 3600
 
             if @workflow_run.started_at && (Time.current - @workflow_run.started_at) > max_execution_time
@@ -901,8 +901,8 @@ module Api
 
           # Check node-level timeouts
           unless timed_out
-            @workflow_run.ai_workflow_node_executions.where(status: "running").each do |node_exec|
-              node = node_exec.ai_workflow_node
+            @workflow_run.node_executions.where(status: "running").each do |node_exec|
+              node = node_exec.node
               timeout_seconds = node.timeout_seconds || 300
 
               if node_exec.started_at && (Time.current - node_exec.started_at) > timeout_seconds
@@ -957,7 +957,7 @@ module Api
 
         def set_workflow
           @workflow = current_user.account.ai_workflows
-                                  .includes(:creator, :ai_workflow_nodes, :ai_workflow_edges, :ai_workflow_triggers, :ai_workflow_variables)
+                                  .includes(:creator, :nodes, :edges, :triggers, :variables)
                                   .find(params[:id] || params[:workflow_id])
         rescue ActiveRecord::RecordNotFound
           render_error("Workflow not found", status: :not_found)
@@ -969,12 +969,12 @@ module Api
 
           if current_user
             # User context - scope to user's account
-            @workflow_run = AiWorkflowRun.joins(:ai_workflow)
+            @workflow_run = ::Ai::WorkflowRun.joins(:workflow)
                                        .where(ai_workflows: { account_id: current_user.account_id })
                                        .find_by!(run_id: run_id_param)
           elsif current_worker || current_service
             # Worker/service context - trusted access across all accounts
-            @workflow_run = AiWorkflowRun.find_by!(run_id: run_id_param)
+            @workflow_run = ::Ai::WorkflowRun.find_by!(run_id: run_id_param)
           else
             render_unauthorized("Authentication required")
           end
@@ -1126,7 +1126,7 @@ module Api
 
         def create_workflow_nodes(nodes_data)
           nodes_data.each do |node_data|
-            @workflow.ai_workflow_nodes.create!(
+            @workflow.nodes.create!(
               node_id: node_data[:node_id],
               node_type: node_data[:node_type],
               name: node_data[:name],
@@ -1144,12 +1144,12 @@ module Api
           end
 
           current_node_ids = valid_nodes.map { |n| n[:node_id] }
-          @workflow.ai_workflow_nodes.where.not(node_id: current_node_ids).destroy_all
+          @workflow.nodes.where.not(node_id: current_node_ids).destroy_all
 
           @workflow.instance_variable_set(:@bulk_updating_nodes, true)
 
           valid_nodes.each do |node_data|
-            node = @workflow.ai_workflow_nodes.find_or_initialize_by(node_id: node_data[:node_id])
+            node = @workflow.nodes.find_or_initialize_by(node_id: node_data[:node_id])
             node.assign_attributes(
               node_type: node_data[:node_type],
               name: node_data[:name],
@@ -1169,7 +1169,7 @@ module Api
 
         def create_workflow_edges(edges_data)
           edges_data.each do |edge_data|
-            @workflow.ai_workflow_edges.create!(
+            @workflow.edges.create!(
               edge_id: edge_data[:edge_id],
               source_node_id: edge_data[:source_node_id],
               target_node_id: edge_data[:target_node_id],
@@ -1191,10 +1191,10 @@ module Api
           end
 
           current_edge_ids = valid_edges.map { |e| e[:edge_id] }
-          @workflow.ai_workflow_edges.where.not(edge_id: current_edge_ids).destroy_all
+          @workflow.edges.where.not(edge_id: current_edge_ids).destroy_all
 
           valid_edges.each do |edge_data|
-            edge = @workflow.ai_workflow_edges.find_or_initialize_by(edge_id: edge_data[:edge_id])
+            edge = @workflow.edges.find_or_initialize_by(edge_id: edge_data[:edge_id])
             edge.assign_attributes(
               source_node_id: edge_data[:source_node_id],
               target_node_id: edge_data[:target_node_id],
@@ -1232,16 +1232,16 @@ module Api
               email: workflow.creator.email
             },
             stats: {
-              nodes_count: workflow.ai_workflow_nodes.count,
-              edges_count: workflow.ai_workflow_edges.count,
-              runs_count: workflow.ai_workflow_runs.count,
-              last_run_at: workflow.ai_workflow_runs.order(:created_at).last&.created_at&.iso8601
+              nodes_count: workflow.nodes.count,
+              edges_count: workflow.edges.count,
+              runs_count: workflow.runs.count,
+              last_run_at: workflow.runs.order(:created_at).last&.created_at&.iso8601
             }
           }
         end
 
         def serialize_workflow_detail(workflow)
-          workflow_runs = workflow.ai_workflow_runs
+          workflow_runs = workflow.runs
           completed_runs = workflow_runs.where(status: "completed")
 
           success_rate = if workflow_runs.count > 0
@@ -1283,13 +1283,13 @@ module Api
               name: workflow.creator.full_name,
               email: workflow.creator.email
             },
-            nodes: workflow.ai_workflow_nodes.map { |node| serialize_node_detail(node) },
-            edges: workflow.ai_workflow_edges.map { |edge| serialize_edge(edge) },
-            triggers: workflow.ai_workflow_triggers.map { |trigger| serialize_trigger(trigger) },
-            variables: workflow.ai_workflow_variables.map { |variable| serialize_variable(variable) },
+            nodes: workflow.nodes.map { |node| serialize_node_detail(node) },
+            edges: workflow.edges.map { |edge| serialize_edge(edge) },
+            triggers: workflow.workflow_triggers.map { |trigger| serialize_trigger(trigger) },
+            variables: workflow.variables.map { |variable| serialize_variable(variable) },
             stats: {
-              nodes_count: workflow.ai_workflow_nodes.count,
-              edges_count: workflow.ai_workflow_edges.count,
+              nodes_count: workflow.nodes.count,
+              edges_count: workflow.edges.count,
               runs_count: workflow_runs.count,
               success_rate: success_rate,
               avg_runtime: avg_runtime&.round(2),
@@ -1314,9 +1314,9 @@ module Api
             duration_ms: run.execution_time_ms,
             output_variables: run.output_variables,  # Include output_variables for preview modal
             workflow: {
-              id: run.ai_workflow.id,
-              name: run.ai_workflow.name,
-              version: run.ai_workflow.version
+              id: run.workflow.id,
+              name: run.workflow.name,
+              version: run.workflow.version
             },
             triggered_by: run.triggered_by_user ? {
               id: run.triggered_by_user.id,
@@ -1345,17 +1345,17 @@ module Api
             started_at: run.started_at&.iso8601,
             completed_at: run.completed_at&.iso8601,
             workflow: {
-              id: run.ai_workflow.id,
-              name: run.ai_workflow.name,
-              description: run.ai_workflow.description,
-              version: run.ai_workflow.version
+              id: run.workflow.id,
+              name: run.workflow.name,
+              description: run.workflow.description,
+              version: run.workflow.version
             },
             triggered_by: run.triggered_by_user ? {
               id: run.triggered_by_user.id,
               name: run.triggered_by_user.full_name,
               email: run.triggered_by_user.email
             } : nil,
-            node_executions: run.ai_workflow_node_executions.includes(:ai_workflow_node).map do |execution|
+            node_executions: run.node_executions.includes(:node).map do |execution|
               serialize_node_execution(execution)
             end,
             can_cancel: run.can_cancel?,
@@ -1432,9 +1432,9 @@ module Api
             cost: execution.cost,
             retry_count: execution.retry_count,
             node: {
-              node_id: execution.ai_workflow_node.node_id,
-              node_type: execution.ai_workflow_node.node_type,
-              name: execution.ai_workflow_node.name
+              node_id: execution.node.node_id,
+              node_type: execution.node.node_type,
+              name: execution.node.name
             },
             input_data: execution.input_data,
             output_data: execution.output_data,
@@ -1454,10 +1454,10 @@ module Api
             context_data: log.context_data,
             metadata: log.metadata,
             created_at: log.created_at.iso8601,
-            node_execution: log.ai_workflow_node_execution ? {
-              execution_id: log.ai_workflow_node_execution.execution_id,
-              node_name: log.ai_workflow_node_execution.ai_workflow_node.name,
-              node_type: log.ai_workflow_node_execution.ai_workflow_node.node_type
+            node_execution: log.node_execution ? {
+              execution_id: log.node_execution.execution_id,
+              node_name: log.node_execution.node.name,
+              node_type: log.node_execution.node.node_type
             } : nil
           }
         end
@@ -1467,7 +1467,7 @@ module Api
         # =============================================================================
 
         def build_execution_error_details
-          node_count = @workflow.ai_workflow_nodes.count
+          node_count = @workflow.nodes.count
           start_node_count = @workflow.start_nodes.count
           end_node_count = @workflow.end_nodes.count
 
@@ -1506,14 +1506,14 @@ module Api
               output_variables: workflow_run.output_variables
             },
             workflow: {
-              id: workflow_run.ai_workflow.id,
-              name: workflow_run.ai_workflow.name,
-              description: workflow_run.ai_workflow.description
+              id: workflow_run.workflow.id,
+              name: workflow_run.workflow.name,
+              description: workflow_run.workflow.description
             },
-            node_executions: workflow_run.ai_workflow_node_executions.includes(:ai_workflow_node).map do |node_exec|
+            node_executions: workflow_run.node_executions.includes(:node).map do |node_exec|
               {
-                node_name: node_exec.ai_workflow_node.name,
-                node_type: node_exec.ai_workflow_node.node_type,
+                node_name: node_exec.node.name,
+                node_type: node_exec.node.node_type,
                 status: node_exec.status,
                 started_at: node_exec.started_at,
                 completed_at: node_exec.completed_at,
@@ -1639,7 +1639,7 @@ module Api
             tags: workflow.metadata&.dig("tags") || [],
             is_database_template: true,
             visibility: workflow.visibility,
-            nodes_count: workflow.ai_workflow_nodes.count,
+            nodes_count: workflow.nodes.count,
             created_at: workflow.created_at.iso8601,
             updated_at: workflow.updated_at.iso8601,
             created_by: workflow.creator ? {

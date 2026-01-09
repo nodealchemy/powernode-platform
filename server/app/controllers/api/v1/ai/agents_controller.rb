@@ -7,7 +7,7 @@
 #
 # Consolidates:
 # - AiAgentsController (agent CRUD and operations)
-# - AiAgentExecutionsController (execution management)
+# - ::Ai::AgentExecutionsController (execution management)
 # - Partial AiMessagesController (agent-scoped messages)
 #
 # Architecture:
@@ -43,7 +43,7 @@ module Api
         # GET /api/v1/ai/agents
         def index
           agents = current_user.account.ai_agents
-                              .includes(:creator, :ai_provider)
+                              .includes(:creator, :provider)
 
           agents = apply_agent_filters(agents)
           agents = apply_sorting(agents)
@@ -260,7 +260,7 @@ module Api
 
         # GET /api/v1/ai/agents/:id/stats
         def stats
-          executions = @agent.ai_agent_executions
+          executions = @agent.executions
 
           stats = {
             total_executions: executions.count,
@@ -281,7 +281,7 @@ module Api
         def analytics
           date_range = params[:date_range]&.to_i || 30
 
-          executions = @agent.ai_agent_executions
+          executions = @agent.executions
                             .where("created_at >= ?", date_range.days.ago)
 
           analytics = {
@@ -299,7 +299,7 @@ module Api
         def my_agents
           agents = current_user.account.ai_agents
                               .where(creator: current_user)
-                              .includes(:ai_provider)
+                              .includes(:provider)
 
           agents = apply_pagination(agents.order(updated_at: :desc))
 
@@ -313,7 +313,7 @@ module Api
         def public_agents
           agents = current_user.account.ai_agents
                               .where(is_public: true)
-                              .includes(:creator, :ai_provider)
+                              .includes(:creator, :provider)
 
           agents = apply_pagination(agents.order(updated_at: :desc))
 
@@ -346,11 +346,11 @@ module Api
             total_agents: agents.count,
             active_agents: agents.where(status: "active").count,
             paused_agents: agents.where(status: "paused").count,
-            total_executions: AiAgentExecution.joins(:ai_agent)
+            total_executions: ::Ai::AgentExecution.joins(:agent)
                                              .where(ai_agents: { account_id: current_user.account_id })
                                              .count,
             agents_by_type: agents.group(:agent_type).count,
-            recent_activity: agents.joins(:ai_agent_executions)
+            recent_activity: agents.joins(:executions)
                                   .where(ai_agent_executions: { created_at: 7.days.ago.. })
                                   .group("ai_agents.id")
                                   .count
@@ -369,14 +369,14 @@ module Api
           executions = if params[:agent_id].present?
                         # Nested under specific agent
                         agent = current_user.account.ai_agents.find(params[:agent_id])
-                        agent.ai_agent_executions
+                        agent.executions
           else
                         # All executions across all agents
-                        AiAgentExecution.joins(:ai_agent)
+                        ::Ai::AgentExecution.joins(:agent)
                                        .where(ai_agents: { account_id: current_user.account_id })
           end
 
-          executions = executions.includes(:ai_agent, :ai_provider, :user)
+          executions = executions.includes(:agent, :provider, :user)
           executions = apply_execution_filters(executions)
           executions = apply_pagination(executions.order(created_at: :desc))
 
@@ -453,10 +453,10 @@ module Api
         def execution_retry
           if @execution.finished?
             # Create new execution based on current one
-            new_execution = @execution.ai_agent.execute(
+            new_execution = @execution.agent.execute(
               @execution.input_parameters,
               user: current_user,
-              provider: @execution.ai_provider
+              provider: @execution.provider
             )
 
             render_success({
@@ -488,8 +488,8 @@ module Api
 
         # GET /api/v1/ai/agents/:agent_id/conversations
         def conversations_index
-          conversations = @agent.ai_conversations
-                                .includes(:user, :ai_provider)
+          conversations = @agent.conversations
+                                .includes(:user, :provider)
                                 .order(last_activity_at: :desc)
 
           conversations = apply_pagination(conversations)
@@ -502,7 +502,7 @@ module Api
 
         # GET /api/v1/ai/agents/:agent_id/conversations/:conversation_id
         def conversation_show
-          conversation = @agent.ai_conversations.find(params[:conversation_id] || params[:id])
+          conversation = @agent.conversations.find(params[:conversation_id] || params[:id])
 
           render_success({
             conversation: serialize_conversation_detail(conversation)
@@ -511,10 +511,10 @@ module Api
 
         # POST /api/v1/ai/agents/:agent_id/conversations
         def conversation_create
-          conversation = @agent.ai_conversations.build(conversation_params)
+          conversation = @agent.conversations.build(conversation_params)
           conversation.user = current_user
           conversation.account = current_user.account
-          conversation.ai_provider = @agent.ai_provider
+          conversation.provider = @agent.provider
 
           if conversation.save
             render_success({
@@ -529,7 +529,7 @@ module Api
 
         # PATCH /api/v1/ai/agents/:agent_id/conversations/:conversation_id
         def conversation_update
-          conversation = @agent.ai_conversations.find(params[:conversation_id] || params[:id])
+          conversation = @agent.conversations.find(params[:conversation_id] || params[:id])
 
           if conversation.update(conversation_params)
             render_success({
@@ -544,7 +544,7 @@ module Api
 
         # DELETE /api/v1/ai/agents/:agent_id/conversations/:conversation_id
         def conversation_destroy
-          conversation = @agent.ai_conversations.find(params[:conversation_id] || params[:id])
+          conversation = @agent.conversations.find(params[:conversation_id] || params[:id])
 
           if conversation.destroy
             render_success({ message: "Conversation deleted successfully" })
@@ -557,7 +557,7 @@ module Api
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/send_message
         def send_message
-          conversation = @agent.ai_conversations.find(params[:conversation_id] || params[:id])
+          conversation = @agent.conversations.find(params[:conversation_id] || params[:id])
 
           message = conversation.add_user_message(
             params[:content],
@@ -577,7 +577,7 @@ module Api
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/pause
         def pause_conversation
-          conversation = @agent.ai_conversations.find(params[:conversation_id] || params[:id])
+          conversation = @agent.conversations.find(params[:conversation_id] || params[:id])
           conversation.pause_conversation!
 
           render_success({
@@ -590,7 +590,7 @@ module Api
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/resume
         def resume_conversation
-          conversation = @agent.ai_conversations.find(params[:conversation_id] || params[:id])
+          conversation = @agent.conversations.find(params[:conversation_id] || params[:id])
           conversation.resume_conversation!
 
           render_success({
@@ -603,7 +603,7 @@ module Api
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/complete
         def complete_conversation
-          conversation = @agent.ai_conversations.find(params[:conversation_id] || params[:id])
+          conversation = @agent.conversations.find(params[:conversation_id] || params[:id])
           conversation.complete_conversation!
 
           render_success({
@@ -616,7 +616,7 @@ module Api
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/archive
         def archive_conversation
-          conversation = @agent.ai_conversations.find(params[:conversation_id] || params[:id])
+          conversation = @agent.conversations.find(params[:conversation_id] || params[:id])
           conversation.archive_conversation!
 
           render_success({
@@ -629,8 +629,8 @@ module Api
 
         # GET /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages
         def conversation_messages
-          conversation = @agent.ai_conversations.find(params[:conversation_id] || params[:id])
-          messages = conversation.ai_messages.order(created_at: :asc)
+          conversation = @agent.conversations.find(params[:conversation_id] || params[:id])
+          messages = conversation.messages.order(created_at: :asc)
 
           render_success({
             messages: messages.map { |m| serialize_message(m) }
@@ -639,7 +639,7 @@ module Api
 
         # GET /api/v1/ai/agents/:agent_id/conversations/:conversation_id/export
         def export_conversation
-          conversation = @agent.ai_conversations.find(params[:conversation_id] || params[:id])
+          conversation = @agent.conversations.find(params[:conversation_id] || params[:id])
 
           render_success({
             conversation: serialize_conversation_detail(conversation),
@@ -659,8 +659,8 @@ module Api
           set_agent
           return if performed?
 
-          conversation = @agent.ai_conversations.find(params[:conversation_id])
-          message = conversation.ai_messages.find(params[:id])
+          conversation = @agent.conversations.find(params[:conversation_id])
+          message = conversation.messages.find(params[:id])
 
           # Only allow regenerating assistant messages
           unless message.role == "assistant"
@@ -668,7 +668,7 @@ module Api
           end
 
           # Find the previous user message to use as context (for future job)
-          _previous_messages = conversation.ai_messages
+          _previous_messages = conversation.messages
                                           .where("sequence_number < ?", message.sequence_number)
                                           .order(sequence_number: :asc)
 
@@ -710,8 +710,8 @@ module Api
           set_agent
           return if performed?
 
-          conversation = @agent.ai_conversations.find(params[:conversation_id])
-          message = conversation.ai_messages.find(params[:id])
+          conversation = @agent.conversations.find(params[:conversation_id])
+          message = conversation.messages.find(params[:id])
 
           # Only allow rating assistant messages
           unless message.role == "assistant"
@@ -764,12 +764,12 @@ module Api
 
           if current_user
             # User context - scope to user's account
-            @execution = AiAgentExecution.joins(:ai_agent)
+            @execution = ::Ai::AgentExecution.joins(:agent)
                                         .where(ai_agents: { account_id: current_user.account_id })
                                         .find_by!(execution_id: execution_id)
           elsif current_worker || current_service
             # Worker/service context - trusted access
-            @execution = AiAgentExecution.find_by!(execution_id: execution_id)
+            @execution = ::Ai::AgentExecution.find_by!(execution_id: execution_id)
           else
             render_unauthorized("Authentication required")
           end
@@ -937,7 +937,7 @@ module Api
         # =============================================================================
 
         def serialize_agent(agent)
-          executions = agent.ai_agent_executions
+          executions = agent.executions
 
           {
             id: agent.id,
@@ -957,11 +957,11 @@ module Api
               email: agent.creator.email
             },
             # Frontend expects 'ai_provider' key
-            ai_provider: agent.ai_provider ? {
-              id: agent.ai_provider.id,
-              name: agent.ai_provider.name,
-              slug: agent.ai_provider.slug,
-              provider_type: agent.ai_provider.provider_type
+            provider: agent.provider ? {
+              id: agent.provider.id,
+              name: agent.provider.name,
+              slug: agent.provider.slug,
+              provider_type: agent.provider.provider_type
             } : nil,
             # Include MCP tool manifest for frontend display
             # Extract commonly used fields from MCP tool manifest
@@ -982,7 +982,7 @@ module Api
         end
 
         def serialize_agent_detail(agent)
-          executions = agent.ai_agent_executions
+          executions = agent.executions
 
           # Base serialization already includes MCP manifest details
           # Just add detailed stats and metadata
@@ -1013,9 +1013,9 @@ module Api
             cost_usd: execution.cost_usd&.to_f,
             tokens_used: execution.tokens_used,
             agent: {
-              id: execution.ai_agent.id,
-              name: execution.ai_agent.name,
-              agent_type: execution.ai_agent.agent_type
+              id: execution.agent.id,
+              name: execution.agent.name,
+              agent_type: execution.agent.agent_type
             },
             user: execution.user ? {
               id: execution.user.id,
@@ -1030,10 +1030,10 @@ module Api
             input_parameters: execution.input_parameters,
             output_data: execution.output_data,
             execution_context: execution.execution_context,
-            provider: execution.ai_provider ? {
-              id: execution.ai_provider.id,
-              name: execution.ai_provider.name,
-              provider_type: execution.ai_provider.provider_type
+            provider: execution.provider ? {
+              id: execution.provider.id,
+              name: execution.provider.name,
+              provider_type: execution.provider.provider_type
             } : nil
           )
 
@@ -1045,7 +1045,7 @@ module Api
           {
             id: conversation.id,
             conversation_id: conversation.conversation_id,
-            title: conversation.title || "Conversation with #{conversation.ai_provider.name}",
+            title: conversation.title || "Conversation with #{conversation.provider.name}",
             status: conversation.status,
             message_count: conversation.message_count,
             total_tokens: conversation.total_tokens,
@@ -1055,14 +1055,14 @@ module Api
             created_at: conversation.created_at.iso8601,
             last_activity_at: conversation.last_activity_at&.iso8601,
             ai_agent: conversation.ai_agent ? {
-              id: conversation.ai_agent.id,
-              name: conversation.ai_agent.name,
-              agent_type: conversation.ai_agent.agent_type
+              id: conversation.agent.id,
+              name: conversation.agent.name,
+              agent_type: conversation.agent.agent_type
             } : nil,
-            ai_provider: {
-              id: conversation.ai_provider.id,
-              name: conversation.ai_provider.name,
-              provider_type: conversation.ai_provider.provider_type
+            provider: {
+              id: conversation.provider.id,
+              name: conversation.provider.name,
+              provider_type: conversation.provider.provider_type
             },
             user: {
               id: conversation.user.id,
@@ -1084,7 +1084,7 @@ module Api
                 email: u.email
               }
             } : [],
-            recent_messages: conversation.ai_messages.recent.limit(10).map { |m| serialize_message(m) },
+            recent_messages: conversation.messages.recent.limit(10).map { |m| serialize_message(m) },
             metadata: {
               can_send_message: conversation.can_send_message?,
               active_session: conversation.websocket_session_id.present?

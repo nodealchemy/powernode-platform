@@ -4,7 +4,7 @@ module Api
   module V1
     module Integrations
       class ExecutionsController < ApplicationController
-        before_action :authenticate_user!
+        before_action :authenticate_request
         before_action :set_execution, only: [:show, :retry, :cancel]
 
         # GET /api/v1/integrations/executions

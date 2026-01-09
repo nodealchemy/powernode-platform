@@ -4,7 +4,7 @@ module Api
   module V1
     module Integrations
       class InstancesController < ApplicationController
-        before_action :authenticate_user!
+        before_action :authenticate_request
         before_action :set_instance, only: [:show, :update, :destroy, :activate, :deactivate, :test, :execute]
 
         # GET /api/v1/integrations/instances

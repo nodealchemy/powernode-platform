@@ -18,7 +18,7 @@ module Api
         # GET /api/v1/ai/conversations
         def index
           conversations = current_user.account.ai_conversations
-                                    .includes(:user, :ai_agent, :ai_provider)
+                                    .includes(:user, :agent, :provider)
                                     .order(last_activity_at: :desc)
 
           conversations = apply_filters(conversations)
@@ -37,7 +37,7 @@ module Api
           # Validate provider availability before creating conversation
           ProviderAvailabilityService.validate_agent_provider!(agent)
 
-          conversation = agent.ai_conversations.build(
+          conversation = agent.conversations.build(
             conversation_params.merge(
               conversation_id: SecureRandom.uuid,
               user_id: current_user.id,
@@ -132,8 +132,8 @@ module Api
           # Create new conversation with same settings
           new_conversation = current_user.account.ai_conversations.build(
             user: current_user,
-            ai_agent: @conversation.ai_agent,
-            ai_provider: @conversation.ai_provider,
+            ai_agent: @conversation.agent,
+            provider: @conversation.provider,
             title: new_title,
             status: "active",
             is_collaborative: @conversation.is_collaborative?,
@@ -143,13 +143,13 @@ module Api
           if new_conversation.save
             # Copy messages if requested
             if include_messages
-              @conversation.ai_messages.ordered.each do |message|
-                new_conversation.ai_messages.create!(
+              @conversation.messages.ordered.each do |message|
+                new_conversation.messages.create!(
                   role: message.role,
                   content: message.content,
                   message_type: message.message_type,
                   user: message.user,
-                  ai_agent: message.ai_agent,
+                  ai_agent: message.agent,
                   sequence_number: message.sequence_number
                 )
               end
@@ -174,7 +174,7 @@ module Api
         # GET /api/v1/ai/conversations/:id/stats
         def stats
           # Calculate statistics from messages
-          messages = @conversation.ai_messages
+          messages = @conversation.messages
 
           # Calculate average response time (time between user message and next assistant message)
           response_times = []
@@ -304,7 +304,7 @@ module Api
           {
             id: conversation.id,
             conversation_id: conversation.conversation_id,
-            title: conversation.title || "Conversation with #{conversation.ai_provider.name}",
+            title: conversation.title || "Conversation with #{conversation.provider.name}",
             status: conversation.status,
             message_count: conversation.message_count,
             total_tokens: conversation.total_tokens,
@@ -313,15 +313,15 @@ module Api
             participant_count: conversation.participants.size,
             created_at: conversation.created_at.iso8601,
             last_activity_at: conversation.last_activity_at&.iso8601,
-            ai_agent: conversation.ai_agent ? {
-              id: conversation.ai_agent.id,
-              name: conversation.ai_agent.name,
-              agent_type: conversation.ai_agent.agent_type
+            ai_agent: conversation.agent ? {
+              id: conversation.agent.id,
+              name: conversation.agent.name,
+              agent_type: conversation.agent.agent_type
             } : nil,
-            ai_provider: {
-              id: conversation.ai_provider.id,
-              name: conversation.ai_provider.name,
-              provider_type: conversation.ai_provider.provider_type
+            provider: {
+              id: conversation.provider.id,
+              name: conversation.provider.name,
+              provider_type: conversation.provider.provider_type
             },
             user: {
               id: conversation.user.id,
@@ -343,7 +343,7 @@ module Api
                 email: u.email
               }
             } : [],
-            recent_messages: conversation.ai_messages.recent.limit(10).map { |m| serialize_message(m) },
+            recent_messages: conversation.messages.recent.limit(10).map { |m| serialize_message(m) },
             metadata: {
               can_send_message: conversation.can_send_message?,
               active_session: conversation.websocket_session_id.present?

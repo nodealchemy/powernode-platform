@@ -7,7 +7,7 @@ class Api::V1::Internal::TemplateInstallationsController < ApplicationController
 
   # POST /api/v1/internal/template_installations/:id/update
   def update
-    installation = AiWorkflowTemplateInstallation.find(params[:id])
+    installation = Ai::WorkflowTemplateInstallation.find(params[:id])
     user = params[:user_id] ? User.find(params[:user_id]) : installation.installed_by_user
 
     preserve_customizations = params[:preserve_customizations].nil? ? true : params[:preserve_customizations]

@@ -24,7 +24,7 @@ module Api
           end
 
           # Check if comment is required
-          node = @token.ai_workflow_node_execution.ai_workflow_node
+          node = @token.node_execution.node
           if node&.configuration&.dig("require_comment") && params[:comment].blank?
             return render_error("A comment is required for this approval", status: :unprocessable_entity)
           end
@@ -49,7 +49,7 @@ module Api
           end
 
           # Check if comment is required
-          node = @token.ai_workflow_node_execution.ai_workflow_node
+          node = @token.node_execution.node
           if node&.configuration&.dig("require_comment") && params[:comment].blank?
             return render_error("A comment is required for this rejection", status: :unprocessable_entity)
           end
@@ -67,8 +67,8 @@ module Api
         private
 
         def find_token_by_param
-          digest = AiWorkflowApprovalToken.generate_digest(params[:token])
-          @token = AiWorkflowApprovalToken.find_by(token_digest: digest)
+          digest = ::Ai::WorkflowApprovalToken.generate_digest(params[:token])
+          @token = ::Ai::WorkflowApprovalToken.find_by(token_digest: digest)
 
           render_error("Invalid or expired approval token", status: :not_found) unless @token
         end
@@ -87,10 +87,10 @@ module Api
         end
 
         def serialize_token(token)
-          node_execution = token.ai_workflow_node_execution
-          workflow_run = node_execution.ai_workflow_run
-          workflow = workflow_run.ai_workflow
-          node = node_execution.ai_workflow_node
+          node_execution = token.node_execution
+          workflow_run = node_execution.workflow_run
+          workflow = workflow_run.workflow
+          node = node_execution.node
 
           {
             id: token.id,

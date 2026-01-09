@@ -13,7 +13,7 @@
 # Architecture:
 # - Primary resource: Analytics Dashboard
 # - Nested resources: Reports, Insights, Recommendations
-# - Integrates with AiAnalyticsInsightsService
+# - Integrates with ::Ai::AnalyticsInsightsService
 # - Report generation and scheduling
 #
 module Api
@@ -141,7 +141,7 @@ module Api
         # GET /api/v1/ai/analytics/insights
         def insights
           account = @account_scope || current_user&.account
-          analytics_service = AiAnalyticsInsightsService.new(
+          analytics_service = ::Ai::AnalyticsInsightsService.new(
             account: account,
             time_range: @time_range
           )
@@ -539,7 +539,7 @@ module Api
           account = @account_scope || current_user&.account
           workflows = account.ai_workflows
           agents = account.ai_agents
-          runs = AiWorkflowRun.where(ai_workflow: workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: workflows)
                              .where("created_at >= ?", @time_range.ago)
 
           {
@@ -558,14 +558,14 @@ module Api
         def generate_quick_stats
           account = @account_scope || current_user&.account
           workflows = account.ai_workflows
-          runs = AiWorkflowRun.where(ai_workflow: workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: workflows)
                              .where("created_at >= ?", 24.hours.ago)
 
           {
             executions_24h: runs.count,
             success_rate_24h: calculate_success_rate(runs),
             cost_24h: runs.sum(:total_cost) || 0.0,
-            active_runs: AiWorkflowRun.where(ai_workflow: workflows)
+            active_runs: ::Ai::WorkflowRun.where(workflow: workflows)
                                      .where(status: %w[initializing running waiting_approval])
                                      .count
           }
@@ -576,7 +576,7 @@ module Api
           daily_metrics = []
           (0..29).each do |days_ago|
             date = days_ago.days.ago.to_date
-            runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+            runs = ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                                .where("DATE(created_at) = ?", date)
 
             daily_metrics << {
@@ -594,7 +594,7 @@ module Api
         def generate_highlights
           account = @account_scope || current_user&.account
           workflows = account.ai_workflows
-          runs = AiWorkflowRun.where(ai_workflow: workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: workflows)
                              .where("created_at >= ?", @time_range.ago)
 
           highlights = []
@@ -670,7 +670,7 @@ module Api
 
         def execution_metrics
           account = @account_scope || current_user&.account
-          runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                              .where("created_at >= ?", @time_range.ago)
 
           {
@@ -684,7 +684,7 @@ module Api
 
         def performance_metrics_data
           account = @account_scope || current_user&.account
-          runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                              .where("created_at >= ?", @time_range.ago)
                              .where(status: "completed")
 
@@ -700,7 +700,7 @@ module Api
           workflows = account.ai_workflows.limit(10)
 
           workflows.map do |workflow|
-            runs = workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
+            runs = workflow.runs.where("created_at >= ?", @time_range.ago)
             {
               id: workflow.id,
               name: workflow.name,
@@ -717,7 +717,7 @@ module Api
           agents = account.ai_agents.limit(10)
 
           agents.map do |agent|
-            executions = agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
+            executions = agent.executions.where("created_at >= ?", @time_range.ago)
             {
               id: agent.id,
               name: agent.name,
@@ -734,7 +734,7 @@ module Api
           providers = account.ai_providers
 
           providers.map do |provider|
-            executions = AiAgentExecution.where(ai_agent: AiAgent.where(ai_provider: provider))
+            executions = ::Ai::AgentExecution.where(ai_agent: ::Ai::Agent.where(provider: provider))
                                         .where("created_at >= ?", @time_range.ago)
 
             {
@@ -750,7 +750,7 @@ module Api
 
         def cost_dashboard_metrics
           account = @account_scope || current_user&.account
-          runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                              .where("created_at >= ?", @time_range.ago)
 
           {
@@ -762,7 +762,7 @@ module Api
 
         def performance_dashboard_metrics
           account = @account_scope || current_user&.account
-          runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                              .where("created_at >= ?", @time_range.ago)
 
           {
@@ -779,11 +779,11 @@ module Api
         def generate_real_time_metrics
           account = @account_scope || current_user&.account
           workflows = account.ai_workflows
-          runs = AiWorkflowRun.where(ai_workflow: workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: workflows)
                              .where("created_at >= ?", 1.hour.ago)
 
           {
-            active_executions: AiWorkflowRun.where(ai_workflow: workflows)
+            active_executions: ::Ai::WorkflowRun.where(workflow: workflows)
                                            .where(status: %w[initializing running waiting_approval])
                                            .count,
             recent_executions: runs.count,
@@ -800,7 +800,7 @@ module Api
 
         def calculate_total_cost
           account = @account_scope || current_user&.account
-          (AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+          (::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                        .where("created_at >= ?", @time_range.ago)
                        .sum(:total_cost) || 0.0).to_f
         end
@@ -811,7 +811,7 @@ module Api
           daily_costs = []
           (0..29).each do |days_ago|
             date = days_ago.days.ago.to_date
-            cost = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+            cost = ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                                .where("DATE(created_at) = ?", date)
                                .sum(:total_cost) || 0.0
 
@@ -826,7 +826,7 @@ module Api
 
         def cost_breakdown_by_provider
           account = @account_scope || current_user&.account
-          AiAgentExecution.joins(ai_agent: :ai_provider)
+          ::Ai::AgentExecution.joins(agent: :provider)
                          .where(ai_agents: { account_id: account.id })
                          .where("ai_agent_executions.created_at >= ?", @time_range.ago)
                          .group("ai_providers.id", "ai_providers.name")
@@ -836,7 +836,7 @@ module Api
 
         def cost_breakdown_by_agent
           account = @account_scope || current_user&.account
-          AiAgentExecution.joins(:ai_agent)
+          ::Ai::AgentExecution.joins(:agent)
                          .where(ai_agents: { account_id: account.id })
                          .where("ai_agent_executions.created_at >= ?", @time_range.ago)
                          .group("ai_agents.id", "ai_agents.name")
@@ -848,7 +848,7 @@ module Api
 
         def cost_breakdown_by_workflow
           account = @account_scope || current_user&.account
-          AiWorkflowRun.joins(:ai_workflow)
+          ::Ai::WorkflowRun.joins(:workflow)
                       .where(ai_workflows: { account_id: account.id })
                       .where("ai_workflow_runs.created_at >= ?", @time_range.ago)
                       .group("ai_workflows.id", "ai_workflows.name")
@@ -889,7 +889,7 @@ module Api
 
         def analyze_response_times
           account = @account_scope || current_user&.account
-          runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                              .where("created_at >= ?", @time_range.ago)
                              .where(status: "completed")
 
@@ -904,7 +904,7 @@ module Api
 
         def analyze_success_rates
           account = @account_scope || current_user&.account
-          runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                              .where("created_at >= ?", @time_range.ago)
 
           total = runs.count
@@ -920,7 +920,7 @@ module Api
 
         def analyze_throughput
           account = @account_scope || current_user&.account
-          runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                              .where("created_at >= ?", @time_range.ago)
 
           hours = @time_range.to_f / 1.hour
@@ -934,7 +934,7 @@ module Api
 
         def analyze_error_rates
           account = @account_scope || current_user&.account
-          runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                              .where("created_at >= ?", @time_range.ago)
 
           total = runs.count
@@ -952,7 +952,7 @@ module Api
           {
             active_workflows: account.ai_workflows.where(is_active: true).count,
             active_agents: account.ai_agents.where(status: "active").count,
-            running_executions: AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+            running_executions: ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                                             .where(status: %w[initializing running waiting_approval])
                                             .count
           }
@@ -961,7 +961,7 @@ module Api
         def identify_bottlenecks
           account = @account_scope || current_user&.account
           # Identify slow workflows
-          slow_workflows = AiWorkflowRun.joins(:ai_workflow)
+          slow_workflows = ::Ai::WorkflowRun.joins(:workflow)
                                        .where(ai_workflows: { account_id: account.id })
                                        .where("ai_workflow_runs.created_at >= ?", @time_range.ago)
                                        .where(status: "completed")
@@ -982,7 +982,7 @@ module Api
 
         def generate_optimization_recommendations
           account = @account_scope || current_user&.account
-          runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
+          runs = ::Ai::WorkflowRun.where(workflow: account.ai_workflows)
                              .where("created_at >= ?", @time_range.ago)
 
           recommendations = []
@@ -1037,7 +1037,7 @@ module Api
         # =============================================================================
 
         def analyze_workflow_runs(workflow)
-          runs = workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
+          runs = workflow.runs.where("created_at >= ?", @time_range.ago)
 
           {
             total: runs.count,
@@ -1048,7 +1048,7 @@ module Api
         end
 
         def analyze_workflow_performance(workflow)
-          runs = workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
+          runs = workflow.runs.where("created_at >= ?", @time_range.ago)
                         .where(status: "completed")
 
           {
@@ -1060,7 +1060,7 @@ module Api
         end
 
         def analyze_workflow_costs(workflow)
-          runs = workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
+          runs = workflow.runs.where("created_at >= ?", @time_range.ago)
 
           {
             total_cost: runs.sum(:total_cost) || 0.0,
@@ -1070,12 +1070,12 @@ module Api
         end
 
         def calculate_workflow_success_rate(workflow)
-          runs = workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
+          runs = workflow.runs.where("created_at >= ?", @time_range.ago)
           calculate_success_rate(runs)
         end
 
         def calculate_workflow_average_duration(workflow)
-          workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
+          workflow.runs.where("created_at >= ?", @time_range.ago)
                                   .where(status: "completed")
                                   .average(:duration_ms)&.to_f || 0
         end
@@ -1086,7 +1086,7 @@ module Api
         end
 
         def analyze_agent_executions(agent)
-          executions = agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
+          executions = agent.executions.where("created_at >= ?", @time_range.ago)
 
           {
             total: executions.count,
@@ -1096,7 +1096,7 @@ module Api
         end
 
         def analyze_agent_performance(agent)
-          executions = agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
+          executions = agent.executions.where("created_at >= ?", @time_range.ago)
                                                 .where(status: "completed")
 
           {
@@ -1106,7 +1106,7 @@ module Api
         end
 
         def analyze_agent_costs(agent)
-          executions = agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
+          executions = agent.executions.where("created_at >= ?", @time_range.ago)
 
           {
             total_cost: executions.sum(:cost_usd) || 0.0,
@@ -1115,12 +1115,12 @@ module Api
         end
 
         def calculate_agent_success_rate(agent)
-          executions = agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
+          executions = agent.executions.where("created_at >= ?", @time_range.ago)
           calculate_success_rate(executions)
         end
 
         def calculate_agent_average_response_time(agent)
-          agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
+          agent.executions.where("created_at >= ?", @time_range.ago)
                                   .where(status: "completed")
                                   .average(:duration_ms)&.to_f || 0
         end
@@ -1194,7 +1194,7 @@ module Api
             id: agent.id,
             name: agent.name,
             status: agent.status,
-            provider: agent.ai_provider.name,
+            provider: agent.provider.name,
             created_at: agent.created_at.iso8601
           }
         end

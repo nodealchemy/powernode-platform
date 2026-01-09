@@ -4,44 +4,44 @@ module Api
   module V1
     module Ai
       class ContextsController < ApplicationController
-        before_action :authenticate_user!
+        before_action :authenticate_request
         before_action :set_context, only: [:show, :update, :destroy, :search, :archive, :unarchive, :export, :clone]
 
         # GET /api/v1/ai/contexts
         def index
           authorize_action!("ai.context.read")
 
-          contexts = AiContextPersistenceService.list_contexts(
+          contexts = ::Ai::ContextPersistenceService.list_contexts(
             account: current_account,
             filters: context_filters,
             **pagination_params
           )
 
-          render_success(
+          render_success({
             contexts: contexts.map(&:context_summary),
             pagination: pagination_meta(contexts)
-          )
+          })
         end
 
         # GET /api/v1/ai/contexts/:id
         def show
           authorize_action!("ai.context.read")
 
-          render_success(context: @context.context_details)
+          render_success({ context: @context.context_details })
         end
 
         # POST /api/v1/ai/contexts
         def create
           authorize_action!("ai.context.create")
 
-          context = AiContextPersistenceService.create_context(
+          context = ::Ai::ContextPersistenceService.create_context(
             account: current_account,
             attributes: context_params,
             created_by: current_user
           )
 
-          render_success(context: context.context_details, status: :created)
-        rescue AiContextPersistenceService::ValidationError => e
+          render_success({ context: context.context_details }, status: :created)
+        rescue ::Ai::ContextPersistenceService::ValidationError => e
           render_error(e.message, status: :unprocessable_entity)
         end
 
@@ -49,17 +49,17 @@ module Api
         def update
           authorize_action!("ai.context.update")
 
-          context = AiContextPersistenceService.update_context(
+          context = ::Ai::ContextPersistenceService.update_context(
             account: current_account,
             context_id: @context.id,
             attributes: context_params,
             accessor: current_user
           )
 
-          render_success(context: context.context_details)
-        rescue AiContextPersistenceService::ValidationError => e
+          render_success({ context: context.context_details })
+        rescue ::Ai::ContextPersistenceService::ValidationError => e
           render_error(e.message, status: :unprocessable_entity)
-        rescue AiContextPersistenceService::AccessDeniedError
+        rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have write access to this context")
         end
 
@@ -76,7 +76,7 @@ module Api
         def search
           authorize_action!("ai.context.read")
 
-          results = AiContextPersistenceService.search(
+          results = ::Ai::ContextPersistenceService.search(
             context: @context,
             query: params[:q],
             accessor: current_user,
@@ -84,8 +84,8 @@ module Api
             limit: (params[:limit] || 20).to_i
           )
 
-          render_success(results: results.map(&:entry_summary))
-        rescue AiContextPersistenceService::AccessDeniedError
+          render_success({ results: results.map(&:entry_summary) })
+        rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have read access to this context")
         end
 
@@ -93,14 +93,14 @@ module Api
         def archive
           authorize_action!("ai.context.update")
 
-          AiContextPersistenceService.archive_context(
+          ::Ai::ContextPersistenceService.archive_context(
             account: current_account,
             context_id: @context.id,
             accessor: current_user
           )
 
           render_success(message: "Context archived")
-        rescue AiContextPersistenceService::AccessDeniedError
+        rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have write access to this context")
         end
 
@@ -110,21 +110,21 @@ module Api
 
           @context.unarchive!
 
-          render_success(context: @context.reload.context_summary)
+          render_success({ context: @context.reload.context_summary })
         end
 
         # GET /api/v1/ai/contexts/:id/export
         def export
           authorize_action!("ai.context.export")
 
-          data = AiContextPersistenceService.export_context(
+          data = ::Ai::ContextPersistenceService.export_context(
             context: @context,
             accessor: current_user,
             format: params[:format]&.to_sym || :json
           )
 
-          render_success(export: JSON.parse(data))
-        rescue AiContextPersistenceService::AccessDeniedError
+          render_success({ export: JSON.parse(data) })
+        rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have read access to this context")
         end
 
@@ -132,15 +132,15 @@ module Api
         def clone
           authorize_action!("ai.context.create")
 
-          new_context = AiContextPersistenceService.clone_context(
+          new_context = ::Ai::ContextPersistenceService.clone_context(
             account: current_account,
             context_id: @context.id,
             new_name: params[:name] || "#{@context.name} (Copy)",
             accessor: current_user
           )
 
-          render_success(context: new_context.context_details, status: :created)
-        rescue AiContextPersistenceService::AccessDeniedError
+          render_success({ context: new_context.context_details }, status: :created)
+        rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have read access to this context")
         end
 
@@ -148,14 +148,14 @@ module Api
         def import
           authorize_action!("ai.context.import")
 
-          context = AiContextPersistenceService.import_context(
+          context = ::Ai::ContextPersistenceService.import_context(
             account: current_account,
             data: params[:data],
             accessor: current_user,
             merge: params[:merge] == "true"
           )
 
-          render_success(context: context.context_details, status: :created)
+          render_success({ context: context.context_details }, status: :created)
         rescue JSON::ParserError
           render_error("Invalid import data format", status: :unprocessable_entity)
         end
@@ -164,22 +164,22 @@ module Api
         def stats
           authorize_action!("ai.context.read")
 
-          stats = AiMemoryManagementService.memory_stats(account: current_account)
+          stats = ::Ai::MemoryManagementService.memory_stats(account: current_account)
 
-          render_success(stats: stats)
+          render_success({ stats: stats })
         end
 
         private
 
         def set_context
-          @context = AiContextPersistenceService.find_context(
+          @context = ::Ai::ContextPersistenceService.find_context(
             account: current_account,
             context_id: params[:id],
             accessor: current_user
           )
-        rescue AiContextPersistenceService::NotFoundError
+        rescue ::Ai::ContextPersistenceService::NotFoundError
           render_not_found("Context")
-        rescue AiContextPersistenceService::AccessDeniedError
+        rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have access to this context")
         end
 

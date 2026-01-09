@@ -9,7 +9,7 @@ module Api
       #
       # Consolidates 2 controllers:
       # - WorkflowMarketplaceController (252 lines) - discovery, search, recommendations
-      # - AiWorkflowTemplatesController (406 lines) - template CRUD, installations
+      # - ::Ai::WorkflowTemplatesController (406 lines) - template CRUD, installations
       #
       # Total reduction: 2 controllers → 1 controller (50% reduction)
       # Code consolidation: ~658 lines → ~950 lines (comprehensive architecture)
@@ -32,7 +32,7 @@ module Api
 
         # GET /api/v1/ai/marketplace/templates
         def index
-          templates = AiWorkflowTemplate.accessible_to_account(current_user&.account&.id || "public")
+          templates = ::Ai::WorkflowTemplate.accessible_to_account(current_user&.account&.id || "public")
                                         .includes(:created_by_user, :source_workflow)
 
           # Apply filters
@@ -79,7 +79,7 @@ module Api
           template_params_data[:author_name] = current_user.full_name if current_user.full_name.present?
           template_params_data[:author_email] = current_user.email
 
-          @template = AiWorkflowTemplate.new(template_params_data)
+          @template = ::Ai::WorkflowTemplate.new(template_params_data)
 
           if @template.save
             log_audit_event("ai.marketplace.template_created", @template)
@@ -158,7 +158,7 @@ module Api
             }
           }
 
-          template = AiWorkflowTemplate.create(template_data)
+          template = ::Ai::WorkflowTemplate.create(template_data)
 
           if template.persisted?
             log_audit_event("ai.marketplace.template_created_from_workflow", template)
@@ -316,7 +316,7 @@ module Api
             })
           else
             # Fallback to basic discover
-            templates = AiWorkflowTemplate.accessible_to_account(current_user&.account&.id || "public")
+            templates = ::Ai::WorkflowTemplate.accessible_to_account(current_user&.account&.id || "public")
 
             # Apply filters
             templates = templates.where(category: params[:category]) if params[:category].present?
@@ -415,7 +415,7 @@ module Api
 
         # GET /api/v1/ai/marketplace/featured
         def featured
-          featured_templates = AiWorkflowTemplate.featured
+          featured_templates = ::Ai::WorkflowTemplate.featured
                                                  .public_templates
                                                  .includes(:created_by_user)
                                                  .limit(params[:limit]&.to_i || 10)
@@ -427,7 +427,7 @@ module Api
 
         # GET /api/v1/ai/marketplace/popular
         def popular
-          popular_templates = AiWorkflowTemplate.popular
+          popular_templates = ::Ai::WorkflowTemplate.popular
                                                 .public_templates
                                                 .includes(:created_by_user)
                                                 .limit(params[:limit]&.to_i || 10)
@@ -443,8 +443,8 @@ module Api
             result = @marketplace_service.explore_categories
             render_success({ categories: result })
           else
-            categories = AiWorkflowTemplate.distinct.pluck(:category).compact.sort
-            category_counts = AiWorkflowTemplate.group(:category).count
+            categories = ::Ai::WorkflowTemplate.distinct.pluck(:category).compact.sort
+            category_counts = ::Ai::WorkflowTemplate.group(:category).count
 
             render_success({
               categories: categories.map do |category|
@@ -467,13 +467,13 @@ module Api
             render_success({ tags: result })
           else
             # Aggregate all tags from templates
-            all_tags = AiWorkflowTemplate.pluck(:tags).flatten.compact.uniq.sort
+            all_tags = ::Ai::WorkflowTemplate.pluck(:tags).flatten.compact.uniq.sort
 
             render_success({
               tags: all_tags.map do |tag|
                 {
                   name: tag,
-                  count: AiWorkflowTemplate.where("tags @> ?", [ tag ].to_json).count
+                  count: ::Ai::WorkflowTemplate.where("tags @> ?", [ tag ].to_json).count
                 }
               end
             })
@@ -490,7 +490,7 @@ module Api
 
             # Add account statistics if user is authenticated
             if current_user
-              account_templates = AiWorkflowTemplate.where(account_id: current_user.account.id)
+              account_templates = ::Ai::WorkflowTemplate.where(account_id: current_user.account.id)
               # Use string key to match service response format
               result["account"] = {
                 my_templates: account_templates.count,
@@ -508,14 +508,14 @@ module Api
             render_success({ statistics: result })
           else
             has_user = current_user.present?
-            account_templates = has_user ? AiWorkflowTemplate.where(account_id: current_user.account.id) : AiWorkflowTemplate.none
+            account_templates = has_user ? ::Ai::WorkflowTemplate.where(account_id: current_user.account.id) : ::Ai::WorkflowTemplate.none
 
             stats = {
               marketplace: {
-                total_templates: AiWorkflowTemplate.public_templates.count,
-                total_installs: AiWorkflowTemplate.sum(:usage_count),
-                total_ratings: AiWorkflowTemplate.sum(:rating_count),
-                average_rating: AiWorkflowTemplate.average(:rating)&.round(2)
+                total_templates: ::Ai::WorkflowTemplate.public_templates.count,
+                total_installs: ::Ai::WorkflowTemplate.sum(:usage_count),
+                total_ratings: ::Ai::WorkflowTemplate.sum(:rating_count),
+                average_rating: ::Ai::WorkflowTemplate.average(:rating)&.round(2)
               },
               account: has_user ? {
                 my_templates: account_templates.count,
@@ -529,12 +529,12 @@ module Api
                                                 .pluck(:name, :usage_count)
               } : nil,
               trending: {
-                categories: AiWorkflowTemplate.public_templates
+                categories: ::Ai::WorkflowTemplate.public_templates
                                               .group(:category)
                                               .order(Arel.sql("COUNT(*) DESC"))
                                               .limit(5)
                                               .count,
-                tags: AiWorkflowTemplate.public_templates
+                tags: ::Ai::WorkflowTemplate.public_templates
                                         .pluck(:tags)
                                         .flatten
                                         .compact
@@ -564,7 +564,7 @@ module Api
         # GET /api/v1/ai/marketplace/installations
         def installations_index
           installations = current_user.account.ai_workflow_template_installations
-                                      .includes(:ai_workflow_template, :ai_workflow, :installed_by_user)
+                                      .includes(:template, :workflow, :installed_by_user)
                                       .order(created_at: :desc)
 
           installations = apply_pagination(installations)
@@ -592,8 +592,8 @@ module Api
           installation = current_user.account.ai_workflow_template_installations.find(params[:id])
 
           # Optionally delete the created workflow
-          if params[:delete_workflow] == "true" && installation.ai_workflow
-            installation.ai_workflow.destroy
+          if params[:delete_workflow] == "true" && installation.workflow
+            installation.workflow.destroy
           end
 
           installation.destroy
@@ -611,19 +611,19 @@ module Api
             render_success({ updates_available: result })
           else
             # Fallback implementation
-            installations = current_user.account.ai_workflow_template_installations.includes(:ai_workflow_template)
+            installations = current_user.account.ai_workflow_template_installations.includes(:template)
             updates = installations.select do |installation|
-              installation.ai_workflow_template.version != installation.template_version
+              installation.template.version != installation.template_version
             end
 
             render_success({
               updates_available: updates.map do |installation|
                 {
                   installation_id: installation.id,
-                  template_id: installation.ai_workflow_template.id,
-                  template_name: installation.ai_workflow_template.name,
+                  template_id: installation.template.id,
+                  template_name: installation.template.name,
                   current_version: installation.template_version,
-                  latest_version: installation.ai_workflow_template.version
+                  latest_version: installation.template.version
                 }
               end
             })
@@ -702,9 +702,9 @@ module Api
 
         def set_template
           if current_user
-            @template = AiWorkflowTemplate.accessible_to_account(current_user.account.id).find(params[:id])
+            @template = ::Ai::WorkflowTemplate.accessible_to_account(current_user.account.id).find(params[:id])
           else
-            @template = AiWorkflowTemplate.public_templates.find(params[:id])
+            @template = ::Ai::WorkflowTemplate.public_templates.find(params[:id])
           end
         rescue ActiveRecord::RecordNotFound
           render_error("Template not found", status: :not_found)
@@ -861,7 +861,7 @@ module Api
           category = query_params[:category]
           tags = query_params[:tags]&.split(",")
 
-          templates = AiWorkflowTemplate.accessible_to_account(current_user&.account&.id || "public")
+          templates = ::Ai::WorkflowTemplate.accessible_to_account(current_user&.account&.id || "public")
 
           if query.present?
             templates = templates.where("name ILIKE ? OR description ILIKE ?", "%#{query}%", "%#{query}%")
@@ -1093,7 +1093,7 @@ module Api
         def serialize_template_detail(template)
           source_workflow_id = template.metadata&.dig("source_workflow_id")
           source_workflow_data = if source_workflow_id
-            workflow = AiWorkflow.find_by(id: source_workflow_id)
+            workflow = ::Ai::Workflow.find_by(id: source_workflow_id)
             workflow ? { id: workflow.id, name: workflow.name } : nil
           end
 
@@ -1116,7 +1116,7 @@ module Api
         def serialize_installation(installation)
           {
             id: installation.id,
-            installed_version: installation.template_version || installation.ai_workflow_template.version,
+            installed_version: installation.template_version || installation.template.version,
             created_at: installation.created_at.iso8601,
             installed_by: installation.installed_by_user ? {
               id: installation.installed_by_user.id,
@@ -1129,18 +1129,18 @@ module Api
         def serialize_installation_detail(installation)
           serialize_installation(installation).merge(
             template: {
-              id: installation.ai_workflow_template.id,
-              name: installation.ai_workflow_template.name,
-              description: installation.ai_workflow_template.description,
-              category: installation.ai_workflow_template.category,
-              version: installation.ai_workflow_template.version
+              id: installation.template.id,
+              name: installation.template.name,
+              description: installation.template.description,
+              category: installation.template.category,
+              version: installation.template.version
             },
-            created_workflow: installation.ai_workflow ? {
-              id: installation.ai_workflow.id,
-              name: installation.ai_workflow.name,
-              description: installation.ai_workflow.description,
-              status: installation.ai_workflow.status,
-              created_at: installation.ai_workflow.created_at.iso8601
+            created_workflow: installation.workflow ? {
+              id: installation.workflow.id,
+              name: installation.workflow.name,
+              description: installation.workflow.description,
+              status: installation.workflow.status,
+              created_at: installation.workflow.created_at.iso8601
             } : nil
           )
         end

@@ -4,7 +4,7 @@ module Api
   module V1
     module Ai
       class ContextEntriesController < ApplicationController
-        before_action :authenticate_user!
+        before_action :authenticate_request
         before_action :set_context
         before_action :set_entry, only: [:show, :update, :destroy, :archive, :unarchive, :boost, :history]
 
@@ -12,7 +12,7 @@ module Api
         def index
           authorize_action!("ai.context.read")
 
-          entries = AiContextPersistenceService.list_entries(
+          entries = ::Ai::ContextPersistenceService.list_entries(
             context: @context,
             filters: entry_filters,
             accessor: current_user,
@@ -23,7 +23,7 @@ module Api
             entries: entries.map(&:entry_summary),
             pagination: pagination_meta(entries)
           )
-        rescue AiContextPersistenceService::AccessDeniedError
+        rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have read access to this context")
         end
 
@@ -38,16 +38,16 @@ module Api
         def create
           authorize_action!("ai.context.create")
 
-          entry = AiContextPersistenceService.add_entry(
+          entry = ::Ai::ContextPersistenceService.add_entry(
             context: @context,
             attributes: entry_params,
             accessor: current_user
           )
 
           render_success(entry: entry.entry_details, status: :created)
-        rescue AiContextPersistenceService::ValidationError => e
+        rescue ::Ai::ContextPersistenceService::ValidationError => e
           render_error(e.message, status: :unprocessable_entity)
-        rescue AiContextPersistenceService::AccessDeniedError
+        rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have write access to this context")
         end
 
@@ -55,7 +55,7 @@ module Api
         def update
           authorize_action!("ai.context.update")
 
-          entry = AiContextPersistenceService.update_entry(
+          entry = ::Ai::ContextPersistenceService.update_entry(
             context: @context,
             key: @entry.entry_key,
             attributes: entry_params,
@@ -64,9 +64,9 @@ module Api
           )
 
           render_success(entry: entry.entry_details)
-        rescue AiContextPersistenceService::ValidationError => e
+        rescue ::Ai::ContextPersistenceService::ValidationError => e
           render_error(e.message, status: :unprocessable_entity)
-        rescue AiContextPersistenceService::AccessDeniedError
+        rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have write access to this context")
         end
 
@@ -74,14 +74,14 @@ module Api
         def destroy
           authorize_action!("ai.context.delete")
 
-          AiContextPersistenceService.delete_entry(
+          ::Ai::ContextPersistenceService.delete_entry(
             context: @context,
             key: @entry.entry_key,
             accessor: current_user
           )
 
           render_success(message: "Entry deleted")
-        rescue AiContextPersistenceService::AccessDeniedError
+        rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have write access to this context")
         end
 
@@ -142,7 +142,7 @@ module Api
 
           (params[:entries] || []).each_with_index do |entry_data, index|
             begin
-              entry = AiContextPersistenceService.add_entry(
+              entry = ::Ai::ContextPersistenceService.add_entry(
                 context: @context,
                 attributes: entry_data.permit(:key, :type, :content_text, :importance_score, :expires_at, content: {}, metadata: {}),
                 accessor: current_user
@@ -163,14 +163,14 @@ module Api
         private
 
         def set_context
-          @context = AiContextPersistenceService.find_context(
+          @context = ::Ai::ContextPersistenceService.find_context(
             account: current_account,
             context_id: params[:context_id],
             accessor: current_user
           )
-        rescue AiContextPersistenceService::NotFoundError
+        rescue ::Ai::ContextPersistenceService::NotFoundError
           render_not_found("Context")
-        rescue AiContextPersistenceService::AccessDeniedError
+        rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have access to this context")
         end
 

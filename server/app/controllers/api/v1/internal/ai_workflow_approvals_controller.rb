@@ -33,7 +33,7 @@ module Api
             next if recipient_email.blank?
 
             # Create the token
-            token, raw_token = AiWorkflowApprovalToken.create_for_recipient(
+            token, raw_token = ::Ai::WorkflowApprovalToken.create_for_recipient(
               node_execution: @node_execution,
               recipient_email: recipient_email,
               recipient_user: recipient_user,
@@ -61,7 +61,7 @@ module Api
         # Called by ApprovalExpiryJob to expire tokens and handle affected executions
         def expire_stale
           # Find and expire all pending tokens that have passed their expiry date
-          expired_tokens = AiWorkflowApprovalToken.pending.where("expires_at < ?", Time.current)
+          expired_tokens = ::Ai::WorkflowApprovalToken.pending.where("expires_at < ?", Time.current)
           expired_count = expired_tokens.count
 
           # Get unique node executions that will be affected
@@ -73,7 +73,7 @@ module Api
           # Handle node executions where ALL tokens are now expired/rejected
           failed_executions_count = 0
           affected_execution_ids.each do |execution_id|
-            execution = AiWorkflowNodeExecution.find_by(id: execution_id)
+            execution = ::Ai::WorkflowNodeExecution.find_by(id: execution_id)
             next unless execution&.waiting_for_approval?
 
             # Check if there are any remaining pending/approved tokens
@@ -105,21 +105,21 @@ module Api
         private
 
         def set_node_execution
-          @node_execution = AiWorkflowNodeExecution.find(params[:node_execution_id] || params[:id])
+          @node_execution = ::Ai::WorkflowNodeExecution.find(params[:node_execution_id] || params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Node execution not found", status: :not_found)
         end
 
         def expiry_duration
           # Get expiry from node configuration or default to 24 hours
-          timeout_hours = @node_execution&.ai_workflow_node&.configuration&.dig("approval_timeout_hours") || 24
+          timeout_hours = @node_execution&.node&.configuration&.dig("approval_timeout_hours") || 24
           timeout_hours.hours
         end
 
         def serialize_node_execution(execution)
-          workflow_run = execution.ai_workflow_run
-          workflow = workflow_run.ai_workflow
-          node = execution.ai_workflow_node
+          workflow_run = execution.workflow_run
+          workflow = workflow_run.workflow
+          node = execution.node
 
           {
             id: execution.id,

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::Admin::ReviewModerationController < ApplicationController
-  before_action :authenticate_user!
+  before_action :authenticate_request
   before_action :check_admin_permissions
 
   # GET /api/v1/admin/review_moderation/queue

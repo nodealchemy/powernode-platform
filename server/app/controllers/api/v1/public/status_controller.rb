@@ -7,7 +7,7 @@ module Api
       # Provides system status information for the public status page
       class StatusController < ApplicationController
         # Skip authentication for public status endpoints
-        skip_before_action :authenticate_user!, raise: false
+        skip_before_action :authenticate_request, raise: false
         skip_before_action :set_current_user, raise: false
 
         # GET /api/v1/public/status

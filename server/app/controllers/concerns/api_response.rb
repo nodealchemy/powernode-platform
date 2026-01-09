@@ -139,7 +139,7 @@ module ApiResponse
     # Log the actual error for debugging
     if exception
       Rails.logger.error "Internal Server Error: #{exception.class} - #{exception.message}"
-      Rails.logger.error exception.backtrace.join("\n") if Rails.env.development?
+      Rails.logger.error exception.backtrace.join("\n") if Rails.env.development? || Rails.env.test?
     end
 
     # Return generic error message in production for security

@@ -4,14 +4,14 @@ module Api
   module V1
     module Ai
       class AgentMemoryController < ApplicationController
-        before_action :authenticate_user!
+        before_action :authenticate_request
         before_action :set_agent
 
         # GET /api/v1/ai/agents/:agent_id/memory
         def index
           authorize_action!("ai.memory.read")
 
-          context = AiContextPersistenceService.get_agent_memory(
+          context = ::Ai::ContextPersistenceService.get_agent_memory(
             account: current_account,
             agent: @agent,
             create_if_missing: false
@@ -42,7 +42,7 @@ module Api
         def show
           authorize_action!("ai.memory.read")
 
-          value = AiContextPersistenceService.recall_memory(
+          value = ::Ai::ContextPersistenceService.recall_memory(
             agent: @agent,
             key: params[:key]
           )
@@ -58,7 +58,7 @@ module Api
         def create
           authorize_action!("ai.memory.write")
 
-          entry = AiContextPersistenceService.store_memory(
+          entry = ::Ai::ContextPersistenceService.store_memory(
             agent: @agent,
             key: memory_params[:key],
             value: memory_params[:value],
@@ -67,7 +67,7 @@ module Api
           )
 
           render_success(entry: entry.entry_summary, status: :created)
-        rescue AiContextPersistenceService::ValidationError => e
+        rescue ::Ai::ContextPersistenceService::ValidationError => e
           render_error(e.message, status: :unprocessable_entity)
         end
 
@@ -75,7 +75,7 @@ module Api
         def update
           authorize_action!("ai.memory.write")
 
-          entry = AiContextPersistenceService.store_memory(
+          entry = ::Ai::ContextPersistenceService.store_memory(
             agent: @agent,
             key: params[:key],
             value: memory_params[:value],
@@ -84,7 +84,7 @@ module Api
           )
 
           render_success(entry: entry.entry_summary)
-        rescue AiContextPersistenceService::ValidationError => e
+        rescue ::Ai::ContextPersistenceService::ValidationError => e
           render_error(e.message, status: :unprocessable_entity)
         end
 
@@ -92,7 +92,7 @@ module Api
         def destroy
           authorize_action!("ai.memory.write")
 
-          context = AiContextPersistenceService.get_agent_memory(
+          context = ::Ai::ContextPersistenceService.get_agent_memory(
             account: current_account,
             agent: @agent,
             create_if_missing: false
@@ -102,14 +102,14 @@ module Api
             return render_not_found("Memory context")
           end
 
-          AiContextPersistenceService.delete_entry(
+          ::Ai::ContextPersistenceService.delete_entry(
             context: context,
             key: params[:key],
             accessor: @agent
           )
 
           render_success(message: "Memory entry deleted")
-        rescue AiContextPersistenceService::NotFoundError
+        rescue ::Ai::ContextPersistenceService::NotFoundError
           render_not_found("Memory entry")
         end
 
@@ -117,7 +117,7 @@ module Api
         def search
           authorize_action!("ai.memory.read")
 
-          memories = AiContextPersistenceService.get_relevant_memories(
+          memories = ::Ai::ContextPersistenceService.get_relevant_memories(
             agent: @agent,
             query: params[:q],
             limit: (params[:limit] || 10).to_i
@@ -130,7 +130,7 @@ module Api
         def clear
           authorize_action!("ai.memory.manage")
 
-          context = AiContextPersistenceService.get_agent_memory(
+          context = ::Ai::ContextPersistenceService.get_agent_memory(
             account: current_account,
             agent: @agent,
             create_if_missing: false
@@ -150,7 +150,7 @@ module Api
         def stats
           authorize_action!("ai.memory.read")
 
-          context = AiContextPersistenceService.get_agent_memory(
+          context = ::Ai::ContextPersistenceService.get_agent_memory(
             account: current_account,
             agent: @agent,
             create_if_missing: false
@@ -165,7 +165,7 @@ module Api
             )
           end
 
-          health = AiMemoryManagementService.context_health(context: context)
+          health = ::Ai::MemoryManagementService.context_health(context: context)
 
           render_success(
             stats: health.merge(
@@ -179,7 +179,7 @@ module Api
         def sync
           authorize_action!("ai.memory.manage")
 
-          source_context = AiPersistentContext.find_by(
+          source_context = ::Ai::PersistentContext.find_by(
             id: params[:source_context_id],
             account: current_account
           )
@@ -188,12 +188,12 @@ module Api
             return render_not_found("Source context")
           end
 
-          target_context = AiContextPersistenceService.get_agent_memory(
+          target_context = ::Ai::ContextPersistenceService.get_agent_memory(
             account: current_account,
             agent: @agent
           )
 
-          result = AiMemoryManagementService.sync_context(
+          result = ::Ai::MemoryManagementService.sync_context(
             from_context: source_context,
             to_context: target_context,
             entry_types: params[:entry_types],
@@ -209,7 +209,7 @@ module Api
         private
 
         def set_agent
-          @agent = AiAgent.find_by(id: params[:agent_id], account: current_account)
+          @agent = ::Ai::Agent.find_by(id: params[:agent_id], account: current_account)
 
           render_not_found("Agent") unless @agent
         end

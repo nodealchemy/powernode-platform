@@ -4,7 +4,7 @@ module Api
   module V1
     module Integrations
       class CredentialsController < ApplicationController
-        before_action :authenticate_user!
+        before_action :authenticate_request
         before_action :set_credential, only: [:show, :update, :destroy, :rotate]
 
         # GET /api/v1/integrations/credentials
