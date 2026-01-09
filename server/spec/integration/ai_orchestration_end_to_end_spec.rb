@@ -12,7 +12,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
   let!(:openai_credential) do
     create(:ai_provider_credential,
            account: account,
-           ai_provider: openai_provider,
+           provider: openai_provider,
            credentials: { api_key: 'sk-test-e2e-key' },
            is_active: true,
            is_default: true)
@@ -22,7 +22,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
   let!(:ai_agent) do
     create(:ai_agent,
            account: account,
-           ai_provider: openai_provider,
+           provider: openai_provider,
            name: 'E2E Test Agent',
            agent_type: 'assistant')
   end
@@ -38,7 +38,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
   let!(:start_node) do
     create(:ai_workflow_node,
-           ai_workflow: ai_workflow,
+           workflow: ai_workflow,
            node_type: 'start',
            name: 'Start',
            position: { x: 100, y: 100 },
@@ -47,7 +47,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
   let!(:agent_node) do
     create(:ai_workflow_node,
-           ai_workflow: ai_workflow,
+           workflow: ai_workflow,
            node_type: 'ai_agent',
            name: 'Process',
            position: { x: 200, y: 100 })
@@ -55,7 +55,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
   let!(:end_node) do
     create(:ai_workflow_node,
-           ai_workflow: ai_workflow,
+           workflow: ai_workflow,
            node_type: 'end',
            name: 'End',
            position: { x: 300, y: 100 },
@@ -64,14 +64,14 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
   let!(:edge1) do
     create(:ai_workflow_edge,
-           ai_workflow: ai_workflow,
+           workflow: ai_workflow,
            source_node: start_node,
            target_node: agent_node)
   end
 
   let!(:edge2) do
     create(:ai_workflow_edge,
-           ai_workflow: ai_workflow,
+           workflow: ai_workflow,
            source_node: agent_node,
            target_node: end_node)
   end
@@ -160,7 +160,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
     end
 
     it 'ensures agents are account-scoped' do
-      other_agent = create(:ai_agent, account: other_account, ai_provider: openai_provider, agent_type: 'assistant')
+      other_agent = create(:ai_agent, account: other_account, provider: openai_provider, agent_type: 'assistant')
 
       get "/api/v1/ai/agents/#{other_agent.id}"
 
@@ -179,7 +179,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
     end
 
     it 'creates and lists workflow runs' do
-      run = create(:ai_workflow_run, ai_workflow: ai_workflow, account: account)
+      run = create(:ai_workflow_run, workflow: ai_workflow, account: account)
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs"
 
@@ -187,7 +187,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
     end
 
     it 'retrieves specific workflow run' do
-      run = create(:ai_workflow_run, ai_workflow: ai_workflow, account: account)
+      run = create(:ai_workflow_run, workflow: ai_workflow, account: account)
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{run.id}"
 
@@ -197,9 +197,9 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
   describe 'Agent Execution Flow' do
     it 'executes agent' do
-      mock_execution = build_stubbed(:ai_agent_execution, ai_agent: ai_agent, account: account)
-      allow_any_instance_of(AiAgent).to receive(:mcp_available?).and_return(true)
-      allow_any_instance_of(AiAgent).to receive(:execute).and_return(mock_execution)
+      mock_execution = build_stubbed(:ai_agent_execution, agent: ai_agent, account: account)
+      allow_any_instance_of(Ai::Agent).to receive(:mcp_available?).and_return(true)
+      allow_any_instance_of(Ai::Agent).to receive(:execute).and_return(mock_execution)
 
       post "/api/v1/ai/agents/#{ai_agent.id}/execute", params: {
         input_parameters: { prompt: 'E2E test prompt' }
@@ -219,7 +219,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
   describe 'Provider Testing Flow' do
     it 'tests provider connectivity' do
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 150 })
 
       post "/api/v1/ai/providers/#{openai_provider.id}/credentials/#{openai_credential.id}/test"
@@ -243,12 +243,12 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
     end
 
     it 'verifies agent is associated with provider' do
-      expect(ai_agent.ai_provider).to eq(openai_provider)
+      expect(ai_agent.provider).to eq(openai_provider)
     end
 
     it 'verifies workflow has proper node structure' do
-      expect(ai_workflow.ai_workflow_nodes.count).to be >= 3
-      expect(ai_workflow.ai_workflow_edges.count).to be >= 2
+      expect(ai_workflow.nodes.count).to be >= 3
+      expect(ai_workflow.edges.count).to be >= 2
     end
 
     it 'maintains proper account associations' do
@@ -291,7 +291,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
     end
 
     it 'tracks agent executions' do
-      expect(ai_agent).to respond_to(:ai_agent_executions)
+      expect(ai_agent).to respond_to(:executions)
     end
   end
 

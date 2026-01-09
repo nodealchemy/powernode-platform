@@ -10,16 +10,16 @@ RSpec.describe Mcp::NodeExecutors::CiTrigger do
   let(:repository) { create(:git_repository, git_provider_credential: credential, account: account, owner: 'myorg', name: 'myrepo') }
 
   let(:workflow) { create(:ai_workflow, :active, account: account, creator: user) }
-  let(:workflow_run) { create(:ai_workflow_run, ai_workflow: workflow, account: account) }
+  let(:workflow_run) { create(:ai_workflow_run, workflow: workflow, account: account) }
 
   let(:node) do
-    create(:ai_workflow_node, :ci_trigger, ai_workflow: workflow, configuration: configuration)
+    create(:ai_workflow_node, :ci_trigger, workflow: workflow, configuration: configuration)
   end
 
   let(:node_execution) do
     create(:ai_workflow_node_execution,
-           ai_workflow_run: workflow_run,
-           ai_workflow_node: node,
+           workflow_run: workflow_run,
+           node: node,
            status: 'running')
   end
 

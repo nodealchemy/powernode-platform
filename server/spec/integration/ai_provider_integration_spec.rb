@@ -32,7 +32,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
       expect(json_response['success']).to be true
 
       # Step 3: Create credentials for a provider using nested route
-      provider = AiProvider.first || ai_provider
+      provider = Ai::Provider.first || ai_provider
       post "/api/v1/ai/providers/#{provider.id}/credentials", params: {
         credential: {
           name: 'Test Credentials',
@@ -64,7 +64,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
       expect(response.status).to be_in([ 200, 201, 422 ])
 
       if response.status.in?([ 200, 201 ])
-        agent = AiAgent.last
+        agent = Ai::Agent.last
         expect(agent.name).to eq('Code Assistant')
 
         # Step 5: Create a conversation using nested route
@@ -99,7 +99,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
     end
 
     it 'handles credential test failures' do
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
         .and_return({ success: false, error: 'Invalid API key' })
 
       post "/api/v1/ai/providers/#{provider.id}/credentials", params: {
@@ -147,7 +147,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
 
     before do
       # Create credentials for each provider using correct hash format
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 1000 })
 
       [ ollama, openai, anthropic ].each_with_index do |provider, idx|
@@ -163,7 +163,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
         # Use hash directly, not to_json
         create(:ai_provider_credential,
                account: account,
-               ai_provider: provider,
+               provider: provider,
                name: "#{provider.name} Credential #{idx}",
                credentials: credentials,
                is_active: true)
@@ -269,13 +269,13 @@ RSpec.describe 'AI Provider Integration', type: :request do
       3.times do |i|
         create(:ai_provider_credential,
                account: account,
-               ai_provider: provider,
+               provider: provider,
                name: "Credential #{i}",
                credentials: { api_key: "key-#{i}" })
       end
 
       # Verify credentials were created
-      expect(AiProviderCredential.where(ai_provider: provider, account: account).count).to eq(3)
+      expect(Ai::ProviderCredential.where(provider: provider, account: account).count).to eq(3)
     end
   end
 

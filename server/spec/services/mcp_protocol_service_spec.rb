@@ -32,12 +32,12 @@ RSpec.describe McpProtocolService, type: :service do
 
   describe '#list_tools' do
     let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: [ 'text_generation', 'chat' ]) }
-    let!(:agent) { create(:ai_agent, account: account, ai_provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
+    let!(:agent) { create(:ai_agent, account: account, provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
 
     before do
       # Create credentials for the provider
       create(:ai_provider_credential,
-             ai_provider: ai_provider,
+             provider: ai_provider,
              account: account,
              credentials: { 'api_key' => 'test-key-123' },
              is_active: true)
@@ -68,13 +68,13 @@ RSpec.describe McpProtocolService, type: :service do
 
   describe '#describe_tool' do
     let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: [ 'text_generation', 'chat' ]) }
-    let!(:agent) { create(:ai_agent, account: account, ai_provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
+    let!(:agent) { create(:ai_agent, account: account, provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
     let(:tool_id) { agent.mcp_tool_manifest['name'] }
 
     before do
       # Create credentials for the provider
       create(:ai_provider_credential,
-             ai_provider: ai_provider,
+             provider: ai_provider,
              account: account,
              credentials: { 'api_key' => 'test-key-123' },
              is_active: true)
@@ -100,7 +100,7 @@ RSpec.describe McpProtocolService, type: :service do
 
   describe '#invoke_tool' do
     let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: [ 'text_generation', 'chat' ]) }
-    let!(:agent) { create(:ai_agent, account: account, ai_provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
+    let!(:agent) { create(:ai_agent, account: account, provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
     let(:tool_id) { agent.mcp_tool_manifest['name'] }
     let(:params) { { 'input' => 'test input' } }
     let(:options) { { user_id: user.id } }
@@ -108,7 +108,7 @@ RSpec.describe McpProtocolService, type: :service do
     before do
       # Create credentials for the provider
       create(:ai_provider_credential,
-             ai_provider: ai_provider,
+             provider: ai_provider,
              account: account,
              credentials: { 'api_key' => 'test-key-123' },
              is_active: true)
@@ -121,7 +121,7 @@ RSpec.describe McpProtocolService, type: :service do
       service.instance_variable_get(:@registry).register_tool(tool_id, manifest)
 
       # Mock the agent execution to avoid actual API calls
-      allow_any_instance_of(AiMcpAgentExecutor).to receive(:execute).and_return({
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute).and_return({
         'output' => 'test response',
         'metadata' => {
           'tokens_used' => 42,

@@ -44,10 +44,10 @@ module AiOrchestrationHelpers
     workflow = create(:ai_workflow, account: account, **options.slice(:name, :description))
 
     # Create nodes
-    start_node = create(:ai_workflow_node, :start_node, ai_workflow: workflow, name: 'Start')
+    start_node = create(:ai_workflow_node, :start_node, workflow: workflow, name: 'Start')
 
     ai_agent_node = create(:ai_workflow_node, :ai_agent,
-      ai_workflow: workflow,
+      workflow: workflow,
       name: 'AI Analysis',
       configuration: {
         agent_id: create(:ai_agent, account: account).id,
@@ -59,7 +59,7 @@ module AiOrchestrationHelpers
     )
 
     condition_node = create(:ai_workflow_node, :condition,
-      ai_workflow: workflow,
+      workflow: workflow,
       name: 'Quality Check',
       configuration: {
         condition: 'input.confidence_score > 0.8',
@@ -69,7 +69,7 @@ module AiOrchestrationHelpers
     )
 
     transform_node = create(:ai_workflow_node, :transform,
-      ai_workflow: workflow,
+      workflow: workflow,
       name: 'Data Transform',
       configuration: {
         script: 'output.formatted_data = input.raw_data.toUpperCase();'
@@ -77,7 +77,7 @@ module AiOrchestrationHelpers
     )
 
     api_call_node = create(:ai_workflow_node, :api_call,
-      ai_workflow: workflow,
+      workflow: workflow,
       name: 'External API',
       configuration: {
         url: 'https://api.example.com/process',
@@ -88,7 +88,7 @@ module AiOrchestrationHelpers
     )
 
     webhook_node = create(:ai_workflow_node, :webhook,
-      ai_workflow: workflow,
+      workflow: workflow,
       name: 'Notification Webhook',
       configuration: {
         url: 'https://webhook.example.com/notify',
@@ -97,21 +97,21 @@ module AiOrchestrationHelpers
       }
     )
 
-    end_node = create(:ai_workflow_node, :end_node, ai_workflow: workflow, name: 'End')
+    end_node = create(:ai_workflow_node, :end_node, workflow: workflow, name: 'End')
 
     # Create edges to connect nodes
-    create(:ai_workflow_edge, ai_workflow: workflow,
+    create(:ai_workflow_edge, workflow: workflow,
            source_node_id: start_node.node_id, target_node_id: ai_agent_node.node_id)
-    create(:ai_workflow_edge, ai_workflow: workflow,
+    create(:ai_workflow_edge, workflow: workflow,
            source_node_id: ai_agent_node.node_id, target_node_id: condition_node.node_id)
-    create(:ai_workflow_edge, ai_workflow: workflow,
+    create(:ai_workflow_edge, workflow: workflow,
            source_node_id: condition_node.node_id, target_node_id: transform_node.node_id,
            condition_config: { path: 'high_quality_path' })
-    create(:ai_workflow_edge, ai_workflow: workflow,
+    create(:ai_workflow_edge, workflow: workflow,
            source_node_id: transform_node.node_id, target_node_id: api_call_node.node_id)
-    create(:ai_workflow_edge, ai_workflow: workflow,
+    create(:ai_workflow_edge, workflow: workflow,
            source_node_id: api_call_node.node_id, target_node_id: webhook_node.node_id)
-    create(:ai_workflow_edge, ai_workflow: workflow,
+    create(:ai_workflow_edge, workflow: workflow,
            source_node_id: webhook_node.node_id, target_node_id: end_node.node_id)
 
     workflow.reload
@@ -157,21 +157,21 @@ module AiOrchestrationHelpers
   def create_execution_scenarios(account, agent, provider)
     {
       successful_executions: create_list(:ai_agent_execution, 10, :completed,
-        account: account, ai_agent: agent, ai_provider: provider,
+        account: account, agent: agent, provider: provider,
         duration_ms: rand(800..1500), cost: rand(0.01..0.05),
         tokens_consumed: rand(50..200), tokens_generated: rand(100..300)
       ),
       failed_executions: create_list(:ai_agent_execution, 2, :failed,
-        account: account, ai_agent: agent, ai_provider: provider,
+        account: account, agent: agent, provider: provider,
         error_message: 'Provider timeout',
         duration_ms: rand(5000..10000)
       ),
       active_executions: create_list(:ai_agent_execution, 3, :processing,
-        account: account, ai_agent: agent, ai_provider: provider,
+        account: account, agent: agent, provider: provider,
         started_at: rand(1..30).minutes.ago
       ),
       queued_executions: create_list(:ai_agent_execution, 5, :queued,
-        account: account, ai_agent: agent, ai_provider: provider
+        account: account, agent: agent, provider: provider
       )
     }
   end
@@ -345,17 +345,17 @@ module AiOrchestrationHelpers
 
     final_metrics = default_metrics.merge(metrics)
 
-    allow_any_instance_of(AiAgentOrchestrationService)
+    allow_any_instance_of(Ai::AgentOrchestrationService)
       .to receive(:calculate_provider_current_load)
       .with(provider)
       .and_return(final_metrics[:current_load])
 
-    allow_any_instance_of(AiAgentOrchestrationService)
+    allow_any_instance_of(Ai::AgentOrchestrationService)
       .to receive(:calculate_provider_success_rate)
       .with(provider)
       .and_return(final_metrics[:success_rate])
 
-    allow_any_instance_of(AiAgentOrchestrationService)
+    allow_any_instance_of(Ai::AgentOrchestrationService)
       .to receive(:calculate_provider_avg_response_time)
       .with(provider)
       .and_return(final_metrics[:avg_response_time])
@@ -390,7 +390,7 @@ module AiOrchestrationHelpers
   # Helper for testing circuit breaker functionality
   def trigger_circuit_breaker(service, provider, failure_threshold: 5)
     failure_threshold.times do
-      allow_any_instance_of(AiProviderClientService).to receive(:generate_text)
+      allow_any_instance_of(Ai::ProviderClientService).to receive(:generate_text)
         .and_raise(StandardError, 'Provider unavailable')
 
       begin
@@ -405,9 +405,9 @@ module AiOrchestrationHelpers
 
   # Create workflow run with realistic node executions
   def create_realistic_workflow_run(workflow, status: 'completed')
-    run = create(:ai_workflow_run, ai_workflow: workflow, status: status)
+    run = create(:ai_workflow_run, workflow: workflow, status: status)
 
-    workflow.ai_workflow_nodes.each do |node|
+    workflow.nodes.each do |node|
       execution_status = case status
       when 'running'
         node.is_start_node? ? 'completed' : 'pending'
@@ -420,8 +420,8 @@ module AiOrchestrationHelpers
       end
 
       create(:ai_workflow_node_execution,
-        ai_workflow_run: run,
-        ai_workflow_node: node,
+        workflow_run: run,
+        node: node,
         node_id: node.node_id,
         node_type: node.node_type,
         status: execution_status,
@@ -439,7 +439,7 @@ module AiOrchestrationHelpers
 
   # Helper to assert workflow structure validation
   def expect_workflow_validation_error(workflow, error_pattern)
-    service = AiAgentOrchestrationService.new(workflow)
+    service = Ai::AgentOrchestrationService.new(workflow)
     result = service.validate_workflow_structure
 
     expect(result[:valid]).to be false

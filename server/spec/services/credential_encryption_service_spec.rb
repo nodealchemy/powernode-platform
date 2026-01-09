@@ -324,7 +324,7 @@ RSpec.describe CredentialEncryptionService do
 
   describe 'version compatibility' do
     it 'supports v1 version for backwards compatibility' do
-      # v1 format (legacy AiCredentialEncryptionService format)
+      # v1 format (legacy Ai::CredentialEncryptionService format)
       legacy_wrapper = {
         version: 'v1',
         key_id: 'default',

@@ -21,7 +21,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
   describe 'Complete retry and recovery flow' do
     let(:workflow_run) do
       create(:ai_workflow_run,
-             ai_workflow: workflow,
+             workflow: workflow,
              account: account,
              status: 'running',
              input_variables: { 'input_data' => 'test' })
@@ -29,7 +29,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
     let(:node) do
       create(:ai_workflow_node,
-             ai_workflow: workflow,
+             workflow: workflow,
              node_type: 'ai_agent',
              configuration: {
                'retry' => {
@@ -46,8 +46,8 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
     let(:node_execution) do
       create(:ai_workflow_node_execution,
-             ai_workflow_run: workflow_run,
-             ai_workflow_node: node,
+             workflow_run: workflow_run,
+             node: node,
              status: 'failed',
              retry_count: 0,
              max_retries: 3)
@@ -55,7 +55,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
     it 'executes complete retry flow' do
       # Step 1: Initial node failure
-      retry_service = AiWorkflowRetryStrategyService.new(
+      retry_service = Ai::WorkflowRetryStrategyService.new(
         node_execution: node_execution,
         error_type: 'timeout'
       )
@@ -75,7 +75,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
       # Step 4: Simulate retry failure and second retry
       node_execution.update(retry_count: 1)
-      retry_service2 = AiWorkflowRetryStrategyService.new(
+      retry_service2 = Ai::WorkflowRetryStrategyService.new(
         node_execution: node_execution,
         error_type: 'timeout'
       )
@@ -90,7 +90,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
           'retry' => { 'attempt_count' => 3, 'total_delay_ms' => 7000 }
         )
       )
-      retry_service3 = AiWorkflowRetryStrategyService.new(
+      retry_service3 = Ai::WorkflowRetryStrategyService.new(
         node_execution: node_execution,
         error_type: 'timeout'
       )
@@ -100,7 +100,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
     it 'creates checkpoint during retry process' do
       # Step 1: Create checkpoint before retry (use node_completion which is recoverable)
-      checkpoint_service = AiWorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
+      checkpoint_service = Ai::WorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
 
       checkpoint = checkpoint_service.create_checkpoint(
         type: 'node_completion',
@@ -118,17 +118,17 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       workflow_run.update(status: 'failed')
 
       # Step 3: Verify workflow is recoverable
-      expect(AiWorkflowCheckpointRecoveryService.recoverable?(workflow_run)).to be true
+      expect(Ai::WorkflowCheckpointRecoveryService.recoverable?(workflow_run)).to be true
 
       # Step 4: Find best checkpoint (should find node_completion checkpoint)
-      best_checkpoint = AiWorkflowCheckpointRecoveryService.find_recovery_checkpoint(workflow_run)
+      best_checkpoint = Ai::WorkflowCheckpointRecoveryService.find_recovery_checkpoint(workflow_run)
       expect(best_checkpoint).to eq(checkpoint)
 
       # Step 5: Verify checkpoint can be used for recovery
       expect(checkpoint.can_replay?).to be true
 
       # Step 6: Initialize recovery service
-      recovery_service = AiWorkflowCheckpointRecoveryService.new(
+      recovery_service = Ai::WorkflowCheckpointRecoveryService.new(
         workflow_run: workflow_run,
         checkpoint: checkpoint
       )
@@ -144,7 +144,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       service_name = 'ai_provider_anthropic'
 
       # Step 1: Execute multiple failed requests
-      breaker = AiWorkflowCircuitBreakerManager.get_breaker(service_name)
+      breaker = Ai::WorkflowCircuitBreakerManager.get_breaker(service_name)
 
       5.times do
         begin
@@ -158,13 +158,13 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       expect(breaker.state).to eq('open')
 
       # Step 3: Verify health status
-      health = AiWorkflowCircuitBreakerManager.health_check
+      health = Ai::WorkflowCircuitBreakerManager.health_check
       expect(health[service_name][:healthy]).to be false
 
       # Step 4: Attempt request with open circuit
       expect {
         breaker.execute { 'should not execute' }
-      }.to raise_error(AiWorkflowCircuitBreakerService::CircuitOpenError)
+      }.to raise_error(Ai::WorkflowCircuitBreakerService::CircuitOpenError)
 
       # Step 5: Simulate timeout passing (use ActiveSupport travel_to)
       travel_to(Time.current + 61.seconds) do
@@ -183,7 +183,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
       # Step 1: Trip multiple circuit breakers
       services.each do |service|
-        breaker = AiWorkflowCircuitBreakerManager.get_breaker(service)
+        breaker = Ai::WorkflowCircuitBreakerManager.get_breaker(service)
         5.times do
           begin
             breaker.execute { raise StandardError }
@@ -194,23 +194,23 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       end
 
       # Step 2: Check unhealthy services
-      unhealthy = AiWorkflowCircuitBreakerManager.unhealthy_services
+      unhealthy = Ai::WorkflowCircuitBreakerManager.unhealthy_services
       expect(unhealthy).to contain_exactly(*services)
 
       # Step 3: Reset specific service
-      AiWorkflowCircuitBreakerManager.reset_service('ai_provider_anthropic')
+      Ai::WorkflowCircuitBreakerManager.reset_service('ai_provider_anthropic')
 
       # Step 4: Verify only one service reset
-      health = AiWorkflowCircuitBreakerManager.health_check
+      health = Ai::WorkflowCircuitBreakerManager.health_check
       expect(health['ai_provider_anthropic'][:state]).to eq('closed')
       expect(health['webhook_service'][:state]).to eq('open')
       expect(health['external_api'][:state]).to eq('open')
 
       # Step 5: Reset all remaining services
-      AiWorkflowCircuitBreakerManager.reset_all!
+      Ai::WorkflowCircuitBreakerManager.reset_all!
 
       # Step 6: Verify all services healthy
-      health_after = AiWorkflowCircuitBreakerManager.health_check
+      health_after = Ai::WorkflowCircuitBreakerManager.health_check
       health_after.each do |_, data|
         expect(data[:state]).to eq('closed')
         expect(data[:healthy]).to be true
@@ -221,7 +221,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
   describe 'End-to-end recovery scenario' do
     let(:workflow_run) do
       create(:ai_workflow_run,
-             ai_workflow: workflow,
+             workflow: workflow,
              account: account,
              status: 'running',
              total_nodes: 5,
@@ -231,7 +231,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
     let(:nodes) do
       5.times.map do |i|
         create(:ai_workflow_node,
-               ai_workflow: workflow,
+               workflow: workflow,
                node_id: "node-#{i + 1}",
                node_type: 'ai_agent')
       end
@@ -239,12 +239,12 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
     it 'handles complete workflow failure and recovery' do
       # Step 1: Execute nodes successfully and create checkpoints
-      checkpoint_service = AiWorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
+      checkpoint_service = Ai::WorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
 
       nodes[0..2].each_with_index do |node, index|
         node_execution = create(:ai_workflow_node_execution,
-                               ai_workflow_run: workflow_run,
-                               ai_workflow_node: node,
+                               workflow_run: workflow_run,
+                               node: node,
                                status: 'completed')
 
         checkpoint = checkpoint_service.create_checkpoint(
@@ -260,15 +260,15 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       # Step 2: Simulate failure on node 4
       failing_node = nodes[3]
       failing_execution = create(:ai_workflow_node_execution,
-                                 ai_workflow_run: workflow_run,
-                                 ai_workflow_node: failing_node,
+                                 workflow_run: workflow_run,
+                                 node: failing_node,
                                  status: 'failed',
                                  retry_count: 0,
                                  max_retries: 3)
 
       # Step 3: Attempt retries
       3.times do |attempt|
-        retry_service = AiWorkflowRetryStrategyService.new(
+        retry_service = Ai::WorkflowRetryStrategyService.new(
           node_execution: failing_execution,
           error_type: 'temporary_failure'
         )
@@ -284,14 +284,14 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       workflow_run.update(status: 'failed')
 
       # Step 5: Verify recovery options
-      expect(AiWorkflowCheckpointRecoveryService.recoverable?(workflow_run)).to be true
+      expect(Ai::WorkflowCheckpointRecoveryService.recoverable?(workflow_run)).to be true
 
-      recovery_checkpoint = AiWorkflowCheckpointRecoveryService.find_recovery_checkpoint(workflow_run)
+      recovery_checkpoint = Ai::WorkflowCheckpointRecoveryService.find_recovery_checkpoint(workflow_run)
       expect(recovery_checkpoint).to be_present
       expect(recovery_checkpoint.node_id).to eq('node-3') # Last successful node
 
       # Step 6: Verify recovery service can be initialized
-      recovery_service = AiWorkflowCheckpointRecoveryService.new(
+      recovery_service = Ai::WorkflowCheckpointRecoveryService.new(
         workflow_run: workflow_run,
         checkpoint: recovery_checkpoint
       )
@@ -305,7 +305,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
     it 'handles circuit breaker preventing execution' do
       # Step 1: Configure circuit breaker for AI provider
       service_name = 'ai_provider_service'
-      breaker = AiWorkflowCircuitBreakerManager.get_breaker(service_name)
+      breaker = Ai::WorkflowCircuitBreakerManager.get_breaker(service_name)
 
       # Step 2: Trip circuit breaker
       5.times do
@@ -319,7 +319,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       expect(breaker.state).to eq('open')
 
       # Step 3: Create checkpoint before circuit opens
-      checkpoint_service = AiWorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
+      checkpoint_service = Ai::WorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
       checkpoint = checkpoint_service.create_checkpoint(
         type: 'manual_checkpoint',
         node_id: 'node-2',
@@ -328,10 +328,10 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
       # Step 4: Attempt execution with open circuit
       expect {
-        AiWorkflowCircuitBreakerManager.execute_with_breaker(service_name) do
+        Ai::WorkflowCircuitBreakerManager.execute_with_breaker(service_name) do
           'should not execute'
         end
-      }.to raise_error(AiWorkflowCircuitBreakerService::CircuitOpenError)
+      }.to raise_error(Ai::WorkflowCircuitBreakerService::CircuitOpenError)
 
       # Step 5: Mark workflow as failed due to circuit breaker
       workflow_run.update(
@@ -340,17 +340,17 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       )
 
       # Step 6: Reset circuit breaker
-      AiWorkflowCircuitBreakerManager.reset_service(service_name)
+      Ai::WorkflowCircuitBreakerManager.reset_service(service_name)
 
       # Step 7: Verify circuit is closed and execution can proceed
       expect(breaker.state).to eq('closed')
-      result = AiWorkflowCircuitBreakerManager.execute_with_breaker(service_name) do
+      result = Ai::WorkflowCircuitBreakerManager.execute_with_breaker(service_name) do
         'successful execution after recovery'
       end
       expect(result).to eq('successful execution after recovery')
 
       # Step 8: Verify checkpoint can be used for recovery
-      recovery_service = AiWorkflowCheckpointRecoveryService.new(
+      recovery_service = Ai::WorkflowCheckpointRecoveryService.new(
         workflow_run: workflow_run,
         checkpoint: checkpoint
       )
@@ -361,11 +361,11 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
   describe 'WebSocket event broadcasting' do
     it 'broadcasts retry events', :focus do
-      workflow_run = create(:ai_workflow_run, ai_workflow: workflow, account: account)
+      workflow_run = create(:ai_workflow_run, workflow: workflow, account: account)
 
       # Create node with retry enabled
       retry_node = create(:ai_workflow_node,
-                          ai_workflow: workflow,
+                          workflow: workflow,
                           node_type: 'ai_agent',
                           configuration: {
                             'retry' => {
@@ -377,8 +377,8 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
                           })
 
       node_execution = create(:ai_workflow_node_execution,
-                             ai_workflow_run: workflow_run,
-                             ai_workflow_node: retry_node,
+                             workflow_run: workflow_run,
+                             node: retry_node,
                              status: 'failed',
                              retry_count: 0,
                              max_retries: 3)
@@ -392,7 +392,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
         )
       )
 
-      retry_service = AiWorkflowRetryStrategyService.new(
+      retry_service = Ai::WorkflowRetryStrategyService.new(
         node_execution: node_execution,
         error_type: 'timeout'
       )
@@ -402,7 +402,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
     end
 
     it 'broadcasts checkpoint events', :focus do
-      workflow_run = create(:ai_workflow_run, ai_workflow: workflow, account: account)
+      workflow_run = create(:ai_workflow_run, workflow: workflow, account: account)
 
       expect(ActionCable.server).to receive(:broadcast).with(
         "ai_workflow_run_#{workflow_run.id}",
@@ -412,7 +412,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
         )
       )
 
-      checkpoint_service = AiWorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
+      checkpoint_service = Ai::WorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
       checkpoint_service.create_checkpoint(type: 'manual_checkpoint', node_id: 'test-node')
     end
 
@@ -428,7 +428,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
         )
       )
 
-      breaker = AiWorkflowCircuitBreakerManager.get_breaker(service_name)
+      breaker = Ai::WorkflowCircuitBreakerManager.get_breaker(service_name)
       5.times do
         begin
           breaker.execute { raise StandardError }
@@ -442,7 +442,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
   describe 'Recovery statistics and reporting' do
     let(:workflow_run) do
       create(:ai_workflow_run,
-             ai_workflow: workflow,
+             workflow: workflow,
              account: account,
              status: 'failed',
              total_nodes: 3)
@@ -450,7 +450,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
     it 'provides comprehensive recovery statistics' do
       # Create multiple checkpoints
-      checkpoint_service = AiWorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
+      checkpoint_service = Ai::WorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
 
       checkpoints = 3.times.map do |i|
         # Need to build checkpoint with proper workflow_state
@@ -465,7 +465,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       last_checkpoint = checkpoints.last.reload
 
       # Get recovery stats for latest checkpoint
-      recovery_service = AiWorkflowCheckpointRecoveryService.new(
+      recovery_service = Ai::WorkflowCheckpointRecoveryService.new(
         workflow_run: workflow_run,
         checkpoint: last_checkpoint
       )
@@ -485,7 +485,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
     it 'provides retry statistics' do
       # Create a node with retry enabled
       retry_node = create(:ai_workflow_node,
-                          ai_workflow: workflow,
+                          workflow: workflow,
                           node_type: 'ai_agent',
                           configuration: {
                             'retry' => {
@@ -496,8 +496,8 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
                           })
 
       node_execution = create(:ai_workflow_node_execution,
-                             ai_workflow_run: workflow_run,
-                             ai_workflow_node: retry_node,
+                             workflow_run: workflow_run,
+                             node: retry_node,
                              status: 'failed',
                              retry_count: 2,
                              max_retries: 3,
@@ -508,7 +508,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
                                }
                              })
 
-      retry_service = AiWorkflowRetryStrategyService.new(
+      retry_service = Ai::WorkflowRetryStrategyService.new(
         node_execution: node_execution,
         error_type: 'timeout'
       )

@@ -89,9 +89,9 @@ RSpec.configure do |config|
     ActionController::Base.sanitized_allowed_attributes.clear
 
     # Mock security services
-    allow(AiCredentialEncryptionService).to receive(:encrypt_credentials)
+    allow(Ai::CredentialEncryptionService).to receive(:encrypt_credentials)
       .and_return('encrypted_test_data')
-    allow(AiCredentialEncryptionService).to receive(:decrypt_credentials)
+    allow(Ai::CredentialEncryptionService).to receive(:decrypt_credentials)
       .and_return('{"api_key": "***masked***"}')
   end
 
@@ -151,26 +151,26 @@ RSpec.configure do |config|
       }
     }
 
-    allow_any_instance_of(AiProviderClientService).to receive(:execute_request)
+    allow_any_instance_of(Ai::ProviderClientService).to receive(:execute_request)
       .and_return(success_response)
 
     # Mock provider testing service
-    allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+    allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
       .and_return({ success: true, response_time_ms: 800 })
 
     # Mock cost calculation
-    allow_any_instance_of(AiCostOptimizationService).to receive(:calculate_execution_cost)
+    allow_any_instance_of(Ai::CostOptimizationService).to receive(:calculate_execution_cost)
       .and_return(0.05)
   end
 
   def clean_up_ai_test_data
     # Clean up any test data that might persist between tests
     if defined?(@test_account)
-      AiAgentExecution.where(account: @test_account).delete_all
+      Ai::AgentExecution.where(account: @test_account).delete_all
       AiMessage.where(account: @test_account).delete_all
-      AiConversation.where(account: @test_account).delete_all
-      AiAgent.where(account: @test_account).delete_all
-      AiProviderCredential.where(account: @test_account).delete_all
+      Ai::Conversation.where(account: @test_account).delete_all
+      Ai::Agent.where(account: @test_account).delete_all
+      Ai::ProviderCredential.where(account: @test_account).delete_all
     end
   end
 
@@ -198,7 +198,7 @@ RSpec.configure do |config|
     @integration_credentials = @integration_providers.map do |provider|
       create(:ai_provider_credential,
         account: @integration_account,
-        ai_provider: provider,
+        provider: provider,
         name: "#{provider.name} Credential")
     end
 
@@ -206,7 +206,7 @@ RSpec.configure do |config|
     @integration_agents = @integration_providers.map do |provider|
       create(:ai_agent,
         account: @integration_account,
-        ai_provider: provider,
+        provider: provider,
         name: "#{provider.name} Agent")
     end
   end
@@ -336,7 +336,7 @@ class AiTestDataGenerator
           status = rand < 0.9 ? 'completed' : 'failed' # 90% success rate
 
           executions << {
-            ai_agent: agent,
+            agent: agent,
             account: agent.account,
             status: status,
             input_data: { prompt: "Test execution #{i + 1}" },
@@ -352,7 +352,7 @@ class AiTestDataGenerator
         end
       end
 
-      AiAgentExecution.create!(executions)
+      Ai::AgentExecution.create!(executions)
     end
 
     def generate_workflow_test_data(account)
@@ -362,7 +362,7 @@ class AiTestDataGenerator
       nodes = []
       3.times do |i|
         nodes << create(:ai_workflow_node,
-          ai_workflow: workflow,
+          workflow: workflow,
           node_type: [ 'ai_agent', 'condition', 'ai_agent' ][i],
           name: "Node #{i + 1}",
           position_x: 100 + (i * 200),
@@ -372,7 +372,7 @@ class AiTestDataGenerator
       # Connect the nodes
       2.times do |i|
         create(:ai_workflow_edge,
-          ai_workflow: workflow,
+          workflow: workflow,
           source_node: nodes[i],
           target_node: nodes[i + 1],
           condition_type: 'always')

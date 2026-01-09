@@ -6,7 +6,7 @@ RSpec.describe Api::V1::Ai::WorkflowGitTriggersController, type: :controller do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:workflow) { create(:ai_workflow, account: account, creator: user) }
-  let(:trigger) { create(:ai_workflow_trigger, ai_workflow: workflow) }
+  let(:trigger) { create(:ai_workflow_trigger, workflow: workflow) }
   let(:git_trigger) { create(:git_workflow_trigger, ai_workflow_trigger: trigger) }
 
   before do
@@ -189,7 +189,7 @@ RSpec.describe Api::V1::Ai::WorkflowGitTriggersController, type: :controller do
   end
 
   describe 'GET #workflow_index' do
-    let!(:trigger2) { create(:ai_workflow_trigger, ai_workflow: workflow) }
+    let!(:trigger2) { create(:ai_workflow_trigger, workflow: workflow) }
     let!(:git_trigger1) { create(:git_workflow_trigger, ai_workflow_trigger: trigger) }
     let!(:git_trigger2) { create(:git_workflow_trigger, ai_workflow_trigger: trigger2) }
 

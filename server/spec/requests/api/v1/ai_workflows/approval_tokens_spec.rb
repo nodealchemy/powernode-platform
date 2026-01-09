@@ -6,18 +6,18 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:workflow) { create(:ai_workflow, account: account) }
-  let(:workflow_node) { create(:ai_workflow_node, ai_workflow: workflow, node_type: 'human_approval') }
-  let(:workflow_run) { create(:ai_workflow_run, ai_workflow: workflow, account: account, status: 'running') }
+  let(:workflow_node) { create(:ai_workflow_node, workflow: workflow, node_type: 'human_approval') }
+  let(:workflow_run) { create(:ai_workflow_run, workflow: workflow, account: account, status: 'running') }
   let(:node_execution) do
     create(:ai_workflow_node_execution,
-           ai_workflow_run: workflow_run,
-           ai_workflow_node: workflow_node,
+           workflow_run: workflow_run,
+           node: workflow_node,
            status: 'waiting_approval',
            metadata: { 'approval_message' => 'Please approve this step' })
   end
 
   let!(:approval_token) do
-    token, @raw_token = AiWorkflowApprovalToken.create_for_recipient(
+    token, @raw_token = Ai::WorkflowApprovalToken.create_for_recipient(
       node_execution: node_execution,
       recipient_email: 'approver@example.com',
       expires_in: 24.hours
@@ -102,7 +102,7 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
 
   describe 'POST /api/v1/ai_workflows/approval_tokens/:token/approve' do
     before do
-      allow_any_instance_of(AiWorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
+      allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
     end
 
     context 'with valid pending token' do
@@ -139,7 +139,7 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
       end
 
       it 'calls approve_execution! on node execution' do
-        expect_any_instance_of(AiWorkflowNodeExecution).to receive(:approve_execution!)
+        expect_any_instance_of(Ai::WorkflowNodeExecution).to receive(:approve_execution!)
           .with(nil, hash_including('approved' => true))
           .and_return(true)
 
@@ -214,7 +214,7 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
 
   describe 'POST /api/v1/ai_workflows/approval_tokens/:token/reject' do
     before do
-      allow_any_instance_of(AiWorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
+      allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
     end
 
     context 'with valid pending token' do
@@ -241,7 +241,7 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
       end
 
       it 'calls approve_execution! with approved=false' do
-        expect_any_instance_of(AiWorkflowNodeExecution).to receive(:approve_execution!)
+        expect_any_instance_of(Ai::WorkflowNodeExecution).to receive(:approve_execution!)
           .with(nil, hash_including('approved' => false))
           .and_return(true)
 
@@ -311,14 +311,14 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
     end
 
     it 'does not require JWT authentication for approve' do
-      allow_any_instance_of(AiWorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
+      allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
 
       post "/api/v1/ai_workflows/approval_tokens/#{raw_token}/approve", as: :json
       expect(response).not_to have_http_status(:unauthorized)
     end
 
     it 'does not require JWT authentication for reject' do
-      allow_any_instance_of(AiWorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
+      allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
 
       post "/api/v1/ai_workflows/approval_tokens/#{raw_token}/reject", as: :json
       expect(response).not_to have_http_status(:unauthorized)

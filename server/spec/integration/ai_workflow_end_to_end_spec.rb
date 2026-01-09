@@ -12,7 +12,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
   let!(:openai_credential) do
     create(:ai_provider_credential,
            account: account,
-           ai_provider: openai_provider,
+           provider: openai_provider,
            credentials: {
              api_key: 'sk-test1234567890abcdef',
              model: 'gpt-3.5-turbo'
@@ -33,7 +33,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
   # Workflow nodes
   let!(:start_node) do
     create(:ai_workflow_node,
-           ai_workflow: ai_workflow,
+           workflow: ai_workflow,
            node_type: 'start',
            name: 'Start',
            position: { x: 100, y: 100 },
@@ -42,7 +42,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
 
   let!(:ai_agent_node) do
     create(:ai_workflow_node,
-           ai_workflow: ai_workflow,
+           workflow: ai_workflow,
            node_type: 'ai_agent',
            name: 'Classify Request',
            position: { x: 200, y: 100 },
@@ -54,7 +54,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
 
   let!(:end_node) do
     create(:ai_workflow_node,
-           ai_workflow: ai_workflow,
+           workflow: ai_workflow,
            node_type: 'end',
            name: 'End',
            position: { x: 300, y: 100 },
@@ -64,14 +64,14 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
   # Workflow edges
   let!(:edge1) do
     create(:ai_workflow_edge,
-           ai_workflow: ai_workflow,
+           workflow: ai_workflow,
            source_node: start_node,
            target_node: ai_agent_node)
   end
 
   let!(:edge2) do
     create(:ai_workflow_edge,
-           ai_workflow: ai_workflow,
+           workflow: ai_workflow,
            source_node: ai_agent_node,
            target_node: end_node)
   end
@@ -155,7 +155,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
 
     it 'lists workflow runs' do
       # Create a workflow run first
-      create(:ai_workflow_run, ai_workflow: ai_workflow, account: account)
+      create(:ai_workflow_run, workflow: ai_workflow, account: account)
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs"
 
@@ -164,7 +164,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
   end
 
   describe 'Workflow Run Management' do
-    let!(:workflow_run) { create(:ai_workflow_run, ai_workflow: ai_workflow, account: account, status: 'running') }
+    let!(:workflow_run) { create(:ai_workflow_run, workflow: ai_workflow, account: account, status: 'running') }
 
     it 'retrieves a specific workflow run' do
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{workflow_run.id}"
@@ -189,7 +189,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
 
   describe 'Workflow Node Operations' do
     it 'retrieves node executions for a run' do
-      workflow_run = create(:ai_workflow_run, ai_workflow: ai_workflow, account: account)
+      workflow_run = create(:ai_workflow_run, workflow: ai_workflow, account: account)
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{workflow_run.id}/node_executions"
 
@@ -197,7 +197,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
     end
 
     it 'retrieves run logs' do
-      workflow_run = create(:ai_workflow_run, ai_workflow: ai_workflow, account: account)
+      workflow_run = create(:ai_workflow_run, workflow: ai_workflow, account: account)
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{workflow_run.id}/logs"
 
@@ -242,7 +242,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
 
   describe 'Workflow Metrics and Analytics' do
     it 'retrieves run metrics' do
-      workflow_run = create(:ai_workflow_run, ai_workflow: ai_workflow, account: account, status: 'completed')
+      workflow_run = create(:ai_workflow_run, workflow: ai_workflow, account: account, status: 'completed')
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{workflow_run.id}/metrics"
 

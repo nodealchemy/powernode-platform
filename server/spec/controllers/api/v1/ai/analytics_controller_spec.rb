@@ -14,8 +14,8 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
   # Test data
   let(:workflow) { create(:ai_workflow, account: account, name: 'Test Workflow') }
   let(:agent) { create(:ai_agent, account: account, name: 'Test Agent') }
-  let!(:completed_runs) { create_list(:ai_workflow_run, 5, ai_workflow: workflow, status: 'completed', total_cost: 1.50, duration_ms: 5000) }
-  let!(:failed_runs) { create_list(:ai_workflow_run, 2, ai_workflow: workflow, status: 'failed') }
+  let!(:completed_runs) { create_list(:ai_workflow_run, 5, workflow: workflow, status: 'completed', total_cost: 1.50, duration_ms: 5000) }
+  let!(:failed_runs) { create_list(:ai_workflow_run, 2, workflow: workflow, status: 'failed') }
 
   before do
     @request.headers['Content-Type'] = 'application/json'
@@ -326,7 +326,7 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
 
   describe 'GET #insights' do
     before do
-      allow_any_instance_of(AiAnalyticsInsightsService).to receive(:generate_insights).and_return({
+      allow_any_instance_of(Ai::AnalyticsInsightsService).to receive(:generate_insights).and_return({
         cost_insights: [],
         performance_insights: [],
         usage_insights: []
@@ -337,7 +337,7 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       before { sign_in analytics_read_user }
 
       it 'returns AI-generated insights' do
-        expect_any_instance_of(AiAnalyticsInsightsService).to receive(:generate_insights)
+        expect_any_instance_of(Ai::AnalyticsInsightsService).to receive(:generate_insights)
 
         get :insights
 
@@ -372,7 +372,7 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       it 'includes recommendation details' do
         # Create expensive workflow to trigger recommendation
         expensive_workflow = create(:ai_workflow, account: account)
-        create_list(:ai_workflow_run, 10, ai_workflow: expensive_workflow, status: 'completed', total_cost: 15.0)
+        create_list(:ai_workflow_run, 10, workflow: expensive_workflow, status: 'completed', total_cost: 15.0)
 
         get :recommendations
 

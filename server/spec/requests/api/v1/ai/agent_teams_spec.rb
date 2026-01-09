@@ -2,10 +2,12 @@
 
 require 'rails_helper'
 
-# Stub AiAgentTeamExecutionJob (defined in worker service)
-class AiAgentTeamExecutionJob
-  def self.perform_async(*args)
-    'job-id'
+# Stub Ai::AgentTeamExecutionJob (defined in worker service)
+module Ai
+  class AgentTeamExecutionJob
+    def self.perform_async(*args)
+      'job-id'
+    end
   end
 end
 
@@ -86,8 +88,8 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       end
 
       it 'includes member count in response' do
-        create(:ai_agent_team_member, ai_agent_team: team1)
-        create(:ai_agent_team_member, ai_agent_team: team1)
+        create(:ai_agent_team_member, team: team1)
+        create(:ai_agent_team_member, team: team1)
 
         get '/api/v1/ai/agent_teams', headers: headers, as: :json
 
@@ -206,7 +208,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       it 'creates a new team' do
         expect {
           post '/api/v1/ai/agent_teams', params: valid_params, headers: headers, as: :json
-        }.to change(AiAgentTeam, :count).by(1)
+        }.to change(Ai::AgentTeam, :count).by(1)
 
         expect(response).to have_http_status(:created)
         expect_success_response
@@ -220,7 +222,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
         expect_success_response
         full_response = json_response_full
-        team = AiAgentTeam.find(full_response['data']['id'])
+        team = Ai::AgentTeam.find(full_response['data']['id'])
         expect(team.account_id).to eq(account.id)
       end
 
@@ -229,7 +231,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
         audit_log = AuditLog.where(action: 'ai_agent_team.created').last
         expect(audit_log).to be_present
-        expect(audit_log.resource_type).to eq('AiAgentTeam')
+        expect(audit_log.resource_type).to eq('Ai::AgentTeam')
         expect(audit_log.metadata['team_name']).to eq('New Team')
       end
     end
@@ -297,7 +299,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
         audit_log = AuditLog.where(action: 'ai_agent_team.updated').last
         expect(audit_log).to be_present
-        expect(audit_log.resource_type).to eq('AiAgentTeam')
+        expect(audit_log.resource_type).to eq('Ai::AgentTeam')
         expect(audit_log.metadata['changes']).to include('name', 'description', 'status')
       end
     end
@@ -321,7 +323,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       it 'deletes the team' do
         expect {
           delete "/api/v1/ai/agent_teams/#{team.id}", headers: headers, as: :json
-        }.to change(AiAgentTeam, :count).by(-1)
+        }.to change(Ai::AgentTeam, :count).by(-1)
 
         expect_success_response
         full_response = json_response_full
@@ -333,7 +335,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
         audit_log = AuditLog.where(action: 'ai_agent_team.deleted').last
         expect(audit_log).to be_present
-        expect(audit_log.resource_type).to eq('AiAgentTeam')
+        expect(audit_log.resource_type).to eq('Ai::AgentTeam')
         expect(audit_log.metadata['team_name']).to eq(team_name)
       end
     end
@@ -357,7 +359,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       it 'adds member to team' do
         expect {
           post "/api/v1/ai/agent_teams/#{team.id}/members", params: member_params, headers: headers, as: :json
-        }.to change(team.ai_agent_team_members, :count).by(1)
+        }.to change(team.members, :count).by(1)
 
         expect_success_response
         full_response = json_response_full
@@ -371,7 +373,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
         audit_log = AuditLog.where(action: 'ai_agent_team.member_added').last
         expect(audit_log).to be_present
-        expect(audit_log.resource_type).to eq('AiAgentTeamMember')
+        expect(audit_log.resource_type).to eq('Ai::AgentTeamMember')
         expect(audit_log.metadata['agent_id']).to eq(agent.id)
         expect(audit_log.metadata['role']).to eq('researcher')
       end
@@ -423,7 +425,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
   describe 'DELETE /api/v1/ai/agent_teams/:id/members/:member_id' do
     let(:team) { create(:ai_agent_team, account: account) }
-    let(:member) { create(:ai_agent_team_member, ai_agent_team: team) }
+    let(:member) { create(:ai_agent_team_member, team: team) }
 
     context 'with valid member' do
       it 'removes member from team' do
@@ -431,7 +433,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
         expect {
           delete "/api/v1/ai/agent_teams/#{team.id}/members/#{member_id}", headers: headers, as: :json
-        }.to change(team.ai_agent_team_members, :count).by(-1)
+        }.to change(team.members, :count).by(-1)
 
         expect_success_response
         full_response = json_response_full
@@ -444,7 +446,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
         audit_log = AuditLog.where(action: 'ai_agent_team.member_removed').last
         expect(audit_log).to be_present
-        expect(audit_log.resource_type).to eq('AiAgentTeamMember')
+        expect(audit_log.resource_type).to eq('Ai::AgentTeamMember')
         expect(audit_log.metadata['agent_name']).to eq(agent_name)
       end
     end
@@ -472,7 +474,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       end
 
       it 'queues team execution job' do
-        expect(AiAgentTeamExecutionJob).to receive(:perform_async).with(
+        expect(Ai::AgentTeamExecutionJob).to receive(:perform_async).with(
           hash_including(
             team_id: team.id,
             user_id: user.id
@@ -489,7 +491,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       end
 
       it 'handles empty input' do
-        expect(AiAgentTeamExecutionJob).to receive(:perform_async).and_return('job-456')
+        expect(Ai::AgentTeamExecutionJob).to receive(:perform_async).and_return('job-456')
 
         post "/api/v1/ai/agent_teams/#{team.id}/execute", headers: headers, as: :json
 
@@ -499,12 +501,12 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       end
 
       it 'creates audit log entry' do
-        allow(AiAgentTeamExecutionJob).to receive(:perform_async).and_return('job-789')
+        allow(Ai::AgentTeamExecutionJob).to receive(:perform_async).and_return('job-789')
         post "/api/v1/ai/agent_teams/#{team.id}/execute", params: execute_params, headers: headers, as: :json
 
         audit_log = AuditLog.where(action: 'ai_agent_team.execution_started').last
         expect(audit_log).to be_present
-        expect(audit_log.resource_type).to eq('AiAgentTeam')
+        expect(audit_log.resource_type).to eq('Ai::AgentTeam')
         expect(audit_log.metadata['job_id']).to eq('job-789')
       end
     end
@@ -524,7 +526,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
     context 'when job fails to queue' do
       it 'returns error' do
-        allow(AiAgentTeamExecutionJob).to receive(:perform_async).and_raise(StandardError, 'Queue error')
+        allow(Ai::AgentTeamExecutionJob).to receive(:perform_async).and_raise(StandardError, 'Queue error')
 
         post "/api/v1/ai/agent_teams/#{team.id}/execute", headers: headers, as: :json
 
@@ -557,7 +559,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
         audit_log = AuditLog.where(action: 'ai_agent_team.execution_completed').last
         expect(audit_log).to be_present
-        expect(audit_log.resource_type).to eq('AiAgentTeam')
+        expect(audit_log.resource_type).to eq('Ai::AgentTeam')
         expect(audit_log.metadata['job_id']).to eq('job-123')
       end
     end
@@ -585,7 +587,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
         audit_log = AuditLog.where(action: 'ai_agent_team.execution_failed').last
         expect(audit_log).to be_present
-        expect(audit_log.resource_type).to eq('AiAgentTeam')
+        expect(audit_log.resource_type).to eq('Ai::AgentTeam')
         expect(audit_log.metadata['error']).to eq('Agent execution failed')
       end
     end

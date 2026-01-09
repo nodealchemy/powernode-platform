@@ -10,7 +10,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
   let(:other_account_user) { create(:user) }
 
   let(:ai_provider) { create(:ai_provider, :openai, account: account, is_active: true) }
-  let(:ai_credential) { create(:ai_provider_credential, account: account, ai_provider: ai_provider) }
+  let(:ai_credential) { create(:ai_provider_credential, account: account, provider: ai_provider) }
 
   let!(:agent) do
     create(:ai_agent,
@@ -19,7 +19,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
            name: 'Test Agent',
            agent_type: 'assistant',
            status: 'active',
-           ai_provider: ai_provider)
+           provider: ai_provider)
   end
 
   let!(:other_account_agent) do
@@ -97,7 +97,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
           'created_at',
           'updated_at',
           'created_by',
-          'ai_provider',
+          'provider',
           'execution_stats'
         )
       end
@@ -136,7 +136,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
           'created_at',
           'updated_at',
           'created_by',
-          'ai_provider',
+          'provider',
           'execution_stats',
           'detailed_stats'
         )
@@ -187,12 +187,12 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
       it 'creates new agent' do
         expect {
           post :create, params: valid_agent_params
-        }.to change { AiAgent.count }.by(1)
+        }.to change { Ai::Agent.count }.by(1)
 
         expect(response).to have_http_status(:created)
         expect(json_response['success']).to be true
 
-        created_agent = AiAgent.last
+        created_agent = Ai::Agent.last
         expect(created_agent.name).to eq('New Test Agent')
         expect(created_agent.account).to eq(account)
         expect(created_agent.creator).to eq(user)
@@ -202,7 +202,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
       it 'sets default status to inactive' do
         post :create, params: valid_agent_params
 
-        created_agent = AiAgent.last
+        created_agent = Ai::Agent.last
         expect(created_agent.status).to eq('inactive')
       end
 
@@ -211,7 +211,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
           post :create, params: valid_agent_params
         }.to change { AuditLog.count }.by_at_least(1)
 
-        audit_log = AuditLog.where(resource_type: 'AiAgent', action: 'ai.agents.create').last
+        audit_log = AuditLog.where(resource_type: 'Ai::Agent', action: 'ai.agents.create').last
         expect(audit_log).to be_present
       end
     end
@@ -278,7 +278,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
           patch :update, params: update_params
         }.to change { AuditLog.count }.by_at_least(1)
 
-        audit_log = AuditLog.where(resource_type: 'AiAgent', action: 'ai.agents.update').last
+        audit_log = AuditLog.where(resource_type: 'Ai::Agent', action: 'ai.agents.update').last
         expect(audit_log).to be_present
       end
     end
@@ -304,7 +304,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
 
         expect(response).to have_http_status(:ok)
         expect(json_response['success']).to be true
-        expect(AiAgent.exists?(agent_id)).to be false
+        expect(Ai::Agent.exists?(agent_id)).to be false
       end
 
       it 'creates audit log entry' do
@@ -343,8 +343,8 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
 
     context 'with valid agent' do
       before do
-        allow_any_instance_of(AiAgent).to receive(:execute).and_return(
-          create(:ai_agent_execution, ai_agent: agent, user: user, status: 'running')
+        allow_any_instance_of(Ai::Agent).to receive(:execute).and_return(
+          create(:ai_agent_execution, agent: agent, user: user, status: 'running')
         )
       end
 
@@ -361,7 +361,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
           post :execute, params: execution_params
         }.to change { AuditLog.count }.by_at_least(1)
 
-        # Execute creates an AiAgentExecution record with ai.agents.execute action
+        # Execute creates an Ai::AgentExecution record with ai.agents.execute action
         audit_log = AuditLog.where(action: 'ai.agents.execute').last
         expect(audit_log).to be_present
       end
@@ -370,7 +370,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
     context 'with agent not ready for execution' do
       before do
         agent.update!(status: 'inactive')
-        allow_any_instance_of(AiAgent).to receive(:mcp_available?).and_return(false)
+        allow_any_instance_of(Ai::Agent).to receive(:mcp_available?).and_return(false)
       end
 
       it 'returns error when agent not available' do
@@ -384,7 +384,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
 
   describe 'POST #clone' do
     it 'clones agent for current account' do
-      expect_any_instance_of(AiAgent).to receive(:clone_for_account)
+      expect_any_instance_of(Ai::Agent).to receive(:clone_for_account)
         .with(account, user)
         .and_return(create(:ai_agent, account: account, creator: user))
 
@@ -405,7 +405,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
     end
 
     it 'runs test execution without persisting' do
-      expect_any_instance_of(AiAgent).to receive(:test_execution)
+      expect_any_instance_of(Ai::Agent).to receive(:test_execution)
         .with({ message: 'Test message' }, user)
         .and_return({ success: true, output: 'Test response' })
 
@@ -419,7 +419,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
 
   describe 'GET #validate' do
     it 'validates agent configuration' do
-      allow_any_instance_of(AiAgent).to receive(:validate_configuration)
+      allow_any_instance_of(Ai::Agent).to receive(:validate_configuration)
         .and_return({ valid: true })
 
       get :validate, params: { id: agent.id }
@@ -429,7 +429,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
     end
 
     it 'returns validation errors' do
-      allow_any_instance_of(AiAgent).to receive(:validate_configuration)
+      allow_any_instance_of(Ai::Agent).to receive(:validate_configuration)
         .and_return({
           valid: false,
           errors: [ 'Missing system prompt' ],
@@ -491,8 +491,8 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
   end
 
   describe 'GET #stats' do
-    let!(:execution1) { create(:ai_agent_execution, ai_agent: agent, status: 'completed', cost_usd: 0.01) }
-    let!(:execution2) { create(:ai_agent_execution, ai_agent: agent, status: 'failed', error_message: 'Test error') }
+    let!(:execution1) { create(:ai_agent_execution, agent: agent, status: 'completed', cost_usd: 0.01) }
+    let!(:execution2) { create(:ai_agent_execution, agent: agent, status: 'failed', error_message: 'Test error') }
 
     it 'returns agent statistics' do
       get :stats, params: { id: agent.id }
@@ -515,7 +515,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
 
   describe 'GET #analytics' do
     before do
-      create_list(:ai_agent_execution, 5, ai_agent: agent, created_at: 2.days.ago)
+      create_list(:ai_agent_execution, 5, agent: agent, created_at: 2.days.ago)
     end
 
     it 'returns agent analytics' do
@@ -592,7 +592,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
   end
 
   describe 'nested executions' do
-    let!(:execution) { create(:ai_agent_execution, ai_agent: agent, user: user) }
+    let!(:execution) { create(:ai_agent_execution, agent: agent, user: user) }
 
     describe 'GET #executions_index' do
       it 'returns executions for specific agent' do
@@ -617,7 +617,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
     describe 'POST #execution_cancel' do
       before do
         execution.update!(status: 'running')
-        allow_any_instance_of(AiAgentExecution).to receive(:cancel_execution!)
+        allow_any_instance_of(Ai::AgentExecution).to receive(:cancel_execution!)
       end
 
       it 'cancels running execution' do
@@ -631,8 +631,8 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
     describe 'POST #execution_retry' do
       before do
         execution.update!(status: 'failed', error_message: 'Previous failure')
-        allow_any_instance_of(AiAgent).to receive(:execute).and_return(
-          create(:ai_agent_execution, ai_agent: agent, user: user)
+        allow_any_instance_of(Ai::Agent).to receive(:execute).and_return(
+          create(:ai_agent_execution, agent: agent, user: user)
         )
       end
 

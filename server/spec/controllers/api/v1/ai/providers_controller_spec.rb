@@ -145,8 +145,8 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
   describe 'GET #show' do
     let(:provider) { create(:ai_provider, :openai, account: account) }
-    let!(:credential1) { create(:ai_provider_credential, ai_provider: provider, account: account, name: 'Credential 1') }
-    let!(:credential2) { create(:ai_provider_credential, ai_provider: provider, account: account, name: 'Credential 2') }
+    let!(:credential1) { create(:ai_provider_credential, provider: provider, account: account, name: 'Credential 1') }
+    let!(:credential2) { create(:ai_provider_credential, provider: provider, account: account, name: 'Credential 2') }
 
     context 'with valid permissions' do
       before { sign_in provider_read_user }
@@ -236,7 +236,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
       it 'creates a new provider' do
         expect {
           post :create, params: valid_params
-        }.to change(AiProvider, :count).by(1)
+        }.to change(Ai::Provider, :count).by(1)
 
         expect(response).to have_http_status(:created)
         json = JSON.parse(response.body)
@@ -247,7 +247,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
       it 'assigns provider to current account' do
         post :create, params: valid_params
 
-        provider = AiProvider.last
+        provider = Ai::Provider.last
         expect(provider.account_id).to eq(account.id)
       end
 
@@ -372,7 +372,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
       it 'deletes the provider' do
         expect {
           delete :destroy, params: { id: provider.id }
-        }.to change(AiProvider, :count).by(-1)
+        }.to change(Ai::Provider, :count).by(-1)
 
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
@@ -398,11 +398,11 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
   describe 'POST #test_connection' do
     let(:provider) { create(:ai_provider, :openai, account: account) }
-    let!(:credential) { create(:ai_provider_credential, :default, ai_provider: provider, account: account) }
+    let!(:credential) { create(:ai_provider_credential, :default, provider: provider, account: account) }
 
     before do
       # Controller now uses test_with_details_simple for flat response format
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details_simple).and_return({
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple).and_return({
         success: true,
         response_time_ms: 150.5,
         message: 'Connection successful'
@@ -423,7 +423,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
       end
 
       it 'tests with specific credential' do
-        other_credential = create(:ai_provider_credential, ai_provider: provider, account: account)
+        other_credential = create(:ai_provider_credential, provider: provider, account: account)
 
         post :test_connection, params: { id: provider.id, credential_id: other_credential.id }
 
@@ -433,19 +433,19 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
       end
 
       it 'updates credential status on success' do
-        expect_any_instance_of(AiProviderCredential).to receive(:record_success!)
+        expect_any_instance_of(Ai::ProviderCredential).to receive(:record_success!)
 
         post :test_connection, params: { id: provider.id }
       end
 
       it 'updates credential status on failure' do
         # Controller now uses test_with_details_simple for flat response format
-        allow_any_instance_of(AiProviderTestService).to receive(:test_with_details_simple).and_return({
+        allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple).and_return({
           success: false,
           error: 'Connection failed'
         })
 
-        expect_any_instance_of(AiProviderCredential).to receive(:record_failure!).with('Connection failed')
+        expect_any_instance_of(Ai::ProviderCredential).to receive(:record_failure!).with('Connection failed')
 
         post :test_connection, params: { id: provider.id }
       end
@@ -476,14 +476,14 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
     let(:provider) { create(:ai_provider, account: account) }
 
     before do
-      allow(AiProviderManagementService).to receive(:sync_provider_models).and_return(true)
+      allow(Ai::ProviderManagementService).to receive(:sync_provider_models).and_return(true)
     end
 
     context 'with valid permissions' do
       before { sign_in provider_manage_user }
 
       it 'syncs provider models' do
-        expect(AiProviderManagementService).to receive(:sync_provider_models).with(provider)
+        expect(Ai::ProviderManagementService).to receive(:sync_provider_models).with(provider)
 
         post :sync_models, params: { id: provider.id }
 
@@ -506,7 +506,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
     context 'when sync fails' do
       before do
         sign_in provider_manage_user
-        allow(AiProviderManagementService).to receive(:sync_provider_models).and_return(false)
+        allow(Ai::ProviderManagementService).to receive(:sync_provider_models).and_return(false)
       end
 
       it 'returns error response' do
@@ -553,7 +553,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
     let(:provider) { create(:ai_provider, account: account) }
 
     before do
-      allow(AiProviderManagementService).to receive(:provider_usage_summary).and_return({
+      allow(Ai::ProviderManagementService).to receive(:provider_usage_summary).and_return({
         total_executions: 150,
         total_tokens: 50000,
         total_cost: 12.50,
@@ -597,8 +597,8 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
   describe 'GET #available' do
     before do
-      allow(AiProviderManagementService).to receive(:get_available_providers_for_account).and_return(
-        AiProvider.where(account: account)
+      allow(Ai::ProviderManagementService).to receive(:get_available_providers_for_account).and_return(
+        Ai::Provider.where(account: account)
       )
     end
 
@@ -655,8 +655,8 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
   describe 'GET #credentials_index' do
     let(:provider) { create(:ai_provider, account: account) }
-    let!(:credential1) { create(:ai_provider_credential, ai_provider: provider, account: account, name: 'Credential 1') }
-    let!(:credential2) { create(:ai_provider_credential, ai_provider: provider, account: account, name: 'Credential 2', is_active: false) }
+    let!(:credential1) { create(:ai_provider_credential, provider: provider, account: account, name: 'Credential 1') }
+    let!(:credential2) { create(:ai_provider_credential, provider: provider, account: account, name: 'Credential 2', is_active: false) }
     let!(:other_provider_credential) { create(:ai_provider_credential, account: account) }
 
     context 'with valid permissions' do
@@ -747,7 +747,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
   describe 'GET #credential_show' do
     let(:provider) { create(:ai_provider, account: account) }
-    let(:credential) { create(:ai_provider_credential, ai_provider: provider, account: account) }
+    let(:credential) { create(:ai_provider_credential, provider: provider, account: account) }
 
     context 'with valid permissions' do
       before { sign_in credential_read_user }
@@ -811,8 +811,8 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
     end
 
     before do
-      allow(AiProviderManagementService).to receive(:create_provider_credential).and_return(
-        create(:ai_provider_credential, ai_provider: provider, account: account, name: 'New Credential')
+      allow(Ai::ProviderManagementService).to receive(:create_provider_credential).and_return(
+        create(:ai_provider_credential, provider: provider, account: account, name: 'New Credential')
       )
     end
 
@@ -820,7 +820,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
       before { sign_in credential_manage_user }
 
       it 'creates a new credential' do
-        expect(AiProviderManagementService).to receive(:create_provider_credential)
+        expect(Ai::ProviderManagementService).to receive(:create_provider_credential)
 
         post :create, params: valid_params
 
@@ -834,8 +834,8 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
     context 'with validation errors' do
       before do
         sign_in credential_manage_user
-        allow(AiProviderManagementService).to receive(:create_provider_credential).and_raise(
-          AiProviderManagementService::ValidationError, 'Invalid credentials format'
+        allow(Ai::ProviderManagementService).to receive(:create_provider_credential).and_raise(
+          Ai::ProviderManagementService::ValidationError, 'Invalid credentials format'
         )
       end
 
@@ -862,7 +862,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
   describe 'PATCH #credential_update' do
     let(:provider) { create(:ai_provider, account: account) }
-    let!(:credential) { create(:ai_provider_credential, ai_provider: provider, account: account, name: 'Original Name') }
+    let!(:credential) { create(:ai_provider_credential, provider: provider, account: account, name: 'Original Name') }
     let(:update_params) do
       {
         provider_id: provider.id,
@@ -891,7 +891,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
         update_with_creds[:credential][:credentials] = { api_key: 'new-api-key-1234567890' }
 
         # Stub the validation method to not raise errors
-        allow(AiProviderManagementService).to receive(:validate_provider_credentials)
+        allow(Ai::ProviderManagementService).to receive(:validate_provider_credentials)
 
         patch :update, params: update_with_creds
 
@@ -902,7 +902,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
         update_with_creds = update_params.deep_dup
         update_with_creds[:credential][:credentials] = { api_key: 'new-api-key-1234567890' }
 
-        expect(AiProviderManagementService).to receive(:validate_provider_credentials)
+        expect(Ai::ProviderManagementService).to receive(:validate_provider_credentials)
 
         patch :update, params: update_with_creds
       end
@@ -921,19 +921,19 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
   describe 'DELETE #credential_destroy' do
     let(:provider) { create(:ai_provider, account: account) }
-    let!(:credential) { create(:ai_provider_credential, ai_provider: provider, account: account) }
+    let!(:credential) { create(:ai_provider_credential, provider: provider, account: account) }
 
     context 'with valid permissions' do
       before do
         sign_in credential_manage_user
         # Create second credential so first can be deleted (model prevents deleting last credential)
-        create(:ai_provider_credential, ai_provider: provider, account: account, is_default: false)
+        create(:ai_provider_credential, provider: provider, account: account, is_default: false)
       end
 
       it 'deletes the credential' do
         expect {
           delete :destroy, params: { provider_id: provider.id, id: credential.id }
-        }.to change(AiProviderCredential, :count).by(-1)
+        }.to change(Ai::ProviderCredential, :count).by(-1)
 
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
@@ -945,8 +945,8 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
     context 'when credential cannot be deleted' do
       before do
         sign_in credential_manage_user
-        allow_any_instance_of(AiProviderCredential).to receive(:destroy).and_return(false)
-        allow_any_instance_of(AiProviderCredential).to receive(:errors).and_return(
+        allow_any_instance_of(Ai::ProviderCredential).to receive(:destroy).and_return(false)
+        allow_any_instance_of(Ai::ProviderCredential).to receive(:errors).and_return(
           double(any?: true, full_messages: [ 'Cannot delete the only credential' ])
         )
       end
@@ -977,11 +977,11 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
   describe 'POST #credential_test' do
     let(:provider) { create(:ai_provider, account: account) }
-    let(:credential) { create(:ai_provider_credential, ai_provider: provider, account: account) }
+    let(:credential) { create(:ai_provider_credential, provider: provider, account: account) }
 
     before do
       # Controller now uses test_with_details_simple for flat response format
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details_simple).and_return({
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple).and_return({
         success: true,
         response_time_ms: 120.3,
         message: 'Test successful'
@@ -1001,19 +1001,19 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
       end
 
       it 'updates credential status on success' do
-        expect_any_instance_of(AiProviderCredential).to receive(:record_success!)
+        expect_any_instance_of(Ai::ProviderCredential).to receive(:record_success!)
 
         post :credential_test, params: { provider_id: provider.id, id: credential.id }
       end
 
       it 'updates credential status on failure' do
         # Controller now uses test_with_details_simple for flat response format
-        allow_any_instance_of(AiProviderTestService).to receive(:test_with_details_simple).and_return({
+        allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple).and_return({
           success: false,
           error: 'Authentication failed'
         })
 
-        expect_any_instance_of(AiProviderCredential).to receive(:record_failure!).with('Authentication failed')
+        expect_any_instance_of(Ai::ProviderCredential).to receive(:record_failure!).with('Authentication failed')
 
         post :credential_test, params: { provider_id: provider.id, id: credential.id }
       end
@@ -1022,8 +1022,8 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
   describe 'POST #credential_make_default' do
     let(:provider) { create(:ai_provider, account: account) }
-    let(:credential1) { create(:ai_provider_credential, :default, ai_provider: provider, account: account) }
-    let(:credential2) { create(:ai_provider_credential, ai_provider: provider, account: account) }
+    let(:credential1) { create(:ai_provider_credential, :default, provider: provider, account: account) }
+    let(:credential2) { create(:ai_provider_credential, provider: provider, account: account) }
 
     context 'with valid permissions' do
       before { sign_in credential_manage_user }
@@ -1062,7 +1062,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
   describe 'POST #credential_rotate' do
     let(:provider) { create(:ai_provider, account: account) }
-    let(:credential) { create(:ai_provider_credential, ai_provider: provider, account: account) }
+    let(:credential) { create(:ai_provider_credential, provider: provider, account: account) }
 
     context 'with valid permissions' do
       before { sign_in credential_manage_user }
@@ -1118,7 +1118,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
     it 'does not allow accessing other account credentials' do
       provider = create(:ai_provider, account: account)
-      credential = create(:ai_provider_credential, ai_provider: provider, account: account)
+      credential = create(:ai_provider_credential, provider: provider, account: account)
 
       get :show, params: { provider_id: provider.id, id: credential.id }
 

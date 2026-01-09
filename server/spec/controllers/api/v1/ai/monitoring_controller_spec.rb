@@ -181,7 +181,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       })
 
       # Mock circuit breaker
-      allow(AiWorkflowCircuitBreakerManager).to receive(:health_summary).and_return({
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:health_summary).and_return({
         total: 5,
         healthy: 5,
         degraded: 0,
@@ -460,12 +460,12 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
   describe 'GET #circuit_breakers_index' do
     before do
-      allow(AiWorkflowCircuitBreakerManager).to receive(:all_states).and_return([
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:all_states).and_return([
         { name: 'provider_openai', state: 'closed', failure_count: 0 },
         { name: 'workflow_execution', state: 'open', failure_count: 5 }
       ])
 
-      allow(AiWorkflowCircuitBreakerManager).to receive(:health_summary).and_return({
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:health_summary).and_return({
         total: 2,
         healthy: 1,
         degraded: 0,
@@ -503,7 +503,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
     let(:mock_breaker) { double('CircuitBreaker', stats: { state: 'closed', failure_count: 0, success_count: 10 }) }
 
     before do
-      allow(AiWorkflowCircuitBreakerManager).to receive(:get_breaker).with('provider_openai').and_return(mock_breaker)
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_breaker).with('provider_openai').and_return(mock_breaker)
     end
 
     context 'with valid permissions' do
@@ -520,7 +520,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       end
 
       it 'returns not found for unknown circuit breaker' do
-        allow(AiWorkflowCircuitBreakerManager).to receive(:get_breaker).with('unknown').and_return(nil)
+        allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_breaker).with('unknown').and_return(nil)
 
         get :circuit_breaker_show, params: { service_name: 'unknown' }
 
@@ -541,7 +541,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
     end
 
     before do
-      allow(AiWorkflowCircuitBreakerManager).to receive(:get_or_create_breaker).with('provider_openai').and_return(mock_breaker)
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_or_create_breaker).with('provider_openai').and_return(mock_breaker)
     end
 
     context 'with valid permissions' do
@@ -586,7 +586,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
     end
 
     before do
-      allow(AiWorkflowCircuitBreakerManager).to receive(:get_or_create_breaker).with('provider_openai').and_return(mock_breaker)
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_or_create_breaker).with('provider_openai').and_return(mock_breaker)
     end
 
     context 'with valid permissions' do
@@ -613,7 +613,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
     end
 
     before do
-      allow(AiWorkflowCircuitBreakerManager).to receive(:get_or_create_breaker).with('provider_openai').and_return(mock_breaker)
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_or_create_breaker).with('provider_openai').and_return(mock_breaker)
     end
 
     context 'with valid permissions' do
@@ -633,8 +633,8 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
   describe 'POST #circuit_breakers_reset_all' do
     before do
-      allow(AiWorkflowCircuitBreakerManager).to receive(:reset_all!)
-      allow(AiWorkflowCircuitBreakerManager).to receive(:health_summary).and_return({
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:reset_all!)
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:health_summary).and_return({
         total: 5,
         healthy: 5,
         degraded: 0,
@@ -646,7 +646,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       before { sign_in monitoring_manage_user }
 
       it 'resets all circuit breakers' do
-        expect(AiWorkflowCircuitBreakerManager).to receive(:reset_all!)
+        expect(Ai::WorkflowCircuitBreakerManager).to receive(:reset_all!)
 
         post :circuit_breakers_reset_all
 
@@ -667,7 +667,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
   describe 'GET #circuit_breakers_category' do
     before do
-      allow(AiWorkflowCircuitBreakerManager).to receive(:category_states).with('providers').and_return([
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:category_states).with('providers').and_return([
         { name: 'provider_openai', state: 'closed' },
         { name: 'provider_anthropic', state: 'closed' }
       ])
@@ -691,15 +691,15 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
   describe 'POST #circuit_breakers_category_reset' do
     before do
-      allow(AiWorkflowCircuitBreakerManager).to receive(:reset_category!)
-      allow(AiWorkflowCircuitBreakerManager).to receive(:category_states).with('providers').and_return([])
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:reset_category!)
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:category_states).with('providers').and_return([])
     end
 
     context 'with valid permissions' do
       before { sign_in monitoring_manage_user }
 
       it 'resets circuit breakers in category' do
-        expect(AiWorkflowCircuitBreakerManager).to receive(:reset_category!).with('providers')
+        expect(Ai::WorkflowCircuitBreakerManager).to receive(:reset_category!).with('providers')
 
         post :circuit_breakers_category_reset, params: { category: 'providers' }
 
@@ -712,7 +712,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
   describe 'GET #circuit_breakers_monitor' do
     before do
-      allow(AiWorkflowCircuitBreakerManager).to receive(:monitor_and_alert).and_return({
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:monitor_and_alert).and_return({
         total: 5,
         healthy: 4,
         degraded: 1,
@@ -724,7 +724,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       before { sign_in monitoring_read_user }
 
       it 'monitors circuit breakers and returns alerts' do
-        expect(AiWorkflowCircuitBreakerManager).to receive(:monitor_and_alert)
+        expect(Ai::WorkflowCircuitBreakerManager).to receive(:monitor_and_alert)
 
         get :circuit_breakers_monitor
 
@@ -736,7 +736,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       end
 
       it 'indicates when no alerts triggered' do
-        allow(AiWorkflowCircuitBreakerManager).to receive(:monitor_and_alert).and_return({
+        allow(Ai::WorkflowCircuitBreakerManager).to receive(:monitor_and_alert).and_return({
           total: 5,
           healthy: 5,
           degraded: 0,
@@ -804,7 +804,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       before { sign_in monitoring_manage_user }
 
       it 'starts real-time monitoring' do
-        expect(AiMonitoringHealthCheckJob).to receive(:perform_async).with(account.id)
+        expect(Ai::MonitoringHealthCheckJob).to receive(:perform_later).with(account.id)
 
         post :start_monitoring
 
@@ -815,7 +815,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       end
 
       it 'handles job scheduling errors' do
-        allow(AiMonitoringHealthCheckJob).to receive(:perform_async).and_raise(StandardError, 'Job scheduling failed')
+        allow(Ai::MonitoringHealthCheckJob).to receive(:perform_later).and_raise(StandardError, 'Job scheduling failed')
 
         post :start_monitoring
 
@@ -850,8 +850,8 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       # Set WORKER_TOKEN environment variable for worker authentication
       ENV['WORKER_TOKEN'] = worker.auth_token
       @request.headers['X-Worker-Token'] = worker.auth_token
-      allow(AiWorkflowCircuitBreakerManager).to receive(:all_states).and_return([])
-      allow(AiWorkflowCircuitBreakerManager).to receive(:health_summary).and_return({ total: 0 })
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:all_states).and_return([])
+      allow(Ai::WorkflowCircuitBreakerManager).to receive(:health_summary).and_return({ total: 0 })
     end
 
     after do

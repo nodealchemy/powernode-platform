@@ -10,7 +10,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
   let(:workflow) { create(:ai_workflow, :active, :with_simple_chain, account: account) }
   let(:workflow_run) do
     create(:ai_workflow_run,
-      ai_workflow: workflow,
+      workflow: workflow,
       account: account,
       triggered_by_user: user,
       status: 'initializing',
@@ -68,8 +68,8 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
   end
 
   describe '#execute' do
-    let(:start_node) { workflow.ai_workflow_nodes.find_by(node_type: 'start') }
-    let(:end_node) { workflow.ai_workflow_nodes.find_by(node_type: 'end') }
+    let(:start_node) { workflow.nodes.find_by(node_type: 'start') }
+    let(:end_node) { workflow.nodes.find_by(node_type: 'end') }
 
     before do
       # Mock MCP services to avoid external dependencies
@@ -422,26 +422,26 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
     let(:execution_workflow) { create(:ai_workflow, :active, account: account) }
     let(:execution_user) { create(:user, account: account) }
     let(:execution_workflow_run) do
-      create(:ai_workflow_run, ai_workflow: execution_workflow, account: account, triggered_by_user: execution_user, status: 'initializing')
+      create(:ai_workflow_run, workflow: execution_workflow, account: account, triggered_by_user: execution_user, status: 'initializing')
     end
     let(:execution_orchestrator) { described_class.new(workflow_run: execution_workflow_run, account: account, user: execution_user) }
 
-    let(:start_node) { create(:ai_workflow_node, :start_node, ai_workflow: execution_workflow) }
-    let(:end_node) { create(:ai_workflow_node, :end_node, ai_workflow: execution_workflow) }
-    let(:node1) { create(:ai_workflow_node, :ai_agent, ai_workflow: execution_workflow) }
-    let(:node2) { create(:ai_workflow_node, :transform, ai_workflow: execution_workflow) }
-    let(:node3) { create(:ai_workflow_node, :api_call, ai_workflow: execution_workflow) }
+    let(:start_node) { create(:ai_workflow_node, :start_node, workflow: execution_workflow) }
+    let(:end_node) { create(:ai_workflow_node, :end_node, workflow: execution_workflow) }
+    let(:node1) { create(:ai_workflow_node, :ai_agent, workflow: execution_workflow) }
+    let(:node2) { create(:ai_workflow_node, :transform, workflow: execution_workflow) }
+    let(:node3) { create(:ai_workflow_node, :api_call, workflow: execution_workflow) }
 
     describe '#execute_sequential_mode' do
       before do
         # Create linear workflow: start → node1 → node2 → node3 → end
-        create(:ai_workflow_edge, ai_workflow: execution_workflow,
+        create(:ai_workflow_edge, workflow: execution_workflow,
           source_node_id: start_node.node_id, target_node_id: node1.node_id)
-        create(:ai_workflow_edge, ai_workflow: execution_workflow,
+        create(:ai_workflow_edge, workflow: execution_workflow,
           source_node_id: node1.node_id, target_node_id: node2.node_id)
-        create(:ai_workflow_edge, ai_workflow: execution_workflow,
+        create(:ai_workflow_edge, workflow: execution_workflow,
           source_node_id: node2.node_id, target_node_id: node3.node_id)
-        create(:ai_workflow_edge, ai_workflow: execution_workflow,
+        create(:ai_workflow_edge, workflow: execution_workflow,
           source_node_id: node3.node_id, target_node_id: end_node.node_id)
 
         # Mock MCP infrastructure
@@ -462,8 +462,8 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
         allow(execution_orchestrator).to receive(:execute_node) do |node|
           execution_order << node.node_id
           create(:ai_workflow_node_execution, :completed,
-            ai_workflow_run: execution_workflow_run,
-            ai_workflow_node: node
+            workflow_run: execution_workflow_run,
+            node: node
           )
           # Store result in @node_results for prerequisites check
           result = { success: true, output: {}, status: 'completed' }
@@ -619,15 +619,15 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
       before do
         # Create DAG structure: start → node1 → node2 → end
         #                               ↘ node3 ↗
-        create(:ai_workflow_edge, ai_workflow: execution_workflow,
+        create(:ai_workflow_edge, workflow: execution_workflow,
           source_node_id: start_node.node_id, target_node_id: node1.node_id)
-        create(:ai_workflow_edge, ai_workflow: execution_workflow,
+        create(:ai_workflow_edge, workflow: execution_workflow,
           source_node_id: node1.node_id, target_node_id: node2.node_id)
-        create(:ai_workflow_edge, ai_workflow: execution_workflow,
+        create(:ai_workflow_edge, workflow: execution_workflow,
           source_node_id: node1.node_id, target_node_id: node3.node_id)
-        create(:ai_workflow_edge, ai_workflow: execution_workflow,
+        create(:ai_workflow_edge, workflow: execution_workflow,
           source_node_id: node2.node_id, target_node_id: end_node.node_id)
-        create(:ai_workflow_edge, ai_workflow: execution_workflow,
+        create(:ai_workflow_edge, workflow: execution_workflow,
           source_node_id: node3.node_id, target_node_id: end_node.node_id)
 
         # Mock MCP infrastructure
@@ -720,7 +720,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
   end
 
   describe 'node execution' do
-    let(:ai_agent_node) { create(:ai_workflow_node, :ai_agent, ai_workflow: workflow) }
+    let(:ai_agent_node) { create(:ai_workflow_node, :ai_agent, workflow: workflow) }
 
     before do
       # Mock MCP infrastructure
@@ -745,16 +745,16 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
       before do
         allow(Mcp::NodeExecutors::AiAgent).to receive(:new).and_return(mock_executor)
-        allow_any_instance_of(AiWorkflowNodeExecution).to receive(:start_execution!).and_return(true)
-        allow_any_instance_of(AiWorkflowNodeExecution).to receive(:complete_execution!).and_return(true)
-        allow_any_instance_of(AiWorkflowNodeExecution).to receive(:update_run_progress).and_return(true)
-        allow_any_instance_of(AiWorkflowNodeExecution).to receive(:add_cost_to_run_explicit).and_return(true)
+        allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:start_execution!).and_return(true)
+        allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:complete_execution!).and_return(true)
+        allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:update_run_progress).and_return(true)
+        allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:add_cost_to_run_explicit).and_return(true)
       end
 
       it 'creates node execution record' do
         expect {
           orchestrator.send(:execute_node, ai_agent_node)
-        }.to change { workflow_run.ai_workflow_node_executions.count }.by(1)
+        }.to change { workflow_run.node_executions.count }.by(1)
       end
 
       it 'delegates to appropriate node executor' do
@@ -777,7 +777,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
       it 'handles node execution failures' do
         allow(mock_executor).to receive(:execute).and_raise(StandardError, 'Node failed')
-        allow_any_instance_of(AiWorkflowNodeExecution).to receive(:fail_execution!).and_return(true)
+        allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:fail_execution!).and_return(true)
 
         expect { orchestrator.send(:execute_node, ai_agent_node) }
           .to raise_error(described_class::NodeExecutionError, /Node failed/)
@@ -785,7 +785,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
     end
 
     describe '#get_mcp_node_executor' do
-      let(:node_execution) { create(:ai_workflow_node_execution, ai_workflow_run: workflow_run, ai_workflow_node: ai_agent_node) }
+      let(:node_execution) { create(:ai_workflow_node_execution, workflow_run: workflow_run, node: ai_agent_node) }
       let(:node_context) { instance_double(Mcp::NodeExecutionContext, scoped_variables: {}) }
 
       it 'returns correct executor for ai_agent node' do
@@ -818,10 +818,10 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
     describe '#finalize_execution' do
       before do
         # Create some successful executions with nodes attached
-        workflow.ai_workflow_nodes.limit(3).each do |node|
+        workflow.nodes.limit(3).each do |node|
           create(:ai_workflow_node_execution, :completed,
-            ai_workflow_run: workflow_run,
-            ai_workflow_node: node,
+            workflow_run: workflow_run,
+            node: node,
             output_data: { result: 'success' },
             cost: 0.15
           )
@@ -873,8 +873,8 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
         # Create a running node execution
         create(:ai_workflow_node_execution, :running,
-          ai_workflow_run: workflow_run,
-          ai_workflow_node: workflow.ai_workflow_nodes.first
+          workflow_run: workflow_run,
+          node: workflow.nodes.first
         )
 
         # Mock broadcast method
@@ -907,7 +907,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
       it 'cancels running node executions' do
         orchestrator.send(:handle_execution_failure, error)
 
-        running_executions = workflow_run.ai_workflow_node_executions.where(status: 'running')
+        running_executions = workflow_run.node_executions.where(status: 'running')
         expect(running_executions.count).to eq(0)
       end
 

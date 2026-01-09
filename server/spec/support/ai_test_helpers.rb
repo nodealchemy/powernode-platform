@@ -21,7 +21,7 @@ module AiTestHelpers
         slug = provider.slug.to_sym
         @provider_credentials[slug] = create(:ai_provider_credential,
           account: account,
-          ai_provider: provider,
+          provider: provider,
           name: "#{provider.name} Credential",
           credentials: credentials[slug].to_json,
           is_active: true)
@@ -29,12 +29,12 @@ module AiTestHelpers
     end
 
     def mock_successful_provider_test
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 1200 })
     end
 
     def mock_failed_provider_test(error_message = 'Connection failed')
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
         .and_return({ success: false, error: error_message })
     end
 
@@ -52,7 +52,7 @@ module AiTestHelpers
       provider ||= create(:ai_provider)
       create(:ai_agent,
         account: account,
-        ai_provider: provider,
+        provider: provider,
         name: 'Test Agent',
         agent_type: 'assistant',
         configuration: {
@@ -66,7 +66,7 @@ module AiTestHelpers
       provider ||= create(:ai_provider, slug: 'openai')
       create(:ai_agent,
         account: account,
-        ai_provider: provider,
+        provider: provider,
         name: 'Code Assistant',
         agent_type: 'code_assistant',
         configuration: {
@@ -81,7 +81,7 @@ module AiTestHelpers
       provider ||= create(:ai_provider, slug: 'anthropic')
       create(:ai_agent,
         account: account,
-        ai_provider: provider,
+        provider: provider,
         name: 'Research Agent',
         agent_type: 'researcher',
         configuration: {
@@ -102,14 +102,14 @@ module AiTestHelpers
         }.merge(metadata)
       }
 
-      allow_any_instance_of(AiProviderClientService).to receive(:execute_request)
+      allow_any_instance_of(Ai::ProviderClientService).to receive(:execute_request)
         .and_return(response)
 
       response
     end
 
     def expect_agent_execution_created(agent, status = 'queued')
-      execution = AiAgentExecution.where(ai_agent: agent).last
+      execution = Ai::AgentExecution.where(agent: agent).last
       expect(execution).to be_present
       expect(execution.status).to eq(status)
       execution
@@ -122,7 +122,7 @@ module AiTestHelpers
       agent ||= create_test_agent(account)
       create(:ai_conversation,
         account: account,
-        ai_agent: agent,
+        agent: agent,
         title: title)
     end
 
@@ -159,7 +159,7 @@ module AiTestHelpers
         ai_conversation: conversation,
         account: conversation.account,
         sender_type: 'ai',
-        ai_agent: agent,
+        agent: agent,
         content: content)
     end
   end
@@ -174,7 +174,7 @@ module AiTestHelpers
 
       # Start node
       start_node = create(:ai_workflow_node,
-        ai_workflow: workflow,
+        workflow: workflow,
         node_type: 'ai_agent',
         name: 'Start',
         position_x: 100,
@@ -183,7 +183,7 @@ module AiTestHelpers
 
       # End node
       end_node = create(:ai_workflow_node,
-        ai_workflow: workflow,
+        workflow: workflow,
         node_type: 'ai_agent',
         name: 'End',
         position_x: 300,
@@ -192,7 +192,7 @@ module AiTestHelpers
 
       # Connect nodes
       create(:ai_workflow_edge,
-        ai_workflow: workflow,
+        workflow: workflow,
         source_node: start_node,
         target_node: end_node,
         condition_type: 'always')
@@ -208,14 +208,14 @@ module AiTestHelpers
 
       # Create nodes
       start_node = create(:ai_workflow_node,
-        ai_workflow: workflow,
+        workflow: workflow,
         node_type: 'ai_agent',
         name: 'Start Agent',
         position_x: 100,
         position_y: 200)
 
       condition_node = create(:ai_workflow_node,
-        ai_workflow: workflow,
+        workflow: workflow,
         node_type: 'condition',
         name: 'Decision Point',
         position_x: 300,
@@ -223,14 +223,14 @@ module AiTestHelpers
         configuration: { condition: 'output.confidence > 0.8' })
 
       success_node = create(:ai_workflow_node,
-        ai_workflow: workflow,
+        workflow: workflow,
         node_type: 'ai_agent',
         name: 'Success Handler',
         position_x: 500,
         position_y: 100)
 
       retry_node = create(:ai_workflow_node,
-        ai_workflow: workflow,
+        workflow: workflow,
         node_type: 'ai_agent',
         name: 'Retry Handler',
         position_x: 500,
@@ -238,20 +238,20 @@ module AiTestHelpers
 
       # Create edges
       create(:ai_workflow_edge,
-        ai_workflow: workflow,
+        workflow: workflow,
         source_node: start_node,
         target_node: condition_node,
         condition_type: 'always')
 
       create(:ai_workflow_edge,
-        ai_workflow: workflow,
+        workflow: workflow,
         source_node: condition_node,
         target_node: success_node,
         condition_type: 'custom',
         condition_config: { expression: 'success == true' })
 
       create(:ai_workflow_edge,
-        ai_workflow: workflow,
+        workflow: workflow,
         source_node: condition_node,
         target_node: retry_node,
         condition_type: 'custom',
@@ -268,13 +268,13 @@ module AiTestHelpers
 
     def execute_workflow(workflow, input_data = {})
       run = create(:ai_workflow_run,
-        ai_workflow: workflow,
+        workflow: workflow,
         account: workflow.account,
         status: 'running',
         input_data: input_data)
 
       # Mock workflow execution
-      allow(AiAgentOrchestrationService).to receive(:execute_workflow)
+      allow(Ai::AgentOrchestrationService).to receive(:execute_workflow)
         .and_return(run)
 
       run
@@ -282,7 +282,7 @@ module AiTestHelpers
 
     def mock_node_execution(node, output_data = {})
       execution = create(:ai_workflow_node_execution,
-        ai_workflow_node: node,
+        node: node,
         status: 'completed',
         input_data: { test: 'input' },
         output_data: { result: 'success' }.merge(output_data))
@@ -376,16 +376,16 @@ module AiTestHelpers
 
       # Create agents
       agents = providers.flat_map do |provider|
-        create_list(:ai_agent, count / 5, account: account, ai_provider: provider)
+        create_list(:ai_agent, count / 5, account: account, provider: provider)
       end
 
       # Create conversations and executions
       conversations = agents.flat_map do |agent|
-        create_list(:ai_conversation, 2, account: account, ai_agent: agent)
+        create_list(:ai_conversation, 2, account: account, agent: agent)
       end
 
       executions = agents.flat_map do |agent|
-        create_list(:ai_agent_execution, 5, ai_agent: agent, account: account)
+        create_list(:ai_agent_execution, 5, agent: agent, account: account)
       end
 
       {
@@ -402,7 +402,7 @@ module AiTestHelpers
   module AnalyticsHelpers
     def create_analytics_test_data(account, days_back = 30)
       provider = create(:ai_provider, slug: 'openai')
-      agent = create(:ai_agent, account: account, ai_provider: provider)
+      agent = create(:ai_agent, account: account, provider: provider)
 
       # Create historical data
       (0..days_back).each do |days_ago|
@@ -415,7 +415,7 @@ module AiTestHelpers
 
         successful_count.times do
           create(:ai_agent_execution, :completed,
-            ai_agent: agent,
+            agent: agent,
             account: account,
             created_at: date,
             metadata: {
@@ -427,7 +427,7 @@ module AiTestHelpers
 
         failed_count.times do
           create(:ai_agent_execution, :failed,
-            ai_agent: agent,
+            agent: agent,
             account: account,
             created_at: date,
             metadata: { error_type: [ 'timeout', 'rate_limit', 'invalid_input' ].sample })

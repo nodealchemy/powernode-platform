@@ -14,7 +14,7 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
   let!(:openai_credential) do
     create(:ai_provider_credential,
            account: account,
-           ai_provider: openai_provider,
+           provider: openai_provider,
            credentials: { api_key: 'sk-test123' },
            is_active: true,
            is_default: true)
@@ -23,7 +23,7 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
   let!(:anthropic_credential) do
     create(:ai_provider_credential,
            account: account,
-           ai_provider: anthropic_provider,
+           provider: anthropic_provider,
            credentials: { api_key: 'ant-test123' },
            is_active: true)
   end
@@ -32,7 +32,7 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
   let!(:ai_agent) do
     create(:ai_agent,
            account: account,
-           ai_provider: openai_provider,
+           provider: openai_provider,
            name: 'Test Orchestration Agent',
            agent_type: 'assistant')
   end
@@ -48,7 +48,7 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
 
   let!(:workflow_node) do
     create(:ai_workflow_node,
-           ai_workflow: ai_workflow,
+           workflow: ai_workflow,
            node_type: 'ai_agent',
            name: 'Agent Node',
            position: { x: 100, y: 100 })
@@ -108,7 +108,7 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
 
   describe 'Provider Orchestration' do
     it 'tests provider connectivity' do
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 100 })
 
       post "/api/v1/ai/providers/#{openai_provider.id}/credentials/#{openai_credential.id}/test"
@@ -129,9 +129,9 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
 
   describe 'Agent Orchestration' do
     it 'executes agent' do
-      mock_execution = build_stubbed(:ai_agent_execution, ai_agent: ai_agent, account: account)
-      allow_any_instance_of(AiAgent).to receive(:mcp_available?).and_return(true)
-      allow_any_instance_of(AiAgent).to receive(:execute).and_return(mock_execution)
+      mock_execution = build_stubbed(:ai_agent_execution, agent: ai_agent, account: account)
+      allow_any_instance_of(Ai::Agent).to receive(:mcp_available?).and_return(true)
+      allow_any_instance_of(Ai::Agent).to receive(:execute).and_return(mock_execution)
 
       post "/api/v1/ai/agents/#{ai_agent.id}/execute", params: {
         input_parameters: { prompt: 'Test orchestration' }
@@ -175,7 +175,7 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
 
     it 'agent can be used in workflow node' do
       expect(ai_agent).to be_persisted
-      expect(ai_workflow.ai_workflow_nodes.count).to be >= 1
+      expect(ai_workflow.nodes.count).to be >= 1
     end
 
     it 'workflow references correct account scope' do

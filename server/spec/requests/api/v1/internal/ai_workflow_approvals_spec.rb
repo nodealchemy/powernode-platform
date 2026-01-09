@@ -6,12 +6,12 @@ RSpec.describe 'Api::V1::Internal::AiWorkflowApprovals', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:workflow) { create(:ai_workflow, account: account) }
-  let(:workflow_node) { create(:ai_workflow_node, :human_approval, ai_workflow: workflow) }
-  let(:workflow_run) { create(:ai_workflow_run, ai_workflow: workflow, account: account, status: 'running') }
+  let(:workflow_node) { create(:ai_workflow_node, :human_approval, workflow: workflow) }
+  let(:workflow_run) { create(:ai_workflow_run, workflow: workflow, account: account, status: 'running') }
   let(:node_execution) do
     create(:ai_workflow_node_execution,
-           ai_workflow_run: workflow_run,
-           ai_workflow_node: workflow_node,
+           workflow_run: workflow_run,
+           node: workflow_node,
            status: 'waiting_approval',
            metadata: { 'approval_message' => 'Please approve this step' })
   end
@@ -109,29 +109,29 @@ RSpec.describe 'Api::V1::Internal::AiWorkflowApprovals', type: :request do
     context 'with expired pending tokens' do
       let!(:expired_token1) do
         create(:ai_workflow_approval_token,
-               ai_workflow_node_execution: node_execution,
+               node_execution: node_execution,
                status: 'pending',
                expires_at: 1.hour.ago)
       end
 
-      let(:other_node) { create(:ai_workflow_node, :human_approval, ai_workflow: workflow, name: 'Other Approval') }
+      let(:other_node) { create(:ai_workflow_node, :human_approval, workflow: workflow, name: 'Other Approval') }
       let(:other_execution) do
         create(:ai_workflow_node_execution,
-               ai_workflow_run: workflow_run,
-               ai_workflow_node: other_node,
+               workflow_run: workflow_run,
+               node: other_node,
                status: 'waiting_approval',
                metadata: { 'approval_message' => 'Approve this too' })
       end
       let!(:expired_token2) do
         create(:ai_workflow_approval_token,
-               ai_workflow_node_execution: other_execution,
+               node_execution: other_execution,
                status: 'pending',
                expires_at: 2.hours.ago)
       end
 
       before do
         # Mock approve_execution! to avoid triggering full workflow logic
-        allow_any_instance_of(AiWorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
+        allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
       end
 
       it 'expires the stale tokens' do
@@ -168,21 +168,21 @@ RSpec.describe 'Api::V1::Internal::AiWorkflowApprovals', type: :request do
     context 'with mixed token states' do
       let!(:expired_token) do
         create(:ai_workflow_approval_token,
-               ai_workflow_node_execution: node_execution,
+               node_execution: node_execution,
                status: 'pending',
                expires_at: 1.hour.ago)
       end
 
       let!(:valid_token) do
         create(:ai_workflow_approval_token,
-               ai_workflow_node_execution: node_execution,
+               node_execution: node_execution,
                status: 'pending',
                expires_at: 1.day.from_now,
                recipient_email: 'other@example.com')
       end
 
       before do
-        allow_any_instance_of(AiWorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
+        allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:approve_execution!).and_return(true)
       end
 
       it 'only expires stale tokens' do
@@ -207,7 +207,7 @@ RSpec.describe 'Api::V1::Internal::AiWorkflowApprovals', type: :request do
     context 'with already used tokens' do
       let!(:approved_token) do
         create(:ai_workflow_approval_token,
-               ai_workflow_node_execution: node_execution,
+               node_execution: node_execution,
                status: 'approved',
                expires_at: 1.hour.ago,
                responded_at: 2.hours.ago)

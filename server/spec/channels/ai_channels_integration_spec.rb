@@ -81,7 +81,7 @@ RSpec.describe 'AI Channels Integration', type: :integration do
       }
 
       # Mock workflow execution
-      created_workflow = AiWorkflow.find(created_workflow_id)
+      created_workflow = Ai::Workflow.find(created_workflow_id)
       mock_run = instance_double(AiWorkflowRun,
         persisted?: true,
         run_id: 'integration-run-123',
@@ -176,7 +176,7 @@ RSpec.describe 'AI Channels Integration', type: :integration do
   end
 
   describe 'agent execution monitoring integration' do
-    let(:ai_execution) { create(:ai_agent_execution, ai_agent: ai_agent, account: account, user: user) }
+    let(:ai_execution) { create(:ai_agent_execution, agent: ai_agent, account: account, user: user) }
 
     it 'coordinates agent execution updates across channels' do
       # Connect to orchestration monitoring

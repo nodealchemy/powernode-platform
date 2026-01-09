@@ -143,12 +143,12 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
       it 'creates new workflow' do
         expect {
           post :create, params: valid_workflow_params
-        }.to change { AiWorkflow.count }.by(1)
+        }.to change { Ai::Workflow.count }.by(1)
 
         expect(response).to have_http_status(:created)
         expect(json_response['success']).to be true
 
-        created_workflow = AiWorkflow.last
+        created_workflow = Ai::Workflow.last
         expect(created_workflow.name).to eq('New Test Workflow')
         expect(created_workflow.account).to eq(account)
         expect(created_workflow.creator).to eq(user)
@@ -157,9 +157,9 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
       it 'creates audit log entry' do
         expect {
           post :create, params: valid_workflow_params
-        }.to change { AuditLog.where(resource_type: 'AiWorkflow').count }.by(1)
+        }.to change { AuditLog.where(resource_type: 'Ai::Workflow').count }.by(1)
 
-        audit_log = AuditLog.where(resource_type: 'AiWorkflow').last
+        audit_log = AuditLog.where(resource_type: 'Ai::Workflow').last
         expect(audit_log.action).to eq('ai.workflows.create')
       end
     end
@@ -215,9 +215,9 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
       it 'creates audit log entry' do
         expect {
           patch :update, params: update_params
-        }.to change { AuditLog.where(resource_type: 'AiWorkflow').count }.by(1)
+        }.to change { AuditLog.where(resource_type: 'Ai::Workflow').count }.by(1)
 
-        audit_log = AuditLog.where(resource_type: 'AiWorkflow').last
+        audit_log = AuditLog.where(resource_type: 'Ai::Workflow').last
         expect(audit_log.action).to eq('ai.workflows.update')
       end
     end
@@ -226,7 +226,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
   describe 'DELETE #destroy' do
     context 'with valid workflow' do
       it 'deletes workflow when it can be deleted' do
-        allow_any_instance_of(AiWorkflow).to receive(:can_delete?).and_return(true)
+        allow_any_instance_of(Ai::Workflow).to receive(:can_delete?).and_return(true)
 
         workflow_id = workflow.id
 
@@ -234,11 +234,11 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
 
         expect(response).to have_http_status(:ok)
         expect(json_response['success']).to be true
-        expect(AiWorkflow.exists?(workflow_id)).to be false
+        expect(Ai::Workflow.exists?(workflow_id)).to be false
       end
 
       it 'prevents deletion when workflow has active runs' do
-        allow_any_instance_of(AiWorkflow).to receive(:can_delete?).and_return(false)
+        allow_any_instance_of(Ai::Workflow).to receive(:can_delete?).and_return(false)
 
         delete :destroy, params: { id: workflow.id }
 
@@ -264,13 +264,13 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
             input_variables: { key: 'value' },
             trigger_type: 'manual'
           }
-        }.to change { AiWorkflowRun.count }.by(1)
+        }.to change { Ai::WorkflowRun.count }.by(1)
 
         expect(response).to have_http_status(:created)
         expect(json_response['success']).to be true
         expect(json_response['data']).to include('workflow_run', 'execution_url')
 
-        run = AiWorkflowRun.last
+        run = Ai::WorkflowRun.last
         expect(run.status).to eq('initializing')
         expect(run.input_variables).to eq({ 'key' => 'value' })
         expect(run.trigger_type).to eq('manual')
@@ -305,12 +305,12 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
     it 'duplicates workflow' do
       expect {
         post :duplicate, params: { id: workflow.id }
-      }.to change { AiWorkflow.count }.by(1)
+      }.to change { Ai::Workflow.count }.by(1)
 
       expect(response).to have_http_status(:created)
       expect(json_response['success']).to be true
 
-      duplicated = AiWorkflow.last
+      duplicated = Ai::Workflow.last
       expect(duplicated.name).to eq('Test Workflow (Copy)')
       expect(duplicated.account).to eq(account)
       expect(duplicated.creator).to eq(user)
@@ -319,7 +319,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
 
   describe 'GET #validate' do
     it 'validates workflow structure' do
-      allow_any_instance_of(AiWorkflow).to receive(:validate_structure)
+      allow_any_instance_of(Ai::Workflow).to receive(:validate_structure)
         .and_return({ valid: true })
 
       get :validate, params: { id: workflow.id }
@@ -329,7 +329,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
     end
 
     it 'returns validation errors' do
-      allow_any_instance_of(AiWorkflow).to receive(:validate_structure)
+      allow_any_instance_of(Ai::Workflow).to receive(:validate_structure)
         .and_return({
           valid: false,
           errors: [ 'Missing start node' ],
@@ -370,7 +370,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
     end
 
     it 'imports workflow from data' do
-      allow(AiWorkflow).to receive(:import_from_data).and_return(
+      allow(Ai::Workflow).to receive(:import_from_data).and_return(
         create(:ai_workflow, account: account, creator: user)
       )
 
@@ -421,7 +421,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
   end
 
   describe 'nested workflow runs' do
-    let!(:workflow_run) { create(:ai_workflow_run, ai_workflow: workflow, account: account, triggered_by_user: user) }
+    let!(:workflow_run) { create(:ai_workflow_run, workflow: workflow, account: account, triggered_by_user: user) }
 
     describe 'GET #runs_index' do
       it 'returns runs for specific workflow' do
@@ -479,7 +479,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
         delete :run_destroy, params: { workflow_id: workflow.id, run_id: run_id }
 
         expect(response).to have_http_status(:ok)
-        expect(AiWorkflowRun.exists?(id: workflow_run.id)).to be false
+        expect(Ai::WorkflowRun.exists?(id: workflow_run.id)).to be false
       end
 
       it 'prevents deletion of running workflow' do
@@ -495,8 +495,8 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
     describe 'POST #run_cancel' do
       before do
         workflow_run.update!(status: 'running')
-        allow_any_instance_of(AiWorkflowRun).to receive(:can_cancel?).and_return(true)
-        allow_any_instance_of(AiWorkflowRun).to receive(:cancel!).and_return(true)
+        allow_any_instance_of(Ai::WorkflowRun).to receive(:can_cancel?).and_return(true)
+        allow_any_instance_of(Ai::WorkflowRun).to receive(:cancel!).and_return(true)
       end
 
       it 'cancels running workflow run' do
@@ -518,9 +518,9 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
           completed_at: Time.current,
           error_details: { message: 'Test error' }
         )
-        allow_any_instance_of(AiWorkflowRun).to receive(:can_retry?).and_return(true)
-        allow_any_instance_of(AiWorkflowRun).to receive(:retry!).and_return(
-          create(:ai_workflow_run, ai_workflow: workflow, account: account, triggered_by_user: user)
+        allow_any_instance_of(Ai::WorkflowRun).to receive(:can_retry?).and_return(true)
+        allow_any_instance_of(Ai::WorkflowRun).to receive(:retry!).and_return(
+          create(:ai_workflow_run, workflow: workflow, account: account, triggered_by_user: user)
         )
       end
 
@@ -533,7 +533,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
     end
 
     describe 'GET #run_logs' do
-      let!(:log) { create(:ai_workflow_run_log, ai_workflow_run: workflow_run) }
+      let!(:log) { create(:ai_workflow_run_log, workflow_run: workflow_run) }
 
       it 'returns workflow run logs' do
         get :run_logs, params: { workflow_id: workflow.id, run_id: workflow_run.run_id }
@@ -546,7 +546,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
     end
 
     describe 'GET #run_node_executions' do
-      let!(:node_execution) { create(:ai_workflow_node_execution, ai_workflow_run: workflow_run) }
+      let!(:node_execution) { create(:ai_workflow_node_execution, workflow_run: workflow_run) }
 
       it 'returns node executions for workflow run' do
         get :run_node_executions, params: { workflow_id: workflow.id, run_id: workflow_run.run_id }
@@ -560,7 +560,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
 
     describe 'GET #run_metrics' do
       it 'returns workflow run metrics' do
-        allow_any_instance_of(AiWorkflowRun).to receive(:calculate_execution_metrics)
+        allow_any_instance_of(Ai::WorkflowRun).to receive(:calculate_execution_metrics)
           .and_return({
             total_nodes: 5,
             completed_nodes: 3,
