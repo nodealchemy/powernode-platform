@@ -8,7 +8,7 @@ module Mcp
     # including annotations, detailed output, and live updates.
     #
     # Configuration:
-    # - repository_id: UUID of GitRepository
+    # - repository_id: UUID of Git::Repository
     # - sha: Git commit SHA to create check for
     # - name: Check run name (required)
     # - status: Check status (queued, in_progress, completed)
@@ -109,7 +109,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = GitRepository.find_by(id: repository_id)
+        repository = Git::Repository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end

@@ -6,8 +6,6 @@ module CiCd
   class Schedule < ApplicationRecord
     include Schedulable
 
-    self.table_name = "ci_cd_schedules"
-
     # ============================================
     # Associations
     # ============================================

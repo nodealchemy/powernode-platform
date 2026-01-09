@@ -4,8 +4,6 @@
 # Manages priority ordering, capabilities, and lead designation
 module Ai
   class AgentTeamMember < ApplicationRecord
-    self.table_name = "ai_agent_team_members"
-
     # ==========================================
     # Constants
     # ==========================================

@@ -8,7 +8,7 @@ class Rack::Attack
   # Enable rate limiting in all environments (can be disabled via env var or admin settings)
   Rails.application.config.rate_limiting_enabled = !Rails.env.test? && (
     begin
-      SystemSettingsService.rate_limiting_enabled?
+      System::SettingsService.rate_limiting_enabled?
     rescue StandardError
       ENV["DISABLE_RATE_LIMITING"] != "true" # Fallback to env var if service fails
     end
@@ -20,7 +20,7 @@ class Rack::Attack
 
   # Helper method to get rate limits from system settings
   def self.get_rate_limit(setting_key, fallback_limit)
-    SystemSettingsService.rate_limit_setting(setting_key) || fallback_limit
+    System::SettingsService.rate_limit_setting(setting_key) || fallback_limit
   rescue StandardError
     fallback_limit
   end
@@ -65,8 +65,8 @@ class Rack::Attack
   def self.tier_based_limit(account, limit_type)
     return 999_999 unless rate_limiting_enabled?
 
-    tier = TieredRateLimitService.tier_for_account(account)
-    config = TieredRateLimitService.tier_config(tier)
+    tier = RateLimiting::TieredService.tier_for_account(account)
+    config = RateLimiting::TieredService.tier_config(tier)
     config[limit_type.to_sym] || 999_999
   end
 
@@ -332,8 +332,8 @@ class Rack::Attack
 
     # Try to get tier-specific info
     account = extract_account_from_request(request)
-    tier = account ? TieredRateLimitService.tier_for_account(account) : :free
-    tier_config = TieredRateLimitService.tier_config(tier)
+    tier = account ? RateLimiting::TieredService.tier_for_account(account) : :free
+    tier_config = RateLimiting::TieredService.tier_config(tier)
 
     headers = {
       "Content-Type" => "application/json",

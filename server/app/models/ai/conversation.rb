@@ -2,8 +2,6 @@
 
 module Ai
   class Conversation < ApplicationRecord
-    self.table_name = "ai_conversations"
-
     # Authentication
     # Belongs to account - access controlled through account ownership
 

@@ -4,8 +4,6 @@ module CiCd
   # Individual step configuration within a pipeline
   # Defines step type, inputs, outputs, and execution conditions
   class PipelineStep < ApplicationRecord
-    self.table_name = 'ci_cd_pipeline_steps'
-
     STEP_TYPES = %w[
       checkout
       claude_execute

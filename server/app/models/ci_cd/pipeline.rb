@@ -4,8 +4,6 @@ module CiCd
   # Pipeline definition for CI/CD workflows
   # Stores trigger configuration, steps, and execution settings
   class Pipeline < ApplicationRecord
-    self.table_name = 'ci_cd_pipelines'
-
     # ============================================
     # Associations
     # ============================================

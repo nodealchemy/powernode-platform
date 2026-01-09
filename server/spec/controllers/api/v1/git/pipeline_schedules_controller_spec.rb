@@ -16,8 +16,8 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
   let(:user_without_permissions) { create(:user, account: account, permissions: []) }
 
   let(:provider) { create(:git_provider, :github) }
-  let(:credential) { create(:git_provider_credential, git_provider: provider, account: account) }
-  let(:repository) { create(:git_repository, git_provider_credential: credential, account: account) }
+  let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
+  let(:repository) { create(:git_repository, credential: credential, account: account) }
 
   before do
     @request.headers['Content-Type'] = 'application/json'
@@ -29,8 +29,8 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
   # =============================================================================
 
   describe 'GET #index' do
-    let!(:schedule1) { create(:git_pipeline_schedule, :active, git_repository: repository, account: account) }
-    let!(:schedule2) { create(:git_pipeline_schedule, :inactive, git_repository: repository, account: account) }
+    let!(:schedule1) { create(:git_pipeline_schedule, :active, repository: repository, account: account) }
+    let!(:schedule2) { create(:git_pipeline_schedule, :inactive, repository: repository, account: account) }
 
     context 'with valid permissions' do
       before { sign_in schedule_read_user }
@@ -105,7 +105,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
   # =============================================================================
 
   describe 'GET #show' do
-    let(:schedule) { create(:git_pipeline_schedule, :with_history, git_repository: repository, account: account) }
+    let(:schedule) { create(:git_pipeline_schedule, :with_history, repository: repository, account: account) }
 
     context 'with valid permissions' do
       before { sign_in schedule_read_user }
@@ -177,7 +177,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
       it 'creates a new schedule' do
         expect {
           post :create, params: valid_params
-        }.to change(GitPipelineSchedule, :count).by(1)
+        }.to change(Git::PipelineSchedule, :count).by(1)
 
         expect(response).to have_http_status(:created)
         json = JSON.parse(response.body)
@@ -187,14 +187,14 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
       it 'sets created_by to current user' do
         post :create, params: valid_params
 
-        schedule = GitPipelineSchedule.last
+        schedule = Git::PipelineSchedule.last
         expect(schedule.created_by).to eq(schedule_manage_user)
       end
 
       it 'sets account' do
         post :create, params: valid_params
 
-        schedule = GitPipelineSchedule.last
+        schedule = Git::PipelineSchedule.last
         expect(schedule.account).to eq(account)
       end
 
@@ -235,7 +235,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
   # =============================================================================
 
   describe 'PUT #update' do
-    let(:schedule) { create(:git_pipeline_schedule, git_repository: repository, account: account) }
+    let(:schedule) { create(:git_pipeline_schedule, repository: repository, account: account) }
 
     context 'with valid permissions' do
       before { sign_in schedule_manage_user }
@@ -272,7 +272,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
   # =============================================================================
 
   describe 'DELETE #destroy' do
-    let!(:schedule) { create(:git_pipeline_schedule, git_repository: repository, account: account) }
+    let!(:schedule) { create(:git_pipeline_schedule, repository: repository, account: account) }
 
     context 'with valid permissions' do
       before { sign_in schedule_manage_user }
@@ -280,7 +280,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
       it 'deletes the schedule' do
         expect {
           delete :destroy, params: { id: schedule.id }
-        }.to change(GitPipelineSchedule, :count).by(-1)
+        }.to change(Git::PipelineSchedule, :count).by(-1)
 
         expect(response).to have_http_status(:success)
       end
@@ -302,7 +302,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
   # =============================================================================
 
   describe 'POST #trigger' do
-    let(:schedule) { create(:git_pipeline_schedule, git_repository: repository, account: account) }
+    let(:schedule) { create(:git_pipeline_schedule, repository: repository, account: account) }
     let(:mock_client) { double('GitApiClient') }
 
     before do
@@ -365,7 +365,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
   # =============================================================================
 
   describe 'POST #pause' do
-    let(:schedule) { create(:git_pipeline_schedule, :active, git_repository: repository, account: account) }
+    let(:schedule) { create(:git_pipeline_schedule, :active, repository: repository, account: account) }
 
     context 'with valid permissions' do
       before { sign_in schedule_manage_user }
@@ -396,7 +396,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
   # =============================================================================
 
   describe 'POST #resume' do
-    let(:schedule) { create(:git_pipeline_schedule, :inactive, git_repository: repository, account: account) }
+    let(:schedule) { create(:git_pipeline_schedule, :inactive, repository: repository, account: account) }
 
     context 'with valid permissions' do
       before { sign_in schedule_manage_user }

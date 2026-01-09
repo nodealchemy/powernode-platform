@@ -23,7 +23,7 @@ module Api
         # or GET /api/v1/ai/workflows/:workflow_id/triggers/:trigger_id/git_triggers
         def index
           git_triggers = @ai_workflow_trigger.git_workflow_triggers
-                                            .includes(:git_repository)
+                                            .includes(:repository)
                                             .order(created_at: :desc)
 
           render_success({
@@ -111,9 +111,9 @@ module Api
         # GET /api/v1/ai/workflows/:workflow_id/git_triggers
         # List all git triggers across all workflow triggers for a workflow
         def workflow_index
-          git_triggers = GitWorkflowTrigger.joins(:ai_workflow_trigger)
+          git_triggers = ::Git::WorkflowTrigger.joins(:ai_workflow_trigger)
                                           .where(ai_workflow_triggers: { ai_workflow_id: @workflow.id })
-                                          .includes(:git_repository, :ai_workflow_trigger)
+                                          .includes(:repository, :ai_workflow_trigger)
                                           .order(created_at: :desc)
 
           render_success({
@@ -126,9 +126,9 @@ module Api
         # List available git event types for documentation
         def event_types
           render_success({
-            event_types: GitWorkflowTrigger::GIT_EVENT_TYPES,
-            pr_actions: GitWorkflowTrigger::PR_ACTIONS,
-            workflow_conclusions: GitWorkflowTrigger::WORKFLOW_CONCLUSIONS
+            event_types: ::Git::WorkflowTrigger::GIT_EVENT_TYPES,
+            pr_actions: ::Git::WorkflowTrigger::PR_ACTIONS,
+            workflow_conclusions: ::Git::WorkflowTrigger::WORKFLOW_CONCLUSIONS
           })
         end
 
@@ -156,7 +156,7 @@ module Api
 
         def set_git_trigger
           # Support both flat routes (id as param) and nested routes
-          @git_trigger = GitWorkflowTrigger.joins(ai_workflow_trigger: :workflow)
+          @git_trigger = ::Git::WorkflowTrigger.joins(ai_workflow_trigger: :workflow)
                                           .where(ai_workflows: { account_id: current_user.account_id })
                                           .find(params[:id])
           @ai_workflow_trigger = @git_trigger.ai_workflow_trigger
@@ -300,7 +300,7 @@ module Api
         end
 
         def build_mock_event(payload)
-          # Create a mock GitWebhookEvent-like object for testing
+          # Create a mock ::Git::WebhookEvent-like object for testing
           MockWebhookEvent.new(
             event_type: @git_trigger.event_type,
             provider: @git_trigger.git_repository&.git_provider_credential&.git_provider&.provider_type || "github",

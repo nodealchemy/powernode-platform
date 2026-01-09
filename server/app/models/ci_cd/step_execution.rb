@@ -6,8 +6,6 @@ module CiCd
   class StepExecution < ApplicationRecord
     include ExecutionTrackable
 
-    self.table_name = "ci_cd_step_executions"
-
     STATUSES = %w[pending running waiting_approval success failure skipped].freeze
 
     # ============================================

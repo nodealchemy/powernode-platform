@@ -2,8 +2,6 @@
 
 module Ai
   class WorkflowCompensation < ApplicationRecord
-    self.table_name = "ai_workflow_compensations"
-
     # Associations
     belongs_to :workflow_run, class_name: "Ai::WorkflowRun", foreign_key: "ai_workflow_run_id"
     belongs_to :node_execution, class_name: "Ai::WorkflowNodeExecution",

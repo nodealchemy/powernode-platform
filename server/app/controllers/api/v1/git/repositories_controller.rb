@@ -16,7 +16,7 @@ module Api
         # GET /api/v1/git/repositories
         def index
           repositories = current_user.account.git_repositories
-                          .includes(:git_provider_credential, git_provider_credential: :git_provider)
+                          .includes(:credential, credential: :provider)
 
           # Apply filters
           repositories = apply_filters(repositories)
@@ -155,7 +155,7 @@ module Api
 
         # GET /api/v1/git/repositories/:id/pipelines
         def pipelines
-          pipelines = @repository.git_pipelines
+          pipelines = @repository.pipelines
                         .order(created_at: :desc)
 
           # Apply filters
@@ -170,7 +170,7 @@ module Api
           pipelines = pipelines.offset((page - 1) * per_page).limit(per_page)
 
           # Calculate stats with a single optimized query to prevent N+1
-          base_pipelines = @repository.git_pipelines
+          base_pipelines = @repository.pipelines
           stats_data = base_pipelines.select(
             "COUNT(*) as total_runs",
             "COUNT(CASE WHEN conclusion = 'success' THEN 1 END) as success_count",
@@ -321,7 +321,7 @@ module Api
 
         def set_repository
           @repository = current_user.account.git_repositories
-                          .includes(:git_provider_credential, git_provider_credential: :git_provider)
+                          .includes(:credential, credential: :provider)
                           .find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Repository not found", status: :not_found)

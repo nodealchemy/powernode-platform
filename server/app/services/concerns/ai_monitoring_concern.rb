@@ -9,7 +9,7 @@
 # - Performance tracking
 #
 # Usage:
-#   class UnifiedMonitoringService
+#   class Monitoring::UnifiedService
 #     include BaseAiService
 #     include AiMonitoringConcern
 #
@@ -448,7 +448,7 @@ module AiMonitoringConcern
   end
 
   def alerting_service
-    @alerting_service ||= AlertingService.new
+    @alerting_service ||= Monitoring::AlertingService.new
   end
 
   def apply_alert_filters(alerts, filters)

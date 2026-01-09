@@ -17,7 +17,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
   let(:user_without_permissions) { create(:user, account: account, permissions: []) }
 
   let(:provider) { create(:git_provider, :github) }
-  let(:credential) { create(:git_provider_credential, git_provider: provider, account: account) }
+  let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
 
   before do
     @request.headers['Content-Type'] = 'application/json'
@@ -29,8 +29,8 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
   # =============================================================================
 
   describe 'GET #index' do
-    let!(:repo1) { create(:git_repository, git_provider_credential: credential, account: account) }
-    let!(:repo2) { create(:git_repository, git_provider_credential: credential, account: account) }
+    let!(:repo1) { create(:git_repository, credential: credential, account: account) }
+    let!(:repo2) { create(:git_repository, credential: credential, account: account) }
     let!(:other_repo) { create(:git_repository) }
 
     context 'with valid permissions' do
@@ -54,8 +54,8 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
       end
 
       it 'filters by credential_id' do
-        other_credential = create(:git_provider_credential, git_provider: provider, account: account)
-        other_cred_repo = create(:git_repository, git_provider_credential: other_credential, account: account)
+        other_credential = create(:git_provider_credential, provider: provider, account: account)
+        other_cred_repo = create(:git_repository, credential: other_credential, account: account)
 
         get :index, params: { credential_id: credential.id }
 
@@ -66,7 +66,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
       end
 
       it 'filters by visibility' do
-        private_repo = create(:git_repository, :private, git_provider_credential: credential, account: account)
+        private_repo = create(:git_repository, :private, credential: credential, account: account)
 
         get :index, params: { visibility: 'private' }
 
@@ -106,7 +106,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
   end
 
   describe 'GET #show' do
-    let(:repo) { create(:git_repository, git_provider_credential: credential, account: account) }
+    let(:repo) { create(:git_repository, credential: credential, account: account) }
 
     context 'with valid permissions' do
       before { sign_in repo_read_user }
@@ -182,10 +182,10 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
   # =============================================================================
 
   describe 'POST #configure_webhook' do
-    let(:repo) { create(:git_repository, git_provider_credential: credential, account: account) }
+    let(:repo) { create(:git_repository, credential: credential, account: account) }
 
     before do
-      allow_any_instance_of(GitRepository).to receive(:configure_webhook!).and_return({
+      allow_any_instance_of(Git::Repository).to receive(:configure_webhook!).and_return({
         success: true,
         webhook_id: 'webhook_123'
       })
@@ -215,10 +215,10 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
   end
 
   describe 'DELETE #remove_webhook' do
-    let(:repo) { create(:git_repository, :with_webhook, git_provider_credential: credential, account: account) }
+    let(:repo) { create(:git_repository, :with_webhook, credential: credential, account: account) }
 
     before do
-      allow_any_instance_of(GitRepository).to receive(:remove_webhook!).and_return({
+      allow_any_instance_of(Git::Repository).to receive(:remove_webhook!).and_return({
         success: true
       })
     end
@@ -239,7 +239,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
   # =============================================================================
 
   describe 'GET #branches' do
-    let(:repo) { create(:git_repository, git_provider_credential: credential, account: account) }
+    let(:repo) { create(:git_repository, credential: credential, account: account) }
     let(:mock_client) { double('GitApiClient') }
 
     before do
@@ -264,7 +264,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
   end
 
   describe 'GET #commits' do
-    let(:repo) { create(:git_repository, git_provider_credential: credential, account: account) }
+    let(:repo) { create(:git_repository, credential: credential, account: account) }
     let(:mock_client) { double('GitApiClient') }
 
     before do
@@ -295,7 +295,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
   end
 
   describe 'GET #pull_requests' do
-    let(:repo) { create(:git_repository, git_provider_credential: credential, account: account) }
+    let(:repo) { create(:git_repository, credential: credential, account: account) }
     let(:mock_client) { double('GitApiClient') }
 
     before do
@@ -319,7 +319,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
   end
 
   describe 'DELETE #destroy' do
-    let!(:repo) { create(:git_repository, git_provider_credential: credential, account: account) }
+    let!(:repo) { create(:git_repository, credential: credential, account: account) }
 
     context 'with valid permissions' do
       before { sign_in repo_manage_user }
@@ -327,7 +327,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
       it 'deletes the repository record' do
         expect {
           delete :destroy, params: { id: repo.id }
-        }.to change(GitRepository, :count).by(-1)
+        }.to change(Git::Repository, :count).by(-1)
 
         expect(response).to have_http_status(:success)
       end

@@ -50,8 +50,8 @@ module Mcp
       @monitor = Mcp::WorkflowMonitor.new(workflow_run: @workflow_run)
 
       # Initialize MCP protocol services
-      @mcp_protocol = McpProtocolService.new(account: @account)
-      @mcp_registry = McpRegistryService.new(account: @account)
+      @mcp_protocol = Mcp::ProtocolService.new(account: @account)
+      @mcp_registry = Mcp::RegistryService.new(account: @account)
 
       # Execution state tracking
       @execution_state = {}

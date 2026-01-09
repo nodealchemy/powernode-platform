@@ -10,7 +10,7 @@ module Mcp
     # - create_run: Directly create a workflow run (GitLab CI)
     #
     # Configuration:
-    # - repository_id: UUID of GitRepository to trigger on
+    # - repository_id: UUID of Git::Repository to trigger on
     # - workflow_id: ID/path of the workflow to trigger
     # - ref: Git ref (branch/tag) to trigger on
     # - trigger_action: Type of trigger (workflow_dispatch, repository_dispatch, create_run)
@@ -62,7 +62,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = GitRepository.find_by(id: repository_id)
+        repository = Git::Repository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end

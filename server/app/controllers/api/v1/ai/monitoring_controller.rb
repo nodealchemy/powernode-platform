@@ -12,7 +12,7 @@
 #
 # Architecture:
 # - Primary resource: Monitoring Dashboard
-# - Integrates with UnifiedMonitoringService (Phase 1)
+# - Integrates with Monitoring::UnifiedService (Phase 1)
 # - Circuit breaker management
 # - Real-time metrics broadcasting
 # - Comprehensive health checking
@@ -35,7 +35,7 @@ module Api
         # GET /api/v1/ai/monitoring/dashboard
         def dashboard
           account = current_account
-          service = UnifiedMonitoringService.new(account: account)
+          service = Monitoring::UnifiedService.new(account: account)
           dashboard_data = service.get_dashboard(
             time_range: @time_range,
             components: @components
@@ -51,7 +51,7 @@ module Api
 
         # GET /api/v1/ai/monitoring/metrics
         def metrics
-          service = UnifiedMonitoringService.new(account: current_user.account)
+          service = Monitoring::UnifiedService.new(account: current_user.account)
 
           # Collect specific component metrics
           metrics_data = {}
@@ -68,7 +68,7 @@ module Api
 
         # GET /api/v1/ai/monitoring/overview
         def overview
-          service = UnifiedMonitoringService.new(account: current_user.account)
+          service = Monitoring::UnifiedService.new(account: current_user.account)
 
           overview_data = service.get_system_overview
           health_score = service.calculate_health_score
@@ -152,7 +152,7 @@ module Api
 
         # GET /api/v1/ai/monitoring/alerts
         def alerts
-          service = UnifiedMonitoringService.new(account: current_user.account)
+          service = Monitoring::UnifiedService.new(account: current_user.account)
 
           filters = {
             severity: params[:severity],
@@ -175,7 +175,7 @@ module Api
 
         # POST /api/v1/ai/monitoring/alerts/check
         def alerts_check
-          service = UnifiedMonitoringService.new(account: current_user.account)
+          service = Monitoring::UnifiedService.new(account: current_user.account)
           triggered_alerts = service.check_and_trigger_alerts
 
           render_success({
@@ -344,7 +344,7 @@ module Api
           account_id = params[:account_id]
 
           account = Account.find(account_id)
-          service = UnifiedMonitoringService.new(account: account)
+          service = Monitoring::UnifiedService.new(account: account)
 
           # Generate real-time metrics
           metrics = service.get_dashboard(time_range: 1.hour, components: %w[system providers agents workflows])
@@ -453,9 +453,9 @@ module Api
         def set_components
           # Default to all components if not specified
           @components = if params[:components].present?
-                         params[:components].split(",").map(&:strip) & UnifiedMonitoringService::COMPONENTS
+                         params[:components].split(",").map(&:strip) & Monitoring::UnifiedService::COMPONENTS
           else
-                         UnifiedMonitoringService::COMPONENTS
+                         Monitoring::UnifiedService::COMPONENTS
           end
         end
 

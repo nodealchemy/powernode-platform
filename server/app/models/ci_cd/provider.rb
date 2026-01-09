@@ -4,8 +4,6 @@ module CiCd
   # Git provider configuration (Gitea, GitHub, GitLab, Jenkins)
   # Stores connection details and credentials for CI/CD integrations
   class Provider < ApplicationRecord
-    self.table_name = 'ci_cd_providers'
-
     # ============================================
     # Associations
     # ============================================

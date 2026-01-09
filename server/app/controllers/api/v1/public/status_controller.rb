@@ -13,7 +13,7 @@ module Api
         # GET /api/v1/public/status
         # Returns the current system status
         def index
-          status_service = SystemStatusService.new
+          status_service = System::StatusService.new
           status_data = status_service.system_status
 
           render_success(
@@ -25,7 +25,7 @@ module Api
         # GET /api/v1/public/status/summary
         # Returns a simplified status summary
         def summary
-          status_service = SystemStatusService.new
+          status_service = System::StatusService.new
           status_data = status_service.system_status
 
           summary_data = {

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
-RSpec.describe PaypalWebhookVerifier do
+RSpec.describe Billing::PaypalWebhookVerifier do
   let(:webhook_headers) do
     {
       'PAYPAL-AUTH-ALGO' => 'SHA256withRSA',

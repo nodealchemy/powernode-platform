@@ -8,7 +8,7 @@ module Mcp
     # enabling workflow results to appear on pull requests.
     #
     # Configuration:
-    # - repository_id: UUID of GitRepository
+    # - repository_id: UUID of Git::Repository
     # - sha: Git commit SHA to update status for
     # - state: Status state (pending, success, failure, error)
     # - context: Status context/name (default: "powernode/workflow")
@@ -73,7 +73,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = GitRepository.find_by(id: repository_id)
+        repository = Git::Repository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end

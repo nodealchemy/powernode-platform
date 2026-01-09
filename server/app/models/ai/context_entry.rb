@@ -2,8 +2,6 @@
 
 module Ai
   class ContextEntry < ApplicationRecord
-    self.table_name = "ai_context_entries"
-
     # ==================== Concerns ====================
     include Auditable
 

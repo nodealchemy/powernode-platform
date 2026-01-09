@@ -2,8 +2,6 @@
 
 module Ai
   class WorkflowNodeExecution < ApplicationRecord
-    self.table_name = "ai_workflow_node_executions"
-
     # Extracted concerns
     include Ai::WorkflowNodeExecution::StatusChecks
     include Ai::WorkflowNodeExecution::ExecutionControl

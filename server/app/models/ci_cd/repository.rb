@@ -4,8 +4,6 @@ module CiCd
   # Repository configuration for CI/CD pipelines
   # Stores connection details and settings for Git repositories
   class Repository < ApplicationRecord
-    self.table_name = 'ci_cd_repositories'
-
     # ============================================
     # Associations
     # ============================================

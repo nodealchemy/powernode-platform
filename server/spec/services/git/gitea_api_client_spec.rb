@@ -7,7 +7,7 @@ RSpec.describe Git::GiteaApiClient do
   let(:provider) { create(:git_provider, :gitea) }
   let(:credential) do
     create(:git_provider_credential,
-           git_provider: provider,
+           provider: provider,
            account: account,
            auth_type: 'personal_access_token')
   end
@@ -26,7 +26,7 @@ RSpec.describe Git::GiteaApiClient do
     it 'requires a configured API base URL' do
       provider_without_url = create(:git_provider, provider_type: 'gitea', api_base_url: nil)
       credential_without_url = create(:git_provider_credential,
-                                       git_provider: provider_without_url,
+                                       provider: provider_without_url,
                                        account: account)
       allow(credential_without_url).to receive(:access_token).and_return('token')
 
@@ -442,7 +442,7 @@ RSpec.describe Git::GiteaApiClient do
   end
 
   describe '#create_webhook' do
-    let(:repository) { create(:git_repository, git_provider_credential: credential, owner: 'owner', name: 'repo') }
+    let(:repository) { create(:git_repository, credential: credential, owner: 'owner', name: 'repo') }
 
     context 'when successful' do
       before do
@@ -487,7 +487,7 @@ RSpec.describe Git::GiteaApiClient do
   describe '#delete_webhook' do
     let(:repository) do
       create(:git_repository, :with_webhook,
-             git_provider_credential: credential,
+             credential: credential,
              owner: 'owner',
              name: 'repo',
              webhook_id: '456')
@@ -520,7 +520,7 @@ RSpec.describe Git::GiteaApiClient do
     end
 
     context 'when no webhook configured' do
-      let(:repo_without_webhook) { create(:git_repository, git_provider_credential: credential, webhook_id: nil) }
+      let(:repo_without_webhook) { create(:git_repository, credential: credential, webhook_id: nil) }
 
       it 'returns error' do
         result = client.delete_webhook(repo_without_webhook)

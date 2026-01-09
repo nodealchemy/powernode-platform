@@ -2,8 +2,6 @@
 
 module Ai
   class WorkflowNode < ApplicationRecord
-    self.table_name = "ai_workflow_nodes"
-
     # Extracted concerns
     include Ai::WorkflowNode::NodeTypes
     include Ai::WorkflowNode::Connections

@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe CredentialEncryptionService do
+RSpec.describe Security::CredentialEncryptionService do
   describe '.encrypt' do
     context 'with valid credentials' do
       let(:credentials) { { api_key: 'test_key_123', token: 'secret_token' } }
@@ -58,17 +58,17 @@ RSpec.describe CredentialEncryptionService do
     context 'with invalid input' do
       it 'raises EncryptionError for non-hash input' do
         expect { described_class.encrypt('string') }
-          .to raise_error(CredentialEncryptionService::EncryptionError, /Credentials must be a Hash/)
+          .to raise_error(Security::CredentialEncryptionService::EncryptionError, /Credentials must be a Hash/)
       end
 
       it 'raises EncryptionError for empty hash' do
         expect { described_class.encrypt({}) }
-          .to raise_error(CredentialEncryptionService::EncryptionError, /Credentials cannot be empty/)
+          .to raise_error(Security::Security::CredentialEncryptionService::EncryptionError, /Credentials cannot be empty/)
       end
 
       it 'raises EncryptionError for array input' do
         expect { described_class.encrypt([ 1, 2, 3 ]) }
-          .to raise_error(CredentialEncryptionService::EncryptionError, /Credentials must be a Hash/)
+          .to raise_error(Security::Security::CredentialEncryptionService::EncryptionError, /Credentials must be a Hash/)
       end
     end
   end
@@ -105,7 +105,7 @@ RSpec.describe CredentialEncryptionService do
         encrypted = described_class.encrypt(credentials, namespace: 'mcp')
 
         expect { described_class.decrypt(encrypted, namespace: 'storage') }
-          .to raise_error(CredentialEncryptionService::DecryptionError, /Namespace mismatch/)
+          .to raise_error(Security::CredentialEncryptionService::DecryptionError, /Namespace mismatch/)
       end
 
       it 'decrypts without namespace if stored without namespace' do
@@ -124,14 +124,14 @@ RSpec.describe CredentialEncryptionService do
 
       it 'raises DecryptionError for invalid base64' do
         expect { described_class.decrypt('not_base64!@#') }
-          .to raise_error(CredentialEncryptionService::DecryptionError)
+          .to raise_error(Security::CredentialEncryptionService::DecryptionError)
       end
 
       it 'raises DecryptionError for invalid JSON in wrapper' do
         invalid = Base64.strict_encode64('not json')
 
         expect { described_class.decrypt(invalid) }
-          .to raise_error(CredentialEncryptionService::DecryptionError)
+          .to raise_error(Security::CredentialEncryptionService::DecryptionError)
       end
 
       it 'raises DecryptionError for unsupported version' do
@@ -143,7 +143,7 @@ RSpec.describe CredentialEncryptionService do
         encrypted = Base64.strict_encode64(wrapper.to_json)
 
         expect { described_class.decrypt(encrypted) }
-          .to raise_error(CredentialEncryptionService::DecryptionError, /Unsupported encryption version/)
+          .to raise_error(Security::CredentialEncryptionService::DecryptionError, /Unsupported encryption version/)
       end
     end
   end

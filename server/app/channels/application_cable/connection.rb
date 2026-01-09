@@ -18,7 +18,7 @@ module ApplicationCable
         begin
           # Try JWT authentication first (new system)
           if token.include?(".") # JWT tokens contain dots
-            payload = JwtService.decode(token)
+            payload = Security::JwtService.decode(token)
 
             # Only accept access tokens for WebSocket connections
             if payload[:type] == "access"

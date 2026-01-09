@@ -5,11 +5,11 @@ require 'rails_helper'
 RSpec.describe Api::V1::Internal::Git::WebhookEventsController, type: :controller do
   let(:account) { create(:account) }
   let(:provider) { create(:git_provider, :github) }
-  let(:credential) { create(:git_provider_credential, git_provider: provider, account: account) }
-  let(:repository) { create(:git_repository, :with_webhook, git_provider_credential: credential, account: account) }
+  let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
+  let(:repository) { create(:git_repository, :with_webhook, credential: credential, account: account) }
   let(:webhook_event) do
     create(:git_webhook_event,
-           git_repository: repository,
+           repository: repository,
            git_provider: provider,
            account: account,
            event_type: 'push',

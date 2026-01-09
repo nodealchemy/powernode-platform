@@ -141,7 +141,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       it 'creates a new provider' do
         expect {
           post :create, params: valid_params
-        }.to change(GitProvider, :count).by(1)
+        }.to change(Git::Provider, :count).by(1)
 
         expect(response).to have_http_status(:created)
         json = JSON.parse(response.body)
@@ -215,7 +215,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       it 'deletes the provider' do
         expect {
           delete :destroy, params: { id: provider.id }
-        }.to change(GitProvider, :count).by(-1)
+        }.to change(Git::Provider, :count).by(-1)
 
         expect(response).to have_http_status(:success)
       end
@@ -238,9 +238,9 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
 
   describe 'GET #credentials' do
     let(:provider) { create(:git_provider) }
-    let!(:credential1) { create(:git_provider_credential, git_provider: provider, account: account) }
-    let!(:credential2) { create(:git_provider_credential, git_provider: provider, account: account) }
-    let!(:other_account_cred) { create(:git_provider_credential, git_provider: provider) }
+    let!(:credential1) { create(:git_provider_credential, provider: provider, account: account) }
+    let!(:credential2) { create(:git_provider_credential, provider: provider, account: account) }
+    let!(:other_account_cred) { create(:git_provider_credential, provider: provider) }
 
     context 'with valid permissions' do
       before { sign_in provider_manage_user }
@@ -282,7 +282,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       it 'creates a new credential' do
         expect {
           post :create_credential, params: valid_params
-        }.to change(GitProviderCredential, :count).by(1)
+        }.to change(Git::ProviderCredential, :count).by(1)
 
         expect(response).to have_http_status(:created)
       end
@@ -290,7 +290,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       it 'associates credential with current account' do
         post :create_credential, params: valid_params
 
-        credential = GitProviderCredential.last
+        credential = Git::ProviderCredential.last
         expect(credential.account).to eq(account)
       end
     end
@@ -309,8 +309,8 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   describe 'DELETE #destroy_credential' do
     let(:provider) { create(:git_provider) }
     # Create two credentials so we can delete one (model prevents deleting last credential)
-    let!(:credential) { create(:git_provider_credential, git_provider: provider, account: account) }
-    let!(:other_credential) { create(:git_provider_credential, git_provider: provider, account: account) }
+    let!(:credential) { create(:git_provider_credential, provider: provider, account: account) }
+    let!(:other_credential) { create(:git_provider_credential, provider: provider, account: account) }
 
     context 'with valid permissions' do
       before { sign_in provider_manage_user }
@@ -318,14 +318,14 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       it 'deletes the credential' do
         expect {
           delete :destroy_credential, params: { id: provider.id, credential_id: credential.id }
-        }.to change(GitProviderCredential, :count).by(-1)
+        }.to change(Git::ProviderCredential, :count).by(-1)
 
         expect(response).to have_http_status(:success)
       end
     end
 
     context 'when credential belongs to another account' do
-      let!(:other_credential) { create(:git_provider_credential, git_provider: provider) }
+      let!(:other_credential) { create(:git_provider_credential, provider: provider) }
       before { sign_in provider_manage_user }
 
       it 'returns not found error' do
@@ -342,10 +342,10 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
 
   describe 'POST #test_credential' do
     let(:provider) { create(:git_provider, :github) }
-    let(:credential) { create(:git_provider_credential, git_provider: provider, account: account) }
+    let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
 
     before do
-      allow_any_instance_of(GitProviderTestService).to receive(:test_with_rate_limit).and_return({
+      allow_any_instance_of(Git::ProviderTestService).to receive(:test_with_rate_limit).and_return({
         success: true,
         response_time_ms: 150.0,
         user: { login: 'testuser' }
@@ -364,7 +364,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       end
 
       it 'updates credential on successful test' do
-        expect_any_instance_of(GitProviderCredential).to receive(:record_success!)
+        expect_any_instance_of(Git::ProviderCredential).to receive(:record_success!)
 
         post :test_credential, params: { id: provider.id, credential_id: credential.id }
       end
@@ -373,8 +373,8 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
 
   describe 'POST #make_default' do
     let(:provider) { create(:git_provider) }
-    let!(:credential1) { create(:git_provider_credential, :default, git_provider: provider, account: account) }
-    let!(:credential2) { create(:git_provider_credential, git_provider: provider, account: account) }
+    let!(:credential1) { create(:git_provider_credential, :default, provider: provider, account: account) }
+    let!(:credential2) { create(:git_provider_credential, provider: provider, account: account) }
 
     context 'with valid permissions' do
       before { sign_in provider_manage_user }
@@ -402,9 +402,9 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
     let(:provider) { create(:git_provider, :github, supports_oauth: true) }
 
     before do
-      allow_any_instance_of(GitOAuthService).to receive(:authorization_url)
+      allow_any_instance_of(Git::OAuthService).to receive(:authorization_url)
         .and_return('https://github.com/login/oauth/authorize?client_id=test')
-      allow_any_instance_of(GitOAuthService).to receive(:generate_state)
+      allow_any_instance_of(Git::OAuthService).to receive(:generate_state)
         .and_return('test_state_token')
     end
 

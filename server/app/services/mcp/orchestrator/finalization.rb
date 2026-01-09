@@ -81,7 +81,7 @@ module Mcp
             variables: @execution_context[:variables],
             node_results: @node_results,
             mcp_metadata: {
-              protocol_version: McpProtocolService::MCP_VERSION,
+              protocol_version: Mcp::ProtocolService::MCP_VERSION,
               orchestrator_version: "2.0.0",
               execution_mode: @workflow.mcp_orchestration_config&.dig("execution_mode") || "sequential"
             }
@@ -158,7 +158,7 @@ module Mcp
       end
 
       def broadcast_completion(status, output)
-        McpBroadcastService.broadcast_workflow_event(
+        Mcp::BroadcastService.broadcast_workflow_event(
           "workflow_execution_completed",
           @workflow.id,
           {
@@ -173,7 +173,7 @@ module Mcp
       end
 
       def broadcast_failure(error)
-        McpBroadcastService.broadcast_workflow_event(
+        Mcp::BroadcastService.broadcast_workflow_event(
           "workflow_execution_failed",
           @workflow.id,
           {

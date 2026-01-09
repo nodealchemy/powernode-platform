@@ -2,8 +2,6 @@
 
 module Ai
   class AgentMessage < ApplicationRecord
-    self.table_name = "ai_agent_messages"
-
     # ==================== Associations ====================
     belongs_to :workflow_run, class_name: "Ai::WorkflowRun", foreign_key: "ai_workflow_run_id"
 

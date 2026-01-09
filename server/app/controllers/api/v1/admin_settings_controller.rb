@@ -12,7 +12,7 @@ class Api::V1::AdminSettingsController < ApplicationController
   def update
     begin
       settings_params = admin_settings_params
-      updated_settings = SystemSettingsService.update_settings(settings_params)
+      updated_settings = System::SettingsService.update_settings(settings_params)
 
       # Update settings metadata timestamp
       metadata = Rails.cache.fetch("system_settings_metadata") || { created_at: Time.current }
@@ -466,7 +466,7 @@ class Api::V1::AdminSettingsController < ApplicationController
   end
 
   def settings_summary_data
-    settings = SystemSettingsService.load_settings
+    settings = System::SettingsService.load_settings
 
     # Get actual timestamps from Rails cache or default to system startup
     settings_metadata = Rails.cache.fetch("system_settings_metadata", expires_in: 1.year) do
@@ -726,7 +726,7 @@ class Api::V1::AdminSettingsController < ApplicationController
 
       # Get expected limit for this endpoint type
       limit_type = determine_limit_type_for_controller(controller_name)
-      expected_limit = SystemSettingsService.rate_limit_setting(limit_type)
+      expected_limit = System::SettingsService.rate_limit_setting(limit_type)
 
       # Consider it suspicious if they're at 80% or more of the limit
       if expected_limit && current_count >= (expected_limit * 0.8).to_i
@@ -858,8 +858,8 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   def test_jwt_validation
     test_payload = { user_id: "test", exp: 1.hour.from_now.to_i }
-    token = JwtService.encode(test_payload)
-    decoded = JwtService.decode(token)
+    token = Security::JwtService.encode(test_payload)
+    decoded = Security::JwtService.decode(token)
 
     decoded[:user_id] == "test" ? "working" : "error"
   rescue StandardError => e

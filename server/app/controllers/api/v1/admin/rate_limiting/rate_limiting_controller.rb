@@ -8,7 +8,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   # GET /api/v1/admin/rate_limiting/statistics
   def statistics
     begin
-      stats = RateLimitService.get_statistics
+      stats = RateLimiting::BaseService.get_statistics
 
       render_success(stats)
     rescue => e
@@ -41,7 +41,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
     end
 
     begin
-      limits = RateLimitService.get_limit_info(identifier)
+      limits = RateLimiting::BaseService.get_limit_info(identifier)
 
       render_success({
         identifier: identifier,
@@ -62,7 +62,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
     end
 
     begin
-      keys_cleared = RateLimitService.clear_limits_for(identifier)
+      keys_cleared = RateLimiting::BaseService.clear_limits_for(identifier)
 
       # Log the administrative action
       Rails.logger.info "Admin #{current_user.email} cleared rate limits for #{identifier} (#{keys_cleared} keys cleared)"
@@ -89,7 +89,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
     end
 
     begin
-      RateLimitService.disable_temporarily(duration_minutes)
+      RateLimiting::BaseService.disable_temporarily(duration_minutes)
 
       # Log the administrative action
       Rails.logger.warn "Admin #{current_user.email} temporarily disabled rate limiting for #{duration_minutes} minutes"
@@ -108,7 +108,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   # POST /api/v1/admin/rate_limiting/enable
   def enable
     begin
-      RateLimitService.re_enable
+      RateLimiting::BaseService.re_enable
 
       # Log the administrative action
       Rails.logger.info "Admin #{current_user.email} re-enabled rate limiting"
@@ -126,8 +126,8 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   # GET /api/v1/admin/rate_limiting/status
   def status
     begin
-      temporarily_disabled = RateLimitService.temporarily_disabled?
-      system_enabled = SystemSettingsService.rate_limiting_enabled?
+      temporarily_disabled = RateLimiting::BaseService.temporarily_disabled?
+      system_enabled = System::SettingsService.rate_limiting_enabled?
 
       status_info = {
         system_enabled: system_enabled,
@@ -155,16 +155,16 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   # GET /api/v1/admin/rate_limiting/tiers
   def tiers
     render_success({
-      tiers: TieredRateLimitService::TIERS.map do |key, config|
+      tiers: RateLimiting::TieredService::TIERS.map do |key, config|
         { id: key.to_s, **config }
       end,
-      endpoint_costs: TieredRateLimitService::ENDPOINT_COSTS
+      endpoint_costs: RateLimiting::TieredService::ENDPOINT_COSTS
     })
   end
 
   # GET /api/v1/admin/rate_limiting/accounts/:account_id/statistics
   def account_statistics
-    stats = RateLimitService.get_account_statistics(@account)
+    stats = RateLimiting::BaseService.get_account_statistics(@account)
 
     if stats
       render_success(stats)
@@ -181,13 +181,13 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
     tier = params[:tier]&.to_sym
     duration_hours = params[:duration_hours]&.to_i
 
-    unless TieredRateLimitService::TIERS.key?(tier)
-      return render_error("Invalid tier: #{tier}. Valid tiers: #{TieredRateLimitService::TIERS.keys.join(', ')}", status: :bad_request)
+    unless RateLimiting::TieredService::TIERS.key?(tier)
+      return render_error("Invalid tier: #{tier}. Valid tiers: #{RateLimiting::TieredService::TIERS.keys.join(', ')}", status: :bad_request)
     end
 
     duration = duration_hours.positive? ? duration_hours.hours : nil
 
-    if RateLimitService.override_account_tier(@account, tier, duration: duration)
+    if RateLimiting::BaseService.override_account_tier(@account, tier, duration: duration)
       # Log the administrative action
       AuditLog.create!(
         user: current_user,
@@ -222,7 +222,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
 
   # DELETE /api/v1/admin/rate_limiting/accounts/:account_id/override_tier
   def clear_tier_override
-    if RateLimitService.clear_account_tier_override(@account)
+    if RateLimiting::BaseService.clear_account_tier_override(@account)
       # Log the administrative action
       AuditLog.create!(
         user: current_user,
@@ -259,9 +259,9 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
       {
         id: account.id,
         name: account.name,
-        tier: TieredRateLimitService.tier_for_account(account).to_s,
-        usage: TieredRateLimitService.account_usage(account),
-        rate_limited: TieredRateLimitService.account_rate_limited?(account)
+        tier: RateLimiting::TieredService.tier_for_account(account).to_s,
+        usage: RateLimiting::TieredService.account_usage(account),
+        rate_limited: RateLimiting::TieredService.account_rate_limited?(account)
       }
     end
 
@@ -327,7 +327,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
 
     controller_name = parts[1]
     limit_type = determine_limit_type_for_controller(controller_name)
-    SystemSettingsService.rate_limit_setting(limit_type)
+    System::SettingsService.rate_limit_setting(limit_type)
   end
 
   def determine_limit_type_for_controller(controller_name)

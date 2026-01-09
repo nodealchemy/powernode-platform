@@ -2,8 +2,6 @@
 
 module Ai
   class Provider < ApplicationRecord
-    self.table_name = "ai_providers"
-
     # Authentication
     # No authentication needed for provider definitions
 

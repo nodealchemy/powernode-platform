@@ -52,7 +52,7 @@ module Webhooks
       full_name = extract_repository_name(provider_type)
       return nil unless full_name
 
-      GitRepository.joins(git_provider_credential: :git_provider)
+      ::Git::Repository.joins(credential: :provider)
                    .where(git_providers: { provider_type: provider_type })
                    .find_by(full_name: full_name)
     end

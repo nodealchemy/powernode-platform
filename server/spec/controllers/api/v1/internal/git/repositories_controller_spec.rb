@@ -5,10 +5,10 @@ require 'rails_helper'
 RSpec.describe Api::V1::Internal::Git::RepositoriesController, type: :controller do
   let(:account) { create(:account) }
   let(:provider) { create(:git_provider, :github) }
-  let(:credential) { create(:git_provider_credential, git_provider: provider, account: account) }
+  let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
   let(:repository) do
     create(:git_repository,
-           git_provider_credential: credential,
+           credential: credential,
            account: account,
            name: 'my-repo',
            full_name: 'owner/my-repo',
@@ -213,7 +213,7 @@ RSpec.describe Api::V1::Internal::Git::RepositoriesController, type: :controller
     it 'creates pipeline records' do
       expect {
         post :sync_pipelines, params: { id: repository.id, pipelines: pipelines_data }
-      }.to change(GitPipeline, :count).by(2)
+      }.to change(Git::Pipeline, :count).by(2)
 
       expect(response).to have_http_status(:success)
       json = JSON.parse(response.body)
@@ -224,14 +224,14 @@ RSpec.describe Api::V1::Internal::Git::RepositoriesController, type: :controller
 
     it 'updates existing pipelines' do
       existing_pipeline = create(:git_pipeline,
-                                  git_repository: repository,
+                                  repository: repository,
                                   account: account,
                                   external_id: 'run_123',
                                   status: 'in_progress')
 
       expect {
         post :sync_pipelines, params: { id: repository.id, pipelines: pipelines_data }
-      }.to change(GitPipeline, :count).by(1) # Only 1 new
+      }.to change(Git::Pipeline, :count).by(1) # Only 1 new
 
       existing_pipeline.reload
       expect(existing_pipeline.status).to eq('completed')
@@ -243,7 +243,7 @@ RSpec.describe Api::V1::Internal::Git::RepositoriesController, type: :controller
 
       json = JSON.parse(response.body)
       pipeline_id = json['data']['pipeline_ids'].first
-      pipeline = GitPipeline.find(pipeline_id)
+      pipeline = Git::Pipeline.find(pipeline_id)
       expect(pipeline.account_id).to eq(account.id)
     end
   end

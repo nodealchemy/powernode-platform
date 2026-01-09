@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe McpProtocolService, type: :service do
+RSpec.describe Mcp::ProtocolService, type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:service) { described_class.new(account: account) }
@@ -13,8 +13,8 @@ RSpec.describe McpProtocolService, type: :service do
     end
 
     it 'sets up registry and transport services' do
-      expect(service.instance_variable_get(:@registry)).to be_a(McpRegistryService)
-      expect(service.instance_variable_get(:@transport)).to be_a(McpTransportService)
+      expect(service.instance_variable_get(:@registry)).to be_a(Mcp::RegistryService)
+      expect(service.instance_variable_get(:@transport)).to be_a(Mcp::TransportService)
     end
   end
 

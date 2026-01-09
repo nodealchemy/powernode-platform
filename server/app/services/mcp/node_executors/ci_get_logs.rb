@@ -5,7 +5,7 @@ module Mcp
     # CI Get Logs node executor - fetches logs from CI/CD pipeline jobs
     #
     # Configuration:
-    # - repository_id: UUID of GitRepository
+    # - repository_id: UUID of Git::Repository
     # - run_id: ID of the workflow run
     # - job_id: ID of specific job (optional - if not provided, fetches all jobs)
     # - include_steps: Whether to include step-level details (default: true)
@@ -56,7 +56,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = GitRepository.find_by(id: repository_id)
+        repository = Git::Repository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end

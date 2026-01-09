@@ -2,8 +2,6 @@
 
 module Ai
   class WorkflowRun < ApplicationRecord
-    self.table_name = "ai_workflow_runs"
-
     # Concerns
     include Ai::WorkflowRun::StateManagement
     include Ai::WorkflowRun::ProgressTracking

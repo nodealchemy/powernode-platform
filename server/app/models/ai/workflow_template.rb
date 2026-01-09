@@ -2,8 +2,6 @@
 
 module Ai
   class WorkflowTemplate < ApplicationRecord
-    self.table_name = "ai_workflow_templates"
-
     # Associations
     has_many :installations, class_name: "Ai::WorkflowTemplateInstallation",
              foreign_key: "ai_workflow_template_id", dependent: :destroy

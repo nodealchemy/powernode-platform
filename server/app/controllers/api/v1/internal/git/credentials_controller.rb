@@ -9,7 +9,7 @@ module Api
 
           # GET /api/v1/internal/git/credentials
           def index
-            credentials = GitProviderCredential.includes(:git_provider).all
+            credentials = ::Git::ProviderCredential.includes(:provider).all
             credentials = credentials.where(account_id: params[:account_id]) if params[:account_id].present?
             credentials = credentials.active if params[:active] == "true"
 
@@ -23,7 +23,7 @@ module Api
 
           # GET /api/v1/internal/git/credentials/:id/repositories
           def repositories
-            repos = @credential.git_repositories
+            repos = @credential.repositories
 
             render_success(repos.map { |repo| serialize_repository(repo) })
           end
@@ -52,7 +52,7 @@ module Api
           private
 
           def set_credential
-            @credential = GitProviderCredential.includes(:git_provider).find(params[:id])
+            @credential = ::Git::ProviderCredential.includes(:provider).find(params[:id])
           rescue ActiveRecord::RecordNotFound
             render_error("Credential not found", status: :not_found)
           end

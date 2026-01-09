@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe McpStreamableHttpService do
+RSpec.describe Mcp::StreamableHttpService do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:mcp_server) do
@@ -80,7 +80,7 @@ RSpec.describe McpStreamableHttpService do
 
       it 'raises TimeoutError' do
         expect { service.initialize_protocol }
-          .to raise_error(McpStreamableHttpService::TimeoutError)
+          .to raise_error(Mcp::StreamableHttpService::TimeoutError)
       end
     end
   end
@@ -350,7 +350,7 @@ RSpec.describe McpStreamableHttpService do
 
       it 'raises ConnectionError' do
         expect { service.list_tools }
-          .to raise_error(McpStreamableHttpService::ConnectionError)
+          .to raise_error(Mcp::StreamableHttpService::ConnectionError)
       end
     end
 
@@ -362,7 +362,7 @@ RSpec.describe McpStreamableHttpService do
 
       it 'raises TimeoutError' do
         expect { service.list_tools }
-          .to raise_error(McpStreamableHttpService::TimeoutError)
+          .to raise_error(Mcp::StreamableHttpService::TimeoutError)
       end
     end
   end
@@ -458,19 +458,19 @@ RSpec.describe McpStreamableHttpService do
 
   describe 'error classes' do
     it 'defines StreamableHttpError as base class' do
-      expect(McpStreamableHttpService::StreamableHttpError).to be < StandardError
+      expect(Mcp::StreamableHttpService::StreamableHttpError).to be < StandardError
     end
 
     it 'defines ConnectionError' do
-      expect(McpStreamableHttpService::ConnectionError).to be < McpStreamableHttpService::StreamableHttpError
+      expect(Mcp::StreamableHttpService::ConnectionError).to be < Mcp::StreamableHttpService::StreamableHttpError
     end
 
     it 'defines ProtocolError' do
-      expect(McpStreamableHttpService::ProtocolError).to be < McpStreamableHttpService::StreamableHttpError
+      expect(Mcp::StreamableHttpService::ProtocolError).to be < Mcp::StreamableHttpService::StreamableHttpError
     end
 
     it 'defines TimeoutError' do
-      expect(McpStreamableHttpService::TimeoutError).to be < McpStreamableHttpService::StreamableHttpError
+      expect(Mcp::StreamableHttpService::TimeoutError).to be < Mcp::StreamableHttpService::StreamableHttpError
     end
   end
 

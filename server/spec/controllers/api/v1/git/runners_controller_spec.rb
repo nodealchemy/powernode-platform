@@ -16,8 +16,8 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
   let(:user_without_permissions) { create(:user, account: account, permissions: []) }
 
   let(:provider) { create(:git_provider, :github) }
-  let(:credential) { create(:git_provider_credential, git_provider: provider, account: account) }
-  let(:repository) { create(:git_repository, git_provider_credential: credential, account: account) }
+  let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
+  let(:repository) { create(:git_repository, credential: credential, account: account) }
 
   before do
     @request.headers['Content-Type'] = 'application/json'
@@ -29,8 +29,8 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
   # =============================================================================
 
   describe 'GET #index' do
-    let!(:runner1) { create(:git_runner, :online, git_provider_credential: credential, account: account) }
-    let!(:runner2) { create(:git_runner, :offline, git_provider_credential: credential, account: account) }
+    let!(:runner1) { create(:git_runner, :online, credential: credential, account: account) }
+    let!(:runner2) { create(:git_runner, :offline, credential: credential, account: account) }
     let!(:other_runner) { create(:git_runner) }
 
     context 'with valid permissions' do
@@ -79,7 +79,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
       end
 
       it 'filters by scope' do
-        org_runner = create(:git_runner, :organization_scope, git_provider_credential: credential, account: account)
+        org_runner = create(:git_runner, :organization_scope, credential: credential, account: account)
         get :index, params: { scope: 'organization' }
 
         json = JSON.parse(response.body)
@@ -89,8 +89,8 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
       end
 
       it 'filters by credential_id' do
-        other_credential = create(:git_provider_credential, git_provider: provider, account: account)
-        other_cred_runner = create(:git_runner, git_provider_credential: other_credential, account: account)
+        other_credential = create(:git_provider_credential, provider: provider, account: account)
+        other_cred_runner = create(:git_runner, credential: other_credential, account: account)
 
         get :index, params: { credential_id: credential.id }
 
@@ -127,7 +127,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
   # =============================================================================
 
   describe 'GET #show' do
-    let(:runner) { create(:git_runner, :with_repository, :with_jobs, git_provider_credential: credential, account: account, git_repository: repository) }
+    let(:runner) { create(:git_runner, :with_repository, :with_jobs, credential: credential, account: account, repository: repository) }
 
     context 'with valid permissions' do
       before { sign_in runner_read_user }
@@ -173,7 +173,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
   # =============================================================================
 
   describe 'DELETE #destroy' do
-    let!(:runner) { create(:git_runner, :with_repository, git_provider_credential: credential, account: account, git_repository: repository) }
+    let!(:runner) { create(:git_runner, :with_repository, credential: credential, account: account, repository: repository) }
     let(:mock_client) { double('GitApiClient') }
 
     before do
@@ -188,7 +188,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
 
         expect {
           delete :destroy, params: { id: runner.id }
-        }.to change(GitRunner, :count).by(-1)
+        }.to change(Git::Runner, :count).by(-1)
 
         expect(response).to have_http_status(:success)
       end
@@ -251,7 +251,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
   # =============================================================================
 
   describe 'POST #registration_token' do
-    let(:runner) { create(:git_runner, :with_repository, git_provider_credential: credential, account: account, git_repository: repository) }
+    let(:runner) { create(:git_runner, :with_repository, credential: credential, account: account, repository: repository) }
     let(:mock_client) { double('GitApiClient') }
 
     before do
@@ -303,7 +303,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
   # =============================================================================
 
   describe 'POST #removal_token' do
-    let(:runner) { create(:git_runner, :with_repository, git_provider_credential: credential, account: account, git_repository: repository) }
+    let(:runner) { create(:git_runner, :with_repository, credential: credential, account: account, repository: repository) }
     let(:mock_client) { double('GitApiClient') }
 
     before do
@@ -335,7 +335,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
   # =============================================================================
 
   describe 'PUT #update_labels' do
-    let(:runner) { create(:git_runner, :with_repository, labels: ['linux'], git_provider_credential: credential, account: account, git_repository: repository) }
+    let(:runner) { create(:git_runner, :with_repository, labels: ['linux'], credential: credential, account: account, repository: repository) }
     let(:mock_client) { double('GitApiClient') }
 
     before do

@@ -9,7 +9,7 @@ module Api
 
         # GET /api/v1/git/runners
         def index
-          runners = GitRunner.where(account: current_user.account)
+          runners = ::Git::Runner.where(account: current_user.account)
 
           # Filters
           runners = runners.where(status: params[:status]) if params[:status].present?
@@ -39,7 +39,7 @@ module Api
           runners = runners.offset((page - 1) * per_page).limit(per_page)
 
           # Stats
-          all_runners = GitRunner.where(account: current_user.account)
+          all_runners = ::Git::Runner.where(account: current_user.account)
           stats = {
             total: all_runners.count,
             online: all_runners.online.count,
@@ -168,7 +168,7 @@ module Api
         private
 
         def set_runner
-          @runner = GitRunner.where(account: current_user.account).find(params[:id])
+          @runner = ::Git::Runner.where(account: current_user.account).find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_not_found("Runner")
         end
@@ -195,11 +195,11 @@ module Api
           synced = 0
 
           if repository_id.present?
-            repository = credential.git_repositories.find(repository_id)
+            repository = credential.repositories.find(repository_id)
             synced += sync_repository_runners(client, credential, repository)
           else
             # Sync all repository runners
-            credential.git_repositories.each do |repo|
+            credential.repositories.each do |repo|
               synced += sync_repository_runners(client, credential, repo)
             end
           end
@@ -225,7 +225,7 @@ module Api
           return 0 unless runners_data.is_a?(Array)
 
           runners_data.each do |runner_data|
-            GitRunner.sync_from_provider(
+            ::Git::Runner.sync_from_provider(
               credential,
               runner_data.stringify_keys,
               scope: "repository",

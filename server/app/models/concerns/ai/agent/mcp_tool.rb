@@ -48,7 +48,7 @@ module Ai
 
       # Get agent performance metrics via MCP telemetry
       def mcp_performance_metrics
-        telemetry = McpTelemetryService.new(account: account)
+        telemetry = Mcp::TelemetryService.new(account: account)
         telemetry.get_tool_performance(mcp_tool_id)
       end
 

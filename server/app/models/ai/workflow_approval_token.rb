@@ -2,8 +2,6 @@
 
 module Ai
   class WorkflowApprovalToken < ApplicationRecord
-    self.table_name = "ai_workflow_approval_tokens"
-
     STATUSES = %w[pending approved rejected expired].freeze
 
     # Associations

@@ -3,7 +3,7 @@
 class AuditLoggingMiddleware
   def initialize(app)
     @app = app
-    @audit_service = AuditLoggingService.instance
+    @audit_service = Audit::LoggingService.instance
   end
 
   def call(env)

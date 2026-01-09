@@ -2,8 +2,6 @@
 
 module Ai
   class WorkflowVariable < ApplicationRecord
-    self.table_name = "ai_workflow_variables"
-
     # Associations
     belongs_to :workflow, class_name: "Ai::Workflow", foreign_key: "ai_workflow_id"
 

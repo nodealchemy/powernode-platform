@@ -10,7 +10,7 @@ module Api
 
         # GET /api/v1/git/pipelines
         def index
-          pipelines = current_user.account.git_pipelines.includes(:git_pipeline_jobs, :git_repository)
+          pipelines = current_user.account.git_pipelines.includes(:jobs, :repository)
 
           # Filter by repository
           if params[:repository_id].present?
@@ -198,7 +198,7 @@ module Api
 
         def set_pipeline
           @pipeline = current_user.account.git_pipelines
-                        .includes(:git_pipeline_jobs, :git_repository)
+                        .includes(:jobs, :repository)
                         .find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Pipeline not found", status: :not_found)
@@ -206,7 +206,7 @@ module Api
 
         def set_repository_for_trigger
           @repository = current_user.account.git_repositories
-                          .includes(:git_provider_credential)
+                          .includes(:credential)
                           .find(params[:repository_id])
         rescue ActiveRecord::RecordNotFound
           render_error("Repository not found", status: :not_found)

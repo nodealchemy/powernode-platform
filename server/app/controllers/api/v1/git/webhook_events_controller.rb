@@ -10,7 +10,7 @@ module Api
         # GET /api/v1/git/webhook_events
         def index
           events = current_user.account.git_webhook_events
-                     .includes(:git_repository, :git_provider)
+                     .includes(:repository, :git_provider)
 
           # Filters
           events = events.by_event_type(params[:event_type]) if params[:event_type].present?
@@ -93,7 +93,7 @@ module Api
 
         def set_event
           @event = current_user.account.git_webhook_events
-                     .includes(:git_repository, :git_provider)
+                     .includes(:repository, :git_provider)
                      .find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Webhook event not found", status: :not_found)

@@ -2,8 +2,6 @@
 
 module Ai
   class SharedContextPool < ApplicationRecord
-    self.table_name = "ai_shared_context_pools"
-
     # ==================== Associations ====================
     belongs_to :workflow_run, class_name: "Ai::WorkflowRun", foreign_key: "ai_workflow_run_id"
 

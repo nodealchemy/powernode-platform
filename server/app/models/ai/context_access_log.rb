@@ -2,8 +2,6 @@
 
 module Ai
   class ContextAccessLog < ApplicationRecord
-    self.table_name = "ai_context_access_logs"
-
     # ==================== Constants ====================
     ACTIONS = %w[read write update delete search export import clone archive unarchive].freeze
     ACCESS_TYPES = %w[user agent workflow api system].freeze

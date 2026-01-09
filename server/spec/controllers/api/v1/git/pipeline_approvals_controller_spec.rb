@@ -16,9 +16,9 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
   let(:user_without_permissions) { create(:user, account: account, permissions: []) }
 
   let(:provider) { create(:git_provider, :github) }
-  let(:credential) { create(:git_provider_credential, git_provider: provider, account: account) }
-  let(:repository) { create(:git_repository, git_provider_credential: credential, account: account) }
-  let(:pipeline) { create(:git_pipeline, git_repository: repository, account: account) }
+  let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
+  let(:repository) { create(:git_repository, credential: credential, account: account) }
+  let(:pipeline) { create(:git_pipeline, repository: repository, account: account) }
 
   before do
     @request.headers['Content-Type'] = 'application/json'
@@ -30,8 +30,8 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
   # =============================================================================
 
   describe 'GET #index' do
-    let!(:pending_approval) { create(:git_pipeline_approval, :pending, git_pipeline: pipeline, account: account) }
-    let!(:approved_approval) { create(:git_pipeline_approval, :approved, git_pipeline: pipeline, account: account) }
+    let!(:pending_approval) { create(:git_pipeline_approval, :pending, pipeline: pipeline, account: account) }
+    let!(:approved_approval) { create(:git_pipeline_approval, :approved, pipeline: pipeline, account: account) }
     let!(:other_approval) { create(:git_pipeline_approval) }
 
     context 'with valid permissions' do
@@ -90,8 +90,8 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
       end
 
       it 'filters by pipeline_id' do
-        other_pipeline = create(:git_pipeline, git_repository: repository, account: account)
-        other_approval = create(:git_pipeline_approval, git_pipeline: other_pipeline, account: account)
+        other_pipeline = create(:git_pipeline, repository: repository, account: account)
+        other_approval = create(:git_pipeline_approval, pipeline: other_pipeline, account: account)
 
         get :index, params: { pipeline_id: pipeline.id }
 
@@ -118,9 +118,9 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
   # =============================================================================
 
   describe 'GET #pending' do
-    let!(:pending_approval) { create(:git_pipeline_approval, :pending, expires_at: 1.hour.from_now, git_pipeline: pipeline, account: account) }
-    let!(:expired_pending) { create(:git_pipeline_approval, :pending, expires_at: 1.hour.ago, git_pipeline: pipeline, account: account) }
-    let!(:approved_approval) { create(:git_pipeline_approval, :approved, git_pipeline: pipeline, account: account) }
+    let!(:pending_approval) { create(:git_pipeline_approval, :pending, expires_at: 1.hour.from_now, pipeline: pipeline, account: account) }
+    let!(:expired_pending) { create(:git_pipeline_approval, :pending, expires_at: 1.hour.ago, pipeline: pipeline, account: account) }
+    let!(:approved_approval) { create(:git_pipeline_approval, :approved, pipeline: pipeline, account: account) }
 
     context 'with valid permissions' do
       before { sign_in approval_read_user }
@@ -143,7 +143,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
       end
 
       it 'orders by expiry date ascending' do
-        another_pending = create(:git_pipeline_approval, :pending, expires_at: 30.minutes.from_now, git_pipeline: pipeline, account: account)
+        another_pending = create(:git_pipeline_approval, :pending, expires_at: 30.minutes.from_now, pipeline: pipeline, account: account)
 
         get :pending
 
@@ -159,7 +159,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
   # =============================================================================
 
   describe 'GET #show' do
-    let(:approval) { create(:git_pipeline_approval, :pending, git_pipeline: pipeline, account: account) }
+    let(:approval) { create(:git_pipeline_approval, :pending, pipeline: pipeline, account: account) }
 
     context 'with valid permissions' do
       before { sign_in approval_read_user }
@@ -210,7 +210,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
   # =============================================================================
 
   describe 'POST #approve' do
-    let(:approval) { create(:git_pipeline_approval, :pending, expires_at: 1.hour.from_now, git_pipeline: pipeline, account: account) }
+    let(:approval) { create(:git_pipeline_approval, :pending, expires_at: 1.hour.from_now, pipeline: pipeline, account: account) }
 
     context 'with valid permissions' do
       before { sign_in approval_manage_user }
@@ -247,7 +247,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
     end
 
     context 'when approval is expired' do
-      let(:expired_approval) { create(:git_pipeline_approval, :pending, expires_at: 1.hour.ago, git_pipeline: pipeline, account: account) }
+      let(:expired_approval) { create(:git_pipeline_approval, :pending, expires_at: 1.hour.ago, pipeline: pipeline, account: account) }
       before { sign_in approval_manage_user }
 
       it 'returns error' do
@@ -260,7 +260,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
     end
 
     context 'when approval already responded' do
-      let(:already_approved) { create(:git_pipeline_approval, :approved, git_pipeline: pipeline, account: account) }
+      let(:already_approved) { create(:git_pipeline_approval, :approved, pipeline: pipeline, account: account) }
       before { sign_in approval_manage_user }
 
       it 'returns error' do
@@ -274,7 +274,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
       let(:restricted_approval) do
         other_user = create(:user, account: account)
         create(:git_pipeline_approval, :pending, expires_at: 1.hour.from_now,
-               required_approvers: [other_user.id], git_pipeline: pipeline, account: account)
+               required_approvers: [other_user.id], pipeline: pipeline, account: account)
       end
       before { sign_in approval_manage_user }
 
@@ -303,7 +303,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
   # =============================================================================
 
   describe 'POST #reject' do
-    let(:approval) { create(:git_pipeline_approval, :pending, expires_at: 1.hour.from_now, git_pipeline: pipeline, account: account) }
+    let(:approval) { create(:git_pipeline_approval, :pending, expires_at: 1.hour.from_now, pipeline: pipeline, account: account) }
 
     context 'with valid permissions' do
       before { sign_in approval_manage_user }
@@ -333,7 +333,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
     end
 
     context 'when approval cannot be responded to' do
-      let(:approved_approval) { create(:git_pipeline_approval, :approved, git_pipeline: pipeline, account: account) }
+      let(:approved_approval) { create(:git_pipeline_approval, :approved, pipeline: pipeline, account: account) }
       before { sign_in approval_manage_user }
 
       it 'returns error' do
@@ -359,7 +359,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
   # =============================================================================
 
   describe 'POST #cancel' do
-    let(:approval) { create(:git_pipeline_approval, :pending, git_pipeline: pipeline, account: account) }
+    let(:approval) { create(:git_pipeline_approval, :pending, pipeline: pipeline, account: account) }
 
     context 'with valid permissions' do
       before { sign_in approval_manage_user }
@@ -375,7 +375,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
     end
 
     context 'when approval is not pending' do
-      let(:approved_approval) { create(:git_pipeline_approval, :approved, git_pipeline: pipeline, account: account) }
+      let(:approved_approval) { create(:git_pipeline_approval, :approved, pipeline: pipeline, account: account) }
       before { sign_in approval_manage_user }
 
       it 'returns error' do

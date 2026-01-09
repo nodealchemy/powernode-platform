@@ -257,7 +257,7 @@ class Api::V1::Admin::UsersController < ApplicationController
 
   # POST /api/v1/admin/users/:id/impersonate
   def impersonate
-    service = ImpersonationService.new(current_user)
+    service = Auth::ImpersonationService.new(current_user)
 
     begin
       token = service.start_impersonation(
@@ -276,7 +276,7 @@ class Api::V1::Admin::UsersController < ApplicationController
         message: "Impersonation started successfully",
         status: :created
       )
-    rescue ImpersonationService::Error => e
+    rescue Auth::ImpersonationService::Error => e
       render_error(
         e.message,
         e.http_status,

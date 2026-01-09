@@ -4,8 +4,6 @@ module CiCd
   # Execution record for a pipeline run
   # Tracks status, timing, outputs, and artifacts
   class PipelineRun < ApplicationRecord
-    self.table_name = 'ci_cd_pipeline_runs'
-
     STATUSES = %w[pending queued running success failure cancelled].freeze
     TRIGGER_TYPES = %w[manual pull_request issue issue_comment push release schedule webhook workflow_dispatch].freeze
 

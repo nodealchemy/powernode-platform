@@ -4,8 +4,6 @@
 # Enables hierarchical, mesh, sequential, and parallel team coordination patterns
 module Ai
   class AgentTeam < ApplicationRecord
-    self.table_name = "ai_agent_teams"
-
     # ==========================================
     # Constants
     # ==========================================

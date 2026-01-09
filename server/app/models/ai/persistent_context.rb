@@ -2,8 +2,6 @@
 
 module Ai
   class PersistentContext < ApplicationRecord
-    self.table_name = "ai_persistent_contexts"
-
     # ==================== Concerns ====================
     include Auditable
 

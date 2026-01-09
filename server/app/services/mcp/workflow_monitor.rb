@@ -116,9 +116,9 @@ module Mcp
 
     def broadcast_event(event_type, data)
       # Broadcast via ActionCable if available
-      return unless defined?(McpBroadcastService)
+      return unless defined?(Mcp::BroadcastService)
 
-      McpBroadcastService.broadcast_workflow_event(
+      Mcp::BroadcastService.broadcast_workflow_event(
         event_type,
         @workflow_run.workflow_id,
         {

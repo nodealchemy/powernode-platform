@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe Git::GithubApiClient do
   let(:account) { create(:account) }
   let(:provider) { create(:git_provider, :github) }
-  let(:credential) { create(:git_provider_credential, :github, git_provider: provider, account: account) }
+  let(:credential) { create(:git_provider_credential, :github, provider: provider, account: account) }
   let(:client) { described_class.new(credential) }
 
   before do

@@ -8,7 +8,7 @@ module Mcp
     # or times out. Used in workflows to wait for CI/CD results.
     #
     # Configuration:
-    # - repository_id: UUID of GitRepository
+    # - repository_id: UUID of Git::Repository
     # - run_id: ID of the workflow run to wait for
     # - expected_status: Status to wait for (success, failure, completed, any)
     # - poll_interval_seconds: How often to check (default: 30)
@@ -67,7 +67,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = GitRepository.find_by(id: repository_id)
+        repository = Git::Repository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end

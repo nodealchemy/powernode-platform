@@ -40,7 +40,7 @@ module Authentication
       end
 
       # JWT token authentication
-      payload = JwtService.decode(header)
+      payload = Security::JwtService.decode(header)
 
       case payload[:type]
       when "access"
@@ -76,7 +76,7 @@ module Authentication
 
     begin
       # Try JWT authentication
-      payload = JwtService.decode(header)
+      payload = Security::JwtService.decode(header)
 
       case payload[:type]
       when "access"

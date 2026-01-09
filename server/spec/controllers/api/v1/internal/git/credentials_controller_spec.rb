@@ -7,7 +7,7 @@ RSpec.describe Api::V1::Internal::Git::CredentialsController, type: :controller 
   let(:provider) { create(:git_provider, :github) }
   let(:credential) do
     create(:git_provider_credential, :healthy,
-           git_provider: provider,
+           provider: provider,
            account: account,
            external_username: 'testuser')
   end
@@ -71,7 +71,7 @@ RSpec.describe Api::V1::Internal::Git::CredentialsController, type: :controller 
     context 'with unhealthy credential' do
       let(:unhealthy_credential) do
         create(:git_provider_credential, :unhealthy,
-               git_provider: provider,
+               provider: provider,
                account: account)
       end
 
@@ -117,7 +117,7 @@ RSpec.describe Api::V1::Internal::Git::CredentialsController, type: :controller 
 
     context 'when decryption fails' do
       before do
-        allow_any_instance_of(GitProviderCredential).to receive(:decrypt_credentials)
+        allow_any_instance_of(Git::ProviderCredential).to receive(:decrypt_credentials)
           .and_raise(StandardError, 'Decryption error')
       end
 

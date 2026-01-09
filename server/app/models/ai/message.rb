@@ -2,8 +2,6 @@
 
 module Ai
   class Message < ApplicationRecord
-    self.table_name = "ai_messages"
-
     # Authentication
     # Access controlled through conversation ownership
 

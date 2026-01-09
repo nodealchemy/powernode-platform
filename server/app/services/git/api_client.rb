@@ -21,9 +21,9 @@ module Git
     # Factory method to create the appropriate client based on provider type
     def self.for(credential)
       raise ArgumentError, "Credential is required" unless credential
-      raise ArgumentError, "Credential must be a GitProviderCredential" unless credential.is_a?(GitProviderCredential)
+      raise ArgumentError, "Credential must be a Git::ProviderCredential" unless credential.is_a?(Git::ProviderCredential)
 
-      case credential.git_provider.provider_type
+      case credential.provider.provider_type
       when "github"
         Git::GithubApiClient.new(credential)
       when "gitlab"
@@ -31,13 +31,13 @@ module Git
       when "gitea"
         Git::GiteaApiClient.new(credential)
       else
-        raise ArgumentError, "Unknown provider type: #{credential.git_provider.provider_type}"
+        raise ArgumentError, "Unknown provider type: #{credential.provider.provider_type}"
       end
     end
 
     def initialize(credential)
       @credential = credential
-      @provider = credential.git_provider
+      @provider = credential.provider
       @token = credential.access_token
       @base_url = @provider.effective_api_base_url
     end

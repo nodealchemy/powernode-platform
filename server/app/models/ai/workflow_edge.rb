@@ -2,8 +2,6 @@
 
 module Ai
   class WorkflowEdge < ApplicationRecord
-    self.table_name = "ai_workflow_edges"
-
     # Associations
     belongs_to :workflow, class_name: "Ai::Workflow", foreign_key: "ai_workflow_id"
 

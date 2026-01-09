@@ -80,7 +80,7 @@ module Api
           token = request.headers["Authorization"].to_s.split(" ").last
           return nil if token.blank?
 
-          decoded = JwtService.decode(token)
+          decoded = Security::JwtService.decode(token)
           return nil unless decoded
 
           User.find_by(id: decoded[:user_id])

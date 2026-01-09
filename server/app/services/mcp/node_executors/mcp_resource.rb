@@ -23,7 +23,7 @@ module Mcp
         log_debug "Resolved resource URI: #{resolved_uri}"
 
         # Read the resource
-        service = McpResourceService.new(
+        service = Mcp::ResourceService.new(
           server: server,
           account: @orchestrator.account
         )

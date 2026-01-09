@@ -9,7 +9,7 @@ class Api::V1::ImpersonationsController < ApplicationController
 
   # POST /api/v1/impersonation
   def create
-    service = ImpersonationService.new(current_user)
+    service = Auth::ImpersonationService.new(current_user)
 
     begin
       token = service.start_impersonation(
@@ -28,7 +28,7 @@ class Api::V1::ImpersonationsController < ApplicationController
         },
         status: :created
       )
-    rescue ImpersonationService::Error => e
+    rescue Auth::ImpersonationService::Error => e
       render_error(e.message, status: :unprocessable_content)
     end
   end
@@ -86,7 +86,7 @@ class Api::V1::ImpersonationsController < ApplicationController
       end
 
       # Let the service handle all the token validation and session cleanup
-      service = ImpersonationService.new(service_user)
+      service = Auth::ImpersonationService.new(service_user)
       session = service.end_impersonation(session_token)
 
       Rails.logger.info "Impersonation session ended successfully: #{session.id}"
@@ -100,7 +100,7 @@ class Api::V1::ImpersonationsController < ApplicationController
     rescue ActiveRecord::RecordNotFound => e
       Rails.logger.warn "Impersonation session not found: #{e.message}"
       render_not_found(e)
-    rescue ImpersonationService::Error => e
+    rescue Auth::ImpersonationService::Error => e
       Rails.logger.warn "Impersonation service error: #{e.message}"
       render_error(e.message, status: :unprocessable_content)
     rescue StandardError => e
@@ -113,7 +113,7 @@ class Api::V1::ImpersonationsController < ApplicationController
 
   # GET /api/v1/impersonation
   def index
-    service = ImpersonationService.new(current_user)
+    service = Auth::ImpersonationService.new(current_user)
     active_sessions = service.list_active_sessions
 
     render_success(
@@ -123,7 +123,7 @@ class Api::V1::ImpersonationsController < ApplicationController
 
   # GET /api/v1/impersonation/history
   def history
-    service = ImpersonationService.new(current_user)
+    service = Auth::ImpersonationService.new(current_user)
     limit = [ params[:limit]&.to_i || 50, 200 ].min
 
     sessions = service.get_session_history(limit: limit)
@@ -191,13 +191,13 @@ class Api::V1::ImpersonationsController < ApplicationController
         end
 
         # Create service with the impersonator user
-        service = ImpersonationService.new(impersonator)
+        service = Auth::ImpersonationService.new(impersonator)
         session = service.validate_impersonation_token(token)
       elsif token.include?(".")
         # Legacy JWT token handling
         begin
           # Decode the token to get the impersonator user
-          payload = JwtService.decode(token)
+          payload = Security::JwtService.decode(token)
 
           unless payload[:type] == "impersonation"
             return render_success(
@@ -219,7 +219,7 @@ class Api::V1::ImpersonationsController < ApplicationController
           end
 
           # Create service with the impersonator user
-          service = ImpersonationService.new(impersonator)
+          service = Auth::ImpersonationService.new(impersonator)
           session = service.validate_impersonation_token(token)
         rescue JWT::DecodeError, JWT::ExpiredSignature => e
           return render_success(

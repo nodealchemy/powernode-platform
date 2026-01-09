@@ -111,7 +111,7 @@ module Mcp
 
       # Execute MCP tool synchronously
       def execute_sync(server, tool, parameters)
-        service = McpSyncExecutionService.new(
+        service = Mcp::SyncExecutionService.new(
           server: server,
           tool: tool,
           parameters: parameters,

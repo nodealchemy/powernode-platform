@@ -4,8 +4,6 @@ module CiCd
   # Secure token for email-based approval of pipeline steps
   # Allows users to approve or reject steps without authentication
   class StepApprovalToken < ApplicationRecord
-    self.table_name = "ci_cd_step_approval_tokens"
-
     STATUSES = %w[pending approved rejected expired].freeze
 
     # ============================================

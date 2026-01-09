@@ -2,8 +2,6 @@
 
 module Ai
   class Workflow < ApplicationRecord
-    self.table_name = "ai_workflows"
-
     # Core concerns
     include Auditable
     include Searchable

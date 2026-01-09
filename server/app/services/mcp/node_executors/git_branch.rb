@@ -8,7 +8,7 @@ module Mcp
     # - branch_name: Name of the branch to create/switch to
     # - base_branch: Base branch to create from (default: main)
     # - create_if_missing: Create branch if it doesn't exist (default: true)
-    # - repository_id: UUID of GitRepository (optional)
+    # - repository_id: UUID of Git::Repository (optional)
     #
     class GitBranch < Base
       protected

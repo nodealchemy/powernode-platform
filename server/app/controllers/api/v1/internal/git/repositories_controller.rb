@@ -11,7 +11,7 @@ module Api
           # POST /api/v1/internal/git/repositories
           # Upsert a repository from worker sync
           def create
-            credential = GitProviderCredential.find_by(id: params[:credential_id])
+            credential = ::Git::ProviderCredential.find_by(id: params[:credential_id])
             unless credential
               render_error("Credential not found", status: :not_found)
               return
@@ -21,7 +21,7 @@ module Api
             external_id = repo_params[:external_id]
 
             # Find or initialize repository by external_id and credential
-            repository = credential.git_repositories.find_or_initialize_by(
+            repository = credential.repositories.find_or_initialize_by(
               external_id: external_id
             )
 
@@ -102,7 +102,7 @@ module Api
             synced = []
 
             pipelines_data.each do |pipeline_data|
-              pipeline = @repository.git_pipelines.find_or_initialize_by(
+              pipeline = @repository.pipelines.find_or_initialize_by(
                 external_id: pipeline_data[:external_id]
               )
 
@@ -141,7 +141,7 @@ module Api
           private
 
           def set_repository
-            @repository = GitRepository.includes(:git_provider_credential, git_provider_credential: :git_provider)
+            @repository = ::Git::Repository.includes(:credential, credential: :provider)
                                        .find(params[:id])
           rescue ActiveRecord::RecordNotFound
             render_error("Repository not found", status: :not_found)

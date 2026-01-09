@@ -4,8 +4,6 @@
 # Completely replaces legacy event-based communication with MCP protocol
 module Ai
   class Agent < ApplicationRecord
-    self.table_name = "ai_agents"
-
     # Core concerns
     include Auditable
     include Searchable

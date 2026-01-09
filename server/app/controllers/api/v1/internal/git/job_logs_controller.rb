@@ -10,7 +10,7 @@ module Api
         # log chunks to connected WebSocket clients.
         #
         # Authentication: Internal API token (not user JWT)
-        class JobLogsController < Api::V1::Internal::BaseController
+        class JobLogsController < Api::V1::Internal::InternalBaseController
           # POST /api/v1/internal/git/job_logs/:id/broadcast
           #
           # Broadcast a log chunk to WebSocket subscribers
@@ -81,7 +81,7 @@ module Api
           private
 
           def update_cached_logs(job_id, content, offset, is_complete)
-            job = GitPipelineJob.find_by(id: job_id)
+            job = ::Git::PipelineJob.find_by(id: job_id)
             return unless job
 
             # Append or replace logs based on offset

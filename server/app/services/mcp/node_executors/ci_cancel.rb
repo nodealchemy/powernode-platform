@@ -5,7 +5,7 @@ module Mcp
     # CI Cancel node executor - cancels running CI/CD pipelines
     #
     # Configuration:
-    # - repository_id: UUID of GitRepository
+    # - repository_id: UUID of Git::Repository
     # - run_id: ID of the workflow run to cancel
     # - reason: Optional reason for cancellation (stored in metadata)
     #
@@ -73,7 +73,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = GitRepository.find_by(id: repository_id)
+        repository = Git::Repository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end

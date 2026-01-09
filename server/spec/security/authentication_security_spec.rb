@@ -99,7 +99,7 @@ RSpec.describe 'Authentication Security', type: :request do
       expect(token.length).to be >= 100  # JWT tokens are typically longer
 
       # Token should be decodable and contain user info
-      payload = JwtService.decode(token)
+      payload = Security::JwtService.decode(token)
       expect(payload['sub']).to eq(user.id)
       expect(payload['type']).to eq('access')
     end

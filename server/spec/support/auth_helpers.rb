@@ -13,10 +13,10 @@ module AuthHelpers
       email: user.email,
       type: 'access',
       permissions: user.permission_names, # Include permissions for faster checks
-      version: JwtService::CURRENT_TOKEN_VERSION
+      version: Security::JwtService::CURRENT_TOKEN_VERSION
     }
 
-    JwtService.encode(payload)
+    Security::JwtService.encode(payload)
   end
 
   # Legacy method name for backward compatibility
@@ -94,7 +94,7 @@ module AuthHelpers
       type: 'service',
       exp: 24.hours.from_now.to_i
     }
-    JwtService.encode(payload)
+    Security::JwtService.encode(payload)
   end
 
   # Set service auth headers for internal API requests

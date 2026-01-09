@@ -2,8 +2,6 @@
 
 module Ai
   class WorkflowTemplateInstallation < ApplicationRecord
-    self.table_name = "ai_workflow_template_installations"
-
     # Associations
     belongs_to :template, class_name: "Ai::WorkflowTemplate", foreign_key: "ai_workflow_template_id"
     belongs_to :workflow, class_name: "Ai::Workflow", foreign_key: "ai_workflow_id"

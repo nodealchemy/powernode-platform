@@ -2,8 +2,6 @@
 
 module Ai
   class WorkflowSchedule < ApplicationRecord
-    self.table_name = "ai_workflow_schedules"
-
     # Associations
     belongs_to :workflow, class_name: "Ai::Workflow", foreign_key: "ai_workflow_id"
     belongs_to :created_by, class_name: "User"

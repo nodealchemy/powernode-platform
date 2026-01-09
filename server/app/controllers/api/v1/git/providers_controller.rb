@@ -14,7 +14,7 @@ module Api
 
         # GET /api/v1/git/providers
         def index
-          providers = GitProvider.active.ordered_by_priority
+          providers = ::Git::Provider.active.ordered_by_priority
 
           # Filter by provider_type
           providers = providers.where(provider_type: params[:provider_type]) if params[:provider_type].present?
@@ -47,7 +47,7 @@ module Api
 
         # POST /api/v1/git/providers
         def create
-          @provider = GitProvider.new(provider_params)
+          @provider = ::Git::Provider.new(provider_params)
 
           if @provider.save
             render_success({ provider: serialize_provider_detail(@provider) }, status: :created)
@@ -76,7 +76,7 @@ module Api
 
         # GET /api/v1/git/providers/available
         def available
-          providers = GitProvider.active.ordered_by_priority.map do |provider|
+          providers = ::Git::Provider.active.ordered_by_priority.map do |provider|
             {
               id: provider.id,
               name: provider.name,
@@ -88,7 +88,7 @@ module Api
               supports_ci_cd: provider.supports_ci_cd,
               capabilities: provider.capabilities,
               configured: current_user.account.git_provider_credentials
-                            .where(git_provider: provider, is_active: true).exists?
+                            .where(provider: provider, is_active: true).exists?
             }
           end
 
@@ -102,8 +102,8 @@ module Api
         # GET /api/v1/git/providers/:id/credentials
         def credentials
           creds = current_user.account.git_provider_credentials
-                    .where(git_provider: @provider)
-                    .includes(:git_provider)
+                    .where(provider: @provider)
+                    .includes(:provider)
                     .order(is_default: :desc, created_at: :desc)
 
           render_success({
@@ -114,7 +114,7 @@ module Api
 
         # POST /api/v1/git/providers/:id/credentials
         def create_credential
-          @credential = GitProviderManagementService.create_credential(
+          @credential = ::Git::ProviderManagementService.create_credential(
             @provider,
             current_user.account,
             current_user,
@@ -136,7 +136,7 @@ module Api
           else
             render_validation_error(@credential.errors)
           end
-        rescue GitProviderManagementService::ValidationError => e
+        rescue ::Git::ProviderManagementService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -151,7 +151,7 @@ module Api
 
         # POST /api/v1/git/providers/:id/credentials/:credential_id/test
         def test_credential
-          result = GitProviderTestService.new(@credential).test_with_rate_limit
+          result = ::Git::ProviderTestService.new(@credential).test_with_rate_limit
 
           if result[:success]
             @credential.record_success!
@@ -173,7 +173,7 @@ module Api
 
         # POST /api/v1/git/providers/:id/credentials/:credential_id/sync_repositories
         def sync_repositories
-          result = GitProviderManagementService.sync_repositories(
+          result = ::Git::ProviderManagementService.sync_repositories(
             @credential,
             page: params[:page]&.to_i || 1,
             per_page: params[:per_page]&.to_i || 100,
@@ -192,7 +192,7 @@ module Api
           else
             render_error(result[:error], status: :unprocessable_content)
           end
-        rescue GitProviderManagementService::CredentialError => e
+        rescue ::Git::ProviderManagementService::CredentialError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -206,7 +206,7 @@ module Api
             return render_error("Provider does not support OAuth", status: :unprocessable_content)
           end
 
-          oauth_service = GitOAuthService.new(@provider, current_user.account)
+          oauth_service = ::Git::OAuthService.new(@provider, current_user.account)
           auth_url = oauth_service.authorization_url(
             redirect_uri: params[:redirect_uri],
             state: oauth_service.generate_state(current_user)
@@ -217,7 +217,7 @@ module Api
 
         # POST /api/v1/git/providers/:id/oauth/callback
         def oauth_callback
-          oauth_service = GitOAuthService.new(@provider, current_user.account)
+          oauth_service = ::Git::OAuthService.new(@provider, current_user.account)
 
           result = oauth_service.handle_callback(
             code: params[:code],
@@ -233,21 +233,21 @@ module Api
           else
             render_error(result[:error], status: :unprocessable_content)
           end
-        rescue GitOAuthService::OAuthError => e
+        rescue ::Git::OAuthService::OAuthError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
         private
 
         def set_provider
-          @provider = GitProvider.find(params[:id])
+          @provider = ::Git::Provider.find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Provider not found", status: :not_found)
         end
 
         def set_credential
           @credential = current_user.account.git_provider_credentials
-                          .where(git_provider: @provider)
+                          .where(provider: @provider)
                           .find(params[:credential_id])
         rescue ActiveRecord::RecordNotFound
           render_error("Credential not found", status: :not_found)
@@ -327,7 +327,7 @@ module Api
             webhook_config: provider.webhook_config,
             ci_cd_config: provider.ci_cd_config,
             metadata: provider.metadata,
-            credentials_count: provider.git_provider_credentials
+            credentials_count: provider.credentials
                                 .where(account: current_user.account).count
           )
         end
@@ -351,7 +351,7 @@ module Api
               success_count: credential.success_count,
               failure_count: credential.failure_count,
               consecutive_failures: credential.consecutive_failures,
-              repositories_count: credential.git_repositories.count
+              repositories_count: credential.repositories.count
             }
           }
         end

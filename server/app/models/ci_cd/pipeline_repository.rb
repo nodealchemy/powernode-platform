@@ -4,8 +4,6 @@ module CiCd
   # Join table connecting pipelines to repositories
   # Allows repository-specific overrides for pipeline configurations
   class PipelineRepository < ApplicationRecord
-    self.table_name = 'ci_cd_pipeline_repositories'
-
     # ============================================
     # Associations
     # ============================================

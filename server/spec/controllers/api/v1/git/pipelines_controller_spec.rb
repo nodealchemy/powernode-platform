@@ -16,8 +16,8 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
   let(:user_without_permissions) { create(:user, account: account, permissions: []) }
 
   let(:provider) { create(:git_provider, :github, supports_ci_cd: true) }
-  let(:credential) { create(:git_provider_credential, git_provider: provider, account: account) }
-  let(:repository) { create(:git_repository, git_provider_credential: credential, account: account) }
+  let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
+  let(:repository) { create(:git_repository, credential: credential, account: account) }
 
   before do
     @request.headers['Content-Type'] = 'application/json'
@@ -29,8 +29,8 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
   # =============================================================================
 
   describe 'GET #index' do
-    let!(:pipeline1) { create(:git_pipeline, git_repository: repository, account: account) }
-    let!(:pipeline2) { create(:git_pipeline, git_repository: repository, account: account) }
+    let!(:pipeline1) { create(:git_pipeline, repository: repository, account: account) }
+    let!(:pipeline2) { create(:git_pipeline, repository: repository, account: account) }
     let!(:other_pipeline) { create(:git_pipeline) }
 
     context 'with valid permissions' do
@@ -46,8 +46,8 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
       end
 
       it 'filters by repository_id' do
-        other_repo = create(:git_repository, git_provider_credential: credential, account: account)
-        other_repo_pipeline = create(:git_pipeline, git_repository: other_repo, account: account)
+        other_repo = create(:git_repository, credential: credential, account: account)
+        other_repo_pipeline = create(:git_pipeline, repository: other_repo, account: account)
 
         get :index, params: { repository_id: repository.id }
 
@@ -58,7 +58,7 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
       end
 
       it 'filters by status' do
-        running_pipeline = create(:git_pipeline, :running, git_repository: repository, account: account)
+        running_pipeline = create(:git_pipeline, :running, repository: repository, account: account)
 
         get :index, params: { status: 'running' }
 
@@ -68,8 +68,8 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
       end
 
       it 'filters by conclusion' do
-        success_pipeline = create(:git_pipeline, :success, git_repository: repository, account: account)
-        failure_pipeline = create(:git_pipeline, :failure, git_repository: repository, account: account)
+        success_pipeline = create(:git_pipeline, :success, repository: repository, account: account)
+        failure_pipeline = create(:git_pipeline, :failure, repository: repository, account: account)
 
         get :index, params: { conclusion: 'success' }
 
@@ -99,9 +99,9 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
   end
 
   describe 'GET #show' do
-    let(:pipeline) { create(:git_pipeline, git_repository: repository, account: account) }
-    let!(:job1) { create(:git_pipeline_job, git_pipeline: pipeline, account: account) }
-    let!(:job2) { create(:git_pipeline_job, git_pipeline: pipeline, account: account) }
+    let(:pipeline) { create(:git_pipeline, repository: repository, account: account) }
+    let!(:job1) { create(:git_pipeline_job, pipeline: pipeline, account: account) }
+    let!(:job2) { create(:git_pipeline_job, pipeline: pipeline, account: account) }
 
     context 'with valid permissions' do
       before { sign_in pipeline_read_user }
@@ -181,7 +181,7 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
   end
 
   describe 'POST #cancel' do
-    let(:pipeline) { create(:git_pipeline, :running, git_repository: repository, account: account) }
+    let(:pipeline) { create(:git_pipeline, :running, repository: repository, account: account) }
     let(:mock_client) { double('GitApiClient') }
 
     before do
@@ -202,7 +202,7 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
     end
 
     context 'when pipeline is not running' do
-      let(:completed_pipeline) { create(:git_pipeline, :completed, git_repository: repository, account: account) }
+      let(:completed_pipeline) { create(:git_pipeline, :completed, repository: repository, account: account) }
       before { sign_in pipeline_manage_user }
 
       it 'returns error' do
@@ -214,7 +214,7 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
   end
 
   describe 'POST #retry' do
-    let(:pipeline) { create(:git_pipeline, :failure, git_repository: repository, account: account) }
+    let(:pipeline) { create(:git_pipeline, :failure, repository: repository, account: account) }
     let(:mock_client) { double('GitApiClient') }
     let(:job_class) { Class.new { def self.perform_async(*args); end } }
 
@@ -240,7 +240,7 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
     end
 
     context 'when pipeline was successful' do
-      let(:success_pipeline) { create(:git_pipeline, :success, git_repository: repository, account: account) }
+      let(:success_pipeline) { create(:git_pipeline, :success, repository: repository, account: account) }
       before { sign_in pipeline_manage_user }
 
       it 'returns error' do
@@ -256,9 +256,9 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
   # =============================================================================
 
   describe 'GET #jobs' do
-    let(:pipeline) { create(:git_pipeline, git_repository: repository, account: account) }
-    let!(:job1) { create(:git_pipeline_job, :running, git_pipeline: pipeline, account: account) }
-    let!(:job2) { create(:git_pipeline_job, :success, git_pipeline: pipeline, account: account) }
+    let(:pipeline) { create(:git_pipeline, repository: repository, account: account) }
+    let!(:job1) { create(:git_pipeline_job, :running, pipeline: pipeline, account: account) }
+    let!(:job2) { create(:git_pipeline_job, :success, pipeline: pipeline, account: account) }
 
     context 'with valid permissions' do
       before { sign_in pipeline_read_user }
@@ -274,8 +274,8 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
   end
 
   describe 'GET #job_logs' do
-    let(:pipeline) { create(:git_pipeline, git_repository: repository, account: account) }
-    let(:job) { create(:git_pipeline_job, :with_logs, git_pipeline: pipeline, account: account) }
+    let(:pipeline) { create(:git_pipeline, repository: repository, account: account) }
+    let(:job) { create(:git_pipeline_job, :with_logs, pipeline: pipeline, account: account) }
 
     context 'with valid permissions' do
       before { sign_in pipeline_manage_user }
@@ -306,9 +306,9 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
 
   describe 'GET #stats' do
     before do
-      create_list(:git_pipeline, 5, :success, git_repository: repository, account: account)
-      create_list(:git_pipeline, 2, :failure, git_repository: repository, account: account)
-      create(:git_pipeline, :running, git_repository: repository, account: account)
+      create_list(:git_pipeline, 5, :success, repository: repository, account: account)
+      create_list(:git_pipeline, 2, :failure, repository: repository, account: account)
+      create(:git_pipeline, :running, repository: repository, account: account)
     end
 
     context 'with valid permissions' do

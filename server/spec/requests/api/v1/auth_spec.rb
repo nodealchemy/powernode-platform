@@ -179,7 +179,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
   end
 
   describe 'POST /api/v1/auth/refresh' do
-    let(:tokens) { JwtService.generate_user_tokens(user) }
+    let(:tokens) { Security::JwtService.generate_user_tokens(user) }
     let(:refresh_token) { tokens[:refresh_token] }
 
     context 'with valid refresh token' do

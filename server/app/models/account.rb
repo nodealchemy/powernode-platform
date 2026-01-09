@@ -39,11 +39,14 @@ class Account < ApplicationRecord
   has_many :mcp_servers, dependent: :destroy
 
   # Git Provider associations
-  has_many :git_provider_credentials, dependent: :destroy
-  has_many :git_repositories, dependent: :destroy
-  has_many :git_webhook_events, dependent: :destroy
-  has_many :git_pipelines, dependent: :destroy
-  has_many :git_pipeline_jobs, dependent: :destroy
+  has_many :git_provider_credentials, class_name: "Git::ProviderCredential", dependent: :destroy
+  has_many :git_repositories, class_name: "Git::Repository", dependent: :destroy
+  has_many :git_webhook_events, class_name: "Git::WebhookEvent", dependent: :destroy
+  has_many :git_pipelines, class_name: "Git::Pipeline", dependent: :destroy
+  has_many :git_pipeline_jobs, class_name: "Git::PipelineJob", dependent: :destroy
+  has_many :git_pipeline_approvals, class_name: "Git::PipelineApproval", dependent: :destroy
+  has_many :git_pipeline_schedules, class_name: "Git::PipelineSchedule", dependent: :destroy
+  has_many :git_runners, class_name: "Git::Runner", dependent: :destroy
 
   # CI/CD Pipeline Management associations
   has_many :ci_cd_providers, class_name: "CiCd::Provider", dependent: :destroy

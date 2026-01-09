@@ -5,8 +5,8 @@ require 'rails_helper'
 RSpec.describe Webhooks::GitController, type: :controller do
   let(:account) { create(:account) }
   let(:provider) { create(:git_provider, :github) }
-  let(:credential) { create(:git_provider_credential, git_provider: provider, account: account) }
-  let(:repository) { create(:git_repository, :with_webhook, git_provider_credential: credential, account: account) }
+  let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
+  let(:repository) { create(:git_repository, :with_webhook, credential: credential, account: account) }
   let(:webhook_secret) { repository.webhook_secret }
 
   let(:worker_api_client) { instance_double(WorkerApiClient) }
@@ -48,7 +48,7 @@ RSpec.describe Webhooks::GitController, type: :controller do
 
         expect {
           post :handle, params: { provider_type: 'github' }, body: github_push_payload, as: :json
-        }.to change(GitWebhookEvent, :count).by(1)
+        }.to change(Git::WebhookEvent, :count).by(1)
 
         expect(response).to have_http_status(:ok)
         json = JSON.parse(response.body)
@@ -59,7 +59,7 @@ RSpec.describe Webhooks::GitController, type: :controller do
       it 'extracts event data correctly' do
         post :handle, params: { provider_type: 'github' }, body: github_push_payload, as: :json
 
-        event = GitWebhookEvent.last
+        event = Git::WebhookEvent.last
         expect(event.event_type).to eq('push')
         expect(event.sender_username).to eq('testuser')
         expect(event.ref).to eq('refs/heads/main')
@@ -85,7 +85,7 @@ RSpec.describe Webhooks::GitController, type: :controller do
       it 'does not create webhook event' do
         expect {
           post :handle, params: { provider_type: 'github' }, body: github_push_payload, as: :json
-        }.not_to change(GitWebhookEvent, :count)
+        }.not_to change(Git::WebhookEvent, :count)
       end
     end
 
@@ -144,7 +144,7 @@ RSpec.describe Webhooks::GitController, type: :controller do
         post :handle, params: { provider_type: 'github' }, body: pr_payload, as: :json
 
         expect(response).to have_http_status(:ok)
-        event = GitWebhookEvent.last
+        event = Git::WebhookEvent.last
         expect(event.event_type).to eq('pull_request')
         expect(event.action).to eq('opened')
         expect(event.sha).to eq('pr_sha_123')
@@ -158,8 +158,8 @@ RSpec.describe Webhooks::GitController, type: :controller do
 
   describe 'POST #handle (GitLab)' do
     let(:gitlab_provider) { create(:git_provider, :gitlab) }
-    let(:gitlab_credential) { create(:git_provider_credential, git_provider: gitlab_provider, account: account) }
-    let(:gitlab_repository) { create(:git_repository, :with_webhook, git_provider_credential: gitlab_credential, account: account) }
+    let(:gitlab_credential) { create(:git_provider_credential, provider: gitlab_provider, account: account) }
+    let(:gitlab_repository) { create(:git_repository, :with_webhook, credential: gitlab_credential, account: account) }
     let(:gitlab_secret) { gitlab_repository.webhook_secret }
 
     let(:gitlab_push_payload) do
@@ -181,7 +181,7 @@ RSpec.describe Webhooks::GitController, type: :controller do
       it 'creates webhook event' do
         expect {
           post :handle, params: { provider_type: 'gitlab' }, body: gitlab_push_payload, as: :json
-        }.to change(GitWebhookEvent, :count).by(1)
+        }.to change(Git::WebhookEvent, :count).by(1)
 
         expect(response).to have_http_status(:ok)
       end
@@ -189,7 +189,7 @@ RSpec.describe Webhooks::GitController, type: :controller do
       it 'normalizes event type' do
         post :handle, params: { provider_type: 'gitlab' }, body: gitlab_push_payload, as: :json
 
-        event = GitWebhookEvent.last
+        event = Git::WebhookEvent.last
         expect(event.event_type).to eq('push')
         expect(event.sender_username).to eq('gitlab_user')
       end
@@ -230,7 +230,7 @@ RSpec.describe Webhooks::GitController, type: :controller do
         post :handle, params: { provider_type: 'gitlab' }, body: mr_payload, as: :json
 
         expect(response).to have_http_status(:ok)
-        event = GitWebhookEvent.last
+        event = Git::WebhookEvent.last
         expect(event.event_type).to eq('merge_request')
         expect(event.action).to eq('open')
         expect(event.sha).to eq('mr_commit_sha')
@@ -244,8 +244,8 @@ RSpec.describe Webhooks::GitController, type: :controller do
 
   describe 'POST #handle (Gitea)' do
     let(:gitea_provider) { create(:git_provider, :gitea) }
-    let(:gitea_credential) { create(:git_provider_credential, git_provider: gitea_provider, account: account) }
-    let(:gitea_repository) { create(:git_repository, :with_webhook, git_provider_credential: gitea_credential, account: account) }
+    let(:gitea_credential) { create(:git_provider_credential, provider: gitea_provider, account: account) }
+    let(:gitea_repository) { create(:git_repository, :with_webhook, credential: gitea_credential, account: account) }
     let(:gitea_secret) { gitea_repository.webhook_secret }
 
     let(:gitea_push_payload) do
@@ -292,7 +292,7 @@ RSpec.describe Webhooks::GitController, type: :controller do
       it 'extracts event data correctly' do
         post :handle, params: { provider_type: 'gitea' }, body: gitea_push_payload, as: :json
 
-        event = GitWebhookEvent.last
+        event = Git::WebhookEvent.last
         expect(event.event_type).to eq('push')
         expect(event.sender_username).to eq('gitea_user')
         expect(event.ref).to eq('refs/heads/develop')
@@ -355,10 +355,10 @@ RSpec.describe Webhooks::GitController, type: :controller do
       it 'returns success but marks event as queued_failed' do
         expect {
           post :handle, params: { provider_type: 'github' }, body: payload, as: :json
-        }.to change(GitWebhookEvent, :count).by(1)
+        }.to change(Git::WebhookEvent, :count).by(1)
 
         expect(response).to have_http_status(:ok)
-        event = GitWebhookEvent.last
+        event = Git::WebhookEvent.last
         expect(event.status).to eq('queued_failed')
         expect(event.error_message).to include('Worker API connection failed')
       end
@@ -392,7 +392,7 @@ RSpec.describe Webhooks::GitController, type: :controller do
     it 'captures relevant headers in event' do
       post :handle, params: { provider_type: 'github' }, body: payload, as: :json
 
-      event = GitWebhookEvent.last
+      event = Git::WebhookEvent.last
       expect(event.headers).to include('X-GitHub-Event' => 'push')
       expect(event.headers).to include('X-GitHub-Delivery' => 'delivery-uuid-123')
       expect(event.headers).to include('X-GitHub-Hook-ID' => 'hook-456')

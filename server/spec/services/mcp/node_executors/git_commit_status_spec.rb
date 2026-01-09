@@ -6,8 +6,8 @@ RSpec.describe Mcp::NodeExecutors::GitCommitStatus do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:git_provider) { create(:git_provider, provider_type: 'github') }
-  let(:credential) { create(:git_provider_credential, git_provider: git_provider, account: account) }
-  let(:repository) { create(:git_repository, git_provider_credential: credential, account: account, owner: 'myorg', name: 'myrepo') }
+  let(:credential) { create(:git_provider_credential, provider: git_provider, account: account) }
+  let(:repository) { create(:git_repository, credential: credential, account: account, owner: 'myorg', name: 'myrepo') }
 
   let(:workflow) { create(:ai_workflow, :active, account: account, creator: user) }
   let(:workflow_run) { create(:ai_workflow_run, workflow: workflow, account: account) }

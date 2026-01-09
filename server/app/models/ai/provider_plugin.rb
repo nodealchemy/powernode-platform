@@ -4,8 +4,6 @@
 # Specific configuration for AI provider type plugins
 module Ai
   class ProviderPlugin < ApplicationRecord
-    self.table_name = "ai_provider_plugins"
-
     # Associations
     belongs_to :plugin
 

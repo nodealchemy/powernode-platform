@@ -5,11 +5,11 @@ require 'rails_helper'
 RSpec.describe Api::V1::Internal::Git::PipelinesController, type: :controller do
   let(:account) { create(:account) }
   let(:provider) { create(:git_provider, :github, supports_ci_cd: true) }
-  let(:credential) { create(:git_provider_credential, git_provider: provider, account: account) }
-  let(:repository) { create(:git_repository, git_provider_credential: credential, account: account) }
+  let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
+  let(:repository) { create(:git_repository, credential: credential, account: account) }
   let(:pipeline) do
     create(:git_pipeline,
-           git_repository: repository,
+           repository: repository,
            account: account,
            name: 'CI Build',
            status: 'in_progress')
@@ -47,8 +47,8 @@ RSpec.describe Api::V1::Internal::Git::PipelinesController, type: :controller do
     end
 
     it 'includes pipeline jobs' do
-      job1 = create(:git_pipeline_job, git_pipeline: pipeline, account: account, name: 'build')
-      job2 = create(:git_pipeline_job, git_pipeline: pipeline, account: account, name: 'test')
+      job1 = create(:git_pipeline_job, pipeline: pipeline, account: account, name: 'build')
+      job2 = create(:git_pipeline_job, pipeline: pipeline, account: account, name: 'test')
 
       get :show, params: { id: pipeline.id }
 
@@ -89,9 +89,9 @@ RSpec.describe Api::V1::Internal::Git::PipelinesController, type: :controller do
 
     it 'recalculates job counts from actual jobs on save' do
       # Create some jobs for the pipeline
-      create(:git_pipeline_job, git_pipeline: pipeline, account: account, status: 'completed', conclusion: 'success')
-      create(:git_pipeline_job, git_pipeline: pipeline, account: account, status: 'completed', conclusion: 'success')
-      create(:git_pipeline_job, git_pipeline: pipeline, account: account, status: 'completed', conclusion: 'failure')
+      create(:git_pipeline_job, pipeline: pipeline, account: account, status: 'completed', conclusion: 'success')
+      create(:git_pipeline_job, pipeline: pipeline, account: account, status: 'completed', conclusion: 'success')
+      create(:git_pipeline_job, pipeline: pipeline, account: account, status: 'completed', conclusion: 'failure')
 
       # Trigger an update to recalculate counts
       patch :update, params: {
@@ -180,7 +180,7 @@ RSpec.describe Api::V1::Internal::Git::PipelinesController, type: :controller do
     it 'creates job records' do
       expect {
         post :sync_jobs, params: { id: pipeline.id, jobs: jobs_data }
-      }.to change(GitPipelineJob, :count).by(3)
+      }.to change(Git::PipelineJob, :count).by(3)
 
       expect(response).to have_http_status(:success)
       json = JSON.parse(response.body)
@@ -190,14 +190,14 @@ RSpec.describe Api::V1::Internal::Git::PipelinesController, type: :controller do
 
     it 'updates existing jobs' do
       existing_job = create(:git_pipeline_job,
-                            git_pipeline: pipeline,
+                            pipeline: pipeline,
                             account: account,
                             external_id: 'job_1',
                             status: 'in_progress')
 
       expect {
         post :sync_jobs, params: { id: pipeline.id, jobs: jobs_data }
-      }.to change(GitPipelineJob, :count).by(2) # Only 2 new
+      }.to change(Git::PipelineJob, :count).by(2) # Only 2 new
 
       existing_job.reload
       expect(existing_job.status).to eq('completed')
@@ -207,7 +207,7 @@ RSpec.describe Api::V1::Internal::Git::PipelinesController, type: :controller do
     it 'includes job steps' do
       post :sync_jobs, params: { id: pipeline.id, jobs: jobs_data }
 
-      job = GitPipelineJob.find_by(external_id: 'job_1')
+      job = Git::PipelineJob.find_by(external_id: 'job_1')
       expect(job.steps).to be_present
       expect(job.steps.first['name']).to eq('Checkout')
     end
@@ -224,7 +224,7 @@ RSpec.describe Api::V1::Internal::Git::PipelinesController, type: :controller do
 
       json = JSON.parse(response.body)
       job_id = json['data']['job_ids'].first
-      job = GitPipelineJob.find(job_id)
+      job = Git::PipelineJob.find(job_id)
       expect(job.account_id).to eq(account.id)
     end
 

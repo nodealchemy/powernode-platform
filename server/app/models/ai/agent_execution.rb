@@ -2,8 +2,6 @@
 
 module Ai
   class AgentExecution < ApplicationRecord
-    self.table_name = "ai_agent_executions"
-
     # Concerns
     include Auditable
 

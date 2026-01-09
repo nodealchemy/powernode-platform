@@ -223,7 +223,7 @@ class Api::V1::SettingsController < ApplicationController
   end
 
   def formatted_copyright_text
-    copyright_template = SystemSettingsService.get_setting(:copyright_text) || "© {year} Powernode Platform. All rights reserved."
+    copyright_template = System::SettingsService.get_setting(:copyright_text) || "© {year} Powernode Platform. All rights reserved."
     copyright_template.gsub("{year}", Date.current.year.to_s)
   end
 end

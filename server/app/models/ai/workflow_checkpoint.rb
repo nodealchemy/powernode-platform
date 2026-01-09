@@ -2,8 +2,6 @@
 
 module Ai
   class WorkflowCheckpoint < ApplicationRecord
-    self.table_name = "ai_workflow_checkpoints"
-
     # Associations
     belongs_to :workflow_run, class_name: "Ai::WorkflowRun", foreign_key: "ai_workflow_run_id"
 

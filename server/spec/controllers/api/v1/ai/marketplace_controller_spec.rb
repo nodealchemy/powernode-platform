@@ -907,5 +907,5 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
   # HELPER METHODS
   # =============================================================================
   # NOTE: This spec uses the global auth_helpers.rb sign_in method
-  # which properly generates JWT tokens using JwtService with correct secret
+  # which properly generates JWT tokens using Security::JwtService with correct secret
 end

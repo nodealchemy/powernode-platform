@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
-RSpec.describe PasswordStrengthService, type: :service do
+RSpec.describe Security::PasswordStrengthService, type: :service do
   describe '.validate_password' do
     subject { described_class.validate_password(password) }
 
@@ -265,7 +267,7 @@ RSpec.describe PasswordStrengthService, type: :service do
   end
 
   describe 'common password detection' do
-    PasswordStrengthService::COMMON_PASSWORDS.sample(5).each do |common_password|
+    Security::PasswordStrengthService::COMMON_PASSWORDS.sample(5).each do |common_password|
       context "with common password '#{common_password}'" do
         let(:password) { common_password }
 

@@ -409,6 +409,6 @@ module AiWorkflowService
   end
 
   def mcp_registry
-    @mcp_registry ||= McpRegistryService.new(account: @account)
+    @mcp_registry ||= Mcp::RegistryService.new(account: @account)
   end
 end

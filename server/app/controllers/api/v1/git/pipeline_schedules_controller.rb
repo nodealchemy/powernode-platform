@@ -121,7 +121,7 @@ module Api
         end
 
         def set_schedule
-          @schedule = GitPipelineSchedule.where(account: current_user.account).find(params[:id])
+          @schedule = ::Git::PipelineSchedule.where(account: current_user.account).find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_not_found("Schedule")
         end
