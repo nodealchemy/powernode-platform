@@ -11,7 +11,7 @@ class AiAgentExecutionChannel < ApplicationCable::Channel
     return reject unless params[:execution_id]
 
     execution_id = params[:execution_id]
-    @execution = AiAgentExecution.find_by(execution_id: execution_id)
+    @execution = Ai::AgentExecution.find_by(execution_id: execution_id)
 
     return reject unless @execution
     return reject unless @execution.account_id == current_user.account_id
@@ -56,7 +56,7 @@ class AiAgentExecutionChannel < ApplicationCable::Channel
     return transmit_error("Agent not found") unless agent
 
     # Get recent executions for the agent
-    recent_executions = AiAgentExecution.where(
+    recent_executions = Ai::AgentExecution.where(
       ai_agent_id: agent.id,
       account_id: current_user.account_id
     ).order(created_at: :desc).limit(5)

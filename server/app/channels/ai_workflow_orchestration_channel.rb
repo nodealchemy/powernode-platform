@@ -42,7 +42,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
 
     # Create nodes
     nodes.each do |node_data|
-      workflow.ai_workflow_nodes.create!(
+      workflow.nodes.create!(
         node_id: node_data["node_id"],
         node_type: node_data["node_type"],
         name: node_data["name"],
@@ -54,7 +54,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
 
     # Create edges
     edges.each do |edge_data|
-      workflow.ai_workflow_edges.create!(
+      workflow.edges.create!(
         edge_id: edge_data["edge_id"],
         source_node_id: edge_data["source_node_id"],
         target_node_id: edge_data["target_node_id"]

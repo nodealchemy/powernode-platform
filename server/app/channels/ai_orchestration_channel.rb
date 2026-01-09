@@ -170,7 +170,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # @param node_execution [AiWorkflowNodeExecution] Node execution
     # @param event_type [String] Event type
     def broadcast_node_execution(node_execution, event_type = "node.execution.updated")
-      workflow_run = node_execution.ai_workflow_run
+      workflow_run = node_execution.workflow_run
 
       payload = {
         workflow_run_id: workflow_run.id,
@@ -186,7 +186,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # @param node_execution [AiWorkflowNodeExecution] Node execution
     # @param elapsed_ms [Integer] Elapsed time in milliseconds
     def broadcast_node_duration(node_execution, elapsed_ms)
-      workflow_run = node_execution.ai_workflow_run
+      workflow_run = node_execution.workflow_run
 
       payload = {
         workflow_run_id: workflow_run.id,
@@ -206,7 +206,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # Broadcast agent execution event
     #
     # @param event_type [String] Event type
-    # @param agent_execution [AiAgentExecution] Agent execution
+    # @param agent_execution [Ai::AgentExecution] Agent execution
     # @param payload [Hash] Event payload
     def broadcast_agent_event(event_type, agent_execution, payload = {})
       broadcast_event(
@@ -466,9 +466,9 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         cost: execution.cost,
         retry_count: execution.retry_count,
         node: {
-          node_id: execution.ai_workflow_node.node_id,
-          node_type: execution.ai_workflow_node.node_type,
-          name: execution.ai_workflow_node.name
+          node_id: execution.node.node_id,
+          node_type: execution.node.node_type,
+          name: execution.node.name
         },
         input_data: execution.input_data,
         output_data: execution.output_data,
@@ -546,7 +546,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       payload = {
         run_id: workflow_run.run_id,
         workflow_id: workflow_run.ai_workflow_id,
-        workflow_name: workflow_run.ai_workflow&.name || "Unknown Workflow"
+        workflow_name: workflow_run.workflow&.name || "Unknown Workflow"
       }
 
       broadcast_workflow_run_event("streaming.execution.started", workflow_run, payload)
