@@ -377,6 +377,106 @@ export interface GitCreateCheckNodeData extends BaseWorkflowNodeData {
   };
 }
 
+// ===== NEW CI/CD PIPELINE NODE DATA TYPES =====
+
+/** Git Checkout node data - Clone repository code */
+export interface GitCheckoutNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    repository_id?: string;
+    repository_url?: string;
+    ref?: string;
+    branch?: string;
+    depth?: number;
+    submodules?: boolean;
+    lfs?: boolean;
+    clean?: boolean;
+    fetch_depth?: number;
+  };
+}
+
+/** Git Branch node data - Create or switch branches */
+export interface GitBranchNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    repository_id?: string;
+    action?: 'create' | 'switch' | 'delete';
+    branch_name?: string;
+    base_branch?: string;
+    force?: boolean;
+  };
+}
+
+/** Git Pull Request node data - Create pull requests */
+export interface GitPullRequestNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    repository_id?: string;
+    title?: string;
+    body?: string;
+    head_branch?: string;
+    base_branch?: string;
+    draft?: boolean;
+    labels?: string[];
+    reviewers?: string[];
+    assignees?: string[];
+    auto_merge?: boolean;
+  };
+}
+
+/** Git Comment node data - Post comments on PRs or issues */
+export interface GitCommentNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    repository_id?: string;
+    target_type?: 'pull_request' | 'issue' | 'commit';
+    target_id?: string;
+    body?: string;
+    template?: string;
+    variables?: Record<string, string>;
+  };
+}
+
+/** Deploy node data - Deploy to environments */
+export interface DeployNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    environment?: 'development' | 'staging' | 'production' | 'custom';
+    custom_environment?: string;
+    strategy?: 'rolling' | 'blue_green' | 'canary' | 'recreate';
+    replicas?: number;
+    health_check_path?: string;
+    timeout_seconds?: number;
+    rollback_on_failure?: boolean;
+    pre_deploy_script?: string;
+    post_deploy_script?: string;
+  };
+}
+
+/** Run Tests node data - Execute test suites */
+export interface RunTestsNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    test_framework?: 'jest' | 'rspec' | 'pytest' | 'mocha' | 'cypress' | 'playwright' | 'custom';
+    command?: string;
+    coverage?: boolean;
+    coverage_threshold?: number;
+    parallel?: boolean;
+    test_pattern?: string;
+    exclude_pattern?: string;
+    env_vars?: Record<string, string>;
+    fail_fast?: boolean;
+    retry_count?: number;
+  };
+}
+
+/** Shell Command node data - Run custom shell commands */
+export interface ShellCommandNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    command?: string;
+    shell?: 'bash' | 'sh' | 'zsh' | 'powershell';
+    working_directory?: string;
+    env_vars?: Record<string, string>;
+    timeout_seconds?: number;
+    continue_on_error?: boolean;
+    capture_output?: boolean;
+  };
+}
+
 /** Union type for all node data types */
 export type WorkflowNodeData =
   | AiAgentNodeData
@@ -409,7 +509,14 @@ export type WorkflowNodeData =
   | CiCancelNodeData
   | CiGetLogsNodeData
   | GitCommitStatusNodeData
-  | GitCreateCheckNodeData;
+  | GitCreateCheckNodeData
+  | GitCheckoutNodeData
+  | GitBranchNodeData
+  | GitPullRequestNodeData
+  | GitCommentNodeData
+  | DeployNodeData
+  | RunTestsNodeData
+  | ShellCommandNodeData;
 
 // ===== REACTFLOW NODE TYPES =====
 // Full node types for use with NodeProps<T>
@@ -476,6 +583,20 @@ export type CiGetLogsNode = Node<CiGetLogsNodeData, 'ci_get_logs'>;
 export type GitCommitStatusNode = Node<GitCommitStatusNodeData, 'git_commit_status'>;
 /** Git Create Check workflow node type */
 export type GitCreateCheckNode = Node<GitCreateCheckNodeData, 'git_create_check'>;
+/** Git Checkout workflow node type */
+export type GitCheckoutNode = Node<GitCheckoutNodeData, 'git_checkout'>;
+/** Git Branch workflow node type */
+export type GitBranchNode = Node<GitBranchNodeData, 'git_branch'>;
+/** Git Pull Request workflow node type */
+export type GitPullRequestNode = Node<GitPullRequestNodeData, 'git_pull_request'>;
+/** Git Comment workflow node type */
+export type GitCommentNode = Node<GitCommentNodeData, 'git_comment'>;
+/** Deploy workflow node type */
+export type DeployNode = Node<DeployNodeData, 'deploy'>;
+/** Run Tests workflow node type */
+export type RunTestsNode = Node<RunTestsNodeData, 'run_tests'>;
+/** Shell Command workflow node type */
+export type ShellCommandNode = Node<ShellCommandNodeData, 'shell_command'>;
 
 /** Union of all workflow node types */
 export type WorkflowNode =
@@ -509,4 +630,11 @@ export type WorkflowNode =
   | CiCancelNode
   | CiGetLogsNode
   | GitCommitStatusNode
-  | GitCreateCheckNode;
+  | GitCreateCheckNode
+  | GitCheckoutNode
+  | GitBranchNode
+  | GitPullRequestNode
+  | GitCommentNode
+  | DeployNode
+  | RunTestsNode
+  | ShellCommandNode;

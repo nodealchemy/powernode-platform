@@ -65,49 +65,49 @@ export function GitProvidersPage() {
     }
   ];
 
+  const fetchProviders = async () => {
+    try {
+      setLoading(true);
+      const gitProviders = await gitProvidersApi.getProviders();
+
+      const mappedProviders: GitProvider[] = gitProviders.map((p: {
+        id: string;
+        name: string;
+        provider_type?: string;
+        base_url?: string;
+        api_url?: string;
+        status?: string;
+        is_default?: boolean;
+        repositories_count?: number;
+        organizations_count?: number;
+        webhooks_count?: number;
+        last_synced_at?: string;
+        error_message?: string;
+      }) => ({
+        id: p.id,
+        name: p.name,
+        type: mapProviderType(p.provider_type),
+        apiUrl: p.base_url || p.api_url || '',
+        status: mapStatus(p.status),
+        isDefault: p.is_default || false,
+        stats: {
+          repositories: p.repositories_count || 0,
+          organizations: p.organizations_count || 0,
+          webhooksActive: p.webhooks_count || 0
+        },
+        lastSync: p.last_synced_at ? formatTimeAgo(p.last_synced_at) : undefined,
+        error: p.error_message
+      }));
+
+      setProviders(mappedProviders);
+    } catch (error) {
+      // Keep empty state on error
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchProviders = async () => {
-      try {
-        setLoading(true);
-        const gitProviders = await gitProvidersApi.getProviders();
-
-        const mappedProviders: GitProvider[] = gitProviders.map((p: {
-          id: string;
-          name: string;
-          provider_type?: string;
-          base_url?: string;
-          api_url?: string;
-          status?: string;
-          is_default?: boolean;
-          repositories_count?: number;
-          organizations_count?: number;
-          webhooks_count?: number;
-          last_synced_at?: string;
-          error_message?: string;
-        }) => ({
-          id: p.id,
-          name: p.name,
-          type: mapProviderType(p.provider_type),
-          apiUrl: p.base_url || p.api_url || '',
-          status: mapStatus(p.status),
-          isDefault: p.is_default || false,
-          stats: {
-            repositories: p.repositories_count || 0,
-            organizations: p.organizations_count || 0,
-            webhooksActive: p.webhooks_count || 0
-          },
-          lastSync: p.last_synced_at ? formatTimeAgo(p.last_synced_at) : undefined,
-          error: p.error_message
-        }));
-
-        setProviders(mappedProviders);
-      } catch (error) {
-        // Keep empty state on error
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProviders();
   }, []);
 
@@ -149,8 +149,8 @@ export function GitProvidersPage() {
     if (id) {
       navigate('/app/automation/git');
     }
-    // Reload providers
-    window.location.reload();
+    // Reload providers without full page refresh
+    fetchProviders();
   };
 
   const handleEditProvider = async (providerId: string) => {

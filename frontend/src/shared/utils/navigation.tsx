@@ -147,11 +147,11 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 4
         },
         {
-          id: 'ai-knowledge',
-          name: 'Knowledge',
-          href: '/app/ai/knowledge',
+          id: 'ai-contexts',
+          name: 'Contexts',
+          href: '/app/ai/contexts',
           icon: BookOpen,
-          description: 'Knowledge base and persistent contexts',
+          description: 'Persistent contexts and memory for AI agents',
           permissions: ['ai.context.read'],
           order: 5
         },
@@ -318,99 +318,7 @@ export const defaultNavigationConfig: NavigationConfig = {
 // Admin-specific navigation overrides
 export const adminNavigationOverrides = {
   sections: [
-    // Automation section - power user features (appears after AI for admins)
-    {
-      id: 'automation',
-      name: 'Automation',
-      items: [
-        {
-          id: 'automation-overview',
-          name: 'Overview',
-          href: '/app/automation',
-          icon: Zap,
-          description: 'Automation overview and recent activity',
-          permissions: ['cicd.pipelines.read', 'git.pipelines.read'],
-          order: 1
-        },
-        {
-          id: 'automation-pipelines',
-          name: 'Pipelines',
-          href: '/app/automation/pipelines',
-          icon: Layers,
-          description: 'All pipelines (AI-powered and git-native)',
-          permissions: ['cicd.pipelines.read', 'git.pipelines.read'],
-          order: 2
-        },
-        {
-          id: 'automation-runs',
-          name: 'Runs',
-          href: '/app/automation/runs',
-          icon: History,
-          description: 'Pipeline execution history',
-          permissions: ['cicd.runs.read', 'git.pipelines.read'],
-          order: 3
-        },
-        {
-          id: 'automation-triggers',
-          name: 'Triggers',
-          href: '/app/automation/triggers',
-          icon: Webhook,
-          description: 'Webhooks, schedules, and approvals',
-          permissions: ['git.webhooks.read', 'git.schedules.read', 'git.approvals.read'],
-          order: 4
-        },
-        {
-          id: 'automation-runners',
-          name: 'Runners',
-          href: '/app/automation/runners',
-          icon: Server,
-          description: 'Self-hosted execution agents',
-          permissions: ['cicd.runners.read', 'git.runners.read'],
-          order: 5
-        },
-        {
-          id: 'automation-templates',
-          name: 'Templates',
-          href: '/app/automation/templates',
-          icon: FileCode,
-          description: 'Pipeline and prompt templates',
-          permissions: ['cicd.prompts.read'],
-          order: 6
-        },
-        {
-          id: 'automation-git-providers',
-          name: 'Git Providers',
-          href: '/app/automation/git',
-          icon: GitBranch,
-          description: 'GitHub, GitLab, Gitea, and other git providers',
-          permissions: ['git.providers.read'],
-          order: 7
-        },
-        {
-          id: 'automation-repositories',
-          name: 'Repositories',
-          href: '/app/automation/repositories',
-          icon: FolderGit2,
-          description: 'Synced Git repositories from all providers',
-          permissions: ['git.repositories.read'],
-          order: 8
-        },
-        {
-          id: 'automation-integrations',
-          name: 'Integrations',
-          href: '/app/automation/integrations',
-          icon: Puzzle,
-          description: 'Third-party service integrations and webhooks',
-          permissions: ['integrations.read'],
-          order: 9
-        }
-      ],
-      permissions: ['cicd.pipelines.read', 'cicd.runs.read', 'cicd.runners.read', 'git.pipelines.read', 'git.runners.read', 'git.providers.read', 'git.repositories.read', 'integrations.read'],
-      collapsible: true,
-      defaultExpanded: true,
-      order: 12  // After AI (10), before Content (15)
-    },
-    // System section - technical admin features
+    // System section - technical admin features (includes execution infrastructure)
     {
       id: 'system',
       name: 'System',
@@ -452,13 +360,49 @@ export const adminNavigationOverrides = {
           order: 4
         },
         {
+          id: 'runners',
+          name: 'Runners',
+          href: '/app/system/runners',
+          icon: Server,
+          description: 'Self-hosted workflow execution agents',
+          permissions: ['cicd.runners.read', 'git.runners.read'],
+          order: 5
+        },
+        {
           id: 'storage',
           name: 'File Storage',
           href: '/app/system/storage',
           icon: HardDrive,
           description: 'Configure storage providers for file management',
           permissions: ['admin.storage.manage', 'admin.storage.read'],
-          order: 5
+          order: 6
+        },
+        {
+          id: 'git-providers',
+          name: 'Git Providers',
+          href: '/app/system/git',
+          icon: GitBranch,
+          description: 'GitHub, GitLab, Gitea, and other git providers',
+          permissions: ['git.providers.read'],
+          order: 7
+        },
+        {
+          id: 'repositories',
+          name: 'Repositories',
+          href: '/app/system/repositories',
+          icon: FolderGit2,
+          description: 'Synced Git repositories from all providers',
+          permissions: ['git.repositories.read'],
+          order: 8
+        },
+        {
+          id: 'integrations',
+          name: 'Integrations',
+          href: '/app/system/integrations',
+          icon: Puzzle,
+          description: 'Third-party service integrations and webhooks',
+          permissions: ['integrations.read'],
+          order: 9
         },
         {
           id: 'api-keys',
@@ -467,10 +411,10 @@ export const adminNavigationOverrides = {
           icon: Key,
           description: 'API keys and authentication tokens',
           permissions: ['api.manage_keys'],
-          order: 6
+          order: 10
         }
       ],
-      permissions: ['webhook.read', 'admin.audit.read', 'admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'api.manage_keys'],
+      permissions: ['webhook.read', 'admin.audit.read', 'admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'api.manage_keys', 'cicd.runners.read', 'git.providers.read', 'git.repositories.read', 'integrations.read'],
       collapsible: true,
       defaultExpanded: false,
       order: 25  // After Content (15)

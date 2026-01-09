@@ -50,22 +50,10 @@ import { ServicesPage } from '@/pages/app/system/ServicesPage';
 import StorageProvidersPage from '@/pages/app/system/StorageProvidersPage';
 // GitProvidersPage moved to Connections - route redirects to connections/git
 
-// AI Pipelines Pages (reused in Automation section)
+// CI/CD Pages (used in System section for runners)
 import {
-  PromptsPage as AiPromptsPage,
-  SettingsPage as AiPipelinesSettingsPage,
-  RunsPage as AiPipelinesRunsPage,
   RunnersPage as AiPipelinesRunnersPage,
 } from '@/features/cicd';
-
-// Automation Pages (consolidated AI Pipelines + CI/CD)
-import {
-  AutomationOverview,
-  PipelinesPage as AutomationPipelinesPage,
-  PipelineDetailPage as AutomationPipelineDetailPage,
-  CreatePipelinePage as AutomationCreatePipelinePage,
-  RunDetailPage as AutomationRunDetailPage,
-} from '@/features/automation';
 
 // Provider Pages
 import {
@@ -101,7 +89,7 @@ import { AIAnalyticsPage } from './ai/AIAnalyticsPage';
 
 // AI Context Pages
 import { AgentMemoryPage } from './ai/AgentMemoryPage';
-import { KnowledgeBasePage as AIKnowledgeBasePage } from './ai/KnowledgeBasePage';
+import { ContextsPage } from './ai/ContextsPage';
 import { ContextDetailPage } from './ai/ContextDetailPage';
 
 // Integration Pages
@@ -489,8 +477,9 @@ const DashboardPage: React.FC = () => {
         
         {/* AI Pages - Standalone navigation */}
         <Route path="/ai" element={<AIOverviewPage />} />
-        {/* AI Providers moved to Connections - redirect for backwards compatibility */}
-        <Route path="/ai/providers" element={<Navigate to="/app/connections/ai" replace />} />
+        <Route path="/ai/providers" element={<AiServicesPage />} />
+        <Route path="/ai/providers/new" element={<AiServicesPage />} />
+        <Route path="/ai/providers/:id" element={<AiServicesPage />} />
         <Route path="/ai/agents" element={<AIAgentsPage />} />
         <Route path="/ai/workflows" element={<WorkflowsPage />} />
         <Route path="/ai/conversations" element={<AIConversationsPage />} />
@@ -507,8 +496,8 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
         <Route path="/ai/agent-teams" element={<AgentTeamsPage />} />
-        <Route path="/ai/knowledge" element={<AIKnowledgeBasePage />} />
-        <Route path="/ai/contexts" element={<AIKnowledgeBasePage />} />
+        <Route path="/ai/contexts" element={<ContextsPage />} />
+        <Route path="/ai/knowledge" element={<Navigate to="/app/ai/contexts" replace />} />
         <Route path="/ai/contexts/:id" element={<ContextDetailPage />} />
         <Route path="/ai/agents/:agentId/memory" element={<AgentMemoryPage />} />
         
@@ -542,35 +531,49 @@ const DashboardPage: React.FC = () => {
         {/* Git Providers moved to Connections */}
         <Route path="/system/git-providers" element={<Navigate to="/app/connections/git" replace />} />
 
-        {/* CI/CD Pages */}
-        {/* CI/CD routes consolidated into Automation */}
-        <Route path="/ci-cd" element={<Navigate to="/app/automation" replace />} />
-        <Route path="/ci-cd/*" element={<Navigate to="/app/automation" replace />} />
-
-        {/* Automation Pages (consolidated AI Pipelines + CI/CD) */}
-        <Route path="/automation" element={<AutomationOverview />} />
-        <Route path="/automation/pipelines" element={<AutomationPipelinesPage />} />
-        <Route path="/automation/pipelines/new" element={<AutomationCreatePipelinePage />} />
-        <Route path="/automation/pipelines/:id" element={<AutomationPipelineDetailPage />} />
-        <Route path="/automation/pipelines/:id/edit" element={<AutomationPipelineDetailPage />} />
-        <Route path="/automation/runs" element={<AiPipelinesRunsPage />} />
-        <Route path="/automation/runs/:id" element={<AutomationRunDetailPage />} />
-        <Route path="/automation/triggers" element={<AiPipelinesSettingsPage />} />
-        <Route path="/automation/runners" element={<AiPipelinesRunnersPage />} />
-        <Route path="/automation/templates" element={<AiPromptsPage />} />
-
-        {/* Legacy AI Pipelines redirects - backwards compatibility */}
-        <Route path="/ai-pipelines" element={<Navigate to="/app/automation" replace />} />
-        <Route path="/ai-pipelines/pipelines" element={<Navigate to="/app/automation/pipelines" replace />} />
-        <Route path="/ai-pipelines/pipelines/:id" element={<Navigate to="/app/automation/pipelines" replace />} />
-        <Route path="/ai-pipelines/prompts" element={<Navigate to="/app/automation/templates" replace />} />
-        <Route path="/ai-pipelines/runs" element={<Navigate to="/app/automation/runs" replace />} />
-        <Route path="/ai-pipelines/runs/:id" element={<Navigate to="/app/automation/runs" replace />} />
-        <Route path="/ai-pipelines/runners" element={<Navigate to="/app/automation/runners" replace />} />
-        <Route path="/ai-pipelines/settings" element={<Navigate to="/app/automation/triggers" replace />} />
-
+        {/* System Pages - Runners, Git Providers, Repositories, Integrations */}
+        <Route path="/system/runners" element={<AiPipelinesRunnersPage />} />
+        <Route path="/system/git" element={<GitProvidersPage />} />
+        <Route path="/system/git/new" element={<GitProvidersPage />} />
+        <Route path="/system/git/:id" element={<GitProvidersPage />} />
+        <Route path="/system/repositories" element={<RepositoriesPage />} />
+        <Route path="/system/integrations" element={<IntegrationsPage />} />
+        <Route path="/system/integrations/marketplace" element={<IntegrationsMarketplacePage />} />
+        <Route path="/system/integrations/new" element={<NewIntegrationPage />} />
+        <Route path="/system/integrations/new/:templateId" element={<NewIntegrationPage />} />
+        <Route path="/system/integrations/:id" element={<IntegrationDetailPage />} />
         <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />
         <Route path="/system/api-keys" element={<ApiKeysPage />} />
+
+        {/* Automation redirects - all automation routes now redirect to AI Workflows or System */}
+        <Route path="/automation" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/automation/pipelines" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/automation/pipelines/new" element={<Navigate to="/app/ai/workflows/new" replace />} />
+        <Route path="/automation/pipelines/:id" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/automation/runs" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/automation/runs/:id" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/automation/triggers" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/automation/runners" element={<Navigate to="/app/system/runners" replace />} />
+        <Route path="/automation/templates" element={<Navigate to="/app/ai/workflows?type=templates" replace />} />
+        <Route path="/automation/git" element={<Navigate to="/app/system/git" replace />} />
+        <Route path="/automation/git/*" element={<Navigate to="/app/system/git" replace />} />
+        <Route path="/automation/repositories" element={<Navigate to="/app/system/repositories" replace />} />
+        <Route path="/automation/integrations" element={<Navigate to="/app/system/integrations" replace />} />
+        <Route path="/automation/integrations/*" element={<Navigate to="/app/system/integrations" replace />} />
+
+        {/* Legacy CI/CD redirects - backwards compatibility */}
+        <Route path="/ci-cd" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/ci-cd/*" element={<Navigate to="/app/ai/workflows" replace />} />
+
+        {/* Legacy AI Pipelines redirects - backwards compatibility */}
+        <Route path="/ai-pipelines" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/ai-pipelines/pipelines" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/ai-pipelines/pipelines/:id" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/ai-pipelines/prompts" element={<Navigate to="/app/ai/workflows?type=templates" replace />} />
+        <Route path="/ai-pipelines/runs" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/ai-pipelines/runs/:id" element={<Navigate to="/app/ai/workflows" replace />} />
+        <Route path="/ai-pipelines/runners" element={<Navigate to="/app/system/runners" replace />} />
+        <Route path="/ai-pipelines/settings" element={<Navigate to="/app/ai/workflows" replace />} />
         
         {/* Business Analytics Pages */}
         <Route path="/business/analytics/*" element={<AnalyticsPage />} />
@@ -587,37 +590,17 @@ const DashboardPage: React.FC = () => {
         {/* Subscription Routes */}
         <Route path="/subscriptions/:id/usage" element={<Navigate to="/app/business/analytics" replace />} />
 
-        {/* AI Providers (under AI category) */}
-        <Route path="/ai/providers" element={<AiServicesPage />} />
-        <Route path="/ai/providers/new" element={<AiServicesPage />} />
-        <Route path="/ai/providers/:id" element={<AiServicesPage />} />
-
-        {/* Automation - Git Providers */}
-        <Route path="/automation/git" element={<GitProvidersPage />} />
-        <Route path="/automation/git/new" element={<GitProvidersPage />} />
-        <Route path="/automation/git/:id" element={<GitProvidersPage />} />
-
-        {/* Automation - Repositories */}
-        <Route path="/automation/repositories" element={<RepositoriesPage />} />
-
-        {/* Automation - Integrations */}
-        <Route path="/automation/integrations" element={<IntegrationsPage />} />
-        <Route path="/automation/integrations/marketplace" element={<IntegrationsMarketplacePage />} />
-        <Route path="/automation/integrations/new" element={<NewIntegrationPage />} />
-        <Route path="/automation/integrations/new/:templateId" element={<NewIntegrationPage />} />
-        <Route path="/automation/integrations/:id" element={<IntegrationDetailPage />} />
-
         {/* Legacy routes - backwards compatibility */}
         <Route path="/connections" element={<Navigate to="/app/ai/providers" replace />} />
         <Route path="/connections/ai" element={<Navigate to="/app/ai/providers" replace />} />
         <Route path="/connections/ai/*" element={<Navigate to="/app/ai/providers" replace />} />
-        <Route path="/connections/git" element={<Navigate to="/app/automation/git" replace />} />
-        <Route path="/connections/git/*" element={<Navigate to="/app/automation/git" replace />} />
-        <Route path="/connections/integrations" element={<Navigate to="/app/automation/integrations" replace />} />
-        <Route path="/connections/integrations/*" element={<Navigate to="/app/automation/integrations" replace />} />
+        <Route path="/connections/git" element={<Navigate to="/app/system/git" replace />} />
+        <Route path="/connections/git/*" element={<Navigate to="/app/system/git" replace />} />
+        <Route path="/connections/integrations" element={<Navigate to="/app/system/integrations" replace />} />
+        <Route path="/connections/integrations/*" element={<Navigate to="/app/system/integrations" replace />} />
         <Route path="/connections/credentials" element={<Navigate to="/app/system/api-keys" replace />} />
-        <Route path="/integrations" element={<Navigate to="/app/automation/integrations" replace />} />
-        <Route path="/integrations/*" element={<Navigate to="/app/automation/integrations" replace />} />
+        <Route path="/integrations" element={<Navigate to="/app/system/integrations" replace />} />
+        <Route path="/integrations/*" element={<Navigate to="/app/system/integrations" replace />} />
         
         {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />

@@ -155,7 +155,7 @@ export function EntryEditor({
               onClick={() => setFormData({ ...formData, entry_type: type.value })}
               className={`p-3 text-left border rounded-lg transition-colors ${
                 formData.entry_type === type.value
-                  ? 'border-theme-primary bg-theme-primary bg-opacity-5'
+                  ? 'border-theme-interactive-primary bg-theme-surface-selected'
                   : 'border-theme hover:border-theme-secondary'
               }`}
             >
@@ -193,7 +193,7 @@ export function EntryEditor({
               onClick={() => setContentMode('simple')}
               className={`px-3 py-1 text-sm rounded ${
                 contentMode === 'simple'
-                  ? 'bg-theme-primary text-white'
+                  ? 'bg-theme-interactive-primary text-white'
                   : 'bg-theme-surface text-theme-secondary'
               }`}
             >
@@ -204,7 +204,7 @@ export function EntryEditor({
               onClick={() => setContentMode('json')}
               className={`px-3 py-1 text-sm rounded ${
                 contentMode === 'json'
-                  ? 'bg-theme-primary text-white'
+                  ? 'bg-theme-interactive-primary text-white'
                   : 'bg-theme-surface text-theme-secondary'
               }`}
             >
@@ -368,7 +368,7 @@ export function EntryEditor({
           <button
             type="submit"
             disabled={isSaving}
-            className="px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover disabled:opacity-50 transition-colors"
           >
             {isSaving ? 'Saving...' : isEditing ? 'Update Entry' : 'Create Entry'}
           </button>

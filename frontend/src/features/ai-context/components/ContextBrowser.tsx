@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { contextApi } from '../services/contextApi';
+import { Input } from '@/shared/components/ui/Input';
+import { Select } from '@/shared/components/ui/Select';
 import type { AiPersistentContextSummary, ContextType, ContextScope } from '../types';
 
 interface ContextBrowserProps {
@@ -75,7 +77,7 @@ export function ContextBrowser({
       <div
         className={`p-4 bg-theme-surface border rounded-lg transition-colors ${
           selectedId === context.id
-            ? 'border-theme-primary bg-theme-primary bg-opacity-5'
+            ? 'border-theme-interactive-primary bg-theme-surface-selected'
             : 'border-theme hover:border-theme-secondary'
         } ${onSelect ? 'cursor-pointer' : ''}`}
         onClick={() => onSelect?.(context)}
@@ -143,36 +145,27 @@ export function ContextBrowser({
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
-          <input
+          <Input
             type="text"
             placeholder="Search contexts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           />
         </div>
-        <select
+        <Select
           value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as ContextType | '')}
-          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
-        >
-          {contextTypes.map((type) => (
-            <option key={type.value} value={type.value}>
-              {type.label}
-            </option>
-          ))}
-        </select>
-        <select
+          onChange={(value) => setTypeFilter(value as ContextType | '')}
+          options={contextTypes}
+          fullWidth={false}
+          className="min-w-[140px]"
+        />
+        <Select
           value={scopeFilter}
-          onChange={(e) => setScopeFilter(e.target.value as ContextScope | '')}
-          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
-        >
-          {contextScopes.map((scope) => (
-            <option key={scope.value} value={scope.value}>
-              {scope.label}
-            </option>
-          ))}
-        </select>
+          onChange={(value) => setScopeFilter(value as ContextScope | '')}
+          options={contextScopes}
+          fullWidth={false}
+          className="min-w-[140px]"
+        />
       </div>
 
       {/* Results */}

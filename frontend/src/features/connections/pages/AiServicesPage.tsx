@@ -47,51 +47,51 @@ export function AiServicesPage() {
     }
   ];
 
+  const fetchProviders = async () => {
+    try {
+      setLoading(true);
+      const response = await providersApi.getProviders();
+      const items = response.items || [];
+
+      const mappedProviders: AiProvider[] = items.map((p: {
+        id: string;
+        name: string;
+        provider_type: string;
+        is_active?: boolean;
+        is_default?: boolean;
+        health_status?: string;
+        available_models?: string[];
+        total_requests?: number;
+        total_tokens?: number;
+        total_cost_usd?: number;
+        last_used_at?: string;
+        error_message?: string;
+      }) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.provider_type,
+        type: mapProviderType(p.provider_type),
+        status: mapStatus(p.is_active, p.health_status),
+        isDefault: p.is_default || false,
+        models: p.available_models || [],
+        usage: {
+          requests: p.total_requests || 0,
+          tokens: p.total_tokens || 0,
+          cost: p.total_cost_usd || 0
+        },
+        lastUsed: p.last_used_at ? formatTimeAgo(p.last_used_at) : undefined,
+        error: p.error_message
+      }));
+
+      setProviders(mappedProviders);
+    } catch (error) {
+      // Keep empty state on error
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchProviders = async () => {
-      try {
-        setLoading(true);
-        const response = await providersApi.getProviders();
-        const items = response.items || [];
-
-        const mappedProviders: AiProvider[] = items.map((p: {
-          id: string;
-          name: string;
-          provider_type: string;
-          is_active?: boolean;
-          is_default?: boolean;
-          health_status?: string;
-          available_models?: string[];
-          total_requests?: number;
-          total_tokens?: number;
-          total_cost_usd?: number;
-          last_used_at?: string;
-          error_message?: string;
-        }) => ({
-          id: p.id,
-          name: p.name,
-          slug: p.provider_type,
-          type: mapProviderType(p.provider_type),
-          status: mapStatus(p.is_active, p.health_status),
-          isDefault: p.is_default || false,
-          models: p.available_models || [],
-          usage: {
-            requests: p.total_requests || 0,
-            tokens: p.total_tokens || 0,
-            cost: p.total_cost_usd || 0
-          },
-          lastUsed: p.last_used_at ? formatTimeAgo(p.last_used_at) : undefined,
-          error: p.error_message
-        }));
-
-        setProviders(mappedProviders);
-      } catch (error) {
-        // Keep empty state on error
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProviders();
   }, []);
 
@@ -114,12 +114,12 @@ export function AiServicesPage() {
   const handleModalSuccess = () => {
     setIsModalOpen(false);
     setEditingProviderId(null);
-    showNotification('Provider updated successfully', 'success');
+    // Note: EditProviderModal already shows a success notification, so don't duplicate it here
     if (id) {
       navigate('/app/ai/providers');
     }
-    // Reload providers
-    window.location.reload();
+    // Reload providers without full page refresh
+    fetchProviders();
   };
 
   const handleEditProvider = (providerId: string) => {

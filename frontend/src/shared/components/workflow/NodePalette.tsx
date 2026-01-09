@@ -36,9 +36,12 @@ import {
 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 
+export type WorkflowBuilderMode = 'full' | 'cicd' | 'ai';
+
 export interface NodePaletteProps {
   onAddNode: (nodeType: string, position: { x: number; y: number }, defaultConfig?: Record<string, string>) => void;
   className?: string;
+  mode?: WorkflowBuilderMode;
 }
 
 interface NodeTypeDefinition {
@@ -203,6 +206,42 @@ const nodeColorThemes = {
     bg: 'bg-gradient-to-r from-indigo-500 to-indigo-600',
     indicator: 'bg-indigo-500',
     text: 'text-indigo-600'
+  },
+  // CI/CD Pipeline Node Types
+  'git_checkout': {
+    bg: 'bg-gradient-to-r from-emerald-500 to-emerald-600',
+    indicator: 'bg-theme-success',
+    text: 'text-theme-success'
+  },
+  'git_branch': {
+    bg: 'bg-gradient-to-r from-teal-500 to-teal-600',
+    indicator: 'bg-teal-500',
+    text: 'text-teal-600'
+  },
+  'git_pull_request': {
+    bg: 'bg-gradient-to-r from-purple-500 to-purple-600',
+    indicator: 'bg-theme-interactive-primary',
+    text: 'text-theme-interactive-primary'
+  },
+  'git_comment': {
+    bg: 'bg-gradient-to-r from-blue-500 to-blue-600',
+    indicator: 'bg-theme-info',
+    text: 'text-theme-info'
+  },
+  'deploy': {
+    bg: 'bg-gradient-to-r from-rose-500 to-rose-600',
+    indicator: 'bg-rose-500',
+    text: 'text-rose-600'
+  },
+  'run_tests': {
+    bg: 'bg-gradient-to-r from-green-500 to-green-600',
+    indicator: 'bg-theme-success',
+    text: 'text-theme-success'
+  },
+  'shell_command': {
+    bg: 'bg-gradient-to-r from-gray-700 to-gray-800',
+    indicator: 'bg-gray-600',
+    text: 'text-theme-secondary'
   }
 } as const;
 
@@ -461,21 +500,108 @@ const nodeTypes: NodeTypeDefinition[] = [
     icon: <ClipboardCheck className="h-4 w-4" />,
     category: 'CI/CD',
     color: 'git_create_check'
+  },
+  // CI/CD Pipeline Nodes
+  {
+    type: 'git_checkout',
+    label: 'Git Checkout',
+    description: 'Clone repository and checkout code',
+    icon: <GitBranch className="h-4 w-4" />,
+    category: 'Pipeline',
+    color: 'git_checkout'
+  },
+  {
+    type: 'git_branch',
+    label: 'Git Branch',
+    description: 'Create, switch, or delete branches',
+    icon: <GitBranch className="h-4 w-4" />,
+    category: 'Pipeline',
+    color: 'git_branch'
+  },
+  {
+    type: 'git_pull_request',
+    label: 'Create PR',
+    description: 'Create a pull request on Git provider',
+    icon: <GitBranch className="h-4 w-4" />,
+    category: 'Pipeline',
+    color: 'git_pull_request'
+  },
+  {
+    type: 'git_comment',
+    label: 'Post Comment',
+    description: 'Post comment on PR, issue, or commit',
+    icon: <Mail className="h-4 w-4" />,
+    category: 'Pipeline',
+    color: 'git_comment'
+  },
+  {
+    type: 'deploy',
+    label: 'Deploy',
+    description: 'Deploy to environment (staging, production)',
+    icon: <Zap className="h-4 w-4" />,
+    category: 'Pipeline',
+    color: 'deploy'
+  },
+  {
+    type: 'run_tests',
+    label: 'Run Tests',
+    description: 'Execute test suite (Jest, RSpec, Pytest, etc.)',
+    icon: <Shield className="h-4 w-4" />,
+    category: 'Pipeline',
+    color: 'run_tests'
+  },
+  {
+    type: 'shell_command',
+    label: 'Shell Command',
+    description: 'Execute custom shell command',
+    icon: <Play className="h-4 w-4" />,
+    category: 'Pipeline',
+    color: 'shell_command'
   }
 ];
 
-const categories = ['All', 'Control', 'AI', 'MCP', 'Integration', 'CI/CD', 'Data', 'Communication', 'Content'];
+// Define which node types are available in each mode
+const CICD_MODE_NODE_TYPES = [
+  'start', 'end', 'condition', 'loop', 'merge', 'split', 'delay',
+  'git_checkout', 'git_branch', 'git_pull_request', 'git_comment',
+  'deploy', 'run_tests', 'shell_command',
+  'ai_agent', 'notification', 'human_approval', 'file',
+  'ci_trigger', 'ci_wait_status', 'ci_get_logs', 'ci_cancel',
+  'git_commit_status', 'git_create_check'
+];
+
+const AI_MODE_NODE_TYPES = [
+  'start', 'end', 'trigger', 'condition', 'loop', 'merge', 'split', 'delay',
+  'ai_agent', 'prompt_template', 'data_processor', 'transform',
+  'database', 'file', 'validator',
+  'email', 'notification',
+  'api_call', 'webhook', 'scheduler',
+  'human_approval', 'sub_workflow',
+  'kb_article', 'page', 'mcp_operation'
+];
 
 export const NodePalette: React.FC<NodePaletteProps> = ({
   onAddNode,
-  className = ''
+  className = '',
+  mode = 'full'
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // Get nodes available for the current mode
+  const modeFilteredNodes = nodeTypes.filter(node => {
+    if (mode === 'full') return true;
+    if (mode === 'cicd') return CICD_MODE_NODE_TYPES.includes(node.type);
+    if (mode === 'ai') return AI_MODE_NODE_TYPES.includes(node.type);
+    return true;
+  });
+
+  // Get available categories for the current mode
+  const availableCategories = ['All', ...new Set(modeFilteredNodes.map(n => n.category))];
+
   // Filter nodes based on search and category
-  const filteredNodes = nodeTypes.filter(node => {
+  const filteredNodes = modeFilteredNodes.filter(node => {
     const matchesSearch = node.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          node.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || node.category === selectedCategory;
@@ -483,7 +609,7 @@ export const NodePalette: React.FC<NodePaletteProps> = ({
   });
 
   // Group nodes by category
-  const nodesByCategory = categories.reduce((acc, category) => {
+  const nodesByCategory = availableCategories.reduce((acc, category) => {
     if (category === 'All') return acc;
     acc[category] = filteredNodes.filter(node => node.category === category);
     return acc;
@@ -552,7 +678,7 @@ export const NodePalette: React.FC<NodePaletteProps> = ({
       {/* Category Filter */}
       <div className="p-3 border-b border-theme">
         <div className="flex flex-wrap gap-1">
-          {categories.map(category => (
+          {availableCategories.map(category => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}

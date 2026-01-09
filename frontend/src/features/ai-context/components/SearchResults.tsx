@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { contextApi } from '../services/contextApi';
+import { Input } from '@/shared/components/ui/Input';
+import { Button } from '@/shared/components/ui/Button';
 import type { SearchResult, SearchParams, EntryType } from '../types';
 
 interface SearchResultsProps {
@@ -74,21 +76,20 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
       <form onSubmit={handleSearch} className="space-y-4">
         <div className="flex gap-3">
           <div className="flex-1">
-            <input
+            <Input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search memories and knowledge..."
-              className="w-full px-4 py-3 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
             />
           </div>
-          <button
+          <Button
             type="submit"
+            variant="primary"
             disabled={isSearching || !searchQuery.trim()}
-            className="px-6 py-3 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover disabled:opacity-50 transition-colors"
           >
             {isSearching ? 'Searching...' : 'Search'}
-          </button>
+          </Button>
         </div>
 
         {/* Search Options */}
@@ -101,10 +102,10 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
                   key={type}
                   type="button"
                   onClick={() => setSearchType(type)}
-                  className={`px-3 py-1 text-sm rounded ${
+                  className={`px-3 py-1 text-sm rounded border transition-colors ${
                     searchType === type
-                      ? 'bg-theme-primary text-white'
-                      : 'bg-theme-surface text-theme-secondary hover:bg-theme-surface'
+                      ? 'bg-theme-interactive-primary text-white border-transparent'
+                      : 'bg-theme-surface text-theme-primary border-theme hover:border-theme-interactive-primary'
                   }`}
                 >
                   {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -121,10 +122,10 @@ export function SearchResults({ contextId, onEntryClick }: SearchResultsProps) {
                   key={type}
                   type="button"
                   onClick={() => toggleEntryType(type)}
-                  className={`px-2 py-1 text-xs rounded ${
+                  className={`px-2 py-1 text-xs rounded border transition-colors ${
                     selectedTypes.includes(type)
-                      ? contextApi.getEntryTypeColor(type)
-                      : 'bg-theme-surface text-theme-tertiary hover:bg-theme-surface'
+                      ? contextApi.getEntryTypeColor(type) + ' border-transparent'
+                      : 'bg-theme-surface text-theme-primary border-theme hover:border-theme-interactive-primary'
                   }`}
                 >
                   {contextApi.getEntryTypeLabel(type)}

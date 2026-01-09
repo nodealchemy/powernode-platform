@@ -4,6 +4,7 @@
 // Core workflow types
 export type {
   AiWorkflow,
+  WorkflowType,
   WorkflowNodeType,
   HandlePosition,
   HandlePositions,
@@ -49,6 +50,14 @@ export type {
   CiGetLogsNodeData,
   GitCommitStatusNodeData,
   GitCreateCheckNodeData,
+  // New CI/CD Pipeline node data types
+  GitCheckoutNodeData,
+  GitBranchNodeData,
+  GitPullRequestNodeData,
+  GitCommentNodeData,
+  DeployNodeData,
+  RunTestsNodeData,
+  ShellCommandNodeData,
   WorkflowNodeData,
   // ReactFlow node types
   AiAgentNode,
@@ -83,6 +92,14 @@ export type {
   CiGetLogsNode,
   GitCommitStatusNode,
   GitCreateCheckNode,
+  // New CI/CD Pipeline ReactFlow node types
+  GitCheckoutNode,
+  GitBranchNode,
+  GitPullRequestNode,
+  GitCommentNode,
+  DeployNode,
+  RunTestsNode,
+  ShellCommandNode,
   WorkflowNode
 } from './workflow-node-data';
 

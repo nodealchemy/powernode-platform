@@ -4,6 +4,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { Select } from '@/shared/components/ui/Select';
 import { AiWorkflow } from '@/shared/types/workflow';
+import { LoopPreventionConfig, LoopPreventionSettings } from '@/shared/components/workflow/config/LoopPreventionConfig';
 
 interface ConfigurationTabProps {
   workflow: AiWorkflow;
@@ -56,6 +57,21 @@ export const ConfigurationTab: React.FC<ConfigurationTabProps> = ({
             </p>
           )}
         </div>
+
+        {/* Loop Prevention Settings */}
+        <LoopPreventionConfig
+          settings={(editedWorkflow.configuration?.loop_prevention || workflow.configuration?.loop_prevention || {}) as LoopPreventionSettings}
+          onChange={(loopPreventionSettings) => {
+            const currentConfig = editedWorkflow.configuration || workflow.configuration || {};
+            onEditChange({
+              configuration: {
+                ...currentConfig,
+                loop_prevention: loopPreventionSettings
+              }
+            });
+          }}
+          isEditMode={isEditMode}
+        />
 
         <div>
           <label className="text-sm font-medium text-theme-muted block mb-2">

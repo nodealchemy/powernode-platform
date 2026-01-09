@@ -6,12 +6,15 @@ import {
   Trash2,
   AlertTriangle,
   CheckCircle,
-  Info
+  Info,
+  ShieldAlert,
+  GitBranch
 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Button } from '@/shared/components/ui/Button';
+import { Checkbox } from '@/shared/components/ui/Checkbox';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { agentsApi } from '@/shared/services/ai';
@@ -320,6 +323,15 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     markAsChanged();
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleMetadataChange = (key: string, value: any) => {
+    setConfig(prev => ({
+      ...prev,
+      metadata: { ...prev.metadata, [key]: value }
+    }));
+    markAsChanged();
+  };
+
   const handleAgentChange = (agentId: string) => {
     const selectedAgent = agents.find(a => a.id === agentId);
     if (selectedAgent) {
@@ -548,29 +560,75 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
               />
             </TabsContent>
 
-            <TabsContent value="advanced" className="space-y-4 mt-0">
-              <Input
-                label="Timeout (seconds)"
-                type="number"
-                value={config.timeoutSeconds}
-                onChange={(e) => handleFieldChange('timeoutSeconds', parseInt(e.target.value) || 300)}
-                min={1}
-                error={errors.timeoutSeconds}
-              />
+            <TabsContent value="advanced" className="space-y-6 mt-0">
+              {/* Execution Settings */}
+              <div>
+                <h4 className="text-sm font-medium text-theme-primary mb-3 flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4" />
+                  Execution Settings
+                </h4>
+                <div className="space-y-3">
+                  <Input
+                    label="Timeout (seconds)"
+                    type="number"
+                    value={config.timeoutSeconds}
+                    onChange={(e) => handleFieldChange('timeoutSeconds', parseInt(e.target.value) || 300)}
+                    min={1}
+                    error={errors.timeoutSeconds}
+                    description="Maximum time allowed for node execution"
+                  />
 
-              <Input
-                label="Retry Count"
-                type="number"
-                value={config.retryCount}
-                onChange={(e) => handleFieldChange('retryCount', parseInt(e.target.value) || 0)}
-                min={0}
-                max={5}
-                error={errors.retryCount}
-              />
+                  <Input
+                    label="Retry Count"
+                    type="number"
+                    value={config.retryCount}
+                    onChange={(e) => handleFieldChange('retryCount', parseInt(e.target.value) || 0)}
+                    min={0}
+                    max={5}
+                    error={errors.retryCount}
+                    description="Number of automatic retries on failure"
+                  />
+                </div>
+              </div>
 
+              {/* Workflow Control */}
+              <div>
+                <h4 className="text-sm font-medium text-theme-primary mb-3 flex items-center gap-2">
+                  <GitBranch className="h-4 w-4" />
+                  Workflow Control
+                </h4>
+                <div className="space-y-3">
+                  <Checkbox
+                    label="Continue on Error"
+                    description="Continue workflow execution even if this node fails"
+                    checked={config.metadata?.continue_on_error === true}
+                    onCheckedChange={(checked) => handleMetadataChange('continue_on_error', checked)}
+                  />
+
+                  <Checkbox
+                    label="Requires Approval"
+                    description="Pause workflow and wait for manual approval before executing"
+                    checked={config.metadata?.requires_approval === true}
+                    onCheckedChange={(checked) => handleMetadataChange('requires_approval', checked)}
+                  />
+                </div>
+              </div>
+
+              {/* Conditional Execution */}
+              <div>
+                <Input
+                  label="Condition Expression"
+                  value={config.metadata?.condition || ''}
+                  onChange={(e) => handleMetadataChange('condition', e.target.value || null)}
+                  placeholder="${{ steps.previous.outputs.success == true }}"
+                  description="Expression that must evaluate to true for this node to execute"
+                />
+              </div>
+
+              {/* Raw Metadata */}
               <div>
                 <label className="block text-sm font-medium text-theme-primary mb-2">
-                  Custom Metadata
+                  Raw Metadata (JSON)
                 </label>
                 <Textarea
                   value={JSON.stringify(config.metadata, null, 2)}
@@ -586,6 +644,9 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
                   placeholder="Enter JSON metadata..."
                   className="font-mono text-sm"
                 />
+                <p className="text-xs text-theme-muted mt-1">
+                  Edit raw metadata JSON. Changes here will sync with the fields above.
+                </p>
               </div>
             </TabsContent>
           </div>

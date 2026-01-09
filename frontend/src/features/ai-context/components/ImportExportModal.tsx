@@ -191,7 +191,7 @@ export function ImportExportModal({
               <button
                 onClick={handleExport}
                 disabled={isProcessing}
-                className="w-full py-3 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover disabled:opacity-50 transition-colors"
+                className="w-full py-3 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover disabled:opacity-50 transition-colors"
               >
                 {isProcessing ? 'Preparing Export...' : 'Export Context'}
               </button>
@@ -212,7 +212,7 @@ export function ImportExportModal({
               <a
                 href={exportResult.url}
                 download
-                className="block w-full py-3 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors text-center"
+                className="block w-full py-3 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover transition-colors text-center"
               >
                 Download {exportFormat.toUpperCase()} File
               </a>
@@ -237,7 +237,7 @@ export function ImportExportModal({
                 onClick={() => fileInputRef.current?.click()}
                 className={`p-8 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${
                   selectedFile
-                    ? 'border-theme-primary bg-theme-primary bg-opacity-5'
+                    ? 'border-theme-interactive-primary bg-theme-surface-selected'
                     : 'border-theme hover:border-theme-secondary'
                 }`}
               >
@@ -282,7 +282,7 @@ export function ImportExportModal({
               <button
                 onClick={handleImport}
                 disabled={isProcessing || !selectedFile}
-                className="w-full py-3 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover disabled:opacity-50 transition-colors"
+                className="w-full py-3 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover disabled:opacity-50 transition-colors"
               >
                 {isProcessing ? 'Importing...' : 'Import Entries'}
               </button>
@@ -336,7 +336,7 @@ export function ImportExportModal({
 
               <button
                 onClick={handleClose}
-                className="w-full py-3 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
+                className="w-full py-3 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover transition-colors"
               >
                 Done
               </button>

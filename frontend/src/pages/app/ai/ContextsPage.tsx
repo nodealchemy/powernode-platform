@@ -5,9 +5,12 @@ import { ContextBrowser } from '@/features/ai-context/components/ContextBrowser'
 import { SearchResults } from '@/features/ai-context/components/SearchResults';
 import { contextApi } from '@/features/ai-context/services/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { Input } from '@/shared/components/ui/Input';
+import { Select } from '@/shared/components/ui/Select';
+import { Button } from '@/shared/components/ui/Button';
 import type { ContextFormData } from '@/features/ai-context/types';
 
-export function KnowledgeBasePage() {
+export function ContextsPage() {
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
   const [activeTab, setActiveTab] = useState<'browse' | 'search' | 'create'>('browse');
@@ -38,7 +41,7 @@ export function KnowledgeBasePage() {
     const response = await contextApi.createContext(formData);
 
     if (response.success && response.data) {
-      showNotification('Knowledge base created', 'success');
+      showNotification('Context created', 'success');
       setActiveTab('browse');
       setFormData({
         name: '',
@@ -49,18 +52,28 @@ export function KnowledgeBasePage() {
       setRefreshKey((k) => k + 1);
       navigate(`/app/ai/contexts/${response.data.context.id}`);
     } else {
-      showNotification(response.error || 'Failed to create knowledge base', 'error');
+      showNotification(response.error || 'Failed to create context', 'error');
     }
     setIsCreating(false);
   };
 
   return (
     <PageContainer
-      title="Knowledge Base"
-      description="Manage AI knowledge and context storage"
+      title="Contexts"
+      description="Persistent contexts and memory for AI agents"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'Contexts' },
+      ]}
       actions={[
         {
-          label: 'New Knowledge Base',
+          label: 'Refresh',
+          onClick: () => setRefreshKey((k) => k + 1),
+          variant: 'secondary',
+        },
+        {
+          label: 'New Context',
           onClick: () => setActiveTab('create'),
           variant: 'primary',
         },
@@ -103,26 +116,19 @@ export function KnowledgeBasePage() {
             <form onSubmit={handleCreateContext} className="space-y-6">
               <div className="bg-theme-surface border border-theme rounded-lg p-6">
                 <h3 className="text-lg font-medium text-theme-primary mb-4">
-                  Create Knowledge Base
+                  Create Context
                 </h3>
 
                 {/* Name */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-theme-primary mb-1">
-                    Name <span className="text-theme-error">*</span>
-                  </label>
-                  <input
-                    type="text"
+                  <Input
+                    label="Name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g., Product Documentation, Company Policies"
-                    className={`w-full px-4 py-2 bg-theme-surface border rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary ${
-                      formErrors.name ? 'border-theme-error' : 'border-theme'
-                    }`}
+                    error={formErrors.name}
+                    required
                   />
-                  {formErrors.name && (
-                    <p className="text-xs text-theme-error mt-1">{formErrors.name}</p>
-                  )}
                 </div>
 
                 {/* Description */}
@@ -133,102 +139,90 @@ export function KnowledgeBasePage() {
                   <textarea
                     value={formData.description || ''}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Describe what this knowledge base contains..."
+                    placeholder="Describe what this context contains..."
                     rows={3}
-                    className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+                    className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-md text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
                   />
                 </div>
 
                 {/* Scope */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-theme-primary mb-1">
-                    Scope
-                  </label>
-                  <select
+                  <Select
+                    label="Scope"
                     value={formData.scope}
-                    onChange={(e) =>
+                    onChange={(value) =>
                       setFormData({
                         ...formData,
-                        scope: e.target.value as ContextFormData['scope'],
+                        scope: value as ContextFormData['scope'],
                       })
                     }
-                    className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
-                  >
-                    <option value="account">Account-wide</option>
-                    <option value="team">Team</option>
-                    <option value="workflow">Workflow</option>
-                  </select>
+                    options={[
+                      { value: 'account', label: 'Account-wide' },
+                      { value: 'team', label: 'Team' },
+                      { value: 'workflow', label: 'Workflow' },
+                    ]}
+                  />
                   <p className="text-xs text-theme-tertiary mt-1">
-                    Determines who can access this knowledge base
+                    Determines who can access this context
                   </p>
                 </div>
 
                 {/* Retention Policy */}
-                <div className="p-4 bg-theme-surface rounded-lg">
+                <div className="p-4 bg-theme-surface-secondary border border-theme rounded-lg">
                   <h4 className="text-sm font-medium text-theme-primary mb-3">
                     Retention Policy (Optional)
                   </h4>
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs text-theme-secondary mb-1">
-                        Max Entries
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.retention_policy?.max_entries || ''}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            retention_policy: {
-                              ...formData.retention_policy,
-                              max_entries: e.target.value ? parseInt(e.target.value) : undefined,
-                            },
-                          })
-                        }
-                        placeholder="Unlimited"
-                        className="w-full px-3 py-1.5 text-sm bg-theme-surface border border-theme rounded text-theme-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-theme-secondary mb-1">
-                        Max Age (days)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.retention_policy?.max_age_days || ''}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            retention_policy: {
-                              ...formData.retention_policy,
-                              max_age_days: e.target.value ? parseInt(e.target.value) : undefined,
-                            },
-                          })
-                        }
-                        placeholder="Never expire"
-                        className="w-full px-3 py-1.5 text-sm bg-theme-surface border border-theme rounded text-theme-primary"
-                      />
-                    </div>
+                    <Input
+                      type="number"
+                      label="Max Entries"
+                      value={formData.retention_policy?.max_entries || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          retention_policy: {
+                            ...formData.retention_policy,
+                            max_entries: e.target.value ? parseInt(e.target.value) : undefined,
+                          },
+                        })
+                      }
+                      placeholder="Unlimited"
+                    />
+                    <Input
+                      type="number"
+                      label="Max Age (days)"
+                      value={formData.retention_policy?.max_age_days || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          retention_policy: {
+                            ...formData.retention_policy,
+                            max_age_days: e.target.value ? parseInt(e.target.value) : undefined,
+                          },
+                        })
+                      }
+                      placeholder="Never expire"
+                    />
                   </div>
                 </div>
               </div>
 
               {/* Actions */}
               <div className="flex justify-end gap-3">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => setActiveTab('browse')}
-                  className="px-4 py-2 text-theme-secondary hover:text-theme-primary transition-colors"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="primary"
                   disabled={isCreating}
-                  className="px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover disabled:opacity-50 transition-colors"
                 >
-                  {isCreating ? 'Creating...' : 'Create Knowledge Base'}
-                </button>
+                  {isCreating ? 'Creating...' : 'Create Context'}
+                </Button>
               </div>
             </form>
           </div>

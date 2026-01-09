@@ -104,7 +104,7 @@ export function ContextDetailPage() {
     const response = await contextApi.deleteContext(id);
     if (response.success) {
       showNotification('Context deleted', 'success');
-      navigate('/app/ai/knowledge');
+      navigate('/app/ai/contexts');
     } else {
       showNotification(response.error || 'Failed to delete context', 'error');
     }
@@ -167,7 +167,7 @@ export function ContextDetailPage() {
         <div className="text-center py-12">
           <p className="text-theme-secondary">The context you're looking for doesn't exist.</p>
           <button
-            onClick={() => navigate('/app/ai/knowledge')}
+            onClick={() => navigate('/app/ai/contexts')}
             className="mt-4 text-theme-primary hover:underline"
           >
             Back to Knowledge Base
@@ -341,7 +341,7 @@ export function ContextDetailPage() {
                 <p className="text-theme-secondary mt-1">Add your first entry to this context</p>
                 <button
                   onClick={() => setIsCreating(true)}
-                  className="mt-4 px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
+                  className="mt-4 px-4 py-2 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover transition-colors"
                 >
                   Add Entry
                 </button>
@@ -445,7 +445,7 @@ export function ContextDetailPage() {
                     </div>
                     <button
                       onClick={handleRestore}
-                      className="px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
+                      className="px-4 py-2 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover transition-colors"
                     >
                       Restore
                     </button>

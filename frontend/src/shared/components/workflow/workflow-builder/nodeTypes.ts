@@ -35,6 +35,14 @@ import { CiGetLogsNode } from '../nodes/CiGetLogsNode';
 import { CiCancelNode } from '../nodes/CiCancelNode';
 import { GitCommitStatusNode } from '../nodes/GitCommitStatusNode';
 import { GitCreateCheckNode } from '../nodes/GitCreateCheckNode';
+// CI/CD Pipeline Nodes
+import { GitCheckoutNode } from '../nodes/GitCheckoutNode';
+import { GitBranchNode } from '../nodes/GitBranchNode';
+import { GitPullRequestNode } from '../nodes/GitPullRequestNode';
+import { GitCommentNode } from '../nodes/GitCommentNode';
+import { DeployNode } from '../nodes/DeployNode';
+import { RunTestsNode } from '../nodes/RunTestsNode';
+import { ShellCommandNode } from '../nodes/ShellCommandNode';
 
 // Node types mapping for React Flow
 export const NODE_TYPES = {
@@ -80,6 +88,14 @@ export const NODE_TYPES = {
   ci_cancel: CiCancelNode,
   git_commit_status: GitCommitStatusNode,
   git_create_check: GitCreateCheckNode,
+  // CI/CD Pipeline Nodes
+  git_checkout: GitCheckoutNode,
+  git_branch: GitBranchNode,
+  git_pull_request: GitPullRequestNode,
+  git_comment: GitCommentNode,
+  deploy: DeployNode,
+  run_tests: RunTestsNode,
+  shell_command: ShellCommandNode,
 } as const;
 
 export type NodeTypeKey = keyof typeof NODE_TYPES;

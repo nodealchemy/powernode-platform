@@ -89,7 +89,7 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
         <div>
           {agent && (
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-theme-primary bg-opacity-10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-theme-surface-selected flex items-center justify-center">
                 <span className="text-xl">🤖</span>
               </div>
               <div>
@@ -116,7 +116,7 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
           {onAddEntry && (
             <button
               onClick={onAddEntry}
-              className="px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
+              className="px-4 py-2 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover transition-colors"
             >
               Add Memory
             </button>
@@ -135,7 +135,7 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
           {onAddEntry && (
             <button
               onClick={onAddEntry}
-              className="mt-4 px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
+              className="mt-4 px-4 py-2 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover transition-colors"
             >
               Add First Memory
             </button>
