@@ -5,7 +5,7 @@ module Shared
   # Supports Liquid templating, versioning, and domain-scoped templates.
   #
   # Domains:
-  #   - ai_workflow: Templates for AI workflow nodes
+  #   - workflow: Templates for AI workflow nodes
   #   - cicd: Templates for CI/CD pipeline steps
   #   - general: Templates available to both systems
   #
@@ -29,7 +29,7 @@ module Shared
              foreign_key: :parent_template_id, dependent: :nullify
 
     # Polymorphic usage tracking
-    has_many :ai_workflow_nodes, foreign_key: :shared_prompt_template_id, dependent: :nullify
+    has_many :ai_workflow_nodes, class_name: "Ai::WorkflowNode", foreign_key: :shared_prompt_template_id, dependent: :nullify
     has_many :ci_cd_pipeline_steps, class_name: "CiCd::PipelineStep",
              foreign_key: :shared_prompt_template_id, dependent: :nullify
 

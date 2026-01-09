@@ -12,7 +12,7 @@ module CiCd
     belongs_to :account
     belongs_to :created_by, class_name: "User", optional: true
     belongs_to :provider, class_name: "CiCd::Provider", foreign_key: :ci_cd_provider_id, optional: true
-    belongs_to :ai_provider, optional: true
+    belongs_to :ai_provider, class_name: "Ai::Provider", optional: true
 
     has_many :steps, class_name: "CiCd::PipelineStep", foreign_key: :ci_cd_pipeline_id, dependent: :destroy
     has_many :runs, class_name: "CiCd::PipelineRun", foreign_key: :ci_cd_pipeline_id, dependent: :destroy

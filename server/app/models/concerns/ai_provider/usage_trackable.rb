@@ -95,7 +95,7 @@ module AiProvider::UsageTrackable
 
   class_methods do
     def usage_analytics(period: 30.days, include_distribution: false)
-      providers = active.includes(:ai_agent_executions)
+      providers = active.includes(:agent_executions)
       total_requests = providers.sum { |p| p.total_requests }
       provider_count = providers.count
 

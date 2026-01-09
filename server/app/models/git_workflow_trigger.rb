@@ -4,7 +4,7 @@ class GitWorkflowTrigger < ApplicationRecord
   # ====================================
   # Associations
   # ====================================
-  belongs_to :ai_workflow_trigger
+  belongs_to :ai_workflow_trigger, class_name: "Ai::WorkflowTrigger"
   belongs_to :git_repository, optional: true
 
   # Delegate to workflow trigger for workflow access

@@ -22,6 +22,6 @@ module AiWorkflowNode::Connections
   def error_handler_node
     return nil unless error_node_id.present?
 
-    ai_workflow.ai_workflow_nodes.find_by(node_id: error_node_id)
+    ai_workflow.nodes.find_by(node_id: error_node_id)
   end
 end

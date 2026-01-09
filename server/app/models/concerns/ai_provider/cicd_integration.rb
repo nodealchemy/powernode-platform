@@ -104,7 +104,7 @@ module AiProvider::CicdIntegration
 
   # Get the active credential for API access
   #
-  # @return [AiProviderCredential, nil]
+  # @return [Ai::ProviderCredential, nil]
   def active_credential
     ai_provider_credentials.find_by(is_active: true)
   end

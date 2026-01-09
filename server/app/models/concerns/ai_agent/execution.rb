@@ -71,7 +71,7 @@ module AiAgent::Execution
     execution = create_mcp_execution(input_parameters, execution_options)
 
     # Delegate to AI MCP agent executor
-    executor = AiMcpAgentExecutor.new(
+    executor = Ai::McpAgentExecutor.new(
       agent: self,
       execution: execution,
       account: account
@@ -118,7 +118,7 @@ module AiAgent::Execution
     ai_agent_executions.create!(
       account: account,
       user: execution_options[:user] || creator,
-      ai_provider: ai_provider,
+      provider: ai_provider,
       input_parameters: input_parameters,
       status: "running",
       execution_id: SecureRandom.uuid,

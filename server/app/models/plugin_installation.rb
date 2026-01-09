@@ -79,7 +79,7 @@ class PluginInstallation < ApplicationRecord
 
   def register_plugin_resources
     # Register plugin with appropriate registries based on type
-    if plugin.ai_provider?
+    if plugin.provider?
       PluginProviderRegistryService.new(account: account).register_provider_plugin(self)
     end
 
@@ -91,7 +91,7 @@ class PluginInstallation < ApplicationRecord
   end
 
   def unregister_plugin_resources
-    if plugin.ai_provider?
+    if plugin.provider?
       PluginProviderRegistryService.new(account: account).unregister_provider_plugin(self)
     end
 

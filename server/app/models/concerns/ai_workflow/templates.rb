@@ -22,7 +22,7 @@ module AiWorkflow::Templates
       # Create nodes from template
       if workflow_data["nodes"].present?
         workflow_data["nodes"].each do |node_data|
-          new_workflow.ai_workflow_nodes.create!(
+          new_workflow.nodes.create!(
             node_id: node_data["node_id"],
             node_type: node_data["node_type"],
             name: node_data["name"],
@@ -40,7 +40,7 @@ module AiWorkflow::Templates
       # Create edges from template
       if workflow_data["edges"].present?
         workflow_data["edges"].each do |edge_data|
-          new_workflow.ai_workflow_edges.create!(
+          new_workflow.edges.create!(
             edge_id: edge_data["edge_id"],
             source_node_id: edge_data["source_node_id"],
             target_node_id: edge_data["target_node_id"],
@@ -57,7 +57,7 @@ module AiWorkflow::Templates
       # Create variables from template
       if workflow_data["variables"].present?
         workflow_data["variables"].each do |var_data|
-          new_workflow.ai_workflow_variables.create!(
+          new_workflow.variables.create!(
             name: var_data["name"],
             variable_type: var_data["variable_type"] || "string",
             description: var_data["description"],
@@ -71,8 +71,8 @@ module AiWorkflow::Templates
       end
 
       # Record template installation
-      installation = template.ai_workflow_template_installations.create!(
-        ai_workflow: new_workflow,
+      installation = template.template_installations.create!(
+        workflow: new_workflow,
         account: account,
         installed_by: user,
         installation_id: SecureRandom.uuid,

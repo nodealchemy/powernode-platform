@@ -403,14 +403,14 @@ class FileStorage < ApplicationRecord
 
   def encrypt_value(value)
     # Use Rails encrypted credentials or custom encryption
-    encryptor = AiCredentialEncryptionService.new
+    encryptor = Ai::CredentialEncryptionService.new
     "encrypted:#{encryptor.encrypt(value)}"
   end
 
   def decrypt_value(value)
     return value unless value.to_s.start_with?("encrypted:")
 
-    encryptor = AiCredentialEncryptionService.new
+    encryptor = Ai::CredentialEncryptionService.new
     encrypted_value = value.to_s.sub("encrypted:", "")
     encryptor.decrypt(encrypted_value)
   end

@@ -91,7 +91,7 @@ module AiWorkflowRun::ProgressTracking
     node_executions = ai_workflow_node_executions
 
     {
-      total_nodes: ai_workflow.ai_workflow_nodes.count,
+      total_nodes: ai_workflow.nodes.count,
       completed_nodes: node_executions.where(status: "completed").count,
       failed_nodes: node_executions.where(status: "failed").count,
       running_nodes: node_executions.where(status: "running").count,

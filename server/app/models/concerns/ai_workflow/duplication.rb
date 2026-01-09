@@ -33,7 +33,7 @@ module AiWorkflow::Duplication
         new_node_id = SecureRandom.uuid
         node_id_mapping[node.node_id] = new_node_id
 
-        new_workflow.ai_workflow_nodes.create!(
+        new_workflow.nodes.create!(
           node_id: new_node_id,
           node_type: node.node_type,
           name: node.name,
@@ -53,7 +53,7 @@ module AiWorkflow::Duplication
 
       # Duplicate edges with mapped node IDs
       ai_workflow_edges.each do |edge|
-        new_workflow.ai_workflow_edges.create!(
+        new_workflow.edges.create!(
           edge_id: SecureRandom.uuid,
           source_node_id: node_id_mapping[edge.source_node_id],
           target_node_id: node_id_mapping[edge.target_node_id],
@@ -70,7 +70,7 @@ module AiWorkflow::Duplication
 
       # Duplicate variables
       ai_workflow_variables.each do |variable|
-        new_workflow.ai_workflow_variables.create!(
+        new_workflow.variables.create!(
           name: variable.name,
           variable_type: variable.variable_type,
           description: variable.description,
@@ -111,7 +111,7 @@ module AiWorkflow::Duplication
         nodes_data.each do |node_data|
           old_node_id = node_data[:node_id] || node_data["node_id"]
           new_node_id = SecureRandom.uuid
-          new_node = workflow.ai_workflow_nodes.create!(
+          new_node = workflow.nodes.create!(
             node_id: new_node_id,
             node_type: node_data[:node_type] || node_data["node_type"],
             name: node_data[:name] || node_data["name"],
@@ -128,7 +128,7 @@ module AiWorkflow::Duplication
           old_source = edge_data[:source_node_id] || edge_data["source_node_id"]
           old_target = edge_data[:target_node_id] || edge_data["target_node_id"]
 
-          workflow.ai_workflow_edges.create!(
+          workflow.edges.create!(
             edge_id: SecureRandom.uuid,
             source_node_id: node_id_mapping[old_source],
             target_node_id: node_id_mapping[old_target],

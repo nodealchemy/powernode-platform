@@ -40,7 +40,7 @@ module AiWorkflowNodeExecution::RetryManagement
 
   # Retry with strategy service
   def retry_with_strategy!(error_type = nil)
-    retry_service = AiWorkflowRetryStrategyService.new(
+    retry_service = Ai::WorkflowRetryStrategyService.new(
       node_execution: self,
       error_type: error_type
     )
@@ -55,13 +55,13 @@ module AiWorkflowNodeExecution::RetryManagement
 
   # Get retry statistics
   def retry_statistics
-    retry_service = AiWorkflowRetryStrategyService.new(node_execution: self)
+    retry_service = Ai::WorkflowRetryStrategyService.new(node_execution: self)
     retry_service.retry_stats
   end
 
   # Check if error type is retryable
   def error_retryable?(error_type)
-    retry_service = AiWorkflowRetryStrategyService.new(
+    retry_service = Ai::WorkflowRetryStrategyService.new(
       node_execution: self,
       error_type: error_type
     )

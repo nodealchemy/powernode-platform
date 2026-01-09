@@ -12,11 +12,11 @@ class Plugin < ApplicationRecord
   belongs_to :source_marketplace, class_name: "PluginMarketplace", optional: true
 
   has_many :plugin_installations, dependent: :destroy
-  has_one :ai_provider_plugin, dependent: :destroy
+  has_one :ai_provider_plugin, class_name: "Ai::ProviderPlugin", dependent: :destroy
   has_many :workflow_node_plugins, dependent: :destroy
   has_many :plugin_reviews, dependent: :destroy
   has_many :plugin_dependencies, dependent: :destroy
-  has_many :ai_workflow_nodes, dependent: :nullify
+  has_many :ai_workflow_nodes, class_name: "Ai::WorkflowNode", dependent: :nullify
 
   # Validations
   validates :plugin_id, presence: true, uniqueness: { scope: :account_id },

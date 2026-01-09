@@ -69,7 +69,7 @@ module AiAgent::Operations
     def create_from_template(account, provider, template_data, user)
       agent = new(
         account: account,
-        ai_provider: provider,
+        provider: provider,
         creator: user,
         name: template_data[:name],
         description: template_data[:description],

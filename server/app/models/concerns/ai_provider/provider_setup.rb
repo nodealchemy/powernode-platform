@@ -79,7 +79,7 @@ module AiProvider::ProviderSetup
       used_provider_ids += AiAgent.where(ai_provider_id: inactive_provider_ids).pluck(:ai_provider_id)
 
       # Check if any executions use these providers
-      used_provider_ids += AiAgentExecution.where(ai_provider_id: inactive_provider_ids).pluck(:ai_provider_id)
+      used_provider_ids += Ai::AgentExecution.where(ai_provider_id: inactive_provider_ids).pluck(:ai_provider_id)
 
       # Only destroy providers that aren't referenced
       safe_to_delete_ids = inactive_provider_ids - used_provider_ids.uniq

@@ -19,18 +19,18 @@ class Account < ApplicationRecord
   has_many :webhook_endpoints, dependent: :destroy
 
   # AI-related associations
-  has_many :ai_providers, dependent: :destroy
-  has_many :ai_provider_credentials, dependent: :destroy
-  has_many :ai_agents, dependent: :destroy
-  has_many :ai_conversations, dependent: :destroy
-  has_many :ai_messages, dependent: :destroy
-  has_many :ai_agent_executions, dependent: :destroy
-  has_many :ai_agent_teams, dependent: :destroy
+  has_many :ai_providers, class_name: "Ai::Provider", dependent: :destroy
+  has_many :ai_provider_credentials, class_name: "Ai::ProviderCredential", dependent: :destroy
+  has_many :ai_agents, class_name: "Ai::Agent", dependent: :destroy
+  has_many :ai_conversations, class_name: "Ai::Conversation", dependent: :destroy
+  has_many :ai_messages, class_name: "Ai::Message", dependent: :destroy
+  has_many :ai_agent_executions, class_name: "Ai::AgentExecution", dependent: :destroy
+  has_many :ai_agent_teams, class_name: "Ai::AgentTeam", dependent: :destroy
 
   # AI Workflow associations
-  has_many :ai_workflows, dependent: :destroy
-  has_many :ai_workflow_runs, dependent: :destroy
-  has_many :ai_workflow_template_installations, dependent: :destroy
+  has_many :ai_workflows, class_name: "Ai::Workflow", dependent: :destroy
+  has_many :ai_workflow_runs, class_name: "Ai::WorkflowRun", dependent: :destroy
+  has_many :ai_workflow_template_installations, class_name: "Ai::WorkflowTemplateInstallation", dependent: :destroy
 
   # Analytics & Reporting associations
   has_many :report_requests, dependent: :destroy
