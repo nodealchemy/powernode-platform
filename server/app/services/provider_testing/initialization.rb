@@ -33,11 +33,11 @@ module ProviderTesting
 
       response = http.request(request)
 
-      AiProviderTestService::ResponseWrapper.new(response)
+      Ai::ProviderTestService::ResponseWrapper.new(response)
     rescue Timeout::Error, Net::OpenTimeout, Net::ReadTimeout, Errno::ETIMEDOUT => e
       raise e
     rescue => e
-      AiProviderTestService::ResponseWrapper.new(nil, error: e.message)
+      Ai::ProviderTestService::ResponseWrapper.new(nil, error: e.message)
     end
 
     def calculate_connection_quality(response_time_ms)

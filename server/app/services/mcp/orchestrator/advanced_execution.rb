@@ -11,7 +11,7 @@ module Mcp
 
         node_result = execute_node(node)
 
-        outgoing_edges = @workflow.ai_workflow_edges.where(source_node_id: node.node_id)
+        outgoing_edges = @workflow.workflow_edges.where(source_node_id: node.node_id)
 
         selected_edges = outgoing_edges.select do |edge|
           evaluate_edge_condition(edge, node_result)
@@ -22,7 +22,7 @@ module Mcp
         @logger.debug "[MCP_ORCHESTRATOR] Conditional branch selected #{selected_edges.count} path(s)"
 
         selected_edges.each do |edge|
-          target_node = @workflow.ai_workflow_nodes.find_by(node_id: edge.target_node_id)
+          target_node = @workflow.workflow_nodes.find_by(node_id: edge.target_node_id)
           next unless target_node && !visited.include?(target_node.node_id)
 
           if target_node.node_type == "condition"
@@ -59,12 +59,12 @@ module Mcp
         dependencies = {}
         reverse_dependencies = {}
 
-        @workflow.ai_workflow_nodes.each do |node|
+        @workflow.workflow_nodes.each do |node|
           dependencies[node.node_id] = []
           reverse_dependencies[node.node_id] = []
         end
 
-        @workflow.ai_workflow_edges.each do |edge|
+        @workflow.workflow_edges.each do |edge|
           dependencies[edge.target_node_id] ||= []
           dependencies[edge.target_node_id] << edge.source_node_id
 
@@ -75,7 +75,7 @@ module Mcp
         execution_batches = []
         in_degree = {}
 
-        @workflow.ai_workflow_nodes.each do |node|
+        @workflow.workflow_nodes.each do |node|
           in_degree[node.node_id] = dependencies[node.node_id]&.count || 0
         end
 
@@ -84,7 +84,7 @@ module Mcp
 
           break if ready_nodes.empty?
 
-          batch_nodes = @workflow.ai_workflow_nodes.where(node_id: ready_nodes).to_a
+          batch_nodes = @workflow.workflow_nodes.where(node_id: ready_nodes).to_a
           execution_batches << batch_nodes if batch_nodes.any?
 
           ready_nodes.each do |node_id|

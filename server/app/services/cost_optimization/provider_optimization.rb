@@ -11,11 +11,11 @@ module CostOptimization
       max_cost = requirements[:max_cost]
       max_response_time_ms = requirements[:max_response_time_ms]
 
-      credentials = @account.ai_provider_credentials.includes(:ai_provider).active
+      credentials = @account.ai_provider_credentials.includes(:provider).active
       return empty_recommendation if credentials.empty?
 
       scored_providers = credentials.map do |cred|
-        provider = cred.ai_provider
+        provider = cred.provider
         cost_per_token = provider_cost_per_token(provider)
         estimated_cost = calculate_estimated_cost(cost_per_token, max_tokens, complexity)
         quality_score = provider_quality_score(provider)
@@ -56,7 +56,7 @@ module CostOptimization
       scored_providers.sort_by! { |p| -p[:value_score] }
 
       warnings = []
-      paid_providers_before = credentials.select { |cred| provider_cost_per_token(cred.ai_provider) > 0 }
+      paid_providers_before = credentials.select { |cred| provider_cost_per_token(cred.provider) > 0 }
       paid_providers_remaining = scored_providers.select { |p| p[:estimated_cost] > 0 }
 
       if max_cost && paid_providers_before.any? && paid_providers_remaining.empty?
@@ -65,7 +65,7 @@ module CostOptimization
 
       if scored_providers.empty? && max_cost
         scored_providers = credentials.map do |cred|
-          provider = cred.ai_provider
+          provider = cred.provider
           {
             provider: provider,
             credential: cred,
@@ -107,7 +107,7 @@ module CostOptimization
       quality_weight = requirements[:quality_weight] || 0.5
       cost_weight = requirements[:cost_weight] || 0.5
 
-      providers = AiProvider.active
+      providers = Ai::Provider.active
 
       comparisons = providers.map do |provider|
         cost_per_token = provider_cost_per_token(provider)
@@ -140,13 +140,13 @@ module CostOptimization
       complex_pct = workload_profile[:complex_tasks] || 20
       monthly_budget = workload_profile[:monthly_budget] || BigDecimal("100")
 
-      credentials = @account.ai_provider_credentials.includes(:ai_provider).active
+      credentials = @account.ai_provider_credentials.includes(:provider).active
 
       recommended_mix = {}
       total_weight = 0.0
 
       credentials.each do |cred|
-        provider = cred.ai_provider
+        provider = cred.provider
         cost = provider_cost_per_token(provider)
         quality = provider_quality_score(provider)
 
@@ -175,7 +175,7 @@ module CostOptimization
     def analyze_provider_cost_efficiency(executions)
       provider_efficiency = {}
 
-      executions.group_by(&:ai_provider).each do |provider, provider_executions|
+      executions.group_by(&:provider).each do |provider, provider_executions|
         costs = provider_executions.map(&:cost_usd).compact
         response_times = provider_executions.map(&:duration_ms).compact
         success_count = provider_executions.count { |e| e.status == "completed" }

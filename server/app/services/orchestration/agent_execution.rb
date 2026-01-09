@@ -8,9 +8,9 @@ module Orchestration
       optimal_provider = select_optimal_provider(agent, options)
       enforce_resource_limits!(agent, optimal_provider)
 
-      execution = agent.ai_agent_executions.create!(
+      execution = agent.executions.create!(
         user: @user,
-        ai_provider: optimal_provider,
+        provider: optimal_provider,
         input_parameters: input_parameters,
         status: "pending",
         execution_id: SecureRandom.uuid,
@@ -35,7 +35,7 @@ module Orchestration
       available_providers = agent.compatible_providers.active
 
       if available_providers.empty?
-        raise AiAgentOrchestrationService::OrchestrationError, "No available providers for agent #{agent.id}"
+        raise Ai::AgentOrchestrationService::OrchestrationError, "No available providers for agent #{agent.id}"
       end
 
       provider_scores = available_providers.map do |provider|
@@ -78,14 +78,14 @@ module Orchestration
       max_concurrent = @account.subscription&.ai_execution_limit || 10
 
       if current_executions >= max_concurrent
-        raise AiAgentOrchestrationService::ResourceLimitError, "Account concurrent execution limit reached (#{max_concurrent})"
+        raise Ai::AgentOrchestrationService::ResourceLimitError, "Account concurrent execution limit reached (#{max_concurrent})"
       end
 
-      provider_executions = provider.ai_agent_executions.where(status: ["pending", "running"]).count
+      provider_executions = provider.agent_executions.where(status: ["pending", "running"]).count
       provider_max = provider.metadata&.dig("max_concurrent") || 10
 
       if provider_executions >= provider_max
-        raise AiAgentOrchestrationService::ResourceLimitError, "Provider #{provider.name} concurrent execution limit reached"
+        raise Ai::AgentOrchestrationService::ResourceLimitError, "Provider #{provider.name} concurrent execution limit reached"
       end
     end
 

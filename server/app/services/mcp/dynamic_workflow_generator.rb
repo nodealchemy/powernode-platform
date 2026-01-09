@@ -13,11 +13,11 @@ module Mcp
 
     # Generate workflow from template
     def generate_from_template(template:, parameters:, name: nil)
-      raise ArgumentError, "Template must be an AiWorkflow" unless template.is_template?
+      raise ArgumentError, "Template must be an Ai::Workflow" unless template.is_template?
 
       workflow_name = name || "#{template.name} - #{Time.current.strftime('%Y%m%d-%H%M%S')}"
 
-      workflow = AiWorkflow.create!(
+      workflow = Ai::Workflow.create!(
         account: account,
         creator: user,
         name: workflow_name,
@@ -51,7 +51,7 @@ module Mcp
     def generate_from_config(config:, name:)
       validate_workflow_config(config)
 
-      workflow = AiWorkflow.create!(
+      workflow = Ai::Workflow.create!(
         account: account,
         creator: user,
         name: name,
@@ -86,7 +86,7 @@ module Mcp
 
       workflow_name = name || spec["name"] || "Generated Workflow #{SecureRandom.hex(4)}"
 
-      workflow = AiWorkflow.create!(
+      workflow = Ai::Workflow.create!(
         account: account,
         creator: user,
         name: workflow_name,
@@ -114,7 +114,7 @@ module Mcp
 
     # Generate multi-agent workflow
     def generate_multi_agent_workflow(name:, agents:, collaboration_pattern: "sequential")
-      workflow = AiWorkflow.create!(
+      workflow = Ai::Workflow.create!(
         account: account,
         creator: user,
         name: name,
@@ -156,7 +156,7 @@ module Mcp
 
       workflow_name = name || "AI-Generated Workflow #{SecureRandom.hex(4)}"
 
-      workflow = AiWorkflow.create!(
+      workflow = Ai::Workflow.create!(
         account: account,
         creator: user,
         name: workflow_name,
@@ -183,7 +183,7 @@ module Mcp
 
     # Compose workflow from multiple sub-workflows
     def compose_from_workflows(name:, workflows:, composition_strategy: "sequential")
-      composed = AiWorkflow.create!(
+      composed = Ai::Workflow.create!(
         account: account,
         creator: user,
         name: name,
@@ -217,10 +217,10 @@ module Mcp
 
     # Copy nodes from template with parameterization
     def copy_nodes_from_template(template, workflow, parameters)
-      template.ai_workflow_nodes.each do |template_node|
+      template.workflow_nodes.each do |template_node|
         config = parameterize_config(template_node.configuration, parameters)
 
-        workflow.ai_workflow_nodes.create!(
+        workflow.workflow_nodes.create!(
           node_id: template_node.node_id,
           node_type: template_node.node_type,
           name: parameterize_string(template_node.name, parameters),
@@ -235,8 +235,8 @@ module Mcp
 
     # Copy edges from template
     def copy_edges_from_template(template, workflow)
-      template.ai_workflow_edges.each do |template_edge|
-        workflow.ai_workflow_edges.create!(
+      template.workflow_edges.each do |template_edge|
+        workflow.workflow_edges.create!(
           source_node_id: template_edge.source_node_id,
           target_node_id: template_edge.target_node_id,
           edge_type: template_edge.edge_type,
@@ -298,7 +298,7 @@ module Mcp
     # Generate nodes from configuration
     def generate_nodes_from_config(workflow, nodes_config)
       nodes_config.each_with_index do |node_config, index|
-        workflow.ai_workflow_nodes.create!(
+        workflow.workflow_nodes.create!(
           node_id: node_config["id"] || "node_#{index}",
           node_type: node_config["type"],
           name: node_config["name"],
@@ -316,7 +316,7 @@ module Mcp
       return unless edges_config
 
       edges_config.each do |edge_config|
-        workflow.ai_workflow_edges.create!(
+        workflow.workflow_edges.create!(
           source_node_id: edge_config["from"],
           target_node_id: edge_config["to"],
           edge_type: edge_config["type"] || "default",
@@ -330,7 +330,7 @@ module Mcp
     def apply_conditional_logic(workflow, conditions)
       conditions.each do |condition|
         # Create conditional edges based on rules
-        workflow.ai_workflow_edges.create!(
+        workflow.workflow_edges.create!(
           source_node_id: condition["source"],
           target_node_id: condition["target"],
           edge_type: "conditional",
@@ -345,7 +345,7 @@ module Mcp
       node_map = {}
 
       nodes_json.each do |node_json|
-        node = workflow.ai_workflow_nodes.create!(
+        node = workflow.workflow_nodes.create!(
           node_id: node_json["id"],
           node_type: node_json["type"],
           name: node_json["name"],
@@ -367,7 +367,7 @@ module Mcp
       return unless edges_json
 
       edges_json.each do |edge_json|
-        workflow.ai_workflow_edges.create!(
+        workflow.workflow_edges.create!(
           source_node_id: edge_json["source"],
           target_node_id: edge_json["target"],
           edge_type: edge_json["type"] || "default",
@@ -379,7 +379,7 @@ module Mcp
 
     # Generate sequential agent flow
     def generate_sequential_agent_flow(workflow, agents)
-      start_node = workflow.ai_workflow_nodes.create!(
+      start_node = workflow.workflow_nodes.create!(
         node_id: "start",
         node_type: "start",
         name: "Start",
@@ -391,7 +391,7 @@ module Mcp
       previous_node = start_node
 
       agents.each_with_index do |agent, index|
-        agent_node = workflow.ai_workflow_nodes.create!(
+        agent_node = workflow.workflow_nodes.create!(
           node_id: "agent_#{agent[:id]}",
           node_type: "ai_agent",
           name: agent[:name],
@@ -400,7 +400,7 @@ module Mcp
           position_y: 100
         )
 
-        workflow.ai_workflow_edges.create!(
+        workflow.workflow_edges.create!(
           source_node_id: previous_node.node_id,
           target_node_id: agent_node.node_id,
           edge_type: "default"
@@ -409,7 +409,7 @@ module Mcp
         previous_node = agent_node
       end
 
-      end_node = workflow.ai_workflow_nodes.create!(
+      end_node = workflow.workflow_nodes.create!(
         node_id: "end",
         node_type: "end",
         name: "End",
@@ -418,7 +418,7 @@ module Mcp
         position_y: 100
       )
 
-      workflow.ai_workflow_edges.create!(
+      workflow.workflow_edges.create!(
         source_node_id: previous_node.node_id,
         target_node_id: end_node.node_id,
         edge_type: "default"
@@ -427,7 +427,7 @@ module Mcp
 
     # Generate parallel agent flow
     def generate_parallel_agent_flow(workflow, agents)
-      start_node = workflow.ai_workflow_nodes.create!(
+      start_node = workflow.workflow_nodes.create!(
         node_id: "start",
         node_type: "start",
         name: "Start",
@@ -437,7 +437,7 @@ module Mcp
       )
 
       agent_nodes = agents.map.with_index do |agent, index|
-        node = workflow.ai_workflow_nodes.create!(
+        node = workflow.workflow_nodes.create!(
           node_id: "agent_#{agent[:id]}",
           node_type: "ai_agent",
           name: agent[:name],
@@ -446,7 +446,7 @@ module Mcp
           position_y: 200
         )
 
-        workflow.ai_workflow_edges.create!(
+        workflow.workflow_edges.create!(
           source_node_id: start_node.node_id,
           target_node_id: node.node_id,
           edge_type: "parallel"
@@ -455,7 +455,7 @@ module Mcp
         node
       end
 
-      merge_node = workflow.ai_workflow_nodes.create!(
+      merge_node = workflow.workflow_nodes.create!(
         node_id: "merge",
         node_type: "merge",
         name: "Merge Results",
@@ -465,14 +465,14 @@ module Mcp
       )
 
       agent_nodes.each do |agent_node|
-        workflow.ai_workflow_edges.create!(
+        workflow.workflow_edges.create!(
           source_node_id: agent_node.node_id,
           target_node_id: merge_node.node_id,
           edge_type: "default"
         )
       end
 
-      end_node = workflow.ai_workflow_nodes.create!(
+      end_node = workflow.workflow_nodes.create!(
         node_id: "end",
         node_type: "end",
         name: "End",
@@ -481,7 +481,7 @@ module Mcp
         position_y: 500
       )
 
-      workflow.ai_workflow_edges.create!(
+      workflow.workflow_edges.create!(
         source_node_id: merge_node.node_id,
         target_node_id: end_node.node_id,
         edge_type: "default"
@@ -494,7 +494,7 @@ module Mcp
       coordinator = agents.first
       workers = agents[1..-1]
 
-      start_node = workflow.ai_workflow_nodes.create!(
+      start_node = workflow.workflow_nodes.create!(
         node_id: "start",
         node_type: "start",
         name: "Start",
@@ -502,7 +502,7 @@ module Mcp
         position_y: 50
       )
 
-      coordinator_node = workflow.ai_workflow_nodes.create!(
+      coordinator_node = workflow.workflow_nodes.create!(
         node_id: "coordinator_#{coordinator[:id]}",
         node_type: "ai_agent",
         name: "Coordinator: #{coordinator[:name]}",
@@ -511,14 +511,14 @@ module Mcp
         position_y: 150
       )
 
-      workflow.ai_workflow_edges.create!(
+      workflow.workflow_edges.create!(
         source_node_id: start_node.node_id,
         target_node_id: coordinator_node.node_id
       )
 
       # Worker nodes
       workers.each_with_index do |worker, index|
-        worker_node = workflow.ai_workflow_nodes.create!(
+        worker_node = workflow.workflow_nodes.create!(
           node_id: "worker_#{worker[:id]}",
           node_type: "ai_agent",
           name: "Worker: #{worker[:name]}",
@@ -527,7 +527,7 @@ module Mcp
           position_y: 300
         )
 
-        workflow.ai_workflow_edges.create!(
+        workflow.workflow_edges.create!(
           source_node_id: coordinator_node.node_id,
           target_node_id: worker_node.node_id,
           edge_type: "command"
@@ -537,7 +537,7 @@ module Mcp
 
     # Generate mesh agent flow (all-to-all communication)
     def generate_mesh_agent_flow(workflow, agents)
-      start_node = workflow.ai_workflow_nodes.create!(
+      start_node = workflow.workflow_nodes.create!(
         node_id: "start",
         node_type: "start",
         name: "Start",
@@ -546,7 +546,7 @@ module Mcp
       )
 
       # Create shared blackboard
-      blackboard_node = workflow.ai_workflow_nodes.create!(
+      blackboard_node = workflow.workflow_nodes.create!(
         node_id: "shared_blackboard",
         node_type: "transform",
         name: "Shared Blackboard",
@@ -555,7 +555,7 @@ module Mcp
         position_y: 150
       )
 
-      workflow.ai_workflow_edges.create!(
+      workflow.workflow_edges.create!(
         source_node_id: start_node.node_id,
         target_node_id: blackboard_node.node_id
       )
@@ -565,7 +565,7 @@ module Mcp
         angle = (2 * Math::PI * index) / agents.length
         radius = 200
 
-        agent_node = workflow.ai_workflow_nodes.create!(
+        agent_node = workflow.workflow_nodes.create!(
           node_id: "agent_#{agent[:id]}",
           node_type: "ai_agent",
           name: agent[:name],
@@ -574,7 +574,7 @@ module Mcp
           position_y: 300 + (radius * Math.sin(angle)).to_i
         )
 
-        workflow.ai_workflow_edges.create!(
+        workflow.workflow_edges.create!(
           source_node_id: blackboard_node.node_id,
           target_node_id: agent_node.node_id,
           edge_type: "broadcast"
@@ -584,7 +584,7 @@ module Mcp
 
     # Create placeholder nodes for AI completion
     def create_placeholder_nodes(workflow, description)
-      workflow.ai_workflow_nodes.create!(
+      workflow.workflow_nodes.create!(
         node_id: "start",
         node_type: "start",
         name: "Start",
@@ -592,7 +592,7 @@ module Mcp
         position_y: 100
       )
 
-      workflow.ai_workflow_nodes.create!(
+      workflow.workflow_nodes.create!(
         node_id: "ai_placeholder",
         node_type: "ai_agent",
         name: "AI-Generated Steps",
@@ -602,7 +602,7 @@ module Mcp
         position_y: 100
       )
 
-      workflow.ai_workflow_nodes.create!(
+      workflow.workflow_nodes.create!(
         node_id: "end",
         node_type: "end",
         name: "End",
@@ -613,7 +613,7 @@ module Mcp
 
     # Compose workflows sequentially
     def compose_sequential(composed, workflows)
-      start_node = composed.ai_workflow_nodes.create!(
+      start_node = composed.workflow_nodes.create!(
         node_id: "start",
         node_type: "start",
         name: "Start",
@@ -624,7 +624,7 @@ module Mcp
       previous_node = start_node
 
       workflows.each_with_index do |workflow, index|
-        sub_workflow_node = composed.ai_workflow_nodes.create!(
+        sub_workflow_node = composed.workflow_nodes.create!(
           node_id: "sub_workflow_#{workflow.id}",
           node_type: "sub_workflow",
           name: workflow.name,
@@ -633,7 +633,7 @@ module Mcp
           position_y: 100
         )
 
-        composed.ai_workflow_edges.create!(
+        composed.workflow_edges.create!(
           source_node_id: previous_node.node_id,
           target_node_id: sub_workflow_node.node_id
         )
@@ -645,7 +645,7 @@ module Mcp
     # Compose workflows in parallel
     def compose_parallel(composed, workflows)
       # Similar to parallel agent flow but with sub-workflows
-      split_node = composed.ai_workflow_nodes.create!(
+      split_node = composed.workflow_nodes.create!(
         node_id: "split",
         node_type: "split",
         name: "Split",
@@ -654,7 +654,7 @@ module Mcp
       )
 
       workflows.each_with_index do |workflow, index|
-        composed.ai_workflow_nodes.create!(
+        composed.workflow_nodes.create!(
           node_id: "sub_workflow_#{workflow.id}",
           node_type: "sub_workflow",
           name: workflow.name,
@@ -680,7 +680,7 @@ module Mcp
       slug = base_slug
       counter = 1
 
-      while AiWorkflow.exists?(account_id: account.id, slug: slug)
+      while Ai::Workflow.exists?(account_id: account.id, slug: slug)
         slug = "#{base_slug}-#{counter}"
         counter += 1
       end

@@ -11,13 +11,13 @@ module Mcp
       # 3. Auto-passing previous results if no explicit mapping exists
       # 4. Including workflow variables as base context
       #
-      # @param node [AiWorkflowNode] Node to build input for
+      # @param node [Ai::WorkflowNode] Node to build input for
       # @return [Hash] Input data with resolved mappings
       def build_node_input_data(node)
         input_data = {}
 
         # Get incoming edges to this node
-        incoming_edges = @workflow.ai_workflow_edges.where(target_node_id: node.node_id)
+        incoming_edges = @workflow.workflow_edges.where(target_node_id: node.node_id)
 
         # Track if any explicit mapping was found
         has_explicit_mapping = false
@@ -165,7 +165,7 @@ module Mcp
 
       # Update execution context with node output
       #
-      # @param node [AiWorkflowNode] Node that produced output
+      # @param node [Ai::WorkflowNode] Node that produced output
       # @param output_data [Hash] Output data from node
       def update_execution_context(node, output_data)
         @execution_context[:variables] ||= {}

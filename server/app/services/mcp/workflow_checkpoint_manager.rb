@@ -22,7 +22,7 @@ module Mcp
 
     # Initialize checkpoint manager
     #
-    # @param workflow_run [AiWorkflowRun] The workflow run to manage checkpoints for
+    # @param workflow_run [Ai::WorkflowRun] The workflow run to manage checkpoints for
     # @param account [Account] The account context
     # @param user [User] The user context
     # @param logger [Logger] Optional logger (defaults to Rails.logger)
@@ -54,7 +54,7 @@ module Mcp
         "created_at" => Time.current.iso8601,
         "state" => capture_workflow_state,
         "data" => checkpoint_data,
-        "completed_nodes" => @workflow_run.ai_workflow_node_executions.where(status: "completed").pluck(:node_id),
+        "completed_nodes" => @workflow_run.node_executions.where(status: "completed").pluck(:node_id),
         "variables" => @workflow_run.runtime_context["variables"] || {},
         "output_data" => @workflow_run.output_variables || {}
       }
@@ -176,7 +176,7 @@ module Mcp
       {
         "run_status" => @workflow_run.status,
         "current_node_id" => @workflow_run.current_node_id,
-        "execution_mode" => @workflow_run.ai_workflow.configuration&.dig("execution_mode") || "sequential",
+        "execution_mode" => @workflow_run.workflow.configuration&.dig("execution_mode") || "sequential",
         "started_at" => @workflow_run.started_at&.iso8601,
         "runtime_context" => @workflow_run.runtime_context,
         "metadata" => @workflow_run.metadata
@@ -212,15 +212,15 @@ module Mcp
 
       node_ids.each do |node_id|
         # Check if execution already exists
-        existing_execution = @workflow_run.ai_workflow_node_executions.find_by(node_id: node_id)
+        existing_execution = @workflow_run.node_executions.find_by(node_id: node_id)
         next if existing_execution
 
         # Create a completed execution record
-        node = @workflow_run.ai_workflow.ai_workflow_nodes.find_by(node_id: node_id)
+        node = @workflow_run.workflow.nodes.find_by(node_id: node_id)
         next unless node
 
-        @workflow_run.ai_workflow_node_executions.create!(
-          ai_workflow_node: node,
+        @workflow_run.node_executions.create!(
+          node: node,
           node_id: node_id,
           node_type: node.node_type,
           status: "completed",

@@ -12,8 +12,8 @@ module Mcp
 
     # Send direct message from one agent to another
     def send_direct_message(from_agent_id:, to_agent_id:, content:, pattern: "request_response")
-      AiAgentMessage.create!(
-        ai_workflow_run: workflow_run,
+      Ai::AgentMessage.create!(
+        workflow_run: workflow_run,
         from_agent_id: from_agent_id,
         to_agent_id: to_agent_id,
         message_type: "direct",
@@ -28,8 +28,8 @@ module Mcp
 
     # Broadcast message to all agents
     def broadcast_message(from_agent_id:, content:, pattern: "publish_subscribe")
-      AiAgentMessage.create!(
-        ai_workflow_run: workflow_run,
+      Ai::AgentMessage.create!(
+        workflow_run: workflow_run,
         from_agent_id: from_agent_id,
         to_agent_id: nil, # Broadcast has no specific recipient
         message_type: "broadcast",
@@ -56,8 +56,8 @@ module Mcp
       response = nil
 
       while (Time.current - start_time) < timeout
-        response = AiAgentMessage.find_by(
-          ai_workflow_run_id: workflow_run.id,
+        response = Ai::AgentMessage.find_by(
+          workflow_run: workflow_run,
           in_reply_to_message_id: request_msg.message_id,
           message_type: "response"
         )
@@ -88,12 +88,12 @@ module Mcp
 
     # Get unread messages for an agent
     def get_unread_messages(agent_id)
-      AiAgentMessage.unread_for_agent(agent_id, workflow_run.id)
+      Ai::AgentMessage.unread_for_agent(agent_id, workflow_run.id)
     end
 
     # Mark message as read
     def mark_message_read(message_id, agent_id)
-      message = AiAgentMessage.find_by(message_id: message_id, ai_workflow_run_id: workflow_run.id)
+      message = Ai::AgentMessage.find_by(message_id: message_id, workflow_run: workflow_run)
       raise ArgumentError, "Message not found" unless message
       raise ArgumentError, "Not the recipient" unless message.to_agent_id == agent_id
 
@@ -102,14 +102,14 @@ module Mcp
 
     # Get conversation between two agents
     def get_conversation(agent_a_id, agent_b_id)
-      AiAgentMessage.conversation_between(agent_a_id, agent_b_id, workflow_run.id)
+      Ai::AgentMessage.conversation_between(agent_a_id, agent_b_id, workflow_run.id)
                     .map(&:message_summary)
     end
 
     # Create or get shared context pool
     def create_context_pool(owner_agent_id:, pool_type: "shared_memory", scope: "workflow", initial_data: {})
-      AiSharedContextPool.create!(
-        ai_workflow_run: workflow_run,
+      Ai::SharedContextPool.create!(
+        workflow_run: workflow_run,
         pool_type: pool_type,
         scope: scope,
         owner_agent_id: owner_agent_id,
@@ -128,12 +128,12 @@ module Mcp
 
     # Get context pool by ID
     def get_context_pool(pool_id)
-      AiSharedContextPool.find_by(pool_id: pool_id, ai_workflow_run_id: workflow_run.id)
+      Ai::SharedContextPool.find_by(pool_id: pool_id, workflow_run: workflow_run)
     end
 
     # List context pools
     def list_context_pools(pool_type: nil, scope: nil, agent_id: nil)
-      pools = AiSharedContextPool.for_run(workflow_run.id).active
+      pools = Ai::SharedContextPool.for_run(workflow_run.id).active
 
       pools = pools.by_type(pool_type) if pool_type
       pools = pools.by_scope(scope) if scope
@@ -216,7 +216,7 @@ module Mcp
       cache_key = "#{tool_name}_#{Digest::SHA256.hexdigest(input_hash.to_json)}"
 
       # Find or create tool cache pool
-      cache_pool = AiSharedContextPool.for_run(workflow_run.id)
+      cache_pool = Ai::SharedContextPool.for_run(workflow_run.id)
                                      .by_type("tool_cache")
                                      .by_scope("workflow")
                                      .first
@@ -244,7 +244,7 @@ module Mcp
     def get_cached_tool_result(tool_name:, input_hash:)
       cache_key = "#{tool_name}_#{Digest::SHA256.hexdigest(input_hash.to_json)}"
 
-      cache_pool = AiSharedContextPool.for_run(workflow_run.id)
+      cache_pool = Ai::SharedContextPool.for_run(workflow_run.id)
                                      .by_type("tool_cache")
                                      .by_scope("workflow")
                                      .first
@@ -279,7 +279,7 @@ module Mcp
 
     # Worker reports result back to coordinator
     def report_result(worker_agent_id:, coordinator_agent_id:, result:, command_message_id:)
-      command_msg = AiAgentMessage.find_by(message_id: command_message_id)
+      command_msg = Ai::AgentMessage.find_by(message_id: command_message_id)
 
       command_msg.create_reply(
         from_agent_id: worker_agent_id,
@@ -294,7 +294,7 @@ module Mcp
 
     # Get communication statistics
     def communication_stats
-      messages = AiAgentMessage.for_run(workflow_run.id)
+      messages = Ai::AgentMessage.for_run(workflow_run.id)
 
       {
         total_messages: messages.count,
@@ -302,7 +302,7 @@ module Mcp
         by_pattern: messages.group(:communication_pattern).count,
         by_status: messages.group(:status).count,
         active_agents: messages.distinct.pluck(:from_agent_id).compact.count,
-        active_context_pools: AiSharedContextPool.for_run(workflow_run.id).active.count,
+        active_context_pools: Ai::SharedContextPool.for_run(workflow_run.id).active.count,
         broadcasts: messages.broadcasts.count,
         direct_messages: messages.direct_messages.count
       }

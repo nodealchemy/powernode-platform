@@ -14,7 +14,7 @@ module Mcp
         end
 
         # Find the AI agent
-        agent = ::AiAgent.find_by(id: agent_id)
+        agent = ::Ai::Agent.find_by(id: agent_id)
         unless agent
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "AI Agent not found: #{agent_id}"
         end
@@ -125,12 +125,12 @@ module Mcp
       end
 
       def create_agent_execution(agent, input)
-        # Create an AiAgentExecution record to track this workflow-triggered execution
-        AiAgentExecution.create!(
-          ai_agent: agent,
+        # Create an Ai::AgentExecution record to track this workflow-triggered execution
+        Ai::AgentExecution.create!(
+          agent: agent,
           account: @orchestrator.account,
           user: @orchestrator.user,
-          ai_provider: agent.ai_provider,
+          provider: agent.provider,
           execution_id: SecureRandom.uuid,
           status: "pending",
           input_parameters: input,
@@ -141,12 +141,12 @@ module Mcp
       end
 
       def execute_agent(agent, input)
-        # Create AiAgentExecution record to track this agent execution
+        # Create Ai::AgentExecution record to track this agent execution
         # This ensures workflow-triggered agent executions are counted in agent stats
         agent_execution = create_agent_execution(agent, input)
         log_debug "Created agent execution record: #{agent_execution.execution_id}"
 
-        # Link the AiAgentExecution to the AiWorkflowNodeExecution
+        # Link the Ai::AgentExecution to the Ai::WorkflowNodeExecution
         # This connects the workflow context to the agent execution
         @node_execution.update_column(:ai_agent_execution_id, agent_execution.id)
         log_debug "Linked agent execution to workflow node execution"
@@ -156,7 +156,7 @@ module Mcp
         log_debug "Started agent execution tracking"
 
         # Use AI MCP agent executor for actual execution
-        mcp_executor = AiMcpAgentExecutor.new(
+        mcp_executor = Ai::McpAgentExecutor.new(
           agent: agent,
           execution: agent_execution,
           account: @orchestrator.account

@@ -5,8 +5,8 @@ module Orchestration
     def execute_node(node, run, input_data = {})
       @logger.info "Executing node #{node.node_id} for run #{run.run_id}"
 
-      node_execution = run.ai_workflow_node_executions.create!(
-        ai_workflow_node: node,
+      node_execution = run.node_executions.create!(
+        node: node,
         node_id: node.node_id,
         node_type: node.node_type,
         status: "pending",
@@ -120,7 +120,7 @@ module Orchestration
 
         executor = @node_executors[node_execution.node_type.to_sym]
         unless executor
-          raise AiAgentOrchestrationService::ExecutionError, "No executor found for node type: #{node_execution.node_type}"
+          raise Ai::AgentOrchestrationService::ExecutionError, "No executor found for node type: #{node_execution.node_type}"
         end
 
         result = executor.call(node_execution, input_data, @execution_context)
@@ -152,7 +152,7 @@ module Orchestration
         "node_id" => node_execution.node_id,
         "node_type" => node_execution.node_type,
         "input_data" => input_data,
-        "configuration" => node_execution.ai_workflow_node.configuration,
+        "configuration" => node_execution.node.configuration,
         "workflow_context" => @execution_context,
         "started_at" => Time.current.iso8601
       }

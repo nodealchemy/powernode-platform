@@ -10,7 +10,7 @@ module CostOptimization
 
     def load_provider_costs
       costs = {}
-      AiProvider.active.each do |provider|
+      Ai::Provider.active.each do |provider|
         costs[provider.id] = provider_cost_per_token(provider)
       end
       costs
@@ -54,7 +54,7 @@ module CostOptimization
 
     def provider_avg_response_time(provider)
       recent_executions = @account.ai_agent_executions
-                                  .where(ai_provider: provider)
+                                  .where(provider: provider)
                                   .where(created_at: 7.days.ago..Time.current)
 
       avg = recent_executions.average(:duration_ms)
@@ -78,7 +78,7 @@ module CostOptimization
 
     def base_executions_query
       @account.ai_agent_executions
-              .joins(:ai_agent, :ai_provider)
+              .joins(:agent, :provider)
               .where(created_at: @start_date..@end_date)
               .where.not(cost_usd: nil)
     end

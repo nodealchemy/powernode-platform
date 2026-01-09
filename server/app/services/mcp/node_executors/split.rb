@@ -94,7 +94,7 @@ module Mcp
         end
 
         # Priority 2: Get branches from outgoing edges
-        outgoing_edges = @node.ai_workflow&.ai_workflow_edges
+        outgoing_edges = @node.workflow&.workflow_edges
                               &.where(source_node_id: @node.node_id)&.to_a || []
 
         if outgoing_edges.any?

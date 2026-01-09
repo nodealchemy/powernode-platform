@@ -57,7 +57,7 @@ module Mcp
       target_workflow = find_version(to_version)
       raise ArgumentError, "Target version #{to_version} not found" unless target_workflow
 
-      running_workflows = AiWorkflowRun.where(ai_workflow_id: workflow.id, status: "running")
+      running_workflows = Ai::WorkflowRun.where(workflow_id: workflow.id, status: "running")
 
       case strategy
       when :graceful
@@ -78,7 +78,7 @@ module Mcp
 
       ActiveRecord::Base.transaction do
         # Deactivate current active version
-        AiWorkflow.where(account_id: account.id, name: workflow.name, is_active: true)
+        Ai::Workflow.where(account_id: account.id, name: workflow.name, is_active: true)
                   .update_all(is_active: false)
 
         # Activate target version
@@ -92,7 +92,7 @@ module Mcp
 
     # Get version history
     def version_history
-      AiWorkflow.where(account_id: account.id, name: workflow.name)
+      Ai::Workflow.where(account_id: account.id, name: workflow.name)
                 .order(created_at: :desc)
                 .map do |wf|
         {
@@ -103,7 +103,7 @@ module Mcp
           created_at: wf.created_at,
           created_by: wf.version_metadata&.dig("created_by"),
           parent_version_id: wf.parent_version_id,
-          active_runs: wf.ai_workflow_runs.where(status: [ "running", "paused" ]).count
+          active_runs: wf.workflow_runs.where(status: [ "running", "paused" ]).count
         }
       end
     end
@@ -155,16 +155,16 @@ module Mcp
     # Copy workflow structure (nodes and edges) to new version
     def copy_workflow_structure(source, target)
       # Copy nodes
-      source.ai_workflow_nodes.each do |node|
+      source.workflow_nodes.each do |node|
         new_node = node.dup
-        new_node.ai_workflow_id = target.id
+        new_node.workflow_id = target.id
         new_node.save!
       end
 
       # Copy edges
-      source.ai_workflow_edges.each do |edge|
+      source.workflow_edges.each do |edge|
         new_edge = edge.dup
-        new_edge.ai_workflow_id = target.id
+        new_edge.workflow_id = target.id
         new_edge.save!
       end
     end
@@ -192,7 +192,7 @@ module Mcp
         checkpoint = create_migration_checkpoint(run)
 
         # Switch to new workflow version
-        run.update!(ai_workflow_id: target_workflow.id)
+        run.update!(workflow_id: target_workflow.id)
 
         migrated_count += 1
       rescue StandardError => e
@@ -215,7 +215,7 @@ module Mcp
 
         if checkpoint
           run.update!(
-            ai_workflow_id: target_workflow.id,
+            workflow_id: target_workflow.id,
             status: "paused",
             runtime_context: run.runtime_context.merge(
               "migration_checkpoint_id" => checkpoint.id,
@@ -239,8 +239,8 @@ module Mcp
 
     # Create a migration checkpoint for a workflow run
     def create_migration_checkpoint(run)
-      AiWorkflowCheckpoint.create(
-        ai_workflow_run: run,
+      Ai::WorkflowCheckpoint.create(
+        workflow_run: run,
         checkpoint_type: "manual_checkpoint",
         node_id: run.current_node_id || "migration",
         workflow_state: run.runtime_context["state"] || {},
@@ -257,13 +257,13 @@ module Mcp
 
     # Find a specific version
     def find_version(version)
-      AiWorkflow.find_by(account_id: account.id, name: workflow.name, version: version)
+      Ai::Workflow.find_by(account_id: account.id, name: workflow.name, version: version)
     end
 
     # Compare nodes between versions
     def compare_nodes(workflow_a, workflow_b)
-      nodes_a = workflow_a.ai_workflow_nodes.index_by(&:node_id)
-      nodes_b = workflow_b.ai_workflow_nodes.index_by(&:node_id)
+      nodes_a = workflow_a.workflow_nodes.index_by(&:node_id)
+      nodes_b = workflow_b.workflow_nodes.index_by(&:node_id)
 
       {
         added: (nodes_b.keys - nodes_a.keys).map { |id| nodes_b[id].as_json },
@@ -276,8 +276,8 @@ module Mcp
 
     # Compare edges between versions
     def compare_edges(workflow_a, workflow_b)
-      edges_a = workflow_a.ai_workflow_edges.map { |e| [ e.source_node_id, e.target_node_id ] }
-      edges_b = workflow_b.ai_workflow_edges.map { |e| [ e.source_node_id, e.target_node_id ] }
+      edges_a = workflow_a.workflow_edges.map { |e| [ e.source_node_id, e.target_node_id ] }
+      edges_b = workflow_b.workflow_edges.map { |e| [ e.source_node_id, e.target_node_id ] }
 
       {
         added: edges_b - edges_a,

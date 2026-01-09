@@ -7,7 +7,7 @@
 # transform, human_approval) has its own execution method.
 #
 # @example Including in a service
-#   class AiAgentOrchestrationService
+#   class Ai::AgentOrchestrationService
 #     include AiNodeExecutors
 #   end
 #
@@ -16,7 +16,7 @@ module AiNodeExecutors
 
     # Execute an AI agent node by calling the configured AI provider
     #
-    # @param node [AiWorkflowNode] The node to execute
+    # @param node [Ai::WorkflowNode] The node to execute
     # @param input_data [Hash] Input data for the node
     # @return [Hash] Execution result with :success, :output_data, :cost, etc.
     def execute_ai_agent_node(node, input_data)
@@ -30,14 +30,14 @@ module AiNodeExecutors
 
       begin
         # Get AI provider credential for the agent
-        provider_credential = agent.ai_provider.ai_provider_credentials
+        provider_credential = agent.provider.provider_credentials
                                    .where(account: @account)
                                    .first
 
         return { success: false, error_message: "No provider credentials configured" } unless provider_credential
 
         # Initialize provider client
-        client = AiProviderClientService.new(provider_credential)
+        client = Ai::ProviderClientService.new(provider_credential)
 
         # Prepare prompt from input data
         prompt = build_agent_prompt(input_data, agent_config)
@@ -83,7 +83,7 @@ module AiNodeExecutors
 
     # Execute an API call node
     #
-    # @param node [AiWorkflowNode] The node to execute
+    # @param node [Ai::WorkflowNode] The node to execute
     # @param input_data [Hash] Input data for the node
     # @return [Hash] Execution result
     def execute_api_call_node(node, input_data)
@@ -108,7 +108,7 @@ module AiNodeExecutors
 
     # Execute a webhook delivery node
     #
-    # @param node [AiWorkflowNode] The node to execute
+    # @param node [Ai::WorkflowNode] The node to execute
     # @param input_data [Hash] Input data for the node
     # @return [Hash] Execution result
     def execute_webhook_node(node, input_data)
@@ -132,7 +132,7 @@ module AiNodeExecutors
 
     # Execute a condition evaluation node
     #
-    # @param node [AiWorkflowNode] The node to execute
+    # @param node [Ai::WorkflowNode] The node to execute
     # @param input_data [Hash] Input data for the node
     # @return [Hash] Execution result with condition_result and next_path
     def execute_condition_node(node, input_data)
@@ -164,7 +164,7 @@ module AiNodeExecutors
 
     # Execute a data transformation node
     #
-    # @param node [AiWorkflowNode] The node to execute
+    # @param node [Ai::WorkflowNode] The node to execute
     # @param input_data [Hash] Input data for the node
     # @return [Hash] Execution result with transformed data
     def execute_transform_node(node, input_data)
@@ -191,7 +191,7 @@ module AiNodeExecutors
 
     # Execute a human approval node
     #
-    # @param node [AiWorkflowNode] The node to execute
+    # @param node [Ai::WorkflowNode] The node to execute
     # @param input_data [Hash] Input data for the node
     # @return [Hash] Execution result with approval URL
     def execute_human_approval_node(node, input_data)

@@ -35,7 +35,7 @@ module Mcp
         return cached if cached.present?
 
         # Load from database
-        context = AiPersistentContext.find_by(id: context_id, account_id: @account.id)
+        context = Ai::PersistentContext.find_by(id: context_id, account_id: @account.id)
         return nil unless context.present?
 
         @execution_context[:persistent_contexts][context_id] = context
@@ -53,7 +53,7 @@ module Mcp
       def store_agent_memory(agent:, key:, value:, metadata: {})
         return unless agent.present? && key.present?
 
-        AiContextPersistenceService.store_memory(
+        Ai::ContextPersistenceService.store_memory(
           agent: agent,
           key: key,
           value: value,
@@ -78,7 +78,7 @@ module Mcp
         return cached if cached.present?
 
         # Load from service
-        AiContextPersistenceService.recall_memory(agent: agent, key: key)
+        Ai::ContextPersistenceService.recall_memory(agent: agent, key: key)
       end
 
       # Search relevant knowledge base entries
@@ -91,7 +91,7 @@ module Mcp
 
         results = []
         contexts_to_search.each do |context|
-          search_results = AiContextPersistenceService.search(
+          search_results = Ai::ContextPersistenceService.search(
             context: context,
             query: query,
             accessor: @user,
@@ -181,7 +181,7 @@ module Mcp
         context_ids = workflow_config["persistent_context_ids"] || []
 
         context_ids.each do |context_id|
-          context = AiPersistentContext.find_by(id: context_id, account_id: @account.id)
+          context = Ai::PersistentContext.find_by(id: context_id, account_id: @account.id)
           next unless context.present?
 
           @execution_context[:persistent_contexts][context_id] = context
@@ -190,7 +190,7 @@ module Mcp
 
       def load_agent_memories
         # Find all agent nodes in the workflow
-        agent_ids = @workflow.ai_workflow_nodes
+        agent_ids = @workflow.workflow_nodes
           .where(node_type: "ai_agent")
           .pluck(:configuration)
           .map { |config| config&.dig("agent_id") }
@@ -202,10 +202,10 @@ module Mcp
         agent_ids = (agent_ids + workflow_agent_ids).uniq
 
         agent_ids.each do |agent_id|
-          agent = AiAgent.find_by(id: agent_id, account_id: @account.id)
+          agent = Ai::Agent.find_by(id: agent_id, account_id: @account.id)
           next unless agent.present?
 
-          memory_context = AiContextPersistenceService.get_agent_memory(
+          memory_context = Ai::ContextPersistenceService.get_agent_memory(
             account: @account,
             agent: agent,
             create_if_missing: false
@@ -213,7 +213,7 @@ module Mcp
 
           if memory_context.present?
             # Load recent/high-importance entries for quick access
-            entries = memory_context.ai_context_entries
+            entries = memory_context.context_entries
               .active
               .order(importance_score: :desc, updated_at: :desc)
               .limit(50)
@@ -230,7 +230,7 @@ module Mcp
 
       def load_knowledge_bases
         # Load account-level knowledge bases
-        knowledge_bases = AiPersistentContext
+        knowledge_bases = Ai::PersistentContext
           .where(account_id: @account.id, context_type: "knowledge_base")
           .active
           .limit(10)
@@ -246,7 +246,7 @@ module Mcp
         # Load workflow-specific knowledge base if configured
         workflow_kb_id = @workflow.configuration&.dig("knowledge_base_id")
         if workflow_kb_id.present? && !@execution_context[:knowledge_bases].key?(workflow_kb_id)
-          kb = AiPersistentContext.find_by(id: workflow_kb_id, account_id: @account.id)
+          kb = Ai::PersistentContext.find_by(id: workflow_kb_id, account_id: @account.id)
           if kb.present?
             @execution_context[:knowledge_bases][kb.id] = {
               context: kb,

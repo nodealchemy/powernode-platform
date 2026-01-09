@@ -4,18 +4,18 @@ module Mcp
   module Orchestrator
     module Navigation
       def find_start_nodes
-        start_nodes = @workflow.ai_workflow_nodes.where(is_start_node: true)
+        start_nodes = @workflow.workflow_nodes.where(is_start_node: true)
 
         if start_nodes.empty?
-          all_target_node_ids = @workflow.ai_workflow_edges.pluck(:target_node_id)
-          start_nodes = @workflow.ai_workflow_nodes.where.not(node_id: all_target_node_ids)
+          all_target_node_ids = @workflow.workflow_edges.pluck(:target_node_id)
+          start_nodes = @workflow.workflow_nodes.where.not(node_id: all_target_node_ids)
         end
 
         start_nodes
       end
 
       def find_next_nodes(current_node, node_result)
-        outgoing_edges = @workflow.ai_workflow_edges.where(source_node_id: current_node.node_id)
+        outgoing_edges = @workflow.workflow_edges.where(source_node_id: current_node.node_id)
 
         valid_edges = outgoing_edges.select do |edge|
           evaluate_edge_condition(edge, node_result)
@@ -24,7 +24,7 @@ module Mcp
         valid_edges = valid_edges.sort_by { |edge| edge.priority || 0 }
 
         target_node_ids = valid_edges.map(&:target_node_id)
-        @workflow.ai_workflow_nodes.where(node_id: target_node_ids)
+        @workflow.workflow_nodes.where(node_id: target_node_ids)
       end
 
       def evaluate_edge_condition(edge, node_result)
@@ -60,7 +60,7 @@ module Mcp
       end
 
       def prerequisites_complete?(node)
-        incoming_edges = @workflow.ai_workflow_edges.where(target_node_id: node.node_id)
+        incoming_edges = @workflow.workflow_edges.where(target_node_id: node.node_id)
 
         return true if incoming_edges.empty?
 
@@ -75,7 +75,7 @@ module Mcp
         # Check for conditional convergence
         source_nodes_with_conditional_incoming = incoming_edges.select do |edge|
           source_node_id = edge.source_node_id
-          source_node_incoming = @workflow.ai_workflow_edges.where(target_node_id: source_node_id)
+          source_node_incoming = @workflow.workflow_edges.where(target_node_id: source_node_id)
           source_node_incoming.any?(&:is_conditional?)
         end
         is_conditional_convergence = incoming_edges.count > 1 && source_nodes_with_conditional_incoming.any?

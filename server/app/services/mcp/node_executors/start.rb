@@ -25,7 +25,7 @@ module Mcp
 
         {
           output: {
-            workflow_id: workflow_run.ai_workflow_id,
+            workflow_id: workflow_run.workflow_id,
             run_id: workflow_run.run_id,
             triggered_at: Time.current.iso8601
           },

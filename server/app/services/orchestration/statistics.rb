@@ -3,7 +3,7 @@
 module Orchestration
   module Statistics
     def execution_statistics(run, include_performance: false)
-      executions = run.ai_workflow_node_executions
+      executions = run.node_executions
 
       total_cost = executions.sum(:cost) || 0
 
@@ -52,7 +52,7 @@ module Orchestration
     end
 
     def estimate_expected_duration(run)
-      node_count = run.ai_workflow.ai_workflow_nodes.count
+      node_count = run.workflow.nodes.count
       base_time_per_node = 30
 
       node_count * base_time_per_node

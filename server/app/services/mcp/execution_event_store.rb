@@ -235,7 +235,7 @@ module Mcp
       {
         workflow_run_id: @workflow_run.id,
         run_id: @workflow_run.run_id,
-        workflow_id: @workflow_run.ai_workflow_id,
+        workflow_id: @workflow_run.workflow_id,
         exported_at: Time.current.iso8601,
         event_count: @events.count,
         events: @events
@@ -316,7 +316,7 @@ module Mcp
         metadata: metadata.merge(
           workflow_run_id: @workflow_run.id,
           run_id: @workflow_run.run_id,
-          workflow_id: @workflow_run.ai_workflow_id
+          workflow_id: @workflow_run.workflow_id
         ),
         sequence_number: @event_sequence,
         timestamp: Time.current,

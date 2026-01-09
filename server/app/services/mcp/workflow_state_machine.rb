@@ -487,7 +487,7 @@ module Mcp
       workflow_run_data = {
         id: @workflow_run.id,
         run_id: @workflow_run.run_id,
-        ai_workflow_id: @workflow_run.ai_workflow_id,
+        ai_workflow_id: @workflow_run.workflow_id,
         status: @workflow_run.status,
         trigger_type: @workflow_run.trigger_type,
         started_at: @workflow_run.started_at,
@@ -512,7 +512,7 @@ module Mcp
         @workflow_run,
         {
           workflow_run: workflow_run_data,
-          workflow_stats: @workflow_run.ai_workflow.respond_to?(:stats) ? @workflow_run.ai_workflow.stats : {}
+          workflow_stats: @workflow_run.workflow.respond_to?(:stats) ? @workflow_run.workflow.stats : {}
         }
       )
 

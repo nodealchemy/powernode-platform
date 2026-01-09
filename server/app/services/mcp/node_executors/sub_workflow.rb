@@ -35,6 +35,9 @@ module Mcp
           return error_result("Sub-workflow ID is required")
         end
 
+        # Check sub-workflow depth to prevent infinite recursion
+        new_depth = check_sub_workflow_depth_limit
+
         # Load the sub-workflow
         sub_workflow = load_workflow(workflow_id)
         return error_result("Sub-workflow not found: #{workflow_id}") unless sub_workflow
@@ -44,17 +47,17 @@ module Mcp
           return error_result("Sub-workflow is not active: #{workflow_id}")
         end
 
-        log_info "Executing sub-workflow: #{sub_workflow.name} (#{execution_mode})"
+        log_info "Executing sub-workflow: #{sub_workflow.name} (#{execution_mode}) at depth #{new_depth}"
 
         # Build input variables for sub-workflow
         sub_workflow_input = build_sub_workflow_input(input_mapping, inherit_context)
 
-        # Execute based on mode
+        # Execute based on mode, passing depth
         result = case execution_mode
         when "async"
-                  execute_async(sub_workflow, sub_workflow_input, wait_for_completion, timeout_seconds)
+                  execute_async(sub_workflow, sub_workflow_input, wait_for_completion, timeout_seconds, new_depth)
         else
-                  execute_sync(sub_workflow, sub_workflow_input, timeout_seconds)
+                  execute_sync(sub_workflow, sub_workflow_input, timeout_seconds, new_depth)
         end
 
         # Apply output mapping if successful
@@ -70,9 +73,9 @@ module Mcp
       def load_workflow(workflow_id)
         # Support both UUID and slug lookup
         if workflow_id =~ /^[0-9a-f-]{36}$/i
-          AiWorkflow.find_by(id: workflow_id)
+          Ai::Workflow.find_by(id: workflow_id)
         else
-          AiWorkflow.find_by(slug: workflow_id)
+          Ai::Workflow.find_by(slug: workflow_id)
         end
       end
 
@@ -116,24 +119,40 @@ module Mcp
         end
       end
 
-      def execute_sync(sub_workflow, sub_workflow_input, timeout_seconds)
+      def check_sub_workflow_depth_limit
+        # Get current depth from parent workflow run
+        current_depth = @node_execution&.workflow_run&.metadata&.dig("sub_workflow_depth") || 0
+
+        # Get max depth from workflow configuration
+        max_depth = @node.workflow&.configuration&.dig("loop_prevention", "max_sub_workflow_depth") || 5
+
+        if current_depth >= max_depth
+          raise ArgumentError, "Sub-workflow depth limit exceeded (#{current_depth}/#{max_depth}). " \
+                               "Possible recursive workflow call detected."
+        end
+
+        current_depth + 1
+      end
+
+      def execute_sync(sub_workflow, sub_workflow_input, timeout_seconds, depth)
         start_time = Time.current
 
         begin
-          # Create a new run for the sub-workflow
-          sub_run = sub_workflow.ai_workflow_runs.create!(
+          # Create a new run for the sub-workflow with depth tracking
+          sub_run = sub_workflow.workflow_runs.create!(
             status: "pending",
             input_data: sub_workflow_input,
             started_at: Time.current,
             metadata: {
-              parent_run_id: @node_execution&.ai_workflow_run_id,
+              parent_run_id: @node_execution&.workflow_run_id,
               parent_node_id: @node.node_id,
-              triggered_by: "sub_workflow_node"
+              triggered_by: "sub_workflow_node",
+              sub_workflow_depth: depth
             }
           )
 
           # Create orchestrator for sub-workflow
-          sub_orchestrator = Mcp::AiWorkflowOrchestrator.new(sub_run)
+          sub_orchestrator = Mcp::Ai::WorkflowOrchestrator.new(sub_run)
 
           # Execute with timeout
           Timeout.timeout(timeout_seconds) do
@@ -170,27 +189,28 @@ module Mcp
         end
       end
 
-      def execute_async(sub_workflow, sub_workflow_input, wait_for_completion, timeout_seconds)
-        # Create run for sub-workflow
-        sub_run = sub_workflow.ai_workflow_runs.create!(
+      def execute_async(sub_workflow, sub_workflow_input, wait_for_completion, timeout_seconds, depth)
+        # Create run for sub-workflow with depth tracking
+        sub_run = sub_workflow.workflow_runs.create!(
           status: "pending",
           input_data: sub_workflow_input,
           started_at: Time.current,
           metadata: {
-            parent_run_id: @node_execution&.ai_workflow_run_id,
+            parent_run_id: @node_execution&.workflow_run_id,
             parent_node_id: @node.node_id,
             triggered_by: "sub_workflow_node",
-            async: true
+            async: true,
+            sub_workflow_depth: depth
           }
         )
 
         # Schedule async execution
-        if defined?(AiWorkflowExecutionJob)
-          AiWorkflowExecutionJob.perform_async(sub_run.id)
+        if defined?(Ai::WorkflowExecutionJob)
+          Ai::WorkflowExecutionJob.perform_async(sub_run.id)
         else
           # Fallback: execute in thread
           Thread.new do
-            Mcp::AiWorkflowOrchestrator.new(sub_run).execute
+            Mcp::Ai::WorkflowOrchestrator.new(sub_run).execute
           rescue StandardError => e
             Rails.logger.error "[SUB_WORKFLOW] Async execution failed: #{e.message}"
           end
@@ -280,7 +300,7 @@ module Mcp
       end
 
       def success_result(sub_run, execution_time_ms)
-        sub_workflow = sub_run.ai_workflow
+        sub_workflow = sub_run.workflow
 
         {
           output: sub_run.output_data || {},
@@ -292,7 +312,7 @@ module Mcp
           },
           data: {
             sub_workflow_name: sub_workflow.name,
-            node_executions_count: sub_run.ai_workflow_node_executions.count,
+            node_executions_count: sub_run.node_executions.count,
             total_cost: sub_run.total_cost
           },
           metadata: {

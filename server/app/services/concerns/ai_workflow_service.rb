@@ -34,11 +34,11 @@ module AiWorkflowService
 
   # Execute block within workflow execution context
   #
-  # @param workflow_run [AiWorkflowRun] The workflow run being executed
+  # @param workflow_run [Ai::WorkflowRun] The workflow run being executed
   # @yield Block to execute with workflow context
   def with_workflow_context(workflow_run)
     @workflow_run = workflow_run
-    @workflow = workflow_run.ai_workflow
+    @workflow = workflow_run.workflow
     @execution_context = initialize_execution_context
 
     begin
@@ -121,12 +121,12 @@ module AiWorkflowService
   # @return [ActiveRecord::Relation] Start nodes
   def find_start_nodes
     # Find nodes marked as start nodes
-    start_nodes = @workflow.ai_workflow_nodes.where(is_start_node: true)
+    start_nodes = @workflow.nodes.where(is_start_node: true)
 
     # Fallback: nodes with no incoming edges
     if start_nodes.empty?
-      all_target_node_ids = @workflow.ai_workflow_edges.pluck(:target_node_id)
-      start_nodes = @workflow.ai_workflow_nodes.where.not(node_id: all_target_node_ids)
+      all_target_node_ids = @workflow.edges.pluck(:target_node_id)
+      start_nodes = @workflow.nodes.where.not(node_id: all_target_node_ids)
     end
 
     start_nodes
@@ -134,11 +134,11 @@ module AiWorkflowService
 
   # Find next nodes from current node based on result
   #
-  # @param current_node [AiWorkflowNode] Current node
+  # @param current_node [Ai::WorkflowNode] Current node
   # @param node_result [Hash] Node execution result
-  # @return [Array<AiWorkflowNode>] Next nodes to execute
+  # @return [Array<Ai::WorkflowNode>] Next nodes to execute
   def find_next_nodes(current_node, node_result)
-    outgoing_edges = @workflow.ai_workflow_edges.where(source_node_id: current_node.node_id)
+    outgoing_edges = @workflow.edges.where(source_node_id: current_node.node_id)
 
     # Evaluate edges to find valid paths
     valid_edges = outgoing_edges.select do |edge|
@@ -150,15 +150,15 @@ module AiWorkflowService
 
     # Get target nodes
     target_node_ids = valid_edges.map(&:target_node_id)
-    @workflow.ai_workflow_nodes.where(node_id: target_node_ids)
+    @workflow.nodes.where(node_id: target_node_ids)
   end
 
   # Check if node prerequisites are complete
   #
-  # @param node [AiWorkflowNode] Node to check
+  # @param node [Ai::WorkflowNode] Node to check
   # @return [Boolean] Whether all prerequisites are complete
   def prerequisites_complete?(node)
-    incoming_edges = @workflow.ai_workflow_edges.where(target_node_id: node.node_id)
+    incoming_edges = @workflow.edges.where(target_node_id: node.node_id)
 
     # No incoming edges means node is ready
     return true if incoming_edges.empty?
@@ -176,7 +176,7 @@ module AiWorkflowService
 
   # Evaluate if edge condition is satisfied
   #
-  # @param edge [AiWorkflowEdge] Edge to evaluate
+  # @param edge [Ai::WorkflowEdge] Edge to evaluate
   # @param node_result [Hash] Node execution result
   # @return [Boolean] Whether edge condition is satisfied
   def evaluate_edge_condition(edge, node_result)
@@ -253,7 +253,7 @@ module AiWorkflowService
 
   # Update execution context
   #
-  # @param node [AiWorkflowNode] Node that produced output
+  # @param node [Ai::WorkflowNode] Node that produced output
   # @param output_data [Hash] Node output data
   def update_execution_context(node, output_data)
     @execution_context[:node_results][node.node_id] = output_data
@@ -292,12 +292,12 @@ module AiWorkflowService
 
   # Broadcast node execution update
   #
-  # @param node [AiWorkflowNode] Node being executed
+  # @param node [Ai::WorkflowNode] Node being executed
   # @param status [String] Node execution status
   # @param data [Hash] Additional data
   def broadcast_node_execution(node, status, data = {})
     # Get the node execution record to use the channel's proper broadcast method
-    node_execution = @workflow_run.ai_workflow_node_executions
+    node_execution = @workflow_run.node_executions
                                   .find_by(node_id: node.node_id)
 
     if node_execution

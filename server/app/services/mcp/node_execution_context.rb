@@ -108,7 +108,7 @@ module Mcp
 
     def auto_wire_predecessor_outputs
       # Find nodes that connect to this node
-      incoming_edges = @workflow_run.ai_workflow.ai_workflow_edges.where(
+      incoming_edges = @workflow_run.workflow.workflow_edges.where(
         target_node_id: @node.node_id
       )
 
@@ -202,7 +202,7 @@ module Mcp
       end
 
       # Special context variables
-      variables["_workflow_id"] = @workflow_run.ai_workflow_id
+      variables["_workflow_id"] = @workflow_run.workflow_id
       variables["_run_id"] = @workflow_run.run_id
       variables["_node_id"] = @node.node_id
       variables["_node_name"] = @node.name
@@ -427,7 +427,7 @@ module Mcp
           "node_id" => @node.node_id,
           "node_name" => @node.name,
           "node_type" => @node.node_type,
-          "workflow_id" => @workflow_run.ai_workflow_id,
+          "workflow_id" => @workflow_run.workflow_id,
           "run_id" => @workflow_run.run_id
         },
         "execution_timestamp" => Time.current.iso8601
@@ -536,7 +536,7 @@ module Mcp
     # Get persistent context by ID
     #
     # @param context_id [String] Context ID
-    # @return [AiPersistentContext, nil] Context object or nil
+    # @return [Ai::PersistentContext, nil] Context object or nil
     def get_persistent_context(context_id)
       @execution_context.dig(:persistent_contexts, context_id)
     end
@@ -563,7 +563,7 @@ module Mcp
         context = kb_data[:context]
         next unless context.present?
 
-        entries = context.ai_context_entries
+        entries = context.context_entries
           .active
           .where("content_text ILIKE ?", "%#{query}%")
           .order(importance_score: :desc)
@@ -581,16 +581,16 @@ module Mcp
 
     # Get workflow run
     #
-    # @return [AiWorkflowRun]
+    # @return [Ai::WorkflowRun]
     def workflow_run
       @workflow_run
     end
 
     # Get workflow
     #
-    # @return [AiWorkflow]
+    # @return [Ai::Workflow]
     def workflow
-      @workflow_run.ai_workflow
+      @workflow_run.workflow
     end
 
     # Get account

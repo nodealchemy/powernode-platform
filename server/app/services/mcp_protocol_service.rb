@@ -426,7 +426,7 @@ class McpProtocolService
     when "ai_agent"
       agent_id = tool_manifest["metadata"]["agent_id"]
       agent = @account.ai_agents.find(agent_id)
-      executor = AiMcpAgentExecutor.new(agent: agent, account: @account)
+      executor = Ai::McpAgentExecutor.new(agent: agent, account: @account)
       executor.execute(params)
     when "workflow"
       workflow_id = tool_manifest["metadata"]["workflow_id"]

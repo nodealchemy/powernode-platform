@@ -300,7 +300,7 @@ class CredentialEncryptionService
     end
 
     def validate_version(version)
-      # Support both v1 (legacy AiCredentialEncryptionService) and v2
+      # Support both v1 (legacy Ai::CredentialEncryptionService) and v2
       unless %w[v1 v2].include?(version)
         raise DecryptionError, "Unsupported encryption version: #{version}"
       end

@@ -5,10 +5,10 @@ module Mcp
     module Planning
       # Build parallel execution batches
       #
-      # @return [Array<Array<AiWorkflowNode>>] Batches of nodes
+      # @return [Array<Array<Ai::WorkflowNode>>] Batches of nodes
       def build_parallel_batches
         batches = []
-        remaining_nodes = @workflow.ai_workflow_nodes.to_a
+        remaining_nodes = @workflow.workflow_nodes.to_a
         executed_node_ids = Set.new
 
         while remaining_nodes.any?
@@ -34,7 +34,7 @@ module Mcp
 
       # Build DAG execution plan
       #
-      # @return [Array<Array<AiWorkflowNode>>] Optimal execution order
+      # @return [Array<Array<Ai::WorkflowNode>>] Optimal execution order
       def build_dag_execution_plan
         # Use topological sort to determine optimal order
         # This is a simplified implementation
@@ -43,11 +43,11 @@ module Mcp
 
       # Check if node prerequisites are satisfied
       #
-      # @param node [AiWorkflowNode] Node to check
+      # @param node [Ai::WorkflowNode] Node to check
       # @param executed_node_ids [Set] Set of executed node IDs
       # @return [Boolean] Whether prerequisites are satisfied
       def prerequisites_satisfied?(node, executed_node_ids)
-        incoming_edges = @workflow.ai_workflow_edges.where(target_node_id: node.node_id)
+        incoming_edges = @workflow.workflow_edges.where(target_node_id: node.node_id)
 
         # No incoming edges means node is ready
         return true if incoming_edges.empty?
@@ -60,10 +60,10 @@ module Mcp
 
       # Check if prerequisites are complete for sequential execution
       #
-      # @param node [AiWorkflowNode] Node to check
+      # @param node [Ai::WorkflowNode] Node to check
       # @return [Boolean] Whether prerequisites are complete
       def prerequisites_complete?(node)
-        incoming_edges = @workflow.ai_workflow_edges.where(target_node_id: node.node_id)
+        incoming_edges = @workflow.workflow_edges.where(target_node_id: node.node_id)
 
         # No incoming edges means ready
         return true if incoming_edges.empty?

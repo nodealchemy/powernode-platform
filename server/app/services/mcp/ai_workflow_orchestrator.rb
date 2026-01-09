@@ -26,6 +26,7 @@ module Mcp
     include Orchestrator::Compensation
     include Orchestrator::Finalization
     include Orchestrator::AdvancedExecution
+    include Orchestrator::LoopPrevention
 
     class WorkflowExecutionError < StandardError; end
     class StateTransitionError < StandardError; end
@@ -37,7 +38,7 @@ module Mcp
 
     def initialize(workflow_run:, account: nil, user: nil)
       @workflow_run = workflow_run
-      @workflow = workflow_run.ai_workflow
+      @workflow = workflow_run.workflow
       @account = account || workflow_run.account
       @user = user || workflow_run.triggered_by_user
       @logger = Rails.logger
@@ -95,7 +96,7 @@ module Mcp
         current_state = @state_machine.current_state
         transition_state!(current_state, :running) unless current_state == :running
 
-        resume_node = @workflow.ai_workflow_nodes.find_by(node_id: node_id)
+        resume_node = @workflow.workflow_nodes.find_by(node_id: node_id)
         raise WorkflowExecutionError, "Resume node not found: #{node_id}" unless resume_node
 
         execute_from_resume_point(resume_node)
@@ -139,6 +140,9 @@ module Mcp
         execution_path: [],
         compensation_handlers: []
       }
+
+      # Initialize loop prevention tracking
+      initialize_loop_prevention
 
       @state_machine.initialize_state(@execution_context)
       @monitor.start_monitoring(@execution_context)

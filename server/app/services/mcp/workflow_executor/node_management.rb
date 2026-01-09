@@ -5,7 +5,7 @@ module Mcp
     module NodeManagement
       # Execute a single node
       #
-      # @param node [AiWorkflowNode] Node to execute
+      # @param node [Ai::WorkflowNode] Node to execute
       # @return [Hash] Node execution result
       def execute_node(node)
         with_monitoring("node_execution", node_id: node.node_id, node_type: node.node_type) do
@@ -46,7 +46,7 @@ module Mcp
 
       # Execute multiple nodes in parallel
       #
-      # @param nodes [Array<AiWorkflowNode>] Nodes to execute
+      # @param nodes [Array<Ai::WorkflowNode>] Nodes to execute
       def execute_batch_parallel(nodes)
         # Note: This is a simplified implementation
         # In production, you'd use Sidekiq or similar for true parallelism
@@ -62,8 +62,8 @@ module Mcp
 
       # Get appropriate executor for node type
       #
-      # @param node [AiWorkflowNode] Node to execute
-      # @param node_execution [AiWorkflowNodeExecution] Execution record
+      # @param node [Ai::WorkflowNode] Node to execute
+      # @param node_execution [Ai::WorkflowNodeExecution] Execution record
       # @return [Mcp::NodeExecutors::Base] Node executor instance
       def get_node_executor(node, node_execution)
         executor_class = case node.node_type
@@ -93,6 +93,35 @@ module Mcp
                           Mcp::NodeExecutors::Start
         when "end"
                           Mcp::NodeExecutors::End
+        # CI/CD node types
+        when "ci_trigger"
+                          Mcp::NodeExecutors::CiTrigger
+        when "ci_wait_status"
+                          Mcp::NodeExecutors::CiWaitStatus
+        when "ci_get_logs"
+                          Mcp::NodeExecutors::CiGetLogs
+        when "ci_cancel"
+                          Mcp::NodeExecutors::CiCancel
+        when "git_commit_status"
+                          Mcp::NodeExecutors::GitCommitStatus
+        when "git_create_check"
+                          Mcp::NodeExecutors::GitCreateCheck
+        when "integration_execute"
+                          Mcp::NodeExecutors::IntegrationExecute
+        when "git_checkout"
+                          Mcp::NodeExecutors::GitCheckout
+        when "git_branch"
+                          Mcp::NodeExecutors::GitBranch
+        when "git_pull_request"
+                          Mcp::NodeExecutors::GitPullRequest
+        when "git_comment"
+                          Mcp::NodeExecutors::GitComment
+        when "deploy"
+                          Mcp::NodeExecutors::Deploy
+        when "run_tests"
+                          Mcp::NodeExecutors::RunTests
+        when "shell_command"
+                          Mcp::NodeExecutors::ShellCommand
         else
                           raise Mcp::WorkflowExecutor::NodeExecutionError, "Unknown node type: #{node.node_type}"
         end
@@ -114,11 +143,11 @@ module Mcp
 
       # Create node execution record
       #
-      # @param node [AiWorkflowNode] Node to create record for
-      # @return [AiWorkflowNodeExecution] Created record
+      # @param node [Ai::WorkflowNode] Node to create record for
+      # @return [Ai::WorkflowNodeExecution] Created record
       def create_node_execution_record(node)
-        @workflow_run.ai_workflow_node_executions.create!(
-          ai_workflow_node_id: node.id,
+        @workflow_run.node_executions.create!(
+          node: node,
           node_id: node.node_id,
           node_type: node.node_type,
           status: "pending",

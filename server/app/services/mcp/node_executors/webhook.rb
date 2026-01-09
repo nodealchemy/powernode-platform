@@ -134,7 +134,7 @@ module Mcp
           return {
             event: "workflow_webhook",
             data: input_data,
-            workflow_run_id: @node_execution&.ai_workflow_run_id,
+            workflow_run_id: @node_execution&.workflow_run_id,
             node_id: @node.node_id,
             timestamp: Time.current.iso8601
           }.to_json

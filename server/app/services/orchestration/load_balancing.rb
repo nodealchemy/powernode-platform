@@ -3,7 +3,7 @@
 module Orchestration
   module LoadBalancing
     def balance_load_across_providers
-      providers = @account.ai_providers.active.includes(:ai_agent_executions)
+      providers = @account.ai_providers.active.includes(:agent_executions)
 
       load_metrics = providers.map do |provider|
         current_load = calculate_provider_current_load(provider)

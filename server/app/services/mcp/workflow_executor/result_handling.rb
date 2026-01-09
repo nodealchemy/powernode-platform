@@ -5,8 +5,8 @@ module Mcp
     module ResultHandling
       # Handle successful node execution
       #
-      # @param node [AiWorkflowNode] Executed node
-      # @param node_execution [AiWorkflowNodeExecution] Execution record
+      # @param node [Ai::WorkflowNode] Executed node
+      # @param node_execution [Ai::WorkflowNodeExecution] Execution record
       # @param result [Hash] Execution result
       def handle_node_success(node, node_execution, result)
         log_info "Node completed successfully: #{node.node_id}"
@@ -50,8 +50,8 @@ module Mcp
 
       # Handle failed node execution
       #
-      # @param node [AiWorkflowNode] Failed node
-      # @param node_execution [AiWorkflowNodeExecution] Execution record
+      # @param node [Ai::WorkflowNode] Failed node
+      # @param node_execution [Ai::WorkflowNodeExecution] Execution record
       # @param error [StandardError] Error that occurred
       def handle_node_failure(node, node_execution, error)
         log_error "Node execution failed: #{node.node_id}", {
@@ -126,7 +126,7 @@ module Mcp
       #
       # @return [String] Status (completed or failed)
       def determine_final_status
-        failed_nodes = @workflow_run.ai_workflow_node_executions.where(status: "failed")
+        failed_nodes = @workflow_run.node_executions.where(status: "failed")
         failed_nodes.any? ? "failed" : "completed"
       end
 
@@ -143,7 +143,7 @@ module Mcp
       #
       # @return [Float] Total cost in USD
       def calculate_total_cost
-        @workflow_run.ai_workflow_node_executions.sum(:cost) || 0.0
+        @workflow_run.node_executions.sum(:cost) || 0.0
       end
     end
   end

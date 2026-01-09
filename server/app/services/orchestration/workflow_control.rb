@@ -10,7 +10,7 @@ module Orchestration
       checkpoint_data = {
         execution_state: "paused",
         paused_at: Time.current.iso8601,
-        current_node_executions: run.ai_workflow_node_executions
+        current_node_executions: run.node_executions
                                     .where(status: %w[pending running])
                                     .pluck(:id, :node_id, :status),
         runtime_context: run.runtime_context
@@ -43,7 +43,7 @@ module Orchestration
     end
 
     def cancel_execution(run, reason: nil)
-      run.ai_workflow_node_executions
+      run.node_executions
          .where(status: %w[pending running])
          .update_all(
            status: "cancelled",

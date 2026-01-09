@@ -38,7 +38,7 @@ module Mcp
     def performance_analytics(runs = nil)
       runs ||= workflow_runs_in_range(30.days)
 
-      node_executions = AiWorkflowNodeExecution.where(ai_workflow_run: runs)
+      node_executions = Ai::WorkflowNodeExecution.where(workflow_run: runs)
 
       {
         overall_metrics: {
@@ -78,10 +78,10 @@ module Mcp
     # Node-level analytics
     def node_level_analytics(runs = nil)
       runs ||= workflow_runs_in_range(30.days)
-      node_executions = AiWorkflowNodeExecution.where(ai_workflow_run: runs)
+      node_executions = Ai::WorkflowNodeExecution.where(workflow_run: runs)
 
-      nodes_data = workflow.ai_workflow_nodes.map do |node|
-        node_runs = node_executions.where(ai_workflow_node: node)
+      nodes_data = workflow.workflow_nodes.map do |node|
+        node_runs = node_executions.where(node: node)
 
         {
           node_id: node.node_id,
@@ -171,15 +171,15 @@ module Mcp
 
     # Real-time metrics and monitoring
     def real_time_metrics
-      active_runs = workflow.ai_workflow_runs.where(status: "running")
+      active_runs = workflow.workflow_runs.where(status: "running")
 
       {
         currently_running: active_runs.count,
         queued_executions: count_queued_executions,
-        recent_completions: workflow.ai_workflow_runs.where(status: "completed")
+        recent_completions: workflow.workflow_runs.where(status: "completed")
                                    .where("completed_at >= ?", 1.hour.ago)
                                    .count,
-        recent_failures: workflow.ai_workflow_runs.where(status: "failed")
+        recent_failures: workflow.workflow_runs.where(status: "failed")
                                 .where("updated_at >= ?", 1.hour.ago)
                                 .count,
         average_queue_time: calculate_average_queue_time,
@@ -190,8 +190,8 @@ module Mcp
 
     # Comparative analysis
     def compare_workflow_versions(version1, version2)
-      v1_runs = workflow.ai_workflow_runs.where(version: version1)
-      v2_runs = workflow.ai_workflow_runs.where(version: version2)
+      v1_runs = workflow.workflow_runs.where(version: version1)
+      v2_runs = workflow.workflow_runs.where(version: version2)
 
       {
         version1: {
@@ -323,7 +323,7 @@ module Mcp
     private
 
     def workflow_runs_in_range(time_range)
-      workflow.ai_workflow_runs.where("created_at >= ?", time_range.ago)
+      workflow.workflow_runs.where("created_at >= ?", time_range.ago)
     end
 
     def calculate_average_duration(runs)
@@ -349,12 +349,12 @@ module Mcp
     end
 
     def identify_bottlenecks(node_executions)
-      node_durations = node_executions.group(:ai_workflow_node_id)
+      node_durations = node_executions.group(:workflow_node_id)
                                      .average(:duration_ms)
                                      .sort_by { |_, duration| -duration.to_f }
 
       node_durations.first(5).map do |node_id, avg_duration|
-        node = workflow.ai_workflow_nodes.find(node_id)
+        node = workflow.workflow_nodes.find(node_id)
         {
           node_id: node.node_id,
           node_name: node.name,
@@ -365,8 +365,8 @@ module Mcp
     end
 
     def node_performance_breakdown(node_executions)
-      node_executions.group(:ai_workflow_node_id).map do |node_id, executions|
-        node = workflow.ai_workflow_nodes.find(node_id)
+      node_executions.group(:workflow_node_id).map do |node_id, executions|
+        node = workflow.workflow_nodes.find(node_id)
         {
           node_id: node.node_id,
           node_name: node.name,
@@ -380,7 +380,7 @@ module Mcp
     def analyze_parallel_efficiency(runs)
       # Simplified parallel efficiency analysis
       {
-        parallel_nodes: workflow.ai_workflow_nodes.where(node_type: "parallel").count,
+        parallel_nodes: workflow.workflow_nodes.where(node_type: "parallel").count,
         efficiency_score: 75.0,
         potential_improvement: "15% reduction in execution time possible"
       }
@@ -396,10 +396,10 @@ module Mcp
     end
 
     def cost_breakdown_by_node_type(runs)
-      node_executions = AiWorkflowNodeExecution.where(ai_workflow_run: runs)
+      node_executions = Ai::WorkflowNodeExecution.where(workflow_run: runs)
 
-      node_executions.joins(:ai_workflow_node)
-                    .group("ai_workflow_nodes.node_type")
+      node_executions.joins(:workflow_node)
+                    .group("workflow_nodes.node_type")
                     .sum(:cost)
     end
 
@@ -687,25 +687,25 @@ module Mcp
 
     def count_total_executions(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where("ai_workflow_runs.created_at >= ?", time_range.ago)
+              .where("workflow_runs.created_at >= ?", time_range.ago)
               .count
     end
 
     def calculate_total_cost(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where("ai_workflow_runs.created_at >= ?", time_range.ago)
-              .sum("ai_workflow_runs.total_cost")
+              .where("workflow_runs.created_at >= ?", time_range.ago)
+              .sum("workflow_runs.total_cost")
     end
 
     def calculate_account_success_rate(workflows, time_range)
       total_runs = workflows.joins(:ai_workflow_runs)
-                           .where("ai_workflow_runs.created_at >= ?", time_range.ago)
+                           .where("workflow_runs.created_at >= ?", time_range.ago)
                            .count
 
       return 0.0 if total_runs.zero?
 
       successful_runs = workflows.joins(:ai_workflow_runs)
-                                .where("ai_workflow_runs.created_at >= ? AND ai_workflow_runs.status = ?", time_range.ago, "completed")
+                                .where("workflow_runs.created_at >= ? AND ai_workflow_runs.status = ?", time_range.ago, "completed")
                                 .count
 
       (successful_runs.to_f / total_runs * 100).round(2)
@@ -713,8 +713,8 @@ module Mcp
 
     def rank_workflows_by_executions(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where("ai_workflow_runs.created_at >= ?", time_range.ago)
-              .group("ai_workflows.id")
+              .where("workflow_runs.created_at >= ?", time_range.ago)
+              .group("workflows.id")
               .order("COUNT(ai_workflow_runs.id) DESC")
               .limit(5)
     end
@@ -726,16 +726,16 @@ module Mcp
 
     def rank_workflows_by_cost(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where("ai_workflow_runs.created_at >= ?", time_range.ago)
-              .group("ai_workflows.id")
+              .where("workflow_runs.created_at >= ?", time_range.ago)
+              .group("workflows.id")
               .order("SUM(ai_workflow_runs.total_cost) DESC")
               .limit(5)
     end
 
     def rank_workflows_by_speed(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where("ai_workflow_runs.created_at >= ? AND ai_workflow_runs.status = ?", time_range.ago, "completed")
-              .group("ai_workflows.id")
+              .where("workflow_runs.created_at >= ? AND ai_workflow_runs.status = ?", time_range.ago, "completed")
+              .group("workflows.id")
               .order("AVG(ai_workflow_runs.duration_ms) ASC")
               .limit(5)
     end
@@ -746,9 +746,9 @@ module Mcp
 
     def analyze_account_cost_distribution(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where("ai_workflow_runs.created_at >= ?", time_range.ago)
-              .group("ai_workflows.name")
-              .sum("ai_workflow_runs.total_cost")
+              .where("workflow_runs.created_at >= ?", time_range.ago)
+              .group("workflows.name")
+              .sum("workflow_runs.total_cost")
     end
 
     def generate_account_recommendations(workflows, time_range)

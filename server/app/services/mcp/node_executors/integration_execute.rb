@@ -119,7 +119,7 @@ module Mcp
       def build_execution_context
         {
           workflow_run_id: @orchestrator.workflow_run.id,
-          workflow_id: @orchestrator.workflow_run.ai_workflow_id,
+          workflow_id: @orchestrator.workflow_run.workflow_id,
           node_id: @node.node_id,
           node_name: @node.name,
           account_id: @orchestrator.account.id,

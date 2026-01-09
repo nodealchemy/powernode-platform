@@ -69,9 +69,9 @@ module Mcp
 
       compensation_action = build_compensation_action(step, result)
 
-      AiWorkflowCompensation.create!(
-        ai_workflow_run: workflow_run,
-        ai_workflow_node_execution_id: result[:node_execution_id],
+      Ai::WorkflowCompensation.create!(
+        workflow_run: workflow_run,
+        workflow_node_execution_id: result[:node_execution_id],
         compensation_type: step[:compensation_type] || "rollback",
         trigger_reason: "step_execution",
         status: "pending",
@@ -126,7 +126,7 @@ module Mcp
 
     # Create saga-aware workflow execution plan
     def create_saga_execution_plan(workflow:, input_data:)
-      nodes = workflow.ai_workflow_nodes.order(:created_at)
+      nodes = workflow.workflow_nodes.order(:created_at)
 
       nodes.map.with_index do |node, index|
         {
@@ -173,7 +173,7 @@ module Mcp
 
     # Get saga execution status
     def saga_status
-      compensations = workflow_run.ai_workflow_compensations
+      compensations = workflow_run.workflow_compensations
 
       {
         total_compensations: compensations.count,
@@ -188,7 +188,7 @@ module Mcp
 
     # Retry all failed compensations
     def retry_failed_compensations
-      failed_comps = workflow_run.ai_workflow_compensations.retryable
+      failed_comps = workflow_run.workflow_compensations.retryable
 
       results = failed_comps.map do |comp|
         {
@@ -207,9 +207,9 @@ module Mcp
 
     # Manual compensation trigger
     def trigger_manual_compensation(node_execution:, reason:, compensation_action:)
-      AiWorkflowCompensation.create!(
-        ai_workflow_run: workflow_run,
-        ai_workflow_node_execution: node_execution,
+      Ai::WorkflowCompensation.create!(
+        workflow_run: workflow_run,
+        workflow_node_execution: node_execution,
         compensation_type: "compensate",
         trigger_reason: "manual: #{reason}",
         status: "pending",
@@ -262,8 +262,9 @@ module Mcp
 
     # Execute a single saga step
     def execute_step(step, index)
-      node_execution = workflow_run.ai_workflow_node_executions.create!(
-        ai_workflow_node_id: step[:node_id],
+      node = workflow_run.workflow.nodes.find_by(node_id: step[:node_id])
+      node_execution = workflow_run.node_executions.create!(
+        node: node,
         node_id: step[:node_id],
         node_type: step[:type],
         input_data: step[:input_data],

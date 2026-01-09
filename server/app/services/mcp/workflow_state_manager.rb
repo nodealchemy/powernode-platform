@@ -99,7 +99,7 @@ module Mcp
         log_info "State transition completed", {
           from: from_state,
           to: to_state,
-          workflow_id: @workflow_run.ai_workflow_id,
+          workflow_id: @workflow_run.workflow_id,
           run_id: @workflow_run.run_id
         }
       end
@@ -315,7 +315,7 @@ module Mcp
     def broadcast_state_change(from_state, to_state)
       AiOrchestrationChannel.broadcast_workflow_event(
         "workflow.status.changed",
-        @workflow_run.ai_workflow_id,
+        @workflow_run.workflow_id,
         {
           workflow_run_id: @workflow_run.id,
           run_id: @workflow_run.run_id,

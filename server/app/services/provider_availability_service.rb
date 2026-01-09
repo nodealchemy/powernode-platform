@@ -13,7 +13,7 @@ class ProviderAvailabilityService
   end
 
   # Check if a single provider is available for use
-  # @param provider [AiProvider] The provider to check
+  # @param provider [Ai::Provider] The provider to check
   # @param auto_refresh_health [Boolean] Whether to auto-refresh stale health checks
   # @return [Hash] { available: Boolean, reason: String }
   def self.check_provider(provider, auto_refresh_health: true)
@@ -26,7 +26,7 @@ class ProviderAvailabilityService
 
     # Check if provider has actual credentials configured (not just schema)
     # Must check ai_provider_credentials, not the credentials method which returns schema as fallback
-    unless provider.ai_provider_credentials.where(is_active: true).exists?
+    unless provider.provider_credentials.where(is_active: true).exists?
       return { available: false, reason: "Provider credentials not configured" }
     end
 
@@ -54,7 +54,7 @@ class ProviderAvailabilityService
   end
 
   # Check if a provider's health check is stale (older than 1 hour)
-  # @param provider [AiProvider] The provider to check
+  # @param provider [Ai::Provider] The provider to check
   # @return [Boolean]
   def self.health_check_stale?(provider)
     health_metrics = provider.metadata&.dig("health_metrics") || {}
@@ -69,7 +69,7 @@ class ProviderAvailabilityService
   end
 
   # Check if a provider is available and raise an error if not
-  # @param provider [AiProvider] The provider to validate
+  # @param provider [Ai::Provider] The provider to validate
   # @raise [ProviderUnavailableError] if provider is not available
   def self.validate_provider!(provider)
     result = check_provider(provider)
@@ -79,23 +79,23 @@ class ProviderAvailabilityService
   end
 
   # Check if all providers required by a workflow are available
-  # @param workflow [AiWorkflow] The workflow to check
+  # @param workflow [Ai::Workflow] The workflow to check
   # @return [Hash] { available: Boolean, unavailable_providers: Array, reasons: Hash }
   def self.check_workflow_providers(workflow)
     # Get all ai_agent nodes from the workflow
-    agent_nodes = workflow.ai_workflow_nodes.where(node_type: "ai_agent")
+    agent_nodes = workflow.nodes.where(node_type: "ai_agent")
 
     return { available: true, unavailable_providers: [], reasons: {} } if agent_nodes.empty?
 
     # Collect all unique provider IDs from agents
     agent_ids = agent_nodes.map { |node| node.configuration["agent_id"] }.compact.uniq
-    agents = AiAgent.where(id: agent_ids).includes(:ai_provider)
+    agents = Ai::Agent.where(id: agent_ids).includes(:provider)
 
     unavailable_providers = []
     reasons = {}
 
     agents.each do |agent|
-      provider = agent.ai_provider
+      provider = agent.provider
       result = check_provider(provider)
 
       unless result[:available]
@@ -117,7 +117,7 @@ class ProviderAvailabilityService
   end
 
   # Validate all providers for a workflow and raise error if any are unavailable
-  # @param workflow [AiWorkflow] The workflow to validate
+  # @param workflow [Ai::Workflow] The workflow to validate
   # @raise [ProviderUnavailableError] if any required providers are unavailable
   def self.validate_workflow_providers!(workflow)
     result = check_workflow_providers(workflow)
@@ -133,21 +133,21 @@ class ProviderAvailabilityService
   end
 
   # Check if an agent's provider is available
-  # @param agent [AiAgent] The agent to check
+  # @param agent [Ai::Agent] The agent to check
   # @return [Hash] { available: Boolean, reason: String }
   def self.check_agent_provider(agent)
     return { available: false, reason: "Agent not found" } if agent.nil?
-    return { available: false, reason: "Agent has no provider configured" } if agent.ai_provider.nil?
+    return { available: false, reason: "Agent has no provider configured" } if agent.provider.nil?
 
-    check_provider(agent.ai_provider)
+    check_provider(agent.provider)
   end
 
   # Validate an agent's provider and raise error if unavailable
-  # @param agent [AiAgent] The agent to validate
+  # @param agent [Ai::Agent] The agent to validate
   # @raise [ProviderUnavailableError] if provider is not available
   def self.validate_agent_provider!(agent)
     result = check_agent_provider(agent)
-    raise ProviderUnavailableError.new(agent.ai_provider, result[:reason]) unless result[:available]
+    raise ProviderUnavailableError.new(agent.provider, result[:reason]) unless result[:available]
 
     true
   end
