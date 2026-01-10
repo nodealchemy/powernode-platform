@@ -22,11 +22,11 @@ function FileChangeItem({ file, defaultExpanded = false }: { file: GitCommitFile
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
-    added: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-theme-success dark:text-green-400', label: 'Added' },
-    removed: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-theme-danger dark:text-red-400', label: 'Deleted' },
-    modified: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-theme-warning dark:text-yellow-400', label: 'Modified' },
-    renamed: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-theme-interactive-primary dark:text-purple-400', label: 'Renamed' },
-    copied: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-theme-info dark:text-blue-400', label: 'Copied' },
+    added: { bg: 'bg-theme-success/10', text: 'text-theme-success', label: 'Added' },
+    removed: { bg: 'bg-theme-danger/10', text: 'text-theme-danger', label: 'Deleted' },
+    modified: { bg: 'bg-theme-warning/10', text: 'text-theme-warning', label: 'Modified' },
+    renamed: { bg: 'bg-theme-interactive-primary/10', text: 'text-theme-interactive-primary', label: 'Renamed' },
+    copied: { bg: 'bg-theme-info/10', text: 'text-theme-info', label: 'Copied' },
   };
 
   const config = statusConfig[file.status] || statusConfig.modified;
@@ -64,13 +64,13 @@ function FileChangeItem({ file, defaultExpanded = false }: { file: GitCommitFile
         </div>
         <div className="flex items-center gap-3 text-sm flex-shrink-0 ml-4">
           {file.additions > 0 && (
-            <span className="text-theme-success dark:text-green-400 flex items-center gap-1">
+            <span className="text-theme-success flex items-center gap-1">
               <Plus className="w-3 h-3" />
               {file.additions}
             </span>
           )}
           {file.deletions > 0 && (
-            <span className="text-theme-danger dark:text-red-400 flex items-center gap-1">
+            <span className="text-theme-danger flex items-center gap-1">
               <Minus className="w-3 h-3" />
               {file.deletions}
             </span>
@@ -86,14 +86,14 @@ function FileChangeItem({ file, defaultExpanded = false }: { file: GitCommitFile
               let lineClass = 'text-theme-secondary';
               let bgClass = '';
               if (line.startsWith('+') && !line.startsWith('+++')) {
-                lineClass = 'text-theme-success dark:text-green-400';
-                bgClass = 'bg-green-50 dark:bg-green-950/20';
+                lineClass = 'text-theme-success';
+                bgClass = 'bg-theme-success/10';
               } else if (line.startsWith('-') && !line.startsWith('---')) {
-                lineClass = 'text-theme-danger dark:text-red-400';
-                bgClass = 'bg-red-50 dark:bg-red-950/20';
+                lineClass = 'text-theme-danger';
+                bgClass = 'bg-theme-danger/10';
               } else if (line.startsWith('@@')) {
-                lineClass = 'text-theme-info dark:text-blue-400';
-                bgClass = 'bg-blue-50 dark:bg-blue-950/20';
+                lineClass = 'text-theme-info';
+                bgClass = 'bg-theme-info/10';
               }
               return (
                 <div key={i} className={`${bgClass} ${lineClass} px-2 -mx-2`}>
@@ -285,16 +285,16 @@ export function CommitDetailModal({
                         {commit.stats.files_changed} file{commit.stats.files_changed !== 1 ? 's' : ''}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 text-sm text-theme-success dark:text-green-400">
+                    <div className="flex items-center gap-1 text-sm text-theme-success">
                       <Plus className="w-4 h-4" />
                       <span>{commit.stats.additions}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-sm text-theme-danger dark:text-red-400">
+                    <div className="flex items-center gap-1 text-sm text-theme-danger">
                       <Minus className="w-4 h-4" />
                       <span>{commit.stats.deletions}</span>
                     </div>
                     {commit.is_verified && (
-                      <div className="flex items-center gap-1 text-sm text-theme-success dark:text-green-400" title="Verified signature">
+                      <div className="flex items-center gap-1 text-sm text-theme-success" title="Verified signature">
                         <ShieldCheck className="w-4 h-4" />
                       </div>
                     )}
