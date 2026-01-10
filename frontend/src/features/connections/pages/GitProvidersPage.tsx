@@ -53,6 +53,12 @@ export function GitProvidersPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'DevOps', href: '/app/devops' },
+    { label: 'Git Providers' }
+  ];
+
   const pageActions: PageAction[] = [
     {
       id: 'add-provider',
@@ -126,7 +132,7 @@ export function GitProvidersPage() {
           setIsModalOpen(true);
         } catch (error) {
           showNotification('Failed to load provider', 'error');
-          navigate('/app/automation/git');
+          navigate('/app/devops/git');
         }
       } else if (id === 'new') {
         setEditingProvider(null);
@@ -141,7 +147,7 @@ export function GitProvidersPage() {
     setEditingProvider(null);
     setSelectedProviderType(undefined);
     if (id) {
-      navigate('/app/automation/git');
+      navigate('/app/devops/git');
     }
   };
 
@@ -151,7 +157,7 @@ export function GitProvidersPage() {
     setSelectedProviderType(undefined);
     showNotification(editingProvider ? 'Provider updated' : 'Provider created', 'success');
     if (id) {
-      navigate('/app/automation/git');
+      navigate('/app/devops/git');
     }
     // Reload providers without full page refresh
     fetchProviders();
@@ -325,6 +331,7 @@ export function GitProvidersPage() {
       <PageContainer
         title="Git Providers"
         description="Manage connections to GitHub, GitLab, Gitea, and other git providers"
+        breadcrumbs={breadcrumbs}
         actions={pageActions}
       >
         <div className="flex items-center justify-center py-12">
@@ -338,6 +345,7 @@ export function GitProvidersPage() {
     <PageContainer
       title="Git Providers"
       description="Manage connections to GitHub, GitLab, Gitea, and other git providers"
+      breadcrumbs={breadcrumbs}
       actions={pageActions}
     >
       {/* Provider Cards */}

@@ -96,6 +96,11 @@ module Permissions
     "review.delete" => "Delete own reviews",
     "review.moderate" => "Moderate reviews",
 
+    # Marketplace - Publishing (Feature Templates)
+    "marketplace.publish" => "Publish feature templates to the marketplace",
+    "marketplace.templates.read" => "View own published marketplace templates",
+    "marketplace.templates.manage" => "Manage own marketplace templates",
+
     # Marketplace - Listings
     "listing.read" => "View marketplace listings",
     "listing.create" => "Create marketplace listings",
@@ -327,6 +332,8 @@ module Permissions
     "admin.marketplace.read" => "View marketplace management",
     "admin.marketplace.manage" => "Manage marketplace settings",
     "admin.marketplace.export" => "Export marketplace data",
+    "admin.marketplace.templates.review" => "Review and approve marketplace template submissions",
+    "admin.marketplace.templates.feature" => "Feature marketplace templates",
     "admin.app.read" => "View all apps",
     "admin.app.edit" => "Edit any app",
     "admin.app.delete" => "Delete any app",

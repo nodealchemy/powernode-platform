@@ -105,7 +105,7 @@ module Api
             end
           end
 
-          render_success(message: "Synced #{synced} runners", synced_count: synced)
+          render_success({ synced_count: synced }, message: "Synced #{synced} runners")
         rescue ActiveRecord::RecordNotFound
           render_not_found("Credential")
         end
@@ -198,6 +198,11 @@ module Api
             repository = credential.repositories.find(repository_id)
             synced += sync_repository_runners(client, credential, repository)
           else
+            # Sync admin-level runners for Gitea (instance-wide runners)
+            if client.is_a?(::Git::GiteaApiClient)
+              synced += sync_admin_runners(client, credential)
+            end
+
             # Sync all repository runners
             credential.repositories.each do |repo|
               synced += sync_repository_runners(client, credential, repo)
@@ -208,6 +213,29 @@ module Api
         rescue => e
           Rails.logger.error "Failed to sync runners for credential #{credential.id}: #{e.message}"
           0
+        end
+
+        def sync_admin_runners(client, credential)
+          synced = 0
+
+          begin
+            runners_data = client.list_runners(:admin)
+            return 0 unless runners_data.is_a?(Array)
+
+            runners_data.each do |runner_data|
+              ::Git::Runner.sync_from_provider(
+                credential,
+                runner_data.stringify_keys,
+                scope: "enterprise",
+                repository: nil
+              )
+              synced += 1
+            end
+          rescue => e
+            Rails.logger.warn "Admin runner sync not available for credential #{credential.id}: #{e.message}"
+          end
+
+          synced
         end
 
         def sync_repository_runners(client, credential, repository)

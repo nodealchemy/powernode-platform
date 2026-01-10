@@ -40,6 +40,7 @@ import { ItemDetailPage } from '@/pages/app/marketplace/ItemDetailPage';
 import { AppsPage } from '@/pages/app/marketplace/AppsPage';
 import { AppDetailPage } from '@/pages/app/marketplace/AppDetailPage';
 import { MyAppsPage } from '@/pages/app/marketplace/MyAppsPage';
+import { MySubscriptionsPage } from '@/pages/app/marketplace/MySubscriptionsPage';
 
 // Import admin pages
 import { AdminSettingsPage } from '@/pages/app/admin/AdminSettingsPage';
@@ -63,7 +64,7 @@ import {
 } from '@/features/connections';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
-import { AdminPluginsPage } from '@/pages/app/admin/AdminPluginsPage';
+// AdminPluginsPage deprecated - now redirects to admin/marketplace
 import { AdminImpersonationPage } from '@/pages/app/admin/AdminImpersonationPage';
 
 // Test page
@@ -93,12 +94,15 @@ import { ContextsPage } from './ai/ContextsPage';
 import { ContextDetailPage } from './ai/ContextDetailPage';
 
 // Integration Pages
+// IntegrationsMarketplacePage deprecated - now redirects to marketplace?types=integration
 import {
   IntegrationsPage,
-  IntegrationsMarketplacePage,
   IntegrationDetailPage,
   NewIntegrationPage,
 } from '@/pages/app/integrations';
+
+// DevOps Pages
+import { DevOpsOverviewPage } from '@/pages/app/devops/DevOpsOverviewPage';
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
@@ -527,25 +531,35 @@ const DashboardPage: React.FC = () => {
         {/* System Management Pages */}
         <Route path="/system/services" element={<ServicesPage />} />
         <Route path="/system/storage" element={<StorageProvidersPage />} />
-        <Route path="/system/webhooks" element={<WebhookManagementPage />} />
-        {/* Git Providers moved to Connections */}
-        <Route path="/system/git-providers" element={<Navigate to="/app/connections/git" replace />} />
 
-        {/* System Pages - Runners, Git Providers, Repositories, Integrations */}
-        <Route path="/system/runners" element={<AiPipelinesRunnersPage />} />
-        <Route path="/system/git" element={<GitProvidersPage />} />
-        <Route path="/system/git/new" element={<GitProvidersPage />} />
-        <Route path="/system/git/:id" element={<GitProvidersPage />} />
-        <Route path="/system/repositories" element={<RepositoriesPage />} />
-        <Route path="/system/integrations" element={<IntegrationsPage />} />
-        <Route path="/system/integrations/marketplace" element={<IntegrationsMarketplacePage />} />
-        <Route path="/system/integrations/new" element={<NewIntegrationPage />} />
-        <Route path="/system/integrations/new/:templateId" element={<NewIntegrationPage />} />
-        <Route path="/system/integrations/:id" element={<IntegrationDetailPage />} />
+        {/* DevOps Pages - Git, Repositories, Runners, Webhooks, Integrations, API Keys */}
+        <Route path="/devops" element={<DevOpsOverviewPage />} />
+        <Route path="/devops/git" element={<GitProvidersPage />} />
+        <Route path="/devops/git/new" element={<GitProvidersPage />} />
+        <Route path="/devops/git/:id" element={<GitProvidersPage />} />
+        <Route path="/devops/repositories" element={<RepositoriesPage />} />
+        <Route path="/devops/runners" element={<AiPipelinesRunnersPage />} />
+        <Route path="/devops/webhooks" element={<WebhookManagementPage />} />
+        <Route path="/devops/integrations" element={<IntegrationsPage />} />
+        <Route path="/devops/integrations/new" element={<NewIntegrationPage />} />
+        <Route path="/devops/integrations/new/:templateId" element={<NewIntegrationPage />} />
+        <Route path="/devops/integrations/:id" element={<IntegrationDetailPage />} />
+        <Route path="/devops/api-keys" element={<ApiKeysPage />} />
+
+        {/* System Pages - Infrastructure only */}
         <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />
-        <Route path="/system/api-keys" element={<ApiKeysPage />} />
 
-        {/* Automation redirects - all automation routes now redirect to AI Workflows or System */}
+        {/* Legacy DevOps routes - redirect to new /devops/ paths */}
+        <Route path="/system/runners" element={<Navigate to="/app/devops/runners" replace />} />
+        <Route path="/system/git" element={<Navigate to="/app/devops/git" replace />} />
+        <Route path="/system/git/*" element={<Navigate to="/app/devops/git" replace />} />
+        <Route path="/system/repositories" element={<Navigate to="/app/devops/repositories" replace />} />
+        <Route path="/system/webhooks" element={<Navigate to="/app/devops/webhooks" replace />} />
+        <Route path="/system/integrations" element={<Navigate to="/app/devops/integrations" replace />} />
+        <Route path="/system/integrations/*" element={<Navigate to="/app/devops/integrations" replace />} />
+        <Route path="/system/api-keys" element={<Navigate to="/app/devops/api-keys" replace />} />
+
+        {/* Automation redirects - all automation routes now redirect to AI Workflows or DevOps */}
         <Route path="/automation" element={<Navigate to="/app/ai/workflows" replace />} />
         <Route path="/automation/pipelines" element={<Navigate to="/app/ai/workflows" replace />} />
         <Route path="/automation/pipelines/new" element={<Navigate to="/app/ai/workflows/new" replace />} />
@@ -553,13 +567,13 @@ const DashboardPage: React.FC = () => {
         <Route path="/automation/runs" element={<Navigate to="/app/ai/workflows" replace />} />
         <Route path="/automation/runs/:id" element={<Navigate to="/app/ai/workflows" replace />} />
         <Route path="/automation/triggers" element={<Navigate to="/app/ai/workflows" replace />} />
-        <Route path="/automation/runners" element={<Navigate to="/app/system/runners" replace />} />
+        <Route path="/automation/runners" element={<Navigate to="/app/devops/runners" replace />} />
         <Route path="/automation/templates" element={<Navigate to="/app/ai/workflows?type=templates" replace />} />
-        <Route path="/automation/git" element={<Navigate to="/app/system/git" replace />} />
-        <Route path="/automation/git/*" element={<Navigate to="/app/system/git" replace />} />
-        <Route path="/automation/repositories" element={<Navigate to="/app/system/repositories" replace />} />
-        <Route path="/automation/integrations" element={<Navigate to="/app/system/integrations" replace />} />
-        <Route path="/automation/integrations/*" element={<Navigate to="/app/system/integrations" replace />} />
+        <Route path="/automation/git" element={<Navigate to="/app/devops/git" replace />} />
+        <Route path="/automation/git/*" element={<Navigate to="/app/devops/git" replace />} />
+        <Route path="/automation/repositories" element={<Navigate to="/app/devops/repositories" replace />} />
+        <Route path="/automation/integrations" element={<Navigate to="/app/devops/integrations" replace />} />
+        <Route path="/automation/integrations/*" element={<Navigate to="/app/devops/integrations" replace />} />
 
         {/* Legacy CI/CD redirects - backwards compatibility */}
         <Route path="/ci-cd" element={<Navigate to="/app/ai/workflows" replace />} />
@@ -572,19 +586,20 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai-pipelines/prompts" element={<Navigate to="/app/ai/workflows?type=templates" replace />} />
         <Route path="/ai-pipelines/runs" element={<Navigate to="/app/ai/workflows" replace />} />
         <Route path="/ai-pipelines/runs/:id" element={<Navigate to="/app/ai/workflows" replace />} />
-        <Route path="/ai-pipelines/runners" element={<Navigate to="/app/system/runners" replace />} />
+        <Route path="/ai-pipelines/runners" element={<Navigate to="/app/devops/runners" replace />} />
         <Route path="/ai-pipelines/settings" element={<Navigate to="/app/ai/workflows" replace />} />
         
         {/* Business Analytics Pages */}
         <Route path="/business/analytics/*" element={<AnalyticsPage />} />
         <Route path="/metrics" element={<MetricsPage />} />
         
-        {/* Marketplace Pages - Unified Interface */}
+        {/* Marketplace Pages */}
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/marketplace/:type/:id" element={<ItemDetailPage />} />
         <Route path="/marketplace/apps" element={<AppsPage />} />
         <Route path="/marketplace/apps/:id" element={<AppDetailPage />} />
         <Route path="/marketplace/my-apps" element={<MyAppsPage />} />
+        <Route path="/marketplace/subscriptions" element={<MySubscriptionsPage />} />
         <Route path="/marketplace/subscriptions/:id/settings" element={<Navigate to="/app/subscriptions" replace />} />
 
         {/* Subscription Routes */}
@@ -594,13 +609,13 @@ const DashboardPage: React.FC = () => {
         <Route path="/connections" element={<Navigate to="/app/ai/providers" replace />} />
         <Route path="/connections/ai" element={<Navigate to="/app/ai/providers" replace />} />
         <Route path="/connections/ai/*" element={<Navigate to="/app/ai/providers" replace />} />
-        <Route path="/connections/git" element={<Navigate to="/app/system/git" replace />} />
-        <Route path="/connections/git/*" element={<Navigate to="/app/system/git" replace />} />
-        <Route path="/connections/integrations" element={<Navigate to="/app/system/integrations" replace />} />
-        <Route path="/connections/integrations/*" element={<Navigate to="/app/system/integrations" replace />} />
-        <Route path="/connections/credentials" element={<Navigate to="/app/system/api-keys" replace />} />
-        <Route path="/integrations" element={<Navigate to="/app/system/integrations" replace />} />
-        <Route path="/integrations/*" element={<Navigate to="/app/system/integrations" replace />} />
+        <Route path="/connections/git" element={<Navigate to="/app/devops/git" replace />} />
+        <Route path="/connections/git/*" element={<Navigate to="/app/devops/git" replace />} />
+        <Route path="/connections/integrations" element={<Navigate to="/app/devops/integrations" replace />} />
+        <Route path="/connections/integrations/*" element={<Navigate to="/app/devops/integrations" replace />} />
+        <Route path="/connections/credentials" element={<Navigate to="/app/devops/api-keys" replace />} />
+        <Route path="/integrations" element={<Navigate to="/app/devops/integrations" replace />} />
+        <Route path="/integrations/*" element={<Navigate to="/app/devops/integrations" replace />} />
         
         {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />
@@ -611,7 +626,8 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/roles" element={<AdminRolesPage />} />
         <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
         <Route path="/admin/marketplace/apps/:id/edit" element={<Navigate to="/app/admin/marketplace" replace />} />
-        <Route path="/admin/plugins" element={<AdminPluginsPage />} />
+        {/* Legacy: redirect to consolidated marketplace admin with plugin filter */}
+        <Route path="/admin/plugins" element={<Navigate to="/app/admin/marketplace?types=plugin" replace />} />
         <Route path="/admin/impersonation" element={<AdminImpersonationPage />} />
         <Route path="/system/workers/*" element={<SystemWorkersPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />

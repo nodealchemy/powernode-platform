@@ -333,9 +333,18 @@ export const adminNavigationOverrides = {
       name: 'DevOps',
       items: [
         {
+          id: 'devops-overview',
+          name: 'Overview',
+          href: '/app/devops',
+          icon: Server,
+          description: 'DevOps dashboard and quick access',
+          permissions: [],
+          order: 0
+        },
+        {
           id: 'git-providers',
           name: 'Git Providers',
-          href: '/app/system/git',
+          href: '/app/devops/git',
           icon: GitBranch,
           description: 'GitHub, GitLab, Gitea, and other git providers',
           permissions: ['git.providers.read'],
@@ -344,7 +353,7 @@ export const adminNavigationOverrides = {
         {
           id: 'repositories',
           name: 'Repositories',
-          href: '/app/system/repositories',
+          href: '/app/devops/repositories',
           icon: FolderGit2,
           description: 'Synced Git repositories from all providers',
           permissions: ['git.repositories.read'],
@@ -353,7 +362,7 @@ export const adminNavigationOverrides = {
         {
           id: 'runners',
           name: 'Runners',
-          href: '/app/system/runners',
+          href: '/app/devops/runners',
           icon: Server,
           description: 'Self-hosted workflow execution agents',
           permissions: ['cicd.runners.read', 'git.runners.read'],
@@ -362,7 +371,7 @@ export const adminNavigationOverrides = {
         {
           id: 'webhooks',
           name: 'Webhooks',
-          href: '/app/system/webhooks',
+          href: '/app/devops/webhooks',
           icon: '🔗',
           description: 'Manage webhook endpoints and events',
           permissions: ['webhook.read'],
@@ -371,7 +380,7 @@ export const adminNavigationOverrides = {
         {
           id: 'integrations',
           name: 'Integrations',
-          href: '/app/system/integrations',
+          href: '/app/devops/integrations',
           icon: Puzzle,
           description: 'Third-party service integrations and webhooks',
           permissions: ['integrations.read'],
@@ -380,7 +389,7 @@ export const adminNavigationOverrides = {
         {
           id: 'api-keys',
           name: 'API Keys',
-          href: '/app/system/api-keys',
+          href: '/app/devops/api-keys',
           icon: Key,
           description: 'API keys and authentication tokens',
           permissions: ['api.manage_keys'],
@@ -462,15 +471,7 @@ export const adminNavigationOverrides = {
           permissions: ['admin.role.read'],
           order: 2
         },
-        {
-          id: 'plugins-admin',
-          name: 'Plugins',
-          href: '/app/admin/plugins',
-          icon: Puzzle,
-          description: 'Manage installed plugins and extensions',
-          permissions: ['admin.plugins.read'],
-          order: 3
-        },
+        // Plugins admin removed - now managed in Marketplace admin
         {
           id: 'impersonation-admin',
           name: 'Impersonation',

@@ -91,7 +91,10 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
     'sso_integration' => true,
     'advanced_security' => true,
     'audit_logs' => true,
-    'sla_guarantees' => true
+    'sla_guarantees' => true,
+    # Marketplace Publishing (unlimited for admins)
+    'marketplace_publish_enabled' => true,
+    'marketplace_publish_limit' => nil
   }
   plan.limits = {
     'max_users' => 9999,
@@ -231,7 +234,10 @@ professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
     'sso_integration' => false,
     'advanced_security' => false,
     'audit_logs' => true,
-    'sla_guarantees' => false
+    'sla_guarantees' => false,
+    # Marketplace Publishing
+    'marketplace_publish_enabled' => true,
+    'marketplace_publish_limit' => 5
   }
   plan.limits = {
     'max_users' => 50,
@@ -278,7 +284,10 @@ enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
     'sso_integration' => true,
     'advanced_security' => true,
     'audit_logs' => true,
-    'sla_guarantees' => true
+    'sla_guarantees' => true,
+    # Marketplace Publishing (unlimited)
+    'marketplace_publish_enabled' => true,
+    'marketplace_publish_limit' => nil
   }
   plan.limits = {
     'max_users' => 9999,

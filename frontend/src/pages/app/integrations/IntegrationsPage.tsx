@@ -91,19 +91,26 @@ export function IntegrationsPage() {
   const activeCount = instances.filter((i) => i.status === 'active').length;
   const errorCount = instances.filter((i) => i.status === 'error').length;
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'DevOps', href: '/app/devops' },
+    { label: 'Integrations' }
+  ];
+
   return (
     <PageContainer
       title="My Integrations"
       description="Manage your installed integrations"
+      breadcrumbs={breadcrumbs}
       actions={[
         {
           label: 'Browse Marketplace',
-          onClick: () => navigate('/app/automation/integrations/marketplace'),
+          onClick: () => navigate('/app/marketplace?types=integration_template'),
           variant: 'outline',
         },
         {
           label: 'Add Integration',
-          onClick: () => navigate('/app/automation/integrations/new'),
+          onClick: () => navigate('/app/devops/integrations/new'),
           variant: 'primary',
         },
       ]}

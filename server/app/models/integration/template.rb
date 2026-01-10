@@ -4,13 +4,16 @@ module Integration
   class Template < ApplicationRecord
     # ==================== Concerns ====================
     include Auditable
+    include MarketplacePublishable
 
     # ==================== Constants ====================
     INTEGRATION_TYPES = %w[github_action webhook mcp_server rest_api custom].freeze
     CATEGORIES = %w[ci_cd notifications monitoring deployment security analytics testing].freeze
 
     # ==================== Associations ====================
+    belongs_to :account, optional: true
     has_many :instances, class_name: "Integration::Instance", foreign_key: "integration_template_id", dependent: :restrict_with_error
+    has_many :subscriptions, as: :subscribable, class_name: "Marketplace::Subscription", dependent: :destroy
 
     # Backward compatibility alias
     def integration_instances

@@ -1,366 +1,543 @@
+/**
+ * Marketplace API Service
+ *
+ * Frontend API service for marketplace endpoints.
+ * Handles apps, plugins, templates, and integrations through a single interface.
+ */
+
 import { api } from '@/shared/services/api';
-import {
-  App,
-  AppPlan,
-  AppFeature,
-  MarketplaceListing,
-  AppReview,
-  MarketplaceCategory,
-  AppFormData,
-  AppPlanFormData,
-  AppFeatureFormData,
-  MarketplaceListingFormData,
-  AppReviewFormData,
-  AppFilters,
+import type {
+  MarketplaceItem,
   MarketplaceFilters,
-  AppPlanFilters,
-  AppFeatureFilters,
-  ApiResponse,
+  MarketplaceItemType,
+  MarketplaceListResponse,
+  MarketplaceItemResponse,
+  MarketplaceSubscription,
+  MarketplaceReview,
+  SubscriptionsListResponse,
+  SubscriptionResponse,
+  ReviewsListResponse,
+  ReviewResponse,
+  CategoriesResponse,
+  MarketplaceCategory,
+  SubscribeRequest,
+  CreateReviewRequest,
+  UpdateReviewRequest
+} from '../types/marketplace';
+
+// Re-export types for convenience
+export type {
+  MarketplaceItem,
+  MarketplaceFilters,
+  MarketplaceItemType,
+  MarketplaceSubscription,
+  MarketplaceReview,
+  MarketplaceCategory
+};
+
+class MarketplaceApi {
+  // =====================
+  // Items
+  // =====================
+
+  /**
+   * Get marketplace items with optional filters
+   */
+  async getItems(filters?: MarketplaceFilters, page = 1, perPage = 20): Promise<MarketplaceListResponse> {
+    const params = new URLSearchParams();
+
+    if (filters?.types && filters.types.length > 0) {
+      params.append('types', filters.types.join(','));
+    }
+    if (filters?.search) {
+      params.append('search', filters.search);
+    }
+    if (filters?.category) {
+      params.append('category', filters.category);
+    }
+    if (filters?.verified !== undefined) {
+      params.append('verified', String(filters.verified));
+    }
+    params.append('page', String(page));
+    params.append('per_page', String(perPage));
+
+    const queryString = params.toString();
+    const url = `/marketplace${queryString ? `?${queryString}` : ''}`;
+
+    const response = await api.get(url);
+    return response.data;
+  }
+
+  /**
+   * Get featured marketplace items
+   */
+  async getFeatured(): Promise<{ success: boolean; data: MarketplaceItem[] }> {
+    const response = await api.get('/marketplace/featured');
+    return response.data;
+  }
+
+  /**
+   * Get marketplace categories
+   */
+  async getCategories(): Promise<CategoriesResponse> {
+    const response = await api.get('/marketplace/categories');
+    return response.data;
+  }
+
+  /**
+   * Get a single marketplace item by type and ID
+   */
+  async getItem(type: MarketplaceItemType, id: string): Promise<MarketplaceItemResponse> {
+    const response = await api.get(`/marketplace/${type}/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Subscribe to a marketplace item
+   */
+  async subscribe(type: MarketplaceItemType, id: string, options?: SubscribeRequest): Promise<SubscriptionResponse> {
+    const response = await api.post(`/marketplace/${type}/${id}/subscribe`, options || {});
+    return response.data;
+  }
+
+  /**
+   * Unsubscribe from a marketplace item
+   */
+  async unsubscribe(type: MarketplaceItemType, id: string, reason?: string): Promise<{ success: boolean; data: { message: string } }> {
+    const response = await api.delete(`/marketplace/${type}/${id}/unsubscribe`, {
+      data: reason ? { reason } : undefined
+    });
+    return response.data;
+  }
+
+  // =====================
+  // Subscriptions
+  // =====================
+
+  /**
+   * Get all subscriptions for current account
+   */
+  async getSubscriptions(params?: {
+    type?: MarketplaceItemType;
+    status?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<SubscriptionsListResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.page) queryParams.append('page', String(params.page));
+    if (params?.per_page) queryParams.append('per_page', String(params.per_page));
+
+    const queryString = queryParams.toString();
+    const url = `/marketplace/subscriptions${queryString ? `?${queryString}` : ''}`;
+
+    const response = await api.get(url);
+    return response.data;
+  }
+
+  /**
+   * Get a single subscription
+   */
+  async getSubscription(id: string): Promise<SubscriptionResponse> {
+    const response = await api.get(`/marketplace/subscriptions/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Update subscription configuration
+   */
+  async updateSubscription(id: string, configuration: Record<string, unknown>): Promise<SubscriptionResponse> {
+    const response = await api.patch(`/marketplace/subscriptions/${id}`, { configuration });
+    return response.data;
+  }
+
+  /**
+   * Cancel a subscription
+   */
+  async cancelSubscription(id: string, reason?: string): Promise<{ success: boolean; data: { message: string } }> {
+    const response = await api.delete(`/marketplace/subscriptions/${id}`, {
+      data: reason ? { reason } : undefined
+    });
+    return response.data;
+  }
+
+  /**
+   * Pause a subscription
+   */
+  async pauseSubscription(id: string, reason?: string): Promise<SubscriptionResponse> {
+    const response = await api.post(`/marketplace/subscriptions/${id}/pause`, { reason });
+    return response.data;
+  }
+
+  /**
+   * Resume a subscription
+   */
+  async resumeSubscription(id: string): Promise<SubscriptionResponse> {
+    const response = await api.post(`/marketplace/subscriptions/${id}/resume`);
+    return response.data;
+  }
+
+  /**
+   * Configure a subscription
+   */
+  async configureSubscription(id: string, configuration: Record<string, unknown>): Promise<SubscriptionResponse> {
+    const response = await api.patch(`/marketplace/subscriptions/${id}/configure`, { configuration });
+    return response.data;
+  }
+
+  /**
+   * Upgrade subscription tier
+   */
+  async upgradeSubscriptionTier(id: string, tier: string): Promise<SubscriptionResponse> {
+    const response = await api.post(`/marketplace/subscriptions/${id}/upgrade_tier`, { tier });
+    return response.data;
+  }
+
+  /**
+   * Get subscription usage
+   */
+  async getSubscriptionUsage(id: string): Promise<{
+    success: boolean;
+    data: {
+      subscription_id: string;
+      usage_metrics: Record<string, unknown>;
+      usage_within_limits: boolean;
+      subscription_age_days: number;
+    };
+  }> {
+    const response = await api.get(`/marketplace/subscriptions/${id}/usage`);
+    return response.data;
+  }
+
+  // =====================
+  // Reviews
+  // =====================
+
+  /**
+   * Get reviews for an item
+   */
+  async getReviews(params?: {
+    item_type?: MarketplaceItemType;
+    item_id?: string;
+    rating?: number;
+    verified?: boolean;
+    sort?: 'recent' | 'helpful' | 'rating_high' | 'rating_low';
+    page?: number;
+    per_page?: number;
+  }): Promise<ReviewsListResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.item_type) queryParams.append('item_type', params.item_type);
+    if (params?.item_id) queryParams.append('item_id', params.item_id);
+    if (params?.rating) queryParams.append('rating', String(params.rating));
+    if (params?.verified) queryParams.append('verified', 'true');
+    if (params?.sort) queryParams.append('sort', params.sort);
+    if (params?.page) queryParams.append('page', String(params.page));
+    if (params?.per_page) queryParams.append('per_page', String(params.per_page));
+
+    const queryString = queryParams.toString();
+    const url = `/marketplace/reviews${queryString ? `?${queryString}` : ''}`;
+
+    const response = await api.get(url);
+    return response.data;
+  }
+
+  /**
+   * Get a single review
+   */
+  async getReview(id: string): Promise<ReviewResponse> {
+    const response = await api.get(`/marketplace/reviews/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Create a review
+   */
+  async createReview(data: CreateReviewRequest): Promise<ReviewResponse> {
+    const response = await api.post('/marketplace/reviews', data);
+    return response.data;
+  }
+
+  /**
+   * Update a review
+   */
+  async updateReview(id: string, data: UpdateReviewRequest): Promise<ReviewResponse> {
+    const response = await api.patch(`/marketplace/reviews/${id}`, data);
+    return response.data;
+  }
+
+  /**
+   * Delete a review
+   */
+  async deleteReview(id: string): Promise<{ success: boolean; data: { message: string } }> {
+    const response = await api.delete(`/marketplace/reviews/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Mark a review as helpful
+   */
+  async markReviewHelpful(id: string): Promise<{ success: boolean; data: { helpful_count: number } }> {
+    const response = await api.post(`/marketplace/reviews/${id}/helpful`);
+    return response.data;
+  }
+
+  /**
+   * Flag a review for moderation
+   */
+  async flagReview(id: string): Promise<{ success: boolean; data: { message: string } }> {
+    const response = await api.post(`/marketplace/reviews/${id}/flag`);
+    return response.data;
+  }
+
+  // =====================
+  // Template Publishing (Admin)
+  // =====================
+
+  /**
+   * Get templates pending review (admin)
+   */
+  async getPendingTemplates(): Promise<{
+    success: boolean;
+    data: MarketplaceItem[];
+    meta?: { total_count: number };
+  }> {
+    const response = await api.get('/marketplace/templates/pending_review');
+    return response.data;
+  }
+
+  /**
+   * Approve a template for marketplace (admin)
+   */
+  async approveTemplate(type: MarketplaceItemType, id: string): Promise<{
+    success: boolean;
+    data: MarketplaceItem;
+    message: string;
+  }> {
+    const response = await api.post(`/marketplace/templates/${type}/${id}/approve`);
+    return response.data;
+  }
+
+  /**
+   * Reject a template from marketplace (admin)
+   */
+  async rejectTemplate(type: MarketplaceItemType, id: string, reason: string): Promise<{
+    success: boolean;
+    data: MarketplaceItem;
+    message: string;
+  }> {
+    const response = await api.post(`/marketplace/templates/${type}/${id}/reject`, { reason });
+    return response.data;
+  }
+
+  /**
+   * Get user's own published templates
+   */
+  async getMyPublishedTemplates(): Promise<{
+    success: boolean;
+    data: MarketplaceItem[];
+    meta?: {
+      total_count: number;
+      counts_by_type: Record<string, number>;
+    };
+  }> {
+    const response = await api.get('/marketplace/templates/my_published');
+    return response.data;
+  }
+
+  /**
+   * Create template from workflow
+   */
+  async createTemplateFromWorkflow(workflowId: string, params: {
+    name?: string;
+    description?: string;
+    category?: string;
+    difficulty_level?: string;
+    tags?: string[];
+  }): Promise<{ success: boolean; data: MarketplaceItem; message: string }> {
+    const response = await api.post(`/marketplace/templates/from_workflow/${workflowId}`, params);
+    return response.data;
+  }
+
+  /**
+   * Create template from pipeline
+   */
+  async createTemplateFromPipeline(pipelineId: string, params: {
+    name?: string;
+    description?: string;
+    category?: string;
+    difficulty_level?: string;
+    tags?: string[];
+  }): Promise<{ success: boolean; data: MarketplaceItem; message: string }> {
+    const response = await api.post(`/marketplace/templates/from_pipeline/${pipelineId}`, params);
+    return response.data;
+  }
+
+  /**
+   * Submit template for marketplace review
+   */
+  async submitTemplate(type: MarketplaceItemType, id: string): Promise<{
+    success: boolean;
+    data: MarketplaceItem;
+    message: string;
+  }> {
+    const response = await api.post(`/marketplace/templates/${type}/${id}/submit`);
+    return response.data;
+  }
+
+  /**
+   * Withdraw template from marketplace
+   */
+  async withdrawTemplate(type: MarketplaceItemType, id: string): Promise<{
+    success: boolean;
+    data: MarketplaceItem;
+    message: string;
+  }> {
+    const response = await api.post(`/marketplace/templates/${type}/${id}/withdraw`);
+    return response.data;
+  }
+
+  /**
+   * Create instance from subscribed template
+   */
+  async createInstanceFromTemplate(type: MarketplaceItemType, id: string, params: {
+    name?: string;
+    description?: string;
+    variables?: Record<string, unknown>;
+    configuration?: Record<string, unknown>;
+  }): Promise<{
+    success: boolean;
+    data: { id: string; name: string; type: string };
+    message: string;
+  }> {
+    const response = await api.post(`/marketplace/templates/${type}/${id}/create_instance`, params);
+    return response.data;
+  }
+}
+
+export const marketplaceApi = new MarketplaceApi();
+
+// Backward compatibility export
+export const unifiedMarketplaceApi = marketplaceApi;
+
+// =====================================================
+// Legacy APIs for App Management (backward compatibility)
+// These are used by existing hooks and admin pages
+// =====================================================
+
+import type {
+  App,
+  AppFormData,
+  AppFilters,
+  MarketplaceListing,
+  MarketplaceFilters as LegacyMarketplaceFilters,
+  MarketplaceCategory as LegacyMarketplaceCategory,
   PaginatedResponse,
-  AppAnalytics,
-  PlanAnalytics
+  ApiResponse
 } from '../types';
 
-// Apps API
-export const appsApi = {
-  async getApps(filters: AppFilters = {}): Promise<PaginatedResponse<App>> {
+class AppsApi {
+  async getApps(filters?: AppFilters): Promise<PaginatedResponse<App>> {
     const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined) params.append(key, value.toString());
-    });
-    
-    const response = await api.get(`/apps?${params}`);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.sort) params.append('sort', filters.sort);
+    if (filters?.page) params.append('page', String(filters.page));
+    if (filters?.per_page) params.append('per_page', String(filters.per_page));
+
+    const queryString = params.toString();
+    const response = await api.get(`/apps${queryString ? `?${queryString}` : ''}`);
     return response.data;
-  },
+  }
 
   async getApp(id: string): Promise<ApiResponse<App>> {
     const response = await api.get(`/apps/${id}`);
     return response.data;
-  },
+  }
 
   async createApp(data: AppFormData): Promise<ApiResponse<App>> {
-    const response = await api.post('/apps', { app: data });
+    const response = await api.post('/apps', data);
     return response.data;
-  },
+  }
 
   async updateApp(id: string, data: Partial<AppFormData>): Promise<ApiResponse<App>> {
-    const response = await api.put(`/apps/${id}`, { app: data });
+    const response = await api.patch(`/apps/${id}`, data);
     return response.data;
-  },
+  }
 
-  async deleteApp(id: string): Promise<ApiResponse<void>> {
+  async deleteApp(id: string): Promise<ApiResponse<null>> {
     const response = await api.delete(`/apps/${id}`);
     return response.data;
-  },
+  }
 
   async publishApp(id: string): Promise<ApiResponse<App>> {
     const response = await api.post(`/apps/${id}/publish`);
     return response.data;
-  },
+  }
 
   async unpublishApp(id: string): Promise<ApiResponse<App>> {
     const response = await api.post(`/apps/${id}/unpublish`);
     return response.data;
-  },
+  }
 
   async submitForReview(id: string): Promise<ApiResponse<App>> {
-    const response = await api.post(`/apps/${id}/submit_for_review`);
-    return response.data;
-  },
-
-  async getAppAnalytics(id: string): Promise<ApiResponse<AppAnalytics>> {
-    const response = await api.get(`/apps/${id}/analytics`);
+    const response = await api.post(`/apps/${id}/marketplace_listing/submit`);
     return response.data;
   }
-};
+}
 
-// App Plans API
-export const appPlansApi = {
-  async getAppPlans(appId: string, filters: AppPlanFilters = {}): Promise<ApiResponse<AppPlan[]>> {
+class MarketplaceListingsApi {
+  async getMarketplaceListings(filters?: LegacyMarketplaceFilters): Promise<PaginatedResponse<MarketplaceListing>> {
     const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined) params.append(key, value.toString());
-    });
-    
-    const response = await api.get(`/apps/${appId}/app_plans?${params}`);
-    return response.data;
-  },
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.featured !== undefined) params.append('featured', String(filters.featured));
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.tags) params.append('tags', filters.tags);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.sort) params.append('sort', filters.sort);
+    if (filters?.page) params.append('page', String(filters.page));
+    if (filters?.per_page) params.append('per_page', String(filters.per_page));
 
-  async getAppPlan(appId: string, planId: string): Promise<ApiResponse<AppPlan>> {
-    const response = await api.get(`/apps/${appId}/app_plans/${planId}`);
-    return response.data;
-  },
-
-  async createAppPlan(appId: string, data: AppPlanFormData): Promise<ApiResponse<AppPlan>> {
-    const response = await api.post(`/apps/${appId}/app_plans`, { app_plan: data });
-    return response.data;
-  },
-
-  async updateAppPlan(appId: string, planId: string, data: Partial<AppPlanFormData>): Promise<ApiResponse<AppPlan>> {
-    const response = await api.put(`/apps/${appId}/app_plans/${planId}`, { app_plan: data });
-    return response.data;
-  },
-
-  async deleteAppPlan(appId: string, planId: string): Promise<ApiResponse<void>> {
-    const response = await api.delete(`/apps/${appId}/app_plans/${planId}`);
-    return response.data;
-  },
-
-  async activateAppPlan(appId: string, planId: string): Promise<ApiResponse<AppPlan>> {
-    const response = await api.post(`/apps/${appId}/app_plans/${planId}/activate`);
-    return response.data;
-  },
-
-  async deactivateAppPlan(appId: string, planId: string): Promise<ApiResponse<AppPlan>> {
-    const response = await api.post(`/apps/${appId}/app_plans/${planId}/deactivate`);
-    return response.data;
-  },
-
-  async reorderAppPlans(appId: string, planIds: string[]): Promise<ApiResponse<void>> {
-    const response = await api.post(`/apps/${appId}/app_plans/reorder`, { plan_ids: planIds });
-    return response.data;
-  },
-
-  async compareAppPlans(appId: string, planIds: string[]): Promise<ApiResponse<any>> {
-    const response = await api.get(`/apps/${appId}/app_plans/compare?plan_ids=${planIds.join(',')}`);
-    return response.data;
-  },
-
-  async getAppPlanAnalytics(appId: string): Promise<ApiResponse<PlanAnalytics>> {
-    const response = await api.get(`/apps/${appId}/app_plans/analytics`);
+    const queryString = params.toString();
+    const response = await api.get(`/marketplace_listings${queryString ? `?${queryString}` : ''}`);
     return response.data;
   }
-};
-
-// App Features API
-export const appFeaturesApi = {
-  async getAppFeatures(appId: string, filters: AppFeatureFilters = {}): Promise<ApiResponse<AppFeature[]>> {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined) params.append(key, value.toString());
-    });
-    
-    const response = await api.get(`/apps/${appId}/app_features?${params}`);
-    return response.data;
-  },
-
-  async getAppFeature(appId: string, featureId: string): Promise<ApiResponse<AppFeature>> {
-    const response = await api.get(`/apps/${appId}/app_features/${featureId}`);
-    return response.data;
-  },
-
-  async createAppFeature(appId: string, data: AppFeatureFormData): Promise<ApiResponse<AppFeature>> {
-    const response = await api.post(`/apps/${appId}/app_features`, { app_feature: data });
-    return response.data;
-  },
-
-  async updateAppFeature(appId: string, featureId: string, data: Partial<AppFeatureFormData>): Promise<ApiResponse<AppFeature>> {
-    const response = await api.put(`/apps/${appId}/app_features/${featureId}`, { app_feature: data });
-    return response.data;
-  },
-
-  async deleteAppFeature(appId: string, featureId: string): Promise<ApiResponse<void>> {
-    const response = await api.delete(`/apps/${appId}/app_features/${featureId}`);
-    return response.data;
-  },
-
-  async enableByDefault(appId: string, featureId: string): Promise<ApiResponse<AppFeature>> {
-    const response = await api.post(`/apps/${appId}/app_features/${featureId}/enable_by_default`);
-    return response.data;
-  },
-
-  async disableByDefault(appId: string, featureId: string): Promise<ApiResponse<AppFeature>> {
-    const response = await api.post(`/apps/${appId}/app_features/${featureId}/disable_by_default`);
-    return response.data;
-  },
-
-  async duplicateAppFeature(appId: string, featureId: string, name?: string): Promise<ApiResponse<AppFeature>> {
-    const response = await api.post(`/apps/${appId}/app_features/${featureId}/duplicate`, { name });
-    return response.data;
-  },
-
-  async getFeatureTypes(): Promise<ApiResponse<any>> {
-    const response = await api.get('/apps/0/app_features/types'); // Using dummy app ID for types endpoint
-    return response.data;
-  },
-
-  async getDependencies(appId: string, excludeId?: string): Promise<ApiResponse<any>> {
-    const params = excludeId ? `?exclude_id=${excludeId}` : '';
-    const response = await api.get(`/apps/${appId}/app_features/dependencies${params}`);
-    return response.data;
-  },
-
-  async validateDependencies(appId: string, featureId: string, dependencies: string[]): Promise<ApiResponse<any>> {
-    const response = await api.post(`/apps/${appId}/app_features/validate_dependencies`, {
-      feature_id: featureId,
-      dependencies
-    });
-    return response.data;
-  },
-
-  async getUsageReport(appId: string): Promise<ApiResponse<any>> {
-    const response = await api.get(`/apps/${appId}/app_features/usage_report`);
-    return response.data;
-  }
-};
-
-// Marketplace Listings API
-export const marketplaceListingsApi = {
-  async getMarketplaceListings(filters: MarketplaceFilters = {}): Promise<PaginatedResponse<MarketplaceListing>> {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined) params.append(key, value.toString());
-    });
-    
-    const response = await api.get(`/marketplace_listings?${params}`);
-    return response.data;
-  },
 
   async getMarketplaceListing(id: string): Promise<ApiResponse<MarketplaceListing>> {
     const response = await api.get(`/marketplace_listings/${id}`);
     return response.data;
-  },
-
-  async createMarketplaceListing(appId: string, data: MarketplaceListingFormData): Promise<ApiResponse<MarketplaceListing>> {
-    const response = await api.post(`/apps/${appId}/marketplace_listing`, { marketplace_listing: data });
-    return response.data;
-  },
-
-  async updateMarketplaceListing(appId: string, data: Partial<MarketplaceListingFormData>): Promise<ApiResponse<MarketplaceListing>> {
-    const response = await api.put(`/apps/${appId}/marketplace_listing`, { marketplace_listing: data });
-    return response.data;
-  },
-
-  async deleteMarketplaceListing(appId: string): Promise<ApiResponse<void>> {
-    const response = await api.delete(`/apps/${appId}/marketplace_listing`);
-    return response.data;
-  },
+  }
 
   async submitForReview(appId: string): Promise<ApiResponse<MarketplaceListing>> {
     const response = await api.post(`/apps/${appId}/marketplace_listing/submit`);
     return response.data;
-  },
+  }
 
   async approveListing(appId: string, notes?: string): Promise<ApiResponse<MarketplaceListing>> {
     const response = await api.post(`/apps/${appId}/marketplace_listing/approve`, { notes });
     return response.data;
-  },
+  }
 
   async rejectListing(appId: string, notes: string): Promise<ApiResponse<MarketplaceListing>> {
     const response = await api.post(`/apps/${appId}/marketplace_listing/reject`, { notes });
     return response.data;
-  },
+  }
 
   async featureListing(appId: string): Promise<ApiResponse<MarketplaceListing>> {
     const response = await api.post(`/apps/${appId}/marketplace_listing/feature`);
     return response.data;
-  },
+  }
 
   async unfeatureListing(appId: string): Promise<ApiResponse<MarketplaceListing>> {
     const response = await api.post(`/apps/${appId}/marketplace_listing/unfeature`);
     return response.data;
-  },
+  }
 
-  async getListingAnalytics(appId: string): Promise<ApiResponse<any>> {
-    const response = await api.get(`/apps/${appId}/marketplace_listing/analytics`);
-    return response.data;
-  },
-
-  async addScreenshot(appId: string, url: string, caption?: string): Promise<ApiResponse<any>> {
-    const response = await api.post(`/apps/${appId}/marketplace_listing/screenshots`, { url, caption });
-    return response.data;
-  },
-
-  async removeScreenshot(appId: string, index: number): Promise<ApiResponse<any>> {
-    const response = await api.delete(`/apps/${appId}/marketplace_listing/screenshots`, { data: { index } });
-    return response.data;
-  },
-
-  async reorderScreenshots(appId: string, order: number[]): Promise<ApiResponse<any>> {
-    const response = await api.patch(`/apps/${appId}/marketplace_listing/screenshots`, { order });
-    return response.data;
-  },
-
-  async getCategories(): Promise<ApiResponse<MarketplaceCategory[]>> {
+  async getCategories(): Promise<ApiResponse<LegacyMarketplaceCategory[]>> {
     const response = await api.get('/marketplace_listings/categories');
     return response.data;
   }
-};
+}
 
-// App Subscriptions API
-// Re-exported from standalone appSubscriptionsApi.ts for convenience
-// Use the standalone file directly for more complete types and methods
-export { appSubscriptionsApi } from './appSubscriptionsApi';
-
-// App Reviews API
-export const appReviewsApi = {
-  async getAppReviews(): Promise<ApiResponse<AppReview[]>> {
-    const response = await api.get('/app_reviews');
-    return response.data;
-  },
-
-  async getAppReview(id: string): Promise<ApiResponse<AppReview>> {
-    const response = await api.get(`/app_reviews/${id}`);
-    return response.data;
-  },
-
-  async createAppReview(data: AppReviewFormData & { app_id: string }): Promise<ApiResponse<AppReview>> {
-    const response = await api.post('/app_reviews', { app_review: data });
-    return response.data;
-  },
-
-  async updateAppReview(id: string, data: Partial<AppReviewFormData>): Promise<ApiResponse<AppReview>> {
-    const response = await api.put(`/app_reviews/${id}`, { app_review: data });
-    return response.data;
-  },
-
-  async deleteAppReview(id: string): Promise<ApiResponse<void>> {
-    const response = await api.delete(`/app_reviews/${id}`);
-    return response.data;
-  },
-
-  async markHelpful(id: string): Promise<ApiResponse<AppReview>> {
-    const response = await api.post(`/app_reviews/${id}/mark_helpful`);
-    return response.data;
-  },
-
-  async markUnhelpful(id: string): Promise<ApiResponse<AppReview>> {
-    const response = await api.post(`/app_reviews/${id}/mark_unhelpful`);
-    return response.data;
-  },
-
-  async flagForReview(id: string, reason?: string): Promise<ApiResponse<AppReview>> {
-    const response = await api.post(`/app_reviews/${id}/flag_for_review`, { reason });
-    return response.data;
-  },
-
-  async approveAfterReview(id: string): Promise<ApiResponse<AppReview>> {
-    const response = await api.post(`/app_reviews/${id}/approve_after_review`);
-    return response.data;
-  },
-
-  async removeAfterReview(id: string, reason?: string): Promise<ApiResponse<AppReview>> {
-    const response = await api.post(`/app_reviews/${id}/remove_after_review`, { reason });
-    return response.data;
-  },
-
-  async getReviewsByApp(appId: string): Promise<ApiResponse<AppReview[]>> {
-    const response = await api.get(`/app_reviews/by_app?app_id=${appId}`);
-    return response.data;
-  },
-
-  async getReviewsByRating(rating: number): Promise<ApiResponse<AppReview[]>> {
-    const response = await api.get(`/app_reviews/by_rating?rating=${rating}`);
-    return response.data;
-  },
-
-  async getSentimentAnalysis(): Promise<ApiResponse<any>> {
-    const response = await api.get('/app_reviews/sentiment_analysis');
-    return response.data;
-  },
-
-  async getModerationQueue(): Promise<ApiResponse<AppReview[]>> {
-    const response = await api.get('/app_reviews/moderation_queue');
-    return response.data;
-  }
-};
+export const appsApi = new AppsApi();
+export const marketplaceListingsApi = new MarketplaceListingsApi();

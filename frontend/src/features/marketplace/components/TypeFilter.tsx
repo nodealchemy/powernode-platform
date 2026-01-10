@@ -2,18 +2,19 @@
  * Marketplace Type Filter
  *
  * Simple toggle buttons to filter marketplace items by type.
- * Supports All, Apps, Plugins, and Templates.
+ * Supports All, Workflows, Pipelines, Integrations, and Prompts.
  */
 
 
-import type { MarketplaceItemType } from '../types/unified';
+import type { MarketplaceItemType } from '../types/marketplace';
+import { ALL_MARKETPLACE_TYPES, getTypeDisplayName } from '../types/marketplace';
 
 interface TypeFilterProps {
   selectedTypes: MarketplaceItemType[];
   onChange: (types: MarketplaceItemType[]) => void;
 }
 
-const ALL_TYPES: MarketplaceItemType[] = ['app', 'plugin', 'template'];
+const ALL_TYPES = ALL_MARKETPLACE_TYPES;
 
 export const TypeFilter: React.FC<TypeFilterProps> = ({ selectedTypes, onChange }) => {
   const isAllSelected = selectedTypes.length === 0 || selectedTypes.length === ALL_TYPES.length;
@@ -40,7 +41,7 @@ export const TypeFilter: React.FC<TypeFilterProps> = ({ selectedTypes, onChange 
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
       <span className="text-sm text-theme-tertiary mr-2">Filter by type:</span>
 
       <button
@@ -50,26 +51,15 @@ export const TypeFilter: React.FC<TypeFilterProps> = ({ selectedTypes, onChange 
         All
       </button>
 
-      <button
-        onClick={() => handleTypeToggle('app')}
-        className={getButtonClass(selectedTypes.includes('app') && !isAllSelected)}
-      >
-        Apps
-      </button>
-
-      <button
-        onClick={() => handleTypeToggle('plugin')}
-        className={getButtonClass(selectedTypes.includes('plugin') && !isAllSelected)}
-      >
-        Plugins
-      </button>
-
-      <button
-        onClick={() => handleTypeToggle('template')}
-        className={getButtonClass(selectedTypes.includes('template') && !isAllSelected)}
-      >
-        Templates
-      </button>
+      {ALL_TYPES.map((type) => (
+        <button
+          key={type}
+          onClick={() => handleTypeToggle(type)}
+          className={getButtonClass(selectedTypes.includes(type) && !isAllSelected)}
+        >
+          {getTypeDisplayName(type)}s
+        </button>
+      ))}
     </div>
   );
 };

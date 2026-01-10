@@ -11,37 +11,37 @@ module Api
         def index
           authorize_action!("integrations.credentials.read")
 
-          credentials = IntegrationCredential
+          credentials = Integration::Credential
             .where(account: current_account)
             .order(created_at: :desc)
             .page(pagination_params[:page])
             .per(pagination_params[:per_page])
 
-          render_success(
+          render_success({
             credentials: credentials.map(&:credential_summary),
             pagination: pagination_meta(credentials)
-          )
+          })
         end
 
         # GET /api/v1/integrations/credentials/:id
         def show
           authorize_action!("integrations.credentials.read")
 
-          render_success(credential: @credential.credential_details)
+          render_success({ credential: @credential.credential_details })
         end
 
         # POST /api/v1/integrations/credentials
         def create
           authorize_action!("integrations.credentials.create")
 
-          credential = IntegrationRegistryService.create_credential(
+          credential = ::Integrations::RegistryService.create_credential(
             account: current_account,
             attributes: credential_params,
             created_by: current_user
           )
 
-          render_success(credential: credential.credential_summary, status: :created)
-        rescue IntegrationRegistryService::ValidationError => e
+          render_success({ credential: credential.credential_summary }, status: :created)
+        rescue ::Integrations::RegistryService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -49,14 +49,14 @@ module Api
         def update
           authorize_action!("integrations.credentials.update")
 
-          credential = IntegrationRegistryService.update_credential(
+          credential = ::Integrations::RegistryService.update_credential(
             account: current_account,
             credential_id: @credential.id,
             attributes: credential_params
           )
 
-          render_success(credential: credential.credential_summary)
-        rescue IntegrationRegistryService::ValidationError => e
+          render_success({ credential: credential.credential_summary })
+        rescue ::Integrations::RegistryService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -64,13 +64,13 @@ module Api
         def destroy
           authorize_action!("integrations.credentials.delete")
 
-          IntegrationRegistryService.delete_credential(
+          ::Integrations::RegistryService.delete_credential(
             account: current_account,
             credential_id: @credential.id
           )
 
           render_success(message: "Credential deleted")
-        rescue IntegrationRegistryService::ValidationError => e
+        rescue ::Integrations::RegistryService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -78,15 +78,12 @@ module Api
         def rotate
           authorize_action!("integrations.credentials.update")
 
-          IntegrationCredentialEncryptionService.rotate_key(@credential)
+          ::Integrations::CredentialEncryptionService.rotate_key(@credential)
 
           @credential.touch(:rotated_at)
 
-          render_success(
-            credential: @credential.credential_summary,
-            message: "Credential rotated successfully"
-          )
-        rescue IntegrationCredentialEncryptionService::EncryptionError => e
+          render_success({ credential: @credential.credential_summary }, message: "Credential rotated successfully")
+        rescue ::Integrations::CredentialEncryptionService::EncryptionError => e
           render_error("Failed to rotate credential: #{e.message}", status: :unprocessable_content)
         end
 
@@ -94,15 +91,15 @@ module Api
         def verify
           authorize_action!("integrations.credentials.read")
 
-          valid = IntegrationCredentialEncryptionService.valid?(@credential)
+          valid = ::Integrations::CredentialEncryptionService.valid?(@credential)
 
-          render_success(valid: valid)
+          render_success({ valid: valid })
         end
 
         private
 
         def set_credential
-          @credential = IntegrationCredential.find_by(id: params[:id], account: current_account)
+          @credential = Integration::Credential.find_by(id: params[:id], account: current_account)
 
           render_not_found("Credential") unless @credential
         end

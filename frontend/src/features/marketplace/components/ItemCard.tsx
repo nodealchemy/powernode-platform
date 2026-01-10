@@ -1,13 +1,14 @@
 /**
- * Unified Marketplace Item Card
+ * Marketplace Item Card
  *
- * Polymorphic card component that displays apps, plugins, or templates
+ * Polymorphic card component that displays apps, plugins, templates, or integrations
  * with a consistent interface across all marketplace item types.
  */
 
 
-import { Package, Star, CheckCircle, Download } from 'lucide-react';
-import type { MarketplaceItem } from '../types/unified';
+import { Package, Star, CheckCircle, Users, Workflow, GitBranch, Puzzle, MessageSquare } from 'lucide-react';
+import type { MarketplaceItem, MarketplaceItemType } from '../types/marketplace';
+import { getTypeBadgeColor, getTypeDisplayName } from '../types/marketplace';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 
@@ -24,20 +25,23 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   onViewDetails,
   onInstall
 }) => {
-  const getTypeBadgeColor = (type: string) => {
+  // Get icon component for template type
+  const getTypeIconComponent = (type: MarketplaceItemType) => {
     switch (type) {
-      case 'app':
-        return 'bg-theme-info bg-opacity-10 text-theme-info';
-      case 'plugin':
-        return 'bg-theme-success bg-opacity-10 text-theme-success';
-      case 'template':
-        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+      case 'workflow_template':
+        return <Workflow className="h-6 w-6 text-theme-info" />;
+      case 'pipeline_template':
+        return <GitBranch className="h-6 w-6 text-theme-success" />;
+      case 'integration_template':
+        return <Puzzle className="h-6 w-6 text-theme-primary" />;
+      case 'prompt_template':
+        return <MessageSquare className="h-6 w-6 text-theme-warning" />;
       default:
-        return 'bg-theme-surface text-theme-primary';
+        return <Package className="h-6 w-6 text-theme-tertiary" />;
     }
   };
 
-  const handleInstall = (e: React.MouseEvent) => {
+  const handleSubscribe = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onInstall) {
       onInstall(item.id);
@@ -64,7 +68,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
                 className="h-8 w-8 object-contain"
               />
             ) : (
-              <Package className="h-6 w-6 text-theme-tertiary" />
+              getTypeIconComponent(item.type)
             )}
           </div>
 
@@ -80,7 +84,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
             <span
               className={`px-2 py-1 rounded text-xs font-medium ${getTypeBadgeColor(item.type)}`}
             >
-              {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+              {getTypeDisplayName(item.type)}
             </span>
           </div>
         </div>
@@ -125,9 +129,9 @@ export const ItemCard: React.FC<ItemCardProps> = ({
               <span>{item.rating.toFixed(1)}</span>
             </div>
 
-            {/* Install count */}
+            {/* Subscriber count */}
             <div className="flex items-center gap-1">
-              <Download className="h-4 w-4" />
+              <Users className="h-4 w-4" />
               <span>{item.install_count.toLocaleString()}</span>
             </div>
 
@@ -149,10 +153,10 @@ export const ItemCard: React.FC<ItemCardProps> = ({
             {showInstallButton && onInstall && (
               <Button
                 size="sm"
-                onClick={handleInstall}
+                onClick={handleSubscribe}
                 className="text-xs"
               >
-                Install
+                Subscribe
               </Button>
             )}
           </div>

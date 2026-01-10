@@ -192,7 +192,7 @@ module Integrations
           credential.save!
 
           if attributes[:credentials].present?
-            Integrations::Security::CredentialEncryptionService.encrypt(credential, attributes[:credentials])
+            Integrations::CredentialEncryptionService.encrypt(credential, attributes[:credentials])
           end
         end
 
@@ -210,7 +210,7 @@ module Integrations
           credential.update!(attributes.slice(:name, :scopes, :metadata))
 
           if attributes[:credentials].present?
-            Integrations::Security::CredentialEncryptionService.encrypt(credential, attributes[:credentials])
+            Integrations::CredentialEncryptionService.encrypt(credential, attributes[:credentials])
           end
         end
 

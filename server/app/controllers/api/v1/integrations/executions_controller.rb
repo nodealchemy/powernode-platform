@@ -11,7 +11,7 @@ module Api
         def index
           authorize_action!("integrations.read")
 
-          scope = IntegrationExecution.where(account: current_account)
+          scope = Integration::Execution.where(account: current_account)
 
           # Filter by instance
           if params[:instance_id].present?
@@ -31,30 +31,30 @@ module Api
             .page(pagination_params[:page])
             .per(pagination_params[:per_page])
 
-          render_success(
+          render_success({
             executions: executions.map(&:execution_summary),
             pagination: pagination_meta(executions)
-          )
+          })
         end
 
         # GET /api/v1/integrations/executions/:id
         def show
           authorize_action!("integrations.read")
 
-          render_success(execution: @execution.execution_details)
+          render_success({ execution: @execution.execution_details })
         end
 
         # POST /api/v1/integrations/executions/:id/retry
         def retry
           authorize_action!("integrations.execute")
 
-          result = IntegrationExecutionService.retry_execution(
+          result = ::Integrations::ExecutionService.retry_execution(
             execution: @execution,
             context: { request_id: request.request_id, retried_by: current_user.id }
           )
 
           if result[:success]
-            render_success(result: result)
+            render_success({ result: result })
           else
             render_error(result[:error], status: :unprocessable_content)
           end
@@ -64,10 +64,10 @@ module Api
         def cancel
           authorize_action!("integrations.execute")
 
-          result = IntegrationExecutionService.cancel_execution(execution: @execution)
+          result = ::Integrations::ExecutionService.cancel_execution(execution: @execution)
 
           if result[:success]
-            render_success(result: result)
+            render_success({ result: result })
           else
             render_error(result[:error], status: :unprocessable_content)
           end
@@ -79,7 +79,7 @@ module Api
 
           period = (params[:period] || 30).to_i.days
 
-          scope = IntegrationExecution
+          scope = Integration::Execution
             .where(account: current_account)
             .where("created_at >= ?", period.ago)
 
@@ -100,13 +100,13 @@ module Api
             by_status: scope.group(:status).count
           }
 
-          render_success(stats: stats)
+          render_success({ stats: stats })
         end
 
         private
 
         def set_execution
-          @execution = IntegrationExecution.find_by(id: params[:id], account: current_account)
+          @execution = Integration::Execution.find_by(id: params[:id], account: current_account)
 
           render_not_found("Execution") unless @execution
         end

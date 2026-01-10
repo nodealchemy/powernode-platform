@@ -11,32 +11,32 @@ module Api
         def index
           authorize_action!("integrations.read")
 
-          templates = IntegrationRegistryService.list_templates(
+          templates = ::Integrations::RegistryService.list_templates(
             filters: template_filters,
             **pagination_params
           )
 
-          render_success(
+          render_success({
             templates: templates.map(&:template_summary),
             pagination: pagination_meta(templates)
-          )
+          })
         end
 
         # GET /api/v1/integrations/templates/:id
         def show
           authorize_action!("integrations.read")
 
-          render_success(template: @template.template_details)
+          render_success({ template: @template.template_details })
         end
 
         # POST /api/v1/integrations/templates
         def create
           authorize_action!("admin.integrations.templates.create")
 
-          template = IntegrationRegistryService.create_template(template_params)
+          template = ::Integrations::RegistryService.create_template(template_params)
 
-          render_success(template: template.template_details, status: :created)
-        rescue IntegrationRegistryService::ValidationError => e
+          render_success({ template: template.template_details }, status: :created)
+        rescue ::Integrations::RegistryService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -44,10 +44,10 @@ module Api
         def update
           authorize_action!("admin.integrations.templates.update")
 
-          template = IntegrationRegistryService.update_template(@template.id, template_params)
+          template = ::Integrations::RegistryService.update_template(@template.id, template_params)
 
-          render_success(template: template.template_details)
-        rescue IntegrationRegistryService::ValidationError => e
+          render_success({ template: template.template_details })
+        rescue ::Integrations::RegistryService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -64,37 +64,37 @@ module Api
         def search
           authorize_action!("integrations.read")
 
-          templates = IntegrationRegistryService.search_templates(
+          templates = ::Integrations::RegistryService.search_templates(
             query: params[:q],
             filters: template_filters,
             **pagination_params
           )
 
-          render_success(
+          render_success({
             templates: templates.map(&:template_summary),
             pagination: pagination_meta(templates)
-          )
+          })
         end
 
         # GET /api/v1/integrations/templates/categories
         def categories
           authorize_action!("integrations.read")
 
-          render_success(categories: IntegrationRegistryService.template_categories)
+          render_success({ categories: ::Integrations::RegistryService.template_categories })
         end
 
         # GET /api/v1/integrations/templates/types
         def types
           authorize_action!("integrations.read")
 
-          render_success(types: IntegrationRegistryService.integration_types)
+          render_success({ types: ::Integrations::RegistryService.integration_types })
         end
 
         private
 
         def set_template
-          @template = IntegrationRegistryService.find_template(params[:id])
-        rescue IntegrationRegistryService::TemplateNotFoundError
+          @template = ::Integrations::RegistryService.find_template(params[:id])
+        rescue ::Integrations::RegistryService::TemplateNotFoundError
           render_not_found("Template")
         end
 

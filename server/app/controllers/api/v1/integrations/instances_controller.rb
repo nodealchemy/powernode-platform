@@ -11,40 +11,40 @@ module Api
         def index
           authorize_action!("integrations.read")
 
-          instances = IntegrationRegistryService.list_instances(
+          instances = ::Integrations::RegistryService.list_instances(
             account: current_account,
             filters: instance_filters,
             **pagination_params
           )
 
-          render_success(
+          render_success({
             instances: instances.map(&:instance_summary),
             pagination: pagination_meta(instances)
-          )
+          })
         end
 
         # GET /api/v1/integrations/instances/:id
         def show
           authorize_action!("integrations.read")
 
-          render_success(instance: @instance.instance_details)
+          render_success({ instance: @instance.instance_details })
         end
 
         # POST /api/v1/integrations/instances
         def create
           authorize_action!("integrations.create")
 
-          instance = IntegrationRegistryService.install_template(
+          instance = ::Integrations::RegistryService.install_template(
             account: current_account,
             template_identifier: params[:template_id],
             attributes: instance_params,
             created_by: current_user
           )
 
-          render_success(instance: instance.instance_details, status: :created)
-        rescue IntegrationRegistryService::TemplateNotFoundError
+          render_success({ instance: instance.instance_details }, status: :created)
+        rescue ::Integrations::RegistryService::TemplateNotFoundError
           render_not_found("Template")
-        rescue IntegrationRegistryService::ValidationError => e
+        rescue ::Integrations::RegistryService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -52,14 +52,14 @@ module Api
         def update
           authorize_action!("integrations.update")
 
-          instance = IntegrationRegistryService.update_instance(
+          instance = ::Integrations::RegistryService.update_instance(
             account: current_account,
             instance_id: @instance.id,
             attributes: instance_params
           )
 
-          render_success(instance: instance.instance_details)
-        rescue IntegrationRegistryService::ValidationError => e
+          render_success({ instance: instance.instance_details })
+        rescue ::Integrations::RegistryService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -67,7 +67,7 @@ module Api
         def destroy
           authorize_action!("integrations.delete")
 
-          IntegrationRegistryService.uninstall_instance(
+          ::Integrations::RegistryService.uninstall_instance(
             account: current_account,
             instance_id: @instance.id
           )
@@ -79,13 +79,13 @@ module Api
         def activate
           authorize_action!("integrations.update")
 
-          instance = IntegrationRegistryService.activate_instance(
+          instance = ::Integrations::RegistryService.activate_instance(
             account: current_account,
             instance_id: @instance.id
           )
 
-          render_success(instance: instance.instance_details)
-        rescue IntegrationRegistryService::ValidationError => e
+          render_success({ instance: instance.instance_details })
+        rescue ::Integrations::RegistryService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -93,21 +93,21 @@ module Api
         def deactivate
           authorize_action!("integrations.update")
 
-          instance = IntegrationRegistryService.deactivate_instance(
+          instance = ::Integrations::RegistryService.deactivate_instance(
             account: current_account,
             instance_id: @instance.id
           )
 
-          render_success(instance: instance.instance_details)
+          render_success({ instance: instance.instance_details })
         end
 
         # POST /api/v1/integrations/instances/:id/test
         def test
           authorize_action!("integrations.execute")
 
-          result = IntegrationExecutionService.test_connection(instance: @instance)
+          result = ::Integrations::ExecutionService.test_connection(instance: @instance)
 
-          render_success(result: result)
+          render_success({ result: result })
         end
 
         # POST /api/v1/integrations/instances/:id/execute
@@ -118,7 +118,7 @@ module Api
             return render_error("Integration is not active", status: :unprocessable_content)
           end
 
-          result = IntegrationExecutionService.execute(
+          result = ::Integrations::ExecutionService.execute(
             instance: @instance,
             input: execution_input,
             triggered_by: current_user,
@@ -126,7 +126,7 @@ module Api
           )
 
           if result[:success]
-            render_success(result: result)
+            render_success({ result: result })
           else
             render_error(result[:error], status: :unprocessable_content, data: { execution_id: result[:execution_id] })
           end
@@ -136,31 +136,31 @@ module Api
         def health
           authorize_action!("integrations.read")
 
-          health = IntegrationExecutionService.health_check(instance: @instance)
+          health = ::Integrations::ExecutionService.health_check(instance: @instance)
 
-          render_success(health: health)
+          render_success({ health: health })
         end
 
         # GET /api/v1/integrations/instances/:id/stats
         def stats
           authorize_action!("integrations.read")
 
-          stats = IntegrationExecutionService.execution_stats(
+          stats = ::Integrations::ExecutionService.execution_stats(
             instance: @instance,
             period: (params[:period] || 30).to_i.days
           )
 
-          render_success(stats: stats)
+          render_success({ stats: stats })
         end
 
         private
 
         def set_instance
-          @instance = IntegrationRegistryService.find_instance(
+          @instance = ::Integrations::RegistryService.find_instance(
             account: current_account,
             instance_id: params[:id]
           )
-        rescue IntegrationRegistryService::InstanceNotFoundError
+        rescue ::Integrations::RegistryService::InstanceNotFoundError
           render_not_found("Integration instance")
         end
 

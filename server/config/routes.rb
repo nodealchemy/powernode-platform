@@ -1000,12 +1000,60 @@ Rails.application.routes.draw do
         end
       end
 
-      # Unified Marketplace endpoints (apps, plugins, templates in one interface)
+      # Marketplace endpoints (apps, plugins, templates, integrations)
       namespace :marketplace do
-        get "unified", to: "unified#index"
-        get "unified/installations", to: "unified#installations"
-        get "unified/:type/:id", to: "unified#show"
-        post "unified/:type/:id/install", to: "unified#install"
+        # Browse and discover
+        get "/", to: "items#index"
+        get "featured", to: "items#featured"
+        get "categories", to: "items#categories"
+
+        # Subscriptions
+        resources :subscriptions, only: [ :index, :show, :create, :update, :destroy ] do
+          member do
+            post :pause
+            post :resume
+            patch :configure
+            post :upgrade_tier
+            get :usage
+          end
+        end
+
+        # Reviews
+        resources :reviews, only: [ :index, :show, :create, :update, :destroy ] do
+          member do
+            post :helpful
+            post :approve
+            post :reject
+            post :flag
+          end
+        end
+
+        # Item details and actions
+        get ":type/:id", to: "items#show"
+        post ":type/:id/subscribe", to: "items#subscribe"
+        delete ":type/:id/unsubscribe", to: "items#unsubscribe"
+
+        # Feature template management
+        scope :templates do
+          # Create templates from existing features
+          post "from_workflow/:id", to: "templates#create_from_workflow"
+          post "from_pipeline/:id", to: "templates#create_from_pipeline"
+          post "from_integration/:id", to: "templates#create_from_integration"
+          post "from_prompt/:id", to: "templates#create_from_prompt"
+
+          # User's published templates
+          get "my_published", to: "templates#my_published"
+
+          # Admin: Pending review
+          get "pending_review", to: "templates#pending_review"
+
+          # Template actions
+          post ":type/:id/submit", to: "templates#submit"
+          post ":type/:id/withdraw", to: "templates#withdraw"
+          post ":type/:id/approve", to: "templates#approve"
+          post ":type/:id/reject", to: "templates#reject"
+          post ":type/:id/create_instance", to: "templates#create_instance"
+        end
       end
 
       # App Subscriptions (user subscriptions to apps)

@@ -97,7 +97,7 @@ module Integrations
     def decrypted_credentials
       return {} unless credential.present?
 
-      @decrypted_credentials ||= IntegrationCredentialEncryptionService.decrypt(credential)
+      @decrypted_credentials ||= Integrations::CredentialEncryptionService.decrypt(credential)
     end
 
     # Validation methods

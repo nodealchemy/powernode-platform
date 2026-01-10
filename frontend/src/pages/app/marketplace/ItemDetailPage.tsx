@@ -12,8 +12,8 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Card } from '@/shared/components/ui/Card';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { unifiedMarketplaceApi } from '@/features/marketplace/services/unifiedMarketplaceApi';
-import type { MarketplaceItem, MarketplaceItemType } from '@/features/marketplace/types/unified';
+import { marketplaceApi } from '@/features/marketplace/services/marketplaceApi';
+import type { MarketplaceItem, MarketplaceItemType } from '@/features/marketplace/types/marketplace';
 
 export const ItemDetailPage: React.FC = () => {
   const { type, id } = useParams<{ type: MarketplaceItemType; id: string }>();
@@ -30,7 +30,7 @@ export const ItemDetailPage: React.FC = () => {
 
       try {
         setLoading(true);
-        const response = await unifiedMarketplaceApi.getItem(type, id);
+        const response = await marketplaceApi.getItem(type, id);
         setItem(response.data);
       } catch (error) {
         console.error('Failed to load item:', error);
@@ -48,27 +48,27 @@ export const ItemDetailPage: React.FC = () => {
     loadItem();
   }, [type, id, addNotification, navigate]);
 
-  const handleInstall = async () => {
+  const handleSubscribe = async () => {
     if (!item || !type || !id) return;
 
     try {
       setInstalling(true);
-      await unifiedMarketplaceApi.install(type, id);
+      await marketplaceApi.subscribe(type, id);
 
       addNotification({
         type: 'success',
-        title: 'Installation Started',
-        message: `${item.name} is being installed.`
+        title: 'Subscription Started',
+        message: `You are now subscribed to ${item.name}.`
       });
 
       // Navigate back to marketplace
       navigate('/app/marketplace');
     } catch (error) {
-      console.error('Failed to install item:', error);
+      console.error('Failed to subscribe to item:', error);
       addNotification({
         type: 'error',
-        title: 'Installation Failed',
-        message: 'Failed to install item. Please try again.'
+        title: 'Subscription Failed',
+        message: 'Failed to subscribe to item. Please try again.'
       });
     } finally {
       setInstalling(false);
@@ -107,8 +107,8 @@ export const ItemDetailPage: React.FC = () => {
           icon: ArrowLeft
         },
         {
-          label: installing ? 'Installing...' : 'Install',
-          onClick: handleInstall,
+          label: installing ? 'Subscribing...' : 'Subscribe',
+          onClick: handleSubscribe,
           variant: 'primary' as const,
           disabled: installing
         }

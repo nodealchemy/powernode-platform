@@ -2,6 +2,8 @@
 
 module Marketplace
   class Definition < ApplicationRecord
+    include MarketplaceReviewable
+
     # Explicit table name since "apps" doesn't follow "app_definitions" pattern
     self.table_name = "apps"
 
@@ -17,6 +19,9 @@ module Marketplace
     has_many :endpoints, class_name: "Marketplace::Endpoint", foreign_key: "app_id", dependent: :destroy
     has_many :webhooks, class_name: "Marketplace::Webhook", foreign_key: "app_id", dependent: :destroy
     has_many :subscribers, through: :subscriptions, source: :account
+
+    # Unified marketplace subscriptions (polymorphic)
+    has_many :marketplace_subscriptions, as: :subscribable, class_name: "Marketplace::Subscription"
 
     # Validations
     validates :name, presence: true, length: { minimum: 2, maximum: 255 }

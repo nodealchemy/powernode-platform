@@ -10,6 +10,8 @@ module Shared
   #   - general: Templates available to both systems
   #
   class PromptTemplate < ApplicationRecord
+    include MarketplacePublishable
+
     self.table_name = "shared_prompt_templates"
 
     # ============================================
@@ -32,6 +34,9 @@ module Shared
     has_many :ai_workflow_nodes, class_name: "Ai::WorkflowNode", foreign_key: :shared_prompt_template_id, dependent: :nullify
     has_many :ci_cd_pipeline_steps, class_name: "CiCd::PipelineStep",
              foreign_key: :shared_prompt_template_id, dependent: :nullify
+
+    # Marketplace subscriptions
+    has_many :subscriptions, as: :subscribable, class_name: "Marketplace::Subscription", dependent: :destroy
 
     # ============================================
     # Validations

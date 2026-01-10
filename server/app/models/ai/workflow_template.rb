@@ -2,11 +2,18 @@
 
 module Ai
   class WorkflowTemplate < ApplicationRecord
+    include MarketplaceReviewable
+    include MarketplacePublishable
+
     # Associations
     has_many :installations, class_name: "Ai::WorkflowTemplateInstallation",
              foreign_key: "ai_workflow_template_id", dependent: :destroy
     has_many :installed_workflows, through: :installations, source: :workflow
     has_many :installing_accounts, through: :installations, source: :account
+
+    # Unified marketplace subscriptions (preferred over installations)
+    has_many :subscriptions, as: :subscribable, class_name: "Marketplace::Subscription", dependent: :destroy
+    has_many :subscribing_accounts, through: :subscriptions, source: :account
 
     # Optional associations
     belongs_to :account, optional: true

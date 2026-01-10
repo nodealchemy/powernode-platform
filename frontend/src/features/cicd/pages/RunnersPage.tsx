@@ -216,7 +216,7 @@ const RunnersPageContent: React.FC = () => {
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
-    { label: 'Automation', href: '/app/automation' },
+    { label: 'DevOps', href: '/app/devops' },
     { label: 'Runners' }
   ];
 

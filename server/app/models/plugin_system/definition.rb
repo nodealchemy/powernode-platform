@@ -6,6 +6,7 @@ module PluginSystem
   class Definition < ApplicationRecord
     include Auditable
     include Searchable
+    include MarketplaceReviewable
 
     # Explicit table name for backward compatibility (original: plugins)
     self.table_name = "plugins"
@@ -21,6 +22,10 @@ module PluginSystem
     has_many :reviews, class_name: "PluginSystem::Review", foreign_key: :plugin_id, dependent: :destroy
     has_many :dependencies, class_name: "PluginSystem::Dependency", foreign_key: :plugin_id, dependent: :destroy
     has_many :ai_workflow_nodes, class_name: "Ai::WorkflowNode", foreign_key: :plugin_id, dependent: :nullify
+
+    # Unified marketplace subscriptions
+    has_many :subscriptions, as: :subscribable, class_name: "Marketplace::Subscription", dependent: :destroy
+    has_many :subscribing_accounts, through: :subscriptions, source: :account
 
     # Validations
     validates :plugin_id, presence: true, uniqueness: { scope: :account_id },

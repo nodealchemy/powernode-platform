@@ -10,10 +10,11 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
+  enable_extension "vector"
 
   create_table "account_delegations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
@@ -79,6 +80,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
     t.jsonb "settings", default: {}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "publisher_display_name"
+    t.text "publisher_bio"
+    t.string "publisher_website"
+    t.string "publisher_logo_url"
     t.index ["paypal_customer_id"], name: "index_accounts_on_paypal_customer_id", unique: true, where: "(paypal_customer_id IS NOT NULL)"
     t.index ["status"], name: "index_accounts_on_status"
     t.index ["stripe_customer_id"], name: "index_accounts_on_stripe_customer_id", unique: true, where: "(stripe_customer_id IS NOT NULL)"
@@ -276,39 +281,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
     t.index ["user_id"], name: "index_ai_context_access_logs_on_user_id"
   end
 
-  create_table "ai_context_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_persistent_context_id", null: false
-    t.uuid "created_by_user_id"
-    t.uuid "ai_agent_id"
-    t.string "entry_key", null: false
-    t.string "entry_type"
-    t.jsonb "content", default: {}, null: false
-    t.text "content_text"
-    t.jsonb "metadata", default: {}
-    t.decimal "importance_score", precision: 5, scale: 4, default: "0.5"
-    t.decimal "relevance_decay_rate", precision: 5, scale: 4, default: "0.0"
-    t.datetime "last_relevance_update"
-    t.string "source_type"
-    t.string "source_id"
-    t.integer "version", default: 1
-    t.uuid "previous_version_id"
-    t.datetime "expires_at"
-    t.datetime "archived_at"
-    t.integer "access_count", default: 0
-    t.datetime "last_accessed_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["ai_agent_id"], name: "index_ai_context_entries_on_ai_agent_id"
-    t.index ["ai_persistent_context_id", "entry_key"], name: "idx_entries_context_key", unique: true
-    t.index ["ai_persistent_context_id"], name: "index_ai_context_entries_on_ai_persistent_context_id"
-    t.index ["archived_at"], name: "index_ai_context_entries_on_archived_at"
-    t.index ["created_by_user_id"], name: "index_ai_context_entries_on_created_by_user_id"
-    t.index ["entry_type"], name: "index_ai_context_entries_on_entry_type"
-    t.index ["expires_at"], name: "index_ai_context_entries_on_expires_at"
-    t.index ["importance_score"], name: "index_ai_context_entries_on_importance_score"
-    t.index ["previous_version_id"], name: "index_ai_context_entries_on_previous_version_id"
-    t.index ["source_type"], name: "index_ai_context_entries_on_source_type"
-  end
+# Could not dump table "ai_context_entries" because of following StandardError
+#   Unknown type 'vector' for column 'embedding'
+
 
   create_table "ai_conversations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
@@ -867,12 +842,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
     t.datetime "updated_at", null: false
     t.uuid "account_id"
     t.uuid "created_by_user_id"
+    t.boolean "is_marketplace_published", default: false
+    t.string "marketplace_status"
+    t.datetime "marketplace_submitted_at"
+    t.datetime "marketplace_approved_at"
+    t.text "marketplace_rejection_reason"
     t.index ["account_id", "is_public"], name: "index_ai_workflow_templates_on_account_id_and_is_public"
     t.index ["account_id"], name: "index_ai_workflow_templates_on_account_id"
     t.index ["category", "is_public"], name: "index_ai_workflow_templates_on_category_and_is_public"
     t.index ["created_by_user_id"], name: "index_ai_workflow_templates_on_created_by_user_id"
     t.index ["difficulty_level"], name: "index_ai_workflow_templates_on_difficulty_level"
     t.index ["is_featured", "is_public"], name: "index_ai_workflow_templates_on_is_featured_and_is_public"
+    t.index ["is_marketplace_published", "marketplace_status"], name: "idx_ai_workflow_templates_marketplace"
     t.index ["published_at"], name: "index_ai_workflow_templates_on_published_at"
     t.index ["rating"], name: "index_ai_workflow_templates_on_rating"
     t.index ["slug"], name: "index_ai_workflow_templates_on_slug", unique: true
@@ -1183,8 +1164,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
 
   create_table "app_subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "app_id", null: false
-    t.uuid "app_plan_id", null: false
+    t.uuid "app_id"
+    t.uuid "app_plan_id"
     t.string "status", limit: 50, default: "active"
     t.datetime "subscribed_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }
     t.datetime "cancelled_at", precision: nil
@@ -1193,12 +1174,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
     t.jsonb "usage_metrics", default: {}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "subscribable_type"
+    t.uuid "subscribable_id"
+    t.string "tier", default: "standard"
+    t.jsonb "metadata", default: {}
     t.index ["account_id", "app_id"], name: "idx_app_subscriptions_on_account_app_unique", unique: true
+    t.index ["account_id", "subscribable_type", "subscribable_id"], name: "idx_app_subscriptions_unique_per_account_subscribable", unique: true
     t.index ["account_id"], name: "index_app_subscriptions_on_account_id"
     t.index ["app_id"], name: "index_app_subscriptions_on_app_id"
     t.index ["app_plan_id"], name: "index_app_subscriptions_on_app_plan_id"
     t.index ["next_billing_at"], name: "idx_app_subscriptions_on_next_billing_at"
     t.index ["status"], name: "idx_app_subscriptions_on_status"
+    t.index ["subscribable_type", "subscribable_id"], name: "idx_app_subscriptions_on_subscribable"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'cancelled'::character varying::text, 'expired'::character varying::text])", name: "valid_app_subscription_status"
   end
 
@@ -1443,6 +1430,66 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
     t.index ["ci_cd_pipeline_id", "position"], name: "index_ci_cd_pipeline_steps_on_ci_cd_pipeline_id_and_position"
     t.index ["ci_cd_pipeline_id"], name: "index_ci_cd_pipeline_steps_on_ci_cd_pipeline_id"
     t.index ["shared_prompt_template_id"], name: "index_ci_cd_pipeline_steps_on_shared_prompt_template_id"
+  end
+
+  create_table "ci_cd_pipeline_template_installations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ci_cd_pipeline_template_id", null: false
+    t.uuid "account_id", null: false
+    t.uuid "installed_by_user_id"
+    t.uuid "ci_cd_pipeline_id"
+    t.string "template_version"
+    t.jsonb "customizations", default: {}
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "idx_cicd_template_installations_account"
+    t.index ["ci_cd_pipeline_id"], name: "idx_cicd_template_installations_pipeline"
+    t.index ["ci_cd_pipeline_template_id", "account_id"], name: "idx_cicd_template_installations_unique"
+    t.index ["ci_cd_pipeline_template_id"], name: "idx_cicd_template_installations_template"
+  end
+
+  create_table "ci_cd_pipeline_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "created_by_user_id"
+    t.uuid "source_pipeline_id"
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.text "description"
+    t.string "icon_url"
+    t.string "category"
+    t.string "difficulty_level", default: "intermediate"
+    t.jsonb "tags", default: []
+    t.jsonb "pipeline_definition", default: {}
+    t.jsonb "default_variables", default: {}
+    t.jsonb "triggers", default: {}
+    t.integer "timeout_minutes", default: 30
+    t.string "version", default: "1.0.0", null: false
+    t.string "status", default: "draft"
+    t.boolean "is_public", default: false
+    t.boolean "is_featured", default: false
+    t.boolean "is_system", default: false
+    t.datetime "published_at"
+    t.integer "usage_count", default: 0
+    t.integer "install_count", default: 0
+    t.decimal "rating", precision: 3, scale: 2, default: "0.0"
+    t.integer "rating_count", default: 0
+    t.boolean "is_marketplace_published", default: false
+    t.string "marketplace_status"
+    t.datetime "marketplace_submitted_at"
+    t.datetime "marketplace_approved_at"
+    t.text "marketplace_rejection_reason"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ci_cd_pipeline_templates_on_account_id"
+    t.index ["category"], name: "index_ci_cd_pipeline_templates_on_category"
+    t.index ["created_by_user_id"], name: "index_ci_cd_pipeline_templates_on_created_by_user_id"
+    t.index ["is_featured"], name: "index_ci_cd_pipeline_templates_on_is_featured"
+    t.index ["is_marketplace_published", "marketplace_status"], name: "idx_cicd_pipeline_templates_marketplace"
+    t.index ["is_public"], name: "index_ci_cd_pipeline_templates_on_is_public"
+    t.index ["slug"], name: "index_ci_cd_pipeline_templates_on_slug", unique: true
+    t.index ["source_pipeline_id"], name: "index_ci_cd_pipeline_templates_on_source_pipeline_id"
+    t.index ["status"], name: "index_ci_cd_pipeline_templates_on_status"
   end
 
   create_table "ci_cd_pipelines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2479,10 +2526,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
     t.integer "install_count", default: 0
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "is_marketplace_published", default: false
+    t.string "marketplace_status"
+    t.datetime "marketplace_submitted_at"
+    t.datetime "marketplace_approved_at"
+    t.text "marketplace_rejection_reason"
+    t.uuid "account_id"
+    t.index ["account_id"], name: "index_integration_templates_on_account_id"
     t.index ["category"], name: "index_integration_templates_on_category"
     t.index ["integration_type"], name: "index_integration_templates_on_integration_type"
     t.index ["is_active"], name: "index_integration_templates_on_is_active"
     t.index ["is_featured"], name: "index_integration_templates_on_is_featured"
+    t.index ["is_marketplace_published", "marketplace_status"], name: "idx_integration_templates_marketplace"
     t.index ["is_public", "is_active"], name: "idx_templates_public_active"
     t.index ["is_public"], name: "index_integration_templates_on_is_public"
     t.index ["slug"], name: "index_integration_templates_on_slug", unique: true
@@ -2791,6 +2846,27 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
     t.index ["published_at"], name: "idx_marketplace_listings_on_published_at"
     t.index ["review_status"], name: "idx_marketplace_listings_on_review_status"
     t.check_constraint "review_status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text])", name: "valid_listing_review_status"
+  end
+
+  create_table "marketplace_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "reviewable_type", null: false
+    t.uuid "reviewable_id", null: false
+    t.uuid "account_id", null: false
+    t.uuid "user_id", null: false
+    t.integer "rating", null: false
+    t.string "title", limit: 255
+    t.text "content"
+    t.boolean "verified_purchase", default: false, null: false
+    t.integer "helpful_count", default: 0, null: false
+    t.string "moderation_status", default: "approved", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "reviewable_type", "reviewable_id"], name: "idx_marketplace_reviews_unique_per_account", unique: true
+    t.index ["account_id"], name: "index_marketplace_reviews_on_account_id"
+    t.index ["moderation_status"], name: "index_marketplace_reviews_on_moderation_status"
+    t.index ["rating"], name: "index_marketplace_reviews_on_rating"
+    t.index ["reviewable_type", "reviewable_id"], name: "idx_marketplace_reviews_on_reviewable"
+    t.index ["user_id"], name: "index_marketplace_reviews_on_user_id"
   end
 
   create_table "mcp_servers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3601,10 +3677,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
     t.boolean "is_system", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "is_marketplace_published", default: false
+    t.string "marketplace_status"
+    t.datetime "marketplace_submitted_at"
+    t.datetime "marketplace_approved_at"
+    t.text "marketplace_rejection_reason"
+    t.decimal "rating", precision: 3, scale: 2, default: "0.0"
+    t.integer "rating_count", default: 0
     t.index ["account_id", "category"], name: "index_shared_prompt_templates_on_account_id_and_category"
     t.index ["account_id", "domain"], name: "index_shared_prompt_templates_on_account_id_and_domain"
     t.index ["account_id", "slug"], name: "index_shared_prompt_templates_on_account_id_and_slug", unique: true
     t.index ["is_active"], name: "index_shared_prompt_templates_on_is_active"
+    t.index ["is_marketplace_published", "marketplace_status"], name: "idx_shared_prompt_templates_marketplace"
     t.index ["is_system"], name: "index_shared_prompt_templates_on_is_system"
     t.index ["parent_template_id"], name: "index_shared_prompt_templates_on_parent_template_id"
   end
@@ -4220,6 +4304,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_08_042557) do
   add_foreign_key "knowledge_base_comments", "users", column: "author_id"
   add_foreign_key "knowledge_base_workflows", "users"
   add_foreign_key "marketplace_listings", "apps", on_delete: :cascade
+  add_foreign_key "marketplace_reviews", "accounts"
+  add_foreign_key "marketplace_reviews", "users"
   add_foreign_key "mcp_servers", "accounts"
   add_foreign_key "mcp_tool_executions", "mcp_tools"
   add_foreign_key "mcp_tool_executions", "users"
