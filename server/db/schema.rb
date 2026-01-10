@@ -14,7 +14,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
-  enable_extension "vector"
 
   create_table "account_delegations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
@@ -281,9 +280,39 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.index ["user_id"], name: "index_ai_context_access_logs_on_user_id"
   end
 
-# Could not dump table "ai_context_entries" because of following StandardError
-#   Unknown type 'vector' for column 'embedding'
-
+  create_table "ai_context_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_persistent_context_id", null: false
+    t.uuid "created_by_user_id"
+    t.uuid "ai_agent_id"
+    t.string "entry_key", null: false
+    t.string "entry_type"
+    t.jsonb "content", default: {}, null: false
+    t.text "content_text"
+    t.jsonb "metadata", default: {}
+    t.decimal "importance_score", precision: 5, scale: 4, default: "0.5"
+    t.decimal "relevance_decay_rate", precision: 5, scale: 4, default: "0.0"
+    t.datetime "last_relevance_update"
+    t.string "source_type"
+    t.string "source_id"
+    t.integer "version", default: 1
+    t.uuid "previous_version_id"
+    t.datetime "expires_at"
+    t.datetime "archived_at"
+    t.integer "access_count", default: 0
+    t.datetime "last_accessed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ai_agent_id"], name: "index_ai_context_entries_on_ai_agent_id"
+    t.index ["ai_persistent_context_id", "entry_key"], name: "idx_entries_context_key", unique: true
+    t.index ["ai_persistent_context_id"], name: "index_ai_context_entries_on_ai_persistent_context_id"
+    t.index ["archived_at"], name: "index_ai_context_entries_on_archived_at"
+    t.index ["created_by_user_id"], name: "index_ai_context_entries_on_created_by_user_id"
+    t.index ["entry_type"], name: "index_ai_context_entries_on_entry_type"
+    t.index ["expires_at"], name: "index_ai_context_entries_on_expires_at"
+    t.index ["importance_score"], name: "index_ai_context_entries_on_importance_score"
+    t.index ["previous_version_id"], name: "index_ai_context_entries_on_previous_version_id"
+    t.index ["source_type"], name: "index_ai_context_entries_on_source_type"
+  end
 
   create_table "ai_conversations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
@@ -523,7 +552,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.index ["responded_by_id"], name: "index_ai_workflow_approval_tokens_on_responded_by_id"
     t.index ["status", "expires_at"], name: "idx_ai_workflow_approval_tokens_pending_expiry", where: "((status)::text = 'pending'::text)"
     t.index ["token_digest"], name: "index_ai_workflow_approval_tokens_on_token_digest", unique: true
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying, 'expired'::character varying]::text[])", name: "ai_workflow_approval_tokens_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text])", name: "ai_workflow_approval_tokens_status_check"
   end
 
   create_table "ai_workflow_checkpoints", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -686,7 +715,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.index ["mcp_tool_id"], name: "index_ai_workflow_nodes_on_mcp_tool_id"
     t.index ["plugin_id"], name: "index_ai_workflow_nodes_on_plugin_id"
     t.index ["shared_prompt_template_id"], name: "index_ai_workflow_nodes_on_shared_prompt_template_id"
-    t.check_constraint "node_type::text = ANY (ARRAY['start'::character varying, 'end'::character varying, 'trigger'::character varying, 'ai_agent'::character varying, 'prompt_template'::character varying, 'data_processor'::character varying, 'transform'::character varying, 'condition'::character varying, 'loop'::character varying, 'delay'::character varying, 'merge'::character varying, 'split'::character varying, 'database'::character varying, 'file'::character varying, 'validator'::character varying, 'email'::character varying, 'notification'::character varying, 'api_call'::character varying, 'webhook'::character varying, 'scheduler'::character varying, 'human_approval'::character varying, 'sub_workflow'::character varying, 'kb_article'::character varying, 'page'::character varying, 'mcp_operation'::character varying, 'ci_trigger'::character varying, 'ci_wait_status'::character varying, 'ci_get_logs'::character varying, 'ci_cancel'::character varying, 'git_commit_status'::character varying, 'git_create_check'::character varying, 'integration_execute'::character varying, 'git_checkout'::character varying, 'git_branch'::character varying, 'git_pull_request'::character varying, 'git_comment'::character varying, 'deploy'::character varying, 'run_tests'::character varying, 'shell_command'::character varying]::text[])", name: "ai_workflow_nodes_type_check"
+    t.check_constraint "node_type::text = ANY (ARRAY['start'::character varying::text, 'end'::character varying::text, 'trigger'::character varying::text, 'ai_agent'::character varying::text, 'prompt_template'::character varying::text, 'data_processor'::character varying::text, 'transform'::character varying::text, 'condition'::character varying::text, 'loop'::character varying::text, 'delay'::character varying::text, 'merge'::character varying::text, 'split'::character varying::text, 'database'::character varying::text, 'file'::character varying::text, 'validator'::character varying::text, 'email'::character varying::text, 'notification'::character varying::text, 'api_call'::character varying::text, 'webhook'::character varying::text, 'scheduler'::character varying::text, 'human_approval'::character varying::text, 'sub_workflow'::character varying::text, 'kb_article'::character varying::text, 'page'::character varying::text, 'mcp_operation'::character varying::text, 'ci_trigger'::character varying::text, 'ci_wait_status'::character varying::text, 'ci_get_logs'::character varying::text, 'ci_cancel'::character varying::text, 'git_commit_status'::character varying::text, 'git_create_check'::character varying::text, 'integration_execute'::character varying::text, 'git_checkout'::character varying::text, 'git_branch'::character varying::text, 'git_pull_request'::character varying::text, 'git_comment'::character varying::text, 'deploy'::character varying::text, 'run_tests'::character varying::text, 'shell_command'::character varying::text])", name: "ai_workflow_nodes_type_check"
     t.check_constraint "retry_count >= 0", name: "ai_workflow_nodes_retry_check"
     t.check_constraint "timeout_seconds > 0", name: "ai_workflow_nodes_timeout_check"
   end
@@ -964,7 +993,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'active'::character varying::text, 'paused'::character varying::text, 'inactive'::character varying::text, 'archived'::character varying::text])", name: "ai_workflows_status_check"
     t.check_constraint "template_category IS NULL OR template_category::text <> ''::text", name: "ai_workflows_template_category_check"
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'account'::character varying::text, 'public'::character varying::text])", name: "ai_workflows_visibility_check"
-    t.check_constraint "workflow_type::text = ANY (ARRAY['ai'::character varying, 'cicd'::character varying]::text[])", name: "ai_workflows_workflow_type_check"
+    t.check_constraint "workflow_type::text = ANY (ARRAY['ai'::character varying::text, 'cicd'::character varying::text])", name: "ai_workflows_workflow_type_check"
   end
 
   create_table "api_key_usages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1602,7 +1631,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.index ["step_execution_id", "status"], name: "idx_approval_tokens_on_step_execution_and_status"
     t.index ["step_execution_id"], name: "index_ci_cd_step_approval_tokens_on_step_execution_id"
     t.index ["token_digest"], name: "index_ci_cd_step_approval_tokens_on_token_digest", unique: true
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying, 'expired'::character varying]::text[])", name: "ci_cd_step_approval_tokens_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text])", name: "ci_cd_step_approval_tokens_status_check"
   end
 
   create_table "ci_cd_step_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1620,7 +1649,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.index ["ci_cd_pipeline_run_id", "ci_cd_pipeline_step_id"], name: "idx_step_executions_on_run_and_step", unique: true
     t.index ["ci_cd_pipeline_run_id"], name: "index_ci_cd_step_executions_on_ci_cd_pipeline_run_id"
     t.index ["ci_cd_pipeline_step_id"], name: "index_ci_cd_step_executions_on_ci_cd_pipeline_step_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'waiting_approval'::character varying, 'success'::character varying, 'failure'::character varying, 'skipped'::character varying]::text[])", name: "ci_cd_step_executions_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'waiting_approval'::character varying::text, 'success'::character varying::text, 'failure'::character varying::text, 'skipped'::character varying::text])", name: "ci_cd_step_executions_status_check"
   end
 
   create_table "circuit_breaker_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
