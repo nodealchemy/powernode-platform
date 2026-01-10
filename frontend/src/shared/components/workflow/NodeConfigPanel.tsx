@@ -90,7 +90,7 @@ const getNodeTypeInfo = (nodeType: string) => {
     ai_agent: { label: 'AI Agent', color: 'text-theme-interactive-primary', icon: '🤖' },
     api_call: { label: 'API Call', color: 'text-theme-info', icon: '🌐' },
     condition: { label: 'Condition', color: 'text-theme-warning', icon: '🔀' },
-    transform: { label: 'Transform', color: 'text-teal-600', icon: '🔄' },
+    transform: { label: 'Transform', color: 'text-theme-cyan', icon: '🔄' },
     start: { label: 'Start', color: 'text-theme-success', icon: '▶️' },
     end: { label: 'End', color: 'text-theme-error', icon: '⏹️' },
     loop: { label: 'Loop', color: 'text-theme-info', icon: '🔁' },

@@ -562,7 +562,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
         )}
 
         {billingPeriod === 'annually' && plan.has_annual_discount && plan.annual_discount_percent && plan.annual_discount_percent >= 20 && (
-          <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg border border-orange-400/30 whitespace-nowrap">
+          <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg border border-theme-warning/30 whitespace-nowrap">
             <span className="mr-1">💰</span>Best Value
           </span>
         )}
@@ -607,7 +607,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
 
           {plan.trial_days > 0 && displayPrice > 0 && (
             <div className="mt-1">
-              <span className="inline-flex items-center bg-gradient-to-r from-purple-500 to-violet-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md border border-purple-400/30">
+              <span className="inline-flex items-center bg-gradient-to-r from-purple-500 to-violet-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md border border-theme-interactive-primary/30">
                 <span className="mr-1">🎁</span>{plan.trial_days}-day free trial
               </span>
             </div>

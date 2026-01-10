@@ -64,7 +64,7 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
                         <th key={planId} className="text-center py-3 px-4 w-1/4">
                           <div className="space-y-2">
                             <div className="font-semibold text-slate-800 dark:text-white">{plan.name}</div>
-                            <div className="text-2xl font-bold text-theme-info dark:text-blue-400">
+                            <div className="text-2xl font-bold text-theme-info">
                               {calculatePlanPrice(plan, billingCycle)}
                             </div>
                             <div className="text-sm text-slate-600 dark:text-slate-400">

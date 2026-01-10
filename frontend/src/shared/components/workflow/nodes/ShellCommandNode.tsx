@@ -72,13 +72,13 @@ export const ShellCommandNode: React.FC<NodeProps<ShellCommandNodeType>> = ({
         {/* Options */}
         <div className="flex flex-wrap gap-1">
           {data.configuration?.timeout_seconds && (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-100 text-theme-info">
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-theme-info/10 text-theme-info">
               <Clock className="h-3 w-3" />
               {data.configuration.timeout_seconds}s
             </span>
           )}
           {data.configuration?.continue_on_error && (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-theme-warning/10 text-theme-warning">
               <AlertTriangle className="h-3 w-3" />
               Continue on error
             </span>

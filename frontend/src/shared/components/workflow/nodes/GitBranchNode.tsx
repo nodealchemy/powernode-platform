@@ -67,7 +67,7 @@ export const GitBranchNode: React.FC<NodeProps<GitBranchNodeType>> = ({
         </div>
 
         {/* Action Badge */}
-        <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full text-teal-700 bg-teal-100">
+        <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full text-theme-cyan bg-theme-cyan/10">
           {getActionIcon()}
           {getActionLabel()}
         </span>

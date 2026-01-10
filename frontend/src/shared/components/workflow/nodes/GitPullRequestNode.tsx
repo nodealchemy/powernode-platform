@@ -42,7 +42,7 @@ export const GitPullRequestNode: React.FC<NodeProps<GitPullRequestNodeType>> = (
 
         {/* Draft Badge */}
         {data.configuration?.draft && (
-          <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full text-yellow-700 bg-yellow-100">
+          <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full text-theme-warning bg-theme-warning/10">
             Draft
           </span>
         )}

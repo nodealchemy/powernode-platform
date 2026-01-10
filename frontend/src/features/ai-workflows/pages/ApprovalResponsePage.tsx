@@ -256,7 +256,7 @@ export const ApprovalResponsePage: React.FC = () => {
           </div>
 
           {details.approval_message && (
-            <div className="bg-purple-50 dark:bg-purple-900/20 border-l-4 border-theme-interactive-primary rounded-r px-4 py-3">
+            <div className="bg-theme-interactive-primary/10 border-l-4 border-theme-interactive-primary rounded-r px-4 py-3">
               <p className="text-sm text-theme-primary">
                 <strong>Message:</strong> {details.approval_message}
               </p>

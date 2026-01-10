@@ -67,7 +67,7 @@ export const GitCommentNode: React.FC<NodeProps<GitCommentNodeType>> = ({
         </div>
 
         {/* Target Type Badge */}
-        <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full text-theme-info bg-blue-100">
+        <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full text-theme-info bg-theme-info/10">
           {getTargetIcon()}
           {getTargetLabel()}
         </span>

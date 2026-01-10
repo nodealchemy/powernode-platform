@@ -54,7 +54,7 @@ export const CiTriggerNode: React.FC<NodeProps<CiTriggerNodeType>> = ({
         </div>
 
         {/* Trigger Action Badge */}
-        <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full text-theme-warning bg-orange-100">
+        <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full text-theme-warning bg-theme-warning/10">
           {getTriggerActionLabel()}
         </span>
 

@@ -184,13 +184,13 @@ const nodeColorThemes = {
   },
   'ci_wait_status': {
     bg: 'bg-gradient-to-r from-amber-500 to-amber-600',
-    indicator: 'bg-amber-500',
-    text: 'text-amber-600'
+    indicator: 'bg-theme-warning',
+    text: 'text-theme-warning'
   },
   'ci_get_logs': {
     bg: 'bg-gradient-to-r from-slate-500 to-slate-600',
-    indicator: 'bg-slate-500',
-    text: 'text-slate-600'
+    indicator: 'bg-theme-secondary',
+    text: 'text-theme-secondary'
   },
   'ci_cancel': {
     bg: 'bg-gradient-to-r from-red-500 to-red-600',
@@ -204,8 +204,8 @@ const nodeColorThemes = {
   },
   'git_create_check': {
     bg: 'bg-gradient-to-r from-indigo-500 to-indigo-600',
-    indicator: 'bg-indigo-500',
-    text: 'text-indigo-600'
+    indicator: 'bg-theme-interactive-primary',
+    text: 'text-theme-interactive-primary'
   },
   // CI/CD Pipeline Node Types
   'git_checkout': {
@@ -215,8 +215,8 @@ const nodeColorThemes = {
   },
   'git_branch': {
     bg: 'bg-gradient-to-r from-teal-500 to-teal-600',
-    indicator: 'bg-teal-500',
-    text: 'text-teal-600'
+    indicator: 'bg-theme-cyan',
+    text: 'text-theme-cyan'
   },
   'git_pull_request': {
     bg: 'bg-gradient-to-r from-purple-500 to-purple-600',
@@ -230,8 +230,8 @@ const nodeColorThemes = {
   },
   'deploy': {
     bg: 'bg-gradient-to-r from-rose-500 to-rose-600',
-    indicator: 'bg-rose-500',
-    text: 'text-rose-600'
+    indicator: 'bg-theme-rose',
+    text: 'text-theme-rose'
   },
   'run_tests': {
     bg: 'bg-gradient-to-r from-green-500 to-green-600',
@@ -240,7 +240,7 @@ const nodeColorThemes = {
   },
   'shell_command': {
     bg: 'bg-gradient-to-r from-gray-700 to-gray-800',
-    indicator: 'bg-gray-600',
+    indicator: 'bg-theme-secondary',
     text: 'text-theme-secondary'
   }
 } as const;

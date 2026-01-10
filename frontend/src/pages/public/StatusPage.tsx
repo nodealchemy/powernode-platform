@@ -105,12 +105,12 @@ export const StatusPage: React.FC = () => {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error ? (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 text-center">
+          <div className="bg-theme-danger/10 border border-theme-danger rounded-lg p-6 text-center">
             <XCircleIcon className="w-12 h-12 text-theme-danger mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-theme-danger dark:text-red-400 mb-2">
+            <h2 className="text-lg font-semibold text-theme-danger mb-2">
               Unable to Load Status
             </h2>
-            <p className="text-theme-danger dark:text-red-400 mb-4">{error}</p>
+            <p className="text-theme-danger mb-4">{error}</p>
             <button
               onClick={loadStatus}
               className="px-4 py-2 bg-theme-danger text-white rounded-lg hover:bg-theme-danger transition-colors"
@@ -188,7 +188,7 @@ export const StatusPage: React.FC = () => {
                   {status.incidents.map((incident) => (
                     <div
                       key={incident.id}
-                      className="border-l-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-r-lg"
+                      className="border-l-4 border-theme-warning bg-theme-warning/10 p-4 rounded-r-lg"
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -300,7 +300,7 @@ export const StatusPage: React.FC = () => {
                   <span className="text-sm text-theme-secondary">Operational</span>
                 </div>
                 <div className="flex items-center">
-                  <div className="w-4 h-4 rounded bg-yellow-500 mr-2" />
+                  <div className="w-4 h-4 rounded bg-theme-warning mr-2" />
                   <span className="text-sm text-theme-secondary">Degraded</span>
                 </div>
                 <div className="flex items-center">

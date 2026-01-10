@@ -74,9 +74,9 @@ const RepositoryCard: React.FC<{
     <div className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-primary transition-colors">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0 flex-1">
-          <div className={`p-2 rounded-lg ${repository.is_private ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-theme-primary/10'}`}>
+          <div className={`p-2 rounded-lg ${repository.is_private ? 'bg-theme-warning/10' : 'bg-theme-primary/10'}`}>
             {repository.is_private ? (
-              <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <Lock className="w-5 h-5 text-theme-warning" />
             ) : (
               <FolderGit2 className="w-5 h-5 text-theme-primary" />
             )}
@@ -365,7 +365,7 @@ const RepositoryDetailModal: React.FC<RepositoryDetailModalProps> = ({ repositor
                           <span className="px-2 py-0.5 text-xs rounded bg-theme-primary text-white">Default</span>
                         )}
                         {branch.protected && (
-                          <span className="px-2 py-0.5 text-xs rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Protected</span>
+                          <span className="px-2 py-0.5 text-xs rounded bg-theme-warning/10 text-theme-warning">Protected</span>
                         )}
                       </div>
                     </div>

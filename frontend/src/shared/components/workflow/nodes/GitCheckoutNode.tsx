@@ -51,12 +51,12 @@ export const GitCheckoutNode: React.FC<NodeProps<GitCheckoutNodeType>> = ({
             </div>
           )}
           {data.configuration?.depth && (
-            <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+            <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-theme-success/10 text-theme-success">
               Depth: {data.configuration.depth}
             </span>
           )}
           {data.configuration?.submodules && (
-            <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-blue-100 text-theme-info ml-1">
+            <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-theme-info/10 text-theme-info ml-1">
               +Submodules
             </span>
           )}
