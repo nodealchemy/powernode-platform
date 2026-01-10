@@ -123,10 +123,17 @@ class Api::V1::ImpersonationsController < ApplicationController
 
   # GET /api/v1/impersonation/history
   def history
-    service = Auth::ImpersonationService.new(current_user)
     limit = [ params[:limit]&.to_i || 50, 200 ].min
 
-    sessions = service.get_session_history(limit: limit)
+    # System admins can see all impersonation sessions
+    if current_user.has_permission?("admin.access")
+      sessions = ImpersonationSession.includes(:impersonator, :impersonated_user)
+                                     .recent
+                                     .limit(limit)
+    else
+      service = Auth::ImpersonationService.new(current_user)
+      sessions = service.get_session_history(limit: limit)
+    end
 
     render_success(
       data: sessions.map { |session| session_summary(session) },

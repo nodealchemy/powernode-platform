@@ -171,6 +171,10 @@ module Permissions
     "ai.templates.create" => "Create AI agent templates",
     "ai.templates.publish" => "Publish AI agent templates",
 
+    # AI Orchestration - Prompt Templates
+    "ai.prompt_templates.read" => "View AI prompt templates",
+    "ai.prompt_templates.write" => "Create, update, and delete AI prompt templates",
+
     # MCP (Model Context Protocol) - Account-scoped
     "mcp.servers.read" => "View MCP servers",
     "mcp.servers.write" => "Manage MCP servers (create, update, delete, connect, disconnect)",
@@ -569,6 +573,7 @@ module Permissions
         "ai.workflows.read", "ai.workflow_executions.read",
         "ai.conversations.read", "ai.conversations.create", "ai.conversations.participate",
         "ai.messages.read", "ai.messages.create", "ai.templates.read", "ai.templates.install",
+        "ai.prompt_templates.read",
         # File management permissions
         "files.read", "files.create", "files.download", "files.update", "files.delete",
         "storage.read"
@@ -616,6 +621,7 @@ module Permissions
         "ai.messages.read", "ai.messages.create", "ai.messages.edit", "ai.messages.delete",
         "ai.analytics.read", "ai.analytics.export",
         "ai.templates.read", "ai.templates.install", "ai.templates.create", "ai.templates.publish",
+        "ai.prompt_templates.read", "ai.prompt_templates.write",
         # MCP permissions
         "mcp.servers.read", "mcp.servers.write",
         "mcp.tools.read", "mcp.tools.execute",
@@ -830,6 +836,7 @@ module Permissions
         "ai.messages.read", "ai.messages.create", "ai.messages.edit", "ai.messages.delete",
         "ai.analytics.read", "ai.analytics.export",
         "ai.templates.read", "ai.templates.install", "ai.templates.create", "ai.templates.publish",
+        "ai.prompt_templates.read", "ai.prompt_templates.write",
         # MCP permissions
         "mcp.servers.read", "mcp.servers.write",
         "mcp.tools.read", "mcp.tools.execute",

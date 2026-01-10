@@ -93,6 +93,9 @@ import { AgentMemoryPage } from './ai/AgentMemoryPage';
 import { ContextsPage } from './ai/ContextsPage';
 import { ContextDetailPage } from './ai/ContextDetailPage';
 
+// Prompt Templates
+import { PromptsPage } from '@/features/ai-prompts/pages/PromptsPage';
+
 // Integration Pages
 // IntegrationsMarketplacePage deprecated - now redirects to marketplace?types=integration
 import {
@@ -504,7 +507,8 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/knowledge" element={<Navigate to="/app/ai/contexts" replace />} />
         <Route path="/ai/contexts/:id" element={<ContextDetailPage />} />
         <Route path="/ai/agents/:agentId/memory" element={<AgentMemoryPage />} />
-        
+        <Route path="/ai/prompts" element={<PromptsPage />} />
+
         {/* Core Pages */}
         <Route path="/content/pages" element={<PagesPage />} />
 

@@ -156,13 +156,22 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 4
         },
         {
+          id: 'ai-prompts',
+          name: 'Prompts',
+          href: '/app/ai/prompts',
+          icon: MessageSquare,
+          description: 'Reusable prompt templates for AI workflows',
+          permissions: ['ai.prompt_templates.read'],
+          order: 5
+        },
+        {
           id: 'ai-contexts',
           name: 'Contexts',
           href: '/app/ai/contexts',
           icon: BookOpen,
           description: 'Persistent contexts and memory for AI agents',
           permissions: ['ai.context.read'],
-          order: 5
+          order: 6
         },
         {
           id: 'ai-analytics',
@@ -171,7 +180,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: BarChart3,
           description: 'AI performance, usage insights, and monitoring',
           permissions: ['ai.analytics.read'],
-          order: 6
+          order: 7
         },
         {
           id: 'ai-providers',
@@ -180,10 +189,28 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Brain,
           description: 'OpenAI, Anthropic, and other AI providers',
           permissions: ['ai.providers.read'],
-          order: 7
+          order: 8
+        },
+        {
+          id: 'ai-agent-teams',
+          name: 'Agent Teams',
+          href: '/app/ai/agent-teams',
+          icon: Users,
+          description: 'CrewAI-style multi-agent team orchestration',
+          permissions: ['ai.agents.read'],
+          order: 9
+        },
+        {
+          id: 'ai-mcp',
+          name: 'MCP Servers',
+          href: '/app/ai/mcp',
+          icon: Server,
+          description: 'Model Context Protocol servers and tools',
+          permissions: ['mcp.servers.read'],
+          order: 10
         }
       ],
-      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read'],
+      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.prompt_templates.read', 'mcp.servers.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10
@@ -471,7 +498,15 @@ export const adminNavigationOverrides = {
           permissions: ['admin.role.read'],
           order: 2
         },
-        // Plugins admin removed - now managed in Marketplace admin
+        {
+          id: 'admin-marketplace',
+          name: 'Marketplace',
+          href: '/app/admin/marketplace',
+          icon: Store,
+          description: 'Manage marketplace listings and plugins',
+          permissions: ['admin.marketplace.read'],
+          order: 3
+        },
         {
           id: 'impersonation-admin',
           name: 'Impersonation',

@@ -21,7 +21,8 @@ module ApiResponse
     # Support message-only responses: render_success(message: "Done")
     if actual_data.nil? && message.present?
       response[:data] = { message: message }
-    elsif actual_data.present?
+    elsif actual_data.is_a?(Array) || actual_data.present?
+      # Always include arrays in response, even if empty (e.g., [] for empty lists)
       response[:data] = sanitize_for_json(actual_data)
     end
 

@@ -1855,6 +1855,16 @@ Rails.application.routes.draw do
             get :statistics
           end
         end
+
+        # ===================================================================
+        # 11. PROMPT TEMPLATES CONTROLLER - Reusable AI prompts
+        # ===================================================================
+        resources :prompt_templates do
+          member do
+            post :preview
+            post :duplicate
+          end
+        end
       end
 
       # ===================================================================

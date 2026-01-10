@@ -130,7 +130,7 @@ export const ImpersonationHistory: React.FC = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'expired' | 'terminated')}
-              className="border-theme rounded-md shadow-sm focus:ring-theme-interactive-primary focus:border-theme-focus"
+              className="bg-theme-surface text-theme-primary border border-theme rounded-md shadow-sm px-3 py-2 focus:ring-theme-interactive-primary focus:border-theme-focus"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
