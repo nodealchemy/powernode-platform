@@ -12,7 +12,7 @@ describe('WorkflowMonitoringPage', () => {
 
   it('redirects to the AI monitoring page with workflows tab', async () => {
     render(
-      <MemoryRouter initialEntries={['/app/ai/workflow-monitoring']}>
+      <MemoryRouter initialEntries={['/app/ai/workflow-monitoring']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/app/ai/workflow-monitoring" element={<WorkflowMonitoringPage />} />
           <Route path="/app/ai/monitoring/workflows" element={<NavigationCapture />} />
@@ -28,7 +28,7 @@ describe('WorkflowMonitoringPage', () => {
 
   it('renders null while redirecting', () => {
     render(
-      <MemoryRouter initialEntries={['/app/ai/workflow-monitoring']}>
+      <MemoryRouter initialEntries={['/app/ai/workflow-monitoring']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/app/ai/workflow-monitoring" element={<WorkflowMonitoringPage />} />
           <Route path="/app/ai/monitoring/workflows" element={<div>Target Page</div>} />

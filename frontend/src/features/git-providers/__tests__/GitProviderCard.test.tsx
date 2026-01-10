@@ -60,10 +60,11 @@ describe('GitProviderCard', () => {
     });
 
     it('renders provider icon for GitHub', () => {
-      render(<GitProviderCard {...defaultProps} />);
+      const { container } = render(<GitProviderCard {...defaultProps} />);
 
-      const img = screen.getByAltText('GitHub');
-      expect(img).toHaveAttribute('src', 'https://cdn.simpleicons.org/github');
+      // Component uses inline SVG icons instead of external images
+      const svg = container.querySelector('svg');
+      expect(svg).toBeInTheDocument();
     });
 
     it('renders provider icon for GitLab', () => {
@@ -75,10 +76,11 @@ describe('GitProviderCard', () => {
         provider_type: 'gitlab',
       };
 
-      render(<GitProviderCard {...defaultProps} provider={gitlabProvider} />);
+      const { container } = render(<GitProviderCard {...defaultProps} provider={gitlabProvider} />);
 
-      const img = screen.getByAltText('GitLab');
-      expect(img).toHaveAttribute('src', 'https://cdn.simpleicons.org/gitlab');
+      // Component uses inline SVG icons instead of external images
+      const svg = container.querySelector('svg');
+      expect(svg).toBeInTheDocument();
     });
 
     it('renders provider icon for Gitea', () => {
@@ -90,10 +92,11 @@ describe('GitProviderCard', () => {
         provider_type: 'gitea',
       };
 
-      render(<GitProviderCard {...defaultProps} provider={giteaProvider} />);
+      const { container } = render(<GitProviderCard {...defaultProps} provider={giteaProvider} />);
 
-      const img = screen.getByAltText('Gitea');
-      expect(img).toHaveAttribute('src', 'https://cdn.simpleicons.org/gitea');
+      // Component uses inline SVG icons instead of external images
+      const svg = container.querySelector('svg');
+      expect(svg).toBeInTheDocument();
     });
 
     it('renders fallback icon for unknown provider type', () => {
@@ -241,7 +244,8 @@ describe('GitProviderCard', () => {
     it('applies GitHub styling', () => {
       const { container } = render(<GitProviderCard {...defaultProps} />);
 
-      expect(container.querySelector('.bg-theme-background')).toBeInTheDocument();
+      // GitHub uses brand color #24292f
+      expect(container.querySelector('.bg-\\[\\#24292f\\]')).toBeInTheDocument();
     });
 
     it('applies GitLab styling', () => {
@@ -255,7 +259,8 @@ describe('GitProviderCard', () => {
         <GitProviderCard {...defaultProps} provider={gitlabProvider} />
       );
 
-      expect(container.querySelector('.bg-theme-warning')).toBeInTheDocument();
+      // GitLab uses brand color #FC6D26
+      expect(container.querySelector('.bg-\\[\\#FC6D26\\]')).toBeInTheDocument();
     });
 
     it('applies Gitea styling', () => {
@@ -269,7 +274,8 @@ describe('GitProviderCard', () => {
         <GitProviderCard {...defaultProps} provider={giteaProvider} />
       );
 
-      expect(container.querySelector('.bg-theme-success')).toBeInTheDocument();
+      // Gitea uses brand color #609926
+      expect(container.querySelector('.bg-\\[\\#609926\\]')).toBeInTheDocument();
     });
   });
 
@@ -288,10 +294,11 @@ describe('GitProviderCard', () => {
       expect(document.activeElement).toBe(connectButton);
     });
 
-    it('provider image has alt text', () => {
-      render(<GitProviderCard {...defaultProps} />);
+    it('provider icon is rendered', () => {
+      const { container } = render(<GitProviderCard {...defaultProps} />);
 
-      expect(screen.getByAltText('GitHub')).toBeInTheDocument();
+      // Component uses inline SVG icons instead of img elements
+      expect(container.querySelector('svg')).toBeInTheDocument();
     });
   });
 

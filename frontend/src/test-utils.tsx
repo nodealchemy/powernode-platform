@@ -68,10 +68,15 @@ interface AllTheProvidersProps {
 
 const AllTheProviders: React.FC<AllTheProvidersProps> = ({ children, initialState }) => {
   const store = createTestStore(initialState);
-  
+
   return (
     <Provider store={store}>
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <MockThemeProvider>
           {children}
         </MockThemeProvider>

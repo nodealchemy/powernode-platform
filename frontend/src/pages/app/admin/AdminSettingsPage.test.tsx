@@ -88,7 +88,7 @@ describe('AdminSettingsPage', () => {
     return render(
       <Provider store={store}>
         <BreadcrumbProvider>
-          <MemoryRouter initialEntries={[initialRoute]}>
+          <MemoryRouter initialEntries={[initialRoute]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               <Route path="/app/admin/settings/*" element={<AdminSettingsPage />} />
               <Route path="/app" element={<div data-testid="redirected">Redirected to App</div>} />

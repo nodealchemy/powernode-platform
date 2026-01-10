@@ -5,7 +5,7 @@ import { Breadcrumb, BreadcrumbItem } from './Breadcrumb';
 describe('Breadcrumb', () => {
   const renderBreadcrumb = (items: BreadcrumbItem[], className?: string) => {
     return render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Breadcrumb items={items} className={className} />
       </MemoryRouter>
     );

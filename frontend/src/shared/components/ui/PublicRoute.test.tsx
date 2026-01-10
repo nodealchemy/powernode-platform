@@ -18,7 +18,7 @@ describe('PublicRoute', () => {
   ) => {
     return render(
       <Provider store={createStore(isAuthenticated)}>
-        <MemoryRouter>
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           {ui}
         </MemoryRouter>
       </Provider>

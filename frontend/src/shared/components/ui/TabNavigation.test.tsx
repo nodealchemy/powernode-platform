@@ -15,7 +15,7 @@ describe('TabNavigation', () => {
     initialPath: string = '/app/settings'
   ) => {
     return render(
-      <MemoryRouter initialEntries={[initialPath]}>
+      <MemoryRouter initialEntries={[initialPath]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         {component}
       </MemoryRouter>
     );
@@ -130,7 +130,7 @@ describe('MobileTabNavigation', () => {
     initialPath: string = '/app/settings'
   ) => {
     return render(
-      <MemoryRouter initialEntries={[initialPath]}>
+      <MemoryRouter initialEntries={[initialPath]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         {component}
       </MemoryRouter>
     );

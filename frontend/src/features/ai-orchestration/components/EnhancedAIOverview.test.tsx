@@ -130,7 +130,7 @@ describe('EnhancedAIOverview', () => {
   const renderComponent = () => {
     return render(
       <Provider store={store}>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <EnhancedAIOverview />
         </BrowserRouter>
       </Provider>
