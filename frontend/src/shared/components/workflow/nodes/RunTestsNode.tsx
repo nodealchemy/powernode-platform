@@ -62,26 +62,26 @@ export const RunTestsNode: React.FC<NodeProps<RunTestsNodeType>> = ({
         </div>
 
         {/* Framework Badge */}
-        <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full text-theme-success bg-green-100">
+        <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full text-theme-success bg-theme-success/10">
           {getFrameworkLabel()}
         </span>
 
         {/* Test Options */}
         <div className="flex flex-wrap gap-1">
           {data.configuration?.coverage && (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-100 text-theme-info">
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-theme-info/10 text-theme-info">
               <BarChart3 className="h-3 w-3" />
               Coverage
             </span>
           )}
           {data.configuration?.parallel && (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-theme-interactive-primary/10 text-theme-interactive-primary">
               <Zap className="h-3 w-3" />
               Parallel
             </span>
           )}
           {data.configuration?.fail_fast && (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-theme-warning/10 text-theme-warning">
               <CheckCircle className="h-3 w-3" />
               Fail Fast
             </span>

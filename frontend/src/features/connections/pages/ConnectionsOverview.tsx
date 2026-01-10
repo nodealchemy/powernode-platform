@@ -218,7 +218,7 @@ export function ConnectionsOverview() {
       case 'error':
         return <XCircle className="w-4 h-4 text-theme-danger" />;
       case 'warning':
-        return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
+        return <AlertTriangle className="w-4 h-4 text-theme-warning" />;
     }
   };
 
@@ -266,8 +266,8 @@ export function ConnectionsOverview() {
 
         <div className="bg-theme-surface border border-theme rounded-lg p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-theme-success dark:text-green-400" />
+            <div className="p-2 bg-theme-success/10 rounded-lg">
+              <CheckCircle className="w-5 h-5 text-theme-success" />
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Active</p>
@@ -278,8 +278,8 @@ export function ConnectionsOverview() {
 
         <div className="bg-theme-surface border border-theme rounded-lg p-4">
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${totalErrors > 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-theme-bg-subtle'}`}>
-              <AlertTriangle className={`w-5 h-5 ${totalErrors > 0 ? 'text-theme-danger dark:text-red-400' : 'text-theme-secondary'}`} />
+            <div className={`p-2 rounded-lg ${totalErrors > 0 ? 'bg-theme-danger/10' : 'bg-theme-bg-subtle'}`}>
+              <AlertTriangle className={`w-5 h-5 ${totalErrors > 0 ? 'text-theme-danger' : 'text-theme-secondary'}`} />
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Errors</p>

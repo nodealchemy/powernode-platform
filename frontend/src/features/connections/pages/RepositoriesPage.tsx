@@ -92,7 +92,7 @@ const RepositoryCard: React.FC<{
                 </span>
               )}
               {repository.webhook_configured && (
-                <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-green-100 text-theme-success dark:bg-green-900/30 dark:text-green-400">
+                <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-theme-success/10 text-theme-success ">
                   <Webhook className="w-3 h-3" />
                   Webhook
                 </span>
@@ -151,7 +151,7 @@ const RepositoryCard: React.FC<{
               <div className="border-t border-theme my-1" />
               <button
                 onClick={() => { onDelete(); setMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-danger hover:bg-red-50 dark:hover:bg-red-900/20"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-danger hover:bg-theme-danger/10"
               >
                 <Trash2 className="w-4 h-4" />
                 Remove Repository

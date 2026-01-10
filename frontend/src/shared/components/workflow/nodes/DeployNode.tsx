@@ -16,11 +16,11 @@ export const DeployNode: React.FC<NodeProps<DeployNodeType>> = ({
   const getEnvironmentColor = () => {
     switch (data.configuration?.environment) {
       case 'production':
-        return 'bg-red-100 text-theme-danger';
+        return 'bg-theme-danger/10 text-theme-danger';
       case 'staging':
-        return 'bg-yellow-100 text-yellow-700';
+        return 'bg-theme-warning/10 text-theme-warning';
       case 'development':
-        return 'bg-green-100 text-theme-success';
+        return 'bg-theme-success/10 text-theme-success';
       default:
         return 'bg-theme-surface text-theme-secondary';
     }
@@ -90,7 +90,7 @@ export const DeployNode: React.FC<NodeProps<DeployNodeType>> = ({
             </div>
           )}
           {data.configuration?.rollback_on_failure && (
-            <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+            <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-theme-warning/10 text-theme-warning">
               Auto-rollback
             </span>
           )}

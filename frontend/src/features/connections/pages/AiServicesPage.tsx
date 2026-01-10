@@ -181,13 +181,13 @@ export function AiServicesPage() {
         );
       case 'anthropic':
         return (
-          <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-theme-warning/10 rounded-lg flex items-center justify-center">
             <span className="text-theme-warning font-bold text-lg">A</span>
           </div>
         );
       case 'google':
         return (
-          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-theme-info/10 rounded-lg flex items-center justify-center">
             <span className="text-theme-info font-bold text-lg">G</span>
           </div>
         );
@@ -210,14 +210,14 @@ export function AiServicesPage() {
     switch (status) {
       case 'connected':
         return (
-          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-green-100 text-theme-success dark:bg-green-900/30 dark:text-green-300">
+          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-success/10 text-theme-success">
             <CheckCircle className="w-3 h-3" />
             Connected
           </span>
         );
       case 'error':
         return (
-          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-red-100 text-theme-danger dark:bg-red-900/30 dark:text-red-300">
+          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-danger/10 text-theme-danger">
             <XCircle className="w-3 h-3" />
             Error
           </span>
@@ -273,7 +273,7 @@ export function AiServicesPage() {
           <div
             key={provider.id}
             className={`bg-theme-surface border rounded-lg p-5 ${
-              provider.status === 'error' ? 'border-red-300 dark:border-red-800' : 'border-theme'
+              provider.status === 'error' ? 'border-theme-danger' : 'border-theme'
             }`}
           >
             <div className="flex items-start justify-between">
