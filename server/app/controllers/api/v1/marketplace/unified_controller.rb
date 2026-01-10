@@ -128,7 +128,7 @@ module Api
         end
 
         def filtered_templates
-          templates = Ai::WorkflowTemplate.public_templates.published
+          templates = ::Ai::WorkflowTemplate.public_templates.published
 
           templates = templates.by_category(params[:category]) if params[:category].present?
           templates = templates.search_by_text(params[:search]) if params[:search].present?
@@ -211,7 +211,7 @@ module Api
         end
 
         def find_template(template_id)
-          Ai::WorkflowTemplate.public_templates.find_by(id: template_id)
+          ::Ai::WorkflowTemplate.public_templates.find_by(id: template_id)
         end
 
         def normalize_item(item, type)
@@ -288,7 +288,7 @@ module Api
         end
 
         def install_template(template_id)
-          template = Ai::WorkflowTemplate.public_templates.find_by(id: template_id)
+          template = ::Ai::WorkflowTemplate.public_templates.find_by(id: template_id)
           return { success: false, error: "Template not found" } unless template
 
           installation = template.install_to_account(
