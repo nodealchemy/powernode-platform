@@ -149,7 +149,7 @@ export const LoopPreventionConfig: React.FC<LoopPreventionConfigProps> = ({
                 {isEditMode ? (
                   <Checkbox
                     checked={mergedSettings.warn_on_approach}
-                    onChange={(checked) => handleChange('warn_on_approach', checked)}
+                    onCheckedChange={(checked: boolean) => handleChange('warn_on_approach', checked)}
                   />
                 ) : (
                   <span className="text-sm font-medium text-theme-primary">
