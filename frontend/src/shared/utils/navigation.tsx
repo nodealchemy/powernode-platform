@@ -4,8 +4,7 @@ import {
   FileText, Package, UserCheck, Store, Smartphone,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
   HardDrive, Workflow, Server, GitBranch, FolderGit2,
-  Webhook, Puzzle, BookOpen,
-  UserCog, Zap, History, FileCode, Key, Layers
+  Puzzle, BookOpen, UserCog, Key
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -21,36 +20,55 @@ export const defaultNavigationConfig: NavigationConfig = {
       order: 1
     },
     {
-      id: 'profile',
-      name: 'My Profile',
-      href: '/app/profile',
-      icon: User,
-      description: 'Personal information and preferences',
-      permissions: [],
-      order: 2
-    },
-    {
-      id: 'team-members',
-      name: 'Team Members',
-      href: '/app/users',
-      icon: Users,
-      description: 'Manage your team members',
-      permissions: ['team.read'],
-      order: 3
-    },
-    {
       id: 'marketplace',
       name: 'Marketplace',
       href: '/app/marketplace',
       icon: Store,
       description: 'Browse apps, manage subscriptions, and create your own',
       permissions: [],
-      order: 4
+      order: 2
     }
   ],
   
   sections: [
-    // Business section first - core operations most users need daily
+    // Account section - personal and team management
+    {
+      id: 'account',
+      name: 'Account',
+      items: [
+        {
+          id: 'profile',
+          name: 'My Profile',
+          href: '/app/profile',
+          icon: User,
+          description: 'Personal information and preferences',
+          permissions: [],
+          order: 1
+        },
+        {
+          id: 'team-members',
+          name: 'Team Members',
+          href: '/app/users',
+          icon: Users,
+          description: 'Manage your team members',
+          permissions: ['team.read'],
+          order: 2
+        },
+        {
+          id: 'billing',
+          name: 'Billing',
+          href: '/app/business/billing',
+          icon: CreditCard,
+          description: 'Invoices and payment processing',
+          permissions: ['admin.billing.read'],
+          order: 3
+        }
+      ],
+      collapsible: true,
+      defaultExpanded: true,
+      order: 3
+    },
+    // Business section - core business operations
     {
       id: 'business',
       name: 'Business',
@@ -83,22 +101,13 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 3
         },
         {
-          id: 'billing',
-          name: 'Billing',
-          href: '/app/business/billing',
-          icon: CreditCard,
-          description: 'Invoices and payment processing',
-          permissions: ['admin.billing.read'],
-          order: 4
-        },
-        {
           id: 'reports',
           name: 'Reports',
           href: '/app/business/reports',
           icon: FileText,
           description: 'Financial and usage reports',
           permissions: ['analytics.read'],
-          order: 5
+          order: 4
         }
       ],
       collapsible: true,
@@ -157,7 +166,7 @@ export const defaultNavigationConfig: NavigationConfig = {
         },
         {
           id: 'ai-analytics',
-          name: 'Analytics',
+          name: 'AI Analytics',
           href: '/app/ai/analytics',
           icon: BarChart3,
           description: 'AI performance, usage insights, and monitoring',
@@ -318,65 +327,11 @@ export const defaultNavigationConfig: NavigationConfig = {
 // Admin-specific navigation overrides
 export const adminNavigationOverrides = {
   sections: [
-    // System section - technical admin features (includes execution infrastructure)
+    // DevOps section - developer and operations tools
     {
-      id: 'system',
-      name: 'System',
+      id: 'devops',
+      name: 'DevOps',
       items: [
-        {
-          id: 'audit-logs',
-          name: 'Audit Logs',
-          href: '/app/system/audit-logs',
-          icon: '📋',
-          description: 'System audit and activity logs',
-          permissions: ['admin.audit.read'],
-          order: 1
-        },
-        {
-          id: 'webhooks',
-          name: 'Webhooks',
-          href: '/app/system/webhooks',
-          icon: '🔗',
-          description: 'Manage webhook endpoints and events',
-          permissions: ['webhook.read'],
-          order: 2
-        },
-        {
-          id: 'services',
-          name: 'Services',
-          href: '/app/system/services',
-          icon: '🌐',
-          description: 'Configure service routing, load balancing, and proxy settings',
-          permissions: ['admin.settings.edit'],
-          order: 3
-        },
-        {
-          id: 'workers',
-          name: 'Workers',
-          href: '/app/system/workers',
-          icon: '🤖',
-          description: 'Manage background workers and job processing',
-          permissions: ['system.workers.read'],
-          order: 4
-        },
-        {
-          id: 'runners',
-          name: 'Runners',
-          href: '/app/system/runners',
-          icon: Server,
-          description: 'Self-hosted workflow execution agents',
-          permissions: ['cicd.runners.read', 'git.runners.read'],
-          order: 5
-        },
-        {
-          id: 'storage',
-          name: 'File Storage',
-          href: '/app/system/storage',
-          icon: HardDrive,
-          description: 'Configure storage providers for file management',
-          permissions: ['admin.storage.manage', 'admin.storage.read'],
-          order: 6
-        },
         {
           id: 'git-providers',
           name: 'Git Providers',
@@ -384,7 +339,7 @@ export const adminNavigationOverrides = {
           icon: GitBranch,
           description: 'GitHub, GitLab, Gitea, and other git providers',
           permissions: ['git.providers.read'],
-          order: 7
+          order: 1
         },
         {
           id: 'repositories',
@@ -393,7 +348,25 @@ export const adminNavigationOverrides = {
           icon: FolderGit2,
           description: 'Synced Git repositories from all providers',
           permissions: ['git.repositories.read'],
-          order: 8
+          order: 2
+        },
+        {
+          id: 'runners',
+          name: 'Runners',
+          href: '/app/system/runners',
+          icon: Server,
+          description: 'Self-hosted workflow execution agents',
+          permissions: ['cicd.runners.read', 'git.runners.read'],
+          order: 3
+        },
+        {
+          id: 'webhooks',
+          name: 'Webhooks',
+          href: '/app/system/webhooks',
+          icon: '🔗',
+          description: 'Manage webhook endpoints and events',
+          permissions: ['webhook.read'],
+          order: 4
         },
         {
           id: 'integrations',
@@ -402,7 +375,7 @@ export const adminNavigationOverrides = {
           icon: Puzzle,
           description: 'Third-party service integrations and webhooks',
           permissions: ['integrations.read'],
-          order: 9
+          order: 5
         },
         {
           id: 'api-keys',
@@ -411,13 +384,60 @@ export const adminNavigationOverrides = {
           icon: Key,
           description: 'API keys and authentication tokens',
           permissions: ['api.manage_keys'],
-          order: 10
+          order: 6
         }
       ],
-      permissions: ['webhook.read', 'admin.audit.read', 'admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'api.manage_keys', 'cicd.runners.read', 'git.providers.read', 'git.repositories.read', 'integrations.read'],
+      permissions: ['git.providers.read', 'git.repositories.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys'],
       collapsible: true,
       defaultExpanded: false,
-      order: 25  // After Content (15)
+      order: 20  // After Content (15)
+    },
+    // System section - infrastructure only
+    {
+      id: 'system',
+      name: 'System',
+      items: [
+        {
+          id: 'services',
+          name: 'Services',
+          href: '/app/system/services',
+          icon: '🌐',
+          description: 'Configure service routing, load balancing, and proxy settings',
+          permissions: ['admin.settings.edit'],
+          order: 1
+        },
+        {
+          id: 'workers',
+          name: 'Workers',
+          href: '/app/system/workers',
+          icon: '🤖',
+          description: 'Manage background workers and job processing',
+          permissions: ['system.workers.read'],
+          order: 2
+        },
+        {
+          id: 'storage',
+          name: 'File Storage',
+          href: '/app/system/storage',
+          icon: HardDrive,
+          description: 'Configure storage providers for file management',
+          permissions: ['admin.storage.manage', 'admin.storage.read'],
+          order: 3
+        },
+        {
+          id: 'audit-logs',
+          name: 'Audit Logs',
+          href: '/app/system/audit-logs',
+          icon: '📋',
+          description: 'System audit and activity logs',
+          permissions: ['admin.audit.read'],
+          order: 4
+        }
+      ],
+      permissions: ['admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'admin.audit.read'],
+      collapsible: true,
+      defaultExpanded: false,
+      order: 25  // After DevOps (20)
     },
     // Administration section - super admin features (always last)
     {
@@ -434,31 +454,13 @@ export const adminNavigationOverrides = {
           order: 1
         },
         {
-          id: 'maintenance',
-          name: 'Maintenance',
-          href: '/app/admin/maintenance',
-          icon: '🔧',
-          description: 'System maintenance and health monitoring',
-          permissions: ['admin.maintenance.backup', 'admin.maintenance.cleanup'],
-          order: 2
-        },
-        {
           id: 'roles',
           name: 'Roles & Permissions',
           href: '/app/admin/roles',
           icon: UserCheck,
           description: 'Manage roles and permission assignments',
           permissions: ['admin.role.read'],
-          order: 3
-        },
-        {
-          id: 'marketplace-admin',
-          name: 'Marketplace',
-          href: '/app/admin/marketplace',
-          icon: Store,
-          description: 'Manage marketplace apps and listings',
-          permissions: ['admin.marketplace.read'],
-          order: 4
+          order: 2
         },
         {
           id: 'plugins-admin',
@@ -467,7 +469,7 @@ export const adminNavigationOverrides = {
           icon: Puzzle,
           description: 'Manage installed plugins and extensions',
           permissions: ['admin.plugins.read'],
-          order: 5
+          order: 3
         },
         {
           id: 'impersonation-admin',
@@ -476,7 +478,16 @@ export const adminNavigationOverrides = {
           icon: UserCog,
           description: 'User impersonation for support and debugging',
           permissions: ['admin.impersonation.read'],
-          order: 6
+          order: 4
+        },
+        {
+          id: 'maintenance',
+          name: 'Maintenance',
+          href: '/app/admin/maintenance',
+          icon: '🔧',
+          description: 'System maintenance and health monitoring',
+          permissions: ['admin.maintenance.backup', 'admin.maintenance.cleanup'],
+          order: 5
         },
         {
           id: 'settings',
@@ -485,7 +496,7 @@ export const adminNavigationOverrides = {
           icon: Settings,
           description: 'Platform configuration and settings',
           permissions: ['admin.settings.read'],
-          order: 7
+          order: 6
         }
       ],
       permissions: ['admin.access'],

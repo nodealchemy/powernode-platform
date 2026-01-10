@@ -63,7 +63,7 @@ class PluginsApiService extends BaseApiService {
   }
 
   private getBasePath(): string {
-    return '/api/v1/plugins';
+    return '/plugins';
   }
 
   async getPlugins(filters?: { type?: string; status?: string; verified?: boolean; official?: boolean }) {

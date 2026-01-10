@@ -61,6 +61,10 @@ class Account < ApplicationRecord
   has_many :file_objects, class_name: "FileManagement::Object", dependent: :destroy
   has_many :file_tags, class_name: "FileManagement::Tag", dependent: :destroy
 
+  # Plugin System associations
+  has_many :plugins, class_name: "PluginSystem::Definition", dependent: :destroy
+  has_many :plugin_installations, class_name: "PluginSystem::Installation", dependent: :destroy
+
   # Subscription-related associations
   has_many :invoices, through: :subscription
   has_many :payments, through: :invoices

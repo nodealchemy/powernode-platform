@@ -14,7 +14,7 @@ module Api
         # Apply filters
         plugins = apply_filters(plugins)
 
-        render_success(
+        render_success({
           plugins: plugins.as_json(
             include: {
               source_marketplace: { only: [ :id, :name ] },
@@ -25,14 +25,14 @@ module Api
             },
             methods: [ :install_count, :average_rating ]
           )
-        )
+        })
       end
 
       # GET /api/v1/plugins/:id
       def show
         installation = @plugin.installation_for(current_account)
 
-        render_success(
+        render_success({
           plugin: @plugin.as_json(
             include: {
               source_marketplace: { only: [ :id, :name ] },
@@ -45,7 +45,7 @@ module Api
           ),
           installation: installation&.as_json(methods: [ :execution_count, :total_cost ]),
           is_installed: installation&.status == "active"
-        )
+        })
       end
 
       # POST /api/v1/plugins
@@ -54,10 +54,10 @@ module Api
         plugin.creator = current_user
 
         if plugin.save
-          render_success(
+          render_success({
             plugin: plugin.as_json,
             message: "Plugin created successfully"
-          )
+          })
         else
           render_validation_error(plugin.errors)
         end
@@ -66,10 +66,10 @@ module Api
       # PATCH /api/v1/plugins/:id
       def update
         if @plugin.update(plugin_params)
-          render_success(
+          render_success({
             plugin: @plugin.as_json,
             message: "Plugin updated successfully"
-          )
+          })
         else
           render_validation_error(@plugin.errors)
         end
@@ -93,10 +93,10 @@ module Api
           install_params[:configuration] || {}
         )
 
-        render_success(
+        render_success({
           installation: installation.as_json(include: :plugin),
           message: "Plugin '#{@plugin.name}' installed successfully"
-        )
+        })
       rescue StandardError => e
         render_error("Installation failed: #{e.message}", status: :unprocessable_content)
       end
@@ -122,7 +122,7 @@ module Api
         query = params[:q] || params[:query]
         plugins = current_account.plugins.search_by_text(query)
 
-        render_success(plugins: plugins.as_json)
+        render_success({ plugins: plugins.as_json })
       end
 
       # GET /api/v1/plugins/by_capability
@@ -130,7 +130,7 @@ module Api
         capability = params[:capability]
         plugins = current_account.plugins.with_capability(capability)
 
-        render_success(plugins: plugins.as_json)
+        render_success({ plugins: plugins.as_json })
       end
 
       private

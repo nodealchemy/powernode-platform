@@ -4,7 +4,7 @@ export interface GitProvider {
   id: string;
   name: string;
   slug: string;
-  provider_type: 'github' | 'gitlab' | 'gitea';
+  provider_type: 'github' | 'gitlab' | 'gitea' | 'bitbucket';
   description?: string;
   api_base_url?: string;
   web_base_url?: string;
@@ -312,7 +312,7 @@ export interface SyncRepositoriesResult {
 
 export interface CreateProviderData {
   name: string;
-  provider_type: 'github' | 'gitlab' | 'gitea';
+  provider_type: 'github' | 'gitlab' | 'gitea' | 'bitbucket';
   description?: string;
   api_base_url?: string;
   web_base_url?: string;
