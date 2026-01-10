@@ -25,6 +25,3 @@ module FileManagement
     end
   end
 end
-
-# Backward compatibility alias
-FileObjectTag = FileManagement::ObjectTag unless defined?(FileObjectTag)

@@ -37,7 +37,7 @@ module Api
 
           render_success(template: template.template_details, status: :created)
         rescue IntegrationRegistryService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # PATCH /api/v1/integrations/templates/:id
@@ -48,7 +48,7 @@ module Api
 
           render_success(template: template.template_details)
         rescue IntegrationRegistryService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # DELETE /api/v1/integrations/templates/:id

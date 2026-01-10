@@ -253,7 +253,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
       it 'returns error' do
         post :approve, params: { id: expired_approval.id }
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['error']).to include('Cannot approve')
       end
@@ -266,7 +266,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
       it 'returns error' do
         post :approve, params: { id: already_approved.id }
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -339,7 +339,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
       it 'returns error' do
         post :reject, params: { id: approved_approval.id }
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -381,7 +381,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
       it 'returns error' do
         post :cancel, params: { id: approved_approval.id }
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['error']).to include('pending')
       end

@@ -244,16 +244,16 @@ module AiOrchestrationHelpers
     allow(monitor_double).to receive(:finalize)
 
     # Mock MCP protocol service
-    protocol_double = instance_double(McpProtocolService)
-    allow(McpProtocolService).to receive(:new).and_return(protocol_double)
+    protocol_double = instance_double(Mcp::ProtocolService)
+    allow(Mcp::ProtocolService).to receive(:new).and_return(protocol_double)
 
     # Mock MCP registry service - use allow_any_instance_of for flexibility
-    allow_any_instance_of(McpRegistryService).to receive(:get_tool).and_return({ 'version' => '1.0.0' })
-    allow_any_instance_of(McpRegistryService).to receive(:register_tool).and_return(true)
-    allow_any_instance_of(McpRegistryService).to receive(:unregister_tool).and_return(true)
+    allow_any_instance_of(Mcp::RegistryService).to receive(:get_tool).and_return({ 'version' => '1.0.0' })
+    allow_any_instance_of(Mcp::RegistryService).to receive(:register_tool).and_return(true)
+    allow_any_instance_of(Mcp::RegistryService).to receive(:unregister_tool).and_return(true)
 
     # Mock MCP broadcast service
-    allow(McpBroadcastService).to receive(:broadcast_workflow_event)
+    allow(Mcp::BroadcastService).to receive(:broadcast_workflow_event)
 
     # Mock AiOrchestrationChannel
     allow(AiOrchestrationChannel).to receive(:broadcast_workflow_run_event)

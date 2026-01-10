@@ -138,7 +138,7 @@ module Mcp
         next true unless mcp_tool # Include if no database record (legacy tools)
 
         # Check if user can access this tool
-        validator = McpPermissionValidator.new(
+        validator = Mcp::PermissionValidator.new(
           tool: mcp_tool,
           user: user,
           account: @account
@@ -186,7 +186,7 @@ module Mcp
 
     # Validate permissions before execution
     if mcp_tool && user
-      validator = McpPermissionValidator.new(
+      validator = Mcp::PermissionValidator.new(
         tool: mcp_tool,
         user: user,
         account: @account

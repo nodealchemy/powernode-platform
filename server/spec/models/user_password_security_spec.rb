@@ -54,7 +54,7 @@ RSpec.describe User, 'Password Security', type: :model do
 
       it 'rejects passwords with low strength score' do
         user = build(:user, account: account, password: 'WeakPassword1!')
-        allow(PasswordStrengthService).to receive(:validate_password)
+        allow(Security::PasswordStrengthService).to receive(:validate_password)
           .and_return({
             valid: false,
             errors: [ 'Password is not strong enough (minimum strength score: 60)' ],

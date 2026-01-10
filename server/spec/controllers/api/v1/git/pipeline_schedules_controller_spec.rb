@@ -204,7 +204,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
 
         post :create, params: invalid_params
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['success']).to be false
       end
@@ -215,7 +215,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
 
         post :create, params: invalid_params
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -252,7 +252,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
       it 'returns validation errors for invalid data' do
         put :update, params: { id: schedule.id, schedule: { cron_expression: 'invalid' } }
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -345,7 +345,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
 
         post :trigger, params: { id: schedule.id }
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 

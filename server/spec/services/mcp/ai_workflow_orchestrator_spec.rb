@@ -30,8 +30,8 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
       mcp_protocol = orchestrator.instance_variable_get(:@mcp_protocol)
       mcp_registry = orchestrator.instance_variable_get(:@mcp_registry)
 
-      expect(mcp_protocol).to be_a(McpProtocolService)
-      expect(mcp_registry).to be_a(McpRegistryService)
+      expect(mcp_protocol).to be_a(Mcp::ProtocolService)
+      expect(mcp_registry).to be_a(Mcp::RegistryService)
     end
 
     it 'initializes state machine' do
@@ -264,7 +264,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
       orchestrator.send(:initialize_execution)
 
       mcp_protocol = orchestrator.instance_variable_get(:@mcp_protocol)
-      expect(mcp_protocol).to be_a(McpProtocolService)
+      expect(mcp_protocol).to be_a(Mcp::ProtocolService)
     end
 
     it 'initializes execution tracers and monitoring' do
@@ -1041,12 +1041,12 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
     it 'initializes MCP protocol service' do
       mcp_protocol = orchestrator.instance_variable_get(:@mcp_protocol)
-      expect(mcp_protocol).to be_a(McpProtocolService)
+      expect(mcp_protocol).to be_a(Mcp::ProtocolService)
     end
 
     it 'initializes MCP registry service' do
       mcp_registry = orchestrator.instance_variable_get(:@mcp_registry)
-      expect(mcp_registry).to be_a(McpRegistryService)
+      expect(mcp_registry).to be_a(Mcp::RegistryService)
     end
 
     it 'validates MCP tool requirements when configured' do

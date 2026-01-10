@@ -97,8 +97,8 @@ RSpec.describe McpTool, type: :model do
     let(:parameters) { { path: '/test/file.txt' } }
 
     before do
-      allow(McpPermissionValidator).to receive(:new).and_return(
-        instance_double(McpPermissionValidator, authorized?: true)
+      allow(Mcp::PermissionValidator).to receive(:new).and_return(
+        instance_double(Mcp::PermissionValidator, authorized?: true)
       )
       allow(WorkerJobService).to receive(:enqueue_mcp_tool_execution).and_return(true)
     end

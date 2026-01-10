@@ -20,7 +20,7 @@ module Mcp
         end
 
         # Find file object
-        file_object = ::FileObject.find_by(id: file_id, account: @orchestrator.account)
+        file_object = ::FileManagement::Object.find_by(id: file_id, account: @orchestrator.account)
         unless file_object
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "File not found: #{file_id}"
         end

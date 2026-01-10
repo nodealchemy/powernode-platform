@@ -398,16 +398,14 @@ module FileManagement
     end
 
     def encrypt_value(value)
-      encryptor = Ai::Security::CredentialEncryptionService.new
-      "encrypted:#{encryptor.encrypt(value)}"
+      "encrypted:#{Security::CredentialEncryptionService.encrypt_value(value)}"
     end
 
     def decrypt_value(value)
       return value unless value.to_s.start_with?("encrypted:")
 
-      encryptor = Ai::Security::CredentialEncryptionService.new
       encrypted_value = value.to_s.sub("encrypted:", "")
-      encryptor.decrypt(encrypted_value)
+      Security::CredentialEncryptionService.decrypt_value(encrypted_value)
     end
 
     def initialize_storage_backend
@@ -503,6 +501,3 @@ module FileManagement
     end
   end
 end
-
-# Backward compatibility alias
-FileStorage = FileManagement::Storage unless defined?(FileStorage)

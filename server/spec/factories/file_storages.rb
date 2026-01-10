@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :file_storage do
+  factory :file_storage, class: "FileManagement::Storage" do
     account
     name { "Test Storage" }
     provider_type { 'local' }

@@ -9,10 +9,6 @@ module FileManagement
     belongs_to :account
     belongs_to :created_by, class_name: "User", foreign_key: "created_by_id"
 
-    # Backward compatibility aliases
-    alias_method :file_object, :object
-    alias_method :file_object=, :object=
-
     # Validations
     validates :version_number, presence: true, numericality: { only_integer: true, greater_than: 0 }
     validates :version_number, uniqueness: { scope: :file_object_id }
@@ -67,6 +63,3 @@ module FileManagement
     end
   end
 end
-
-# Backward compatibility alias
-FileVersion = FileManagement::Version unless defined?(FileVersion)

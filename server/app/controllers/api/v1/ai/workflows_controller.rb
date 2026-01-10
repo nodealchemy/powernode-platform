@@ -432,7 +432,7 @@ module Api
           authorize_workflow_action!("ai.workflows.update")
 
           unless @workflow.is_template?
-            render_error("This workflow is not a template", status: :unprocessable_entity)
+            render_error("This workflow is not a template", status: :unprocessable_content)
             return
           end
 

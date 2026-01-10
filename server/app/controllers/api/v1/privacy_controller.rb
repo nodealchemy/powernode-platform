@@ -150,7 +150,7 @@ module Api
         request = DataDeletionRequest.find_by!(id: params[:id], user: current_user)
 
         unless request.can_be_cancelled?
-          return render_error("This deletion request cannot be cancelled", status: :unprocessable_entity)
+          return render_error("This deletion request cannot be cancelled", status: :unprocessable_content)
         end
 
         request.cancel!(current_user, params[:reason])

@@ -76,7 +76,7 @@ module Api
         # POST /api/v1/git/pipeline_approvals/:id/approve
         def approve
           unless @approval.can_respond?
-            return render_error("Cannot approve this request", status: :unprocessable_entity)
+            return render_error("Cannot approve this request", status: :unprocessable_content)
           end
 
           unless @approval.can_user_approve?(current_user)
@@ -97,7 +97,7 @@ module Api
         # POST /api/v1/git/pipeline_approvals/:id/reject
         def reject
           unless @approval.can_respond?
-            return render_error("Cannot reject this request", status: :unprocessable_entity)
+            return render_error("Cannot reject this request", status: :unprocessable_content)
           end
 
           @approval.reject!(current_user, params[:comment])
@@ -114,7 +114,7 @@ module Api
         # POST /api/v1/git/pipeline_approvals/:id/cancel
         def cancel
           unless @approval.pending?
-            return render_error("Can only cancel pending approvals", status: :unprocessable_entity)
+            return render_error("Can only cancel pending approvals", status: :unprocessable_content)
           end
 
           @approval.cancel!

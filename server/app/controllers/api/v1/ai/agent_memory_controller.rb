@@ -68,7 +68,7 @@ module Api
 
           render_success(entry: entry.entry_summary, status: :created)
         rescue ::Ai::ContextPersistenceService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # PATCH /api/v1/ai/agents/:agent_id/memory/:key
@@ -85,7 +85,7 @@ module Api
 
           render_success(entry: entry.entry_summary)
         rescue ::Ai::ContextPersistenceService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # DELETE /api/v1/ai/agents/:agent_id/memory/:key

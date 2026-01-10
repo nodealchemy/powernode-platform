@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'File Permission-Based Access Integration', type: :integration do
   let(:account) { create(:account) }
   let(:storage) do
-    FileStorage.create!(
+    FileManagement::Storage.create!(
       account: account,
       name: 'Permission Test Storage',
       provider_type: 'local',
@@ -48,9 +48,9 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
 
   describe 'File Upload Permissions' do
     it 'allows users with files.upload permission to upload' do
-      file_object = FileObject.new(
+      file_object = FileManagement::Object.new(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: uploader_user,
         filename: 'upload_test.txt',
         storage_key: "uploads/#{SecureRandom.uuid}/upload_test.txt",
@@ -81,9 +81,9 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
 
   describe 'File Read Permissions' do
     let(:test_file) do
-      obj = FileObject.create!(
+      obj = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: uploader_user,
         filename: 'readable_file.txt',
         storage_key: "reads/#{SecureRandom.uuid}/readable_file.txt",
@@ -103,14 +103,14 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
       expect(read_only_user.permission_names).to include('files.read')
 
       # User can access file in database
-      file = FileObject.where(account: account, id: test_file.id).first
+      file = FileManagement::Object.where(account: account, id: test_file.id).first
       expect(file).to be_present
     end
 
     it 'allows uploader to read their own files' do
       expect(uploader_user.permission_names).to include('files.read')
 
-      file = FileObject.where(account: account, uploaded_by: uploader_user, id: test_file.id).first
+      file = FileManagement::Object.where(account: account, uploaded_by: uploader_user, id: test_file.id).first
       expect(file).to be_present
     end
 
@@ -123,9 +123,9 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
     end
 
     it 'enforces file-level access permissions' do
-      restricted_file = FileObject.create!(
+      restricted_file = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: admin_user,
         filename: 'restricted.txt',
         storage_key: "restricted/#{SecureRandom.uuid}/restricted.txt",
@@ -153,9 +153,9 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
 
   describe 'File Delete Permissions' do
     let(:deletable_file) do
-      obj = FileObject.create!(
+      obj = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: uploader_user,
         filename: 'deletable.txt',
         storage_key: "deletes/#{SecureRandom.uuid}/deletable.txt",
@@ -191,9 +191,9 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
       # Create uploader with delete permission
       owner_with_delete = create(:user, account: account, permissions: [ 'files.upload', 'files.read', 'files.delete' ])
 
-      owner_file = FileObject.create!(
+      owner_file = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: owner_with_delete,
         filename: 'owner_file.txt',
         storage_key: "owner/#{SecureRandom.uuid}/owner_file.txt",
@@ -230,9 +230,9 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
     end
 
     it 'allows managers to modify file metadata' do
-      file = FileObject.create!(
+      file = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: uploader_user,
         filename: 'manageable.txt',
         storage_key: "manage/#{SecureRandom.uuid}/manageable.txt",
@@ -253,9 +253,9 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
     end
 
     it 'prevents non-managers from modifying other users files' do
-      admin_file = FileObject.create!(
+      admin_file = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: admin_user,
         filename: 'admin_file.txt',
         storage_key: "admin/#{SecureRandom.uuid}/admin_file.txt",
@@ -276,9 +276,9 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
 
   describe 'File Sharing Permissions' do
     let(:shareable_file) do
-      obj = FileObject.create!(
+      obj = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: uploader_user,
         filename: 'shareable.txt',
         storage_key: "share/#{SecureRandom.uuid}/shareable.txt",
@@ -297,8 +297,8 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
     it 'allows users with files.share permission to create shares' do
       expect(admin_user.permission_names).to include('files.share')
 
-      share = FileShare.create!(
-        file_object: shareable_file,
+      share = FileManagement::Share.create!(
+        object: shareable_file,
         account: account,
         created_by: admin_user,
         share_token: SecureRandom.urlsafe_base64(32),
@@ -318,8 +318,8 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
     end
 
     it 'allows share creators to revoke their own shares' do
-      share = FileShare.create!(
-        file_object: shareable_file,
+      share = FileManagement::Share.create!(
+        object: shareable_file,
         account: account,
         created_by: admin_user,
         share_token: SecureRandom.urlsafe_base64(32),
@@ -338,7 +338,7 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
     let(:other_account) { create(:account) }
     let(:other_user) { create(:user, account: other_account, permissions: [ 'files.read', 'files.upload', 'files.manage' ]) }
     let(:other_storage) do
-      FileStorage.create!(
+      FileManagement::Storage.create!(
         account: other_account,
         name: 'Other Account Storage',
         provider_type: 'local',
@@ -355,9 +355,9 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
     end
 
     it 'prevents access to files from different accounts' do
-      account_file = FileObject.create!(
+      account_file = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: admin_user,
         filename: 'account_file.txt',
         storage_key: "account/#{SecureRandom.uuid}/account_file.txt",
@@ -371,7 +371,7 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
       provider.upload_file(account_file, StringIO.new('account content'))
 
       # User from other account cannot access
-      other_account_files = FileObject.where(account: other_account, id: account_file.id)
+      other_account_files = FileManagement::Object.where(account: other_account, id: account_file.id)
       expect(other_account_files).to be_empty
 
       # Files are account-scoped
@@ -388,9 +388,9 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
 
   describe 'Admin Override Permissions' do
     it 'allows admin.access users to override file restrictions' do
-      restricted_file = FileObject.create!(
+      restricted_file = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: uploader_user,
         filename: 'restricted_admin.txt',
         storage_key: "restricted/#{SecureRandom.uuid}/restricted_admin.txt",
@@ -419,9 +419,9 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
 
   describe 'Permission Validation Helpers' do
     it 'provides helper methods to check file permissions' do
-      file = FileObject.create!(
+      file = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: uploader_user,
         filename: 'helper_test.txt',
         storage_key: "helpers/#{SecureRandom.uuid}/helper_test.txt",

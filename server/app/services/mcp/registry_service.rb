@@ -391,7 +391,7 @@ module Mcp
     end
 
     # Validate scope structure against McpPermissionValidator constants
-    valid_categories = McpPermissionValidator::TOOL_PERMISSION_SCOPES.keys.map(&:to_s)
+    valid_categories = Mcp::PermissionValidator::TOOL_PERMISSION_SCOPES.keys.map(&:to_s)
 
     allowed_scopes.each do |category, permissions|
       unless valid_categories.include?(category)
@@ -403,7 +403,7 @@ module Mcp
       end
 
       # Validate each permission in the category
-      valid_permissions = McpPermissionValidator::TOOL_PERMISSION_SCOPES[category.to_sym].map(&:to_s)
+      valid_permissions = Mcp::PermissionValidator::TOOL_PERMISSION_SCOPES[category.to_sym].map(&:to_s)
       permissions.each do |permission|
         unless valid_permissions.include?(permission)
           raise RegistryError, "Invalid permission '#{permission}' for scope '#{category}'. Valid permissions: #{valid_permissions.join(', ')}"

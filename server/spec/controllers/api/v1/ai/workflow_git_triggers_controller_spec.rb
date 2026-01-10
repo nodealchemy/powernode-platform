@@ -91,7 +91,7 @@ RSpec.describe Api::V1::Ai::WorkflowGitTriggersController, type: :controller do
       it 'returns validation errors' do
         post :create, params: invalid_params
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['success']).to be false
       end

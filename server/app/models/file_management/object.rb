@@ -32,10 +32,6 @@ module FileManagement
     has_many :object_tags, class_name: "FileManagement::ObjectTag", foreign_key: :file_object_id, dependent: :destroy
     has_many :tags, class_name: "FileManagement::Tag", through: :object_tags, source: :tag
 
-    # Backward compatibility aliases for storage association
-    alias_method :file_storage, :storage
-    alias_method :file_storage=, :storage=
-
     # Validations
     validates :filename, presence: true, length: { maximum: 255 }
     validates :storage_key, presence: true, uniqueness: { scope: :file_storage_id }
@@ -597,6 +593,3 @@ module FileManagement
     end
   end
 end
-
-# Backward compatibility alias
-FileObject = FileManagement::Object unless defined?(FileObject)

@@ -45,7 +45,7 @@ module Api
         rescue IntegrationRegistryService::TemplateNotFoundError
           render_not_found("Template")
         rescue IntegrationRegistryService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # PATCH /api/v1/integrations/instances/:id
@@ -60,7 +60,7 @@ module Api
 
           render_success(instance: instance.instance_details)
         rescue IntegrationRegistryService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # DELETE /api/v1/integrations/instances/:id
@@ -86,7 +86,7 @@ module Api
 
           render_success(instance: instance.instance_details)
         rescue IntegrationRegistryService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/integrations/instances/:id/deactivate
@@ -115,7 +115,7 @@ module Api
           authorize_action!("integrations.execute")
 
           unless @instance.status == "active"
-            return render_error("Integration is not active", status: :unprocessable_entity)
+            return render_error("Integration is not active", status: :unprocessable_content)
           end
 
           result = IntegrationExecutionService.execute(
@@ -128,7 +128,7 @@ module Api
           if result[:success]
             render_success(result: result)
           else
-            render_error(result[:error], status: :unprocessable_entity, data: { execution_id: result[:execution_id] })
+            render_error(result[:error], status: :unprocessable_content, data: { execution_id: result[:execution_id] })
           end
         end
 

@@ -82,7 +82,7 @@ module Api
         # POST /api/v1/git/pipeline_schedules/:id/trigger
         def trigger
           credential = @schedule.git_provider_credential
-          return render_error("Credential not available", status: :unprocessable_entity) unless credential&.can_be_used?
+          return render_error("Credential not available", status: :unprocessable_content) unless credential&.can_be_used?
 
           repository = @schedule.git_repository
           client = ::Git::ApiClient.for(credential)
@@ -96,7 +96,7 @@ module Api
               pipeline_id: result[:pipeline_id]
             })
           else
-            render_error(result[:error] || "Failed to trigger pipeline", status: :unprocessable_entity)
+            render_error(result[:error] || "Failed to trigger pipeline", status: :unprocessable_content)
           end
         end
 

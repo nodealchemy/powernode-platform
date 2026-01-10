@@ -63,12 +63,12 @@ RSpec.describe Security::CredentialEncryptionService do
 
       it 'raises EncryptionError for empty hash' do
         expect { described_class.encrypt({}) }
-          .to raise_error(Security::Security::CredentialEncryptionService::EncryptionError, /Credentials cannot be empty/)
+          .to raise_error(Security::CredentialEncryptionService::EncryptionError, /Credentials cannot be empty/)
       end
 
       it 'raises EncryptionError for array input' do
         expect { described_class.encrypt([ 1, 2, 3 ]) }
-          .to raise_error(Security::Security::CredentialEncryptionService::EncryptionError, /Credentials must be a Hash/)
+          .to raise_error(Security::CredentialEncryptionService::EncryptionError, /Credentials must be a Hash/)
       end
     end
   end

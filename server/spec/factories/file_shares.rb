@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :file_share do
-    file_object
+  factory :file_share, class: "FileManagement::Share" do
+    association :object, factory: :file_object
     account
     association :created_by, factory: :user
 

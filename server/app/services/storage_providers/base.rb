@@ -189,9 +189,8 @@ module StorageProviders
       return nil unless value
 
       if value.to_s.start_with?("encrypted:")
-        encryptor = Ai::Security::CredentialEncryptionService.new
         encrypted_value = value.to_s.sub("encrypted:", "")
-        encryptor.decrypt(encrypted_value)
+        Security::CredentialEncryptionService.decrypt_value(encrypted_value)
       else
         value
       end

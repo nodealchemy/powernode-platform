@@ -145,7 +145,7 @@ module Mcp
 
         return nil unless file_id
 
-        ::FileObject.find_by(id: file_id, account: @orchestrator.account)
+        ::FileManagement::Object.find_by(id: file_id, account: @orchestrator.account)
       end
 
       def perform_transformation(file_content, content_type, operation)

@@ -103,7 +103,7 @@ RSpec.describe FileStorageService, type: :service do
   end
 
   describe '#download_file' do
-    let(:file_object) { create(:file_object, account: account, file_storage: storage) }
+    let(:file_object) { create(:file_object, account: account, storage: storage) }
 
     before do
       # Create actual file in storage
@@ -121,14 +121,14 @@ RSpec.describe FileStorageService, type: :service do
 
     it 'raises error for file from different account' do
       other_account = create(:account)
-      other_file = create(:file_object, account: other_account, file_storage: storage)
+      other_file = create(:file_object, account: other_account, storage: storage)
 
       expect { service.download_file(other_file) }.to raise_error(FileStorageService::InvalidFileError, /different account/)
     end
   end
 
   describe '#delete_file' do
-    let(:file_object) { create(:file_object, account: account, file_storage: storage) }
+    let(:file_object) { create(:file_object, account: account, storage: storage) }
 
     before do
       # Create actual file in storage
@@ -150,12 +150,12 @@ RSpec.describe FileStorageService, type: :service do
     it 'permanently deletes when specified' do
       expect {
         service.delete_file(file_object, permanent: true)
-      }.to change { FileObject.count }.by(-1)
+      }.to change { FileManagement::Object.count }.by(-1)
     end
   end
 
   describe '#create_share' do
-    let(:file_object) { create(:file_object, account: account, file_storage: storage) }
+    let(:file_object) { create(:file_object, account: account, storage: storage) }
 
     it 'creates file share with unique token' do
       share = service.create_share(file_object, created_by_id: user.id)
@@ -198,13 +198,13 @@ RSpec.describe FileStorageService, type: :service do
   end
 
   describe '#add_tags' do
-    let(:file_object) { create(:file_object, account: account, file_storage: storage) }
+    let(:file_object) { create(:file_object, account: account, storage: storage) }
 
     it 'adds tags to file' do
       tags = service.add_tags(file_object, [ 'important', 'project-alpha' ])
 
       expect(tags.map(&:name)).to contain_exactly('important', 'project-alpha')
-      expect(file_object.file_tags.count).to eq(2)
+      expect(file_object.tags.count).to eq(2)
     end
 
     it 'creates new tags if they do not exist' do
@@ -220,12 +220,12 @@ RSpec.describe FileStorageService, type: :service do
         service.add_tags(file_object, [ 'existing' ])
       }.not_to change { account.file_tags.count }
 
-      expect(file_object.file_tags).to include(tag)
+      expect(file_object.tags).to include(tag)
     end
   end
 
   describe '#file_url' do
-    let(:file_object) { create(:file_object, account: account, file_storage: storage) }
+    let(:file_object) { create(:file_object, account: account, storage: storage) }
 
     it 'returns file URL' do
       url = service.file_url(file_object)

@@ -19,12 +19,12 @@ RSpec.describe Page, type: :model do
     let(:file_storage) { create(:file_storage, account: account, is_default: true) }
 
     it 'can have file_objects attached' do
-      file = create(:file_object, account: account, attachable: page, file_storage: file_storage)
+      file = create(:file_object, account: account, attachable: page, storage: file_storage)
       expect(page.file_objects).to include(file)
     end
 
     it 'nullifies file_objects when page is deleted' do
-      file = create(:file_object, account: account, attachable: page, file_storage: file_storage)
+      file = create(:file_object, account: account, attachable: page, storage: file_storage)
       page.destroy
       file.reload
       expect(file.attachable).to be_nil
@@ -36,13 +36,13 @@ RSpec.describe Page, type: :model do
                           attachable: page,
                           file_type: 'image',
                           content_type: 'image/png',
-                          file_storage: file_storage)
+                          storage: file_storage)
       doc_file = create(:file_object,
                         account: account,
                         attachable: page,
                         file_type: 'document',
                         content_type: 'application/pdf',
-                        file_storage: file_storage)
+                        storage: file_storage)
 
       expect(page.images).to include(image_file)
       expect(page.images).not_to include(doc_file)

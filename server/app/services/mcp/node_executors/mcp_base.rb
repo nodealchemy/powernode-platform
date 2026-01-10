@@ -21,7 +21,7 @@ module Mcp
       def validate_mcp_permissions!
         return unless mcp_tool
 
-        validator = McpPermissionValidator.new(
+        validator = Mcp::PermissionValidator.new(
           tool: mcp_tool,
           user: @orchestrator.user,
           account: @orchestrator.account

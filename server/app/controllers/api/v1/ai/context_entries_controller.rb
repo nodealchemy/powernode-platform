@@ -46,7 +46,7 @@ module Api
 
           render_success(entry: entry.entry_details, status: :created)
         rescue ::Ai::ContextPersistenceService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have write access to this context")
         end
@@ -65,7 +65,7 @@ module Api
 
           render_success(entry: entry.entry_details)
         rescue ::Ai::ContextPersistenceService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have write access to this context")
         end

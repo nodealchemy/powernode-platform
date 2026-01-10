@@ -182,7 +182,7 @@ RSpec.describe 'Api::V1::CiCd::StepApprovals', type: :request do
         post "/api/v1/ci_cd/step_approvals/#{@raw_token_comment}/approve",
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['success']).to be false
         expect(json['error']).to include('comment')
@@ -311,7 +311,7 @@ RSpec.describe 'Api::V1::CiCd::StepApprovals', type: :request do
         post "/api/v1/ci_cd/step_approvals/#{@raw_token_reject}/reject",
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['success']).to be false
         expect(json['error']).to include('comment')

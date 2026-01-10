@@ -129,7 +129,7 @@ module Mcp
       def get_storage_config
         # Use specified storage or account default
         if configuration["storage_id"]
-          storage = ::FileStorage.find_by(
+          storage = ::FileManagement::Storage.find_by(
             id: configuration["storage_id"],
             account: @orchestrator.account
           )

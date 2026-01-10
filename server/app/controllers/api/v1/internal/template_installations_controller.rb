@@ -25,7 +25,7 @@ class Api::V1::Internal::TemplateInstallationsController < ApplicationController
       })
     else
       Rails.logger.error "Template installation update failed: #{installation.installation_id}"
-      render_error("Template update failed", status: :unprocessable_entity)
+      render_error("Template update failed", status: :unprocessable_content)
     end
   rescue ActiveRecord::RecordNotFound => e
     render_error("Installation not found", status: :not_found)

@@ -16,7 +16,7 @@ RSpec.describe StorageProviders::NfsStorage, type: :service do
     )
   end
   let(:provider) { described_class.new(storage_config) }
-  let(:file_object) { create(:file_object, account: account, file_storage: storage_config) }
+  let(:file_object) { create(:file_object, account: account, storage: storage_config) }
 
   before do
     FileUtils.mkdir_p(mount_path)

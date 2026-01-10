@@ -16,7 +16,7 @@ RSpec.describe StorageProviders::S3Storage, type: :service do
     )
   end
   let(:provider) { described_class.new(storage_config) }
-  let(:file_object) { create(:file_object, account: account, file_storage: storage_config) }
+  let(:file_object) { create(:file_object, account: account, storage: storage_config) }
   let(:s3_client) { instance_double(Aws::S3::Client) }
   let(:s3_resource) { instance_double(Aws::S3::Resource) }
   let(:bucket) { instance_double(Aws::S3::Bucket) }
@@ -381,7 +381,7 @@ RSpec.describe StorageProviders::S3Storage, type: :service do
 
   describe '#batch_delete' do
     it 'deletes multiple files using S3 batch delete' do
-      file_objects_to_delete = [ file_object, create(:file_object, account: account, file_storage: storage_config) ]
+      file_objects_to_delete = [ file_object, create(:file_object, account: account, storage: storage_config) ]
 
       response = double(
         deleted: file_objects_to_delete.map { |fo| double(key: fo.storage_key) },

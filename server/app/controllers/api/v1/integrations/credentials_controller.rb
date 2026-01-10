@@ -42,7 +42,7 @@ module Api
 
           render_success(credential: credential.credential_summary, status: :created)
         rescue IntegrationRegistryService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # PATCH /api/v1/integrations/credentials/:id
@@ -57,7 +57,7 @@ module Api
 
           render_success(credential: credential.credential_summary)
         rescue IntegrationRegistryService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # DELETE /api/v1/integrations/credentials/:id
@@ -71,7 +71,7 @@ module Api
 
           render_success(message: "Credential deleted")
         rescue IntegrationRegistryService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/integrations/credentials/:id/rotate
@@ -87,7 +87,7 @@ module Api
             message: "Credential rotated successfully"
           )
         rescue IntegrationCredentialEncryptionService::EncryptionError => e
-          render_error("Failed to rotate credential: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to rotate credential: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/integrations/credentials/:id/verify

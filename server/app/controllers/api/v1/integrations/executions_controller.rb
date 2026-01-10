@@ -56,7 +56,7 @@ module Api
           if result[:success]
             render_success(result: result)
           else
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error(result[:error], status: :unprocessable_content)
           end
         end
 
@@ -69,7 +69,7 @@ module Api
           if result[:success]
             render_success(result: result)
           else
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error(result[:error], status: :unprocessable_content)
           end
         end
 

@@ -54,7 +54,7 @@ module Api
           }, status: :created)
         rescue StandardError => e
           Rails.logger.error("Failed to create AI workflow approval tokens: #{e.message}")
-          render_error("Failed to create tokens: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to create tokens: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/internal/ai_workflow_approvals/expire_stale

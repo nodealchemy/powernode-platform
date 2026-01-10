@@ -282,7 +282,7 @@ class Api::V1::WebhooksController < ApplicationController
     delivery = WebhookDelivery.find(params[:id])
 
     unless delivery.failed? || delivery.max_retries_reached?
-      return render_error("Delivery is not in a failed state", status: :unprocessable_entity)
+      return render_error("Delivery is not in a failed state", status: :unprocessable_content)
     end
 
     # Reset the delivery for retry

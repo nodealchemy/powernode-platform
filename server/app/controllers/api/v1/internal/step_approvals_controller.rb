@@ -78,7 +78,7 @@ module Api
           render_error("Step execution not found", :not_found)
         rescue StandardError => e
           Rails.logger.error("Failed to create approval tokens: #{e.message}")
-          render_error("Failed to create tokens: #{e.message}", :unprocessable_entity)
+          render_error("Failed to create tokens: #{e.message}", :unprocessable_content)
         end
       end
     end

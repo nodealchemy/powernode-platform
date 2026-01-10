@@ -158,7 +158,7 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
         post "/api/v1/ai_workflows/approval_tokens/#{raw_token}/approve",
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['error']).to include('comment')
       end
@@ -190,7 +190,7 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
         post "/api/v1/ai_workflows/approval_tokens/#{raw_token}/approve",
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['error']).to include('expired')
       end
@@ -205,7 +205,7 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
         post "/api/v1/ai_workflows/approval_tokens/#{raw_token}/approve",
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['error']).to include('already been used')
       end
@@ -260,7 +260,7 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
         post "/api/v1/ai_workflows/approval_tokens/#{raw_token}/reject",
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['error']).to include('comment')
       end
@@ -284,7 +284,7 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
         post "/api/v1/ai_workflows/approval_tokens/#{raw_token}/reject",
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['error']).to include('expired')
       end
@@ -299,7 +299,7 @@ RSpec.describe 'Api::V1::AiWorkflows::ApprovalTokens', type: :request do
         post "/api/v1/ai_workflows/approval_tokens/#{raw_token}/reject",
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end

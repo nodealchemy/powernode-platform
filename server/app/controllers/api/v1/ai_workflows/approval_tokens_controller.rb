@@ -19,14 +19,14 @@ module Api
           unless @token.can_respond?
             return render_error(
               @token.expired? ? "Approval request has expired" : "Token has already been used",
-              status: :unprocessable_entity
+              status: :unprocessable_content
             )
           end
 
           # Check if comment is required
           node = @token.node_execution.node
           if node&.configuration&.dig("require_comment") && params[:comment].blank?
-            return render_error("A comment is required for this approval", status: :unprocessable_entity)
+            return render_error("A comment is required for this approval", status: :unprocessable_content)
           end
 
           if @token.approve!(comment: params[:comment], by_user: current_user_from_token)
@@ -35,7 +35,7 @@ module Api
               token: serialize_token(@token.reload)
             })
           else
-            render_error("Failed to approve workflow step", status: :unprocessable_entity)
+            render_error("Failed to approve workflow step", status: :unprocessable_content)
           end
         end
 
@@ -44,14 +44,14 @@ module Api
           unless @token.can_respond?
             return render_error(
               @token.expired? ? "Approval request has expired" : "Token has already been used",
-              status: :unprocessable_entity
+              status: :unprocessable_content
             )
           end
 
           # Check if comment is required
           node = @token.node_execution.node
           if node&.configuration&.dig("require_comment") && params[:comment].blank?
-            return render_error("A comment is required for this rejection", status: :unprocessable_entity)
+            return render_error("A comment is required for this rejection", status: :unprocessable_content)
           end
 
           if @token.reject!(comment: params[:comment], by_user: current_user_from_token)
@@ -60,7 +60,7 @@ module Api
               token: serialize_token(@token.reload)
             })
           else
-            render_error("Failed to reject workflow step", status: :unprocessable_entity)
+            render_error("Failed to reject workflow step", status: :unprocessable_content)
           end
         end
 

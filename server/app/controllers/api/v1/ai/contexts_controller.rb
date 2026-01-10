@@ -42,7 +42,7 @@ module Api
 
           render_success({ context: context.context_details }, status: :created)
         rescue ::Ai::ContextPersistenceService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # PATCH /api/v1/ai/contexts/:id
@@ -58,7 +58,7 @@ module Api
 
           render_success({ context: context.context_details })
         rescue ::Ai::ContextPersistenceService::ValidationError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         rescue ::Ai::ContextPersistenceService::AccessDeniedError
           render_forbidden("You don't have write access to this context")
         end
@@ -157,7 +157,7 @@ module Api
 
           render_success({ context: context.context_details }, status: :created)
         rescue JSON::ParserError
-          render_error("Invalid import data format", status: :unprocessable_entity)
+          render_error("Invalid import data format", status: :unprocessable_content)
         end
 
         # GET /api/v1/ai/contexts/stats

@@ -6,7 +6,7 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, permissions: [ 'files.upload', 'files.read', 'files.delete', 'files.manage', 'files.share' ]) }
   let(:storage) do
-    FileStorage.create!(
+    FileManagement::Storage.create!(
       account: account,
       name: 'E2E Test Storage',
       provider_type: 'local',
@@ -56,9 +56,9 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       # ============================================================
       file_data = File.open(test_file_path, 'rb')
 
-      file_object = FileObject.create!(
+      file_object = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'e2e_test_document.txt',
         storage_key: "uploads/e2e/#{SecureRandom.uuid}/e2e_test_document.txt",
@@ -116,8 +116,8 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       # ============================================================
       # STEP 5: Create File Version Record
       # ============================================================
-      file_version = FileVersion.create!(
-        file_object: file_object,
+      file_version = FileManagement::Version.create!(
+        object: file_object,
         account: account,
         created_by: user,
         version_number: 1,
@@ -131,29 +131,29 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       # ============================================================
       # STEP 6: Add Tags to File
       # ============================================================
-      tag1 = FileTag.create!(
+      tag1 = FileManagement::Tag.create!(
         account: account,
         name: 'important',
         color: '#FF0000',
         files_count: 0
       )
 
-      tag2 = FileTag.create!(
+      tag2 = FileManagement::Tag.create!(
         account: account,
         name: 'documentation',
         color: '#0000FF',
         files_count: 0
       )
 
-      FileObjectTag.create!(
-        file_object: file_object,
-        file_tag: tag1,
+      FileManagement::ObjectTag.create!(
+        object: file_object,
+        tag: tag1,
         account: account
       )
 
-      FileObjectTag.create!(
-        file_object: file_object,
-        file_tag: tag2,
+      FileManagement::ObjectTag.create!(
+        object: file_object,
+        tag: tag2,
         account: account
       )
 
@@ -162,15 +162,15 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       tag2.update!(files_count: tag2.files_count + 1)
 
       file_object.reload
-      expect(file_object.file_object_tags.count).to eq(2)
+      expect(file_object.object_tags.count).to eq(2)
 
       # ============================================================
       # STEP 7: Create Processing Job (Simulated)
       # ============================================================
       file_object.update!(processing_status: 'processing')
 
-      processing_job = FileProcessingJob.create!(
-        file_object: file_object,
+      processing_job = FileManagement::ProcessingJob.create!(
+        object: file_object,
         account: account,
         job_type: 'metadata_extract',
         status: 'pending',
@@ -219,8 +219,8 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       # ============================================================
       # STEP 9: Create Public Share
       # ============================================================
-      file_share = FileShare.create!(
-        file_object: file_object,
+      file_share = FileManagement::Share.create!(
+        object: file_object,
         account: account,
         created_by: user,
         share_token: SecureRandom.urlsafe_base64(32),
@@ -260,9 +260,9 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       file_object.update!(is_latest_version: false)
 
       # Create new version
-      new_version = FileObject.create!(
+      new_version = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'e2e_test_document.txt',
         storage_key: "uploads/e2e/#{SecureRandom.uuid}/e2e_test_document_v2.txt",
@@ -289,8 +289,8 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       )
 
       # Create version record
-      FileVersion.create!(
-        file_object: new_version,
+      FileManagement::Version.create!(
+        object: new_version,
         account: account,
         created_by: user,
         version_number: 2,
@@ -317,9 +317,9 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       expect(copy_result).to be true
 
       # Create file object for copy
-      copied_file = FileObject.create!(
+      copied_file = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'e2e_test_document_archive.txt',
         storage_key: copy_key,
@@ -388,7 +388,7 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
 
       # Storage statistics should reflect actual state
       # Note: Integration test verifies actual DB state, not manually tracked counts
-      actual_active_files = FileObject.where(file_storage: storage, deleted_at: nil)
+      actual_active_files = FileManagement::Object.where(storage: storage, deleted_at: nil)
       expect(actual_active_files.count).to eq(1) # Only new_version remains active
       expect(actual_active_files.first.id).to eq(new_version.id)
 
@@ -401,14 +401,14 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
 
       # Tags should still exist and be associated with active files only
       # Verify actual associations (integration test checks reality, not manually tracked counts)
-      tag1_actual_files = FileObjectTag.joins(:file_object).where(file_tag: tag1, file_objects: { deleted_at: nil }).count
-      tag2_actual_files = FileObjectTag.joins(:file_object).where(file_tag: tag2, file_objects: { deleted_at: nil }).count
+      tag1_actual_files = FileManagement::ObjectTag.joins(:object).where(tag: tag1, file_objects: { deleted_at: nil }).count
+      tag2_actual_files = FileManagement::ObjectTag.joins(:object).where(tag: tag2, file_objects: { deleted_at: nil }).count
       expect(tag1_actual_files).to be >= 0 # Tags may remain on deleted files
       expect(tag2_actual_files).to be >= 0
 
       # Version records should exist
-      expect(FileVersion.where(file_object: file_object).count).to eq(1)
-      expect(FileVersion.where(file_object: new_version).count).to eq(1)
+      expect(FileManagement::Version.where(object: file_object).count).to eq(1)
+      expect(FileManagement::Version.where(object: new_version).count).to eq(1)
 
       # Processing job should be completed
       expect(processing_job.reload.status).to eq('completed')
@@ -417,19 +417,19 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       # STEP 15: Query File History and Statistics
       # ============================================================
       # All file objects (including deleted) for the account
-      all_files = FileObject.where(account: account).count
+      all_files = FileManagement::Object.where(account: account).count
       expect(all_files).to eq(3) # original, new_version, copied
 
       # Active files (not deleted)
-      active_files = FileObject.where(account: account, deleted_at: nil).count
+      active_files = FileManagement::Object.where(account: account, deleted_at: nil).count
       expect(active_files).to eq(1) # Only new_version
 
       # Total downloads across all files
-      total_downloads = FileObject.where(account: account).sum(:download_count)
+      total_downloads = FileManagement::Object.where(account: account).sum(:download_count)
       expect(total_downloads).to eq(1) # From step 8
 
       # Latest version of document
-      latest_version = FileObject.where(
+      latest_version = FileManagement::Object.where(
         account: account,
         filename: 'e2e_test_document.txt',
         is_latest_version: true
@@ -444,7 +444,7 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
 
       expect(storage_stats[:provider_type]).to eq('local')
       # Integration test: verify actual active files, not manually tracked count
-      expect(FileObject.where(file_storage: storage, deleted_at: nil).count).to eq(1)
+      expect(FileManagement::Object.where(storage: storage, deleted_at: nil).count).to eq(1)
       expect(storage_stats[:quota_bytes]).to eq(100.megabytes)
       expect(storage_stats[:available_space_bytes]).to be > 0
 
@@ -460,8 +460,8 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       )
 
       # All files should be soft-deleted - verify actual state
-      expect(FileObject.where(account: account, deleted_at: nil).count).to eq(0)
-      expect(FileObject.where(account: account, deleted_at: nil).sum(:file_size)).to eq(0)
+      expect(FileManagement::Object.where(account: account, deleted_at: nil).count).to eq(0)
+      expect(FileManagement::Object.where(account: account, deleted_at: nil).sum(:file_size)).to eq(0)
     end
   end
 
@@ -474,9 +474,9 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       # ============================================================
       uploaded_files = 10.times.map do |i|
         content = "Test file content #{i + 1}"
-        file_obj = FileObject.create!(
+        file_obj = FileManagement::Object.create!(
           account: account,
-          file_storage: storage,
+          storage: storage,
           uploaded_by: user,
           filename: "batch_file_#{i + 1}.txt",
           storage_key: "batch/#{SecureRandom.uuid}/batch_file_#{i + 1}.txt",
@@ -507,12 +507,12 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       # ============================================================
       # Batch Process - Add Tags
       # ============================================================
-      batch_tag = FileTag.create!(account: account, name: 'batch-processed', color: '#00FF00')
+      batch_tag = FileManagement::Tag.create!(account: account, name: 'batch-processed', color: '#00FF00')
 
       uploaded_files.each do |file|
-        FileObjectTag.create!(
-          file_object: file,
-          file_tag: batch_tag,
+        FileManagement::ObjectTag.create!(
+          object: file,
+          tag: batch_tag,
           account: account
         )
       end

@@ -35,13 +35,13 @@ module Api
 
           # Check if comment is required
           if @token.step_execution.pipeline_step.approval_requires_comment? && params[:comment].blank?
-            return render_error("A comment is required for this approval", status: :unprocessable_entity)
+            return render_error("A comment is required for this approval", status: :unprocessable_content)
           end
 
           if @token.approve!(comment: params[:comment], by_user: current_user_from_token)
             render_success({ status: "approved", message: "Step has been approved and will continue execution" })
           else
-            render_error("Failed to process approval", :unprocessable_entity)
+            render_error("Failed to process approval", :unprocessable_content)
           end
         end
 
@@ -57,13 +57,13 @@ module Api
 
           # Check if comment is required
           if @token.step_execution.pipeline_step.approval_requires_comment? && params[:comment].blank?
-            return render_error("A comment is required for this rejection", status: :unprocessable_entity)
+            return render_error("A comment is required for this rejection", status: :unprocessable_content)
           end
 
           if @token.reject!(comment: params[:comment], by_user: current_user_from_token)
             render_success({ status: "rejected", message: "Step has been rejected and pipeline will fail" })
           else
-            render_error("Failed to process rejection", :unprocessable_entity)
+            render_error("Failed to process rejection", :unprocessable_content)
           end
         end
 

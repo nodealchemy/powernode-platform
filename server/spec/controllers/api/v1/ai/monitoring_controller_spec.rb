@@ -22,34 +22,34 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
     @request.headers['Content-Type'] = 'application/json'
     @request.headers['Accept'] = 'application/json'
 
-    # Mock UnifiedMonitoringService
-    allow_any_instance_of(UnifiedMonitoringService).to receive(:get_dashboard).and_return({
+    # Mock Monitoring::UnifiedService
+    allow_any_instance_of(Monitoring::UnifiedService).to receive(:get_dashboard).and_return({
       system: { status: 'healthy' },
       providers: { total: 2, healthy: 2 },
       agents: { total: 5, active: 4 },
       workflows: { total: 3, active: 2 }
     })
 
-    allow_any_instance_of(UnifiedMonitoringService).to receive(:collect_component_metrics).and_return({
+    allow_any_instance_of(Monitoring::UnifiedService).to receive(:collect_component_metrics).and_return({
       requests: 150,
       latency_ms: 45.2,
       error_rate: 0.02
     })
 
-    allow_any_instance_of(UnifiedMonitoringService).to receive(:get_system_overview).and_return({
+    allow_any_instance_of(Monitoring::UnifiedService).to receive(:get_system_overview).and_return({
       total_providers: 2,
       total_workflows: 3,
       total_agents: 5
     })
 
-    allow_any_instance_of(UnifiedMonitoringService).to receive(:calculate_health_score).and_return(95)
+    allow_any_instance_of(Monitoring::UnifiedService).to receive(:calculate_health_score).and_return(95)
 
-    allow_any_instance_of(UnifiedMonitoringService).to receive(:get_alerts).and_return({
+    allow_any_instance_of(Monitoring::UnifiedService).to receive(:get_alerts).and_return({
       alerts: [],
       total_alerts: 0
     })
 
-    allow_any_instance_of(UnifiedMonitoringService).to receive(:check_and_trigger_alerts).and_return([])
+    allow_any_instance_of(Monitoring::UnifiedService).to receive(:check_and_trigger_alerts).and_return([])
   end
 
   # =============================================================================
@@ -71,7 +71,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       end
 
       it 'supports custom time range' do
-        expect_any_instance_of(UnifiedMonitoringService).to receive(:get_dashboard).with(
+        expect_any_instance_of(Monitoring::UnifiedService).to receive(:get_dashboard).with(
           hash_including(time_range: 7200.seconds)
         )
 
@@ -81,7 +81,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       end
 
       it 'filters by specific components' do
-        expect_any_instance_of(UnifiedMonitoringService).to receive(:get_dashboard).with(
+        expect_any_instance_of(Monitoring::UnifiedService).to receive(:get_dashboard).with(
           hash_including(components: [ 'system', 'providers' ])
         )
 
@@ -91,7 +91,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       end
 
       it 'defaults to 1 hour time range' do
-        expect_any_instance_of(UnifiedMonitoringService).to receive(:get_dashboard).with(
+        expect_any_instance_of(Monitoring::UnifiedService).to receive(:get_dashboard).with(
           hash_including(time_range: 1.hour)
         )
 
@@ -134,7 +134,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       end
 
       it 'collects metrics for specified components' do
-        expect_any_instance_of(UnifiedMonitoringService).to receive(:collect_component_metrics).at_least(:once)
+        expect_any_instance_of(Monitoring::UnifiedService).to receive(:collect_component_metrics).at_least(:once)
 
         get :metrics, params: { components: 'system,providers' }
 
@@ -385,7 +385,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       end
 
       it 'filters by severity' do
-        expect_any_instance_of(UnifiedMonitoringService).to receive(:get_alerts).with(
+        expect_any_instance_of(Monitoring::UnifiedService).to receive(:get_alerts).with(
           hash_including(severity: 'critical')
         )
 
@@ -395,7 +395,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       end
 
       it 'filters by alert type' do
-        expect_any_instance_of(UnifiedMonitoringService).to receive(:get_alerts).with(
+        expect_any_instance_of(Monitoring::UnifiedService).to receive(:get_alerts).with(
           hash_including(type: 'performance')
         )
 
@@ -405,7 +405,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       end
 
       it 'defaults to active status' do
-        expect_any_instance_of(UnifiedMonitoringService).to receive(:get_alerts).with(
+        expect_any_instance_of(Monitoring::UnifiedService).to receive(:get_alerts).with(
           hash_including(status: 'active')
         )
 
@@ -425,7 +425,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
   describe 'POST #alerts_check' do
     before do
-      allow_any_instance_of(UnifiedMonitoringService).to receive(:check_and_trigger_alerts).and_return([
+      allow_any_instance_of(Monitoring::UnifiedService).to receive(:check_and_trigger_alerts).and_return([
         { type: 'performance', severity: 'warning', message: 'High latency detected' }
       ])
     end
@@ -434,7 +434,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       before { sign_in monitoring_read_user }
 
       it 'checks and triggers alerts' do
-        expect_any_instance_of(UnifiedMonitoringService).to receive(:check_and_trigger_alerts)
+        expect_any_instance_of(Monitoring::UnifiedService).to receive(:check_and_trigger_alerts)
 
         post :alerts_check
 

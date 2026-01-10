@@ -57,9 +57,9 @@ class Account < ApplicationRecord
   has_many :shared_prompt_templates, class_name: "Shared::PromptTemplate", dependent: :destroy
 
   # File Storage associations
-  has_many :file_storages, dependent: :destroy
-  has_many :file_objects, dependent: :destroy
-  has_many :file_tags, dependent: :destroy
+  has_many :file_storages, class_name: "FileManagement::Storage", dependent: :destroy
+  has_many :file_objects, class_name: "FileManagement::Object", dependent: :destroy
+  has_many :file_tags, class_name: "FileManagement::Tag", dependent: :destroy
 
   # Subscription-related associations
   has_many :invoices, through: :subscription

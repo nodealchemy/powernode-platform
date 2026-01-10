@@ -24,7 +24,7 @@ module Api
           rescue ActiveRecord::RecordNotFound => e
             render_error("Record not found: #{e.message}", status: :not_found)
           rescue ActiveRecord::RecordInvalid => e
-            render_error("Validation failed: #{e.message}", status: :unprocessable_entity)
+            render_error("Validation failed: #{e.message}", status: :unprocessable_content)
           end
 
           # GET /api/v1/internal/ci_cd/step_executions/:id

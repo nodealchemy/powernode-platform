@@ -67,7 +67,7 @@ module Api
         # DELETE /api/v1/git/runners/:id
         def destroy
           credential = @runner.git_provider_credential
-          return render_error("Credential not found", status: :unprocessable_entity) unless credential&.can_be_used?
+          return render_error("Credential not found", status: :unprocessable_content) unless credential&.can_be_used?
 
           client = ::Git::ApiClient.for(credential)
 
@@ -86,7 +86,7 @@ module Api
             @runner.destroy
             render_success(message: "Runner deleted successfully")
           else
-            render_error(result[:error] || "Failed to delete runner", status: :unprocessable_entity)
+            render_error(result[:error] || "Failed to delete runner", status: :unprocessable_content)
           end
         end
 
@@ -113,7 +113,7 @@ module Api
         # POST /api/v1/git/runners/:id/registration_token
         def registration_token
           credential = @runner.git_provider_credential
-          return render_error("Credential not found", status: :unprocessable_entity) unless credential&.can_be_used?
+          return render_error("Credential not found", status: :unprocessable_content) unless credential&.can_be_used?
 
           client = ::Git::ApiClient.for(credential)
           result = get_registration_token(client, @runner)
@@ -124,14 +124,14 @@ module Api
               expires_at: result[:expires_at]
             })
           else
-            render_error(result[:error] || "Failed to get registration token", status: :unprocessable_entity)
+            render_error(result[:error] || "Failed to get registration token", status: :unprocessable_content)
           end
         end
 
         # POST /api/v1/git/runners/:id/removal_token
         def removal_token
           credential = @runner.git_provider_credential
-          return render_error("Credential not found", status: :unprocessable_entity) unless credential&.can_be_used?
+          return render_error("Credential not found", status: :unprocessable_content) unless credential&.can_be_used?
 
           client = ::Git::ApiClient.for(credential)
           result = get_removal_token(client, @runner)
@@ -142,17 +142,17 @@ module Api
               expires_at: result[:expires_at]
             })
           else
-            render_error(result[:error] || "Failed to get removal token", status: :unprocessable_entity)
+            render_error(result[:error] || "Failed to get removal token", status: :unprocessable_content)
           end
         end
 
         # PUT /api/v1/git/runners/:id/labels
         def update_labels
           credential = @runner.git_provider_credential
-          return render_error("Credential not found", status: :unprocessable_entity) unless credential&.can_be_used?
+          return render_error("Credential not found", status: :unprocessable_content) unless credential&.can_be_used?
 
           labels = params[:labels]
-          return render_error("Labels parameter required", status: :unprocessable_entity) unless labels.is_a?(Array)
+          return render_error("Labels parameter required", status: :unprocessable_content) unless labels.is_a?(Array)
 
           client = ::Git::ApiClient.for(credential)
           result = update_runner_labels_on_provider(client, @runner, labels)
@@ -161,7 +161,7 @@ module Api
             @runner.update!(labels: result[:labels] || labels)
             render_success({ runner: serialize_runner_detail(@runner) })
           else
-            render_error(result[:error] || "Failed to update labels", status: :unprocessable_entity)
+            render_error(result[:error] || "Failed to update labels", status: :unprocessable_content)
           end
         end
 

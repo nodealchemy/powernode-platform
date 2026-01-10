@@ -24,7 +24,7 @@ class FileStorageService
   # @param filename [String] original filename
   # @param content_type [String] MIME type
   # @param options [Hash] additional options
-  # @return [FileObject] created file object
+  # @return [FileManagement::Object] created file object
   def upload_file(uploaded_file, filename:, content_type: nil, **options)
     # Validate file
     validate_file!(uploaded_file, filename)
@@ -37,9 +37,9 @@ class FileStorageService
     storage_key = generate_storage_key(filename, options[:category])
 
     # Create file object
-    file_object = FileObject.create!(
+    file_object = FileManagement::Object.create!(
       account: account,
-      file_storage: storage_config,
+      storage: storage_config,
       filename: filename,
       content_type: content_type || detect_content_type(uploaded_file, filename),
       file_size: file_size,
@@ -71,7 +71,7 @@ class FileStorageService
   end
 
   # Download file content
-  # @param file_object [FileObject] file to download
+  # @param file_object [FileManagement::Object] file to download
   # @return [String] file content
   def download_file(file_object)
     validate_file_access!(file_object)
@@ -79,7 +79,7 @@ class FileStorageService
   end
 
   # Stream file content (for large files)
-  # @param file_object [FileObject] file to stream
+  # @param file_object [FileManagement::Object] file to stream
   # @yield [chunk] yields chunks of file content
   def stream_file(file_object, &block)
     validate_file_access!(file_object)
@@ -87,7 +87,7 @@ class FileStorageService
   end
 
   # Delete file
-  # @param file_object [FileObject] file to delete
+  # @param file_object [FileManagement::Object] file to delete
   # @param permanent [Boolean] permanently delete or soft delete
   # @param deleted_by_user [User] user performing deletion (required for soft delete)
   # @return [Boolean] success status
@@ -116,7 +116,7 @@ class FileStorageService
   end
 
   # Restore soft-deleted file
-  # @param file_object [FileObject] file to restore
+  # @param file_object [FileManagement::Object] file to restore
   # @return [Boolean] success status
   def restore_file(file_object)
     validate_file_access!(file_object)
@@ -131,11 +131,11 @@ class FileStorageService
   end
 
   # Create new file version
-  # @param file_object [FileObject] original file
+  # @param file_object [FileManagement::Object] original file
   # @param uploaded_file [IO] new version content
   # @param created_by_user [User] user creating version
   # @param change_description [String] description of changes
-  # @return [FileObject] new version file object
+  # @return [FileManagement::Object] new version file object
   def create_version(file_object, uploaded_file, created_by_user:, change_description: nil)
     validate_file_access!(file_object)
 
@@ -147,10 +147,10 @@ class FileStorageService
   end
 
   # Rollback to previous version
-  # @param file_object [FileObject] current file
+  # @param file_object [FileManagement::Object] current file
   # @param version_number [Integer] version to rollback to
   # @param created_by_user [User] user performing rollback
-  # @return [FileObject] restored version
+  # @return [FileManagement::Object] restored version
   def rollback_version(file_object, version_number, created_by_user:)
     validate_file_access!(file_object)
 
@@ -170,14 +170,14 @@ class FileStorageService
   end
 
   # Create file share
-  # @param file_object [FileObject] file to share
+  # @param file_object [FileManagement::Object] file to share
   # @param options [Hash] share options
-  # @return [FileShare] created share
+  # @return [FileManagement::Share] created share
   def create_share(file_object, **options)
     validate_file_access!(file_object)
 
-    FileShare.create!(
-      file_object: file_object,
+    FileManagement::Share.create!(
+      object: file_object,
       account: account,
       created_by_id: options[:created_by_id],
       share_type: options[:share_type] || "public_link",
@@ -191,7 +191,7 @@ class FileStorageService
   end
 
   # Get share URL
-  # @param file_share [FileShare] file share
+  # @param file_share [FileManagement::Share] file share
   # @return [String] share URL
   def share_url(file_share)
     # This should be configured based on your application's base URL
@@ -203,9 +203,9 @@ class FileStorageService
   # @param share_token [String] share token
   # @param password [String] password if required
   # @param options [Hash] access options
-  # @return [FileObject] file object if access granted
+  # @return [FileManagement::Object] file object if access granted
   def access_shared_file(share_token, password: nil, **options)
-    file_share = FileShare.active.find_by(share_token: share_token)
+    file_share = FileManagement::Share.active.find_by(share_token: share_token)
     raise FileNotFoundError, "Share not found or expired" unless file_share
 
     # Verify password if required
@@ -225,24 +225,24 @@ class FileStorageService
       user_id: options[:user_id]
     )
 
-    file_share.file_object
+    file_share.object
   end
 
   # Add tags to file
-  # @param file_object [FileObject] file to tag
+  # @param file_object [FileManagement::Object] file to tag
   # @param tag_names [Array<String>] tag names
-  # @return [Array<FileTag>] applied tags
+  # @return [Array<FileManagement::Tag>] applied tags
   def add_tags(file_object, tag_names)
     validate_file_access!(file_object)
 
     tags = tag_names.map do |name|
-      FileTag.find_or_create_by!(account: account, name: name.strip.downcase)
+      FileManagement::Tag.find_or_create_by!(account: account, name: name.strip.downcase)
     end
 
     tags.each do |tag|
-      FileObjectTag.find_or_create_by!(
-        file_object: file_object,
-        file_tag: tag,
+      FileManagement::ObjectTag.find_or_create_by!(
+        object: file_object,
+        tag: tag,
         account: account
       )
     end
@@ -251,25 +251,25 @@ class FileStorageService
   end
 
   # Remove tags from file
-  # @param file_object [FileObject] file to untag
+  # @param file_object [FileManagement::Object] file to untag
   # @param tag_names [Array<String>] tag names to remove
   def remove_tags(file_object, tag_names)
     validate_file_access!(file_object)
 
-    tag_ids = FileTag.where(account: account, name: tag_names.map(&:downcase)).pluck(:id)
-    FileObjectTag.where(file_object: file_object, file_tag_id: tag_ids).destroy_all
+    tag_ids = FileManagement::Tag.where(account: account, name: tag_names.map(&:downcase)).pluck(:id)
+    FileManagement::ObjectTag.where(object: file_object, file_tag_id: tag_ids).destroy_all
   end
 
   # Queue processing job
-  # @param file_object [FileObject] file to process
+  # @param file_object [FileManagement::Object] file to process
   # @param job_type [String] processing job type
   # @param configuration [Hash] job configuration
-  # @return [FileProcessingJob] created job
+  # @return [FileManagement::ProcessingJob] created job
   def queue_processing_job(file_object, job_type, configuration = {})
     validate_file_access!(file_object)
 
-    job = FileProcessingJob.create!(
-      file_object: file_object,
+    job = FileManagement::ProcessingJob.create!(
+      object: file_object,
       account: account,
       job_type: job_type,
       configuration: configuration,
@@ -313,9 +313,9 @@ class FileStorageService
   end
 
   # Copy file to different storage
-  # @param file_object [FileObject] file to copy
+  # @param file_object [FileManagement::Object] file to copy
   # @param destination_storage [FileStorage] destination storage config
-  # @return [FileObject] new file object in destination
+  # @return [FileManagement::Object] new file object in destination
   def copy_to_storage(file_object, destination_storage)
     validate_file_access!(file_object)
 
@@ -337,9 +337,9 @@ class FileStorageService
   end
 
   # Move file to different storage
-  # @param file_object [FileObject] file to move
+  # @param file_object [FileManagement::Object] file to move
   # @param destination_storage [FileStorage] destination storage config
-  # @return [FileObject] file object in new storage
+  # @return [FileManagement::Object] file object in new storage
   def move_to_storage(file_object, destination_storage)
     validate_file_access!(file_object)
 
@@ -349,7 +349,7 @@ class FileStorageService
   end
 
   # Get file URL
-  # @param file_object [FileObject] file
+  # @param file_object [FileManagement::Object] file
   # @param options [Hash] URL options
   # @return [String] file URL
   def file_url(file_object, **options)
@@ -369,7 +369,7 @@ class FileStorageService
   end
 
   # Batch delete files
-  # @param file_objects [Array<FileObject>] files to delete
+  # @param file_objects [Array<FileManagement::Object>] files to delete
   # @param permanent [Boolean] permanent or soft delete
   # @param deleted_by_user [User] user performing deletion (required for soft delete)
   # @return [Hash] results with success and failed IDs

@@ -38,7 +38,7 @@ class McpTool < ApplicationRecord
   # Execute tool with parameters (with permission checking)
   def execute(user:, account:, parameters: {})
     # Validate permissions before execution
-    validator = McpPermissionValidator.new(tool: self, user: user, account: account)
+    validator = Mcp::PermissionValidator.new(tool: self, user: user, account: account)
     unless validator.authorized?
       result = validator.authorization_result
       raise PermissionDeniedError, "Permission denied: #{result[:errors].map { |e| e[:message] }.join('; ')}"
@@ -59,13 +59,13 @@ class McpTool < ApplicationRecord
 
   # Check if user can execute this tool
   def can_execute?(user:, account:)
-    validator = McpPermissionValidator.new(tool: self, user: user, account: account)
+    validator = Mcp::PermissionValidator.new(tool: self, user: user, account: account)
     validator.authorized?
   end
 
   # Get detailed authorization status for user
   def authorization_status(user:, account:)
-    validator = McpPermissionValidator.new(tool: self, user: user, account: account)
+    validator = Mcp::PermissionValidator.new(tool: self, user: user, account: account)
     validator.authorization_result
   end
 
@@ -169,7 +169,7 @@ class McpTool < ApplicationRecord
       end
 
       # Validate scope categories and permissions
-      validator = McpPermissionValidator::TOOL_PERMISSION_SCOPES
+      validator = Mcp::PermissionValidator::TOOL_PERMISSION_SCOPES
       allowed_scopes.each do |category, permissions|
         unless validator.key?(category.to_sym)
           errors.add(:allowed_scopes, "invalid scope category: #{category}")

@@ -9,10 +9,6 @@ module FileManagement
     belongs_to :account
     belongs_to :created_by, class_name: "User", foreign_key: "created_by_id"
 
-    # Backward compatibility aliases
-    alias_method :file_object, :object
-    alias_method :file_object=, :object=
-
     # Validations
     validates :share_token, presence: true, uniqueness: true
     validates :share_type, presence: true, inclusion: {
@@ -270,6 +266,3 @@ module FileManagement
     end
   end
 end
-
-# Backward compatibility alias
-FileShare = FileManagement::Share unless defined?(FileShare)

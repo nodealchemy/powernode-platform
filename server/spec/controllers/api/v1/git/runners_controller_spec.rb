@@ -198,7 +198,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
 
         delete :destroy, params: { id: runner.id }
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['error']).to include('Runner not found')
       end
@@ -283,7 +283,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
 
         post :registration_token, params: { id: runner.id }
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -362,7 +362,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
       it 'returns error when missing labels param' do
         put :update_labels, params: { id: runner.id }
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 

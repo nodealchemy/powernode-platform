@@ -63,7 +63,7 @@ class Api::V1::AccountsController < ApplicationController
     render_error(e.message, status: :forbidden)
   rescue Auth::AccountSwitchService::InactiveAccountError,
          Auth::AccountSwitchService::InactiveDelegationError => e
-    render_error(e.message, status: :unprocessable_entity)
+    render_error(e.message, status: :unprocessable_content)
   rescue ActiveRecord::RecordNotFound
     render_error("Account not found", status: :not_found)
   end

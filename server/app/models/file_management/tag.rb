@@ -82,6 +82,3 @@ module FileManagement
     end
   end
 end
-
-# Backward compatibility alias
-FileTag = FileManagement::Tag unless defined?(FileTag)

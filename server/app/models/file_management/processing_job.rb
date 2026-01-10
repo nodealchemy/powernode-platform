@@ -8,10 +8,6 @@ module FileManagement
     belongs_to :object, class_name: "FileManagement::Object", foreign_key: :file_object_id
     belongs_to :account
 
-    # Backward compatibility aliases
-    alias_method :file_object, :object
-    alias_method :file_object=, :object=
-
     # Validations
     validates :job_type, presence: true, inclusion: {
       in: %w[thumbnail resize convert scan ocr metadata_extract compress watermark transform],
@@ -240,6 +236,3 @@ module FileManagement
     end
   end
 end
-
-# Backward compatibility alias
-FileProcessingJob = FileManagement::ProcessingJob unless defined?(FileProcessingJob)

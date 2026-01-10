@@ -73,7 +73,7 @@ module Api
         private
 
         def set_processing_job
-          @job = FileProcessingJob.find_by(id: params[:id])
+          @job = FileManagement::ProcessingJob.find_by(id: params[:id])
 
           unless @job
             render_error("Processing job not found", status: :not_found)
