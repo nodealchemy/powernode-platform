@@ -160,7 +160,7 @@ export const WorkflowToolbar: React.FC<WorkflowToolbarProps> = ({
 
             {hasChanges && (
               <div className="flex items-center gap-1 text-theme-warning text-xs">
-                <div className="w-2 h-2 bg-theme-warning rounded-full animate-pulse" />
+                <div className="w-2 h-2 bg-theme-warning-solid rounded-full animate-pulse" />
                 Unsaved
               </div>
             )}

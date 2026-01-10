@@ -139,7 +139,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
         )}
 
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-theme-success' : 'bg-theme-danger'}`} />
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-theme-success-solid' : 'bg-theme-danger-solid'}`} />
           <span className="text-xs text-theme-secondary">
             {isConnected ? 'Live' : 'Disconnected'}
           </span>

@@ -250,7 +250,7 @@ export const PlanSelectionPage: React.FC = () => {
           {plansToCompare.length > 0 && (
             <div className="text-center bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm px-6 py-4 rounded-xl border border-slate-200/50 dark:border-slate-600/50">
               <div className="flex items-center justify-center space-x-3 mb-2">
-                <div className="w-2 h-2 bg-theme-info rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-theme-info-solid rounded-full animate-pulse"></div>
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   {plansToCompare.length} plan{plansToCompare.length > 1 ? 's' : ''} selected for comparison
                 </p>

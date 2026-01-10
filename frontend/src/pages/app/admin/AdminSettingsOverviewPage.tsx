@@ -663,7 +663,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
             <span>Data refreshed: {new Date().toLocaleTimeString()}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-theme-success rounded-full animate-pulse"></div>
+            <div className="w-2 h-2 bg-theme-success-solid rounded-full animate-pulse"></div>
             <span>Live Data</span>
           </div>
         </div>

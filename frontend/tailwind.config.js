@@ -80,6 +80,8 @@ module.exports = {
         'handle-loop-exit': 'var(--handle-loop-exit)',
       },
       backgroundColor: {
+        'theme-primary': 'var(--color-interactive-primary)',
+        'theme-primary-hover': 'var(--color-interactive-primary-hover)',
         'theme-interactive-primary': 'var(--color-interactive-primary)',
         'theme-interactive-primary-hover': 'var(--color-interactive-primary-hover)',
         'theme-interactive-primary-active': 'var(--color-interactive-primary-active)',

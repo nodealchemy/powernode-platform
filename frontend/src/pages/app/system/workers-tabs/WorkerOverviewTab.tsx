@@ -52,21 +52,21 @@ export const WorkerOverviewTab: React.FC<WorkerOverviewTabProps> = ({
           <div className="space-y-3">
             <FlexBetween>
               <FlexItemsCenter>
-                <div className="w-3 h-3 bg-theme-success rounded-full mr-2"></div>
+                <div className="w-3 h-3 bg-theme-success-solid rounded-full mr-2"></div>
                 <span className="text-sm text-theme-secondary">Active</span>
               </FlexItemsCenter>
               <span className="font-medium text-theme-success">{stats.active}</span>
             </FlexBetween>
             <FlexBetween>
               <FlexItemsCenter>
-                <div className="w-3 h-3 bg-theme-warning rounded-full mr-2"></div>
+                <div className="w-3 h-3 bg-theme-warning-solid rounded-full mr-2"></div>
                 <span className="text-sm text-theme-secondary">Suspended</span>
               </FlexItemsCenter>
               <span className="font-medium text-theme-warning">{stats.suspended}</span>
             </FlexBetween>
             <FlexBetween>
               <FlexItemsCenter>
-                <div className="w-3 h-3 bg-theme-error rounded-full mr-2"></div>
+                <div className="w-3 h-3 bg-theme-danger-solid rounded-full mr-2"></div>
                 <span className="text-sm text-theme-secondary">Revoked</span>
               </FlexItemsCenter>
               <span className="font-medium text-theme-error">{stats.revoked}</span>

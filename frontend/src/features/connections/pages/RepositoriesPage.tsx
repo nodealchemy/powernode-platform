@@ -602,7 +602,7 @@ export function RepositoriesPage() {
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
-    { label: 'Automation', href: '/app/automation' },
+    { label: 'System', href: '/app/system' },
     { label: 'Repositories' }
   ];
 

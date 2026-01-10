@@ -253,7 +253,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-2 rounded-full">
-                  <div className="w-2 h-2 bg-theme-success rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-theme-success-solid rounded-full animate-pulse"></div>
                   <span className="text-xs text-slate-300 font-medium">All systems operational</span>
                 </div>
                 <div className="flex items-center space-x-2 text-xs text-slate-400">

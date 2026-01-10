@@ -218,7 +218,7 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-semibold text-theme-primary">Activity Feed</h3>
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected() ? 'bg-theme-success' : 'bg-theme-danger'}`} />
+            <div className={`w-2 h-2 rounded-full ${isConnected() ? 'bg-theme-success-solid' : 'bg-theme-danger-solid'}`} />
             <span className="text-xs text-theme-secondary">
               {isConnected() ? 'Live' : 'Disconnected'}
             </span>

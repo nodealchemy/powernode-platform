@@ -75,15 +75,15 @@ export const AppsPage: React.FC = () => {
                 </p>
                 <div className="flex flex-wrap gap-4 text-sm text-theme-secondary">
                   <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 bg-theme-success rounded-full"></span>
+                    <span className="w-2 h-2 bg-theme-success-solid rounded-full"></span>
                     Published apps appear in the marketplace
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 bg-theme-warning rounded-full"></span>
+                    <span className="w-2 h-2 bg-theme-warning-solid rounded-full"></span>
                     Draft apps can be edited and configured
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 bg-theme-info rounded-full"></span>
+                    <span className="w-2 h-2 bg-theme-info-solid rounded-full"></span>
                     Apps under review are being evaluated
                   </span>
                 </div>

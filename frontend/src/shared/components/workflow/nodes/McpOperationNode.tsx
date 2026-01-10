@@ -253,7 +253,7 @@ export const McpOperationNode: React.FC<NodeProps<McpOperationNodeType>> = ({
 
       {/* End Node Indicator */}
       {data.isEndNode && (
-        <div className="absolute -top-1 -right-1 w-3 h-3 bg-theme-danger rounded-full border-2 border-theme-surface" />
+        <div className="absolute -top-1 -right-1 w-3 h-3 bg-theme-danger-solid rounded-full border-2 border-theme-surface" />
       )}
 
       {/* Dynamic Handles */}

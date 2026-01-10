@@ -742,17 +742,17 @@ export const ReportsPage: React.FC = () => {
               <h3 className="text-lg font-semibold text-theme-primary mb-4">Recent Activity</h3>
               <div className="space-y-3">
                 <div className="flex items-center space-x-3 py-2">
-                  <div className="w-2 h-2 bg-theme-success rounded-full"></div>
+                  <div className="w-2 h-2 bg-theme-success-solid rounded-full"></div>
                   <span className="text-theme-primary">Monthly Revenue Report completed</span>
                   <span className="text-sm text-theme-secondary">2 hours ago</span>
                 </div>
                 <div className="flex items-center space-x-3 py-2">
-                  <div className="w-2 h-2 bg-theme-info rounded-full"></div>
+                  <div className="w-2 h-2 bg-theme-info-solid rounded-full"></div>
                   <span className="text-theme-primary">Customer Analytics scheduled</span>
                   <span className="text-sm text-theme-secondary">1 day ago</span>
                 </div>
                 <div className="flex items-center space-x-3 py-2">
-                  <div className="w-2 h-2 bg-theme-warning rounded-full"></div>
+                  <div className="w-2 h-2 bg-theme-warning-solid rounded-full"></div>
                   <span className="text-theme-primary">Subscription Report failed</span>
                   <span className="text-sm text-theme-secondary">2 days ago</span>
                 </div>

@@ -240,7 +240,7 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className={`w-2 h-2 rounded-full mr-2 ${activity.successful ? 'bg-theme-success' : 'bg-theme-error'}`}></div>
+                        <div className={`w-2 h-2 rounded-full mr-2 ${activity.successful ? 'bg-theme-success-solid' : 'bg-theme-danger-solid'}`}></div>
                         <span className="text-sm text-theme-primary">
                           {activity.successful ? 'Success' : 'Failed'}
                         </span>

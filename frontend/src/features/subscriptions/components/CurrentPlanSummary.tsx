@@ -140,8 +140,8 @@ export const CurrentPlanSummary: React.FC<CurrentPlanSummaryProps> = ({
               <p className="text-sm font-medium text-theme-primary mb-2">Key Features:</p>
               <div className="space-y-1">
                 {Object.entries(subscription.plan.features).slice(0, 3).map(([key, value]) => (
-                  <div key={key} className="flex items-center text-sm text-theme-secondary">
-                    <div className="w-2 h-2 bg-theme-success rounded-full mr-2"></div>
+                  <div key={key} className="flex items-center text-sm text-theme-primary">
+                    <div className="w-2 h-2 bg-theme-success-solid rounded-full mr-2"></div>
                     {typeof value === 'boolean' && value ? key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : `${key}: ${value}`}
                   </div>
                 ))}

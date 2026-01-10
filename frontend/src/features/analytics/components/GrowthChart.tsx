@@ -277,19 +277,19 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
         {/* Legend */}
         <div className="flex flex-wrap items-center justify-center gap-3 mt-4 text-xs">
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded bg-theme-error shadow-sm"></div>
+            <div className="w-3 h-3 rounded bg-theme-danger-solid shadow-sm"></div>
             <span className="text-theme-secondary">High Decline (&lt;-5%)</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded bg-theme-warning shadow-sm"></div>
+            <div className="w-3 h-3 rounded bg-theme-warning-solid shadow-sm"></div>
             <span className="text-theme-secondary">Slight Decline (-5% to 0%)</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded bg-theme-info shadow-sm"></div>
+            <div className="w-3 h-3 rounded bg-theme-info-solid shadow-sm"></div>
             <span className="text-theme-secondary">Positive Growth (0% to 5%)</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded bg-theme-success shadow-sm"></div>
+            <div className="w-3 h-3 rounded bg-theme-success-solid shadow-sm"></div>
             <span className="text-theme-secondary">High Growth (&gt;5%)</span>
           </div>
         </div>

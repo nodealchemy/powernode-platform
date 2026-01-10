@@ -8,12 +8,14 @@ interface GitProviderModalProps {
   onClose: () => void;
   onSuccess: () => void;
   provider?: GitProviderDetail | null; // If provided, we're editing
+  initialProviderType?: 'github' | 'gitlab' | 'gitea' | 'bitbucket'; // Pre-select provider type for new
 }
 
 const PROVIDER_TYPES = [
   { value: 'github', label: 'GitHub', description: 'GitHub.com or GitHub Enterprise' },
   { value: 'gitlab', label: 'GitLab', description: 'GitLab.com or self-hosted GitLab' },
   { value: 'gitea', label: 'Gitea', description: 'Self-hosted Gitea instance' },
+  { value: 'bitbucket', label: 'Bitbucket', description: 'Bitbucket Cloud or Server' },
 ] as const;
 
 export const GitProviderModal: React.FC<GitProviderModalProps> = ({
@@ -21,6 +23,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
   onClose,
   onSuccess,
   provider,
+  initialProviderType,
 }) => {
   const isEditing = !!provider;
   const [loading, setLoading] = useState(false);
@@ -28,7 +31,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
 
   const [formData, setFormData] = useState<{
     name: string;
-    provider_type: 'github' | 'gitlab' | 'gitea';
+    provider_type: 'github' | 'gitlab' | 'gitea' | 'bitbucket';
     description: string;
     api_base_url: string;
     web_base_url: string;
@@ -50,7 +53,23 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
     supports_ci_cd: true,
   });
 
-  // Populate form when editing
+  // Get default URLs for a provider type
+  const getDefaultUrls = (type: 'github' | 'gitlab' | 'gitea' | 'bitbucket') => {
+    switch (type) {
+      case 'github':
+        return { api: 'https://api.github.com', web: 'https://github.com' };
+      case 'gitlab':
+        return { api: 'https://gitlab.com/api/v4', web: 'https://gitlab.com' };
+      case 'gitea':
+        return { api: 'https://gitea.com/api/v1', web: 'https://gitea.com' };
+      case 'bitbucket':
+        return { api: 'https://api.bitbucket.org/2.0', web: 'https://bitbucket.org' };
+      default:
+        return { api: '', web: '' };
+    }
+  };
+
+  // Populate form when editing or set initial provider type
   useEffect(() => {
     if (provider) {
       setFormData({
@@ -66,13 +85,15 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
         supports_ci_cd: provider.supports_ci_cd,
       });
     } else {
-      // Reset form for new provider - default to GitHub (first option)
+      // Reset form for new provider - use initialProviderType or default to GitHub
+      const providerType = initialProviderType || 'github';
+      const urls = getDefaultUrls(providerType);
       setFormData({
         name: '',
-        provider_type: 'github',
+        provider_type: providerType,
         description: '',
-        api_base_url: 'https://api.github.com',
-        web_base_url: 'https://github.com',
+        api_base_url: urls.api,
+        web_base_url: urls.web,
         is_active: true,
         supports_oauth: true,
         supports_pat: true,
@@ -81,7 +102,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
       });
     }
     setError(null);
-  }, [provider, isOpen]);
+  }, [provider, isOpen, initialProviderType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,23 +155,14 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
     }
   };
 
-  const handleTypeChange = (type: 'github' | 'gitlab' | 'gitea') => {
+  const handleTypeChange = (type: 'github' | 'gitlab' | 'gitea' | 'bitbucket') => {
+    const urls = getDefaultUrls(type);
     setFormData((prev) => ({
       ...prev,
       provider_type: type,
-      // Pre-fill default URLs for known providers
-      api_base_url:
-        type === 'github'
-          ? 'https://api.github.com'
-          : type === 'gitlab'
-            ? 'https://gitlab.com/api/v4'
-            : prev.api_base_url,
-      web_base_url:
-        type === 'github'
-          ? 'https://github.com'
-          : type === 'gitlab'
-            ? 'https://gitlab.com'
-            : prev.web_base_url,
+      // Pre-fill default URLs for known providers (clear for self-hosted like Gitea)
+      api_base_url: urls.api,
+      web_base_url: urls.web,
     }));
   };
 
@@ -194,19 +206,19 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
               <label className="block text-sm font-medium text-theme-primary mb-2">
                 Provider Type
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {PROVIDER_TYPES.map((type) => (
                   <button
                     key={type.value}
                     type="button"
                     onClick={() => handleTypeChange(type.value)}
-                    className={`p-3 rounded-lg border text-center transition-colors ${
+                    className={`px-2 py-2 rounded-lg border text-center transition-colors ${
                       formData.provider_type === type.value
                         ? 'border-theme-primary bg-theme-primary/10 text-theme-primary'
                         : 'border-theme hover:border-theme-primary/50 text-theme-secondary'
                     }`}
                   >
-                    <div className="font-medium text-sm">{type.label}</div>
+                    <div className="font-medium text-xs">{type.label}</div>
                   </button>
                 ))}
               </div>
@@ -267,11 +279,13 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
             />
             <p className="text-xs text-theme-secondary mt-1">
               {formData.provider_type === 'github' &&
-                'Use https://api.github.com for GitHub.com'}
+                'Use https://api.github.com for GitHub.com, or your GitHub Enterprise URL'}
               {formData.provider_type === 'gitlab' &&
-                'Use https://gitlab.com/api/v4 for GitLab.com'}
+                'Use https://gitlab.com/api/v4 for GitLab.com, or your self-hosted GitLab URL'}
               {formData.provider_type === 'gitea' &&
-                'The API endpoint of your Gitea instance (required)'}
+                'Use https://gitea.com/api/v1 for Gitea.com, or your self-hosted Gitea URL'}
+              {formData.provider_type === 'bitbucket' &&
+                'Use https://api.bitbucket.org/2.0 for Bitbucket Cloud, or your Bitbucket Server URL'}
             </p>
           </div>
 
@@ -290,7 +304,14 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
               placeholder="https://git.example.com"
             />
             <p className="text-xs text-theme-secondary mt-1">
-              Web interface URL for linking to repositories
+              {formData.provider_type === 'github' &&
+                'Use https://github.com for GitHub.com, or your GitHub Enterprise URL'}
+              {formData.provider_type === 'gitlab' &&
+                'Use https://gitlab.com for GitLab.com, or your self-hosted GitLab URL'}
+              {formData.provider_type === 'gitea' &&
+                'Use https://gitea.com for Gitea.com, or your self-hosted Gitea URL'}
+              {formData.provider_type === 'bitbucket' &&
+                'Use https://bitbucket.org for Bitbucket Cloud, or your Bitbucket Server URL'}
             </p>
           </div>
 

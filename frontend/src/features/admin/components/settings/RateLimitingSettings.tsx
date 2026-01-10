@@ -315,7 +315,7 @@ export const RateLimitingSettings: React.FC = () => {
         {/* Global Enable/Disable */}
         <div className="flex items-center justify-between p-4 bg-theme-surface-subtle rounded-lg mb-6">
           <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${config.enabled ? 'bg-theme-success' : 'bg-theme-danger'}`}></div>
+            <div className={`w-3 h-3 rounded-full ${config.enabled ? 'bg-theme-success-solid' : 'bg-theme-danger-solid'}`}></div>
             <div>
               <h3 className="font-medium text-theme-primary">Rate Limiting Status</h3>
               <p className="text-sm text-theme-secondary">

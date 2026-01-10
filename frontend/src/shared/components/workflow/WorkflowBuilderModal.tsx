@@ -232,7 +232,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
       <div className="flex items-center gap-3">
         {hasChanges && (
           <div className="flex items-center gap-2 text-theme-warning text-sm">
-            <div className="w-2 h-2 bg-theme-warning rounded-full animate-pulse" />
+            <div className="w-2 h-2 bg-theme-warning-solid rounded-full animate-pulse" />
             <span>Unsaved changes - Use toolbar Save (Ctrl+S)</span>
           </div>
         )}
@@ -244,7 +244,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
         )}
         {!hasChanges && !saving && saveCount > 0 && (
           <div className="flex items-center gap-2 text-theme-success text-sm">
-            <div className="w-2 h-2 bg-theme-success rounded-full" />
+            <div className="w-2 h-2 bg-theme-success-solid rounded-full" />
             <span>All changes saved</span>
           </div>
         )}

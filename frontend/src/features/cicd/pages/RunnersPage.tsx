@@ -120,7 +120,7 @@ const StatsCards: React.FC<{ stats: RunnerStats }> = ({ stats }) => (
     </div>
     <div className="bg-theme-surface rounded-lg p-4 border border-theme">
       <div className="flex items-center gap-2 text-theme-success mb-1">
-        <span className="w-2 h-2 rounded-full bg-theme-success animate-pulse" />
+        <span className="w-2 h-2 rounded-full bg-theme-success-solid animate-pulse" />
         <span className="text-sm">Online</span>
       </div>
       <p className="text-2xl font-bold text-theme-success">{stats.online}</p>
@@ -134,7 +134,7 @@ const StatsCards: React.FC<{ stats: RunnerStats }> = ({ stats }) => (
     </div>
     <div className="bg-theme-surface rounded-lg p-4 border border-theme">
       <div className="flex items-center gap-2 text-theme-error mb-1">
-        <span className="w-2 h-2 rounded-full bg-theme-error" />
+        <span className="w-2 h-2 rounded-full bg-theme-danger-solid" />
         <span className="text-sm">Offline</span>
       </div>
       <p className="text-2xl font-bold text-theme-error">{stats.offline}</p>

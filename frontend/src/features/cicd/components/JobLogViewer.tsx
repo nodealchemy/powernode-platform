@@ -212,13 +212,13 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
           <span className="text-sm text-theme-secondary">{jobName || 'Job Logs'}</span>
           {isStreaming && (
             <span className="flex items-center gap-1 text-xs text-theme-success">
-              <span className="w-2 h-2 bg-theme-success rounded-full animate-pulse" />
+              <span className="w-2 h-2 bg-theme-success-solid rounded-full animate-pulse" />
               Live
             </span>
           )}
           {isJobRunning && !isStreaming && usePolling && (
             <span className="flex items-center gap-1 text-xs text-theme-warning">
-              <span className="w-2 h-2 bg-theme-warning rounded-full animate-pulse" />
+              <span className="w-2 h-2 bg-theme-warning-solid rounded-full animate-pulse" />
               Polling
             </span>
           )}
