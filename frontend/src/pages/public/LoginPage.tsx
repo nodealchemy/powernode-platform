@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 import { useDispatch, useSelector } from 'react-redux';
 
-import { RootState, AppDispatch, store } from '@/shared/services';
+import { RootState, AppDispatch } from '@/shared/services';
 
 import { login, clearError, getCurrentUser } from '@/shared/services/slices/authSlice';
 
@@ -84,22 +84,6 @@ export const LoginPage: React.FC = () => {
       // Use Redux login action exclusively - no double dispatch
       const result = await dispatch(login(formData)).unwrap();
 
-      // DEBUG: Check what state exists after login completes
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Login] Login completed, result:', result);
-        const authState = store.getState().auth;
-        console.log('[Login] Redux state after login:', {
-          isAuthenticated: authState.isAuthenticated,
-          hasUser: !!authState.user,
-          hasAccessToken: !!authState.access_token,
-          hasRefreshToken: !!authState.refresh_token
-        });
-        console.log('[Login] localStorage after login:', {
-          hasAccessToken: !!localStorage.getItem('access_token'),
-          hasRefreshToken: !!localStorage.getItem('refresh_token')
-        });
-      }
-
       if (result.requires_2fa) {
         // Handle 2FA requirement
         setRequires2FA(true);
@@ -117,9 +101,6 @@ export const LoginPage: React.FC = () => {
 
         // Small delay to ensure Redux state has propagated before navigation
         setTimeout(() => {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[Login] About to navigate to:', from);
-          }
           navigate(from, { replace: true });
         }, 100);
       }

@@ -34,12 +34,19 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   // Get authentication state with null checking
   const authState = useSelector((state: RootState) => state?.auth);
   const isAuthenticated = authState?.isAuthenticated || false;
-  const hasValidTokens = authState?.access_token && authState?.user;
+  const isAuthLoading = authState?.isLoading || false;
+  // Only consider tokens valid when we have BOTH access_token AND user object loaded
+  const hasValidTokens = Boolean(authState?.access_token && authState?.user);
 
-  // Load theme from user preferences on mount (only if authenticated)
+  // Load theme from user preferences on mount (only if authenticated AND not loading)
   useEffect(() => {
     const loadTheme = async () => {
       try {
+        // Don't make API calls while auth is still initializing
+        if (isAuthLoading) {
+          return;
+        }
+
         if (isAuthenticated && hasValidTokens) {
           const response = await settingsApi.getUserSettings();
           if (response.success) {
@@ -77,7 +84,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     };
 
     loadTheme();
-  }, [isAuthenticated, hasValidTokens]);
+  }, [isAuthenticated, hasValidTokens, isAuthLoading]);
 
   // Force light theme when user logs out or tokens become invalid
   useEffect(() => {

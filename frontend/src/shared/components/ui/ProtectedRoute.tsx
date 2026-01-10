@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useSelector, shallowEqual } from 'react-redux';
 import { RootState } from '@/shared/services';
@@ -25,6 +25,24 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = React.memo(({
   const user = useSelector((state: RootState) => state.auth.user, shallowEqual);
   const isLoading = useSelector((state: RootState) => state.auth.isLoading);
 
+  // Track if we've waited long enough for user data to load
+  const [waitedForUser, setWaitedForUser] = useState(false);
+
+  // If authenticated but no user, wait briefly then force redirect
+  // This prevents infinite loading when there's a timing issue
+  useEffect(() => {
+    if (isAuthenticated && !user && !isLoading) {
+      const timer = setTimeout(() => {
+        setWaitedForUser(true);
+      }, 500); // Wait 500ms for user data to populate
+      return () => clearTimeout(timer);
+    }
+    // Reset when user becomes available
+    if (user) {
+      setWaitedForUser(false);
+    }
+  }, [isAuthenticated, user, isLoading]);
+
   // Memoize the redirect state to prevent object recreation on every render
   const loginRedirectState = useMemo(() => {
     // Don't include state if already on login page to prevent loops
@@ -33,8 +51,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = React.memo(({
 
   // Show loading spinner while authentication state is being determined
   // CRITICAL: Wait for loading to complete before making redirect decisions
-  // This prevents infinite loops when isAuthenticated=true but user is still being fetched
-  if (isLoading || (isAuthenticated && !user)) {
+  // But don't wait forever - if we've waited and still no user, redirect to login
+  if (isLoading || (isAuthenticated && !user && !waitedForUser)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner size="lg" />
