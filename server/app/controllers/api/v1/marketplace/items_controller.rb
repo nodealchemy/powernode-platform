@@ -267,7 +267,7 @@ module Api
         end
 
         def filtered_pipeline_templates
-          templates = CiCd::PipelineTemplate.marketplace_published
+          templates = ::CiCd::PipelineTemplate.marketplace_published
           templates = templates.by_category(params[:category]) if params[:category].present?
           templates = templates.search_by_text(params[:search]) if params[:search].present?
           templates = templates.featured if params[:verified] == "true"
@@ -275,7 +275,7 @@ module Api
         end
 
         def filtered_integration_templates
-          templates = Integration::Template.marketplace_published
+          templates = ::Integration::Template.marketplace_published
           templates = templates.by_type(params[:integration_type]) if params[:integration_type].present?
           templates = templates.by_category(params[:category]) if params[:category].present?
           templates = templates.featured if params[:verified] == "true"
@@ -283,7 +283,7 @@ module Api
         end
 
         def filtered_prompt_templates
-          templates = Shared::PromptTemplate.marketplace_published
+          templates = ::Shared::PromptTemplate.marketplace_published
           templates = templates.by_category(params[:category]) if params[:category].present?
           templates = templates.search(params[:search]) if params[:search].present?
           templates
@@ -575,15 +575,15 @@ module Api
         end
 
         def find_pipeline_template(template_id)
-          CiCd::PipelineTemplate.marketplace_published.find_by(id: template_id)
+          ::CiCd::PipelineTemplate.marketplace_published.find_by(id: template_id)
         end
 
         def find_integration_template(template_id)
-          Integration::Template.marketplace_published.find_by(id: template_id)
+          ::Integration::Template.marketplace_published.find_by(id: template_id)
         end
 
         def find_prompt_template(template_id)
-          Shared::PromptTemplate.marketplace_published.find_by(id: template_id)
+          ::Shared::PromptTemplate.marketplace_published.find_by(id: template_id)
         end
 
         def find_item_by_type(item_type, item_id)
@@ -592,11 +592,11 @@ module Api
           when "workflow_template"
             ::Ai::WorkflowTemplate.find_by(id: item_id)
           when "pipeline_template"
-            CiCd::PipelineTemplate.find_by(id: item_id)
+            ::CiCd::PipelineTemplate.find_by(id: item_id)
           when "integration_template"
-            Integration::Template.find_by(id: item_id)
+            ::Integration::Template.find_by(id: item_id)
           when "prompt_template"
-            Shared::PromptTemplate.find_by(id: item_id)
+            ::Shared::PromptTemplate.find_by(id: item_id)
           # Legacy types
           when "app"
             App.find_by(id: item_id)
