@@ -17,13 +17,13 @@ import {
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { gitProvidersApi } from '@/features/git-providers/services/gitProvidersApi';
-import { webhooksApi } from '@/features/webhooks/services/webhooksApi';
-import { integrationsApi } from '@/features/integrations/services/integrationsApi';
-import { apiKeysApi } from '@/features/api-keys/services/apiKeysApi';
-import type { RunnerStats } from '@/features/git-providers/types';
-import type { WebhookStats } from '@/features/webhooks/services/webhooksApi';
-import type { ApiKeyStats } from '@/features/api-keys/services/apiKeysApi';
+import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
+import { webhooksApi } from '@/features/devops/webhooks/services/webhooksApi';
+import { integrationsApi } from '@/features/devops/integrations/services/integrationsApi';
+import { apiKeysApi } from '@/features/devops/api-keys/services/apiKeysApi';
+import type { RunnerStats } from '@/features/devops/git/types';
+import type { WebhookStats } from '@/features/devops/webhooks/services/webhooksApi';
+import type { ApiKeyStats } from '@/features/devops/api-keys/services/apiKeysApi';
 
 interface DevOpsStats {
   providers: { total: number; active: number };

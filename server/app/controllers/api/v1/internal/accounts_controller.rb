@@ -75,13 +75,13 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
 
   # DELETE /api/v1/internal/accounts/:account_id/data_export_requests
   def delete_data_export_requests
-    count = DataExportRequest.where(account_id: @account.id).delete_all if defined?(DataExportRequest)
+    count = DataManagement::ExportRequest.where(account_id: @account.id).delete_all if defined?(DataManagement::ExportRequest)
     render_success(message: "Deleted #{count || 0} data export request records")
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/data_deletion_requests
   def delete_data_deletion_requests
-    count = DataDeletionRequest.where(account_id: @account.id).delete_all if defined?(DataDeletionRequest)
+    count = DataManagement::DeletionRequest.where(account_id: @account.id).delete_all if defined?(DataManagement::DeletionRequest)
     render_success(message: "Deleted #{count || 0} data deletion request records")
   end
 

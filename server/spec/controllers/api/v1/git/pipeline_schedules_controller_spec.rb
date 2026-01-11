@@ -177,7 +177,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
       it 'creates a new schedule' do
         expect {
           post :create, params: valid_params
-        }.to change(Git::PipelineSchedule, :count).by(1)
+        }.to change(Devops::GitPipelineSchedule, :count).by(1)
 
         expect(response).to have_http_status(:created)
         json = JSON.parse(response.body)
@@ -187,14 +187,14 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
       it 'sets created_by to current user' do
         post :create, params: valid_params
 
-        schedule = Git::PipelineSchedule.last
+        schedule = Devops::GitPipelineSchedule.last
         expect(schedule.created_by).to eq(schedule_manage_user)
       end
 
       it 'sets account' do
         post :create, params: valid_params
 
-        schedule = Git::PipelineSchedule.last
+        schedule = Devops::GitPipelineSchedule.last
         expect(schedule.account).to eq(account)
       end
 
@@ -280,7 +280,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
       it 'deletes the schedule' do
         expect {
           delete :destroy, params: { id: schedule.id }
-        }.to change(Git::PipelineSchedule, :count).by(-1)
+        }.to change(Devops::GitPipelineSchedule, :count).by(-1)
 
         expect(response).to have_http_status(:success)
       end
@@ -306,7 +306,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
     let(:mock_client) { double('GitApiClient') }
 
     before do
-      allow(::Git::ApiClient).to receive(:for).and_return(mock_client)
+      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
     end
 
     context 'with valid permissions' do

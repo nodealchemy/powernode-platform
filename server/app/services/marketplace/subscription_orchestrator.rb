@@ -8,9 +8,8 @@ module Marketplace
 
     ITEM_TYPES = {
       "app" => "Marketplace::Definition",
-      "plugin" => "PluginSystem::Definition",
       "template" => "Ai::WorkflowTemplate",
-      "integration" => "PluginSystem::Definition"
+      "integration" => "Devops::IntegrationTemplate"
     }.freeze
 
     attr_reader :account, :user, :errors

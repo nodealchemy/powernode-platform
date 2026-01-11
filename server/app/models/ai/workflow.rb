@@ -25,7 +25,6 @@ module Ai
     has_many :workflow_triggers, class_name: "Ai::WorkflowTrigger", foreign_key: "ai_workflow_id", dependent: :destroy
     has_many :workflow_runs, class_name: "Ai::WorkflowRun", foreign_key: "ai_workflow_id", dependent: :destroy
     has_many :workflow_schedules, class_name: "Ai::WorkflowSchedule", foreign_key: "ai_workflow_id", dependent: :destroy
-    has_many :workflow_template_installations, class_name: "Ai::WorkflowTemplateInstallation", foreign_key: "ai_workflow_id", dependent: :destroy
     has_many :workflow_validations, class_name: "WorkflowValidation", foreign_key: :workflow_id, dependent: :destroy
 
     # Versioning associations
@@ -39,7 +38,6 @@ module Ai
     has_many :triggers, -> { }, class_name: "Ai::WorkflowTrigger", foreign_key: "ai_workflow_id", dependent: :destroy
     has_many :runs, -> { }, class_name: "Ai::WorkflowRun", foreign_key: "ai_workflow_id", dependent: :destroy
     has_many :schedules, -> { }, class_name: "Ai::WorkflowSchedule", foreign_key: "ai_workflow_id", dependent: :destroy
-    has_many :template_installations, -> { }, class_name: "Ai::WorkflowTemplateInstallation", foreign_key: "ai_workflow_id", dependent: :destroy
 
     # Workflow type constants
     WORKFLOW_TYPES = %w[ai cicd].freeze

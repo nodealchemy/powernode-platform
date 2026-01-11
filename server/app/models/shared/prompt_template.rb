@@ -32,7 +32,7 @@ module Shared
 
     # Polymorphic usage tracking
     has_many :ai_workflow_nodes, class_name: "Ai::WorkflowNode", foreign_key: :shared_prompt_template_id, dependent: :nullify
-    has_many :ci_cd_pipeline_steps, class_name: "CiCd::PipelineStep",
+    has_many :ci_cd_pipeline_steps, class_name: "Devops::PipelineStep",
              foreign_key: :shared_prompt_template_id, dependent: :nullify
 
     # Marketplace subscriptions

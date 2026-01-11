@@ -50,7 +50,7 @@ module Marketplace
     def create_from_pipeline_template(template, params = {})
       validate_subscription!(template)
 
-      pipeline = CiCd::Pipeline.create!(
+      pipeline = Devops::Pipeline.create!(
         account: account,
         created_by: user,
         name: params[:name] || "#{template.name} Instance",
@@ -77,7 +77,7 @@ module Marketplace
     def create_from_integration_template(template, params = {})
       validate_subscription!(template)
 
-      instance = Integration::Instance.create!(
+      instance = Devops::IntegrationInstance.create!(
         account: account,
         template: template,
         name: params[:name] || "#{template.name} Instance",
@@ -167,7 +167,7 @@ module Marketplace
       steps = template.pipeline_definition["steps"] || []
 
       steps.each do |step_def|
-        CiCd::PipelineStep.create!(
+        Devops::PipelineStep.create!(
           pipeline: pipeline,
           name: step_def["name"],
           step_type: step_def["step_type"],

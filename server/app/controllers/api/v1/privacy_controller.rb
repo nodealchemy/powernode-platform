@@ -43,7 +43,7 @@ module Api
       # POST /api/v1/privacy/export
       def request_export
         # Rate limit: max 1 export per week
-        recent_request = DataExportRequest.where(user: current_user)
+        recent_request = DataManagement::ExportRequest.where(user: current_user)
                                           .where("created_at > ?", 1.week.ago)
                                           .exists?
 
@@ -51,7 +51,7 @@ module Api
           return render_error("You can only request one data export per week", status: :too_many_requests)
         end
 
-        export_request = DataExportRequest.create!(
+        export_request = DataManagement::ExportRequest.create!(
           user: current_user,
           account: current_user.account,
           format: export_params[:format] || "json",
@@ -70,7 +70,7 @@ module Api
 
       # GET /api/v1/privacy/exports
       def export_requests
-        requests = DataExportRequest.where(user: current_user)
+        requests = DataManagement::ExportRequest.where(user: current_user)
                                     .recent
                                     .limit(10)
                                     .map { |r| serialize_export_request(r) }
@@ -80,7 +80,7 @@ module Api
 
       # GET /api/v1/privacy/exports/:id/download
       def download_export
-        export_request = DataExportRequest.find_by!(
+        export_request = DataManagement::ExportRequest.find_by!(
           id: params[:id],
           user: current_user,
           download_token: params[:token]
@@ -110,13 +110,13 @@ module Api
       # POST /api/v1/privacy/deletion
       def request_deletion
         # Check for existing active request
-        existing = DataDeletionRequest.active.find_by(user: current_user)
+        existing = DataManagement::DeletionRequest.active.find_by(user: current_user)
 
         if existing
           return render_error("You already have an active deletion request", status: :conflict)
         end
 
-        deletion_request = DataDeletionRequest.create!(
+        deletion_request = DataManagement::DeletionRequest.create!(
           user: current_user,
           account: current_user.account,
           deletion_type: deletion_params[:deletion_type] || "full",
@@ -127,14 +127,14 @@ module Api
         render_success(
           message: "Data deletion request submitted",
           request: serialize_deletion_request(deletion_request),
-          grace_period_days: DataDeletionRequest::GRACE_PERIOD_DAYS,
+          grace_period_days: DataManagement::DeletionRequest::GRACE_PERIOD_DAYS,
           status: :created
         )
       end
 
       # GET /api/v1/privacy/deletion
       def deletion_request_status
-        request = DataDeletionRequest.where(user: current_user)
+        request = DataManagement::DeletionRequest.where(user: current_user)
                                      .order(created_at: :desc)
                                      .first
 
@@ -147,7 +147,7 @@ module Api
 
       # DELETE /api/v1/privacy/deletion/:id
       def cancel_deletion
-        request = DataDeletionRequest.find_by!(id: params[:id], user: current_user)
+        request = DataManagement::DeletionRequest.find_by!(id: params[:id], user: current_user)
 
         unless request.can_be_cancelled?
           return render_error("This deletion request cannot be cancelled", status: :unprocessable_content)
@@ -245,14 +245,14 @@ module Api
       end
 
       def current_user_export_requests
-        DataExportRequest.where(user: current_user)
+        DataManagement::ExportRequest.where(user: current_user)
                          .recent
                          .limit(5)
                          .map { |r| serialize_export_request(r) }
       end
 
       def current_user_deletion_requests
-        DataDeletionRequest.where(user: current_user)
+        DataManagement::DeletionRequest.where(user: current_user)
                            .recent
                            .limit(5)
                            .map { |r| serialize_deletion_request(r) }
@@ -266,8 +266,8 @@ module Api
       end
 
       def data_retention_summary
-        DataRetentionPolicy.data_types.map do |type|
-          policy = DataRetentionPolicy.policy_for(type, current_user.account)
+        DataManagement::RetentionPolicy.data_types.map do |type|
+          policy = DataManagement::RetentionPolicy.policy_for(type, current_user.account)
           {
             data_type: type,
             retention_days: policy&.retention_days,

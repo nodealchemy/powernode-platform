@@ -237,7 +237,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   end
 
   def can_edit_kb?
-    current_user&.has_permission?("kb.edit") ||
+    current_user&.has_permission?("kb.update") ||
     current_user&.has_permission?("kb.manage")
   end
 

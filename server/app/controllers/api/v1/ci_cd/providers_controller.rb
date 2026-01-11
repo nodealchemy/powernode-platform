@@ -120,7 +120,7 @@ module Api
           # Trigger async sync job via worker service
           begin
             WorkerJobService.enqueue_job(
-              "CiCd::ProviderSyncJob",
+              "Devops::ProviderSyncJob",
               args: [@provider.id],
               queue: "ci_cd_default"
             )
@@ -180,12 +180,12 @@ module Api
         end
 
         def serialize_provider(provider, include_repositories: false)
-          result = ::CiCd::ProviderSerializer.new(provider).serializable_hash[:data][:attributes]
+          result = ::Devops::ProviderSerializer.new(provider).serializable_hash[:data][:attributes]
           result[:id] = provider.id
 
           if include_repositories == "true" || include_repositories == true
             result[:repositories] = provider.repositories.map do |repo|
-              ::CiCd::RepositorySerializer.new(repo).serializable_hash[:data][:attributes].merge(id: repo.id)
+              ::Devops::RepositorySerializer.new(repo).serializable_hash[:data][:attributes].merge(id: repo.id)
             end
           end
 

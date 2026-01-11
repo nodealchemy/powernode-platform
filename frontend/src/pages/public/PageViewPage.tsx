@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useParams } from 'react-router-dom';
 
-import { pagesApi, Page } from '@/features/pages/services/pagesApi';
+import { pagesApi, Page } from '@/features/content/pages/services/pagesApi';
 
 import { PublicPageContainer } from '@/shared/components/layout/PublicPageContainer';
 

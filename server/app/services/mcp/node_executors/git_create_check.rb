@@ -8,7 +8,7 @@ module Mcp
     # including annotations, detailed output, and live updates.
     #
     # Configuration:
-    # - repository_id: UUID of Git::Repository
+    # - repository_id: UUID of Devops::GitRepository
     # - sha: Git commit SHA to create check for
     # - name: Check run name (required)
     # - status: Check status (queued, in_progress, completed)
@@ -109,7 +109,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = Git::Repository.find_by(id: repository_id)
+        repository = Devops::GitRepository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end
@@ -118,11 +118,11 @@ module Mcp
         credential = repository.git_provider_credential
         raise ArgumentError, "No credential found for repository" unless credential
 
-        Git::ApiClient.for(credential)
+        Devops::Git::ApiClient.for(credential)
       end
 
       def supports_check_runs?(api_client)
-        api_client.is_a?(Git::GithubApiClient)
+        api_client.is_a?(Devops::Git::GithubApiClient)
       end
 
       def create_check_run(api_client:, repository:, sha:, name:, status:, conclusion:, title:, summary:, text:, details_url:, external_id:, annotations:)

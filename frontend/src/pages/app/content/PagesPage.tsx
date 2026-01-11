@@ -3,8 +3,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Navigate } from 'react-router-dom';
 import { RootState, AppDispatch } from '@/shared/services';
 import { addNotification } from '@/shared/services/slices/uiSlice';
-import { pagesApi, Page } from '@/features/pages/services/pagesApi';
-import { PageEditor } from '@/features/pages/components/PageEditor';
+import { pagesApi, Page } from '@/features/content/pages/services/pagesApi';
+import { PageEditor } from '@/features/content/pages/components/PageEditor';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
@@ -28,7 +28,7 @@ export const PagesPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   // Check if user has page management permissions
-  const canManagePages = hasPermissions(user, ['page.create', 'page.edit', 'page.delete']);
+  const canManagePages = hasPermissions(user, ['page.create', 'page.update', 'page.delete']);
 
   const loadPages = useCallback(async () => {
     try {

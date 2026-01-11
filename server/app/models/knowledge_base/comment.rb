@@ -77,8 +77,8 @@ module KnowledgeBase
     private
 
     def set_default_status
-      # Auto-approve comments from users with kb.edit permission
-      if author.permissions.include?("kb.manage") || author.permissions.include?("kb.edit")
+      # Auto-approve comments from users with kb.update permission
+      if author.has_permission?("kb.manage") || author.has_permission?("kb.update")
         self.status = "approved"
       else
         self.status = "pending"

@@ -213,7 +213,7 @@ RSpec.describe Api::V1::Internal::Git::RepositoriesController, type: :controller
     it 'creates pipeline records' do
       expect {
         post :sync_pipelines, params: { id: repository.id, pipelines: pipelines_data }
-      }.to change(Git::Pipeline, :count).by(2)
+      }.to change(Devops::GitPipeline, :count).by(2)
 
       expect(response).to have_http_status(:success)
       json = JSON.parse(response.body)
@@ -231,7 +231,7 @@ RSpec.describe Api::V1::Internal::Git::RepositoriesController, type: :controller
 
       expect {
         post :sync_pipelines, params: { id: repository.id, pipelines: pipelines_data }
-      }.to change(Git::Pipeline, :count).by(1) # Only 1 new
+      }.to change(Devops::GitPipeline, :count).by(1) # Only 1 new
 
       existing_pipeline.reload
       expect(existing_pipeline.status).to eq('completed')
@@ -243,7 +243,7 @@ RSpec.describe Api::V1::Internal::Git::RepositoriesController, type: :controller
 
       json = JSON.parse(response.body)
       pipeline_id = json['data']['pipeline_ids'].first
-      pipeline = Git::Pipeline.find(pipeline_id)
+      pipeline = Devops::GitPipeline.find(pipeline_id)
       expect(pipeline.account_id).to eq(account.id)
     end
   end

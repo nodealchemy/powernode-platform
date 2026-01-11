@@ -12,8 +12,8 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Card } from '@/shared/components/ui/Card';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { marketplaceApi } from '@/features/marketplace/services/marketplaceApi';
-import type { MarketplaceItem, MarketplaceItemType } from '@/features/marketplace/types/marketplace';
+import { marketplaceApi } from '@/features/app/services/marketplaceApi';
+import type { MarketplaceItem, MarketplaceItemType } from '@/features/app/types/marketplace';
 
 export const ItemDetailPage: React.FC = () => {
   const { type, id } = useParams<{ type: MarketplaceItemType; id: string }>();

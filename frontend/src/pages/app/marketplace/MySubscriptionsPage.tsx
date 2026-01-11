@@ -14,9 +14,9 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { marketplaceApi } from '@/features/marketplace/services/marketplaceApi';
-import type { MarketplaceSubscription, MarketplaceItemType } from '@/features/marketplace/types/marketplace';
-import { ALL_MARKETPLACE_TYPES } from '@/features/marketplace/types/marketplace';
+import { marketplaceApi } from '@/features/app/services/marketplaceApi';
+import type { MarketplaceSubscription, MarketplaceItemType } from '@/features/app/types/marketplace';
+import { ALL_MARKETPLACE_TYPES } from '@/features/app/types/marketplace';
 
 const ALL_TYPES = ALL_MARKETPLACE_TYPES;
 

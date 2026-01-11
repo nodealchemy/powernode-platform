@@ -1,10 +1,10 @@
 import { screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import { renderWithProviders } from '@/shared/utils/test-utils';
 import { EmailConfiguration } from './EmailConfiguration';
-import { emailSettingsApi, EmailSettings } from '@/shared/services/emailSettingsApi';
+import { emailSettingsApi, EmailSettings } from '@/shared/services/settings/emailSettingsApi';
 
 // Mock the API
-jest.mock('@/shared/services/emailSettingsApi');
+jest.mock('@/shared/services/settings/emailSettingsApi');
 
 const mockEmailSettingsApi = emailSettingsApi as jest.Mocked<typeof emailSettingsApi>;
 

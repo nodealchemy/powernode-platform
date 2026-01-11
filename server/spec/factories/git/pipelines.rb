@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :git_pipeline, class: 'Git::Pipeline' do
+  factory :git_pipeline, class: 'Devops::GitPipeline' do
     association :repository, factory: :git_repository
     association :account
 

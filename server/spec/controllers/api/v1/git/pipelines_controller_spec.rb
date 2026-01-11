@@ -142,7 +142,7 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
     let(:mock_client) { double('GitApiClient') }
 
     before do
-      allow(::Git::ApiClient).to receive(:for).and_return(mock_client)
+      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
       allow(mock_client).to receive(:trigger_workflow).and_return({
         success: true,
         pipeline_id: 'new_pipeline_123'
@@ -185,7 +185,7 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
     let(:mock_client) { double('GitApiClient') }
 
     before do
-      allow(::Git::ApiClient).to receive(:for).and_return(mock_client)
+      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
       allow(mock_client).to receive(:cancel_workflow_run).and_return({ success: true })
     end
 
@@ -220,7 +220,7 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
 
     before do
       stub_const('Git::PipelineSyncJob', job_class)
-      allow(::Git::ApiClient).to receive(:for).and_return(mock_client)
+      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
       allow(mock_client).to receive(:rerun_workflow).and_return({
         success: true,
         pipeline_id: 'rerun_123'

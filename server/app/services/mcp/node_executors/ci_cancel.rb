@@ -5,7 +5,7 @@ module Mcp
     # CI Cancel node executor - cancels running CI/CD pipelines
     #
     # Configuration:
-    # - repository_id: UUID of Git::Repository
+    # - repository_id: UUID of Devops::GitRepository
     # - run_id: ID of the workflow run to cancel
     # - reason: Optional reason for cancellation (stored in metadata)
     #
@@ -73,7 +73,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = Git::Repository.find_by(id: repository_id)
+        repository = Devops::GitRepository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end
@@ -82,7 +82,7 @@ module Mcp
         credential = repository.git_provider_credential
         raise ArgumentError, "No credential found for repository" unless credential
 
-        Git::ApiClient.for(credential)
+        Devops::Git::ApiClient.for(credential)
       end
 
       def fetch_run_status(api_client, repository, run_id)
@@ -95,7 +95,7 @@ module Mcp
           created_at: run[:created_at],
           updated_at: run[:updated_at]
         }
-      rescue Git::ApiClient::NotFoundError
+      rescue Devops::Git::ApiClient::NotFoundError
         raise ArgumentError, "Workflow run not found: #{run_id}"
       end
 

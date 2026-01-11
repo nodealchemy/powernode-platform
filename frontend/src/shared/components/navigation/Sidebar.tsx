@@ -4,7 +4,7 @@ import { NavigationItem } from './NavigationItem';
 import { NavigationSection } from './NavigationSection';
 import { useNavigation } from '@/shared/hooks/NavigationContext';
 import { VersionDisplay } from '../ui/VersionDisplay';
-import { settingsApi } from '@/shared/services/settingsApi';
+import { settingsApi } from '@/shared/services/settings/settingsApi';
 
 interface SidebarProps {
   isOpen: boolean;

@@ -8,7 +8,7 @@ module Mcp
     # enabling workflow results to appear on pull requests.
     #
     # Configuration:
-    # - repository_id: UUID of Git::Repository
+    # - repository_id: UUID of Devops::GitRepository
     # - sha: Git commit SHA to update status for
     # - state: Status state (pending, success, failure, error)
     # - context: Status context/name (default: "powernode/workflow")
@@ -73,7 +73,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = Git::Repository.find_by(id: repository_id)
+        repository = Devops::GitRepository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end
@@ -82,7 +82,7 @@ module Mcp
         credential = repository.git_provider_credential
         raise ArgumentError, "No credential found for repository" unless credential
 
-        Git::ApiClient.for(credential)
+        Devops::Git::ApiClient.for(credential)
       end
 
       def build_default_context

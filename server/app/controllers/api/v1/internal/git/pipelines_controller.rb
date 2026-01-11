@@ -72,7 +72,7 @@ module Api
           private
 
           def set_pipeline
-            @pipeline = ::Git::Pipeline.includes(:repository, :jobs).find(params[:id])
+            @pipeline = ::Devops::GitPipeline.includes(:repository, :jobs).find(params[:id])
           rescue ActiveRecord::RecordNotFound
             render json: { success: false, error: "Pipeline not found" },
                    status: :not_found

@@ -10,7 +10,7 @@ export const ServicesPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   
   // Check if user has services management permission
-  const canManageServices = hasPermissions(user, ['admin.settings.edit']);
+  const canManageServices = hasPermissions(user, ['admin.settings.update']);
   
   // Redirect if user doesn't have permission
   if (!canManageServices) {

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, RefreshCw, HardDrive } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { StorageProviderCard } from '@/features/storage/components/StorageProviderCard';
-import { StorageProviderModal } from '@/features/storage/components/StorageProviderModal';
-import { ConnectionTestModal } from '@/features/storage/components/ConnectionTestModal';
-import { storageApi } from '@/features/storage/services/storageApi';
+import { StorageProviderCard } from '@/features/system/storage/components/StorageProviderCard';
+import { StorageProviderModal } from '@/features/system/storage/components/StorageProviderModal';
+import { ConnectionTestModal } from '@/features/system/storage/components/ConnectionTestModal';
+import { storageApi } from '@/features/system/storage/services/storageApi';
 import { StorageProvider, StorageProviderFormData, StorageConnectionTestResult } from '@/shared/types/storage';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useDispatch } from 'react-redux';

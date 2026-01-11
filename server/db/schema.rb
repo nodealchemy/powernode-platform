@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -820,31 +820,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'disabled'::character varying::text, 'expired'::character varying::text])", name: "ai_workflow_schedules_status_check"
   end
 
-  create_table "ai_workflow_template_installations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_workflow_template_id", null: false
-    t.uuid "ai_workflow_id", null: false
-    t.uuid "account_id", null: false
-    t.uuid "installed_by_user_id", null: false
-    t.string "installation_id", limit: 100, null: false
-    t.string "template_version", limit: 50, null: false
-    t.jsonb "customizations", default: {}, null: false
-    t.jsonb "variable_mappings", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.boolean "auto_update", default: false, null: false
-    t.datetime "last_updated_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "installed_by_user_id"], name: "idx_on_account_id_installed_by_user_id_9c10406073"
-    t.index ["account_id"], name: "index_ai_workflow_template_installations_on_account_id"
-    t.index ["ai_workflow_id"], name: "index_ai_workflow_template_installations_on_ai_workflow_id"
-    t.index ["ai_workflow_template_id", "account_id"], name: "idx_on_ai_workflow_template_id_account_id_43e6c33988"
-    t.index ["ai_workflow_template_id"], name: "idx_on_ai_workflow_template_id_95f5a8c354"
-    t.index ["installation_id"], name: "index_ai_workflow_template_installations_on_installation_id", unique: true
-    t.index ["installed_by_user_id"], name: "idx_on_installed_by_user_id_3082e94475"
-    t.index ["last_updated_at"], name: "index_ai_workflow_template_installations_on_last_updated_at"
-    t.index ["template_version"], name: "index_ai_workflow_template_installations_on_template_version"
-  end
-
   create_table "ai_workflow_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "name", limit: 255, null: false
     t.string "slug", limit: 150, null: false
@@ -1056,248 +1031,29 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.check_constraint "usage_count >= 0", name: "valid_api_key_usage_count"
   end
 
-  create_table "app_endpoint_calls", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_endpoint_id", null: false
-    t.uuid "account_id"
-    t.string "request_id", limit: 100
-    t.integer "status_code"
-    t.integer "response_time_ms"
-    t.bigint "request_size_bytes"
-    t.bigint "response_size_bytes"
-    t.text "error_message"
-    t.datetime "called_at", null: false
-    t.string "ip_address", limit: 45
-    t.string "user_agent", limit: 500
-    t.jsonb "request_headers", default: {}
-    t.jsonb "response_headers", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "idx_app_endpoint_calls_on_account_id"
-    t.index ["account_id"], name: "index_app_endpoint_calls_on_account_id"
-    t.index ["app_endpoint_id"], name: "idx_app_endpoint_calls_on_app_endpoint_id"
-    t.index ["app_endpoint_id"], name: "index_app_endpoint_calls_on_app_endpoint_id"
-    t.index ["called_at"], name: "idx_app_endpoint_calls_on_called_at"
-    t.index ["status_code"], name: "idx_app_endpoint_calls_on_status_code"
-    t.check_constraint "response_time_ms >= 0", name: "valid_endpoint_response_time"
-    t.check_constraint "status_code >= 100 AND status_code <= 599", name: "valid_endpoint_status_code"
-  end
-
-  create_table "app_endpoints", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_id", null: false
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
-    t.text "description"
-    t.string "http_method", limit: 10, null: false
-    t.string "path", limit: 500, null: false
-    t.boolean "is_public", default: false
-    t.boolean "is_active", default: true
-    t.string "version", limit: 20, default: "v1"
-    t.jsonb "parameters", default: {}
-    t.jsonb "response_schema", default: {}
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["app_id", "http_method", "path"], name: "index_app_endpoints_unique", unique: true
-    t.index ["app_id", "slug"], name: "idx_app_endpoints_on_app_slug_unique", unique: true
-    t.index ["app_id"], name: "idx_app_endpoints_on_app_id"
-    t.index ["app_id"], name: "index_app_endpoints_on_app_id"
-    t.index ["http_method"], name: "idx_app_endpoints_on_http_method"
-    t.index ["is_active"], name: "idx_app_endpoints_on_is_active"
-    t.index ["is_public"], name: "idx_app_endpoints_on_is_public"
-    t.index ["version"], name: "idx_app_endpoints_on_version"
-    t.check_constraint "http_method::text = ANY (ARRAY['GET'::character varying::text, 'POST'::character varying::text, 'PUT'::character varying::text, 'PATCH'::character varying::text, 'DELETE'::character varying::text, 'HEAD'::character varying::text, 'OPTIONS'::character varying::text])", name: "valid_endpoint_http_method"
-  end
-
-  create_table "app_features", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_id", null: false
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
-    t.text "description"
-    t.string "feature_type", limit: 50
-    t.boolean "default_enabled", default: false
-    t.jsonb "configuration", default: {}
-    t.jsonb "dependencies", default: []
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["app_id", "slug"], name: "idx_app_features_on_app_slug_unique", unique: true
-    t.index ["app_id"], name: "index_app_features_on_app_id"
-    t.index ["feature_type"], name: "idx_app_features_on_feature_type"
-  end
-
-  create_table "app_plans", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_id", null: false
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
-    t.text "description"
-    t.integer "price_cents", default: 0
-    t.string "billing_interval", limit: 20, default: "monthly"
-    t.boolean "is_public", default: true
-    t.boolean "is_active", default: true
-    t.jsonb "features", default: []
-    t.jsonb "permissions", default: []
-    t.jsonb "limits", default: {}
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["app_id", "slug"], name: "idx_app_plans_on_app_slug_unique", unique: true
-    t.index ["app_id"], name: "index_app_plans_on_app_id"
-    t.index ["is_active"], name: "idx_app_plans_on_is_active"
-    t.index ["is_public"], name: "idx_app_plans_on_is_public"
-    t.check_constraint "billing_interval::text = ANY (ARRAY['monthly'::character varying::text, 'yearly'::character varying::text, 'one_time'::character varying::text])", name: "valid_app_billing_interval"
-    t.check_constraint "price_cents >= 0", name: "valid_app_plan_price"
-  end
-
-  create_table "app_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_id", null: false
-    t.uuid "account_id", null: false
-    t.integer "rating", null: false
-    t.string "title", limit: 255
-    t.text "content"
-    t.integer "helpful_count", default: 0
-    t.string "version_reviewed", limit: 50
-    t.string "platform", limit: 50
-    t.string "reviewer_name", limit: 100
-    t.boolean "is_verified", default: false
-    t.string "status", limit: 50, default: "published"
-    t.text "moderation_notes"
-    t.datetime "reviewed_at"
-    t.datetime "published_at"
-    t.integer "usability_rating"
-    t.integer "features_rating"
-    t.integer "support_rating"
-    t.integer "value_rating"
-    t.decimal "quality_score", precision: 5, scale: 2
-    t.text "sentiment_analysis"
-    t.jsonb "tags", default: []
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_app_reviews_on_account_id"
-    t.index ["app_id", "account_id"], name: "idx_app_reviews_on_app_account_unique", unique: true
-    t.index ["app_id"], name: "index_app_reviews_on_app_id"
-    t.index ["created_at"], name: "idx_app_reviews_on_created_at"
-    t.index ["helpful_count"], name: "idx_app_reviews_on_helpful_count"
-    t.index ["is_verified"], name: "idx_app_reviews_on_is_verified"
-    t.index ["published_at"], name: "idx_app_reviews_on_published_at"
-    t.index ["quality_score"], name: "idx_app_reviews_on_quality_score"
-    t.index ["rating"], name: "idx_app_reviews_on_rating"
-    t.index ["status"], name: "idx_app_reviews_on_status"
-    t.check_constraint "features_rating IS NULL OR features_rating >= 1 AND features_rating <= 5", name: "valid_features_rating"
-    t.check_constraint "quality_score IS NULL OR quality_score >= 0::numeric AND quality_score <= 100::numeric", name: "valid_quality_score"
-    t.check_constraint "rating >= 1 AND rating <= 5", name: "valid_overall_rating"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text, 'hidden'::character varying::text, 'flagged'::character varying::text, 'removed'::character varying::text])", name: "valid_review_status"
-    t.check_constraint "support_rating IS NULL OR support_rating >= 1 AND support_rating <= 5", name: "valid_support_rating"
-    t.check_constraint "usability_rating IS NULL OR usability_rating >= 1 AND usability_rating <= 5", name: "valid_usability_rating"
-    t.check_constraint "value_rating IS NULL OR value_rating >= 1 AND value_rating <= 5", name: "valid_value_rating"
-  end
-
   create_table "app_subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "app_id"
-    t.uuid "app_plan_id"
-    t.string "status", limit: 50, default: "active"
-    t.datetime "subscribed_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }
-    t.datetime "cancelled_at", precision: nil
-    t.datetime "next_billing_at", precision: nil
-    t.jsonb "configuration", default: {}
-    t.jsonb "usage_metrics", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.uuid "subscribed_by_user_id"
     t.string "subscribable_type"
     t.uuid "subscribable_id"
-    t.string "tier", default: "standard"
+    t.uuid "app_id"
+    t.uuid "app_plan_id"
+    t.string "status", default: "active", null: false
+    t.string "tier"
+    t.datetime "subscribed_at", null: false
+    t.datetime "next_billing_at"
+    t.datetime "cancelled_at"
+    t.jsonb "configuration", default: {}
+    t.jsonb "usage_metrics", default: {}
     t.jsonb "metadata", default: {}
-    t.index ["account_id", "app_id"], name: "idx_app_subscriptions_on_account_app_unique", unique: true
-    t.index ["account_id", "subscribable_type", "subscribable_id"], name: "idx_app_subscriptions_unique_per_account_subscribable", unique: true
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_app_subscriptions_on_account_id"
     t.index ["app_id"], name: "index_app_subscriptions_on_app_id"
     t.index ["app_plan_id"], name: "index_app_subscriptions_on_app_plan_id"
-    t.index ["next_billing_at"], name: "idx_app_subscriptions_on_next_billing_at"
-    t.index ["status"], name: "idx_app_subscriptions_on_status"
+    t.index ["status"], name: "index_app_subscriptions_on_status"
     t.index ["subscribable_type", "subscribable_id"], name: "idx_app_subscriptions_on_subscribable"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'cancelled'::character varying::text, 'expired'::character varying::text])", name: "valid_app_subscription_status"
-  end
-
-  create_table "app_webhook_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_webhook_id", null: false
-    t.string "event_id", null: false
-    t.string "status", default: "pending", null: false
-    t.integer "attempt_number", default: 1
-    t.integer "response_status"
-    t.text "response_body"
-    t.text "error_message"
-    t.datetime "attempted_at"
-    t.datetime "next_retry_at"
-    t.jsonb "payload", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["app_webhook_id"], name: "idx_app_webhook_deliveries_on_app_webhook_id"
-    t.index ["app_webhook_id"], name: "index_app_webhook_deliveries_on_app_webhook_id"
-    t.index ["attempted_at"], name: "idx_app_webhook_deliveries_on_attempted_at"
-    t.index ["event_id"], name: "idx_app_webhook_deliveries_on_event_id"
-    t.index ["next_retry_at"], name: "idx_app_webhook_deliveries_on_next_retry_at"
-    t.index ["status"], name: "idx_app_webhook_deliveries_on_status"
-    t.check_constraint "attempt_number > 0", name: "valid_webhook_attempt_number"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'delivered'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "valid_webhook_delivery_status"
-  end
-
-  create_table "app_webhooks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_id", null: false
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
-    t.text "description"
-    t.string "event_type", limit: 100, null: false
-    t.string "url", limit: 500, null: false
-    t.string "http_method", limit: 10, default: "POST", null: false
-    t.boolean "is_active", default: true
-    t.integer "timeout_seconds", default: 30
-    t.integer "max_retries", default: 3
-    t.string "content_type", limit: 100, default: "application/json"
-    t.jsonb "headers", default: {}
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["app_id", "event_type"], name: "idx_app_webhooks_on_app_event_type"
-    t.index ["app_id", "slug"], name: "idx_app_webhooks_on_app_slug_unique", unique: true
-    t.index ["app_id"], name: "idx_app_webhooks_on_app_id"
-    t.index ["app_id"], name: "index_app_webhooks_on_app_id"
-    t.index ["event_type"], name: "idx_app_webhooks_on_event_type"
-    t.index ["is_active"], name: "idx_app_webhooks_on_is_active"
-    t.check_constraint "http_method::text = ANY (ARRAY['POST'::character varying::text, 'PUT'::character varying::text, 'PATCH'::character varying::text])", name: "valid_webhook_http_method"
-    t.check_constraint "max_retries >= 0 AND max_retries <= 10", name: "valid_webhook_retries"
-    t.check_constraint "timeout_seconds > 0 AND timeout_seconds <= 300", name: "valid_webhook_timeout"
-  end
-
-  create_table "apps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
-    t.text "description"
-    t.text "long_description"
-    t.text "short_description"
-    t.string "category", limit: 100
-    t.string "version", limit: 50, default: "1.0.0"
-    t.string "status", limit: 50, default: "draft"
-    t.string "icon"
-    t.jsonb "tags", default: []
-    t.string "homepage_url"
-    t.string "documentation_url"
-    t.string "support_url"
-    t.string "repository_url"
-    t.string "license"
-    t.string "privacy_policy_url"
-    t.string "terms_of_service_url"
-    t.jsonb "metadata", default: {}
-    t.jsonb "configuration", default: {}
-    t.datetime "published_at", precision: nil
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_apps_on_account_id"
-    t.index ["category"], name: "idx_apps_on_category"
-    t.index ["published_at"], name: "idx_apps_on_published_at"
-    t.index ["slug"], name: "idx_apps_on_slug_unique", unique: true
-    t.index ["status"], name: "idx_apps_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'review'::character varying::text, 'published'::character varying::text, 'inactive'::character varying::text])", name: "valid_app_status"
+    t.index ["subscribed_at"], name: "index_app_subscriptions_on_subscribed_at"
   end
 
   create_table "audit_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1402,254 +1158,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.index ["expires_at"], name: "index_blacklisted_tokens_on_expires_at"
     t.index ["token"], name: "index_blacklisted_tokens_on_token", unique: true
     t.index ["user_id"], name: "index_blacklisted_tokens_on_user_id"
-  end
-
-  create_table "ci_cd_pipeline_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ci_cd_pipeline_id", null: false
-    t.uuid "ci_cd_repository_id", null: false
-    t.jsonb "overrides", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["ci_cd_pipeline_id", "ci_cd_repository_id"], name: "idx_pipeline_repos_on_pipeline_and_repo", unique: true
-    t.index ["ci_cd_pipeline_id"], name: "index_ci_cd_pipeline_repositories_on_ci_cd_pipeline_id"
-    t.index ["ci_cd_repository_id"], name: "index_ci_cd_pipeline_repositories_on_ci_cd_repository_id"
-  end
-
-  create_table "ci_cd_pipeline_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ci_cd_pipeline_id", null: false
-    t.uuid "triggered_by_id"
-    t.string "run_number", null: false
-    t.string "status", default: "pending", null: false
-    t.string "trigger_type", null: false
-    t.jsonb "trigger_context", default: {}, null: false
-    t.datetime "started_at"
-    t.datetime "completed_at"
-    t.integer "duration_seconds"
-    t.jsonb "outputs", default: {}, null: false
-    t.jsonb "artifacts", default: [], null: false
-    t.text "error_message"
-    t.string "external_run_id"
-    t.string "external_run_url"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["ci_cd_pipeline_id", "run_number"], name: "index_ci_cd_pipeline_runs_on_ci_cd_pipeline_id_and_run_number", unique: true
-    t.index ["ci_cd_pipeline_id", "status"], name: "index_ci_cd_pipeline_runs_on_ci_cd_pipeline_id_and_status"
-    t.index ["ci_cd_pipeline_id"], name: "index_ci_cd_pipeline_runs_on_ci_cd_pipeline_id"
-    t.index ["external_run_id"], name: "index_ci_cd_pipeline_runs_on_external_run_id"
-    t.index ["triggered_by_id"], name: "index_ci_cd_pipeline_runs_on_triggered_by_id"
-  end
-
-  create_table "ci_cd_pipeline_steps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ci_cd_pipeline_id", null: false
-    t.string "name", null: false
-    t.string "step_type", null: false
-    t.integer "position", default: 0, null: false
-    t.jsonb "configuration", default: {}, null: false
-    t.jsonb "inputs", default: {}, null: false
-    t.jsonb "outputs", default: [], null: false
-    t.text "condition"
-    t.boolean "continue_on_error", default: false, null: false
-    t.boolean "is_active", default: true, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.uuid "shared_prompt_template_id"
-    t.boolean "requires_approval", default: false, null: false, comment: "When true, step execution pauses and sends notifications for manual approval"
-    t.jsonb "approval_settings", default: {}, null: false, comment: "Approval config: {\"timeout_hours\": 24, \"notification_recipients\": [], \"require_comment\": false}"
-    t.index ["ci_cd_pipeline_id", "name"], name: "index_ci_cd_pipeline_steps_on_ci_cd_pipeline_id_and_name", unique: true
-    t.index ["ci_cd_pipeline_id", "position"], name: "index_ci_cd_pipeline_steps_on_ci_cd_pipeline_id_and_position"
-    t.index ["ci_cd_pipeline_id"], name: "index_ci_cd_pipeline_steps_on_ci_cd_pipeline_id"
-    t.index ["shared_prompt_template_id"], name: "index_ci_cd_pipeline_steps_on_shared_prompt_template_id"
-  end
-
-  create_table "ci_cd_pipeline_template_installations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ci_cd_pipeline_template_id", null: false
-    t.uuid "account_id", null: false
-    t.uuid "installed_by_user_id"
-    t.uuid "ci_cd_pipeline_id"
-    t.string "template_version"
-    t.jsonb "customizations", default: {}
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "idx_cicd_template_installations_account"
-    t.index ["ci_cd_pipeline_id"], name: "idx_cicd_template_installations_pipeline"
-    t.index ["ci_cd_pipeline_template_id", "account_id"], name: "idx_cicd_template_installations_unique"
-    t.index ["ci_cd_pipeline_template_id"], name: "idx_cicd_template_installations_template"
-  end
-
-  create_table "ci_cd_pipeline_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "created_by_user_id"
-    t.uuid "source_pipeline_id"
-    t.string "name", null: false
-    t.string "slug", null: false
-    t.text "description"
-    t.string "icon_url"
-    t.string "category"
-    t.string "difficulty_level", default: "intermediate"
-    t.jsonb "tags", default: []
-    t.jsonb "pipeline_definition", default: {}
-    t.jsonb "default_variables", default: {}
-    t.jsonb "triggers", default: {}
-    t.integer "timeout_minutes", default: 30
-    t.string "version", default: "1.0.0", null: false
-    t.string "status", default: "draft"
-    t.boolean "is_public", default: false
-    t.boolean "is_featured", default: false
-    t.boolean "is_system", default: false
-    t.datetime "published_at"
-    t.integer "usage_count", default: 0
-    t.integer "install_count", default: 0
-    t.decimal "rating", precision: 3, scale: 2, default: "0.0"
-    t.integer "rating_count", default: 0
-    t.boolean "is_marketplace_published", default: false
-    t.string "marketplace_status"
-    t.datetime "marketplace_submitted_at"
-    t.datetime "marketplace_approved_at"
-    t.text "marketplace_rejection_reason"
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_ci_cd_pipeline_templates_on_account_id"
-    t.index ["category"], name: "index_ci_cd_pipeline_templates_on_category"
-    t.index ["created_by_user_id"], name: "index_ci_cd_pipeline_templates_on_created_by_user_id"
-    t.index ["is_featured"], name: "index_ci_cd_pipeline_templates_on_is_featured"
-    t.index ["is_marketplace_published", "marketplace_status"], name: "idx_cicd_pipeline_templates_marketplace"
-    t.index ["is_public"], name: "index_ci_cd_pipeline_templates_on_is_public"
-    t.index ["slug"], name: "index_ci_cd_pipeline_templates_on_slug", unique: true
-    t.index ["source_pipeline_id"], name: "index_ci_cd_pipeline_templates_on_source_pipeline_id"
-    t.index ["status"], name: "index_ci_cd_pipeline_templates_on_status"
-  end
-
-  create_table "ci_cd_pipelines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "created_by_id"
-    t.uuid "ci_cd_provider_id"
-    t.string "name", null: false
-    t.string "slug", null: false
-    t.string "pipeline_type", null: false
-    t.text "description"
-    t.jsonb "triggers", default: {}, null: false
-    t.jsonb "steps", default: [], null: false
-    t.jsonb "environment", default: {}, null: false
-    t.jsonb "secret_refs", default: [], null: false
-    t.string "runner_labels", default: ["ubuntu-latest"], array: true
-    t.integer "timeout_minutes", default: 60
-    t.boolean "allow_concurrent", default: false, null: false
-    t.jsonb "features", default: {}, null: false
-    t.boolean "is_active", default: true, null: false
-    t.boolean "is_system", default: false, null: false
-    t.integer "version", default: 1, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.uuid "ai_provider_id"
-    t.jsonb "notification_recipients", default: [], null: false, comment: "Array of notification recipients: [{\"type\": \"email\"|\"user_id\", \"value\": \"...\"}]"
-    t.jsonb "notification_settings", default: {}, null: false, comment: "Notification preferences: {\"on_approval_required\": true, \"on_completion\": false, \"on_failure\": true}"
-    t.index ["account_id", "is_active"], name: "index_ci_cd_pipelines_on_account_id_and_is_active"
-    t.index ["account_id", "pipeline_type"], name: "index_ci_cd_pipelines_on_account_id_and_pipeline_type"
-    t.index ["account_id", "slug"], name: "index_ci_cd_pipelines_on_account_id_and_slug", unique: true
-    t.index ["account_id"], name: "index_ci_cd_pipelines_on_account_id"
-    t.index ["ai_provider_id"], name: "index_ci_cd_pipelines_on_ai_provider_id"
-    t.index ["ci_cd_provider_id"], name: "index_ci_cd_pipelines_on_ci_cd_provider_id"
-    t.index ["created_by_id"], name: "index_ci_cd_pipelines_on_created_by_id"
-  end
-
-  create_table "ci_cd_providers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "created_by_id"
-    t.string "name", null: false
-    t.string "provider_type", null: false
-    t.string "base_url", null: false
-    t.string "api_version", default: "v1"
-    t.string "credential_key"
-    t.jsonb "configuration", default: {}, null: false
-    t.jsonb "capabilities", default: [], null: false
-    t.boolean "is_active", default: true, null: false
-    t.boolean "is_default", default: false, null: false
-    t.datetime "last_health_check_at"
-    t.string "health_status"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "is_default"], name: "index_ci_cd_providers_on_account_id_and_is_default", where: "(is_default = true)"
-    t.index ["account_id", "name"], name: "index_ci_cd_providers_on_account_id_and_name", unique: true
-    t.index ["account_id"], name: "index_ci_cd_providers_on_account_id"
-    t.index ["created_by_id"], name: "index_ci_cd_providers_on_created_by_id"
-  end
-
-  create_table "ci_cd_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "ci_cd_provider_id", null: false
-    t.string "name", null: false
-    t.string "full_name", null: false
-    t.string "default_branch", default: "main"
-    t.string "external_id"
-    t.jsonb "settings", default: {}, null: false
-    t.boolean "is_active", default: true, null: false
-    t.datetime "last_synced_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "full_name"], name: "index_ci_cd_repositories_on_account_id_and_full_name", unique: true
-    t.index ["account_id"], name: "index_ci_cd_repositories_on_account_id"
-    t.index ["ci_cd_provider_id"], name: "index_ci_cd_repositories_on_ci_cd_provider_id"
-    t.index ["external_id"], name: "index_ci_cd_repositories_on_external_id"
-  end
-
-  create_table "ci_cd_schedules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ci_cd_pipeline_id", null: false
-    t.uuid "created_by_id"
-    t.string "name", null: false
-    t.string "cron_expression", null: false
-    t.string "timezone", default: "UTC"
-    t.jsonb "inputs", default: {}, null: false
-    t.datetime "next_run_at"
-    t.datetime "last_run_at"
-    t.boolean "is_active", default: true, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["ci_cd_pipeline_id", "is_active"], name: "index_ci_cd_schedules_on_ci_cd_pipeline_id_and_is_active"
-    t.index ["ci_cd_pipeline_id"], name: "index_ci_cd_schedules_on_ci_cd_pipeline_id"
-    t.index ["created_by_id"], name: "index_ci_cd_schedules_on_created_by_id"
-    t.index ["next_run_at"], name: "index_ci_cd_schedules_on_next_run_at", where: "(is_active = true)"
-  end
-
-  create_table "ci_cd_step_approval_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "step_execution_id", null: false
-    t.uuid "recipient_user_id"
-    t.uuid "responded_by_id"
-    t.string "token_digest", null: false
-    t.string "recipient_email", null: false
-    t.string "status", default: "pending", null: false
-    t.text "response_comment"
-    t.datetime "expires_at", null: false
-    t.datetime "responded_at"
-    t.datetime "email_sent_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["recipient_user_id"], name: "index_ci_cd_step_approval_tokens_on_recipient_user_id"
-    t.index ["responded_by_id"], name: "index_ci_cd_step_approval_tokens_on_responded_by_id"
-    t.index ["status", "expires_at"], name: "idx_approval_tokens_pending_expiry", where: "((status)::text = 'pending'::text)"
-    t.index ["step_execution_id", "status"], name: "idx_approval_tokens_on_step_execution_and_status"
-    t.index ["step_execution_id"], name: "index_ci_cd_step_approval_tokens_on_step_execution_id"
-    t.index ["token_digest"], name: "index_ci_cd_step_approval_tokens_on_token_digest", unique: true
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text])", name: "ci_cd_step_approval_tokens_status_check"
-  end
-
-  create_table "ci_cd_step_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ci_cd_pipeline_run_id", null: false
-    t.uuid "ci_cd_pipeline_step_id", null: false
-    t.string "status", default: "pending", null: false
-    t.datetime "started_at"
-    t.datetime "completed_at"
-    t.integer "duration_seconds"
-    t.jsonb "outputs", default: {}, null: false
-    t.text "logs"
-    t.text "error_message"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["ci_cd_pipeline_run_id", "ci_cd_pipeline_step_id"], name: "idx_step_executions_on_run_and_step", unique: true
-    t.index ["ci_cd_pipeline_run_id"], name: "index_ci_cd_step_executions_on_ci_cd_pipeline_run_id"
-    t.index ["ci_cd_pipeline_step_id"], name: "index_ci_cd_step_executions_on_ci_cd_pipeline_step_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'waiting_approval'::character varying::text, 'success'::character varying::text, 'failure'::character varying::text, 'skipped'::character varying::text])", name: "ci_cd_step_executions_status_check"
   end
 
   create_table "circuit_breaker_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1841,6 +1349,379 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.index ["account_delegation_id"], name: "index_delegation_permissions_on_account_delegation_id"
     t.index ["permission_id"], name: "index_delegation_permissions_on_permission"
     t.index ["permission_id"], name: "index_delegation_permissions_on_permission_id"
+  end
+
+  create_table "devops_integration_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "created_by_user_id"
+    t.string "name", null: false
+    t.string "credential_type", null: false
+    t.text "encrypted_credentials", null: false
+    t.string "encryption_key_id", null: false
+    t.datetime "token_expires_at"
+    t.text "encrypted_refresh_token"
+    t.jsonb "scopes", default: []
+    t.jsonb "metadata", default: {}
+    t.boolean "is_active", default: true
+    t.datetime "last_used_at"
+    t.datetime "last_validated_at"
+    t.string "validation_status"
+    t.integer "consecutive_failures", default: 0
+    t.text "last_error"
+    t.datetime "expires_at"
+    t.datetime "rotated_at"
+    t.uuid "rotated_from_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "credential_type"], name: "idx_credentials_account_type"
+    t.index ["account_id", "name"], name: "index_devops_integration_credentials_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_devops_integration_credentials_on_account_id"
+    t.index ["created_by_user_id"], name: "index_devops_integration_credentials_on_created_by_user_id"
+    t.index ["credential_type"], name: "index_devops_integration_credentials_on_credential_type"
+    t.index ["expires_at"], name: "index_devops_integration_credentials_on_expires_at"
+    t.index ["is_active"], name: "index_devops_integration_credentials_on_is_active"
+  end
+
+  create_table "devops_integration_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "integration_instance_id", null: false
+    t.uuid "account_id", null: false
+    t.uuid "triggered_by_user_id"
+    t.string "execution_id", null: false
+    t.string "status", default: "pending", null: false
+    t.jsonb "input_data", default: {}
+    t.jsonb "output_data", default: {}
+    t.jsonb "error_details", default: {}
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.integer "duration_ms"
+    t.string "trigger_type"
+    t.string "trigger_source"
+    t.jsonb "trigger_metadata", default: {}
+    t.integer "attempt_number", default: 1
+    t.integer "max_attempts", default: 3
+    t.datetime "next_retry_at"
+    t.uuid "parent_execution_id"
+    t.decimal "cost_estimate", precision: 10, scale: 6
+    t.jsonb "resource_usage", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "idx_executions_account_created"
+    t.index ["account_id"], name: "index_devops_integration_executions_on_account_id"
+    t.index ["execution_id"], name: "index_devops_integration_executions_on_execution_id", unique: true
+    t.index ["integration_instance_id", "status"], name: "idx_executions_instance_status"
+    t.index ["integration_instance_id"], name: "index_devops_integration_executions_on_integration_instance_id"
+    t.index ["parent_execution_id"], name: "index_devops_integration_executions_on_parent_execution_id"
+    t.index ["status"], name: "index_devops_integration_executions_on_status"
+    t.index ["trigger_type"], name: "index_devops_integration_executions_on_trigger_type"
+    t.index ["triggered_by_user_id"], name: "index_devops_integration_executions_on_triggered_by_user_id"
+  end
+
+  create_table "devops_integration_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "integration_template_id", null: false
+    t.uuid "integration_credential_id"
+    t.uuid "created_by_user_id"
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.text "description"
+    t.string "status", default: "pending"
+    t.jsonb "configuration", default: {}
+    t.jsonb "runtime_state", default: {}
+    t.jsonb "health_metrics", default: {}
+    t.integer "execution_count", default: 0
+    t.integer "success_count", default: 0
+    t.integer "failure_count", default: 0
+    t.decimal "average_duration_ms", precision: 10, scale: 2
+    t.datetime "last_executed_at"
+    t.datetime "last_success_at"
+    t.datetime "last_failure_at"
+    t.text "last_error"
+    t.datetime "last_health_check_at"
+    t.string "health_status"
+    t.integer "consecutive_failures", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "slug"], name: "index_devops_integration_instances_on_account_id_and_slug", unique: true
+    t.index ["account_id", "status"], name: "idx_instances_account_status"
+    t.index ["account_id"], name: "index_devops_integration_instances_on_account_id"
+    t.index ["created_by_user_id"], name: "index_devops_integration_instances_on_created_by_user_id"
+    t.index ["health_status"], name: "index_devops_integration_instances_on_health_status"
+    t.index ["integration_credential_id"], name: "idx_on_integration_credential_id_d627796068"
+    t.index ["integration_template_id"], name: "index_devops_integration_instances_on_integration_template_id"
+    t.index ["status"], name: "index_devops_integration_instances_on_status"
+  end
+
+  create_table "devops_integration_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.string "integration_type", null: false
+    t.string "category"
+    t.string "version", default: "1.0.0"
+    t.text "description"
+    t.string "icon_url"
+    t.string "documentation_url"
+    t.jsonb "configuration_schema", default: {}
+    t.jsonb "credential_requirements", default: {}
+    t.jsonb "capabilities", default: []
+    t.jsonb "input_schema", default: {}
+    t.jsonb "output_schema", default: {}
+    t.jsonb "default_configuration", default: {}
+    t.jsonb "metadata", default: {}
+    t.jsonb "supported_providers", default: []
+    t.boolean "is_public", default: false
+    t.boolean "is_featured", default: false
+    t.boolean "is_active", default: true
+    t.integer "usage_count", default: 0
+    t.integer "install_count", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.boolean "is_marketplace_published", default: false
+    t.string "marketplace_status"
+    t.datetime "marketplace_submitted_at"
+    t.datetime "marketplace_approved_at"
+    t.text "marketplace_rejection_reason"
+    t.uuid "account_id"
+    t.index ["account_id"], name: "index_devops_integration_templates_on_account_id"
+    t.index ["category"], name: "index_devops_integration_templates_on_category"
+    t.index ["integration_type"], name: "index_devops_integration_templates_on_integration_type"
+    t.index ["is_active"], name: "index_devops_integration_templates_on_is_active"
+    t.index ["is_featured"], name: "index_devops_integration_templates_on_is_featured"
+    t.index ["is_marketplace_published", "marketplace_status"], name: "idx_integration_templates_marketplace"
+    t.index ["is_public", "is_active"], name: "idx_templates_public_active"
+    t.index ["is_public"], name: "index_devops_integration_templates_on_is_public"
+    t.index ["slug"], name: "index_devops_integration_templates_on_slug", unique: true
+  end
+
+  create_table "devops_pipeline_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ci_cd_pipeline_id", null: false
+    t.uuid "ci_cd_repository_id", null: false
+    t.jsonb "overrides", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ci_cd_pipeline_id", "ci_cd_repository_id"], name: "idx_pipeline_repos_on_pipeline_and_repo", unique: true
+    t.index ["ci_cd_pipeline_id"], name: "index_devops_pipeline_repositories_on_ci_cd_pipeline_id"
+    t.index ["ci_cd_repository_id"], name: "index_devops_pipeline_repositories_on_ci_cd_repository_id"
+  end
+
+  create_table "devops_pipeline_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ci_cd_pipeline_id", null: false
+    t.uuid "triggered_by_id"
+    t.string "run_number", null: false
+    t.string "status", default: "pending", null: false
+    t.string "trigger_type", null: false
+    t.jsonb "trigger_context", default: {}, null: false
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.integer "duration_seconds"
+    t.jsonb "outputs", default: {}, null: false
+    t.jsonb "artifacts", default: [], null: false
+    t.text "error_message"
+    t.string "external_run_id"
+    t.string "external_run_url"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ci_cd_pipeline_id", "run_number"], name: "index_devops_pipeline_runs_on_ci_cd_pipeline_id_and_run_number", unique: true
+    t.index ["ci_cd_pipeline_id", "status"], name: "index_devops_pipeline_runs_on_ci_cd_pipeline_id_and_status"
+    t.index ["ci_cd_pipeline_id"], name: "index_devops_pipeline_runs_on_ci_cd_pipeline_id"
+    t.index ["external_run_id"], name: "index_devops_pipeline_runs_on_external_run_id"
+    t.index ["triggered_by_id"], name: "index_devops_pipeline_runs_on_triggered_by_id"
+  end
+
+  create_table "devops_pipeline_steps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ci_cd_pipeline_id", null: false
+    t.string "name", null: false
+    t.string "step_type", null: false
+    t.integer "position", default: 0, null: false
+    t.jsonb "configuration", default: {}, null: false
+    t.jsonb "inputs", default: {}, null: false
+    t.jsonb "outputs", default: [], null: false
+    t.text "condition"
+    t.boolean "continue_on_error", default: false, null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "shared_prompt_template_id"
+    t.boolean "requires_approval", default: false, null: false, comment: "When true, step execution pauses and sends notifications for manual approval"
+    t.jsonb "approval_settings", default: {}, null: false, comment: "Approval config: {\"timeout_hours\": 24, \"notification_recipients\": [], \"require_comment\": false}"
+    t.index ["ci_cd_pipeline_id", "name"], name: "index_devops_pipeline_steps_on_ci_cd_pipeline_id_and_name", unique: true
+    t.index ["ci_cd_pipeline_id", "position"], name: "index_devops_pipeline_steps_on_ci_cd_pipeline_id_and_position"
+    t.index ["ci_cd_pipeline_id"], name: "index_devops_pipeline_steps_on_ci_cd_pipeline_id"
+    t.index ["shared_prompt_template_id"], name: "index_devops_pipeline_steps_on_shared_prompt_template_id"
+  end
+
+  create_table "devops_pipeline_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "created_by_user_id"
+    t.uuid "source_pipeline_id"
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.text "description"
+    t.string "icon_url"
+    t.string "category"
+    t.string "difficulty_level", default: "intermediate"
+    t.jsonb "tags", default: []
+    t.jsonb "pipeline_definition", default: {}
+    t.jsonb "default_variables", default: {}
+    t.jsonb "triggers", default: {}
+    t.integer "timeout_minutes", default: 30
+    t.string "version", default: "1.0.0", null: false
+    t.string "status", default: "draft"
+    t.boolean "is_public", default: false
+    t.boolean "is_featured", default: false
+    t.boolean "is_system", default: false
+    t.datetime "published_at"
+    t.integer "usage_count", default: 0
+    t.integer "install_count", default: 0
+    t.decimal "rating", precision: 3, scale: 2, default: "0.0"
+    t.integer "rating_count", default: 0
+    t.boolean "is_marketplace_published", default: false
+    t.string "marketplace_status"
+    t.datetime "marketplace_submitted_at"
+    t.datetime "marketplace_approved_at"
+    t.text "marketplace_rejection_reason"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_devops_pipeline_templates_on_account_id"
+    t.index ["category"], name: "index_devops_pipeline_templates_on_category"
+    t.index ["created_by_user_id"], name: "index_devops_pipeline_templates_on_created_by_user_id"
+    t.index ["is_featured"], name: "index_devops_pipeline_templates_on_is_featured"
+    t.index ["is_marketplace_published", "marketplace_status"], name: "idx_cicd_pipeline_templates_marketplace"
+    t.index ["is_public"], name: "index_devops_pipeline_templates_on_is_public"
+    t.index ["slug"], name: "index_devops_pipeline_templates_on_slug", unique: true
+    t.index ["source_pipeline_id"], name: "index_devops_pipeline_templates_on_source_pipeline_id"
+    t.index ["status"], name: "index_devops_pipeline_templates_on_status"
+  end
+
+  create_table "devops_pipelines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "created_by_id"
+    t.uuid "ci_cd_provider_id"
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.string "pipeline_type", null: false
+    t.text "description"
+    t.jsonb "triggers", default: {}, null: false
+    t.jsonb "steps", default: [], null: false
+    t.jsonb "environment", default: {}, null: false
+    t.jsonb "secret_refs", default: [], null: false
+    t.string "runner_labels", default: ["ubuntu-latest"], array: true
+    t.integer "timeout_minutes", default: 60
+    t.boolean "allow_concurrent", default: false, null: false
+    t.jsonb "features", default: {}, null: false
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_system", default: false, null: false
+    t.integer "version", default: 1, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "ai_provider_id"
+    t.jsonb "notification_recipients", default: [], null: false, comment: "Array of notification recipients: [{\"type\": \"email\"|\"user_id\", \"value\": \"...\"}]"
+    t.jsonb "notification_settings", default: {}, null: false, comment: "Notification preferences: {\"on_approval_required\": true, \"on_completion\": false, \"on_failure\": true}"
+    t.index ["account_id", "is_active"], name: "index_devops_pipelines_on_account_id_and_is_active"
+    t.index ["account_id", "pipeline_type"], name: "index_devops_pipelines_on_account_id_and_pipeline_type"
+    t.index ["account_id", "slug"], name: "index_devops_pipelines_on_account_id_and_slug", unique: true
+    t.index ["account_id"], name: "index_devops_pipelines_on_account_id"
+    t.index ["ai_provider_id"], name: "index_devops_pipelines_on_ai_provider_id"
+    t.index ["ci_cd_provider_id"], name: "index_devops_pipelines_on_ci_cd_provider_id"
+    t.index ["created_by_id"], name: "index_devops_pipelines_on_created_by_id"
+  end
+
+  create_table "devops_providers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "created_by_id"
+    t.string "name", null: false
+    t.string "provider_type", null: false
+    t.string "base_url", null: false
+    t.string "api_version", default: "v1"
+    t.string "credential_key"
+    t.jsonb "configuration", default: {}, null: false
+    t.jsonb "capabilities", default: [], null: false
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_default", default: false, null: false
+    t.datetime "last_health_check_at"
+    t.string "health_status"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "is_default"], name: "index_devops_providers_on_account_id_and_is_default", where: "(is_default = true)"
+    t.index ["account_id", "name"], name: "index_devops_providers_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_devops_providers_on_account_id"
+    t.index ["created_by_id"], name: "index_devops_providers_on_created_by_id"
+  end
+
+  create_table "devops_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ci_cd_provider_id", null: false
+    t.string "name", null: false
+    t.string "full_name", null: false
+    t.string "default_branch", default: "main"
+    t.string "external_id"
+    t.jsonb "settings", default: {}, null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_synced_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "full_name"], name: "index_devops_repositories_on_account_id_and_full_name", unique: true
+    t.index ["account_id"], name: "index_devops_repositories_on_account_id"
+    t.index ["ci_cd_provider_id"], name: "index_devops_repositories_on_ci_cd_provider_id"
+    t.index ["external_id"], name: "index_devops_repositories_on_external_id"
+  end
+
+  create_table "devops_schedules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ci_cd_pipeline_id", null: false
+    t.uuid "created_by_id"
+    t.string "name", null: false
+    t.string "cron_expression", null: false
+    t.string "timezone", default: "UTC"
+    t.jsonb "inputs", default: {}, null: false
+    t.datetime "next_run_at"
+    t.datetime "last_run_at"
+    t.boolean "is_active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ci_cd_pipeline_id", "is_active"], name: "index_devops_schedules_on_ci_cd_pipeline_id_and_is_active"
+    t.index ["ci_cd_pipeline_id"], name: "index_devops_schedules_on_ci_cd_pipeline_id"
+    t.index ["created_by_id"], name: "index_devops_schedules_on_created_by_id"
+    t.index ["next_run_at"], name: "index_devops_schedules_on_next_run_at", where: "(is_active = true)"
+  end
+
+  create_table "devops_step_approval_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "step_execution_id", null: false
+    t.uuid "recipient_user_id"
+    t.uuid "responded_by_id"
+    t.string "token_digest", null: false
+    t.string "recipient_email", null: false
+    t.string "status", default: "pending", null: false
+    t.text "response_comment"
+    t.datetime "expires_at", null: false
+    t.datetime "responded_at"
+    t.datetime "email_sent_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["recipient_user_id"], name: "index_devops_step_approval_tokens_on_recipient_user_id"
+    t.index ["responded_by_id"], name: "index_devops_step_approval_tokens_on_responded_by_id"
+    t.index ["status", "expires_at"], name: "idx_approval_tokens_pending_expiry", where: "((status)::text = 'pending'::text)"
+    t.index ["step_execution_id", "status"], name: "idx_approval_tokens_on_step_execution_and_status"
+    t.index ["step_execution_id"], name: "index_devops_step_approval_tokens_on_step_execution_id"
+    t.index ["token_digest"], name: "index_devops_step_approval_tokens_on_token_digest", unique: true
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text])", name: "ci_cd_step_approval_tokens_status_check"
+  end
+
+  create_table "devops_step_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ci_cd_pipeline_run_id", null: false
+    t.uuid "ci_cd_pipeline_step_id", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.integer "duration_seconds"
+    t.jsonb "outputs", default: {}, null: false
+    t.text "logs"
+    t.text "error_message"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ci_cd_pipeline_run_id", "ci_cd_pipeline_step_id"], name: "idx_step_executions_on_run_and_step", unique: true
+    t.index ["ci_cd_pipeline_run_id"], name: "index_devops_step_executions_on_ci_cd_pipeline_run_id"
+    t.index ["ci_cd_pipeline_step_id"], name: "index_devops_step_executions_on_ci_cd_pipeline_step_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'waiting_approval'::character varying::text, 'success'::character varying::text, 'failure'::character varying::text, 'skipped'::character varying::text])", name: "ci_cd_step_executions_status_check"
   end
 
   create_table "email_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2431,147 +2312,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.index ["started_at"], name: "index_impersonation_sessions_on_started_at"
   end
 
-  create_table "integration_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "created_by_user_id"
-    t.string "name", null: false
-    t.string "credential_type", null: false
-    t.text "encrypted_credentials", null: false
-    t.string "encryption_key_id", null: false
-    t.datetime "token_expires_at"
-    t.text "encrypted_refresh_token"
-    t.jsonb "scopes", default: []
-    t.jsonb "metadata", default: {}
-    t.boolean "is_active", default: true
-    t.datetime "last_used_at"
-    t.datetime "last_validated_at"
-    t.string "validation_status"
-    t.integer "consecutive_failures", default: 0
-    t.text "last_error"
-    t.datetime "expires_at"
-    t.datetime "rotated_at"
-    t.uuid "rotated_from_id"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "credential_type"], name: "idx_credentials_account_type"
-    t.index ["account_id", "name"], name: "index_integration_credentials_on_account_id_and_name", unique: true
-    t.index ["account_id"], name: "index_integration_credentials_on_account_id"
-    t.index ["created_by_user_id"], name: "index_integration_credentials_on_created_by_user_id"
-    t.index ["credential_type"], name: "index_integration_credentials_on_credential_type"
-    t.index ["expires_at"], name: "index_integration_credentials_on_expires_at"
-    t.index ["is_active"], name: "index_integration_credentials_on_is_active"
-  end
-
-  create_table "integration_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "integration_instance_id", null: false
-    t.uuid "account_id", null: false
-    t.uuid "triggered_by_user_id"
-    t.string "execution_id", null: false
-    t.string "status", default: "pending", null: false
-    t.jsonb "input_data", default: {}
-    t.jsonb "output_data", default: {}
-    t.jsonb "error_details", default: {}
-    t.datetime "started_at"
-    t.datetime "completed_at"
-    t.integer "duration_ms"
-    t.string "trigger_type"
-    t.string "trigger_source"
-    t.jsonb "trigger_metadata", default: {}
-    t.integer "attempt_number", default: 1
-    t.integer "max_attempts", default: 3
-    t.datetime "next_retry_at"
-    t.uuid "parent_execution_id"
-    t.decimal "cost_estimate", precision: 10, scale: 6
-    t.jsonb "resource_usage", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "created_at"], name: "idx_executions_account_created"
-    t.index ["account_id"], name: "index_integration_executions_on_account_id"
-    t.index ["execution_id"], name: "index_integration_executions_on_execution_id", unique: true
-    t.index ["integration_instance_id", "status"], name: "idx_executions_instance_status"
-    t.index ["integration_instance_id"], name: "index_integration_executions_on_integration_instance_id"
-    t.index ["parent_execution_id"], name: "index_integration_executions_on_parent_execution_id"
-    t.index ["status"], name: "index_integration_executions_on_status"
-    t.index ["trigger_type"], name: "index_integration_executions_on_trigger_type"
-    t.index ["triggered_by_user_id"], name: "index_integration_executions_on_triggered_by_user_id"
-  end
-
-  create_table "integration_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "integration_template_id", null: false
-    t.uuid "integration_credential_id"
-    t.uuid "created_by_user_id"
-    t.string "name", null: false
-    t.string "slug", null: false
-    t.text "description"
-    t.string "status", default: "pending"
-    t.jsonb "configuration", default: {}
-    t.jsonb "runtime_state", default: {}
-    t.jsonb "health_metrics", default: {}
-    t.integer "execution_count", default: 0
-    t.integer "success_count", default: 0
-    t.integer "failure_count", default: 0
-    t.decimal "average_duration_ms", precision: 10, scale: 2
-    t.datetime "last_executed_at"
-    t.datetime "last_success_at"
-    t.datetime "last_failure_at"
-    t.text "last_error"
-    t.datetime "last_health_check_at"
-    t.string "health_status"
-    t.integer "consecutive_failures", default: 0
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "slug"], name: "index_integration_instances_on_account_id_and_slug", unique: true
-    t.index ["account_id", "status"], name: "idx_instances_account_status"
-    t.index ["account_id"], name: "index_integration_instances_on_account_id"
-    t.index ["created_by_user_id"], name: "index_integration_instances_on_created_by_user_id"
-    t.index ["health_status"], name: "index_integration_instances_on_health_status"
-    t.index ["integration_credential_id"], name: "index_integration_instances_on_integration_credential_id"
-    t.index ["integration_template_id"], name: "index_integration_instances_on_integration_template_id"
-    t.index ["status"], name: "index_integration_instances_on_status"
-  end
-
-  create_table "integration_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", null: false
-    t.string "slug", null: false
-    t.string "integration_type", null: false
-    t.string "category"
-    t.string "version", default: "1.0.0"
-    t.text "description"
-    t.string "icon_url"
-    t.string "documentation_url"
-    t.jsonb "configuration_schema", default: {}
-    t.jsonb "credential_requirements", default: {}
-    t.jsonb "capabilities", default: []
-    t.jsonb "input_schema", default: {}
-    t.jsonb "output_schema", default: {}
-    t.jsonb "default_configuration", default: {}
-    t.jsonb "metadata", default: {}
-    t.jsonb "supported_providers", default: []
-    t.boolean "is_public", default: false
-    t.boolean "is_featured", default: false
-    t.boolean "is_active", default: true
-    t.integer "usage_count", default: 0
-    t.integer "install_count", default: 0
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.boolean "is_marketplace_published", default: false
-    t.string "marketplace_status"
-    t.datetime "marketplace_submitted_at"
-    t.datetime "marketplace_approved_at"
-    t.text "marketplace_rejection_reason"
-    t.uuid "account_id"
-    t.index ["account_id"], name: "index_integration_templates_on_account_id"
-    t.index ["category"], name: "index_integration_templates_on_category"
-    t.index ["integration_type"], name: "index_integration_templates_on_integration_type"
-    t.index ["is_active"], name: "index_integration_templates_on_is_active"
-    t.index ["is_featured"], name: "index_integration_templates_on_is_featured"
-    t.index ["is_marketplace_published", "marketplace_status"], name: "idx_integration_templates_marketplace"
-    t.index ["is_public", "is_active"], name: "idx_templates_public_active"
-    t.index ["is_public"], name: "index_integration_templates_on_is_public"
-    t.index ["slug"], name: "index_integration_templates_on_slug", unique: true
-  end
-
   create_table "invitations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "inviter_id", null: false
@@ -2853,7 +2593,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
   end
 
   create_table "marketplace_listings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_id", null: false
     t.string "title", limit: 255, null: false
     t.string "short_description", limit: 500
     t.text "long_description"
@@ -2869,7 +2608,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.datetime "published_at", precision: nil
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["app_id"], name: "index_marketplace_listings_on_app_id", unique: true
     t.index ["category"], name: "idx_marketplace_listings_on_category"
     t.index ["featured"], name: "idx_marketplace_listings_on_featured"
     t.index ["published_at"], name: "idx_marketplace_listings_on_published_at"
@@ -3217,81 +2955,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.check_constraint "price_cents >= 0", name: "valid_price"
   end
 
-  create_table "plugin_dependencies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "plugin_id", null: false
-    t.string "dependency_plugin_id", null: false
-    t.string "version_constraint"
-    t.boolean "is_required", default: true
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["plugin_id", "dependency_plugin_id"], name: "idx_on_plugin_id_dependency_plugin_id_f11554f3cb", unique: true
-    t.index ["plugin_id"], name: "index_plugin_dependencies_on_plugin_id"
-  end
-
-  create_table "plugin_installations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "plugin_id", null: false
-    t.uuid "installed_by_id", null: false
-    t.string "status", default: "active", null: false
-    t.datetime "installed_at", null: false
-    t.datetime "last_activated_at"
-    t.datetime "last_used_at"
-    t.jsonb "configuration", default: {}, null: false
-    t.jsonb "credentials", default: {}, null: false
-    t.jsonb "installation_metadata", default: {}, null: false
-    t.integer "execution_count", default: 0
-    t.decimal "total_cost", precision: 10, scale: 4, default: "0.0"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "plugin_id"], name: "index_plugin_installations_on_account_id_and_plugin_id", unique: true
-    t.index ["account_id"], name: "index_plugin_installations_on_account_id"
-    t.index ["installed_at"], name: "index_plugin_installations_on_installed_at"
-    t.index ["installed_by_id"], name: "index_plugin_installations_on_installed_by_id"
-    t.index ["plugin_id"], name: "index_plugin_installations_on_plugin_id"
-    t.index ["status"], name: "index_plugin_installations_on_status"
-  end
-
-  create_table "plugin_marketplaces", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "creator_id", null: false
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
-    t.string "owner", limit: 255, null: false
-    t.text "description"
-    t.string "marketplace_type", default: "private", null: false
-    t.string "source_type", null: false
-    t.string "source_url", limit: 500
-    t.string "visibility", default: "private", null: false
-    t.integer "plugin_count", default: 0
-    t.decimal "average_rating", precision: 3, scale: 2
-    t.jsonb "configuration", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "slug"], name: "index_plugin_marketplaces_on_account_id_and_slug", unique: true
-    t.index ["account_id"], name: "index_plugin_marketplaces_on_account_id"
-    t.index ["creator_id"], name: "index_plugin_marketplaces_on_creator_id"
-    t.index ["marketplace_type"], name: "index_plugin_marketplaces_on_marketplace_type"
-    t.index ["visibility"], name: "index_plugin_marketplaces_on_visibility"
-  end
-
-  create_table "plugin_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "plugin_id", null: false
-    t.uuid "account_id", null: false
-    t.uuid "user_id", null: false
-    t.integer "rating", null: false
-    t.text "review_text"
-    t.boolean "is_verified_purchase", default: false
-    t.string "plugin_version", limit: 20
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_plugin_reviews_on_account_id"
-    t.index ["plugin_id", "account_id"], name: "index_plugin_reviews_on_plugin_id_and_account_id", unique: true
-    t.index ["plugin_id"], name: "index_plugin_reviews_on_plugin_id"
-    t.index ["rating"], name: "index_plugin_reviews_on_rating"
-    t.index ["user_id"], name: "index_plugin_reviews_on_user_id"
-  end
-
   create_table "plugins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "creator_id", null: false
@@ -3464,7 +3127,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
   end
 
   create_table "review_aggregation_cache", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_id", null: false
     t.decimal "average_rating", precision: 3, scale: 2, default: "0.0"
     t.integer "total_reviews", default: 0
     t.integer "five_star_count", default: 0
@@ -3484,8 +3146,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.datetime "last_calculated_at", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["app_id"], name: "idx_review_aggregation_cache_on_app_id_unique", unique: true
-    t.index ["app_id"], name: "index_review_aggregation_cache_on_app_id"
     t.index ["average_rating"], name: "idx_review_aggregation_cache_on_average_rating"
     t.index ["last_calculated_at"], name: "idx_review_aggregation_cache_on_last_calculated_at"
     t.index ["total_reviews"], name: "idx_review_aggregation_cache_on_total_reviews"
@@ -3493,132 +3153,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
     t.check_constraint "five_star_count >= 0 AND four_star_count >= 0 AND three_star_count >= 0 AND two_star_count >= 0 AND one_star_count >= 0", name: "valid_rating_counts"
     t.check_constraint "response_rate >= 0::numeric AND response_rate <= 100::numeric", name: "valid_response_rate"
     t.check_constraint "total_reviews >= 0", name: "valid_total_reviews"
-  end
-
-  create_table "review_helpfulness_votes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_review_id", null: false
-    t.uuid "account_id", null: false
-    t.boolean "is_helpful", null: false
-    t.integer "weight", default: 1
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_review_helpfulness_votes_on_account_id"
-    t.index ["app_review_id", "account_id"], name: "idx_review_helpfulness_votes_on_review_account_unique", unique: true
-    t.index ["app_review_id"], name: "index_review_helpfulness_votes_on_app_review_id"
-    t.index ["is_helpful"], name: "idx_review_helpfulness_votes_on_is_helpful"
-    t.check_constraint "weight > 0", name: "valid_vote_weight"
-  end
-
-  create_table "review_media_attachments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_review_id", null: false
-    t.string "file_type", limit: 50, null: false
-    t.string "file_url", limit: 1000, null: false
-    t.string "file_name", limit: 255
-    t.integer "file_size"
-    t.string "caption", limit: 500
-    t.integer "display_order", default: 0
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["app_review_id", "display_order"], name: "idx_review_media_attachments_on_review_display_order"
-    t.index ["app_review_id"], name: "index_review_media_attachments_on_app_review_id"
-    t.index ["file_type"], name: "idx_review_media_attachments_on_file_type"
-    t.check_constraint "display_order >= 0", name: "valid_display_order"
-    t.check_constraint "file_size IS NULL OR file_size > 0", name: "valid_file_size"
-    t.check_constraint "file_type::text = ANY (ARRAY['image'::character varying::text, 'video'::character varying::text, 'document'::character varying::text])", name: "valid_media_type"
-  end
-
-  create_table "review_moderation_actions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_review_id", null: false
-    t.uuid "moderator_id", null: false
-    t.string "action_type", limit: 50, null: false
-    t.string "previous_status", limit: 50
-    t.string "new_status", limit: 50
-    t.text "reason"
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["action_type"], name: "idx_review_moderation_actions_on_action_type"
-    t.index ["app_review_id"], name: "idx_review_moderation_actions_on_app_review_id"
-    t.index ["app_review_id"], name: "index_review_moderation_actions_on_app_review_id"
-    t.index ["created_at"], name: "idx_review_moderation_actions_on_created_at"
-    t.index ["moderator_id"], name: "idx_review_moderation_actions_on_moderator_id"
-    t.index ["moderator_id"], name: "index_review_moderation_actions_on_moderator_id"
-    t.check_constraint "action_type::text = ANY (ARRAY['publish'::character varying::text, 'hide'::character varying::text, 'flag'::character varying::text, 'remove'::character varying::text, 'approve'::character varying::text, 'reject'::character varying::text, 'edit'::character varying::text])", name: "valid_moderation_action"
-  end
-
-  create_table "review_notification_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "review_notification_id", null: false
-    t.string "delivery_channel", limit: 50, null: false
-    t.string "status", limit: 20, default: "pending"
-    t.datetime "attempted_at"
-    t.datetime "delivered_at"
-    t.text "response_data"
-    t.text "error_message"
-    t.integer "attempt_count", default: 0
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["attempted_at"], name: "idx_review_notification_deliveries_on_attempted_at"
-    t.index ["delivered_at"], name: "idx_review_notification_deliveries_on_delivered_at"
-    t.index ["delivery_channel"], name: "idx_review_notification_deliveries_on_delivery_channel"
-    t.index ["review_notification_id"], name: "idx_review_notification_deliveries_on_review_notification_id"
-    t.index ["review_notification_id"], name: "index_review_notification_deliveries_on_review_notification_id"
-    t.index ["status"], name: "idx_review_notification_deliveries_on_status"
-    t.check_constraint "attempt_count >= 0", name: "valid_delivery_attempt_count"
-    t.check_constraint "delivery_channel::text = ANY (ARRAY['email'::character varying::text, 'sms'::character varying::text, 'push'::character varying::text, 'webhook'::character varying::text, 'slack'::character varying::text])", name: "valid_delivery_channel"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'delivered'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "valid_delivery_status"
-  end
-
-  create_table "review_notifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_review_id", null: false
-    t.uuid "recipient_id", null: false
-    t.uuid "triggered_by_id"
-    t.string "notification_type", limit: 100, null: false
-    t.jsonb "delivery_channels", default: [], null: false
-    t.string "priority", limit: 20, default: "normal"
-    t.string "status", limit: 20, default: "pending"
-    t.jsonb "template_data", default: {}, null: false
-    t.datetime "scheduled_at"
-    t.datetime "sent_at"
-    t.integer "retry_count", default: 0
-    t.text "failure_reason"
-    t.jsonb "delivery_results", default: {}
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["app_review_id"], name: "idx_review_notifications_on_app_review_id"
-    t.index ["app_review_id"], name: "index_review_notifications_on_app_review_id"
-    t.index ["created_at"], name: "idx_review_notifications_on_created_at"
-    t.index ["delivery_channels"], name: "idx_review_notifications_on_delivery_channels", using: :gin
-    t.index ["notification_type"], name: "idx_review_notifications_on_notification_type"
-    t.index ["priority"], name: "idx_review_notifications_on_priority"
-    t.index ["recipient_id"], name: "idx_review_notifications_on_recipient_id"
-    t.index ["recipient_id"], name: "index_review_notifications_on_recipient_id"
-    t.index ["scheduled_at"], name: "idx_review_notifications_on_scheduled_at"
-    t.index ["status"], name: "idx_review_notifications_on_status"
-    t.index ["triggered_by_id"], name: "idx_review_notifications_on_triggered_by_id"
-    t.index ["triggered_by_id"], name: "index_review_notifications_on_triggered_by_id"
-    t.check_constraint "notification_type::text = ANY (ARRAY['new_review'::character varying::text, 'review_response'::character varying::text, 'review_flagged'::character varying::text, 'review_approved'::character varying::text, 'review_rejected'::character varying::text, 'review_milestone'::character varying::text, 'helpful_vote'::character varying::text, 'review_digest'::character varying::text, 'admin_alert'::character varying::text])", name: "valid_notification_type"
-    t.check_constraint "priority::text = ANY (ARRAY['low'::character varying::text, 'normal'::character varying::text, 'high'::character varying::text, 'urgent'::character varying::text])", name: "valid_notification_priority"
-    t.check_constraint "retry_count >= 0", name: "valid_retry_count"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'sent'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "valid_notification_status"
-  end
-
-  create_table "review_responses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_review_id", null: false
-    t.uuid "responder_id", null: false
-    t.text "content", null: false
-    t.string "status", limit: 50, default: "published"
-    t.datetime "published_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["app_review_id"], name: "idx_review_responses_on_app_review_id"
-    t.index ["app_review_id"], name: "index_review_responses_on_app_review_id"
-    t.index ["published_at"], name: "idx_review_responses_on_published_at"
-    t.index ["responder_id"], name: "idx_review_responses_on_responder_id"
-    t.index ["responder_id"], name: "index_review_responses_on_responder_id"
-    t.index ["status"], name: "idx_review_responses_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text, 'hidden'::character varying::text, 'removed'::character varying::text])", name: "valid_response_status"
   end
 
   create_table "role_permissions", id: false, force: :cascade do |t|
@@ -4194,10 +3728,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
   add_foreign_key "ai_workflow_runs", "users", column: "triggered_by_user_id"
   add_foreign_key "ai_workflow_schedules", "ai_workflows"
   add_foreign_key "ai_workflow_schedules", "users", column: "created_by_id"
-  add_foreign_key "ai_workflow_template_installations", "accounts"
-  add_foreign_key "ai_workflow_template_installations", "ai_workflow_templates"
-  add_foreign_key "ai_workflow_template_installations", "ai_workflows"
-  add_foreign_key "ai_workflow_template_installations", "users", column: "installed_by_user_id"
   add_foreign_key "ai_workflow_templates", "accounts"
   add_foreign_key "ai_workflow_templates", "users", column: "created_by_user_id"
   add_foreign_key "ai_workflow_triggers", "ai_workflows"
@@ -4208,45 +3738,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
   add_foreign_key "api_key_usages", "api_keys"
   add_foreign_key "api_keys", "accounts"
   add_foreign_key "api_keys", "users", column: "created_by_id"
-  add_foreign_key "app_endpoint_calls", "accounts"
-  add_foreign_key "app_endpoint_calls", "app_endpoints", on_delete: :cascade
-  add_foreign_key "app_endpoints", "apps", on_delete: :cascade
-  add_foreign_key "app_features", "apps", on_delete: :cascade
-  add_foreign_key "app_plans", "apps", on_delete: :cascade
-  add_foreign_key "app_reviews", "accounts"
-  add_foreign_key "app_reviews", "apps", on_delete: :cascade
   add_foreign_key "app_subscriptions", "accounts"
-  add_foreign_key "app_subscriptions", "app_plans"
-  add_foreign_key "app_subscriptions", "apps"
-  add_foreign_key "app_webhook_deliveries", "app_webhooks", on_delete: :cascade
-  add_foreign_key "app_webhooks", "apps", on_delete: :cascade
-  add_foreign_key "apps", "accounts"
   add_foreign_key "audit_logs", "accounts"
   add_foreign_key "audit_logs", "users", on_delete: :nullify
   add_foreign_key "batch_workflow_runs", "accounts"
   add_foreign_key "batch_workflow_runs", "users"
   add_foreign_key "blacklisted_tokens", "users"
-  add_foreign_key "ci_cd_pipeline_repositories", "ci_cd_pipelines", on_delete: :cascade
-  add_foreign_key "ci_cd_pipeline_repositories", "ci_cd_repositories", on_delete: :cascade
-  add_foreign_key "ci_cd_pipeline_runs", "ci_cd_pipelines", on_delete: :cascade
-  add_foreign_key "ci_cd_pipeline_runs", "users", column: "triggered_by_id", on_delete: :nullify
-  add_foreign_key "ci_cd_pipeline_steps", "ci_cd_pipelines", on_delete: :cascade
-  add_foreign_key "ci_cd_pipeline_steps", "shared_prompt_templates", on_delete: :nullify
-  add_foreign_key "ci_cd_pipelines", "accounts", on_delete: :cascade
-  add_foreign_key "ci_cd_pipelines", "ai_providers", on_delete: :nullify
-  add_foreign_key "ci_cd_pipelines", "ci_cd_providers", on_delete: :restrict
-  add_foreign_key "ci_cd_pipelines", "users", column: "created_by_id", on_delete: :nullify
-  add_foreign_key "ci_cd_providers", "accounts", on_delete: :cascade
-  add_foreign_key "ci_cd_providers", "users", column: "created_by_id", on_delete: :nullify
-  add_foreign_key "ci_cd_repositories", "accounts", on_delete: :cascade
-  add_foreign_key "ci_cd_repositories", "ci_cd_providers", on_delete: :cascade
-  add_foreign_key "ci_cd_schedules", "ci_cd_pipelines", on_delete: :cascade
-  add_foreign_key "ci_cd_schedules", "users", column: "created_by_id", on_delete: :nullify
-  add_foreign_key "ci_cd_step_approval_tokens", "ci_cd_step_executions", column: "step_execution_id"
-  add_foreign_key "ci_cd_step_approval_tokens", "users", column: "recipient_user_id"
-  add_foreign_key "ci_cd_step_approval_tokens", "users", column: "responded_by_id"
-  add_foreign_key "ci_cd_step_executions", "ci_cd_pipeline_runs", on_delete: :cascade
-  add_foreign_key "ci_cd_step_executions", "ci_cd_pipeline_steps", on_delete: :cascade
   add_foreign_key "circuit_breaker_events", "circuit_breakers"
   add_foreign_key "cookie_consents", "users"
   add_foreign_key "data_deletion_requests", "accounts"
@@ -4262,6 +3759,36 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
   add_foreign_key "database_restores", "users", column: "initiated_by_id"
   add_foreign_key "delegation_permissions", "account_delegations"
   add_foreign_key "delegation_permissions", "permissions"
+  add_foreign_key "devops_integration_credentials", "accounts"
+  add_foreign_key "devops_integration_credentials", "users", column: "created_by_user_id"
+  add_foreign_key "devops_integration_executions", "accounts"
+  add_foreign_key "devops_integration_executions", "devops_integration_instances", column: "integration_instance_id"
+  add_foreign_key "devops_integration_executions", "users", column: "triggered_by_user_id"
+  add_foreign_key "devops_integration_instances", "accounts"
+  add_foreign_key "devops_integration_instances", "devops_integration_credentials", column: "integration_credential_id"
+  add_foreign_key "devops_integration_instances", "devops_integration_templates", column: "integration_template_id"
+  add_foreign_key "devops_integration_instances", "users", column: "created_by_user_id"
+  add_foreign_key "devops_pipeline_repositories", "devops_pipelines", column: "ci_cd_pipeline_id", on_delete: :cascade
+  add_foreign_key "devops_pipeline_repositories", "devops_repositories", column: "ci_cd_repository_id", on_delete: :cascade
+  add_foreign_key "devops_pipeline_runs", "devops_pipelines", column: "ci_cd_pipeline_id", on_delete: :cascade
+  add_foreign_key "devops_pipeline_runs", "users", column: "triggered_by_id", on_delete: :nullify
+  add_foreign_key "devops_pipeline_steps", "devops_pipelines", column: "ci_cd_pipeline_id", on_delete: :cascade
+  add_foreign_key "devops_pipeline_steps", "shared_prompt_templates", on_delete: :nullify
+  add_foreign_key "devops_pipelines", "accounts", on_delete: :cascade
+  add_foreign_key "devops_pipelines", "ai_providers", on_delete: :nullify
+  add_foreign_key "devops_pipelines", "devops_providers", column: "ci_cd_provider_id", on_delete: :restrict
+  add_foreign_key "devops_pipelines", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "devops_providers", "accounts", on_delete: :cascade
+  add_foreign_key "devops_providers", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "devops_repositories", "accounts", on_delete: :cascade
+  add_foreign_key "devops_repositories", "devops_providers", column: "ci_cd_provider_id", on_delete: :cascade
+  add_foreign_key "devops_schedules", "devops_pipelines", column: "ci_cd_pipeline_id", on_delete: :cascade
+  add_foreign_key "devops_schedules", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "devops_step_approval_tokens", "devops_step_executions", column: "step_execution_id"
+  add_foreign_key "devops_step_approval_tokens", "users", column: "recipient_user_id"
+  add_foreign_key "devops_step_approval_tokens", "users", column: "responded_by_id"
+  add_foreign_key "devops_step_executions", "devops_pipeline_runs", column: "ci_cd_pipeline_run_id", on_delete: :cascade
+  add_foreign_key "devops_step_executions", "devops_pipeline_steps", column: "ci_cd_pipeline_step_id", on_delete: :cascade
   add_foreign_key "email_deliveries", "users"
   add_foreign_key "file_object_tags", "accounts"
   add_foreign_key "file_object_tags", "file_objects"
@@ -4307,15 +3834,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
   add_foreign_key "git_workflow_triggers", "git_repositories"
   add_foreign_key "impersonation_sessions", "users", column: "impersonated_user_id"
   add_foreign_key "impersonation_sessions", "users", column: "impersonator_id"
-  add_foreign_key "integration_credentials", "accounts"
-  add_foreign_key "integration_credentials", "users", column: "created_by_user_id"
-  add_foreign_key "integration_executions", "accounts"
-  add_foreign_key "integration_executions", "integration_instances"
-  add_foreign_key "integration_executions", "users", column: "triggered_by_user_id"
-  add_foreign_key "integration_instances", "accounts"
-  add_foreign_key "integration_instances", "integration_credentials"
-  add_foreign_key "integration_instances", "integration_templates"
-  add_foreign_key "integration_instances", "users", column: "created_by_user_id"
   add_foreign_key "invitations", "accounts"
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "invoice_line_items", "invoices"
@@ -4332,7 +3850,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
   add_foreign_key "knowledge_base_comments", "knowledge_base_comments", column: "parent_id"
   add_foreign_key "knowledge_base_comments", "users", column: "author_id"
   add_foreign_key "knowledge_base_workflows", "users"
-  add_foreign_key "marketplace_listings", "apps", on_delete: :cascade
   add_foreign_key "marketplace_reviews", "accounts"
   add_foreign_key "marketplace_reviews", "users"
   add_foreign_key "mcp_servers", "accounts"
@@ -4353,17 +3870,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
   add_foreign_key "payments", "invoices"
   add_foreign_key "payments", "payment_methods"
   add_foreign_key "payments", "subscriptions"
-  add_foreign_key "plugin_dependencies", "plugins"
-  add_foreign_key "plugin_installations", "accounts"
-  add_foreign_key "plugin_installations", "plugins"
-  add_foreign_key "plugin_installations", "users", column: "installed_by_id"
-  add_foreign_key "plugin_marketplaces", "accounts"
-  add_foreign_key "plugin_marketplaces", "users", column: "creator_id"
-  add_foreign_key "plugin_reviews", "accounts"
-  add_foreign_key "plugin_reviews", "plugins"
-  add_foreign_key "plugin_reviews", "users"
   add_foreign_key "plugins", "accounts"
-  add_foreign_key "plugins", "plugin_marketplaces", column: "source_marketplace_id"
   add_foreign_key "plugins", "users", column: "creator_id"
   add_foreign_key "reconciliation_flags", "reconciliation_reports"
   add_foreign_key "reconciliation_flags", "users", column: "resolved_by_id"
@@ -4372,18 +3879,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_10_070003) do
   add_foreign_key "report_requests", "accounts"
   add_foreign_key "report_requests", "users", column: "requested_by_id"
   add_foreign_key "revenue_snapshots", "accounts"
-  add_foreign_key "review_aggregation_cache", "apps", on_delete: :cascade
-  add_foreign_key "review_helpfulness_votes", "accounts"
-  add_foreign_key "review_helpfulness_votes", "app_reviews", on_delete: :cascade
-  add_foreign_key "review_media_attachments", "app_reviews", on_delete: :cascade
-  add_foreign_key "review_moderation_actions", "app_reviews", on_delete: :cascade
-  add_foreign_key "review_moderation_actions", "users", column: "moderator_id"
-  add_foreign_key "review_notification_deliveries", "review_notifications"
-  add_foreign_key "review_notifications", "accounts", column: "recipient_id"
-  add_foreign_key "review_notifications", "accounts", column: "triggered_by_id"
-  add_foreign_key "review_notifications", "app_reviews"
-  add_foreign_key "review_responses", "app_reviews", on_delete: :cascade
-  add_foreign_key "review_responses", "users", column: "responder_id"
   add_foreign_key "role_permissions", "permissions"
   add_foreign_key "role_permissions", "roles"
   add_foreign_key "scheduled_reports", "accounts"

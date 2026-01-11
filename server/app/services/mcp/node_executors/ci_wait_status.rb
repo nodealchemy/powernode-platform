@@ -8,7 +8,7 @@ module Mcp
     # or times out. Used in workflows to wait for CI/CD results.
     #
     # Configuration:
-    # - repository_id: UUID of Git::Repository
+    # - repository_id: UUID of Devops::GitRepository
     # - run_id: ID of the workflow run to wait for
     # - expected_status: Status to wait for (success, failure, completed, any)
     # - poll_interval_seconds: How often to check (default: 30)
@@ -67,7 +67,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = Git::Repository.find_by(id: repository_id)
+        repository = Devops::GitRepository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end
@@ -76,7 +76,7 @@ module Mcp
         credential = repository.git_provider_credential
         raise ArgumentError, "No credential found for repository" unless credential
 
-        Git::ApiClient.for(credential)
+        Devops::Git::ApiClient.for(credential)
       end
 
       def poll_for_status(api_client:, repository:, run_id:, expected_status:, poll_interval:, timeout_seconds:)
@@ -157,7 +157,7 @@ module Mcp
           head_branch: run[:head_branch],
           workflow_id: run[:workflow_id]
         }
-      rescue Git::ApiClient::NotFoundError
+      rescue Devops::Git::ApiClient::NotFoundError
         raise ArgumentError, "Workflow run not found: #{run_id}"
       end
 

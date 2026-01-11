@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Upload } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { FileUpload } from '@/features/files/components/FileUpload';
-import { FileBrowser } from '@/features/files/components/FileBrowser';
-import { FileObject } from '@/features/files/services/filesApi';
+import { FileUpload } from '@/features/content/files/components/FileUpload';
+import { FileBrowser } from '@/features/content/files/components/FileBrowser';
+import { FileObject } from '@/features/content/files/services/filesApi';
 import { useAuth } from '@/shared/hooks/useAuth';
 
 const FilesPage: React.FC = () => {

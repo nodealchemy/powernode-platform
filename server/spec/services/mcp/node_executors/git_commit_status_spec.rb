@@ -63,11 +63,11 @@ RSpec.describe Mcp::NodeExecutors::GitCommitStatus do
 
   describe '#execute' do
     context 'with valid configuration' do
-      let(:api_client) { instance_double(Git::GithubApiClient) }
+      let(:api_client) { instance_double(Devops::Git::GithubApiClient) }
       let(:api_response) { { success: true, id: 1, url: 'https://github.com/myorg/myrepo/statuses/abc123' } }
 
       before do
-        allow(Git::ApiClient).to receive(:for).and_return(api_client)
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(api_client)
         allow(api_client).to receive(:create_commit_status).and_return(api_response)
       end
 
@@ -101,7 +101,7 @@ RSpec.describe Mcp::NodeExecutors::GitCommitStatus do
     end
 
     context 'with target_url' do
-      let(:api_client) { instance_double(Git::GithubApiClient) }
+      let(:api_client) { instance_double(Devops::Git::GithubApiClient) }
 
       let(:configuration) do
         {
@@ -115,7 +115,7 @@ RSpec.describe Mcp::NodeExecutors::GitCommitStatus do
       end
 
       before do
-        allow(Git::ApiClient).to receive(:for).and_return(api_client)
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(api_client)
         allow(api_client).to receive(:create_commit_status).and_return({ success: true, id: 1 })
       end
 
@@ -133,10 +133,10 @@ RSpec.describe Mcp::NodeExecutors::GitCommitStatus do
     end
 
     context 'with different states' do
-      let(:api_client) { instance_double(Git::GithubApiClient) }
+      let(:api_client) { instance_double(Devops::Git::GithubApiClient) }
 
       before do
-        allow(Git::ApiClient).to receive(:for).and_return(api_client)
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(api_client)
         allow(api_client).to receive(:create_commit_status).and_return({ success: true, id: 1 })
       end
 
@@ -159,7 +159,7 @@ RSpec.describe Mcp::NodeExecutors::GitCommitStatus do
 
     context 'when API call fails' do
       before do
-        allow(Git::ApiClient).to receive(:for).and_raise(StandardError.new('API Error'))
+        allow(Devops::Git::ApiClient).to receive(:for).and_raise(StandardError.new('API Error'))
       end
 
       it 'raises NodeExecutionError' do

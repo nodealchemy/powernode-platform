@@ -64,7 +64,7 @@ jest.mock('../ui/VersionDisplay', () => ({
 
 // Mock settingsApi
 const mockGetCopyright = jest.fn();
-jest.mock('@/shared/services/settingsApi', () => ({
+jest.mock('@/shared/services/settings/settingsApi', () => ({
   settingsApi: {
     getCopyright: () => mockGetCopyright(),
   },

@@ -98,11 +98,11 @@ module Api
             categories[cat][:types] |= [ "app" ]
           end
 
-          Plugin.active.each do |plugin|
-            cat = plugin.metadata&.dig("category") || "general"
+          # Add integration templates to categories
+          ::Devops::IntegrationTemplate.marketplace_published.pluck(:category).compact.each do |cat|
             categories[cat] ||= { name: cat, count: 0, types: [] }
             categories[cat][:count] += 1
-            categories[cat][:types] |= [ plugin.integration? ? "integration" : "plugin" ]
+            categories[cat][:types] |= [ "integration" ]
           end
 
           ::Ai::WorkflowTemplate.public_templates.published.pluck(:category).compact.each do |cat|
@@ -267,7 +267,7 @@ module Api
         end
 
         def filtered_pipeline_templates
-          templates = ::CiCd::PipelineTemplate.marketplace_published
+          templates = ::Devops::PipelineTemplate.marketplace_published
           templates = templates.by_category(params[:category]) if params[:category].present?
           templates = templates.search_by_text(params[:search]) if params[:search].present?
           templates = templates.featured if params[:verified] == "true"
@@ -275,7 +275,7 @@ module Api
         end
 
         def filtered_integration_templates
-          templates = ::Integration::Template.marketplace_published
+          templates = ::Devops::IntegrationTemplate.marketplace_published
           templates = templates.by_type(params[:integration_type]) if params[:integration_type].present?
           templates = templates.by_category(params[:category]) if params[:category].present?
           templates = templates.featured if params[:verified] == "true"
@@ -298,12 +298,8 @@ module Api
         end
 
         def filtered_plugins
-          plugins = Plugin.active
-          plugins = plugins.where.not("'integration' = ANY(plugin_types)") # Exclude integrations
-          plugins = plugins.search_by_text(params[:search]) if params[:search].present?
-          plugins = plugins.verified if params[:verified] == "true"
-          plugins = plugins.official if params[:official] == "true"
-          plugins
+          # Plugin system deprecated - return empty relation
+          Devops::IntegrationTemplate.none
         end
 
         def filtered_templates
@@ -315,9 +311,11 @@ module Api
         end
 
         def filtered_integrations
-          integrations = Plugin.active.where("'integration' = ANY(plugin_types)")
+          # Use IntegrationTemplate for integrations
+          integrations = ::Devops::IntegrationTemplate.marketplace_published
+          integrations = integrations.by_category(params[:category]) if params[:category].present?
           integrations = integrations.search_by_text(params[:search]) if params[:search].present?
-          integrations = integrations.verified if params[:verified] == "true"
+          integrations = integrations.featured if params[:verified] == "true"
           integrations
         end
 
@@ -326,7 +324,8 @@ module Api
         end
 
         def featured_plugins
-          Plugin.active.verified.where.not("'integration' = ANY(plugin_types)").limit(3)
+          # Plugin system deprecated - return empty relation
+          Devops::IntegrationTemplate.none
         end
 
         def featured_templates
@@ -334,7 +333,7 @@ module Api
         end
 
         def featured_integrations
-          Plugin.active.verified.where("'integration' = ANY(plugin_types)").limit(3)
+          ::Devops::IntegrationTemplate.marketplace_published.featured.limit(3)
         end
 
         # Normalizers - Feature-aligned types
@@ -554,11 +553,12 @@ module Api
 
         # Item finders
         def find_app(app_id)
-          App.find_by(id: app_id)&.marketplace_listing
+          Marketplace::Definition.find_by(id: app_id)&.marketplace_listing
         end
 
-        def find_plugin(plugin_id)
-          Plugin.where.not("'integration' = ANY(plugin_types)").find_by(id: plugin_id)
+        def find_plugin(_plugin_id)
+          # Plugin system has been deprecated - return nil for legacy requests
+          nil
         end
 
         def find_template(template_id)
@@ -566,7 +566,8 @@ module Api
         end
 
         def find_integration(integration_id)
-          Plugin.where("'integration' = ANY(plugin_types)").find_by(id: integration_id)
+          # Legacy integration lookups now use IntegrationTemplate
+          ::Devops::IntegrationTemplate.marketplace_published.find_by(id: integration_id)
         end
 
         # Item finders - Feature-aligned types
@@ -575,11 +576,11 @@ module Api
         end
 
         def find_pipeline_template(template_id)
-          ::CiCd::PipelineTemplate.marketplace_published.find_by(id: template_id)
+          ::Devops::PipelineTemplate.marketplace_published.find_by(id: template_id)
         end
 
         def find_integration_template(template_id)
-          ::Integration::Template.marketplace_published.find_by(id: template_id)
+          ::Devops::IntegrationTemplate.marketplace_published.find_by(id: template_id)
         end
 
         def find_prompt_template(template_id)
@@ -592,20 +593,20 @@ module Api
           when "workflow_template"
             ::Ai::WorkflowTemplate.find_by(id: item_id)
           when "pipeline_template"
-            ::CiCd::PipelineTemplate.find_by(id: item_id)
+            ::Devops::PipelineTemplate.find_by(id: item_id)
           when "integration_template"
-            ::Integration::Template.find_by(id: item_id)
+            ::Devops::IntegrationTemplate.find_by(id: item_id)
           when "prompt_template"
             ::Shared::PromptTemplate.find_by(id: item_id)
           # Legacy types
           when "app"
-            App.find_by(id: item_id)
+            Marketplace::Definition.find_by(id: item_id)
           when "plugin"
-            Plugin.where.not("'integration' = ANY(plugin_types)").find_by(id: item_id)
+            nil  # Plugin system deprecated
           when "template"
             ::Ai::WorkflowTemplate.find_by(id: item_id)
           when "integration"
-            Plugin.where("'integration' = ANY(plugin_types)").find_by(id: item_id)
+            ::Devops::IntegrationTemplate.find_by(id: item_id)
           end
         end
 

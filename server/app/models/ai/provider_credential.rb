@@ -141,7 +141,7 @@ module Ai
       if Rails.env.test?
         JSON.parse(Base64.strict_decode64(encrypted_credentials))
       else
-        Ai::Security::CredentialEncryptionService.decrypt(
+        Ai::CredentialEncryptionService.decrypt(
           encrypted_credentials,
           encryption_key_id
         )
@@ -158,12 +158,12 @@ module Ai
       if Rails.env.test?
         Base64.strict_encode64(credentials_hash.to_json)
       else
-        Ai::Security::CredentialEncryptionService.encrypt(credentials_hash)
+        Ai::CredentialEncryptionService.encrypt(credentials_hash)
       end
     end
 
     def current_encryption_key_id
-      Rails.env.test? ? "test_key" : Ai::Security::CredentialEncryptionService.current_key_id
+      Rails.env.test? ? "test_key" : Ai::CredentialEncryptionService.current_key_id
     end
 
     def credentials_format

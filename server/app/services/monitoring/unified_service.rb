@@ -474,7 +474,7 @@ module Monitoring
   end
 
   def get_circuit_breaker_status(provider)
-    breaker = CircuitBreaker.find_by(
+    breaker = Monitoring::CircuitBreaker.find_by(
       service: "ai_provider_#{provider.id}",
       circuit_type: "provider"
     )

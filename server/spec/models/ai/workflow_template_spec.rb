@@ -6,9 +6,8 @@ RSpec.describe Ai::WorkflowTemplate, type: :model do
   subject(:template) { build(:ai_workflow_template) }
 
   describe 'associations' do
-    it { is_expected.to have_many(:installations).dependent(:destroy) }
-    it { is_expected.to have_many(:installed_workflows).through(:installations).source(:workflow) }
-    it { is_expected.to have_many(:installing_accounts).through(:installations).source(:account) }
+    it { is_expected.to have_many(:subscriptions).dependent(:destroy) }
+    it { is_expected.to have_many(:subscribing_accounts).through(:subscriptions).source(:account) }
     it { is_expected.to belong_to(:account).optional }
     it { is_expected.to belong_to(:created_by_user).class_name('User').optional }
   end
@@ -454,12 +453,12 @@ RSpec.describe Ai::WorkflowTemplate, type: :model do
       end
     end
 
-    describe '#installed_by_account?' do
+    describe '#subscribed_by_account?' do
       let(:account) { create(:account) }
       let(:template) { create(:ai_workflow_template) }
 
-      it 'returns false when not installed' do
-        expect(template.installed_by_account?(account)).to be false
+      it 'returns false when not subscribed' do
+        expect(template.subscribed_by_account?(account)).to be false
       end
     end
 

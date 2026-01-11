@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import proxySettingsApi, { ProxyTestResult } from '@/shared/services/proxySettingsApi';
+import proxySettingsApi, { ProxyTestResult } from '@/shared/services/settings/proxySettingsApi';
 
 interface ProxyTestConnectionProps {
   onTestComplete: (result: ProxyTestResult) => void;

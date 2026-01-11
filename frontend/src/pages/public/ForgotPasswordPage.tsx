@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
-import { authApi } from '@/features/auth/services/authAPI';
+import { authApi } from '@/features/account/auth/services/authAPI';
 import { ErrorHandler } from '@/shared/utils/errorHandling';
 
 import { useDispatch } from 'react-redux';

@@ -5,7 +5,7 @@ module Mcp
     # Git Checkout node executor - clones repository and checks out a ref
     #
     # Configuration:
-    # - repository_id: UUID of Git::Repository (optional, can use trigger context)
+    # - repository_id: UUID of Devops::GitRepository (optional, can use trigger context)
     # - repository: Repository name/path if not using repository_id
     # - ref: Git ref (branch/tag/SHA) to checkout
     # - fetch_depth: Shallow clone depth (0 for full history)

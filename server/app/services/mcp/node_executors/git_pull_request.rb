@@ -10,7 +10,7 @@ module Mcp
     # - head: Source branch (defaults to current branch)
     # - base: Target branch (defaults to main)
     # - draft: Create as draft PR (default: false)
-    # - repository_id: UUID of Git::Repository
+    # - repository_id: UUID of Devops::GitRepository
     # - labels: Array of labels to add
     # - reviewers: Array of reviewer usernames
     #
@@ -75,13 +75,13 @@ module Mcp
       end
 
       def create_pull_request(pr_context)
-        repository = Git::Repository.find_by(id: pr_context[:repository_id])
+        repository = Devops::GitRepository.find_by(id: pr_context[:repository_id])
         raise ArgumentError, "Repository not found" unless repository
 
         credential = repository.git_provider_credential
         raise ArgumentError, "No credential found for repository" unless credential
 
-        api_client = Git::ApiClient.for(credential)
+        api_client = Devops::Git::ApiClient.for(credential)
 
         result = api_client.create_pull_request(
           repository.owner,

@@ -9,7 +9,7 @@ module Api
 
         # GET /api/v1/git/runners
         def index
-          runners = ::Git::Runner.where(account: current_user.account)
+          runners = ::Devops::GitRunner.where(account: current_user.account)
 
           # Filters
           runners = runners.where(status: params[:status]) if params[:status].present?
@@ -39,7 +39,7 @@ module Api
           runners = runners.offset((page - 1) * per_page).limit(per_page)
 
           # Stats
-          all_runners = ::Git::Runner.where(account: current_user.account)
+          all_runners = ::Devops::GitRunner.where(account: current_user.account)
           stats = {
             total: all_runners.count,
             online: all_runners.online.count,
@@ -69,7 +69,7 @@ module Api
           credential = @runner.git_provider_credential
           return render_error("Credential not found", status: :unprocessable_content) unless credential&.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
 
           # Delete from provider
           result = if @runner.repository_runner? && @runner.git_repository.present?
@@ -115,7 +115,7 @@ module Api
           credential = @runner.git_provider_credential
           return render_error("Credential not found", status: :unprocessable_content) unless credential&.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           result = get_registration_token(client, @runner)
 
           if result[:token].present?
@@ -133,7 +133,7 @@ module Api
           credential = @runner.git_provider_credential
           return render_error("Credential not found", status: :unprocessable_content) unless credential&.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           result = get_removal_token(client, @runner)
 
           if result[:token].present?
@@ -154,7 +154,7 @@ module Api
           labels = params[:labels]
           return render_error("Labels parameter required", status: :unprocessable_content) unless labels.is_a?(Array)
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           result = update_runner_labels_on_provider(client, @runner, labels)
 
           if result[:success] != false
@@ -168,7 +168,7 @@ module Api
         private
 
         def set_runner
-          @runner = ::Git::Runner.where(account: current_user.account).find(params[:id])
+          @runner = ::Devops::GitRunner.where(account: current_user.account).find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_not_found("Runner")
         end
@@ -191,7 +191,7 @@ module Api
         def sync_runners_for_credential(credential, repository_id = nil)
           return 0 unless credential.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           synced = 0
 
           if repository_id.present?
@@ -199,7 +199,7 @@ module Api
             synced += sync_repository_runners(client, credential, repository)
           else
             # Sync admin-level runners for Gitea (instance-wide runners)
-            if client.is_a?(::Git::GiteaApiClient)
+            if client.is_a?(::Devops::Git::GiteaApiClient)
               synced += sync_admin_runners(client, credential)
             end
 
@@ -223,7 +223,7 @@ module Api
             return 0 unless runners_data.is_a?(Array)
 
             runners_data.each do |runner_data|
-              ::Git::Runner.sync_from_provider(
+              ::Devops::GitRunner.sync_from_provider(
                 credential,
                 runner_data.stringify_keys,
                 scope: "enterprise",
@@ -242,7 +242,7 @@ module Api
           synced = 0
 
           result = if client.respond_to?(:list_runners)
-                     if client.is_a?(::Git::GiteaApiClient)
+                     if client.is_a?(::Devops::Git::GiteaApiClient)
                        client.list_runners(:repo, repository.owner, repository.name)
                      else
                        client.list_runners(repository.owner, repository.name)
@@ -253,7 +253,7 @@ module Api
           return 0 unless runners_data.is_a?(Array)
 
           runners_data.each do |runner_data|
-            ::Git::Runner.sync_from_provider(
+            ::Devops::GitRunner.sync_from_provider(
               credential,
               runner_data.stringify_keys,
               scope: "repository",
@@ -271,12 +271,12 @@ module Api
         def get_registration_token(client, runner)
           if runner.repository_runner? && runner.git_repository.present?
             repo = runner.git_repository
-            if client.is_a?(::Git::GiteaApiClient)
+            if client.is_a?(::Devops::Git::GiteaApiClient)
               client.runner_registration_token(:repo, repo.owner, repo.name)
             else
               client.runner_registration_token(repo.owner, repo.name)
             end
-          elsif client.is_a?(::Git::GiteaApiClient)
+          elsif client.is_a?(::Devops::Git::GiteaApiClient)
             client.runner_registration_token(:admin)
           else
             { success: false, error: "Registration token not supported for this scope" }
@@ -287,7 +287,7 @@ module Api
           if runner.repository_runner? && runner.git_repository.present?
             repo = runner.git_repository
             if client.respond_to?(:runner_removal_token)
-              if client.is_a?(::Git::GiteaApiClient)
+              if client.is_a?(::Devops::Git::GiteaApiClient)
                 client.runner_removal_token(:repo, repo.owner, repo.name)
               else
                 client.runner_removal_token(repo.owner, repo.name)
@@ -295,7 +295,7 @@ module Api
             else
               { success: false, error: "Removal token not supported" }
             end
-          elsif client.is_a?(::Git::GiteaApiClient)
+          elsif client.is_a?(::Devops::Git::GiteaApiClient)
             client.runner_removal_token(:admin)
           else
             { success: false, error: "Removal token not supported for this scope" }

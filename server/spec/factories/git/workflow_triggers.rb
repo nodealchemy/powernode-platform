@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :git_workflow_trigger, class: 'Git::WorkflowTrigger' do
+  factory :git_workflow_trigger, class: 'Devops::GitWorkflowTrigger' do
     association :ai_workflow_trigger
     association :repository, factory: :git_repository, strategy: :null
 

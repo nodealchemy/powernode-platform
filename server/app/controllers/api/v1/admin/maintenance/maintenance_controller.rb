@@ -317,7 +317,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   # Backups endpoint
   def backups
-    backups = DatabaseBackup.order(created_at: :desc).limit(20)
+    backups = Database::Backup.order(created_at: :desc).limit(20)
 
     render_success(
       data: backups.map { |backup|
@@ -333,7 +333,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       }
     )
   rescue => e
-    # If DatabaseBackup model doesn't exist, return empty array
+    # If Database::Backup model doesn't exist, return empty array
     render_success([])
   end
 
@@ -498,7 +498,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def get_last_backup_info
-    backup = DatabaseBackup.order(created_at: :desc).first
+    backup = Database::Backup.order(created_at: :desc).first
     backup ? { created_at: backup.created_at, size: backup.size } : nil
   rescue
     nil

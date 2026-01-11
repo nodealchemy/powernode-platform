@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { AiAgentDashboard } from '@/features/ai-agents/components/AiAgentDashboard';
+import { AiAgentDashboard } from '@/features/ai/agents/components/AiAgentDashboard';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 
 export const AIAgentsPage: React.FC = () => {

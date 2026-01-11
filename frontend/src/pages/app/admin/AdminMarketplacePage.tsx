@@ -30,13 +30,13 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { marketplaceApi } from '@/features/marketplace/services/marketplaceApi';
+import { marketplaceApi } from '@/features/app/services/marketplaceApi';
 import type {
   MarketplaceItem,
   MarketplaceItemType,
   MarketplaceReview
-} from '@/features/marketplace/types/marketplace';
-import { ALL_MARKETPLACE_TYPES } from '@/features/marketplace/types/marketplace';
+} from '@/features/app/types/marketplace';
+import { ALL_MARKETPLACE_TYPES } from '@/features/app/types/marketplace';
 
 interface AdminMarketplacePageProps {
   className?: string;

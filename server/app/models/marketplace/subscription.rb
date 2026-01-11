@@ -39,13 +39,12 @@ module Marketplace
 
     # Scopes - Type filtering (polymorphic) - Feature template types
     scope :for_workflow_templates, -> { where(subscribable_type: "Ai::WorkflowTemplate") }
-    scope :for_pipeline_templates, -> { where(subscribable_type: "CiCd::PipelineTemplate") }
-    scope :for_integration_templates, -> { where(subscribable_type: "Integration::Template") }
+    scope :for_pipeline_templates, -> { where(subscribable_type: "Devops::PipelineTemplate") }
+    scope :for_integration_templates, -> { where(subscribable_type: "Devops::IntegrationTemplate") }
     scope :for_prompt_templates, -> { where(subscribable_type: "Shared::PromptTemplate") }
 
     # Legacy scopes for backward compatibility
     scope :for_apps, -> { where(subscribable_type: "Marketplace::Definition") }
-    scope :for_plugins, -> { where(subscribable_type: "PluginSystem::Definition") }
 
     scope :for_type, ->(type) {
       case type.to_s
@@ -55,7 +54,6 @@ module Marketplace
       when "prompt_template" then for_prompt_templates
       # Legacy types
       when "app" then for_apps
-      when "plugin" then for_plugins
       when "template" then for_workflow_templates  # Alias for backward compatibility
       when "integration" then for_integration_templates
       else none
@@ -76,11 +74,11 @@ module Marketplace
     end
 
     def pipeline_template_subscription?
-      subscribable_type == "CiCd::PipelineTemplate"
+      subscribable_type == "Devops::PipelineTemplate"
     end
 
     def integration_template_subscription?
-      subscribable_type == "Integration::Template"
+      subscribable_type == "Devops::IntegrationTemplate"
     end
 
     def prompt_template_subscription?
@@ -92,10 +90,6 @@ module Marketplace
       subscribable_type == "Marketplace::Definition"
     end
 
-    def plugin_subscription?
-      subscribable_type == "PluginSystem::Definition"
-    end
-
     # Alias for backward compatibility
     def template_subscription?
       workflow_template_subscription?
@@ -104,12 +98,11 @@ module Marketplace
     def subscription_type
       case subscribable_type
       when "Ai::WorkflowTemplate" then "workflow_template"
-      when "CiCd::PipelineTemplate" then "pipeline_template"
-      when "Integration::Template" then "integration_template"
+      when "Devops::PipelineTemplate" then "pipeline_template"
+      when "Devops::IntegrationTemplate" then "integration_template"
       when "Shared::PromptTemplate" then "prompt_template"
       # Legacy types
       when "Marketplace::Definition" then "app"
-      when "PluginSystem::Definition" then "plugin"
       else "unknown"
       end
     end
@@ -129,9 +122,9 @@ module Marketplace
 
     def item_icon
       case subscribable_type
-      when "Ai::WorkflowTemplate", "CiCd::PipelineTemplate"
+      when "Ai::WorkflowTemplate", "Devops::PipelineTemplate"
         subscribable&.icon_url
-      when "Integration::Template"
+      when "Devops::IntegrationTemplate"
         subscribable&.icon_url
       else
         nil

@@ -11,7 +11,7 @@ module Api
         def index
           authorize_action!("integrations.credentials.read")
 
-          credentials = Integration::Credential
+          credentials = Devops::IntegrationCredential
             .where(account: current_account)
             .order(created_at: :desc)
             .page(pagination_params[:page])
@@ -34,14 +34,14 @@ module Api
         def create
           authorize_action!("integrations.credentials.create")
 
-          credential = ::Integrations::RegistryService.create_credential(
+          credential = ::Devops::RegistryService.create_credential(
             account: current_account,
             attributes: credential_params,
             created_by: current_user
           )
 
           render_success({ credential: credential.credential_summary }, status: :created)
-        rescue ::Integrations::RegistryService::ValidationError => e
+        rescue ::Devops::RegistryService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -49,14 +49,14 @@ module Api
         def update
           authorize_action!("integrations.credentials.update")
 
-          credential = ::Integrations::RegistryService.update_credential(
+          credential = ::Devops::RegistryService.update_credential(
             account: current_account,
             credential_id: @credential.id,
             attributes: credential_params
           )
 
           render_success({ credential: credential.credential_summary })
-        rescue ::Integrations::RegistryService::ValidationError => e
+        rescue ::Devops::RegistryService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -64,13 +64,13 @@ module Api
         def destroy
           authorize_action!("integrations.credentials.delete")
 
-          ::Integrations::RegistryService.delete_credential(
+          ::Devops::RegistryService.delete_credential(
             account: current_account,
             credential_id: @credential.id
           )
 
           render_success(message: "Credential deleted")
-        rescue ::Integrations::RegistryService::ValidationError => e
+        rescue ::Devops::RegistryService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -78,12 +78,12 @@ module Api
         def rotate
           authorize_action!("integrations.credentials.update")
 
-          ::Integrations::CredentialEncryptionService.rotate_key(@credential)
+          ::Devops::CredentialEncryptionService.rotate_key(@credential)
 
           @credential.touch(:rotated_at)
 
           render_success({ credential: @credential.credential_summary }, message: "Credential rotated successfully")
-        rescue ::Integrations::CredentialEncryptionService::EncryptionError => e
+        rescue ::Devops::CredentialEncryptionService::EncryptionError => e
           render_error("Failed to rotate credential: #{e.message}", status: :unprocessable_content)
         end
 
@@ -91,7 +91,7 @@ module Api
         def verify
           authorize_action!("integrations.credentials.read")
 
-          valid = ::Integrations::CredentialEncryptionService.valid?(@credential)
+          valid = ::Devops::CredentialEncryptionService.valid?(@credential)
 
           render_success({ valid: valid })
         end
@@ -99,7 +99,7 @@ module Api
         private
 
         def set_credential
-          @credential = Integration::Credential.find_by(id: params[:id], account: current_account)
+          @credential = Devops::IntegrationCredential.find_by(id: params[:id], account: current_account)
 
           render_not_found("Credential") unless @credential
         end

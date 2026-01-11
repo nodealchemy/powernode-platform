@@ -13,9 +13,9 @@ import { addNotification } from '@/shared/services/slices/uiSlice';
 import { EyeIcon, EyeSlashIcon, LockClosedIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 
 import { ErrorHandler } from '@/shared/utils/errorHandling';
-import { settingsApi } from '@/shared/services/settingsApi';
+import { settingsApi } from '@/shared/services/settings/settingsApi';
 
-import { TwoFactorVerification } from '@/features/auth/components/TwoFactorVerification';
+import { TwoFactorVerification } from '@/features/account/auth/components/TwoFactorVerification';
 import { DomainChangeNotice } from '@/shared/components/ui/DomainChangeNotice';
 
 

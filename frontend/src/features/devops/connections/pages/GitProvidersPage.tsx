@@ -1,0 +1,538 @@
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  Plus, Settings, CheckCircle, XCircle,
+  AlertTriangle, MoreVertical, RefreshCw,
+  FolderGit2, Users, Activity, GitBranch, Loader2,
+  Trash2, TestTube, ExternalLink
+} from 'lucide-react';
+import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
+import { GitProviderModal } from '@/features/devops/git/components/GitProviderModal';
+import { GitProviderDetail } from '@/features/devops/git/types';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+
+interface GitProvider {
+  id: string;
+  name: string;
+  type: 'github' | 'gitlab' | 'gitea' | 'bitbucket';
+  apiUrl: string;
+  status: 'connected' | 'error' | 'disconnected';
+  isDefault: boolean;
+  stats: {
+    repositories: number;
+    organizations: number;
+    webhooksActive: number;
+  };
+  lastSync?: string;
+  error?: string;
+}
+
+export function GitProvidersPage() {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const { showNotification } = useNotifications();
+  const [providers, setProviders] = useState<GitProvider[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<GitProviderDetail | null>(null);
+  const [selectedProviderType, setSelectedProviderType] = useState<'github' | 'gitlab' | 'gitea' | 'bitbucket' | undefined>(undefined);
+  const [syncing, setSyncing] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [testing, setTesting] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'DevOps', href: '/app/devops' },
+    { label: 'Git Providers' }
+  ];
+
+  const pageActions: PageAction[] = [
+    {
+      id: 'add-provider',
+      label: 'Add Provider',
+      onClick: () => {
+        setEditingProvider(null);
+        setSelectedProviderType(undefined);
+        setIsModalOpen(true);
+      },
+      variant: 'primary',
+      icon: Plus
+    }
+  ];
+
+  const fetchProviders = async () => {
+    try {
+      setLoading(true);
+      const gitProviders = await gitProvidersApi.getProviders();
+
+      const mappedProviders: GitProvider[] = gitProviders.map((p: {
+        id: string;
+        name: string;
+        provider_type?: string;
+        base_url?: string;
+        api_url?: string;
+        status?: string;
+        is_default?: boolean;
+        repositories_count?: number;
+        organizations_count?: number;
+        webhooks_count?: number;
+        last_synced_at?: string;
+        error_message?: string;
+      }) => ({
+        id: p.id,
+        name: p.name,
+        type: mapProviderType(p.provider_type),
+        apiUrl: p.base_url || p.api_url || '',
+        status: mapStatus(p.status),
+        isDefault: p.is_default || false,
+        stats: {
+          repositories: p.repositories_count || 0,
+          organizations: p.organizations_count || 0,
+          webhooksActive: p.webhooks_count || 0
+        },
+        lastSync: p.last_synced_at ? formatTimeAgo(p.last_synced_at) : undefined,
+        error: p.error_message
+      }));
+
+      setProviders(mappedProviders);
+    } catch (error) {
+      // Keep empty state on error
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProviders();
+  }, []);
+
+  // Handle URL parameter for editing (only for direct URL access, not button clicks)
+  useEffect(() => {
+    const loadProviderForEdit = async () => {
+      // Skip if modal is already open (user clicked a button)
+      if (isModalOpen) return;
+
+      if (id && id !== 'new') {
+        try {
+          const provider = await gitProvidersApi.getProvider(id);
+          setEditingProvider(provider);
+          setIsModalOpen(true);
+        } catch (error) {
+          showNotification('Failed to load provider', 'error');
+          navigate('/app/devops/git');
+        }
+      } else if (id === 'new') {
+        setEditingProvider(null);
+        setIsModalOpen(true);
+      }
+    };
+    loadProviderForEdit();
+  }, [id, navigate, showNotification, isModalOpen]);
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditingProvider(null);
+    setSelectedProviderType(undefined);
+    if (id) {
+      navigate('/app/devops/git');
+    }
+  };
+
+  const handleModalSuccess = () => {
+    setIsModalOpen(false);
+    setEditingProvider(null);
+    setSelectedProviderType(undefined);
+    showNotification(editingProvider ? 'Provider updated' : 'Provider created', 'success');
+    if (id) {
+      navigate('/app/devops/git');
+    }
+    // Reload providers without full page refresh
+    fetchProviders();
+  };
+
+  const handleEditProvider = async (providerId: string) => {
+    try {
+      const provider = await gitProvidersApi.getProvider(providerId);
+      setEditingProvider(provider);
+      setIsModalOpen(true);
+    } catch (error) {
+      showNotification('Failed to load provider', 'error');
+    }
+  };
+
+  const handleSyncProvider = async (providerId: string) => {
+    setSyncing(providerId);
+    try {
+      // Find a credential for this provider to sync
+      const credentials = await gitProvidersApi.getCredentials(providerId);
+      if (credentials.length > 0) {
+        await gitProvidersApi.syncRepositories(providerId, credentials[0].id);
+        showNotification('Repositories synced successfully', 'success');
+      } else {
+        showNotification('No credentials found. Add credentials first.', 'warning');
+      }
+    } catch (error) {
+      showNotification('Failed to sync repositories', 'error');
+    } finally {
+      setSyncing(null);
+    }
+  };
+
+  const handleTestConnection = async (providerId: string) => {
+    setTesting(providerId);
+    setOpenMenuId(null);
+    try {
+      const credentials = await gitProvidersApi.getCredentials(providerId);
+      if (credentials.length > 0) {
+        const result = await gitProvidersApi.testCredential(providerId, credentials[0].id);
+        if (result.success) {
+          showNotification('Connection test successful', 'success');
+        } else {
+          showNotification(result.error || 'Connection test failed', 'error');
+        }
+      } else {
+        showNotification('No credentials found. Add credentials first.', 'warning');
+      }
+    } catch (error) {
+      showNotification('Failed to test connection', 'error');
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const handleDeleteProvider = async (providerId: string) => {
+    setOpenMenuId(null);
+    if (!window.confirm('Are you sure you want to delete this provider? This will remove all associated credentials and repositories.')) {
+      return;
+    }
+    try {
+      await gitProvidersApi.deleteProvider(providerId);
+      showNotification('Provider deleted successfully', 'success');
+      setProviders(providers.filter(p => p.id !== providerId));
+    } catch (error) {
+      showNotification('Failed to delete provider', 'error');
+    }
+  };
+
+  const handleViewRepositories = (providerId: string) => {
+    setOpenMenuId(null);
+    navigate(`/app/automation/repositories?provider=${providerId}`);
+  };
+
+  const mapProviderType = (type?: string): GitProvider['type'] => {
+    switch (type?.toLowerCase()) {
+      case 'github': return 'github';
+      case 'gitlab': return 'gitlab';
+      case 'gitea': return 'gitea';
+      case 'bitbucket': return 'bitbucket';
+      default: return 'github';
+    }
+  };
+
+  const mapStatus = (status?: string): GitProvider['status'] => {
+    switch (status?.toLowerCase()) {
+      case 'active': case 'connected': return 'connected';
+      case 'error': return 'error';
+      default: return 'disconnected';
+    }
+  };
+
+  const formatTimeAgo = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  };
+
+  const getProviderLogo = (type: GitProvider['type']) => {
+    switch (type) {
+      case 'github':
+        return (
+          <div className="w-10 h-10 bg-[#24292f] rounded-lg flex items-center justify-center">
+            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+            </svg>
+          </div>
+        );
+      case 'gitlab':
+        return (
+          <div className="w-10 h-10 bg-[#FC6D26] rounded-lg flex items-center justify-center">
+            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="m23.6004 9.5927-.0337-.0862L20.3.9814a.851.851 0 0 0-.3362-.405.8748.8748 0 0 0-.9997.0539.8748.8748 0 0 0-.29.4399l-2.2055 6.748H7.5375l-2.2057-6.748a.8573.8573 0 0 0-.29-.4412.8748.8748 0 0 0-.9997-.0537.8585.8585 0 0 0-.3362.4049L.4332 9.5015l-.0325.0862a6.0657 6.0657 0 0 0 2.0119 7.0105l.0113.0087.03.0213 4.976 3.7264 2.462 1.8633 1.4995 1.1321a1.0085 1.0085 0 0 0 1.2197 0l1.4995-1.1321 2.4619-1.8633 5.006-3.7489.0125-.01a6.0682 6.0682 0 0 0 2.0094-7.003z"/>
+            </svg>
+          </div>
+        );
+      case 'gitea':
+        return (
+          <div className="w-10 h-10 bg-[#609926] rounded-lg flex items-center justify-center">
+            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4.209 4.603c-.247 0-.525.02-.84.088-.333.07-1.28.283-2.054 1.027C-.403 7.25.035 9.685.089 10.052c.065.446.263 1.687 1.21 2.768 1.749 2.141 5.513 2.092 5.513 2.092s.462 1.103 1.168 2.119c.955 1.263 1.936 2.248 2.89 2.367 2.406 0 7.212-.004 7.212-.004s.458.004 1.08-.394c.535-.324 1.013-.893 1.013-.893s.492-.527 1.18-1.73c.21-.37.385-.729.538-1.068 0 0 2.107-4.471 2.107-8.823-.042-1.318-.367-1.55-.443-1.627-.156-.156-.366-.153-.366-.153s-4.475.252-6.792.306c-.508.011-1.012.023-1.512.027v4.474l-.634-.301c0-1.39-.004-4.17-.004-4.17-1.107.016-3.405-.084-3.405-.084s-5.399-.27-5.987-.324c-.187-.011-.401-.032-.648-.032zm.354 1.832h.111s.271 2.269.6 3.597C5.549 11.147 6.22 13 6.22 13s-.996-.119-1.641-.348c-.99-.324-1.409-.714-1.409-.714s-.73-.511-1.096-1.52C1.444 8.73 2.021 7.7 2.021 7.7s.32-.859 1.47-1.145c.395-.106.863-.12 1.072-.12zm8.33 2.554c.26.003.509.127.509.127l.868.422-.529 1.075a.686.686 0 0 0-.614.359.685.685 0 0 0 .072.756l-.939 1.924a.69.69 0 0 0-.66.527.687.687 0 0 0 .347.763.686.686 0 0 0 .867-.206.688.688 0 0 0-.069-.882l.916-1.874a.667.667 0 0 0 .237-.02.657.657 0 0 0 .271-.137 8.826 8.826 0 0 1 1.016.512.761.761 0 0 1 .286.282c.073.21-.073.569-.073.569-.087.29-.702 1.55-.702 1.55a.692.692 0 0 0-.676.477.681.681 0 1 0 1.157-.252c.073-.141.141-.282.214-.431.19-.397.515-1.16.515-1.16.035-.066.218-.394.103-.814-.095-.435-.48-.638-.48-.638-.467-.301-1.116-.58-1.116-.58s0-.156-.042-.27a.688.688 0 0 0-.148-.241l.516-1.062 2.89 1.401s.48.218.583.619c.073.282-.019.534-.069.657-.24.587-2.1 4.317-2.1 4.317s-.232.554-.748.588a1.065 1.065 0 0 1-.393-.045l-.202-.08-4.31-2.1s-.417-.218-.49-.596c-.083-.31.104-.691.104-.691l2.073-4.272s.183-.37.466-.497a.855.855 0 0 1 .35-.077z"/>
+            </svg>
+          </div>
+        );
+      case 'bitbucket':
+        return (
+          <div className="w-10 h-10 bg-[#0052CC] rounded-lg flex items-center justify-center">
+            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M.778 1.213a.768.768 0 0 0-.768.892l3.263 19.81c.084.5.515.868 1.022.873H19.95a.772.772 0 0 0 .77-.646l3.27-20.03a.768.768 0 0 0-.768-.891zm13.742 14.317H9.522L8.17 8.466h7.561z"/>
+            </svg>
+          </div>
+        );
+    }
+  };
+
+  const getStatusBadge = (status: GitProvider['status']) => {
+    switch (status) {
+      case 'connected':
+        return (
+          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-success/10 text-theme-success ">
+            <CheckCircle className="w-3 h-3" />
+            Connected
+          </span>
+        );
+      case 'error':
+        return (
+          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-danger/10 text-theme-danger ">
+            <XCircle className="w-3 h-3" />
+            Error
+          </span>
+        );
+      case 'disconnected':
+        return (
+          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-bg-subtle text-theme-secondary">
+            <AlertTriangle className="w-3 h-3" />
+            Disconnected
+          </span>
+        );
+    }
+  };
+
+  if (loading) {
+    return (
+      <PageContainer
+        title="Git Providers"
+        description="Manage connections to GitHub, GitLab, Gitea, and other git providers"
+        breadcrumbs={breadcrumbs}
+        actions={pageActions}
+      >
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-theme-primary" />
+        </div>
+      </PageContainer>
+    );
+  }
+
+  return (
+    <PageContainer
+      title="Git Providers"
+      description="Manage connections to GitHub, GitLab, Gitea, and other git providers"
+      breadcrumbs={breadcrumbs}
+      actions={pageActions}
+    >
+      {/* Provider Cards */}
+      <div className="space-y-4">
+        {providers.length === 0 ? (
+          <div className="bg-theme-surface border border-theme rounded-lg p-8 text-center">
+            <GitBranch className="w-12 h-12 mx-auto mb-3 text-theme-secondary opacity-50" />
+            <p className="text-theme-secondary">No git providers configured</p>
+            <p className="text-sm text-theme-tertiary mt-1">
+              Add a git provider to connect your repositories
+            </p>
+          </div>
+        ) : (
+          providers.map((provider) => (
+          <div
+            key={provider.id}
+            className={`bg-theme-surface border rounded-lg p-5 ${
+              provider.status === 'error' ? 'border-theme-danger' : 'border-theme'
+            }`}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4">
+                {getProviderLogo(provider.type)}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-theme-primary">{provider.name}</h3>
+                    {provider.isDefault && (
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-theme-primary text-white">
+                        Default
+                      </span>
+                    )}
+                    {getStatusBadge(provider.status)}
+                  </div>
+                  <p className="text-sm text-theme-secondary mt-1">
+                    {provider.apiUrl}
+                  </p>
+                  {provider.error && (
+                    <p className="text-sm text-theme-danger mt-2 flex items-center gap-1">
+                      <AlertTriangle className="w-4 h-4" />
+                      {provider.error}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleSyncProvider(provider.id)}
+                  disabled={syncing === provider.id}
+                  className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary disabled:opacity-50"
+                  title="Sync repositories"
+                >
+                  <RefreshCw className={`w-4 h-4 ${syncing === provider.id ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={() => handleEditProvider(provider.id)}
+                  className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary"
+                  title="Settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+                <div className="relative" ref={openMenuId === provider.id ? menuRef : null}>
+                  <button
+                    onClick={() => setOpenMenuId(openMenuId === provider.id ? null : provider.id)}
+                    className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  {openMenuId === provider.id && (
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-theme-surface border border-theme rounded-lg shadow-lg z-10 py-1">
+                      <button
+                        onClick={() => handleTestConnection(provider.id)}
+                        disabled={testing === provider.id}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle disabled:opacity-50"
+                      >
+                        <TestTube className={`w-4 h-4 ${testing === provider.id ? 'animate-pulse' : ''}`} />
+                        {testing === provider.id ? 'Testing...' : 'Test Connection'}
+                      </button>
+                      <button
+                        onClick={() => handleViewRepositories(provider.id)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle"
+                      >
+                        <FolderGit2 className="w-4 h-4" />
+                        View Repositories
+                      </button>
+                      {provider.apiUrl && (
+                        <a
+                          href={provider.apiUrl.replace('/api/v1', '').replace('/api', '')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setOpenMenuId(null)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Open Provider
+                        </a>
+                      )}
+                      <div className="border-t border-theme my-1" />
+                      <button
+                        onClick={() => handleDeleteProvider(provider.id)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-danger hover:bg-theme-danger/10"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete Provider
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {provider.status === 'connected' && (
+              <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-theme">
+                <div className="flex items-center gap-2">
+                  <FolderGit2 className="w-4 h-4 text-theme-secondary" />
+                  <div>
+                    <p className="text-sm text-theme-secondary">Repositories</p>
+                    <p className="font-semibold text-theme-primary">{provider.stats.repositories}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-theme-secondary" />
+                  <div>
+                    <p className="text-sm text-theme-secondary">Organizations</p>
+                    <p className="font-semibold text-theme-primary">{provider.stats.organizations}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-theme-secondary" />
+                  <div>
+                    <p className="text-sm text-theme-secondary">Active Webhooks</p>
+                    <p className="font-semibold text-theme-primary">{provider.stats.webhooksActive}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {provider.lastSync && (
+              <p className="text-xs text-theme-secondary mt-3">
+                Last synced {provider.lastSync}
+              </p>
+            )}
+          </div>
+          ))
+        )}
+      </div>
+
+      {/* Add Provider Options */}
+      <div className="mt-8">
+        <h3 className="font-semibold text-theme-primary mb-4">Add More Providers</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { name: 'GitHub', type: 'github' as const },
+            { name: 'GitLab', type: 'gitlab' as const },
+            { name: 'Gitea', type: 'gitea' as const },
+            { name: 'Bitbucket', type: 'bitbucket' as const }
+          ].map((option) => (
+            <button
+              key={option.type}
+              onClick={() => {
+                setEditingProvider(null);
+                setSelectedProviderType(option.type);
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-3 p-4 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors group text-left"
+            >
+              {getProviderLogo(option.type)}
+              <div className="flex-1">
+                <p className="font-medium text-theme-primary">{option.name}</p>
+                <p className="text-xs text-theme-secondary">Add provider</p>
+              </div>
+              <Plus className="w-4 h-4 text-theme-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Edit/Create Modal */}
+      <GitProviderModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onSuccess={handleModalSuccess}
+        provider={editingProvider}
+        initialProviderType={selectedProviderType}
+      />
+    </PageContainer>
+  );
+}
+
+export default GitProvidersPage;

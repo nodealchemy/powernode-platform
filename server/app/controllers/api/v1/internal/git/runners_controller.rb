@@ -8,14 +8,14 @@ module Api
           # POST /api/v1/internal/git/runners/sync
           # Sync runners from worker job
           def sync
-            credential = ::Git::ProviderCredential.find(params[:credential_id])
-            repository = params[:repository_id].present? ? ::Git::Repository.find(params[:repository_id]) : nil
+            credential = ::Devops::GitProviderCredential.find(params[:credential_id])
+            repository = params[:repository_id].present? ? ::Devops::GitRepository.find(params[:repository_id]) : nil
             runners_data = params[:runners] || []
 
             synced_runners = []
 
             runners_data.each do |runner_data|
-              runner = ::Git::Runner.sync_from_provider(
+              runner = ::Devops::GitRunner.sync_from_provider(
                 credential,
                 runner_data.to_unsafe_h,
                 scope: "repository",
@@ -38,7 +38,7 @@ module Api
           # PUT /api/v1/internal/git/runners/:id/status
           # Update runner status from worker job
           def update_status
-            runner = ::Git::Runner.find(params[:id])
+            runner = ::Devops::GitRunner.find(params[:id])
 
             runner.update!(
               status: params[:status],
@@ -54,7 +54,7 @@ module Api
           # POST /api/v1/internal/git/runners/:id/job_completed
           # Record job completion metrics
           def job_completed
-            runner = ::Git::Runner.find(params[:id])
+            runner = ::Devops::GitRunner.find(params[:id])
 
             if params[:success]
               runner.record_success!

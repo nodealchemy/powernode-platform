@@ -24,9 +24,9 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { AiAgent } from '@/shared/types/ai';
-import { ConversationCreateModal } from '@/features/ai-conversations/components/ConversationCreateModal';
-import { ConversationDetailModal } from '@/features/ai-conversations/components/ConversationDetailModal';
-import { ConversationContinueModal } from '@/features/ai-conversations/components/ConversationContinueModal';
+import { ConversationCreateModal } from '@/features/ai/conversations/components/ConversationCreateModal';
+import { ConversationDetailModal } from '@/features/ai/conversations/components/ConversationDetailModal';
+import { ConversationContinueModal } from '@/features/ai/conversations/components/ConversationContinueModal';
 
 // Local filter type for the page
 interface PageFilters {

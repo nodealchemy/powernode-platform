@@ -11,7 +11,7 @@ module Api
         def index
           authorize_action!("integrations.read")
 
-          scope = Integration::Execution.where(account: current_account)
+          scope = Devops::IntegrationExecution.where(account: current_account)
 
           # Filter by instance
           if params[:instance_id].present?
@@ -48,7 +48,7 @@ module Api
         def retry
           authorize_action!("integrations.execute")
 
-          result = ::Integrations::ExecutionService.retry_execution(
+          result = ::Devops::ExecutionService.retry_execution(
             execution: @execution,
             context: { request_id: request.request_id, retried_by: current_user.id }
           )
@@ -64,7 +64,7 @@ module Api
         def cancel
           authorize_action!("integrations.execute")
 
-          result = ::Integrations::ExecutionService.cancel_execution(execution: @execution)
+          result = ::Devops::ExecutionService.cancel_execution(execution: @execution)
 
           if result[:success]
             render_success({ result: result })
@@ -79,7 +79,7 @@ module Api
 
           period = (params[:period] || 30).to_i.days
 
-          scope = Integration::Execution
+          scope = Devops::IntegrationExecution
             .where(account: current_account)
             .where("created_at >= ?", period.ago)
 
@@ -106,7 +106,7 @@ module Api
         private
 
         def set_execution
-          @execution = Integration::Execution.find_by(id: params[:id], account: current_account)
+          @execution = Devops::IntegrationExecution.find_by(id: params[:id], account: current_account)
 
           render_not_found("Execution") unless @execution
         end

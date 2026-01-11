@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe CircuitBreakerEvent, type: :model do
+RSpec.describe Monitoring::CircuitBreakerEvent, type: :model do
   describe 'associations' do
     it { should belong_to(:circuit_breaker) }
   end
@@ -26,29 +26,29 @@ RSpec.describe CircuitBreakerEvent, type: :model do
 
     describe '.successes' do
       it 'returns only success events' do
-        expect(CircuitBreakerEvent.successes).to include(success_event)
-        expect(CircuitBreakerEvent.successes).not_to include(failure_event, timeout_event)
+        expect(Monitoring::CircuitBreakerEvent.successes).to include(success_event)
+        expect(Monitoring::CircuitBreakerEvent.successes).not_to include(failure_event, timeout_event)
       end
     end
 
     describe '.failures' do
       it 'returns only failure events' do
-        expect(CircuitBreakerEvent.failures).to include(failure_event)
-        expect(CircuitBreakerEvent.failures).not_to include(success_event, timeout_event)
+        expect(Monitoring::CircuitBreakerEvent.failures).to include(failure_event)
+        expect(Monitoring::CircuitBreakerEvent.failures).not_to include(success_event, timeout_event)
       end
     end
 
     describe '.timeouts' do
       it 'returns only timeout events' do
-        expect(CircuitBreakerEvent.timeouts).to include(timeout_event)
-        expect(CircuitBreakerEvent.timeouts).not_to include(success_event, failure_event)
+        expect(Monitoring::CircuitBreakerEvent.timeouts).to include(timeout_event)
+        expect(Monitoring::CircuitBreakerEvent.timeouts).not_to include(success_event, failure_event)
       end
     end
 
     describe '.state_changes' do
       it 'returns only state change events' do
-        expect(CircuitBreakerEvent.state_changes).to include(state_change_event)
-        expect(CircuitBreakerEvent.state_changes).not_to include(success_event, failure_event)
+        expect(Monitoring::CircuitBreakerEvent.state_changes).to include(state_change_event)
+        expect(Monitoring::CircuitBreakerEvent.state_changes).not_to include(success_event, failure_event)
       end
     end
 
@@ -57,7 +57,7 @@ RSpec.describe CircuitBreakerEvent, type: :model do
       let!(:recent_event) { create(:circuit_breaker_event, circuit_breaker: breaker, created_at: 30.minutes.ago) }
 
       it 'returns events from specified time period' do
-        results = CircuitBreakerEvent.recent(1.hour)
+        results = Monitoring::CircuitBreakerEvent.recent(1.hour)
         expect(results).to include(recent_event)
         expect(results).not_to include(old_event)
       end
@@ -68,7 +68,7 @@ RSpec.describe CircuitBreakerEvent, type: :model do
       let!(:other_event) { create(:circuit_breaker_event, circuit_breaker: other_breaker) }
 
       it 'filters events by circuit breaker' do
-        results = CircuitBreakerEvent.for_circuit_breaker(breaker.id)
+        results = Monitoring::CircuitBreakerEvent.for_circuit_breaker(breaker.id)
         expect(results).to include(success_event)
         expect(results).not_to include(other_event)
       end

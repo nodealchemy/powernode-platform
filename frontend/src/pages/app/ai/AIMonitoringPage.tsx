@@ -31,18 +31,18 @@ import {
   getMonitoringBreadcrumbs,
   MONITORING_TABS,
   VALID_TAB_IDS
-} from '@/features/ai-monitoring/utils';
-import { MonitoringOverviewCards } from '@/features/ai-monitoring/components/MonitoringOverviewCards';
-import { MonitoringStatusBar } from '@/features/ai-monitoring/components/MonitoringStatusBar';
+} from '@/features/ai/monitoring/utils';
+import { MonitoringOverviewCards } from '@/features/ai/monitoring/components/MonitoringOverviewCards';
+import { MonitoringStatusBar } from '@/features/ai/monitoring/components/MonitoringStatusBar';
 
 // Import monitoring components
-import { SystemHealthDashboard } from '@/features/ai-monitoring/components/SystemHealthDashboard';
-import { ProviderMonitoringGrid } from '@/features/ai-monitoring/components/ProviderMonitoringGrid';
-import { AgentPerformancePanel } from '@/features/ai-monitoring/components/AgentPerformancePanel';
-import { ConversationAnalytics } from '@/features/ai-monitoring/components/ConversationAnalytics';
-import { AlertManagementCenter } from '@/features/ai-monitoring/components/AlertManagementCenter';
-import { ResourceUtilizationChart } from '@/features/ai-monitoring/components/ResourceUtilizationChart';
-import { WorkflowMonitoringPanel } from '@/features/ai-monitoring/components/WorkflowMonitoringPanel';
+import { SystemHealthDashboard } from '@/features/ai/monitoring/components/SystemHealthDashboard';
+import { ProviderMonitoringGrid } from '@/features/ai/monitoring/components/ProviderMonitoringGrid';
+import { AgentPerformancePanel } from '@/features/ai/monitoring/components/AgentPerformancePanel';
+import { ConversationAnalytics } from '@/features/ai/monitoring/components/ConversationAnalytics';
+import { AlertManagementCenter } from '@/features/ai/monitoring/components/AlertManagementCenter';
+import { ResourceUtilizationChart } from '@/features/ai/monitoring/components/ResourceUtilizationChart';
+import { WorkflowMonitoringPanel } from '@/features/ai/monitoring/components/WorkflowMonitoringPanel';
 import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 
 export const AIMonitoringPage: React.FC = () => {

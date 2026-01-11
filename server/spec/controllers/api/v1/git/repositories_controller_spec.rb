@@ -185,7 +185,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
     let(:repo) { create(:git_repository, credential: credential, account: account) }
 
     before do
-      allow_any_instance_of(Git::Repository).to receive(:configure_webhook!).and_return({
+      allow_any_instance_of(Devops::GitRepository).to receive(:configure_webhook!).and_return({
         success: true,
         webhook_id: 'webhook_123'
       })
@@ -218,7 +218,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
     let(:repo) { create(:git_repository, :with_webhook, credential: credential, account: account) }
 
     before do
-      allow_any_instance_of(Git::Repository).to receive(:remove_webhook!).and_return({
+      allow_any_instance_of(Devops::GitRepository).to receive(:remove_webhook!).and_return({
         success: true
       })
     end
@@ -243,7 +243,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
     let(:mock_client) { double('GitApiClient') }
 
     before do
-      allow(::Git::ApiClient).to receive(:for).and_return(mock_client)
+      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
       allow(mock_client).to receive(:list_branches).and_return([
         { name: 'main', protected: true },
         { name: 'develop', protected: false }
@@ -268,7 +268,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
     let(:mock_client) { double('GitApiClient') }
 
     before do
-      allow(::Git::ApiClient).to receive(:for).and_return(mock_client)
+      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
       allow(mock_client).to receive(:list_commits).and_return([
         { sha: 'abc123', message: 'Initial commit' },
         { sha: 'def456', message: 'Add feature' }
@@ -299,7 +299,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
     let(:mock_client) { double('GitApiClient') }
 
     before do
-      allow(::Git::ApiClient).to receive(:for).and_return(mock_client)
+      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
       allow(mock_client).to receive(:list_pull_requests).and_return([
         { number: 1, title: 'Feature PR', state: 'open' }
       ])
@@ -327,7 +327,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
       it 'deletes the repository record' do
         expect {
           delete :destroy, params: { id: repo.id }
-        }.to change(Git::Repository, :count).by(-1)
+        }.to change(Devops::GitRepository, :count).by(-1)
 
         expect(response).to have_http_status(:success)
       end

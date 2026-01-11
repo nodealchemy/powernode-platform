@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Concern for models that can be published to the marketplace
-# Include in: Ai::WorkflowTemplate, CiCd::PipelineTemplate, Integration::Template, Shared::PromptTemplate
+# Include in: Ai::WorkflowTemplate, Devops::PipelineTemplate, Devops::IntegrationTemplate, Shared::PromptTemplate
 #
 # Required columns on the model:
 #   - is_marketplace_published: boolean, default: false
@@ -136,9 +136,9 @@ module MarketplacePublishable
     case self.class.name
     when "Ai::WorkflowTemplate"
       "workflow_template"
-    when "CiCd::PipelineTemplate"
+    when "Devops::PipelineTemplate"
       "pipeline_template"
-    when "Integration::Template"
+    when "Devops::IntegrationTemplate"
       "integration_template"
     when "Shared::PromptTemplate"
       "prompt_template"
@@ -166,8 +166,8 @@ module MarketplacePublishable
 
     # Count across all publishable template types
     count += Ai::WorkflowTemplate.published_by_account(account.id).count if defined?(Ai::WorkflowTemplate)
-    count += CiCd::PipelineTemplate.published_by_account(account.id).count if defined?(CiCd::PipelineTemplate)
-    count += Integration::Template.published_by_account(account.id).count if defined?(Integration::Template)
+    count += Devops::PipelineTemplate.published_by_account(account.id).count if defined?(Devops::PipelineTemplate)
+    count += Devops::IntegrationTemplate.published_by_account(account.id).count if defined?(Devops::IntegrationTemplate)
     count += Shared::PromptTemplate.published_by_account(account.id).count if defined?(Shared::PromptTemplate)
 
     count

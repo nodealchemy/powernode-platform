@@ -10,9 +10,9 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Plus, RefreshCw, Edit2, Trash2, Users, Shield } from 'lucide-react';
-import { rolesApi, Role, Permission } from '@/features/roles/services/rolesApi';
-import { RoleFormModal } from '@/features/roles/components/RoleFormModal';
-import { RoleUsersModal } from '@/features/roles/components/RoleUsersModal';
+import { rolesApi, Role, Permission } from '@/features/admin/roles/services/rolesApi';
+import { RoleFormModal } from '@/features/admin/roles/components/RoleFormModal';
+import { RoleUsersModal } from '@/features/admin/roles/components/RoleUsersModal';
 
 export const AdminRolesPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -53,7 +53,7 @@ export const AdminRolesPage: React.FC = () => {
   }, [loadRoles]);
 
   // Check if user has role management permissions
-  const canManageRoles = hasPermissions(user, ['admin.role.create', 'admin.role.edit', 'admin.role.delete']);
+  const canManageRoles = hasPermissions(user, ['admin.role.create', 'admin.role.update', 'admin.role.delete']);
   const canReadRoles = hasPermissions(user, ['admin.role.read']);
 
   // Redirect if user doesn't have permission to view roles

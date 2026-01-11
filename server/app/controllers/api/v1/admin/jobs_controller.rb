@@ -66,7 +66,7 @@ class Api::V1::Admin::JobsController < ApplicationController
   private
 
   def require_system_admin_permission
-    unless current_user.has_permission?("admin.settings.edit")
+    unless current_user.has_permission?("admin.settings.update")
       render_error("Insufficient permissions to view jobs", status: :forbidden)
     end
   end

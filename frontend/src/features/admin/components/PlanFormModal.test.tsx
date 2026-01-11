@@ -9,7 +9,7 @@ const mockGetDefaultLimits = jest.fn();
 const mockGetAvailableCurrencies = jest.fn();
 const mockGetAvailableBillingCycles = jest.fn();
 
-jest.mock('@/features/plans/services/plansApi', () => ({
+jest.mock('@/features/business/plans/services/plansApi', () => ({
   plansApi: {
     createPlan: (...args: any[]) => mockCreatePlan(...args),
     updatePlan: (...args: any[]) => mockUpdatePlan(...args),

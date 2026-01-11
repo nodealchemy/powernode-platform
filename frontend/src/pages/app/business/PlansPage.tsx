@@ -6,7 +6,7 @@ import {
   plansApi,
   Plan,
   DetailedPlan
-} from '@/features/plans/services/plansApi';
+} from '@/features/business/plans/services/plansApi';
 import { PlanFormModal } from '@/features/admin/components/PlanFormModal';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';

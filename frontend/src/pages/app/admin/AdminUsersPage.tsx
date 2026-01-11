@@ -2,13 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { startImpersonation } from '@/shared/services/slices/authSlice';
-import { usersApi, User, UserFormData, UserStats } from '@/features/users/services/usersApi';
+import { usersApi, User, UserFormData, UserStats } from '@/features/account/users/services/usersApi';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { UserPlus, RefreshCw, Filter, Download } from 'lucide-react';
-import { UserRolesModal } from '@/features/users/components/UserRolesModal';
+import { UserRolesModal } from '@/features/account/users/components/UserRolesModal';
 import {
   UserStatsCards,
   UserFiltersPanel,

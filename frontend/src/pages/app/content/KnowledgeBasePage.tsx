@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageContainer, BreadcrumbItem } from '@/shared/components/layout/PageContainer';
-import { KbCategoryList } from '@/features/knowledge-base/components/KbCategoryList';
-import { KbArticleList } from '@/features/knowledge-base/components/KbArticleList';
-import { KbSearchBar } from '@/features/knowledge-base/components/KbSearchBar';
-import { KbFeaturedArticles } from '@/features/knowledge-base/components/KbFeaturedArticles';
-import { knowledgeBaseApi, KbCategory, KbArticle } from '@/shared/services/knowledgeBaseApi';
+import { KbCategoryList } from '@/features/content/knowledge-base/components/KbCategoryList';
+import { KbArticleList } from '@/features/content/knowledge-base/components/KbArticleList';
+import { KbSearchBar } from '@/features/content/knowledge-base/components/KbSearchBar';
+import { KbFeaturedArticles } from '@/features/content/knowledge-base/components/KbFeaturedArticles';
+import { knowledgeBaseApi, KbCategory, KbArticle } from '@/shared/services/content/knowledgeBaseApi';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
@@ -24,7 +24,7 @@ export default function KnowledgeBasePage() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(searchParams.get('category') || null);
 
-  const canManageKb = hasPermissions(currentUser, ['kb.manage']) || hasPermissions(currentUser, ['kb.edit']);
+  const canManageKb = hasPermissions(currentUser, ['kb.manage']) || hasPermissions(currentUser, ['kb.update']);
 
   // Generate dynamic breadcrumbs based on current filters
   const getBreadcrumbs = (): BreadcrumbItem[] => {

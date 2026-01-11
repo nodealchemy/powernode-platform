@@ -12,7 +12,6 @@ RSpec.describe Ai::Workflow, type: :model do
     it { should have_many(:variables).dependent(:destroy) }
     it { should have_many(:schedules).dependent(:destroy) }
     it { should have_many(:triggers).dependent(:destroy) }
-    it { should have_many(:template_installations).dependent(:destroy) }
   end
 
   describe 'validations' do

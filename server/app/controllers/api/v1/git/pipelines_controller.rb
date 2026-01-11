@@ -53,7 +53,7 @@ module Api
           credential = @repository.git_provider_credential
           return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           ref = params[:ref] || @repository.default_branch
           inputs = params[:inputs]&.to_unsafe_h || {}
           workflow_id = params[:workflow] || params[:workflow_id] || params[:workflow_file]
@@ -74,7 +74,7 @@ module Api
           else
             render_error(result[:error], status: :unprocessable_content)
           end
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -88,7 +88,7 @@ module Api
           credential = repository.git_provider_credential
           return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           result = client.cancel_workflow_run(repository.owner, repository.name, @pipeline.external_id)
 
           if result[:success]
@@ -97,7 +97,7 @@ module Api
           else
             render_error(result[:error], status: :unprocessable_content)
           end
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -111,7 +111,7 @@ module Api
           credential = repository.git_provider_credential
           return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           result = client.rerun_workflow(repository.owner, repository.name, @pipeline.external_id)
 
           if result[:success]
@@ -128,7 +128,7 @@ module Api
           else
             render_error(result[:error], status: :unprocessable_content)
           end
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 

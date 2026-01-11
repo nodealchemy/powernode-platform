@@ -10,8 +10,8 @@ module Api
 
           # POST /api/v1/internal/ci_cd/step_executions
           def create
-            run = ::CiCd::PipelineRun.find(params.dig(:step_execution, :pipeline_run_id))
-            step = ::CiCd::PipelineStep.find(params.dig(:step_execution, :pipeline_step_id))
+            run = ::Devops::PipelineRun.find(params.dig(:step_execution, :pipeline_run_id))
+            step = ::Devops::PipelineStep.find(params.dig(:step_execution, :pipeline_step_id))
 
             execution = run.step_executions.create!(
               pipeline_step: step,
@@ -48,7 +48,7 @@ module Api
           private
 
           def set_step_execution
-            @step_execution = ::CiCd::StepExecution.find(params[:id])
+            @step_execution = ::Devops::StepExecution.find(params[:id])
           rescue ActiveRecord::RecordNotFound
             render_error("Step execution not found", status: :not_found)
           end

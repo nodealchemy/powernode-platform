@@ -8,7 +8,7 @@ module Mcp
     # - comment_body: The comment text to post
     # - target_type: "pull_request" or "issue" (default: pull_request)
     # - target_number: PR or issue number (can be from trigger context)
-    # - repository_id: UUID of Git::Repository
+    # - repository_id: UUID of Devops::GitRepository
     #
     class GitComment < Base
       protected
@@ -63,13 +63,13 @@ module Mcp
       end
 
       def post_comment(comment_context)
-        repository = Git::Repository.find_by(id: comment_context[:repository_id])
+        repository = Devops::GitRepository.find_by(id: comment_context[:repository_id])
         raise ArgumentError, "Repository not found" unless repository
 
         credential = repository.git_provider_credential
         raise ArgumentError, "No credential found" unless credential
 
-        api_client = Git::ApiClient.for(credential)
+        api_client = Devops::Git::ApiClient.for(credential)
 
         result = if comment_context[:target_type] == "issue"
                    api_client.create_issue_comment(

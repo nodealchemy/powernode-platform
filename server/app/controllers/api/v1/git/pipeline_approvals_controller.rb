@@ -9,7 +9,7 @@ module Api
 
         # GET /api/v1/git/pipeline_approvals
         def index
-          approvals = ::Git::PipelineApproval.where(account: current_user.account)
+          approvals = ::Devops::GitPipelineApproval.where(account: current_user.account)
                                          .includes(:pipeline, :requested_by, :responded_by)
 
           # Filters
@@ -34,7 +34,7 @@ module Api
           approvals = approvals.offset((page - 1) * per_page).limit(per_page)
 
           # Stats
-          all_approvals = ::Git::PipelineApproval.where(account: current_user.account)
+          all_approvals = ::Devops::GitPipelineApproval.where(account: current_user.account)
           stats = {
             total: all_approvals.count,
             pending: all_approvals.pending.count,
@@ -57,7 +57,7 @@ module Api
 
         # GET /api/v1/git/pipeline_approvals/pending
         def pending
-          approvals = ::Git::PipelineApproval.where(account: current_user.account)
+          approvals = ::Devops::GitPipelineApproval.where(account: current_user.account)
                                          .active
                                          .includes(:pipeline, :requested_by)
                                          .order(expires_at: :asc)
@@ -128,7 +128,7 @@ module Api
         private
 
         def set_approval
-          @approval = ::Git::PipelineApproval.where(account: current_user.account)
+          @approval = ::Devops::GitPipelineApproval.where(account: current_user.account)
                                          .includes(:pipeline, :requested_by, :responded_by)
                                          .find(params[:id])
         rescue ActiveRecord::RecordNotFound

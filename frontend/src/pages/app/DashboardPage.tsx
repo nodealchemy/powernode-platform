@@ -2,26 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { plansApi } from '@/features/plans/services/plansApi';
-import { paymentGatewaysApi } from '@/features/payment-gateways/services/paymentGatewaysApi';
+import { plansApi } from '@/features/business/plans/services/plansApi';
+import { paymentGatewaysApi } from '@/features/business/payment-gateways/services/paymentGatewaysApi';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { MetricCard } from '@/shared/components/ui/Card';
 
 // Import all dashboard pages
 import { ReportsPage } from './business/ReportsPage';
 import { PlansPage } from './business/PlansPage';
-import { SettingsPage } from './SettingsPage';
+import { SettingsPage } from './account/ProfilePage';
 import { PagesPage } from './content/PagesPage';
 import KnowledgeBasePage from './content/KnowledgeBasePage';
 import KnowledgeBaseArticlePage from './content/KnowledgeBaseArticlePage';
 import KnowledgeBaseAdminPage from './content/KnowledgeBaseAdminPage';
-import { KnowledgeBaseArticleEditor } from '@/features/knowledge-base/components/KnowledgeBaseArticleEditor';
+import { KnowledgeBaseArticleEditor } from '@/features/content/knowledge-base/components/KnowledgeBaseArticleEditor';
 import MyFilesPage from './content/MyFilesPage';
-import { UsersPage } from './UsersPage';
-import { AuditLogsPage } from './AuditLogsPage';
-import { ApiKeysPage } from './ApiKeysPage';
-import { NotificationsPage } from './NotificationsPage';
-import { MetricsPage } from './MetricsPage';
+import { UsersPage } from './account/UsersPage';
+import { AuditLogsPage } from './system/AuditLogsPage';
+import { ApiKeysPage } from './devops/ApiKeysPage';
+import { NotificationsPage } from './account/NotificationsPage';
+import { MetricsPage } from './business/MetricsPage';
 import { AnalyticsPage } from './business/AnalyticsPage';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { BarChart3, Users, CreditCard } from 'lucide-react';
@@ -32,14 +32,11 @@ import { CustomersPage } from './business/CustomersPage';
 import { BillingPage } from './business/BillingPage';
 
 // Import system pages
-import WebhookManagementPage from '@/pages/app/WebhookManagementPage';
+import WebhookManagementPage from '@/pages/app/devops/WebhooksPage';
 
 // Import marketplace pages
 import { MarketplacePage } from '@/pages/app/marketplace/MarketplacePage';
 import { ItemDetailPage } from '@/pages/app/marketplace/ItemDetailPage';
-import { AppsPage } from '@/pages/app/marketplace/AppsPage';
-import { AppDetailPage } from '@/pages/app/marketplace/AppDetailPage';
-import { MyAppsPage } from '@/pages/app/marketplace/MyAppsPage';
 import { MySubscriptionsPage } from '@/pages/app/marketplace/MySubscriptionsPage';
 
 // Import admin pages
@@ -54,14 +51,14 @@ import StorageProvidersPage from '@/pages/app/system/StorageProvidersPage';
 // CI/CD Pages (used in System section for runners)
 import {
   RunnersPage as AiPipelinesRunnersPage,
-} from '@/features/cicd';
+} from '@/features/devops/pipelines';
 
 // Provider Pages
 import {
   AiServicesPage,
   GitProvidersPage,
   RepositoriesPage,
-} from '@/features/connections';
+} from '@/features/devops/connections';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
 // AdminPluginsPage deprecated - now redirects to admin/marketplace
@@ -94,7 +91,7 @@ import { ContextsPage } from './ai/ContextsPage';
 import { ContextDetailPage } from './ai/ContextDetailPage';
 
 // Prompt Templates
-import { PromptsPage } from '@/features/ai-prompts/pages/PromptsPage';
+import { PromptsPage } from '@/features/ai/prompts/pages/PromptsPage';
 
 // Integration Pages
 // IntegrationsMarketplacePage deprecated - now redirects to marketplace?types=integration
@@ -102,7 +99,7 @@ import {
   IntegrationsPage,
   IntegrationDetailPage,
   NewIntegrationPage,
-} from '@/pages/app/integrations';
+} from '@/pages/app/devops/integrations';
 
 // DevOps Pages
 import { DevOpsOverviewPage } from '@/pages/app/devops/DevOpsOverviewPage';
@@ -600,11 +597,7 @@ const DashboardPage: React.FC = () => {
         {/* Marketplace Pages */}
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/marketplace/:type/:id" element={<ItemDetailPage />} />
-        <Route path="/marketplace/apps" element={<AppsPage />} />
-        <Route path="/marketplace/apps/:id" element={<AppDetailPage />} />
-        <Route path="/marketplace/my-apps" element={<MyAppsPage />} />
         <Route path="/marketplace/subscriptions" element={<MySubscriptionsPage />} />
-        <Route path="/marketplace/subscriptions/:id/settings" element={<Navigate to="/app/subscriptions" replace />} />
 
         {/* Subscription Routes */}
         <Route path="/subscriptions/:id/usage" element={<Navigate to="/app/business/analytics" replace />} />

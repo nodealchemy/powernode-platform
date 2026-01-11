@@ -13,10 +13,10 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { marketplaceApi } from '@/features/marketplace/services/marketplaceApi';
-import { ItemCard, TypeFilter, SearchInput } from '@/features/marketplace/components';
-import type { MarketplaceItem, MarketplaceItemType, MarketplaceFilters } from '@/features/marketplace/types/marketplace';
-import { ALL_MARKETPLACE_TYPES } from '@/features/marketplace/types/marketplace';
+import { marketplaceApi } from '@/features/app/services/marketplaceApi';
+import { ItemCard, TypeFilter, SearchInput } from '@/features/app/components';
+import type { MarketplaceItem, MarketplaceItemType, MarketplaceFilters } from '@/features/app/types/marketplace';
+import { ALL_MARKETPLACE_TYPES } from '@/features/app/types/marketplace';
 
 const ALL_TYPES: MarketplaceItemType[] = ALL_MARKETPLACE_TYPES;
 

@@ -20,7 +20,7 @@ import {
   CleanupStats,
   MaintenanceSystemMetrics,
   MaintenanceStatus
-} from '@/shared/services/maintenanceApi';
+} from '@/shared/services/admin/maintenanceApi';
 import { SettingsCard, ToggleSwitch } from '../settings/SettingsComponents';
 import { FormField } from '@/shared/components/ui/FormField';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';

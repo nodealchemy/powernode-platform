@@ -28,8 +28,8 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { AiWorkflow, AiWorkflowRun } from '@/shared/types/workflow';
-import { NodeValidationPanel } from '@/features/ai-workflows/components/validation/NodeValidationPanel';
-import { ValidationHistoryPanel } from '@/features/ai-workflows/components/validation/ValidationHistoryPanel';
+import { NodeValidationPanel } from '@/features/ai/workflows/components/validation/NodeValidationPanel';
+import { ValidationHistoryPanel } from '@/features/ai/workflows/components/validation/ValidationHistoryPanel';
 
 export const WorkflowDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();

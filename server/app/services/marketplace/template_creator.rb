@@ -40,7 +40,7 @@ module Marketplace
     def create_from_pipeline(pipeline, params = {})
       validate_ownership!(pipeline)
 
-      CiCd::PipelineTemplate.create!(
+      Devops::PipelineTemplate.create!(
         account: account,
         created_by_user: user,
         source_pipeline: pipeline,
@@ -64,7 +64,7 @@ module Marketplace
     def create_from_integration(integration_template, params = {})
       validate_ownership!(integration_template) if integration_template.account_id.present?
 
-      Integration::Template.create!(
+      Devops::IntegrationTemplate.create!(
         account: account,
         name: params[:name] || "#{integration_template.name} Copy",
         slug: nil, # Will be auto-generated

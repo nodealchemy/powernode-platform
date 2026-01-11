@@ -67,7 +67,7 @@ module Auth
     private
 
     def active_delegations
-      AccountDelegation.active
+      Account::Delegation.active
                        .not_expired
                        .for_user(@user)
                        .includes(:account, :role)

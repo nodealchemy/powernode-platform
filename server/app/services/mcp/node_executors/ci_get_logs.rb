@@ -5,7 +5,7 @@ module Mcp
     # CI Get Logs node executor - fetches logs from CI/CD pipeline jobs
     #
     # Configuration:
-    # - repository_id: UUID of Git::Repository
+    # - repository_id: UUID of Devops::GitRepository
     # - run_id: ID of the workflow run
     # - job_id: ID of specific job (optional - if not provided, fetches all jobs)
     # - include_steps: Whether to include step-level details (default: true)
@@ -56,7 +56,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = Git::Repository.find_by(id: repository_id)
+        repository = Devops::GitRepository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end
@@ -65,7 +65,7 @@ module Mcp
         credential = repository.git_provider_credential
         raise ArgumentError, "No credential found for repository" unless credential
 
-        Git::ApiClient.for(credential)
+        Devops::Git::ApiClient.for(credential)
       end
 
       def fetch_job_logs(api_client, repository, run_id, job_id, max_log_size)
@@ -90,7 +90,7 @@ module Mcp
           ],
           total_jobs: 1
         }
-      rescue Git::ApiClient::NotFoundError
+      rescue Devops::Git::ApiClient::NotFoundError
         { success: false, error: "Job logs not found: #{job_id}" }
       rescue StandardError => e
         { success: false, error: "Failed to fetch job logs: #{e.message}" }
@@ -164,7 +164,7 @@ module Mcp
           jobs: job_logs,
           total_jobs: jobs.size
         }
-      rescue Git::ApiClient::NotFoundError
+      rescue Devops::Git::ApiClient::NotFoundError
         { success: false, error: "Workflow run not found: #{run_id}" }
       end
 

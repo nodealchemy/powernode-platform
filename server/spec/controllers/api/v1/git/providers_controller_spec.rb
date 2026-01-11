@@ -141,7 +141,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       it 'creates a new provider' do
         expect {
           post :create, params: valid_params
-        }.to change(Git::Provider, :count).by(1)
+        }.to change(Devops::GitProvider, :count).by(1)
 
         expect(response).to have_http_status(:created)
         json = JSON.parse(response.body)
@@ -215,7 +215,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       it 'deletes the provider' do
         expect {
           delete :destroy, params: { id: provider.id }
-        }.to change(Git::Provider, :count).by(-1)
+        }.to change(Devops::GitProvider, :count).by(-1)
 
         expect(response).to have_http_status(:success)
       end
@@ -282,7 +282,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       it 'creates a new credential' do
         expect {
           post :create_credential, params: valid_params
-        }.to change(Git::ProviderCredential, :count).by(1)
+        }.to change(Devops::GitProviderCredential, :count).by(1)
 
         expect(response).to have_http_status(:created)
       end
@@ -290,7 +290,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       it 'associates credential with current account' do
         post :create_credential, params: valid_params
 
-        credential = Git::ProviderCredential.last
+        credential = Devops::GitProviderCredential.last
         expect(credential.account).to eq(account)
       end
     end
@@ -318,7 +318,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       it 'deletes the credential' do
         expect {
           delete :destroy_credential, params: { id: provider.id, credential_id: credential.id }
-        }.to change(Git::ProviderCredential, :count).by(-1)
+        }.to change(Devops::GitProviderCredential, :count).by(-1)
 
         expect(response).to have_http_status(:success)
       end
@@ -345,7 +345,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
     let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
 
     before do
-      allow_any_instance_of(Git::ProviderTestService).to receive(:test_with_rate_limit).and_return({
+      allow_any_instance_of(Devops::Git::ProviderTestService).to receive(:test_with_rate_limit).and_return({
         success: true,
         response_time_ms: 150.0,
         user: { login: 'testuser' }
@@ -364,7 +364,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
       end
 
       it 'updates credential on successful test' do
-        expect_any_instance_of(Git::ProviderCredential).to receive(:record_success!)
+        expect_any_instance_of(Devops::GitProviderCredential).to receive(:record_success!)
 
         post :test_credential, params: { id: provider.id, credential_id: credential.id }
       end
@@ -402,9 +402,9 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
     let(:provider) { create(:git_provider, :github, supports_oauth: true) }
 
     before do
-      allow_any_instance_of(Git::OAuthService).to receive(:authorization_url)
+      allow_any_instance_of(Devops::Git::OAuthService).to receive(:authorization_url)
         .and_return('https://github.com/login/oauth/authorize?client_id=test')
-      allow_any_instance_of(Git::OAuthService).to receive(:generate_state)
+      allow_any_instance_of(Devops::Git::OAuthService).to receive(:generate_state)
         .and_return('test_state_token')
     end
 

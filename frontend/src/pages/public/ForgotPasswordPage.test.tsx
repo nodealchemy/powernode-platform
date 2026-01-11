@@ -12,7 +12,7 @@ jest.mock('react-router-dom', () => ({
 
 // Mock authApi
 const mockForgotPassword = jest.fn();
-jest.mock('@/features/auth/services/authAPI', () => ({
+jest.mock('@/features/account/auth/services/authAPI', () => ({
   authApi: {
     forgotPassword: (...args: unknown[]) => mockForgotPassword(...args),
   },

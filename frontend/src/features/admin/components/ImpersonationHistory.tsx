@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { impersonationApi, ImpersonationSession } from '@/shared/services/impersonationApi';
+import { impersonationApi, ImpersonationSession } from '@/shared/services/account/impersonationApi';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 

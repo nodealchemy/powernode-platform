@@ -68,7 +68,7 @@ RSpec.describe Api::V1::Ai::WorkflowGitTriggersController, type: :controller do
     it 'creates a new git workflow trigger' do
       expect {
         post :create, params: valid_params
-      }.to change(Git::WorkflowTrigger, :count).by(1)
+      }.to change(Devops::GitWorkflowTrigger, :count).by(1)
 
       expect(response).to have_http_status(:created)
       json = JSON.parse(response.body)
@@ -156,7 +156,7 @@ RSpec.describe Api::V1::Ai::WorkflowGitTriggersController, type: :controller do
 
       expect {
         delete :destroy, params: { trigger_id: trigger.id, id: git_trigger.id }
-      }.to change(Git::WorkflowTrigger, :count).by(-1)
+      }.to change(Devops::GitWorkflowTrigger, :count).by(-1)
 
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)

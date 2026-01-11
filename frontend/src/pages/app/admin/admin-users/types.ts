@@ -1,5 +1,5 @@
 // Types for AdminUsersPage components
-import { User, UserFormData, UserStats } from '@/features/users/services/usersApi';
+import { User, UserFormData, UserStats } from '@/features/account/users/services/usersApi';
 
 export type StatusFilter = 'all' | 'active' | 'suspended' | 'inactive';
 export type SortBy = 'name' | 'email' | 'created_at' | 'last_login_at';

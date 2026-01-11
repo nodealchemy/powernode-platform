@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { MemoryViewer } from '@/features/ai-context/components/MemoryViewer';
-import { EntryEditor } from '@/features/ai-context/components/EntryEditor';
-import { contextApi } from '@/features/ai-context/services/contextApi';
+import { MemoryViewer } from '@/features/ai/context/components/MemoryViewer';
+import { EntryEditor } from '@/features/ai/context/components/EntryEditor';
+import { contextApi } from '@/features/ai/context/services/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import type { AiContextEntry, AiAgentSummary, AiPersistentContextSummary } from '@/features/ai-context/types';
+import type { AiContextEntry, AiAgentSummary, AiPersistentContextSummary } from '@/features/ai/context/types';
 
 export function AgentMemoryPage() {
   const { agentId } = useParams<{ agentId: string }>();

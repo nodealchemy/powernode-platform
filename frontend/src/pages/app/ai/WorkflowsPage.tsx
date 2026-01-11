@@ -37,8 +37,8 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { AiWorkflow } from '@/shared/types/workflow';
 import type { WorkflowFilters } from '@/shared/services/ai/types/workflow-api-types';
-import { WorkflowCreateModal } from '@/features/ai-workflows/components/WorkflowCreateModal';
-import { WorkflowDetailModal } from '@/features/ai-workflows/components/WorkflowDetailModal';
+import { WorkflowCreateModal } from '@/features/ai/workflows/components/WorkflowCreateModal';
+import { WorkflowDetailModal } from '@/features/ai/workflows/components/WorkflowDetailModal';
 import { WorkflowBuilderModal } from '@/shared/components/workflow/WorkflowBuilderModal';
 import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 

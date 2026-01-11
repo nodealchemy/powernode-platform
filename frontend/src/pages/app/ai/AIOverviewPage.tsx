@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { EnhancedAIOverview, EnhancedAIOverviewHandle } from '@/features/ai-orchestration/components/EnhancedAIOverview';
+import { EnhancedAIOverview, EnhancedAIOverviewHandle } from '@/features/ai/orchestration/components/EnhancedAIOverview';
 import { RefreshCw, Radio } from 'lucide-react';
 
 export const AIOverviewPage: React.FC = () => {

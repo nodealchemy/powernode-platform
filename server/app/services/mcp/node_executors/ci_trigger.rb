@@ -10,7 +10,7 @@ module Mcp
     # - create_run: Directly create a workflow run (GitLab CI)
     #
     # Configuration:
-    # - repository_id: UUID of Git::Repository to trigger on
+    # - repository_id: UUID of Devops::GitRepository to trigger on
     # - workflow_id: ID/path of the workflow to trigger
     # - ref: Git ref (branch/tag) to trigger on
     # - trigger_action: Type of trigger (workflow_dispatch, repository_dispatch, create_run)
@@ -62,7 +62,7 @@ module Mcp
       end
 
       def find_repository(repository_id)
-        repository = Git::Repository.find_by(id: repository_id)
+        repository = Devops::GitRepository.find_by(id: repository_id)
         raise ArgumentError, "Repository not found: #{repository_id}" unless repository
         repository
       end
@@ -71,7 +71,7 @@ module Mcp
         credential = repository.git_provider_credential
         raise ArgumentError, "No credential found for repository" unless credential
 
-        Git::ApiClient.for(credential)
+        Devops::Git::ApiClient.for(credential)
       end
 
       def execute_trigger(api_client:, repository:, workflow_id:, ref:, trigger_action:, inputs:)

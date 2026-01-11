@@ -39,8 +39,8 @@ Rails.application.routes.draw do
         get "status/history", to: "status#history"
       end
 
-      # CI/CD Step Approvals (public, token-based auth)
-      namespace :ci_cd do
+      # DevOps Step Approvals (public, token-based auth)
+      namespace :devops do
         resources :step_approvals, only: [:show], param: :token do
           member do
             post :approve
@@ -67,13 +67,6 @@ Rails.application.routes.draw do
 
         # Background job tracking
         resources :jobs, only: [ :show, :update ]
-
-        # Template installations (AI workflows)
-        resources :template_installations, only: [] do
-          member do
-            post :update
-          end
-        end
 
         # Webhook deliveries
         resources :webhook_deliveries, only: [ :show, :update ] do
@@ -268,8 +261,8 @@ Rails.application.routes.draw do
           end
         end
 
-        # CI/CD internal endpoints for worker service
-        namespace :ci_cd do
+        # DevOps internal endpoints for worker service
+        namespace :devops do
           resources :pipeline_runs, only: [ :show, :update ]
           resources :step_executions, only: [ :show, :create, :update ]
 
@@ -911,88 +904,6 @@ Rails.application.routes.draw do
         end
       end
 
-      # Marketplace endpoints
-      resources :apps do
-        collection do
-          get :analytics, to: "apps#analytics"
-        end
-        member do
-          post :publish
-          post :unpublish
-          post :submit_for_review
-          get :analytics
-        end
-
-        # Nested resources for app management
-        resources :app_plans, except: [ :index ] do
-          collection do
-            get :index, to: "app_plans#index"
-            post :reorder
-            get :compare
-            get :analytics
-          end
-          member do
-            post :activate
-            post :deactivate
-          end
-        end
-
-        resources :app_features, except: [ :index ] do
-          collection do
-            get :index, to: "app_features#index"
-            get :types
-            get :dependencies
-            post :validate_dependencies
-            get :usage_report
-          end
-          member do
-            post :enable_by_default
-            post :disable_by_default
-            post :duplicate
-          end
-        end
-
-        resources :app_endpoints, except: [ :index ] do
-          collection do
-            get :index, to: "app_endpoints#index"
-          end
-          member do
-            post :activate
-            post :deactivate
-            post :test
-            get :analytics
-          end
-        end
-
-        resources :app_webhooks, except: [ :index ] do
-          collection do
-            get :index, to: "app_webhooks#index"
-          end
-          member do
-            post :activate
-            post :deactivate
-            post :test
-            post :regenerate_secret
-            get :deliveries
-            get :analytics
-          end
-        end
-
-        resource :marketplace_listing, except: [] do
-          member do
-            post :submit
-            post :approve
-            post :reject
-            post :feature
-            post :unfeature
-            get :analytics
-            post :screenshots
-            delete :screenshots
-            patch :screenshots
-          end
-        end
-      end
-
       # Public marketplace endpoints (no authentication required)
       resources :marketplace_listings, only: [ :index, :show ] do
         collection do
@@ -1053,51 +964,6 @@ Rails.application.routes.draw do
           post ":type/:id/approve", to: "templates#approve"
           post ":type/:id/reject", to: "templates#reject"
           post ":type/:id/create_instance", to: "templates#create_instance"
-        end
-      end
-
-      # App Subscriptions (user subscriptions to apps)
-      resources :app_subscriptions, only: [ :index, :show, :create, :update, :destroy ] do
-        member do
-          post :pause
-          post :resume
-          post :cancel
-          post :upgrade_plan
-          post :downgrade_plan
-          get :usage
-          get :analytics
-        end
-
-        collection do
-          get :active
-          get :cancelled
-          get :expired
-        end
-      end
-
-      # Enhanced App reviews with comprehensive functionality
-      resources :apps, only: [] do
-        resources :app_reviews, path: "reviews", only: [ :index, :create ] do
-          collection do
-            get :summary
-          end
-        end
-      end
-
-      resources :app_reviews, path: "reviews", only: [ :show, :update, :destroy ] do
-        member do
-          post :vote
-          post :flag
-          post :moderate
-        end
-
-        resources :review_responses, path: "responses", only: [ :index, :create ]
-      end
-
-      resources :review_responses, only: [ :show, :update, :destroy ] do
-        member do
-          post :approve
-          post :reject
         end
       end
 
@@ -1912,95 +1778,14 @@ Rails.application.routes.draw do
       # ===================================================================
       # EXTERNAL INTEGRATION FRAMEWORK
       # ===================================================================
-      # Multi-tenancy integration system with GitHub Actions, webhooks,
-      # MCP servers, and REST API support
+      # ===================================================================
+      # DEVOPS MANAGEMENT SYSTEM
+      # ===================================================================
+      # AI-powered CI/CD pipelines, integrations, and infrastructure management
+      # Combines pipeline management with third-party integrations
       # ===================================================================
 
-      namespace :integrations do
-        # Templates (system-wide, admin-managed)
-        resources :templates do
-          collection do
-            get :search
-            get :categories
-            get :types
-          end
-        end
-
-        # Instances (per-account installations)
-        resources :instances do
-          member do
-            post :activate
-            post :deactivate
-            post :test
-            post :execute
-            get :health
-            get :stats
-          end
-        end
-
-        # Credentials (per-account secrets)
-        resources :credentials do
-          member do
-            post :rotate
-            post :verify
-          end
-        end
-
-        # Executions (history and management)
-        resources :executions, only: [ :index, :show ] do
-          member do
-            post :retry
-            post :cancel
-          end
-
-          collection do
-            get :stats
-          end
-        end
-      end
-
-      # ===================================================================
-      # PLUGIN SYSTEM - Universal plugin architecture
-      # ===================================================================
-      # Platform-agnostic plugin system supporting AI providers, workflow nodes,
-      # and extensible plugin types with marketplace management
-      # ===================================================================
-
-      resources :plugin_marketplaces do
-        member do
-          post :sync
-        end
-      end
-
-      resources :plugins do
-        member do
-          post :install
-          delete :uninstall
-        end
-
-        collection do
-          get :search
-          get :by_capability
-        end
-      end
-
-      resources :plugin_installations do
-        member do
-          post :activate
-          post :deactivate
-          patch :configure
-          post :set_credential
-        end
-      end
-
-      # ===================================================================
-      # CI/CD PIPELINE MANAGEMENT SYSTEM
-      # ===================================================================
-      # AI-powered CI/CD pipelines with Claude Code integration
-      # Database-driven configuration for Gitea Actions workflows
-      # ===================================================================
-
-      namespace :ci_cd do
+      namespace :devops do
         # Git Providers (Gitea, GitHub, GitLab)
         resources :providers do
           member do
@@ -2060,7 +1845,49 @@ Rails.application.routes.draw do
             delete :detach_pipeline
           end
         end
+
+        # Integration Templates (system-wide, admin-managed)
+        resources :integration_templates do
+          collection do
+            get :search
+            get :categories
+            get :types
+          end
+        end
+
+        # Integration Instances (per-account installations)
+        resources :integration_instances do
+          member do
+            post :activate
+            post :deactivate
+            post :test
+            post :execute
+            get :health
+            get :stats
+          end
+        end
+
+        # Integration Credentials (per-account secrets)
+        resources :integration_credentials do
+          member do
+            post :rotate
+            post :verify
+          end
+        end
+
+        # Integration Executions (history and management)
+        resources :integration_executions, only: [ :index, :show ] do
+          member do
+            post :retry
+            post :cancel
+          end
+
+          collection do
+            get :stats
+          end
+        end
       end
+
     end
   end
 

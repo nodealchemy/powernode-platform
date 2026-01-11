@@ -58,7 +58,7 @@ module Api
           end
 
           # POST /api/v1/internal/git/webhook_events/:id/trigger_workflows
-          # Find matching ::Git::WorkflowTriggers and execute associated AI workflows
+          # Find matching ::Devops::GitWorkflowTriggers and execute associated AI workflows
           def trigger_workflows
             triggered_workflows = []
 
@@ -101,10 +101,10 @@ module Api
 
           private
 
-          # Find ::Git::WorkflowTriggers that match this webhook event
+          # Find ::Devops::GitWorkflowTriggers that match this webhook event
           def find_matching_triggers
             # Query for active triggers matching the event type
-            triggers = ::Git::WorkflowTrigger.active
+            triggers = ::Devops::GitWorkflowTrigger.active
                                         .for_event(@event.event_type)
 
             # Filter to repository-specific or global triggers
@@ -122,7 +122,7 @@ module Api
           end
 
           def set_event
-            @event = ::Git::WebhookEvent.includes(:repository, :git_provider).find(params[:id])
+            @event = ::Devops::GitWebhookEvent.includes(:repository, :git_provider).find(params[:id])
           rescue ActiveRecord::RecordNotFound
             render json: { success: false, error: "Webhook event not found" },
                    status: :not_found

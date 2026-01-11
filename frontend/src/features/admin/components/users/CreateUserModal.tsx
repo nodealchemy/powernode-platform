@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { usersApi, UserFormData, AdminAccount } from '@/features/users/services/usersApi';
+import { usersApi, UserFormData, AdminAccount } from '@/features/account/users/services/usersApi';
 
 interface CreateUserModalProps {
   isOpen: boolean;

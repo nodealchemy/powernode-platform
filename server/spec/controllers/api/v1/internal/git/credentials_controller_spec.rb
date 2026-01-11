@@ -117,7 +117,7 @@ RSpec.describe Api::V1::Internal::Git::CredentialsController, type: :controller 
 
     context 'when decryption fails' do
       before do
-        allow_any_instance_of(Git::ProviderCredential).to receive(:decrypt_credentials)
+        allow_any_instance_of(Devops::GitProviderCredential).to receive(:decrypt_credentials)
           .and_raise(StandardError, 'Decryption error')
       end
 

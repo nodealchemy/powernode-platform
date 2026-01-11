@@ -130,8 +130,8 @@ class Api::V1::AuditLogsController < ApplicationController
                        .count,
       uniqueDataSubjects: logs.where(action: gdpr_actions).distinct.count(:user_id),
       pendingRequests: {
-        exports: DataExportRequest.where(status: "pending").count,
-        deletions: DataDeletionRequest.where(status: "pending").count
+        exports: DataManagement::ExportRequest.where(status: "pending").count,
+        deletions: DataManagement::DeletionRequest.where(status: "pending").count
       }
     })
   rescue NameError

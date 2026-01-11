@@ -640,7 +640,7 @@ class Api::V1::ServicesController < ApplicationController
   private
 
   def require_system_admin_permission
-    unless current_user.has_permission?("admin.settings.edit")
+    unless current_user.has_permission?("admin.settings.update")
       render_error("Insufficient permissions to manage services settings", status: :forbidden)
     end
   end

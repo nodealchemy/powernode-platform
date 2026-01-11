@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { authApi } from '@/features/auth/services/authAPI';
-import { impersonationApi } from '../impersonationApi';
+import { authApi } from '@/features/account/auth/services/authAPI';
+import { impersonationApi } from '../account/impersonationApi';
 import { setAuthDomain, clearAuthDomain } from '@/shared/utils/domainUtils';
 import { getErrorMessage, isErrorWithResponse } from '@/shared/utils/errorHandling';
 

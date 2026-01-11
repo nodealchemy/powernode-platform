@@ -158,11 +158,11 @@ module Api
           when "app"
                          ::Marketplace::Definition.find_by(id: params[:item_id])
           when "plugin"
-                         PluginSystem::Definition.find_by(id: params[:item_id])
+                         nil  # Plugin system deprecated
           when "template"
                          ::Ai::WorkflowTemplate.find_by(id: params[:item_id])
           when "integration"
-                         PluginSystem::Definition.where("'integration' = ANY(plugin_types)").find_by(id: params[:item_id])
+                         ::Devops::IntegrationTemplate.find_by(id: params[:item_id])
           end
         end
 

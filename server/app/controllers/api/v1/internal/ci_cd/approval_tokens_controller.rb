@@ -10,7 +10,7 @@ module Api
           # Called by ApprovalExpiryJob to expire tokens and fail step executions
           def expire_stale
             # Find and expire all pending tokens that have passed their expiry date
-            expired_tokens = ::CiCd::StepApprovalToken.pending.where("expires_at < ?", Time.current)
+            expired_tokens = ::Devops::StepApprovalToken.pending.where("expires_at < ?", Time.current)
             expired_count = expired_tokens.count
 
             # Get unique step executions that will be affected
@@ -22,7 +22,7 @@ module Api
             # Handle step executions where ALL tokens are now expired/rejected
             failed_steps_count = 0
             affected_execution_ids.each do |execution_id|
-              execution = ::CiCd::StepExecution.find_by(id: execution_id)
+              execution = ::Devops::StepExecution.find_by(id: execution_id)
               next unless execution&.waiting_approval?
 
               # Check if there are any remaining pending/approved tokens
@@ -51,8 +51,8 @@ module Api
           # GET /api/v1/internal/ci_cd/approval_tokens/pending_count
           # Returns count of pending tokens (useful for monitoring)
           def pending_count
-            count = ::CiCd::StepApprovalToken.pending.count
-            expiring_soon = ::CiCd::StepApprovalToken.pending.where("expires_at < ?", 1.hour.from_now).count
+            count = ::Devops::StepApprovalToken.pending.count
+            expiring_soon = ::Devops::StepApprovalToken.pending.where("expires_at < ?", 1.hour.from_now).count
 
             render_success({
               total_pending: count,

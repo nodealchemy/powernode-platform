@@ -8,7 +8,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
 
   # GET /api/v1/admin/circuit_breakers
   def index
-    breakers = CircuitBreaker.all.order(created_at: :desc)
+    breakers = Monitoring::CircuitBreaker.all.order(created_at: :desc)
 
     # Filter by service if provided
     breakers = breakers.for_service(params[:service]) if params[:service].present?
@@ -28,8 +28,8 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
       circuit_breakers: breakers.map { |cb| serialize_circuit_breaker(cb) },
       meta: {
         total: breakers.count,
-        healthy_count: CircuitBreaker.healthy.count,
-        unhealthy_count: CircuitBreaker.unhealthy.count
+        healthy_count: Monitoring::CircuitBreaker.healthy.count,
+        unhealthy_count: Monitoring::CircuitBreaker.unhealthy.count
       }
     })
   rescue => e
@@ -49,7 +49,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
 
   # POST /api/v1/admin/circuit_breakers
   def create
-    breaker = CircuitBreaker.new(circuit_breaker_params)
+    breaker = Monitoring::CircuitBreaker.new(circuit_breaker_params)
 
     if breaker.save
       render_success({
@@ -138,7 +138,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
   private
 
   def set_circuit_breaker
-    @circuit_breaker = CircuitBreaker.find(params[:id])
+    @circuit_breaker = Monitoring::CircuitBreaker.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     render_error("Circuit breaker not found", status: :not_found)
   end

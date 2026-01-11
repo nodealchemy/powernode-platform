@@ -5,13 +5,7 @@ module Ai
     include MarketplaceReviewable
     include MarketplacePublishable
 
-    # Associations
-    has_many :installations, class_name: "Ai::WorkflowTemplateInstallation",
-             foreign_key: "ai_workflow_template_id", dependent: :destroy
-    has_many :installed_workflows, through: :installations, source: :workflow
-    has_many :installing_accounts, through: :installations, source: :account
-
-    # Unified marketplace subscriptions (preferred over installations)
+    # Associations - Marketplace subscriptions (replaces deprecated installations)
     has_many :subscriptions, as: :subscribable, class_name: "Marketplace::Subscription", dependent: :destroy
     has_many :subscribing_accounts, through: :subscriptions, source: :account
 
@@ -92,7 +86,7 @@ module Ai
 
     def can_delete?(user, account)
       return false unless user && account
-      return false if installations.exists? # Can't delete if there are active installations
+      return false if subscriptions.exists? # Can't delete if there are active subscriptions
       return true if account_id == account.id && created_by_user_id == user.id
       user.has_permission?("ai.workflows.manage") && account_id == account.id
     end
@@ -104,14 +98,12 @@ module Ai
       user.has_permission?("ai.workflows.manage") && account_id == account.id
     end
 
-    def install_to_account(account_id:, installed_by_user_id:, **options)
-      installations.create(
+    def subscribe_account(account_id:, subscribed_by_user_id:, **options)
+      subscriptions.create(
         account_id: account_id,
-        installed_by_user_id: installed_by_user_id,
-        ai_workflow_id: options[:ai_workflow_id],
-        template_version: version,
-        customizations: options[:custom_configuration] || {},
-        metadata: { installation_notes: options[:installation_notes] }
+        subscribed_by_user_id: subscribed_by_user_id,
+        status: "active",
+        metadata: { subscription_notes: options[:subscription_notes] }.compact
       )
     end
 
@@ -212,10 +204,10 @@ module Ai
       workflow_nodes.any? { |n| n["node_type"] == "ai_agent" }
     end
 
-    # Installation check
-    def installed_by_account?(account)
+    # Subscription check
+    def subscribed_by_account?(account)
       return false unless account
-      installations.exists?(account_id: account.id)
+      subscriptions.exists?(account_id: account.id)
     end
 
     # Export definition

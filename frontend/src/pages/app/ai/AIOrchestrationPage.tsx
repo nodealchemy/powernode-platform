@@ -17,7 +17,7 @@ import { AIConversationsPage } from './AIConversationsPage';
 import { WorkflowAnalyticsPage } from './WorkflowAnalyticsPage';
 import { AIMonitoringPage } from './AIMonitoringPage';
 import { McpBrowserPage } from './McpBrowserPage';
-import { EnhancedAIOverview } from '@/features/ai-orchestration/components/EnhancedAIOverview';
+import { EnhancedAIOverview } from '@/features/ai/orchestration/components/EnhancedAIOverview';
 import { AuthenticationCheck } from '@/shared/components/ai/AuthenticationCheck';
 
 export const AIOrchestrationPage: React.FC = () => {

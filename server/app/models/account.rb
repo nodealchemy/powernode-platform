@@ -7,7 +7,7 @@ class Account < ApplicationRecord
   has_many :users, dependent: :destroy
   has_one :subscription, dependent: :destroy
   has_many :invitations, dependent: :destroy
-  has_many :account_delegations, dependent: :destroy
+  has_many :account_delegations, class_name: "Account::Delegation", dependent: :destroy
   has_many :audit_logs, dependent: :destroy
   has_many :payment_methods, dependent: :destroy
   has_many :webhook_events, dependent: :destroy
@@ -30,7 +30,10 @@ class Account < ApplicationRecord
   # AI Workflow associations
   has_many :ai_workflows, class_name: "Ai::Workflow", dependent: :destroy
   has_many :ai_workflow_runs, class_name: "Ai::WorkflowRun", dependent: :destroy
-  has_many :ai_workflow_template_installations, class_name: "Ai::WorkflowTemplateInstallation", dependent: :destroy
+
+  # Marketplace subscriptions (replaces deprecated ai_workflow_template_installations)
+  has_many :marketplace_subscriptions, class_name: "Marketplace::Subscription", dependent: :destroy
+  has_many :workflow_template_subscriptions, -> { for_workflow_templates }, class_name: "Marketplace::Subscription"
 
   # Analytics & Reporting associations
   has_many :report_requests, dependent: :destroy
@@ -39,19 +42,22 @@ class Account < ApplicationRecord
   has_many :mcp_servers, dependent: :destroy
 
   # Git Provider associations
-  has_many :git_provider_credentials, class_name: "Git::ProviderCredential", dependent: :destroy
-  has_many :git_repositories, class_name: "Git::Repository", dependent: :destroy
-  has_many :git_webhook_events, class_name: "Git::WebhookEvent", dependent: :destroy
-  has_many :git_pipelines, class_name: "Git::Pipeline", dependent: :destroy
-  has_many :git_pipeline_jobs, class_name: "Git::PipelineJob", dependent: :destroy
-  has_many :git_pipeline_approvals, class_name: "Git::PipelineApproval", dependent: :destroy
-  has_many :git_pipeline_schedules, class_name: "Git::PipelineSchedule", dependent: :destroy
-  has_many :git_runners, class_name: "Git::Runner", dependent: :destroy
+  has_many :git_provider_credentials, class_name: "Devops::GitProviderCredential", dependent: :destroy
+  has_many :git_repositories, class_name: "Devops::GitRepository", dependent: :destroy
+  has_many :git_webhook_events, class_name: "Devops::GitWebhookEvent", dependent: :destroy
+  has_many :git_pipelines, class_name: "Devops::GitPipeline", dependent: :destroy
+  has_many :git_pipeline_jobs, class_name: "Devops::GitPipelineJob", dependent: :destroy
+  has_many :git_pipeline_approvals, class_name: "Devops::GitPipelineApproval", dependent: :destroy
+  has_many :git_pipeline_schedules, class_name: "Devops::GitPipelineSchedule", dependent: :destroy
+  has_many :git_runners, class_name: "Devops::GitRunner", dependent: :destroy
 
-  # CI/CD Pipeline Management associations
-  has_many :ci_cd_providers, class_name: "CiCd::Provider", dependent: :destroy
-  has_many :ci_cd_pipelines, class_name: "CiCd::Pipeline", dependent: :destroy
-  has_many :ci_cd_repositories, class_name: "CiCd::Repository", dependent: :destroy
+  # DevOps Pipeline Management associations
+  has_many :devops_providers, class_name: "Devops::Provider", dependent: :destroy
+  has_many :devops_pipelines, class_name: "Devops::Pipeline", dependent: :destroy
+  has_many :devops_repositories, class_name: "Devops::Repository", dependent: :destroy
+  has_many :devops_integration_templates, class_name: "Devops::IntegrationTemplate", dependent: :destroy
+  has_many :devops_integration_instances, class_name: "Devops::IntegrationInstance", dependent: :destroy
+  has_many :devops_integration_credentials, class_name: "Devops::IntegrationCredential", dependent: :destroy
 
   # Shared infrastructure associations
   has_many :shared_prompt_templates, class_name: "Shared::PromptTemplate", dependent: :destroy
@@ -60,10 +66,6 @@ class Account < ApplicationRecord
   has_many :file_storages, class_name: "FileManagement::Storage", dependent: :destroy
   has_many :file_objects, class_name: "FileManagement::Object", dependent: :destroy
   has_many :file_tags, class_name: "FileManagement::Tag", dependent: :destroy
-
-  # Plugin System associations
-  has_many :plugins, class_name: "PluginSystem::Definition", dependent: :destroy
-  has_many :plugin_installations, class_name: "PluginSystem::Installation", dependent: :destroy
 
   # Subscription-related associations
   has_many :invoices, through: :subscription

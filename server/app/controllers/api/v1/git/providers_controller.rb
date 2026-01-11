@@ -14,7 +14,7 @@ module Api
 
         # GET /api/v1/git/providers
         def index
-          providers = ::Git::Provider.active.ordered_by_priority
+          providers = ::Devops::GitProvider.active.ordered_by_priority
 
           # Filter by provider_type
           providers = providers.where(provider_type: params[:provider_type]) if params[:provider_type].present?
@@ -47,7 +47,7 @@ module Api
 
         # POST /api/v1/git/providers
         def create
-          @provider = ::Git::Provider.new(provider_params)
+          @provider = ::Devops::GitProvider.new(provider_params)
 
           if @provider.save
             render_success({ provider: serialize_provider_detail(@provider) }, status: :created)
@@ -76,7 +76,7 @@ module Api
 
         # GET /api/v1/git/providers/available
         def available
-          providers = ::Git::Provider.active.ordered_by_priority.map do |provider|
+          providers = ::Devops::GitProvider.active.ordered_by_priority.map do |provider|
             {
               id: provider.id,
               name: provider.name,
@@ -114,7 +114,7 @@ module Api
 
         # POST /api/v1/git/providers/:id/credentials
         def create_credential
-          @credential = ::Git::ProviderManagementService.create_credential(
+          @credential = ::Devops::Git::ProviderManagementService.create_credential(
             @provider,
             current_user.account,
             current_user,
@@ -136,7 +136,7 @@ module Api
           else
             render_validation_error(@credential.errors)
           end
-        rescue ::Git::ProviderManagementService::ValidationError => e
+        rescue ::Devops::Git::ProviderManagementService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -151,7 +151,7 @@ module Api
 
         # POST /api/v1/git/providers/:id/credentials/:credential_id/test
         def test_credential
-          result = ::Git::ProviderTestService.new(@credential).test_with_rate_limit
+          result = ::Devops::Git::ProviderTestService.new(@credential).test_with_rate_limit
 
           if result[:success]
             @credential.record_success!
@@ -173,7 +173,7 @@ module Api
 
         # POST /api/v1/git/providers/:id/credentials/:credential_id/sync_repositories
         def sync_repositories
-          result = ::Git::ProviderManagementService.sync_repositories(
+          result = ::Devops::Git::ProviderManagementService.sync_repositories(
             @credential,
             page: params[:page]&.to_i || 1,
             per_page: params[:per_page]&.to_i || 100,
@@ -192,7 +192,7 @@ module Api
           else
             render_error(result[:error], status: :unprocessable_content)
           end
-        rescue ::Git::ProviderManagementService::CredentialError => e
+        rescue ::Devops::Git::ProviderManagementService::CredentialError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -206,7 +206,7 @@ module Api
             return render_error("Provider does not support OAuth", status: :unprocessable_content)
           end
 
-          oauth_service = ::Git::OAuthService.new(@provider, current_user.account)
+          oauth_service = ::Devops::Git::OAuthService.new(@provider, current_user.account)
           auth_url = oauth_service.authorization_url(
             redirect_uri: params[:redirect_uri],
             state: oauth_service.generate_state(current_user)
@@ -217,7 +217,7 @@ module Api
 
         # POST /api/v1/git/providers/:id/oauth/callback
         def oauth_callback
-          oauth_service = ::Git::OAuthService.new(@provider, current_user.account)
+          oauth_service = ::Devops::Git::OAuthService.new(@provider, current_user.account)
 
           result = oauth_service.handle_callback(
             code: params[:code],
@@ -233,14 +233,14 @@ module Api
           else
             render_error(result[:error], status: :unprocessable_content)
           end
-        rescue ::Git::OAuthService::OAuthError => e
+        rescue ::Devops::Git::OAuthService::OAuthError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
         private
 
         def set_provider
-          @provider = ::Git::Provider.find(params[:id])
+          @provider = ::Devops::GitProvider.find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Provider not found", status: :not_found)
         end

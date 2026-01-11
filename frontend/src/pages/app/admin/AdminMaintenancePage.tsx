@@ -11,7 +11,7 @@ import {
   CleanupStats,
   MaintenanceSystemMetrics,
   MaintenanceSchedule
-} from '@/shared/services/maintenanceApi';
+} from '@/shared/services/admin/maintenanceApi';
 import { RefreshCw, Plus, Trash2 } from 'lucide-react';
 import {
   MaintenanceOverviewTab,

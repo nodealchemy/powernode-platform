@@ -439,7 +439,7 @@ export const adminNavigationOverrides = {
           href: '/app/system/services',
           icon: '🌐',
           description: 'Configure service routing, load balancing, and proxy settings',
-          permissions: ['admin.settings.edit'],
+          permissions: ['admin.settings.update'],
           order: 1
         },
         {
@@ -470,7 +470,7 @@ export const adminNavigationOverrides = {
           order: 4
         }
       ],
-      permissions: ['admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'admin.audit.read'],
+      permissions: ['admin.settings.update', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'admin.audit.read'],
       collapsible: true,
       defaultExpanded: false,
       order: 25  // After DevOps (20)

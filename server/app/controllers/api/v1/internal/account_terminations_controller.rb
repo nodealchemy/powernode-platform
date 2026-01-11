@@ -6,7 +6,7 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
 
   # GET /api/v1/internal/account_terminations
   def index
-    terminations = AccountTermination.where(status: [ "pending", "in_progress" ])
+    terminations = Account::Termination.where(status: [ "pending", "in_progress" ])
                                      .order(scheduled_at: :asc)
 
     render_success(data: terminations.map { |t| termination_data(t) })
@@ -29,7 +29,7 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
   private
 
   def set_termination
-    @termination = AccountTermination.find(params[:id])
+    @termination = Account::Termination.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     render_not_found("Account termination")
   end

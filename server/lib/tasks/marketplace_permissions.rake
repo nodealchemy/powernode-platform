@@ -16,24 +16,24 @@ namespace :marketplace do
 
     # Assign permissions to developer role
     developer_permissions = [
-      "user.view", "user.edit_self",
-      "team.view",
-      "billing.view", "billing.update",
-      "plans.view",
-      "page.view",
-      "analytics.view", "analytics.export",
-      "report.view", "report.generate",
+      "user.read", "user.edit_self",
+      "team.read",
+      "billing.read", "billing.update",
+      "plans.read",
+      "page.read",
+      "analytics.read", "analytics.export",
+      "report.read", "report.generate",
       "api.read", "api.write", "api.manage_keys",
-      "webhook.view", "webhook.create", "webhook.edit",
-      "invoice.view", "invoice.download",
-      "audit.view",
+      "webhook.read", "webhook.create", "webhook.update",
+      "invoice.read", "invoice.download",
+      "audit.read",
       # Full marketplace permissions
-      "app.view", "app.create", "app.edit", "app.delete", "app.publish",
-      "app.manage_features", "app.manage_plans", "app.view_analytics",
-      "listing.view", "listing.create", "listing.edit", "listing.delete",
-      "subscription.view", "subscription.create", "subscription.manage",
-      "subscription.cancel", "subscription.upgrade", "subscription.view_usage",
-      "review.view", "review.create", "review.edit", "review.delete", "review.moderate"
+      "app.read", "app.create", "app.update", "app.delete", "app.publish",
+      "app.manage_features", "app.manage_plans", "app.read_analytics",
+      "listing.read", "listing.create", "listing.update", "listing.delete",
+      "subscription.read", "subscription.create", "subscription.manage",
+      "subscription.cancel", "subscription.upgrade", "subscription.read_usage",
+      "review.read", "review.create", "review.update", "review.delete", "review.moderate"
     ]
 
     developer_permissions.each do |permission_name|
@@ -51,11 +51,11 @@ namespace :marketplace do
     member_role = Role.find_by(name: "member")
     if member_role
       marketplace_member_permissions = [
-        "app.view",
-        "listing.view",
-        "subscription.view", "subscription.create", "subscription.manage", "subscription.cancel",
-        "subscription.view_usage",
-        "review.view"
+        "app.read",
+        "listing.read",
+        "subscription.read", "subscription.create", "subscription.manage", "subscription.cancel",
+        "subscription.read_usage",
+        "review.read"
       ]
 
       marketplace_member_permissions.each do |permission_name|
@@ -74,12 +74,12 @@ namespace :marketplace do
     manager_role = Role.find_by(name: "manager")
     if manager_role
       marketplace_manager_permissions = [
-        "app.view", "app.create", "app.edit", "app.delete", "app.publish",
-        "app.manage_features", "app.manage_plans", "app.view_analytics",
-        "listing.view", "listing.create", "listing.edit", "listing.delete",
-        "subscription.view", "subscription.create", "subscription.manage",
-        "subscription.cancel", "subscription.upgrade", "subscription.view_usage",
-        "review.view", "review.create", "review.edit", "review.delete", "review.moderate"
+        "app.read", "app.create", "app.update", "app.delete", "app.publish",
+        "app.manage_features", "app.manage_plans", "app.read_analytics",
+        "listing.read", "listing.create", "listing.update", "listing.delete",
+        "subscription.read", "subscription.create", "subscription.manage",
+        "subscription.cancel", "subscription.upgrade", "subscription.read_usage",
+        "review.read", "review.create", "review.update", "review.delete", "review.moderate"
       ]
 
       marketplace_manager_permissions.each do |permission_name|
@@ -99,11 +99,11 @@ namespace :marketplace do
     admin_role = Role.find_by(name: "admin")
     if admin_role
       admin_marketplace_permissions = [
-        "admin.marketplace.view", "admin.marketplace.manage", "admin.marketplace.export",
-        "admin.app.view", "admin.app.edit", "admin.app.delete", "admin.app.approve", "admin.app.suspend",
-        "admin.listing.view", "admin.listing.edit", "admin.listing.delete", "admin.listing.approve", "admin.listing.feature",
-        "admin.review.view", "admin.review.moderate", "admin.review.delete",
-        "admin.subscription.view", "admin.subscription.manage"
+        "admin.marketplace.read", "admin.marketplace.manage", "admin.marketplace.export",
+        "admin.app.read", "admin.app.update", "admin.app.delete", "admin.app.approve", "admin.app.suspend",
+        "admin.listing.read", "admin.listing.update", "admin.listing.delete", "admin.listing.approve", "admin.listing.feature",
+        "admin.review.read", "admin.review.moderate", "admin.review.delete",
+        "admin.subscription.read", "admin.subscription.manage"
       ]
 
       admin_marketplace_permissions.each do |permission_name|
@@ -146,11 +146,11 @@ namespace :marketplace do
 
     # Check if all marketplace permissions are defined
     marketplace_perms = [
-      "app.view", "app.create", "app.edit", "app.delete", "app.publish",
-      "subscription.view", "subscription.create", "subscription.manage",
-      "listing.view", "listing.create", "listing.edit",
-      "review.view", "review.create", "review.moderate",
-      "admin.marketplace.view", "admin.app.approve", "admin.listing.feature"
+      "app.read", "app.create", "app.update", "app.delete", "app.publish",
+      "subscription.read", "subscription.create", "subscription.manage",
+      "listing.read", "listing.create", "listing.update",
+      "review.read", "review.create", "review.moderate",
+      "admin.marketplace.read", "admin.app.approve", "admin.listing.feature"
     ]
 
     missing_permissions = marketplace_perms.reject { |p| Permissions.permission_exists?(p) }

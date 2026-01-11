@@ -500,7 +500,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
   end
 
   describe 'GET #circuit_breaker_show' do
-    let(:mock_breaker) { double('CircuitBreaker', stats: { state: 'closed', failure_count: 0, success_count: 10 }) }
+    let(:mock_breaker) { double('Monitoring::CircuitBreaker', stats: { state: 'closed', failure_count: 0, success_count: 10 }) }
 
     before do
       allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_breaker).with('provider_openai').and_return(mock_breaker)
@@ -534,7 +534,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
   describe 'POST #circuit_breaker_reset' do
     let(:mock_breaker) do
-      double('CircuitBreaker',
+      double('Monitoring::CircuitBreaker',
         reset!: true,
         stats: { state: 'closed', failure_count: 0 }
       )
@@ -579,7 +579,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
   describe 'POST #circuit_breaker_open' do
     let(:mock_breaker) do
-      double('CircuitBreaker',
+      double('Monitoring::CircuitBreaker',
         open!: true,
         stats: { state: 'open', failure_count: 0 }
       )
@@ -606,7 +606,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
   describe 'POST #circuit_breaker_close' do
     let(:mock_breaker) do
-      double('CircuitBreaker',
+      double('Monitoring::CircuitBreaker',
         close!: true,
         stats: { state: 'closed', failure_count: 0 }
       )

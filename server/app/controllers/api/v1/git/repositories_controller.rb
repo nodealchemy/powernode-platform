@@ -104,11 +104,11 @@ module Api
           credential = @repository.git_provider_credential
           return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           branches = client.list_branches(@repository.owner, @repository.name, branch_params)
 
           render_success({ branches: branches })
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -117,13 +117,13 @@ module Api
           credential = @repository.git_provider_credential
           return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           options = commit_params.to_h.symbolize_keys
           options[:sha] = params[:branch] if params[:branch].present?
           commits = client.list_commits(@repository.owner, @repository.name, options)
 
           render_success({ commits: commits })
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -132,11 +132,11 @@ module Api
           credential = @repository.git_provider_credential
           return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           prs = client.list_pull_requests(@repository.owner, @repository.name, pr_params)
 
           render_success({ pull_requests: prs })
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -145,11 +145,11 @@ module Api
           credential = @repository.git_provider_credential
           return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           issues = client.list_issues(@repository.owner, @repository.name, issue_params)
 
           render_success({ issues: issues })
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -215,13 +215,13 @@ module Api
           sha = params[:sha]
           return render_error("SHA is required", status: :bad_request) if sha.blank?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           commit_detail = client.get_commit(@repository.owner, @repository.name, sha)
 
           render_success({ commit: commit_detail })
-        rescue ::Git::ApiClient::NotFoundError
+        rescue ::Devops::Git::ApiClient::NotFoundError
           render_error("Commit not found", status: :not_found)
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -233,13 +233,13 @@ module Api
           sha = params[:sha]
           return render_error("SHA is required", status: :bad_request) if sha.blank?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           diff = client.get_commit_diff(@repository.owner, @repository.name, sha)
 
           render_success({ diff: diff })
-        rescue ::Git::ApiClient::NotFoundError
+        rescue ::Devops::Git::ApiClient::NotFoundError
           render_error("Commit not found", status: :not_found)
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -252,13 +252,13 @@ module Api
           head = params[:head]
           return render_error("Base and head are required", status: :bad_request) if base.blank? || head.blank?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           comparison = client.compare_commits(@repository.owner, @repository.name, base, head)
 
           render_success({ comparison: comparison })
-        rescue ::Git::ApiClient::NotFoundError
+        rescue ::Devops::Git::ApiClient::NotFoundError
           render_error("One or more commits not found", status: :not_found)
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -272,7 +272,7 @@ module Api
 
           ref = params[:ref] || @repository.default_branch
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           content = client.get_file_content(@repository.owner, @repository.name, path, ref)
 
           if content.nil?
@@ -280,9 +280,9 @@ module Api
           else
             render_success({ content: content })
           end
-        rescue ::Git::ApiClient::NotFoundError
+        rescue ::Devops::Git::ApiClient::NotFoundError
           render_error("File not found", status: :not_found)
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -294,13 +294,13 @@ module Api
           sha = params[:sha] || @repository.default_branch
           recursive = params[:recursive] == "true"
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           tree_data = client.get_tree(@repository.owner, @repository.name, sha, recursive: recursive)
 
           render_success({ tree: tree_data, commit_sha: sha, path: params[:path] || "" })
-        rescue ::Git::ApiClient::NotFoundError
+        rescue ::Devops::Git::ApiClient::NotFoundError
           render_error("Tree not found", status: :not_found)
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
@@ -309,11 +309,11 @@ module Api
           credential = @repository.git_provider_credential
           return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
 
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
           tags_list = client.list_tags(@repository.owner, @repository.name, tag_params)
 
           render_success({ tags: tags_list })
-        rescue ::Git::ApiClient::ApiError => e
+        rescue ::Devops::Git::ApiClient::ApiError => e
           render_error(e.message, status: :unprocessable_content)
         end
 

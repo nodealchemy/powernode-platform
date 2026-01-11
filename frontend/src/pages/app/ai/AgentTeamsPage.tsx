@@ -2,15 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Users, Filter } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { TeamCard } from '@/features/ai-agent-teams/components/TeamCard';
-import { TeamBuilderModal } from '@/features/ai-agent-teams/components/TeamBuilderModal';
-import { TeamExecutionMonitor } from '@/features/ai-agent-teams/components/TeamExecutionMonitor';
+import { TeamCard } from '@/features/ai/agent-teams/components/TeamCard';
+import { TeamBuilderModal } from '@/features/ai/agent-teams/components/TeamBuilderModal';
+import { TeamExecutionMonitor } from '@/features/ai/agent-teams/components/TeamExecutionMonitor';
 import {
   agentTeamsApi,
   AgentTeam,
   CreateTeamParams,
   UpdateTeamParams
-} from '@/features/ai-agent-teams/services/agentTeamsApi';
+} from '@/features/ai/agent-teams/services/agentTeamsApi';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';

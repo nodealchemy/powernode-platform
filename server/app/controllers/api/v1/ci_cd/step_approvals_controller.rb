@@ -70,7 +70,7 @@ module Api
         private
 
         def find_token_by_param
-          @token = ::CiCd::StepApprovalToken.find_by_token(params[:token])
+          @token = ::Devops::StepApprovalToken.find_by_token(params[:token])
         end
 
         # Try to identify user if they're logged in (optional)

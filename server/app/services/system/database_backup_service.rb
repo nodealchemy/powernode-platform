@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module System
-  class System::DatabaseBackupService
+  class DatabaseBackupService
     include ActiveModel::Model
 
     BACKUP_TYPES = %w[full incremental schema_only].freeze
@@ -9,7 +9,7 @@ module System
 
     class << self
       def list_backups
-        backups = DatabaseBackup.includes(:user).order(created_at: :desc)
+        backups = Database::Backup.includes(:user).order(created_at: :desc)
 
         backups.map do |backup|
           {
@@ -33,7 +33,7 @@ module System
           return { success: false, error: "Invalid backup type. Must be one of: #{BACKUP_TYPES.join(', ')}" }
         end
 
-        backup = DatabaseBackup.create!(
+        backup = Database::Backup.create!(
           backup_type: backup_type,
           description: description,
           user: user,
@@ -43,7 +43,7 @@ module System
         )
 
         # Enqueue backup job
-        DatabaseBackupJob.perform_async(backup.id)
+        Database::BackupJob.perform_async(backup.id)
 
         {
           success: true,
@@ -61,7 +61,7 @@ module System
       end
 
       def delete_backup(backup_id)
-        backup = DatabaseBackup.find_by(id: backup_id)
+        backup = Database::Backup.find_by(id: backup_id)
         return { success: false, error: "Backup not found" } unless backup
 
         # Delete the physical file with path validation
@@ -85,13 +85,13 @@ module System
       end
 
       def restore_backup(backup_id, user)
-        backup = DatabaseBackup.find_by(id: backup_id)
+        backup = Database::Backup.find_by(id: backup_id)
         return { success: false, error: "Backup not found" } unless backup
         return { success: false, error: "Backup file not completed" } unless backup.status == "completed"
         return { success: false, error: "Backup file not found" } unless backup.file_path && File.exist?(backup.file_path)
 
         # Create restore record
-        restore = DatabaseRestore.create!(
+        restore = Database::Restore.create!(
           database_backup: backup,
           user: user,
           status: "pending",
@@ -99,7 +99,7 @@ module System
         )
 
         # Enqueue restore job
-        DatabaseRestoreJob.perform_async(restore.id)
+        Database::RestoreJob.perform_async(restore.id)
 
         { success: true, restore_id: restore.id }
       rescue => e
@@ -108,7 +108,7 @@ module System
       end
 
       def perform_backup(backup_id)
-        backup = DatabaseBackup.find(backup_id)
+        backup = Database::Backup.find(backup_id)
         backup.update!(status: "in_progress", started_at: Time.current)
 
         begin
@@ -144,7 +144,7 @@ module System
       end
 
       def perform_restore(restore_id)
-        restore = DatabaseRestore.find(restore_id)
+        restore = Database::Restore.find(restore_id)
         backup = restore.database_backup
 
         restore.update!(status: "in_progress", started_at: Time.current)
@@ -279,7 +279,7 @@ module System
       end
 
       def cleanup_old_backups
-        old_backups = DatabaseBackup.where(
+        old_backups = Database::Backup.where(
           "created_at < ?",
           BACKUP_RETENTION_DAYS.days.ago
         )

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # PCI Compliance Configuration
 Rails.application.configure do
   # Add PCI security headers middleware (disabled for testing - would be enabled in production)
@@ -50,7 +52,7 @@ Rails.application.configure do
   # Custom log formatter that sanitizes sensitive data
   config.log_formatter = proc do |severity, timestamp, progname, msg|
     sanitized_msg = if msg.is_a?(String)
-                      SensitiveDataSanitizer.sanitize_string(msg)
+                      DataManagement::Sanitizer.sanitize_string(msg)
     else
                       msg
     end
@@ -90,7 +92,7 @@ ActiveSupport::Notifications.subscribe("process_action.action_controller") do |*
      event.payload[:action]&.include?("webhook")
 
     # Sanitize and log security events
-    sanitized_params = SensitiveDataSanitizer.sanitize_hash(event.payload[:params] || {})
+    sanitized_params = DataManagement::Sanitizer.sanitize_hash(event.payload[:params] || {})
 
     Rails.logger.info "SECURITY_EVENT: #{event.payload[:controller]}##{event.payload[:action]} " \
                       "IP: #{event.payload[:remote_ip]} " \

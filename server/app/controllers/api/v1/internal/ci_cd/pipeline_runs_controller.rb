@@ -30,7 +30,7 @@ module Api
           private
 
           def set_pipeline_run
-            @pipeline_run = ::CiCd::PipelineRun.find(params[:id])
+            @pipeline_run = ::Devops::PipelineRun.find(params[:id])
           rescue ActiveRecord::RecordNotFound
             render_error("Pipeline run not found", status: :not_found)
           end

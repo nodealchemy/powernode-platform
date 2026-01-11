@@ -6,7 +6,7 @@ import {
   CleanupStats,
   MaintenanceSystemMetrics,
   MaintenanceSchedule
-} from '@/shared/services/maintenanceApi';
+} from '@/shared/services/admin/maintenanceApi';
 
 export type MaintenanceTab = 'overview' | 'mode' | 'health' | 'backups' | 'cleanup' | 'operations' | 'schedules';
 

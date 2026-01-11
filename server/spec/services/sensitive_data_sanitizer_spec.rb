@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
-RSpec.describe SensitiveDataSanitizer do
+RSpec.describe DataManagement::Sanitizer do
   describe '.sanitize_string' do
     it 'masks credit card numbers' do
       input = 'Please charge 4242424242424242 for the order'

@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { ContextBrowser } from '@/features/ai-context/components/ContextBrowser';
-import { SearchResults } from '@/features/ai-context/components/SearchResults';
-import { contextApi } from '@/features/ai-context/services/contextApi';
+import { ContextBrowser } from '@/features/ai/context/components/ContextBrowser';
+import { SearchResults } from '@/features/ai/context/components/SearchResults';
+import { contextApi } from '@/features/ai/context/services/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { Button } from '@/shared/components/ui/Button';
-import type { ContextFormData } from '@/features/ai-context/types';
+import type { ContextFormData } from '@/features/ai/context/types';
 
 export function ContextsPage() {
   const navigate = useNavigate();

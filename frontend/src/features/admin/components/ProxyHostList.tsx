@@ -17,7 +17,7 @@ import {
   CSS,
 } from '@dnd-kit/utilities';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import proxySettingsApi from '@/shared/services/proxySettingsApi';
+import proxySettingsApi from '@/shared/services/settings/proxySettingsApi';
 
 interface ProxyHostListProps {
   trustedHosts: string[];

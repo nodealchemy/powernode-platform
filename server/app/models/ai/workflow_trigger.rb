@@ -16,7 +16,7 @@ module Ai
     belongs_to :workflow, class_name: "Ai::Workflow", foreign_key: "ai_workflow_id"
     has_many :workflow_runs, class_name: "Ai::WorkflowRun",
              foreign_key: "ai_workflow_trigger_id", dependent: :nullify
-    has_many :git_workflow_triggers, class_name: "Git::WorkflowTrigger", foreign_key: "ai_workflow_trigger_id", dependent: :destroy
+    has_many :git_workflow_triggers, class_name: "Devops::GitWorkflowTrigger", foreign_key: "ai_workflow_trigger_id", dependent: :destroy
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }

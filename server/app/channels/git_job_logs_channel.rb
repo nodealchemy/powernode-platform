@@ -135,7 +135,7 @@ class GitJobLogsChannel < ApplicationCable::Channel
     return false unless current_user
 
     # Find the repository
-    repository = Git::Repository.find_by(id: @repository_id)
+    repository = Devops::GitRepository.find_by(id: @repository_id)
     return false unless repository
 
     # Check if user has permission to view logs and belongs to the same account
@@ -147,7 +147,7 @@ class GitJobLogsChannel < ApplicationCable::Channel
   end
 
   def queue_log_sync_if_needed
-    job = Git::PipelineJob.find_by(id: @job_id)
+    job = Devops::GitPipelineJob.find_by(id: @job_id)
     return unless job
 
     # Only sync if job has started

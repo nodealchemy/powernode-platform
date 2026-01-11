@@ -81,7 +81,7 @@ module Api
           private
 
           def update_cached_logs(job_id, content, offset, is_complete)
-            job = ::Git::PipelineJob.find_by(id: job_id)
+            job = ::Devops::GitPipelineJob.find_by(id: job_id)
             return unless job
 
             # Append or replace logs based on offset

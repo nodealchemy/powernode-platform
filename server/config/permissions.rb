@@ -35,7 +35,7 @@ module Permissions
     # Content Management
     "page.create" => "Create pages",
     "page.read" => "View pages",
-    "page.edit" => "Edit pages",
+    "page.update" => "Update pages",
     "page.delete" => "Delete pages",
     "page.publish" => "Publish pages",
 
@@ -54,7 +54,7 @@ module Permissions
     # Webhooks
     "webhook.read" => "View webhooks",
     "webhook.create" => "Create webhooks",
-    "webhook.edit" => "Edit webhooks",
+    "webhook.update" => "Update webhooks",
     "webhook.delete" => "Delete webhooks",
 
     # Audit Logs
@@ -65,7 +65,7 @@ module Permissions
     # Knowledge Base
     "kb.read" => "View published knowledge base articles",
     "kb.create" => "Create knowledge base articles",
-    "kb.edit" => "Edit knowledge base articles",
+    "kb.update" => "Update knowledge base articles",
     "kb.delete" => "Delete knowledge base articles",
     "kb.publish" => "Publish knowledge base articles",
     "kb.manage" => "Manage knowledge base categories and settings",
@@ -74,7 +74,7 @@ module Permissions
     # Marketplace - Apps
     "app.read" => "View marketplace apps",
     "app.create" => "Create marketplace apps",
-    "app.edit" => "Edit own apps",
+    "app.update" => "Update own apps",
     "app.delete" => "Delete own apps",
     "app.publish" => "Publish own apps",
     "app.manage_features" => "Manage app features",
@@ -92,7 +92,7 @@ module Permissions
     # Marketplace - Reviews
     "review.read" => "View app reviews",
     "review.create" => "Write app reviews",
-    "review.edit" => "Edit own reviews",
+    "review.update" => "Update own reviews",
     "review.delete" => "Delete own reviews",
     "review.moderate" => "Moderate reviews",
 
@@ -104,7 +104,7 @@ module Permissions
     # Marketplace - Listings
     "listing.read" => "View marketplace listings",
     "listing.create" => "Create marketplace listings",
-    "listing.edit" => "Edit own listings",
+    "listing.update" => "Update own listings",
     "listing.delete" => "Delete own listings",
 
     # AI Orchestration - Providers
@@ -143,7 +143,7 @@ module Permissions
     # AI Orchestration - Messages
     "ai.messages.read" => "View AI messages",
     "ai.messages.create" => "Send AI messages",
-    "ai.messages.edit" => "Edit own AI messages",
+    "ai.messages.update" => "Update own AI messages",
     "ai.messages.delete" => "Delete own AI messages",
 
     # AI Orchestration - Workflows
@@ -264,7 +264,32 @@ module Permissions
     # AI Agent Memory
     "ai.memory.read" => "View AI agent memory",
     "ai.memory.write" => "Write to AI agent memory",
-    "ai.memory.manage" => "Manage AI agent memory (clear, archive)"
+    "ai.memory.manage" => "Manage AI agent memory (clear, archive)",
+
+    # DevOps Pipeline Management
+    "devops.pipelines.read" => "View DevOps pipelines",
+    "devops.pipelines.write" => "Create, update, and delete DevOps pipelines",
+    "devops.pipeline_runs.read" => "View DevOps pipeline runs",
+    "devops.pipeline_runs.write" => "Manage DevOps pipeline runs (cancel, retry)",
+    "devops.providers.read" => "View DevOps providers",
+    "devops.providers.write" => "Create, update, and delete DevOps providers",
+    "devops.repositories.read" => "View DevOps repositories",
+    "devops.repositories.write" => "Manage DevOps repositories",
+    "devops.schedules.read" => "View DevOps pipeline schedules",
+    "devops.schedules.write" => "Manage DevOps pipeline schedules",
+    "devops.prompt_templates.read" => "View DevOps prompt templates",
+    "devops.prompt_templates.write" => "Manage DevOps prompt templates",
+
+    # DevOps Integrations
+    "devops.integrations.read" => "View DevOps integration templates and instances",
+    "devops.integrations.create" => "Create DevOps integration instances",
+    "devops.integrations.update" => "Update DevOps integration instances",
+    "devops.integrations.delete" => "Delete DevOps integration instances",
+    "devops.integrations.execute" => "Execute DevOps integrations",
+    "devops.integrations.credentials.read" => "View DevOps integration credentials",
+    "devops.integrations.credentials.create" => "Create DevOps integration credentials",
+    "devops.integrations.credentials.update" => "Update DevOps integration credentials",
+    "devops.integrations.credentials.delete" => "Delete DevOps integration credentials"
   }.freeze
 
   # Admin Permissions - Administrative operations
@@ -275,7 +300,7 @@ module Permissions
     # User Administration
     "admin.user.read" => "View all users",
     "admin.user.create" => "Create users",
-    "admin.user.edit" => "Edit any user",
+    "admin.user.update" => "Update any user",
     "admin.user.delete" => "Delete users",
     "admin.user.impersonate" => "Impersonate users",
     "admin.user.suspend" => "Suspend users",
@@ -283,14 +308,14 @@ module Permissions
     # Account Administration
     "admin.account.read" => "View all accounts",
     "admin.account.create" => "Create accounts",
-    "admin.account.edit" => "Edit accounts",
+    "admin.account.update" => "Update accounts",
     "admin.account.delete" => "Delete accounts",
     "admin.account.suspend" => "Suspend accounts",
 
     # Role & Permission Management
     "admin.role.read" => "View roles",
     "admin.role.create" => "Create roles",
-    "admin.role.edit" => "Edit roles",
+    "admin.role.update" => "Update roles",
     "admin.role.delete" => "Delete roles",
     "admin.role.assign" => "Assign roles",
 
@@ -303,7 +328,7 @@ module Permissions
 
     # System Settings
     "admin.settings.read" => "View settings",
-    "admin.settings.edit" => "Edit settings",
+    "admin.settings.update" => "Update settings",
     "admin.settings.security" => "Security settings",
     "admin.settings.email" => "Email settings",
     "admin.settings.payment" => "Payment gateway settings",
@@ -339,12 +364,12 @@ module Permissions
     "admin.marketplace.templates.review" => "Review and approve marketplace template submissions",
     "admin.marketplace.templates.feature" => "Feature marketplace templates",
     "admin.app.read" => "View all apps",
-    "admin.app.edit" => "Edit any app",
+    "admin.app.update" => "Update any app",
     "admin.app.delete" => "Delete any app",
     "admin.app.approve" => "Approve apps for publication",
     "admin.app.suspend" => "Suspend apps",
     "admin.listing.read" => "View all listings",
-    "admin.listing.edit" => "Edit any listing",
+    "admin.listing.update" => "Update any listing",
     "admin.listing.delete" => "Delete any listing",
     "admin.listing.approve" => "Approve listings",
     "admin.listing.feature" => "Feature listings",
@@ -367,21 +392,21 @@ module Permissions
     "admin.ai.manage" => "Manage AI system settings",
     "admin.ai.providers.read" => "View all AI providers",
     "admin.ai.providers.create" => "Create AI providers",
-    "admin.ai.providers.edit" => "Edit any AI provider",
+    "admin.ai.providers.update" => "Update any AI provider",
     "admin.ai.providers.delete" => "Delete AI providers",
     "admin.ai.providers.sync" => "Sync AI provider models",
     "admin.ai.credentials.read" => "View all AI credentials",
     "admin.ai.credentials.manage" => "Manage any AI credentials",
     "admin.ai.credentials.rotate" => "Rotate encryption keys",
     "admin.ai.agents.read" => "View all AI agents",
-    "admin.ai.agents.edit" => "Edit any AI agent",
+    "admin.ai.agents.update" => "Update any AI agent",
     "admin.ai.agents.delete" => "Delete any AI agent",
     "admin.ai.executions.read" => "View all AI executions",
     "admin.ai.executions.manage" => "Manage any AI execution",
     "admin.ai.conversations.read" => "View all AI conversations",
     "admin.ai.conversations.moderate" => "Moderate AI conversations",
     "admin.ai.workflows.read" => "View all AI workflows",
-    "admin.ai.workflows.edit" => "Edit any AI workflow",
+    "admin.ai.workflows.update" => "Update any AI workflow",
     "admin.ai.workflows.delete" => "Delete any AI workflow",
     "admin.ai.workflow_executions.read" => "View all workflow executions",
     "admin.ai.workflow_executions.manage" => "Manage any workflow execution",
@@ -398,7 +423,7 @@ module Permissions
     "admin.files.audit" => "View file access audit logs",
     "admin.storage.read" => "View all storage configurations",
     "admin.storage.create" => "Create system storage configurations",
-    "admin.storage.edit" => "Edit any storage configuration",
+    "admin.storage.update" => "Update any storage configuration",
     "admin.storage.delete" => "Delete storage configurations",
     "admin.storage.manage" => "Full storage provider management",
     "admin.storage.manage_quota" => "Manage storage quotas",
@@ -427,13 +452,24 @@ module Permissions
     "admin.integrations.manage" => "Manage all integration instances",
     "admin.integrations.templates.read" => "View all integration templates",
     "admin.integrations.templates.create" => "Create integration templates",
-    "admin.integrations.templates.edit" => "Edit integration templates",
+    "admin.integrations.templates.update" => "Update integration templates",
     "admin.integrations.templates.delete" => "Delete integration templates",
     "admin.integrations.templates.publish" => "Publish/unpublish integration templates",
     "admin.integrations.credentials.read" => "View all integration credentials",
     "admin.integrations.credentials.manage" => "Manage all integration credentials",
     "admin.integrations.executions.read" => "View all integration executions",
     "admin.integrations.executions.manage" => "Manage all integration executions",
+
+    # DevOps Administration
+    "admin.devops.pipelines.read" => "View all DevOps pipelines",
+    "admin.devops.pipelines.manage" => "Manage all DevOps pipelines",
+    "admin.devops.providers.read" => "View all DevOps providers",
+    "admin.devops.providers.manage" => "Manage all DevOps providers",
+    "admin.devops.repositories.read" => "View all DevOps repositories",
+    "admin.devops.repositories.manage" => "Manage all DevOps repositories",
+    "admin.devops.integration_templates.create" => "Create DevOps integration templates",
+    "admin.devops.integration_templates.update" => "Update DevOps integration templates",
+    "admin.devops.integration_templates.delete" => "Delete DevOps integration templates",
 
     # AI Context Administration
     "admin.ai.context.read" => "View all AI persistent contexts",
@@ -458,7 +494,7 @@ module Permissions
     # Worker Management (for frontend admin interface)
     "system.workers.read" => "View worker management interface",
     "system.workers.create" => "Create new workers",
-    "system.workers.edit" => "Edit worker configurations",
+    "system.workers.update" => "Update worker configurations",
     "system.workers.delete" => "Delete workers",
     "system.workers.suspend" => "Suspend workers",
     "system.workers.activate" => "Activate workers",
@@ -591,22 +627,22 @@ module Permissions
         "team.read", "team.invite", "team.remove", "team.assign_roles",
         "billing.read", "billing.update",
         "plans.read", "plans.manage",
-        "page.read", "page.create", "page.edit", "page.delete", "page.publish",
+        "page.read", "page.create", "page.update", "page.delete", "page.publish",
         "analytics.read", "analytics.export",
         "report.read", "report.generate", "report.export",
         "api.read", "api.write", "api.manage_keys",
-        "webhook.read", "webhook.create", "webhook.edit", "webhook.delete",
+        "webhook.read", "webhook.create", "webhook.update", "webhook.delete",
         "invoice.read", "invoice.download",
         "audit.read", "audit.export", "audit.manage",
         # Knowledge base permissions
-        "kb.read", "kb.create", "kb.edit", "kb.publish", "kb.manage",
+        "kb.read", "kb.create", "kb.update", "kb.publish", "kb.manage",
         # Marketplace permissions
-        "app.read", "app.create", "app.edit", "app.delete", "app.publish",
+        "app.read", "app.create", "app.update", "app.delete", "app.publish",
         "app.manage_features", "app.manage_plans", "app.read_analytics",
-        "listing.read", "listing.create", "listing.edit", "listing.delete",
+        "listing.read", "listing.create", "listing.update", "listing.delete",
         "subscription.read", "subscription.create", "subscription.manage",
         "subscription.cancel", "subscription.upgrade", "subscription.read_usage",
-        "review.read", "review.create", "review.edit", "review.delete", "review.moderate",
+        "review.read", "review.create", "review.update", "review.delete", "review.moderate",
         # Full AI permissions for managers
         "ai.providers.read", "ai.providers.create", "ai.providers.update", "ai.providers.delete", "ai.providers.test",
         "ai.credentials.read", "ai.credentials.create", "ai.credentials.update",
@@ -618,7 +654,7 @@ module Permissions
         "ai.workflows.execute", "ai.workflows.clone", "ai.workflows.import", "ai.workflows.export",
         "ai.workflow_executions.read", "ai.workflow_executions.cancel", "ai.workflow_executions.retry",
         "ai.conversations.read", "ai.conversations.create", "ai.conversations.participate", "ai.conversations.manage",
-        "ai.messages.read", "ai.messages.create", "ai.messages.edit", "ai.messages.delete",
+        "ai.messages.read", "ai.messages.create", "ai.messages.update", "ai.messages.delete",
         "ai.analytics.read", "ai.analytics.export",
         "ai.templates.read", "ai.templates.install", "ai.templates.create", "ai.templates.publish",
         "ai.prompt_templates.read", "ai.prompt_templates.write",
@@ -645,6 +681,17 @@ module Permissions
         "integrations.read", "integrations.create", "integrations.update", "integrations.delete", "integrations.execute",
         "integrations.credentials.read", "integrations.credentials.create",
         "integrations.credentials.update", "integrations.credentials.delete",
+        # DevOps permissions
+        "devops.pipelines.read", "devops.pipelines.write",
+        "devops.pipeline_runs.read", "devops.pipeline_runs.write",
+        "devops.providers.read", "devops.providers.write",
+        "devops.repositories.read", "devops.repositories.write",
+        "devops.schedules.read", "devops.schedules.write",
+        "devops.prompt_templates.read", "devops.prompt_templates.write",
+        "devops.integrations.read", "devops.integrations.create", "devops.integrations.update",
+        "devops.integrations.delete", "devops.integrations.execute",
+        "devops.integrations.credentials.read", "devops.integrations.credentials.create",
+        "devops.integrations.credentials.update", "devops.integrations.credentials.delete",
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",
@@ -685,18 +732,18 @@ module Permissions
         "analytics.read", "analytics.export",
         "report.read", "report.generate",
         "api.read", "api.write", "api.manage_keys",
-        "webhook.read", "webhook.create", "webhook.edit", "webhook.delete",
+        "webhook.read", "webhook.create", "webhook.update", "webhook.delete",
         # Knowledge base permissions
-        "kb.read", "kb.create", "kb.edit", "kb.publish", "kb.manage",
+        "kb.read", "kb.create", "kb.update", "kb.publish", "kb.manage",
         "invoice.read", "invoice.download",
         "audit.read",
         # Full marketplace permissions
-        "app.read", "app.create", "app.edit", "app.delete", "app.publish",
+        "app.read", "app.create", "app.update", "app.delete", "app.publish",
         "app.manage_features", "app.manage_plans", "app.read_analytics",
-        "listing.read", "listing.create", "listing.edit", "listing.delete",
+        "listing.read", "listing.create", "listing.update", "listing.delete",
         "subscription.read", "subscription.create", "subscription.manage",
         "subscription.cancel", "subscription.upgrade", "subscription.read_usage",
-        "review.read", "review.create", "review.edit", "review.delete", "review.moderate"
+        "review.read", "review.create", "review.update", "review.delete", "review.moderate"
       ]
     },
 
@@ -709,13 +756,13 @@ module Permissions
         "user.read", "user.edit_self",
         "team.read",
         "billing.read",
-        "page.read", "page.create", "page.edit", "page.publish",
+        "page.read", "page.create", "page.update", "page.publish",
         "analytics.read",
         "report.read",
         "api.read",
         "audit.read",
         # Full knowledge base permissions
-        "kb.read", "kb.create", "kb.edit", "kb.delete", "kb.publish",
+        "kb.read", "kb.create", "kb.update", "kb.delete", "kb.publish",
         "kb.manage", "kb.moderate"
       ]
     },
@@ -729,11 +776,11 @@ module Permissions
         # All resource permissions
         *RESOURCE_PERMISSIONS.keys,
         # Selected admin permissions for account management
-        "admin.user.read", "admin.user.create", "admin.user.edit", "admin.user.suspend",
+        "admin.user.read", "admin.user.create", "admin.user.update", "admin.user.suspend",
         "users.impersonate",
         "admin.role.read", "admin.role.assign",
         "admin.billing.read", "admin.billing.override",
-        "admin.settings.read", "admin.settings.edit",
+        "admin.settings.read", "admin.settings.update",
         "admin.audit.read", "admin.audit.export", "admin.audit.manage",
         "admin.kb.read", "admin.kb.manage", "admin.kb.analytics",
         # Admin permissions for circuit breakers and validation
@@ -833,7 +880,7 @@ module Permissions
         "ai.workflow_executions.read", "ai.workflow_executions.cancel", "ai.workflow_executions.retry",
         "ai.conversations.read", "ai.conversations.create", "ai.conversations.participate",
         "ai.conversations.manage",
-        "ai.messages.read", "ai.messages.create", "ai.messages.edit", "ai.messages.delete",
+        "ai.messages.read", "ai.messages.create", "ai.messages.update", "ai.messages.delete",
         "ai.analytics.read", "ai.analytics.export",
         "ai.templates.read", "ai.templates.install", "ai.templates.create", "ai.templates.publish",
         "ai.prompt_templates.read", "ai.prompt_templates.write",
@@ -857,6 +904,17 @@ module Permissions
         "integrations.read", "integrations.create", "integrations.update", "integrations.delete", "integrations.execute",
         "integrations.credentials.read", "integrations.credentials.create",
         "integrations.credentials.update", "integrations.credentials.delete",
+        # DevOps permissions
+        "devops.pipelines.read", "devops.pipelines.write",
+        "devops.pipeline_runs.read", "devops.pipeline_runs.write",
+        "devops.providers.read", "devops.providers.write",
+        "devops.repositories.read", "devops.repositories.write",
+        "devops.schedules.read", "devops.schedules.write",
+        "devops.prompt_templates.read", "devops.prompt_templates.write",
+        "devops.integrations.read", "devops.integrations.create", "devops.integrations.update",
+        "devops.integrations.delete", "devops.integrations.execute",
+        "devops.integrations.credentials.read", "devops.integrations.credentials.create",
+        "devops.integrations.credentials.update", "devops.integrations.credentials.delete",
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",

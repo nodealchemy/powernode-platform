@@ -9,7 +9,7 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
 
   # GET /api/v1/internal/maintenance/backups/:id
   def show_backup
-    backup = DatabaseBackup.find_by!(id: params[:id])
+    backup = Database::Backup.find_by!(id: params[:id])
 
     render_success({
       id: backup.id,
@@ -32,7 +32,7 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
 
   # PATCH /api/v1/internal/maintenance/backups/:id
   def update_backup
-    backup = DatabaseBackup.find_by!(id: params[:id])
+    backup = Database::Backup.find_by!(id: params[:id])
 
     case params[:status]
     when "in_progress"
@@ -73,7 +73,7 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
 
   # GET /api/v1/internal/maintenance/restores/:id
   def show_restore
-    restore = DatabaseRestore.find_by!(id: params[:id])
+    restore = Database::Restore.find_by!(id: params[:id])
 
     render_success({
       id: restore.id,
@@ -94,7 +94,7 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
 
   # PATCH /api/v1/internal/maintenance/restores/:id
   def update_restore
-    restore = DatabaseRestore.find_by!(id: params[:id])
+    restore = Database::Restore.find_by!(id: params[:id])
 
     case params[:status]
     when "in_progress"
@@ -233,7 +233,7 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
     days_to_keep = params[:days_to_keep]&.to_i || 30
 
     cutoff_date = days_to_keep.days.ago
-    old_backups = DatabaseBackup.where("created_at < ?", cutoff_date)
+    old_backups = Database::Backup.where("created_at < ?", cutoff_date)
                                 .where(status: "completed")
 
     deleted_count = 0

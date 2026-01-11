@@ -8,30 +8,30 @@ puts "🎯 Creating Feature Plans with Role-Based Access..."
 # Ensure we have the required permissions in the system
 required_permissions = [
   # User Management
-  'user.view', 'user.edit_self', 'user.delete_self',
+  'user.read', 'user.edit_self', 'user.delete_self',
 
   # Team Management
-  'team.view', 'team.invite', 'team.remove', 'team.assign_roles',
+  'team.read', 'team.invite', 'team.remove', 'team.assign_roles',
 
   # Billing & Subscriptions
-  'billing.view', 'billing.update', 'billing.cancel',
-  'invoice.view', 'invoice.download',
+  'billing.read', 'billing.update', 'billing.cancel',
+  'invoice.read', 'invoice.download',
 
   # Content Management
-  'page.create', 'page.view', 'page.edit', 'page.delete', 'page.publish',
+  'page.create', 'page.read', 'page.update', 'page.delete', 'page.publish',
 
   # Analytics & Reports
-  'analytics.view', 'analytics.export',
-  'report.view', 'report.generate', 'report.export',
+  'analytics.read', 'analytics.export',
+  'report.read', 'report.generate', 'report.export',
 
   # API Access
   'api.read', 'api.write', 'api.manage_keys',
 
   # Webhooks
-  'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete',
+  'webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete',
 
   # Audit Logs
-  'audit.view', 'audit.export'
+  'audit.read', 'audit.export'
 ]
 
 # Create permissions if they don't exist
@@ -70,13 +70,13 @@ puts "\n📦 Creating Starter Plan Roles..."
 starter_member = create_role_with_permissions(
   'starter.member',
   'Basic account access with limited content creation',
-  [ 'user.view', 'user.edit_self', 'page.view', 'page.create', 'page.edit', 'analytics.view', 'api.read' ]
+  [ 'user.read', 'user.edit_self', 'page.read', 'page.create', 'page.update', 'analytics.read', 'api.read' ]
 )
 
 starter_creator = create_role_with_permissions(
   'starter.creator',
   'Enhanced content management for starter plan',
-  [ 'page.create', 'page.edit', 'page.delete', 'page.publish', 'webhook.view', 'analytics.view', 'analytics.export' ]
+  [ 'page.create', 'page.update', 'page.delete', 'page.publish', 'webhook.read', 'analytics.read', 'analytics.export' ]
 )
 
 # 2. PROFESSIONAL PLAN ROLES
@@ -85,28 +85,28 @@ puts "\n💼 Creating Professional Plan Roles..."
 pro_member = create_role_with_permissions(
   'pro.member',
   'Standard professional account member access',
-  [ 'user.view', 'user.edit_self', 'page.view', 'analytics.view', 'api.read' ]
+  [ 'user.read', 'user.edit_self', 'page.read', 'analytics.read', 'api.read' ]
 )
 
 pro_collaborator = create_role_with_permissions(
   'pro.collaborator',
   'Team collaboration and enhanced content management',
-  [ 'team.view', 'team.invite', 'page.create', 'page.edit', 'page.publish',
-   'webhook.view', 'webhook.create', 'api.read', 'api.write' ]
+  [ 'team.read', 'team.invite', 'page.create', 'page.update', 'page.publish',
+   'webhook.read', 'webhook.create', 'api.read', 'api.write' ]
 )
 
 pro_content_manager = create_role_with_permissions(
   'pro.content_manager',
   'Full content and webhook management for professional plan',
-  [ 'page.create', 'page.edit', 'page.delete', 'page.publish',
-   'webhook.view', 'webhook.create', 'webhook.edit',
-   'analytics.view', 'analytics.export', 'report.view', 'report.generate' ]
+  [ 'page.create', 'page.update', 'page.delete', 'page.publish',
+   'webhook.read', 'webhook.create', 'webhook.update',
+   'analytics.read', 'analytics.export', 'report.read', 'report.generate' ]
 )
 
 pro_analyst = create_role_with_permissions(
   'pro.analyst',
   'Advanced analytics and reporting access',
-  [ 'analytics.view', 'analytics.export', 'report.view', 'report.generate', 'report.export', 'audit.view' ]
+  [ 'analytics.read', 'analytics.export', 'report.read', 'report.generate', 'report.export', 'audit.read' ]
 )
 
 # 3. BUSINESS PLAN ROLES
@@ -115,43 +115,43 @@ puts "\n🏢 Creating Business Plan Roles..."
 biz_member = create_role_with_permissions(
   'business.member',
   'Standard business account access',
-  [ 'user.view', 'user.edit_self', 'page.view', 'analytics.view', 'api.read' ]
+  [ 'user.read', 'user.edit_self', 'page.read', 'analytics.read', 'api.read' ]
 )
 
 biz_team_manager = create_role_with_permissions(
   'business.team_manager',
   'Comprehensive team management and content oversight',
-  [ 'team.view', 'team.invite', 'team.remove', 'team.assign_roles', 'user.view',
-   'page.create', 'page.edit', 'page.publish', 'webhook.view', 'webhook.create', 'webhook.edit',
-   'analytics.view', 'analytics.export' ]
+  [ 'team.read', 'team.invite', 'team.remove', 'team.assign_roles', 'user.read',
+   'page.create', 'page.update', 'page.publish', 'webhook.read', 'webhook.create', 'webhook.update',
+   'analytics.read', 'analytics.export' ]
 )
 
 biz_billing_manager = create_role_with_permissions(
   'business.billing_manager',
   'Billing and subscription management',
-  [ 'billing.view', 'billing.update', 'invoice.view', 'invoice.download', 'team.view', 'user.view' ]
+  [ 'billing.read', 'billing.update', 'invoice.read', 'invoice.download', 'team.read', 'user.read' ]
 )
 
 biz_content_manager = create_role_with_permissions(
   'business.content_manager',
   'Complete content and webhook management',
-  [ 'page.create', 'page.edit', 'page.delete', 'page.publish',
-   'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete',
-   'analytics.view', 'analytics.export', 'report.view', 'report.generate', 'report.export', 'audit.view' ]
+  [ 'page.create', 'page.update', 'page.delete', 'page.publish',
+   'webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete',
+   'analytics.read', 'analytics.export', 'report.read', 'report.generate', 'report.export', 'audit.read' ]
 )
 
 biz_api_developer = create_role_with_permissions(
   'business.api_developer',
   'Full API access and development tools',
   [ 'api.read', 'api.write', 'api.manage_keys',
-   'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete',
-   'page.view', 'page.edit', 'analytics.view' ]
+   'webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete',
+   'page.read', 'page.update', 'analytics.read' ]
 )
 
 biz_support_agent = create_role_with_permissions(
   'business.support_agent',
   'Customer support and assistance access',
-  [ 'user.view', 'team.view', 'page.view', 'analytics.view', 'report.view', 'audit.view' ]
+  [ 'user.read', 'team.read', 'page.read', 'analytics.read', 'report.read', 'audit.read' ]
 )
 
 # 4. ENTERPRISE PLAN ROLES
@@ -160,24 +160,24 @@ puts "\n🏛️ Creating Enterprise Plan Roles..."
 ent_member = create_role_with_permissions(
   'enterprise.member',
   'Standard enterprise account access',
-  [ 'user.view', 'user.edit_self', 'page.view', 'analytics.view', 'api.read' ]
+  [ 'user.read', 'user.edit_self', 'page.read', 'analytics.read', 'api.read' ]
 )
 
 ent_account_manager = create_role_with_permissions(
   'enterprise.account_manager',
   'Full account management capabilities',
-  [ 'team.view', 'team.invite', 'team.remove', 'team.assign_roles', 'user.view',
-   'billing.view', 'billing.update', 'page.create', 'page.edit', 'page.delete', 'page.publish',
-   'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete',
-   'analytics.view', 'analytics.export', 'report.view', 'report.generate', 'report.export',
-   'audit.view', 'audit.export', 'api.read', 'api.write', 'api.manage_keys' ]
+  [ 'team.read', 'team.invite', 'team.remove', 'team.assign_roles', 'user.read',
+   'billing.read', 'billing.update', 'page.create', 'page.update', 'page.delete', 'page.publish',
+   'webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete',
+   'analytics.read', 'analytics.export', 'report.read', 'report.generate', 'report.export',
+   'audit.read', 'audit.export', 'api.read', 'api.write', 'api.manage_keys' ]
 )
 
 ent_security_officer = create_role_with_permissions(
   'enterprise.security_officer',
   'Security monitoring and compliance oversight',
-  [ 'user.view', 'team.view', 'billing.view', 'audit.view', 'audit.export',
-   'analytics.view', 'report.view', 'report.generate', 'report.export' ]
+  [ 'user.read', 'team.read', 'billing.read', 'audit.read', 'audit.export',
+   'analytics.read', 'report.read', 'report.generate', 'report.export' ]
 )
 
 # Create sample plans

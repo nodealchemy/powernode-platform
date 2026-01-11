@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :git_webhook_event, class: 'Git::WebhookEvent' do
+  factory :git_webhook_event, class: 'Devops::GitWebhookEvent' do
     association :git_provider
     association :account
     association :repository, factory: :git_repository

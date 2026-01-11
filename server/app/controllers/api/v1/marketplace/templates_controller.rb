@@ -41,7 +41,7 @@ module Api
         # POST /api/v1/marketplace/templates/from_integration/:id
         # Create a template from an existing integration template
         def create_from_integration
-          integration = Integration::Template.find(params[:id])
+          integration = Devops::IntegrationTemplate.find(params[:id])
 
           creator = ::Marketplace::TemplateCreator.new(current_user)
           template = creator.create_from_integration(integration, template_params)
@@ -143,8 +143,8 @@ module Api
 
           # Get directly owned templates
           templates += Ai::WorkflowTemplate.where(account_id: current_account.id).to_a
-          templates += CiCd::PipelineTemplate.where(account_id: current_account.id).to_a
-          templates += Integration::Template.where(account_id: current_account.id).to_a
+          templates += Devops::PipelineTemplate.where(account_id: current_account.id).to_a
+          templates += Devops::IntegrationTemplate.where(account_id: current_account.id).to_a
           templates += Shared::PromptTemplate.where(account_id: current_account.id, is_system: false).to_a
 
           # Remove duplicates and serialize
@@ -156,8 +156,8 @@ module Api
               total_count: templates.count,
               counts_by_type: {
                 workflow_template: templates.count { |t| t.is_a?(Ai::WorkflowTemplate) },
-                pipeline_template: templates.count { |t| t.is_a?(CiCd::PipelineTemplate) },
-                integration_template: templates.count { |t| t.is_a?(Integration::Template) },
+                pipeline_template: templates.count { |t| t.is_a?(Devops::PipelineTemplate) },
+                integration_template: templates.count { |t| t.is_a?(Devops::IntegrationTemplate) },
                 prompt_template: templates.count { |t| t.is_a?(Shared::PromptTemplate) }
               }
             }
@@ -171,8 +171,8 @@ module Api
 
           templates = []
           templates += Ai::WorkflowTemplate.marketplace_pending.to_a
-          templates += CiCd::PipelineTemplate.marketplace_pending.to_a
-          templates += Integration::Template.marketplace_pending.to_a
+          templates += Devops::PipelineTemplate.marketplace_pending.to_a
+          templates += Devops::IntegrationTemplate.marketplace_pending.to_a
           templates += Shared::PromptTemplate.marketplace_pending.to_a
 
           render_success(
@@ -215,9 +215,9 @@ module Api
                       when "workflow_template"
                         Ai::WorkflowTemplate.find(params[:id])
                       when "pipeline_template"
-                        CiCd::PipelineTemplate.find(params[:id])
+                        Devops::PipelineTemplate.find(params[:id])
                       when "integration_template"
-                        Integration::Template.find(params[:id])
+                        Devops::IntegrationTemplate.find(params[:id])
                       when "prompt_template"
                         Shared::PromptTemplate.find(params[:id])
                       else

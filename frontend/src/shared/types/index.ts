@@ -1,7 +1,7 @@
 // Common types used across the application
 
 // Import for use in Subscription interface
-import type { Plan } from '@/features/plans/services/plansApi';
+import type { Plan } from '@/features/business/plans/services/plansApi';
 
 export interface APIResponse<T = unknown> {
   success: boolean;
@@ -50,7 +50,7 @@ export interface ChurnMetrics {
 
 // Re-export Plan types from canonical source (plansApi)
 // Using alias to maintain backward compatibility with SubscriptionPlan name
-export type { Plan as SubscriptionPlan, DetailedPlan, VolumeDiscountTier } from '@/features/plans/services/plansApi';
+export type { Plan as SubscriptionPlan, DetailedPlan, VolumeDiscountTier } from '@/features/business/plans/services/plansApi';
 
 export interface Subscription {
   id: string;

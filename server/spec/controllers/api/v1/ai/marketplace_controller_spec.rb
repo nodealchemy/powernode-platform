@@ -373,8 +373,9 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
         custom_configuration: { custom_param: 'value' }
       }
 
-      installation = Ai::WorkflowTemplateInstallation.last
-      expect(installation.customizations).to eq({ 'custom_param' => 'value' })
+      # Subscription stores customizations in the configuration field
+      subscription = Marketplace::Subscription.last
+      expect(subscription.configuration).to eq({ 'custom_param' => 'value' })
     end
 
     it 'requires create permission' do
@@ -708,8 +709,9 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     context 'with read permission' do
       before do
         sign_in workflow_read_user
-        create(:ai_workflow_template_installation, account: account)
-        create(:ai_workflow_template_installation, account: account)
+        # Create workflow template subscriptions using Marketplace::Subscription
+        create(:workflow_template_subscription, account: account)
+        create(:workflow_template_subscription, account: account)
       end
 
       it 'returns user installations' do
@@ -740,20 +742,20 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
   end
 
   describe 'GET #installation_show' do
-    let(:installation) { create(:ai_workflow_template_installation, account: account) }
+    let(:subscription) { create(:workflow_template_subscription, account: account) }
 
     before { sign_in workflow_read_user }
 
     it 'returns installation details' do
-      get :installation_show, params: { id: installation.id }
+      get :installation_show, params: { id: subscription.id }
 
       expect(response).to have_http_status(:success)
       json = JSON.parse(response.body)
-      expect(json['data']['installation']['id']).to eq(installation.id)
+      expect(json['data']['installation']['id']).to eq(subscription.id)
     end
 
     it 'includes template and workflow information' do
-      get :installation_show, params: { id: installation.id }
+      get :installation_show, params: { id: subscription.id }
 
       json = JSON.parse(response.body)
       installation_data = json['data']['installation']
@@ -768,25 +770,25 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
   end
 
   describe 'DELETE #installation_destroy' do
-    let!(:installation) { create(:ai_workflow_template_installation, account: account) }
+    let!(:subscription) { create(:workflow_template_subscription, account: account) }
 
     before { sign_in workflow_manage_user }
 
     it 'deletes the installation' do
       expect {
-        delete :installation_destroy, params: { id: installation.id }
-      }.to change(Ai::WorkflowTemplateInstallation, :count).by(-1)
+        delete :installation_destroy, params: { id: subscription.id }
+      }.to change(Marketplace::Subscription, :count).by(-1)
 
       expect(response).to have_http_status(:success)
     end
 
     it 'optionally deletes created workflow' do
       created_workflow = create(:ai_workflow, account: account)
-      installation_with_workflow = create(:ai_workflow_template_installation, account: account, workflow: created_workflow)
+      subscription_with_workflow = create(:workflow_template_subscription, :with_workflow, account: account, workflow: created_workflow)
 
       expect {
         delete :installation_destroy, params: {
-          id: installation_with_workflow.id,
+          id: subscription_with_workflow.id,
           delete_workflow: 'true'
         }
       }.to change(Ai::Workflow, :count).by(-1)
@@ -795,7 +797,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     it 'requires delete permission' do
       sign_in workflow_read_user
 
-      delete :installation_destroy, params: { id: installation.id }
+      delete :installation_destroy, params: { id: subscription.id }
 
       expect(response).to have_http_status(:forbidden)
     end
@@ -803,11 +805,11 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
 
   describe 'GET #check_updates' do
     let!(:outdated_template) { create(:ai_workflow_template, is_public: true, version: '2.0.0') }
-    let!(:outdated_installation) do
-      create(:ai_workflow_template_installation,
+    let!(:outdated_subscription) do
+      create(:workflow_template_subscription,
              account: account,
-             template: outdated_template,
-             template_version: '1.0.0')
+             subscribable: outdated_template,
+             metadata: { "template_version" => "1.0.0" })
     end
 
     before { sign_in workflow_read_user }

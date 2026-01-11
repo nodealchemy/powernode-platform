@@ -13,7 +13,7 @@ module Api
 
         # GET /api/v1/ci_cd/pipeline_runs
         def index
-          runs = ::CiCd::PipelineRun.joins(:pipeline)
+          runs = ::Devops::PipelineRun.joins(:pipeline)
                                     .where(ci_cd_pipelines: { account_id: current_user.account_id })
                                     .includes(:pipeline, :triggered_by)
                                     .order(created_at: :desc)
@@ -102,7 +102,7 @@ module Api
           # Trigger async execution via worker service
           begin
             WorkerJobService.enqueue_job(
-              "CiCd::PipelineExecutionJob",
+              "Devops::PipelineExecutionJob",
               args: [new_run.id],
               queue: "ci_cd_high"
             )
@@ -157,7 +157,7 @@ module Api
         private
 
         def set_pipeline_run
-          @pipeline_run = ::CiCd::PipelineRun.joins(:pipeline)
+          @pipeline_run = ::Devops::PipelineRun.joins(:pipeline)
                                              .where(ci_cd_pipelines: { account_id: current_user.account_id })
                                              .includes(:pipeline, :triggered_by, step_executions: :pipeline_step)
                                              .find(params[:id])
@@ -178,7 +178,7 @@ module Api
         end
 
         def status_counts
-          ::CiCd::PipelineRun.joins(:pipeline)
+          ::Devops::PipelineRun.joins(:pipeline)
                              .where(ci_cd_pipelines: { account_id: current_user.account_id })
                              .group(:status)
                              .count
@@ -189,7 +189,7 @@ module Api
         end
 
         def serialize_pipeline_run(run, include_steps: false)
-          result = ::CiCd::PipelineRunSerializer.new(run).serializable_hash[:data][:attributes]
+          result = ::Devops::PipelineRunSerializer.new(run).serializable_hash[:data][:attributes]
           result[:id] = run.id
           result[:pipeline_name] = run.pipeline.name
           result[:pipeline_slug] = run.pipeline.slug
@@ -197,7 +197,7 @@ module Api
           if include_steps
             # Include step execution records
             result[:step_executions] = run.step_executions.includes(:pipeline_step).order(:created_at).map do |execution|
-              ::CiCd::StepExecutionSerializer.new(execution).serializable_hash[:data][:attributes].merge(id: execution.id)
+              ::Devops::StepExecutionSerializer.new(execution).serializable_hash[:data][:attributes].merge(id: execution.id)
             end
           end
 

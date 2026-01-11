@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
-import { AiProvidersPage as AiProvidersComponent } from '@/features/ai-providers/components/AiProvidersPage';
+import { AiProvidersPage as AiProvidersComponent } from '@/features/ai/providers/components/AiProvidersPage';
 
 export const AIProvidersPage: React.FC = () => {
   const [actions, setActions] = useState<PageAction[]>([]);

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :circuit_breaker_event do
+  factory :circuit_breaker_event, class: "Monitoring::CircuitBreakerEvent" do
     circuit_breaker
     event_type { 'success' }
     duration_ms { rand(100..5000) }

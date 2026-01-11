@@ -177,7 +177,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
     let(:mock_client) { double('GitApiClient') }
 
     before do
-      allow(::Git::ApiClient).to receive(:for).and_return(mock_client)
+      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
     end
 
     context 'with valid permissions' do
@@ -188,7 +188,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
 
         expect {
           delete :destroy, params: { id: runner.id }
-        }.to change(Git::Runner, :count).by(-1)
+        }.to change(Devops::GitRunner, :count).by(-1)
 
         expect(response).to have_http_status(:success)
       end
@@ -255,8 +255,8 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
     let(:mock_client) { double('GitApiClient') }
 
     before do
-      allow(::Git::ApiClient).to receive(:for).and_return(mock_client)
-      allow(mock_client).to receive(:is_a?).with(::Git::GiteaApiClient).and_return(false)
+      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
+      allow(mock_client).to receive(:is_a?).with(::Devops::Git::GiteaApiClient).and_return(false)
     end
 
     context 'with valid permissions' do
@@ -307,8 +307,8 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
     let(:mock_client) { double('GitApiClient') }
 
     before do
-      allow(::Git::ApiClient).to receive(:for).and_return(mock_client)
-      allow(mock_client).to receive(:is_a?).with(::Git::GiteaApiClient).and_return(false)
+      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
+      allow(mock_client).to receive(:is_a?).with(::Devops::Git::GiteaApiClient).and_return(false)
       allow(mock_client).to receive(:respond_to?).with(:runner_removal_token).and_return(true)
     end
 
@@ -339,7 +339,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
     let(:mock_client) { double('GitApiClient') }
 
     before do
-      allow(::Git::ApiClient).to receive(:for).and_return(mock_client)
+      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
       allow(mock_client).to receive(:respond_to?).with(:set_runner_labels).and_return(true)
       allow(mock_client).to receive(:respond_to?).with(:update_runner_labels).and_return(false)
     end

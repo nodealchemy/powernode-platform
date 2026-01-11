@@ -7,7 +7,7 @@ import {
   ArrowPathIcon,
   ClockIcon,
 } from '@heroicons/react/24/outline';
-import { statusApi, SystemStatus, StatusHistory } from '@/features/status';
+import { statusApi, SystemStatus, StatusHistory } from '@/features/system/status';
 
 const STATUS_ICONS: Record<string, React.ElementType> = {
   operational: CheckCircleIcon,

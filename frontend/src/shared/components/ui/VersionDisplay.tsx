@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Info, Server, Monitor, GitBranch, Clock } from 'lucide-react';
-import { versionApi, VersionInfo, FullVersionInfo, HealthInfo } from '@/shared/services/versionApi';
+import { versionApi, VersionInfo, FullVersionInfo, HealthInfo } from '@/shared/services/system/versionApi';
 
 interface VersionDisplayProps {
   show?: 'simple' | 'detailed' | 'badge';

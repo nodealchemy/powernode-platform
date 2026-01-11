@@ -183,32 +183,38 @@ module Api
             return render_validation_error(workflow.errors)
           end
 
-          # Now create installation with the workflow reference
-          installation_params = {
+          # Create subscription using the new Marketplace::Subscription model
+          subscription = @template.subscribe_account(
             account_id: current_user.account.id,
-            installed_by_user_id: current_user.id,
-            ai_workflow_id: workflow.id,
-            custom_configuration: params[:custom_configuration] || params[:customizations] || {},
-            installation_notes: params[:installation_notes]
-          }
+            subscribed_by_user_id: current_user.id,
+            subscription_notes: params[:installation_notes]
+          )
 
-          installation = @template.install_to_account(**installation_params)
+          # Store custom configuration and workflow reference in subscription metadata
+          if subscription.persisted?
+            custom_config = params[:custom_configuration] || params[:customizations] || {}
+            subscription.update!(
+              configuration: custom_config,
+              metadata: subscription.metadata.merge(
+                "workflow_id" => workflow.id,
+                "template_version" => @template.version
+              )
+            )
 
-          if installation.persisted?
             log_audit_event("ai.marketplace.template_installed", @template, {
-              installation_id: installation.id,
+              subscription_id: subscription.id,
               workflow_id: workflow.id
             })
 
             render_success({
-              installation: serialize_installation(installation),
+              installation: serialize_subscription_as_installation(subscription, workflow),
               workflow: serialize_created_workflow(workflow),
               message: "Template installed successfully"
             }, status: :created)
           else
-            # Rollback workflow if installation fails
+            # Rollback workflow if subscription fails
             workflow.destroy
-            render_validation_error(installation.errors)
+            render_validation_error(subscription.errors)
           end
         end
 
@@ -563,25 +569,25 @@ module Api
 
         # GET /api/v1/ai/marketplace/installations
         def installations_index
-          installations = current_user.account.ai_workflow_template_installations
-                                      .includes(:template, :workflow, :installed_by_user)
-                                      .order(created_at: :desc)
+          subscriptions = current_user.account.workflow_template_subscriptions
+                                      .includes(:subscribable)
+                                      .order(subscribed_at: :desc)
 
-          installations = apply_pagination(installations)
+          subscriptions = apply_pagination(subscriptions)
 
           render_success({
-            installations: installations.map { |installation| serialize_installation_detail(installation) },
-            pagination: pagination_data(installations),
-            total_count: installations.total_count
+            installations: subscriptions.map { |sub| serialize_subscription_as_installation_detail(sub) },
+            pagination: pagination_data(subscriptions),
+            total_count: subscriptions.total_count
           })
         end
 
         # GET /api/v1/ai/marketplace/installations/:id
         def installation_show
-          installation = current_user.account.ai_workflow_template_installations.find(params[:id])
+          subscription = current_user.account.workflow_template_subscriptions.find(params[:id])
 
           render_success({
-            installation: serialize_installation_detail(installation)
+            installation: serialize_subscription_as_installation_detail(subscription)
           })
         rescue ActiveRecord::RecordNotFound
           render_error("Installation not found", status: :not_found)
@@ -589,15 +595,17 @@ module Api
 
         # DELETE /api/v1/ai/marketplace/installations/:id
         def installation_destroy
-          installation = current_user.account.ai_workflow_template_installations.find(params[:id])
+          subscription = current_user.account.workflow_template_subscriptions.find(params[:id])
 
           # Optionally delete the created workflow
-          if params[:delete_workflow] == "true" && installation.workflow
-            installation.workflow.destroy
+          workflow_id = subscription.metadata&.dig("workflow_id")
+          if params[:delete_workflow] == "true" && workflow_id
+            workflow = current_user.account.ai_workflows.find_by(id: workflow_id)
+            workflow&.destroy
           end
 
-          installation.destroy
-          log_audit_event("ai.marketplace.installation_deleted", installation)
+          subscription.destroy
+          log_audit_event("ai.marketplace.installation_deleted", subscription)
 
           render_success({ message: "Installation deleted successfully" })
         rescue ActiveRecord::RecordNotFound
@@ -610,20 +618,24 @@ module Api
             result = @marketplace_service.check_for_updates
             render_success({ updates_available: result })
           else
-            # Fallback implementation
-            installations = current_user.account.ai_workflow_template_installations.includes(:template)
-            updates = installations.select do |installation|
-              installation.template.version != installation.template_version
+            # Fallback implementation using Marketplace::Subscription
+            subscriptions = current_user.account.workflow_template_subscriptions.includes(:subscribable)
+            updates = subscriptions.select do |sub|
+              template = sub.subscribable
+              next false unless template.is_a?(::Ai::WorkflowTemplate)
+              installed_version = sub.metadata&.dig("template_version")
+              installed_version && template.version != installed_version
             end
 
             render_success({
-              updates_available: updates.map do |installation|
+              updates_available: updates.map do |sub|
+                template = sub.subscribable
                 {
-                  installation_id: installation.id,
-                  template_id: installation.template.id,
-                  template_name: installation.template.name,
-                  current_version: installation.template_version,
-                  latest_version: installation.template.version
+                  installation_id: sub.id,
+                  template_id: template.id,
+                  template_name: template.name,
+                  current_version: sub.metadata&.dig("template_version"),
+                  latest_version: template.version
                 }
               end
             })
@@ -1103,46 +1115,68 @@ module Api
             license: template.license,
             updated_at: template.updated_at.iso8601,
             source_workflow: source_workflow_data,
-            recent_installations: template.installations
-                                          .includes(:installed_by_user)
-                                          .order(created_at: :desc)
+            recent_installations: template.subscriptions
+                                          .order(subscribed_at: :desc)
                                           .limit(10)
-                                          .map { |inst| serialize_installation(inst) },
+                                          .map { |sub| serialize_subscription_as_installation(sub) },
             can_delete: template.can_delete?(current_user, current_user&.account),
             can_publish: template.can_publish?(current_user, current_user&.account)
           )
         end
 
-        def serialize_installation(installation)
+        # Serialize Marketplace::Subscription as installation (for backward compatibility)
+        def serialize_subscription_as_installation(subscription, workflow = nil)
+          subscribed_by_user = User.find_by(id: subscription.metadata&.dig("subscribed_by_user_id"))
+          workflow_id = workflow&.id || subscription.metadata&.dig("workflow_id")
+
           {
-            id: installation.id,
-            installed_version: installation.template_version || installation.template.version,
-            created_at: installation.created_at.iso8601,
-            installed_by: installation.installed_by_user ? {
-              id: installation.installed_by_user.id,
-              name: installation.installed_by_user.full_name,
-              email: installation.installed_by_user.email
+            id: subscription.id,
+            installed_version: subscription.metadata&.dig("template_version") || subscription.subscribable&.version,
+            created_at: subscription.subscribed_at&.iso8601 || subscription.created_at.iso8601,
+            customizations: subscription.configuration,
+            installed_by: subscribed_by_user ? {
+              id: subscribed_by_user.id,
+              name: subscribed_by_user.full_name,
+              email: subscribed_by_user.email
             } : nil
           }
         end
 
-        def serialize_installation_detail(installation)
-          serialize_installation(installation).merge(
-            template: {
-              id: installation.template.id,
-              name: installation.template.name,
-              description: installation.template.description,
-              category: installation.template.category,
-              version: installation.template.version
-            },
-            created_workflow: installation.workflow ? {
-              id: installation.workflow.id,
-              name: installation.workflow.name,
-              description: installation.workflow.description,
-              status: installation.workflow.status,
-              created_at: installation.workflow.created_at.iso8601
+        def serialize_subscription_as_installation_detail(subscription)
+          template = subscription.subscribable
+          workflow_id = subscription.metadata&.dig("workflow_id")
+          workflow = workflow_id ? ::Ai::Workflow.find_by(id: workflow_id) : nil
+
+          serialize_subscription_as_installation(subscription, workflow).merge(
+            template: template ? {
+              id: template.id,
+              name: template.name,
+              description: template.description,
+              category: template.category,
+              version: template.version
+            } : nil,
+            created_workflow: workflow ? {
+              id: workflow.id,
+              name: workflow.name,
+              description: workflow.description,
+              status: workflow.status,
+              created_at: workflow.created_at.iso8601
             } : nil
           )
+        end
+
+        # Legacy serialization methods (kept for backward compatibility with old data)
+        def serialize_installation(installation)
+          {
+            id: installation.id,
+            installed_version: installation.respond_to?(:template_version) ? installation.template_version : installation.subscribable&.version,
+            created_at: installation.created_at.iso8601,
+            installed_by: nil
+          }
+        end
+
+        def serialize_installation_detail(installation)
+          serialize_installation(installation)
         end
 
         def serialize_created_workflow(workflow)

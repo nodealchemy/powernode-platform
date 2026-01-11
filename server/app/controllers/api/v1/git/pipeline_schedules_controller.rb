@@ -85,7 +85,7 @@ module Api
           return render_error("Credential not available", status: :unprocessable_content) unless credential&.can_be_used?
 
           repository = @schedule.git_repository
-          client = ::Git::ApiClient.for(credential)
+          client = ::Devops::Git::ApiClient.for(credential)
 
           result = trigger_pipeline(client, repository, @schedule)
 
@@ -121,7 +121,7 @@ module Api
         end
 
         def set_schedule
-          @schedule = ::Git::PipelineSchedule.where(account: current_user.account).find(params[:id])
+          @schedule = ::Devops::GitPipelineSchedule.where(account: current_user.account).find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_not_found("Schedule")
         end

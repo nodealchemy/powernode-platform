@@ -146,7 +146,7 @@ module AiOrchestrationTestHelpers
   #
   # @param provider [Ai::Provider] The provider to stub circuit breaker for
   # @param available [Boolean] Whether provider should be available (default: true)
-  # @return [Double] CircuitBreaker mock instance
+  # @return [Double] Monitoring::CircuitBreaker mock instance
   def stub_circuit_breaker(provider, available: true)
     circuit_breaker = instance_double(Ai::ProviderCircuitBreakerService)
     allow(Ai::ProviderCircuitBreakerService).to receive(:new).with(provider).and_return(circuit_breaker)

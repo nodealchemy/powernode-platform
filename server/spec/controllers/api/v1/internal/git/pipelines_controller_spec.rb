@@ -180,7 +180,7 @@ RSpec.describe Api::V1::Internal::Git::PipelinesController, type: :controller do
     it 'creates job records' do
       expect {
         post :sync_jobs, params: { id: pipeline.id, jobs: jobs_data }
-      }.to change(Git::PipelineJob, :count).by(3)
+      }.to change(Devops::GitPipelineJob, :count).by(3)
 
       expect(response).to have_http_status(:success)
       json = JSON.parse(response.body)
@@ -197,7 +197,7 @@ RSpec.describe Api::V1::Internal::Git::PipelinesController, type: :controller do
 
       expect {
         post :sync_jobs, params: { id: pipeline.id, jobs: jobs_data }
-      }.to change(Git::PipelineJob, :count).by(2) # Only 2 new
+      }.to change(Devops::GitPipelineJob, :count).by(2) # Only 2 new
 
       existing_job.reload
       expect(existing_job.status).to eq('completed')
@@ -207,7 +207,7 @@ RSpec.describe Api::V1::Internal::Git::PipelinesController, type: :controller do
     it 'includes job steps' do
       post :sync_jobs, params: { id: pipeline.id, jobs: jobs_data }
 
-      job = Git::PipelineJob.find_by(external_id: 'job_1')
+      job = Devops::GitPipelineJob.find_by(external_id: 'job_1')
       expect(job.steps).to be_present
       expect(job.steps.first['name']).to eq('Checkout')
     end
@@ -224,7 +224,7 @@ RSpec.describe Api::V1::Internal::Git::PipelinesController, type: :controller do
 
       json = JSON.parse(response.body)
       job_id = json['data']['job_ids'].first
-      job = Git::PipelineJob.find(job_id)
+      job = Devops::GitPipelineJob.find(job_id)
       expect(job.account_id).to eq(account.id)
     end
 

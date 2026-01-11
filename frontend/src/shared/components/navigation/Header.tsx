@@ -3,8 +3,8 @@ import React from 'react';
 import { UserMenu } from './UserMenu';
 import { WebSocketStatusIndicator } from '../ui/WebSocketStatusIndicator';
 import { ThemeToggle } from '../ui/ThemeToggle';
-import { AccountSwitcher } from '@/features/account-switcher';
-import { NotificationBell } from '@/features/notifications';
+import { AccountSwitcher } from '@/features/account/switcher';
+import { NotificationBell } from '@/features/account/notifications';
 
 interface HeaderProps {
   onToggleSidebar: () => void;

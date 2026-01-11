@@ -62,11 +62,11 @@ RSpec.describe Mcp::NodeExecutors::CiTrigger do
 
   describe '#execute' do
     context 'with valid configuration' do
-      let(:api_client) { instance_double(Git::GithubApiClient, respond_to?: false) }
+      let(:api_client) { instance_double(Devops::Git::GithubApiClient, respond_to?: false) }
       let(:api_response) { { success: true, run_id: 12345, url: 'https://github.com/myorg/myrepo/actions/runs/12345' } }
 
       before do
-        allow(Git::ApiClient).to receive(:for).and_return(api_client)
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(api_client)
         allow(api_client).to receive(:trigger_workflow).and_return(api_response)
       end
 
@@ -114,7 +114,7 @@ RSpec.describe Mcp::NodeExecutors::CiTrigger do
       end
 
       before do
-        allow(Git::ApiClient).to receive(:for).and_return(api_client)
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(api_client)
         allow(api_client).to receive(:respond_to?).with(:create_repository_dispatch).and_return(true)
         allow(api_client).to receive(:create_repository_dispatch).and_return({ success: true })
       end
@@ -151,7 +151,7 @@ RSpec.describe Mcp::NodeExecutors::CiTrigger do
       end
 
       before do
-        allow(Git::ApiClient).to receive(:for).and_return(api_client)
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(api_client)
         allow(api_client).to receive(:respond_to?).with(:create_repository_dispatch).and_return(false)
       end
 
@@ -165,7 +165,7 @@ RSpec.describe Mcp::NodeExecutors::CiTrigger do
 
     context 'when API call fails' do
       before do
-        allow(Git::ApiClient).to receive(:for).and_raise(StandardError.new('API Error'))
+        allow(Devops::Git::ApiClient).to receive(:for).and_raise(StandardError.new('API Error'))
       end
 
       it 'raises NodeExecutionError' do

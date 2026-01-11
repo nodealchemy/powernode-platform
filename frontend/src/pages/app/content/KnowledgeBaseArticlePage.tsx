@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PageContainer, BreadcrumbItem, PageAction } from '@/shared/components/layout/PageContainer';
-import { KbArticleContent } from '@/features/knowledge-base/components/KbArticleContent';
-import { KbArticleComments } from '@/features/knowledge-base/components/KbArticleComments';
-import { KbRelatedArticles } from '@/features/knowledge-base/components/KbRelatedArticles';
-import { knowledgeBaseApi, knowledgeBaseAdminApi, KbArticle } from '@/shared/services/knowledgeBaseApi';
+import { KbArticleContent } from '@/features/content/knowledge-base/components/KbArticleContent';
+import { KbArticleComments } from '@/features/content/knowledge-base/components/KbArticleComments';
+import { KbRelatedArticles } from '@/features/content/knowledge-base/components/KbRelatedArticles';
+import { knowledgeBaseApi, knowledgeBaseAdminApi, KbArticle } from '@/shared/services/content/knowledgeBaseApi';
 import { Badge } from '@/shared/components/ui/Badge';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
@@ -31,7 +31,7 @@ export default function KnowledgeBaseArticlePage() {
   const [error, setError] = useState<string | null>(null);
 
   // Check if user can edit KB (allows viewing draft articles)
-  const canEditKb = hasPermissions(currentUser, ['kb.edit']) || hasPermissions(currentUser, ['kb.manage']);
+  const canEditKb = hasPermissions(currentUser, ['kb.update']) || hasPermissions(currentUser, ['kb.manage']);
 
   const loadArticle = async () => {
     if (!id) return;
@@ -115,7 +115,7 @@ export default function KnowledgeBaseArticlePage() {
     ];
 
     // Check if user can edit KB articles
-    const canEditKb = hasPermissions(currentUser, ['kb.edit']) || hasPermissions(currentUser, ['kb.manage']);
+    const canEditKb = hasPermissions(currentUser, ['kb.update']) || hasPermissions(currentUser, ['kb.manage']);
     if (canEditKb && article) {
       actions.push({
         id: 'edit',

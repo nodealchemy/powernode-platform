@@ -3,7 +3,7 @@
 class Api::V1::Admin::UsersController < ApplicationController
   before_action -> { require_permission("admin.user.view") }, only: [ :index, :show ]
   before_action -> { require_permission("admin.user.create") }, only: [ :create ]
-  before_action -> { require_permission("admin.user.edit") }, only: [ :update ]
+  before_action -> { require_permission("admin.user.update") }, only: [ :update ]
   before_action -> { require_permission("admin.user.delete") }, only: [ :destroy ]
   before_action -> { require_permission("admin.user.impersonate") }, only: [ :impersonate ]
   before_action :find_user, only: [ :show, :update, :destroy, :impersonate ]

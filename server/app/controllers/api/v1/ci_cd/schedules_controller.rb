@@ -13,7 +13,7 @@ module Api
 
         # GET /api/v1/ci_cd/schedules
         def index
-          schedules = ::CiCd::Schedule.joins(:pipeline)
+          schedules = ::Devops::Schedule.joins(:pipeline)
                                       .where(ci_cd_pipelines: { account_id: current_user.account_id })
                                       .includes(:pipeline, :created_by)
                                       .order(created_at: :desc)
@@ -132,7 +132,7 @@ module Api
         private
 
         def set_schedule
-          @schedule = ::CiCd::Schedule.joins(:pipeline)
+          @schedule = ::Devops::Schedule.joins(:pipeline)
                                       .where(ci_cd_pipelines: { account_id: current_user.account_id })
                                       .find(params[:id])
         rescue ActiveRecord::RecordNotFound
@@ -167,11 +167,11 @@ module Api
         end
 
         def serialize_schedule(schedule, include_pipeline: false)
-          result = ::CiCd::ScheduleSerializer.new(schedule).serializable_hash[:data][:attributes]
+          result = ::Devops::ScheduleSerializer.new(schedule).serializable_hash[:data][:attributes]
           result[:id] = schedule.id
 
           if include_pipeline == "true" || include_pipeline == true
-            result[:pipeline] = ::CiCd::PipelineSerializer.new(schedule.pipeline).serializable_hash[:data][:attributes]
+            result[:pipeline] = ::Devops::PipelineSerializer.new(schedule.pipeline).serializable_hash[:data][:attributes]
             result[:pipeline][:id] = schedule.pipeline.id
           end
 

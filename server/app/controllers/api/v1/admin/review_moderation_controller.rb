@@ -6,7 +6,7 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
 
   # GET /api/v1/admin/review_moderation/queue
   def queue
-    @reviews = AppReview.includes(:account, :app, :review_moderation_actions)
+    @reviews = Marketplace::Review.includes(:account, :app, :review_moderation_actions)
 
     # Apply filters
     case params[:status]
@@ -83,7 +83,7 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
       return render_error("No reviews selected", status: :unprocessable_content)
     end
 
-    reviews = AppReview.where(id: review_ids)
+    reviews = Marketplace::Review.where(id: review_ids)
     results = { success: 0, failed: 0, errors: [] }
 
     reviews.each do |review|
@@ -130,25 +130,25 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
 
     analytics_data = {
       queue_stats: {
-        total_flagged: AppReview.flagged.count,
-        total_pending: AppReview.pending_moderation.count,
-        total_removed: AppReview.where(removed: true).count,
+        total_flagged: Marketplace::Review.flagged.count,
+        total_pending: Marketplace::Review.pending_moderation.count,
+        total_removed: Marketplace::Review.where(removed: true).count,
         avg_resolution_time: calculate_avg_resolution_time(start_date)
       },
-      moderation_actions: ReviewModerationAction.where("created_at >= ?", start_date)
+      moderation_actions: Review::ModerationAction.where("created_at >= ?", start_date)
                                                .group(:action_type)
                                                .count,
-      moderator_activity: ReviewModerationAction.where("created_at >= ?", start_date)
+      moderator_activity: Review::ModerationAction.where("created_at >= ?", start_date)
                                                .joins(:moderator)
                                                .group("accounts.name")
                                                .count,
-      daily_activity: ReviewModerationAction.where("created_at >= ?", start_date)
+      daily_activity: Review::ModerationAction.where("created_at >= ?", start_date)
                                            .group_by_day(:created_at)
                                            .count,
-      automated_vs_manual: ReviewModerationAction.where("created_at >= ?", start_date)
+      automated_vs_manual: Review::ModerationAction.where("created_at >= ?", start_date)
                                                  .group(:automated)
                                                  .count,
-      confidence_distribution: ReviewModerationAction.where("created_at >= ? AND confidence_score IS NOT NULL", start_date)
+      confidence_distribution: Review::ModerationAction.where("created_at >= ? AND confidence_score IS NOT NULL", start_date)
                                                      .group_by do |action|
                                                        score = action.confidence_score.to_f
                                                        case score
@@ -165,7 +165,7 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
 
   # GET /api/v1/admin/review_moderation/history/:review_id
   def history
-    review = AppReview.find(params[:review_id])
+    review = Marketplace::Review.find(params[:review_id])
     actions = review.review_moderation_actions
                     .includes(:moderator)
                     .order(created_at: :desc)
@@ -240,17 +240,17 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
 
   def moderation_queue_summary
     {
-      total_flagged: AppReview.flagged.count,
-      total_pending: AppReview.pending_moderation.count,
-      today_flagged: AppReview.flagged.where("updated_at >= ?", Date.current).count,
-      this_week_resolved: ReviewModerationAction.where("created_at >= ?", 1.week.ago)
+      total_flagged: Marketplace::Review.flagged.count,
+      total_pending: Marketplace::Review.pending_moderation.count,
+      today_flagged: Marketplace::Review.flagged.where("updated_at >= ?", Date.current).count,
+      this_week_resolved: Review::ModerationAction.where("created_at >= ?", 1.week.ago)
                                                  .where(action_type: [ "approve", "reject", "remove" ])
                                                  .count
     }
   end
 
   def calculate_avg_resolution_time(start_date)
-    resolved_actions = ReviewModerationAction.where("created_at >= ?", start_date)
+    resolved_actions = Review::ModerationAction.where("created_at >= ?", start_date)
                                            .where(action_type: [ "approve", "reject", "remove" ])
                                            .joins(:app_review)
 

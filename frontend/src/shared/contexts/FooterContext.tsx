@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { siteSettingsApi, FooterData } from '@/features/settings/services/siteSettingsApi';
+import { siteSettingsApi, FooterData } from '@/features/admin/settings/services/siteSettingsApi';
 
 interface FooterContextType {
   footerData: FooterData | null;

@@ -141,7 +141,7 @@ module Api
           worker_error = nil
           begin
             WorkerJobService.enqueue_job(
-              "CiCd::PipelineExecutionJob",
+              "Devops::PipelineExecutionJob",
               args: [run.id, execution_options],
               queue: "ci_cd_high"
             )
@@ -277,12 +277,12 @@ module Api
         end
 
         def serialize_pipeline(pipeline, include_steps: false, include_recent_runs: false)
-          result = ::CiCd::PipelineSerializer.new(pipeline).serializable_hash[:data][:attributes]
+          result = ::Devops::PipelineSerializer.new(pipeline).serializable_hash[:data][:attributes]
           result[:id] = pipeline.id
 
           if include_steps
             result[:steps] = pipeline.steps.order(:position).map do |step|
-              ::CiCd::PipelineStepSerializer.new(step).serializable_hash[:data][:attributes].merge(id: step.id)
+              ::Devops::PipelineStepSerializer.new(step).serializable_hash[:data][:attributes].merge(id: step.id)
             end
           end
 
@@ -296,7 +296,7 @@ module Api
         end
 
         def serialize_pipeline_run(run)
-          ::CiCd::PipelineRunSerializer.new(run).serializable_hash[:data][:attributes].merge(id: run.id)
+          ::Devops::PipelineRunSerializer.new(run).serializable_hash[:data][:attributes].merge(id: run.id)
         end
       end
     end

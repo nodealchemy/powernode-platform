@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :git_provider, class: 'Git::Provider' do
+  factory :git_provider, class: 'Devops::GitProvider' do
     sequence(:name) { |n| "Git Provider #{n}" }
     sequence(:slug) { |n| "git-provider-#{n}" }
     provider_type { 'github' }

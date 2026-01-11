@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { usersApi, User, AdminAccount } from '@/features/users/services/usersApi';
+import { usersApi, User, AdminAccount } from '@/features/account/users/services/usersApi';
 import { hasAdminAccess } from '@/shared/utils/permissionUtils';
 import { getUserInitials } from '@/shared/utils/userUtils';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
