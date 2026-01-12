@@ -217,6 +217,7 @@ export const LoginPage: React.FC = () => {
                       autoComplete="username"
                       required
                       data-form-type="email"
+                      data-testid="email-input"
                       className="input-theme block w-full rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       placeholder="Enter your email address"
                       value={formData.email}
@@ -243,6 +244,7 @@ export const LoginPage: React.FC = () => {
                       autoComplete="current-password"
                       required
                       data-form-type="password"
+                      data-testid="password-input"
                       className="input-theme block w-full pr-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       placeholder="Enter your password"
                       value={formData.password}
@@ -274,6 +276,7 @@ export const LoginPage: React.FC = () => {
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
+                      data-testid="remember-me-checkbox"
                       className="checkbox-theme h-4 w-4 rounded transition-colors duration-200"
                     />
                     <label htmlFor="remember-me" className="ml-3 block text-sm font-medium text-theme-secondary">
@@ -283,6 +286,7 @@ export const LoginPage: React.FC = () => {
 
                   <Link
                     to="/forgot-password"
+                    data-testid="forgot-password-link"
                     className="text-sm font-semibold text-theme-link hover:text-theme-link transition-colors duration-200 hover:underline"
                   >
                     Forgot password?
@@ -293,6 +297,7 @@ export const LoginPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={loginLoading}
+                    data-testid="login-submit-btn"
                     className="btn-theme btn-theme-primary btn-theme-lg w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     {loginLoading ? (

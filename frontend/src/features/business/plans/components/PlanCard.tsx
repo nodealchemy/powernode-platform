@@ -196,6 +196,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
           id={cardId}
           onClick={handleCardClick}
           data-public-plan-card="true"
+          data-testid="plan-card"
         >
         {/* Badges */}
         <div style={{ position: 'absolute', top: '-1rem', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '0.5rem', zIndex: 30 }}>
@@ -444,6 +445,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                 handleCardClick();
               }}
               disabled={disabled || loading}
+              data-testid="plan-select-btn"
               style={{
                 width: '100%',
                 padding: '1rem 1.5rem',
@@ -513,6 +515,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
         ${className}
       `}
       onClick={handleCardClick}
+      data-testid="plan-card"
       style={{
         animationDelay: `${(index + 1) * 0.1}s`,
         transformOrigin: 'center center'
@@ -733,6 +736,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
               handleCardClick();
             }}
             disabled={disabled || loading}
+            data-testid="plan-select-btn"
             className={`
               group relative w-full text-center px-6 py-4 text-base font-bold rounded-xl
               transition-all duration-300 flex items-center justify-center

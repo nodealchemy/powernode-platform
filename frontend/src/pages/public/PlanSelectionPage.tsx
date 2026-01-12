@@ -205,6 +205,7 @@ export const PlanSelectionPage: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setBillingCycle('monthly')}
+                  data-testid="billing-monthly"
                   className={`relative px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                     billingCycle === 'monthly'
                       ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-lg'
@@ -215,6 +216,7 @@ export const PlanSelectionPage: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setBillingCycle('yearly')}
+                  data-testid="billing-yearly"
                   className={`relative px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                     billingCycle === 'yearly'
                       ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-lg'

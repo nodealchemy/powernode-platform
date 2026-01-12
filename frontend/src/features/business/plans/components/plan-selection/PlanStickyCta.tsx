@@ -58,6 +58,7 @@ export const PlanStickyCta: React.FC<PlanStickyCtaProps> = ({
           <div className="flex flex-col items-center space-y-3">
             <button
               onClick={onContinue}
+              data-testid="continue-to-registration"
               className="inline-flex items-center justify-center space-x-3 text-white font-semibold px-8 py-4 rounded-xl transition-all duration-200 transform hover:scale-105 min-w-[200px]"
               style={{
                 background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
