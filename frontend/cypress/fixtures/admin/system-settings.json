@@ -1,0 +1,57 @@
+{
+  "success": true,
+  "data": {
+    "site_name": "Powernode",
+    "site_url": "https://app.powernode.org",
+    "support_email": "support@powernode.org",
+    "timezone": "America/New_York",
+    "date_format": "YYYY-MM-DD",
+    "currency": "USD",
+    "maintenance_mode": false,
+    "maintenance_message": "We are currently performing scheduled maintenance. Please check back soon.",
+    "registration_enabled": true,
+    "email_verification_required": true,
+    "two_factor_required": false,
+    "password_policy": {
+      "min_length": 12,
+      "require_uppercase": true,
+      "require_lowercase": true,
+      "require_number": true,
+      "require_special": true,
+      "max_age_days": 90
+    },
+    "session_settings": {
+      "timeout_minutes": 30,
+      "max_concurrent_sessions": 5,
+      "remember_me_days": 30
+    },
+    "rate_limiting": {
+      "enabled": true,
+      "requests_per_minute": 60,
+      "requests_per_hour": 1000
+    },
+    "feature_flags": {
+      "new_dashboard": true,
+      "ai_features": true,
+      "advanced_analytics": true,
+      "beta_features": false
+    },
+    "integrations": {
+      "stripe_configured": true,
+      "paypal_configured": false,
+      "slack_configured": true,
+      "webhook_url": "https://hooks.slack.com/services/..."
+    },
+    "storage": {
+      "provider": "s3",
+      "bucket": "powernode-assets",
+      "region": "us-east-1",
+      "max_file_size_mb": 100
+    },
+    "updated_at": "2025-01-10T12:00:00Z",
+    "updated_by": {
+      "id": "user_001",
+      "name": "System Admin"
+    }
+  }
+}

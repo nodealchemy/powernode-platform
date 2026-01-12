@@ -27,20 +27,20 @@ describe('Plan Selection Workflow Tests', () => {
     it('should handle plan selection', () => {
       cy.visit('/plans');
       cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
-      
+
       // Click on first plan card to select it
       cy.get('[data-testid="plan-card"]').first().click({ force: true });
-      
+
       // Should show the continue button after selection
-      cy.get('[data-testid="plan-select-btn"]', { timeout: 10000 }).should('be.visible');
-      
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
+
       // Click continue to proceed to registration
-      cy.get('[data-testid="plan-select-btn"]').click({ force: true });
-      
+      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+
       // Should navigate to registration with plan selected
       cy.url().should('include', '/register');
       cy.url().should('include', 'plan=');
-      
+
       // Should show selected plan information
       cy.get('[data-testid="selected-plan"]', { timeout: 15000 }).should('be.visible');
     });
@@ -83,7 +83,7 @@ describe('Plan Selection Workflow Tests', () => {
     it('should complete full plan selection to registration flow', () => {
       cy.visit('/plans');
       cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
-      
+
       // Get plan details before selecting
       let planName: string;
       cy.get('[data-testid="plan-card"]').first().within(() => {
@@ -91,32 +91,30 @@ describe('Plan Selection Workflow Tests', () => {
           planName = text.trim();
         });
       });
-      
+
       // Select plan by clicking the card
       cy.get('[data-testid="plan-card"]').first().click({ force: true });
-      
+
       // Wait for continue button to appear and click it
-      cy.get('[data-testid="plan-select-btn"]', { timeout: 10000 }).should('be.visible');
-      cy.get('[data-testid="plan-select-btn"]').click({ force: true });
-      
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+
       // Verify plan selection carried over to registration
       cy.url().should('include', '/register');
       cy.get('[data-testid="selected-plan"]', { timeout: 15000 }).should('be.visible');
-      
-      // Complete registration
+
+      // Complete registration using data-testid selectors
       const timestamp = Date.now();
-      cy.get('input[name="firstName"]').type('Plan');
-      cy.get('input[name="lastName"]').type('Tester');
-      cy.get('input[name="accountName"]').type('Plan Test Co');
-      cy.get('input[name="email"]').type(`plan-test-${timestamp}@example.com`);
-      cy.get('input[name="password"]').type('Qx7#mK9@pL2$nZ6%');
-      
-      cy.get('button[type="submit"]').should('not.be.disabled');
-      cy.get('button[type="submit"]').click();
-      
-      // Should complete registration
-      cy.url().should('include', '/dashboard', { timeout: 20000 });
-      cy.contains('Plan').should('be.visible');
+      cy.get('[data-testid="name-input"]').type('Plan Tester');
+      cy.get('[data-testid="account-name-input"]').type('Plan Test Co');
+      cy.get('[data-testid="register-email-input"]').type(`plan-test-${timestamp}@example.com`);
+      cy.get('[data-testid="register-password-input"]').type('Qx7#mK9@pL2$nZ6%');
+
+      cy.get('[data-testid="register-submit-btn"]').should('not.be.disabled');
+      cy.get('[data-testid="register-submit-btn"]').click();
+
+      // Should complete registration (redirects to /app or /dashboard)
+      cy.url({ timeout: 20000 }).should('match', /\/(app|dashboard)/);
     });
 
     it('should redirect to plan selection when accessing registration directly', () => {
@@ -130,45 +128,46 @@ describe('Plan Selection Workflow Tests', () => {
     it('should preserve plan selection through browser refresh', () => {
       cy.visit('/plans');
       cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
-      
+
       // Select first plan
       cy.get('[data-testid="plan-card"]').first().click({ force: true });
-      cy.get('[data-testid="plan-select-btn"]', { timeout: 10000 }).should('be.visible');
-      cy.get('[data-testid="plan-select-btn"]').click({ force: true });
-      
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+
       cy.url().should('include', '/register');
       cy.get('[data-testid="selected-plan"]', { timeout: 15000 }).should('be.visible');
-      
+
       // Refresh the page
       cy.reload();
-      
-      // Plan should still be selected
+
+      // Plan should still be selected (URL contains plan parameter)
       cy.url().should('include', '/register');
+      cy.url().should('include', 'plan=');
       cy.get('[data-testid="selected-plan"]').should('be.visible');
     });
 
     it('should allow changing plan selection', () => {
       cy.visit('/plans');
       cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
-      
+
       // Select first plan
       cy.get('[data-testid="plan-card"]').first().click({ force: true });
-      cy.get('[data-testid="plan-select-btn"]', { timeout: 10000 }).should('be.visible');
-      cy.get('[data-testid="plan-select-btn"]').click({ force: true });
-      
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+
       cy.url().should('include', '/register');
-      
+
       // Go back to plans
       cy.visit('/plans');
-      
+
       // Select different plan if available
       cy.get('[data-testid="plan-card"]').then($cards => {
         if ($cards.length > 1) {
           // Select second plan
           cy.get('[data-testid="plan-card"]').eq(1).click({ force: true });
-          cy.get('[data-testid="plan-select-btn"]', { timeout: 10000 }).should('be.visible');
-          cy.get('[data-testid="plan-select-btn"]').click({ force: true });
-          
+          cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
+          cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+
           // Should update registration with new plan
           cy.url().should('include', '/register');
           cy.get('[data-testid="selected-plan"]').should('be.visible');

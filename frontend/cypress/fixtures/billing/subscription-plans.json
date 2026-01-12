@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "data": {
+    "plans": [
+      {
+        "id": "plan-free",
+        "name": "Free",
+        "description": "Get started with basic features",
+        "price_cents": 0,
+        "billing_cycle": "monthly",
+        "currency": "USD",
+        "trial_days": 0,
+        "has_annual_discount": false,
+        "features": {
+          "max_users": 2,
+          "storage_gb": 1,
+          "dashboard_access": true,
+          "email_support": true
+        }
+      },
+      {
+        "id": "plan-pro",
+        "name": "Pro",
+        "description": "Perfect for growing teams",
+        "price_cents": 4900,
+        "billing_cycle": "monthly",
+        "currency": "USD",
+        "trial_days": 14,
+        "has_annual_discount": true,
+        "annual_discount_percent": 20,
+        "features": {
+          "max_users": 10,
+          "storage_gb": 100,
+          "dashboard_access": true,
+          "email_support": true,
+          "priority_support": true,
+          "api_access": true,
+          "advanced_analytics": true
+        }
+      },
+      {
+        "id": "plan-enterprise",
+        "name": "Enterprise",
+        "description": "For large organizations",
+        "price_cents": 19900,
+        "billing_cycle": "monthly",
+        "currency": "USD",
+        "trial_days": 30,
+        "has_annual_discount": true,
+        "annual_discount_percent": 25,
+        "features": {
+          "max_users": 9999,
+          "storage_gb": 10000,
+          "dashboard_access": true,
+          "email_support": true,
+          "priority_support": true,
+          "dedicated_support": true,
+          "api_access": true,
+          "advanced_analytics": true,
+          "custom_integrations": true,
+          "sso_integration": true
+        }
+      }
+    ]
+  }
+}

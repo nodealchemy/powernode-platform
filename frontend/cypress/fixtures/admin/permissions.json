@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "data": {
+    "permissions": [
+      { "id": "perm_001", "slug": "users.create", "name": "Create Users", "category": "users" },
+      { "id": "perm_002", "slug": "users.read", "name": "View Users", "category": "users" },
+      { "id": "perm_003", "slug": "users.update", "name": "Edit Users", "category": "users" },
+      { "id": "perm_004", "slug": "users.delete", "name": "Delete Users", "category": "users" },
+      { "id": "perm_005", "slug": "users.manage", "name": "Manage Users", "category": "users" },
+      { "id": "perm_006", "slug": "billing.read", "name": "View Billing", "category": "billing" },
+      { "id": "perm_007", "slug": "billing.update", "name": "Update Billing", "category": "billing" },
+      { "id": "perm_008", "slug": "billing.manage", "name": "Manage Billing", "category": "billing" },
+      { "id": "perm_009", "slug": "invoices.read", "name": "View Invoices", "category": "billing" },
+      { "id": "perm_010", "slug": "invoices.create", "name": "Create Invoices", "category": "billing" },
+      { "id": "perm_011", "slug": "payments.process", "name": "Process Payments", "category": "billing" },
+      { "id": "perm_012", "slug": "dashboard.read", "name": "View Dashboard", "category": "general" },
+      { "id": "perm_013", "slug": "profile.update", "name": "Update Profile", "category": "general" },
+      { "id": "perm_014", "slug": "settings.update", "name": "Update Settings", "category": "admin" },
+      { "id": "perm_015", "slug": "admin.access", "name": "Access Admin Panel", "category": "admin" }
+    ]
+  }
+}

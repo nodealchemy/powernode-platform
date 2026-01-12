@@ -1,0 +1,104 @@
+{
+  "success": true,
+  "data": [
+    {
+      "id": "item_001",
+      "name": "Workflow Automation Pro",
+      "slug": "workflow-automation-pro",
+      "description": "Advanced workflow automation with AI-powered triggers and actions",
+      "short_description": "AI-powered workflow automation",
+      "category": "automation",
+      "type": "workflow_template",
+      "price_cents": 4999,
+      "billing_cycle": "monthly",
+      "rating": 4.8,
+      "review_count": 127,
+      "install_count": 1523,
+      "publisher": {
+        "id": "pub_001",
+        "name": "Powernode Labs",
+        "verified": true
+      },
+      "featured": true,
+      "tags": ["automation", "ai", "workflow"],
+      "created_at": "2024-03-15T00:00:00Z"
+    },
+    {
+      "id": "item_002",
+      "name": "Customer Onboarding Suite",
+      "slug": "customer-onboarding-suite",
+      "description": "Complete customer onboarding workflow with email sequences and task management",
+      "short_description": "Streamline customer onboarding",
+      "category": "customer-success",
+      "type": "workflow_template",
+      "price_cents": 2999,
+      "billing_cycle": "monthly",
+      "rating": 4.6,
+      "review_count": 89,
+      "install_count": 892,
+      "publisher": {
+        "id": "pub_002",
+        "name": "GrowthTools",
+        "verified": true
+      },
+      "featured": false,
+      "tags": ["onboarding", "customer-success", "email"],
+      "created_at": "2024-05-20T00:00:00Z"
+    },
+    {
+      "id": "item_003",
+      "name": "Invoice Generator",
+      "slug": "invoice-generator",
+      "description": "Automated invoice generation with customizable templates",
+      "short_description": "Auto-generate professional invoices",
+      "category": "billing",
+      "type": "integration",
+      "price_cents": 0,
+      "billing_cycle": null,
+      "rating": 4.4,
+      "review_count": 56,
+      "install_count": 2341,
+      "publisher": {
+        "id": "pub_001",
+        "name": "Powernode Labs",
+        "verified": true
+      },
+      "featured": false,
+      "tags": ["billing", "invoices", "free"],
+      "created_at": "2024-01-10T00:00:00Z"
+    },
+    {
+      "id": "item_004",
+      "name": "Slack Notifications",
+      "slug": "slack-notifications",
+      "description": "Send workflow notifications to Slack channels",
+      "short_description": "Slack integration for notifications",
+      "category": "communication",
+      "type": "integration",
+      "price_cents": 999,
+      "billing_cycle": "monthly",
+      "rating": 4.9,
+      "review_count": 234,
+      "install_count": 4521,
+      "publisher": {
+        "id": "pub_003",
+        "name": "IntegrationHub",
+        "verified": true
+      },
+      "featured": true,
+      "tags": ["slack", "notifications", "communication"],
+      "created_at": "2024-02-01T00:00:00Z"
+    }
+  ],
+  "meta": {
+    "total_count": 4,
+    "page": 1,
+    "per_page": 20,
+    "categories": [
+      { "slug": "automation", "name": "Automation", "count": 12 },
+      { "slug": "customer-success", "name": "Customer Success", "count": 8 },
+      { "slug": "billing", "name": "Billing", "count": 5 },
+      { "slug": "communication", "name": "Communication", "count": 15 }
+    ]
+  }
+}

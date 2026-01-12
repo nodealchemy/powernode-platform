@@ -1,0 +1,47 @@
+{
+  "success": true,
+  "data": {
+    "id": "user_001",
+    "email": "john.smith@example.com",
+    "first_name": "John",
+    "last_name": "Smith",
+    "full_name": "John Smith",
+    "phone": "+1 555-0123",
+    "avatar_url": null,
+    "timezone": "America/New_York",
+    "locale": "en-US",
+    "date_format": "MM/DD/YYYY",
+    "two_factor_enabled": false,
+    "email_verified": true,
+    "email_verified_at": "2024-01-15T10:00:00Z",
+    "last_login_at": "2025-01-11T08:00:00Z",
+    "created_at": "2024-01-15T10:00:00Z",
+    "account": {
+      "id": "acc_001",
+      "name": "Acme Corporation",
+      "slug": "acme-corp"
+    },
+    "roles": [
+      {
+        "id": "role_001",
+        "name": "Account Manager",
+        "slug": "account.manager"
+      }
+    ],
+    "permissions": [
+      "dashboard.read",
+      "profile.update",
+      "users.read",
+      "users.update",
+      "team.manage",
+      "billing.read"
+    ],
+    "notification_preferences": {
+      "email_marketing": true,
+      "email_product_updates": true,
+      "email_security_alerts": true,
+      "email_billing": true,
+      "push_notifications": false
+    }
+  }
+}

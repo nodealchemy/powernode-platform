@@ -1,0 +1,39 @@
+{
+  "success": true,
+  "data": {
+    "roles": [
+      {
+        "id": "role_001",
+        "slug": "system.admin",
+        "name": "System Administrator",
+        "description": "Full system access with all permissions",
+        "permissions": ["*"],
+        "users_count": 1
+      },
+      {
+        "id": "role_002",
+        "slug": "account.manager",
+        "name": "Account Manager",
+        "description": "Manage account settings and users",
+        "permissions": ["users.manage", "settings.update", "billing.read"],
+        "users_count": 0
+      },
+      {
+        "id": "role_003",
+        "slug": "account.member",
+        "name": "Account Member",
+        "description": "Basic account access",
+        "permissions": ["dashboard.read", "profile.update"],
+        "users_count": 1
+      },
+      {
+        "id": "role_004",
+        "slug": "billing.manager",
+        "name": "Billing Manager",
+        "description": "Manage billing and subscriptions",
+        "permissions": ["billing.read", "billing.update", "invoices.read", "payments.process"],
+        "users_count": 1
+      }
+    ]
+  }
+}
