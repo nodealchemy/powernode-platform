@@ -21,6 +21,10 @@ Rails.application.routes.draw do
       post "worker/ping", to: "worker_test#ping"
       post "worker/process_job", to: "worker_test#process_job"
 
+      # E2E test endpoints (development/test only)
+      post "test/reset", to: "test#reset"
+      post "test/seed", to: "test#seed"
+
       # CSRF token endpoint for authenticated users
       get :csrf_token, to: "csrf#token"
 
