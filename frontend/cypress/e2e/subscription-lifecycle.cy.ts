@@ -654,12 +654,14 @@ describe('Subscription Lifecycle', () => {
   describe('Responsive Design', () => {
     it('should display subscriptions on mobile viewport', () => {
       cy.viewport('iphone-x');
+      // Already logged in from beforeEach, just resize viewport
       cy.visit('/app/marketplace/subscriptions');
       cy.get('body').should('be.visible');
     });
 
     it('should display subscriptions on tablet viewport', () => {
       cy.viewport('ipad-2');
+      // Already logged in from beforeEach, just resize viewport
       cy.visit('/app/marketplace/subscriptions');
       cy.get('body').should('be.visible');
     });
@@ -675,6 +677,12 @@ describe('Subscription Lifecycle', () => {
         .first()
         .click();
 
+      cy.get('body').should('be.visible');
+    });
+
+    it('should display marketplace on mobile', () => {
+      cy.viewport('iphone-x');
+      cy.visit('/app/marketplace');
       cy.get('body').should('be.visible');
     });
   });

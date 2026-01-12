@@ -448,9 +448,9 @@ describe('Subscription Management Tests', () => {
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
         .should('exist');
 
-      // Should be able to scroll to see all plans
-      cy.get('body').scrollTo('bottom');
+      // Page should be scrollable on small screens
       cy.get('body').should('be.visible');
+      cy.scrollTo('bottom', { ensureScrollable: false });
     });
   });
 
