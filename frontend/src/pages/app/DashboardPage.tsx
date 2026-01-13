@@ -10,7 +10,7 @@ import { MetricCard } from '@/shared/components/ui/Card';
 // Import all dashboard pages
 import { ReportsPage } from './business/ReportsPage';
 import { PlansPage } from './business/PlansPage';
-import { SettingsPage } from './account/ProfilePage';
+import { ProfilePage } from './account/ProfilePage';
 import { PagesPage } from './content/PagesPage';
 import KnowledgeBasePage from './content/KnowledgeBasePage';
 import KnowledgeBaseArticlePage from './content/KnowledgeBaseArticlePage';
@@ -55,7 +55,7 @@ import {
 
 // Provider Pages
 import {
-  AiServicesPage,
+  AiProvidersPage,
   GitProvidersPage,
   RepositoriesPage,
 } from '@/features/devops/connections';
@@ -481,9 +481,9 @@ const DashboardPage: React.FC = () => {
         
         {/* AI Pages - Standalone navigation */}
         <Route path="/ai" element={<AIOverviewPage />} />
-        <Route path="/ai/providers" element={<AiServicesPage />} />
-        <Route path="/ai/providers/new" element={<AiServicesPage />} />
-        <Route path="/ai/providers/:id" element={<AiServicesPage />} />
+        <Route path="/ai/providers" element={<AiProvidersPage />} />
+        <Route path="/ai/providers/new" element={<AiProvidersPage />} />
+        <Route path="/ai/providers/:id" element={<AiProvidersPage />} />
         <Route path="/ai/agents" element={<AIAgentsPage />} />
         <Route path="/ai/workflows" element={<WorkflowsPage />} />
         <Route path="/ai/conversations" element={<AIConversationsPage />} />
@@ -526,7 +526,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/business/reports/*" element={<ReportsPage />} />
         
         {/* System Pages */}
-        <Route path="/profile/*" element={<SettingsPage />} />
+        <Route path="/profile/*" element={<ProfilePage />} />
         {/* Workers moved to admin routes */}
         
         {/* System Management Pages */}

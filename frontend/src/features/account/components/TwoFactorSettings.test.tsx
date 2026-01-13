@@ -17,7 +17,7 @@ jest.mock('@/shared/services/twoFactorApi', () => ({
 }));
 
 // Mock TwoFactorSetup component
-jest.mock('@/features/auth/components/TwoFactorSetup', () => ({
+jest.mock('@/features/account/auth/components/TwoFactorSetup', () => ({
   TwoFactorSetup: ({ onComplete, onCancel }: any) => (
     <div data-testid="two-factor-setup">
       <button onClick={onComplete}>Complete Setup</button>

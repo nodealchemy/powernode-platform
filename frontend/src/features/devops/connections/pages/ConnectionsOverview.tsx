@@ -34,7 +34,7 @@ export function ConnectionsOverview() {
   const [categories, setCategories] = useState<ConnectionCategory[]>([
     {
       id: 'ai',
-      name: 'AI Services',
+      name: 'AI Providers',
       description: 'OpenAI, Anthropic, and other AI providers',
       icon: <Brain className="w-6 h-6" />,
       href: '/app/connections/ai',

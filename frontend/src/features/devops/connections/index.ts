@@ -2,7 +2,7 @@
 
 // Pages
 export { ConnectionsOverview } from './pages/ConnectionsOverview';
-export { AiServicesPage } from './pages/AiServicesPage';
+export { AiProvidersPage } from './pages/AiProvidersPage';
 export { GitProvidersPage } from './pages/GitProvidersPage';
 export { RepositoriesPage } from './pages/RepositoriesPage';
 

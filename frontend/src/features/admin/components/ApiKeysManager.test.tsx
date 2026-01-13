@@ -17,7 +17,7 @@ const mockDeleteApiKey = jest.fn();
 const mockGetApiKey = jest.fn();
 const mockCopyToClipboard = jest.fn();
 
-jest.mock('@/features/api-keys/services/apiKeysApi', () => ({
+jest.mock('@/features/devops/api-keys/services/apiKeysApi', () => ({
   apiKeysApi: {
     getApiKeys: (...args: any[]) => mockGetApiKeys(...args),
     toggleStatus: (...args: any[]) => mockToggleStatus(...args),

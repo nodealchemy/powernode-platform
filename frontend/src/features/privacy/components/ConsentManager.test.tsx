@@ -99,7 +99,7 @@ describe('ConsentManager', () => {
       render(<ConsentManager {...defaultProps} />);
 
       const switches = screen.getAllByRole('switch');
-      expect(switches).toHaveLength(4);
+      expect(switches).toHaveLength(8);
     });
 
     it('shows granted state correctly', () => {

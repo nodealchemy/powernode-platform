@@ -17,7 +17,7 @@ const isSettingsUpdateData = (data: unknown): data is Partial<UserSettings> => {
   return typeof data === 'object' && data !== null;
 };
 
-export const SettingsPage: React.FC = () => {
+export const ProfilePage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);

@@ -27,7 +27,7 @@ interface AiProvider {
   error?: string;
 }
 
-export function AiServicesPage() {
+export function AiProvidersPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { showNotification } = useNotifications();
@@ -241,7 +241,7 @@ export function AiServicesPage() {
   if (loading) {
     return (
       <PageContainer
-        title="AI Services"
+        title="AI Providers"
         description="Manage connections to AI providers like OpenAI, Anthropic, and more"
         actions={pageActions}
       >
@@ -254,7 +254,7 @@ export function AiServicesPage() {
 
   return (
     <PageContainer
-      title="AI Services"
+      title="AI Providers"
       description="Manage connections to AI providers like OpenAI, Anthropic, and more"
       actions={pageActions}
     >
@@ -398,4 +398,4 @@ export function AiServicesPage() {
   );
 }
 
-export default AiServicesPage;
+export default AiProvidersPage;
