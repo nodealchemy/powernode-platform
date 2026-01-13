@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { notificationApi, Notification } from '@/features/notifications/services/notificationApi';
+import { notificationApi, Notification } from '@/features/account/notifications/services/notificationApi';
 import {
   BellIcon,
   CheckIcon,

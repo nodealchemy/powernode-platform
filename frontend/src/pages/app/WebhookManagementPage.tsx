@@ -18,11 +18,11 @@ import {
   WebhookStats as WebhookStatsType,
   WebhookFormData,
   DetailedWebhookStats
-} from '@/features/webhooks/services/webhooksApi';
-import { WebhookModal } from '@/features/webhooks/components/WebhookModal';
-import { WebhookList } from '@/features/webhooks/components/WebhookList';
-import { WebhookDetails } from '@/features/webhooks/components/WebhookDetails';
-import { WebhookStats } from '@/features/webhooks/components/WebhookStats';
+} from '@/features/devops/webhooks/services/webhooksApi';
+import { WebhookModal } from '@/features/devops/webhooks/components/WebhookModal';
+import { WebhookList } from '@/features/devops/webhooks/components/WebhookList';
+import { WebhookDetails } from '@/features/devops/webhooks/components/WebhookDetails';
+import { WebhookStats } from '@/features/devops/webhooks/components/WebhookStats';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';

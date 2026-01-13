@@ -1,5 +1,5 @@
 import { api } from '@/shared/services/api';
-import type { AuthUser } from '@/features/auth/services/authAPI';
+import type { AuthUser } from '@/features/account/auth/services/authAPI';
 
 // Account type extracted from AuthUser's nested account property
 type AccountInfo = AuthUser['account'];

@@ -2,10 +2,10 @@ import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { TeamMembersManagement } from './TeamMembersManagement';
 import { renderWithProviders, mockUsers, mockAuthenticatedState } from '@/shared/utils/test-utils';
 
-import { usersApi } from '@/features/users/services/usersApi';
+import { usersApi } from '@/features/account/users/services/usersApi';
 
 // Mock APIs
-jest.mock('@/features/users/services/usersApi', () => ({
+jest.mock('@/features/account/users/services/usersApi', () => ({
   usersApi: {
     getAccountUsers: jest.fn(),
     updateUserRole: jest.fn(),

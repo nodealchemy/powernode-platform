@@ -5,7 +5,7 @@ import {
   Shield, Clock, Activity, AlertTriangle,
   Search
 } from 'lucide-react';
-import { apiKeysApi, ApiKey, DetailedApiKey, ApiKeyStats } from '@/features/api-keys/services/apiKeysApi';
+import { apiKeysApi, ApiKey, DetailedApiKey, ApiKeyStats } from '@/features/devops/api-keys/services/apiKeysApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { CreateApiKeyModal } from './CreateApiKeyModal';
@@ -275,7 +275,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
                           </div>
                         )}
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {apiKey.scopes.slice(0, 2).map((scope) => (
+                          {apiKey.scopes.slice(0, 2).map((scope: string) => (
                             <span key={scope} className={`text-xs px-2 py-1 rounded ${apiKeysApi.getScopeCategoryColor(scope)}`}>
                               {scope.split(':')[0]}
                             </span>

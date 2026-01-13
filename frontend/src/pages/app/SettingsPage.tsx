@@ -9,7 +9,7 @@ import { WebSocketStatusIndicator } from '@/shared/components/ui/WebSocketStatus
 import { useTheme } from '@/shared/hooks/ThemeContext';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { ProfileSubscriptionTab } from '@/features/subscriptions/components/ProfileSubscriptionTab';
+import { ProfileSubscriptionTab } from '@/features/business/subscriptions/components/ProfileSubscriptionTab';
 import { Save, RefreshCw } from 'lucide-react';
 
 // Type guard for settings update data

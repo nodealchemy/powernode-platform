@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { usersApi, UserFormData, AdminAccount } from '@/features/users/services/usersApi';
+import { usersApi, UserFormData, AdminAccount } from '@/features/account/users/services/usersApi';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 // Removed unused FormField import

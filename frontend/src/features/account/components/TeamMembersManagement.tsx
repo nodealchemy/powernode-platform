@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { usersApi, User } from '@/features/users/services/usersApi';
+import { usersApi, User } from '@/features/account/users/services/usersApi';
 import { getUserInitials } from '@/shared/utils/userUtils';
 
 interface TeamMembersManagementProps {
@@ -123,7 +123,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
         <div className="bg-theme-background rounded-lg p-4">
           <h3 className="text-sm font-medium text-theme-tertiary mb-1">Admins</h3>
           <p className="text-2xl font-bold text-theme-interactive-primary">
-            {teamMembers.filter(m => m.roles?.some(role => role.includes('admin') || role.includes('manager'))).length}
+            {teamMembers.filter(m => m.roles?.some((role: string) => role.includes('admin') || role.includes('manager'))).length}
           </p>
         </div>
         <div className="bg-theme-background rounded-lg p-4">
@@ -175,7 +175,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
                 <td className="py-3 px-4">
                   {member.roles && member.roles.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
-                      {member.roles.slice(0, 2).map((role, index) => (
+                      {member.roles.slice(0, 2).map((role: string, index: number) => (
                         <span key={index} className={`text-xs px-2 py-1 rounded-full ${getRoleBadgeColor(role)}`}>
                           {formatRoleName(role)}
                         </span>

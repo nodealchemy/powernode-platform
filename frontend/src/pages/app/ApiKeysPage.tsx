@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { apiKeysApi } from '@/features/api-keys/services/apiKeysApi';
+import { apiKeysApi } from '@/features/devops/api-keys/services/apiKeysApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
-import { ApiKeyModal } from '@/features/api-keys/components/ApiKeyModal';
+import { ApiKeyModal } from '@/features/devops/api-keys/components/ApiKeyModal';
 import { Key, RefreshCw } from 'lucide-react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 

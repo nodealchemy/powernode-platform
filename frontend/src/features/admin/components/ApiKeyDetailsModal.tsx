@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Eye } from 'lucide-react';
-import { apiKeysApi, DetailedApiKey } from '@/features/api-keys/services/apiKeysApi';
+import { apiKeysApi, DetailedApiKey, ApiKeyUsage } from '@/features/devops/api-keys/services/apiKeysApi';
 
 export interface ApiKeyDetailsModalProps {
   apiKey: DetailedApiKey | null;
@@ -72,7 +72,7 @@ export const ApiKeyDetailsModal: React.FC<ApiKeyDetailsModalProps> = ({
               <div>
                 <h4 className="font-medium text-theme-primary mb-3">Permissions</h4>
                 <div className="space-y-2">
-                  {apiKey.scopes.map((scope) => (
+                  {apiKey.scopes.map((scope: string) => (
                     <div key={scope} className={`inline-flex px-2 py-1 text-xs rounded-full mr-2 mb-2 ${apiKeysApi.getScopeCategoryColor(scope)}`}>
                       {apiKeysApi.formatScope(scope)}
                     </div>
@@ -144,7 +144,7 @@ export const ApiKeyDetailsModal: React.FC<ApiKeyDetailsModalProps> = ({
                 <div>
                   <h4 className="font-medium text-theme-primary mb-3">Allowed IPs</h4>
                   <div className="space-y-1">
-                    {apiKey.allowed_ips.map((ip, index) => (
+                    {apiKey.allowed_ips.map((ip: string, index: number) => (
                       <div key={index} className="text-sm text-theme-secondary font-mono bg-theme-background px-2 py-1 rounded">
                         {ip}
                       </div>
@@ -171,7 +171,7 @@ export const ApiKeyDetailsModal: React.FC<ApiKeyDetailsModalProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-theme">
-                    {apiKey.recent_usage.slice(0, 10).map((usage) => (
+                    {apiKey.recent_usage.slice(0, 10).map((usage: ApiKeyUsage) => (
                       <tr key={usage.id}>
                         <td className="py-2 text-sm text-theme-primary font-mono">{usage.endpoint}</td>
                         <td className="py-2 text-sm text-theme-secondary">{usage.method}</td>

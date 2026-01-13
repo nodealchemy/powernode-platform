@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Key, AlertTriangle } from 'lucide-react';
-import { apiKeysApi, DetailedApiKey, ApiKeyFormData } from '@/features/api-keys/services/apiKeysApi';
+import { apiKeysApi, DetailedApiKey, ApiKeyFormData } from '@/features/devops/api-keys/services/apiKeysApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
@@ -72,10 +72,10 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
   };
 
   const toggleScope = (scope: string) => {
-    setFormData(prev => ({
+    setFormData((prev: ApiKeyFormData) => ({
       ...prev,
       scopes: prev.scopes.includes(scope)
-        ? prev.scopes.filter(s => s !== scope)
+        ? prev.scopes.filter((s: string) => s !== scope)
         : [...prev.scopes, scope]
     }));
   };
@@ -115,7 +115,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => setFormData((prev: ApiKeyFormData) => ({ ...prev, name: e.target.value }))}
                   className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
                   placeholder="My API Key"
                   required
@@ -129,7 +129,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
                 <input
                   type="datetime-local"
                   value={formData.expires_at || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, expires_at: e.target.value || undefined }))}
+                  onChange={(e) => setFormData((prev: ApiKeyFormData) => ({ ...prev, expires_at: e.target.value || undefined }))}
                   className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
                 />
               </div>
@@ -141,7 +141,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
               </label>
               <textarea
                 value={formData.description || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) => setFormData((prev: ApiKeyFormData) => ({ ...prev, description: e.target.value }))}
                 className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
                 rows={3}
                 placeholder="Optional description of what this key is used for"
@@ -157,7 +157,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
                 <input
                   type="number"
                   value={formData.rate_limit_per_hour || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, rate_limit_per_hour: parseInt(e.target.value) || undefined }))}
+                  onChange={(e) => setFormData((prev: ApiKeyFormData) => ({ ...prev, rate_limit_per_hour: parseInt(e.target.value) || undefined }))}
                   className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
                   placeholder="1000"
                   min="1"
@@ -172,7 +172,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
                 <input
                   type="number"
                   value={formData.rate_limit_per_day || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, rate_limit_per_day: parseInt(e.target.value) || undefined }))}
+                  onChange={(e) => setFormData((prev: ApiKeyFormData) => ({ ...prev, rate_limit_per_day: parseInt(e.target.value) || undefined }))}
                   className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
                   placeholder="10000"
                   min="1"
@@ -222,9 +222,9 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
               </label>
               <textarea
                 value={formData.allowed_ips?.join('\n') || ''}
-                onChange={(e) => setFormData(prev => ({
+                onChange={(e) => setFormData((prev: ApiKeyFormData) => ({
                   ...prev,
-                  allowed_ips: e.target.value.split('\n').filter(ip => ip.trim())
+                  allowed_ips: e.target.value.split('\n').filter((ip: string) => ip.trim())
                 }))}
                 className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
                 rows={3}

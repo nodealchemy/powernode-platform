@@ -1,9 +1,9 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ApiKeyDetailsModal } from './ApiKeyDetailsModal';
-import { DetailedApiKey } from '@/features/api-keys/services/apiKeysApi';
+import { DetailedApiKey } from '@/features/devops/api-keys/services/apiKeysApi';
 
 // Mock apiKeysApi
-jest.mock('@/features/api-keys/services/apiKeysApi', () => ({
+jest.mock('@/features/devops/api-keys/services/apiKeysApi', () => ({
   apiKeysApi: {
     getStatusColor: (status: string) => {
       switch (status) {

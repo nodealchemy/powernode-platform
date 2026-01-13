@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { usersApi, User, AdminAccount } from '@/features/users/services/usersApi';
+import { usersApi, User, AdminAccount } from '@/features/account/users/services/usersApi';
 import { hasAdminAccess } from '@/shared/utils/permissionUtils';
 import { ImpersonateUserModal } from './ImpersonateUserModal';
 import { CreateUserModal } from './CreateUserModal';

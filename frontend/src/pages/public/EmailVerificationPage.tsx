@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 
 import { CheckCircle, AlertTriangle, Mail, ArrowRight } from 'lucide-react';
 
-import { authApi } from '@/features/auth/services/authAPI';
+import { authApi } from '@/features/account/auth/services/authAPI';
 
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { ErrorHandler } from '@/shared/utils/errorHandling';
