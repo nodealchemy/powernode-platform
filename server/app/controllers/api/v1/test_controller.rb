@@ -5,7 +5,7 @@ module Api
     # Test controller for E2E testing support
     # Only available in development and test environments
     class TestController < ApplicationController
-      skip_before_action :authenticate_user!
+      skip_before_action :authenticate_request
       before_action :ensure_test_environment
 
       # POST /api/v1/test/reset

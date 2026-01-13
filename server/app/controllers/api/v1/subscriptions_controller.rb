@@ -5,6 +5,8 @@ class Api::V1::SubscriptionsController < ApplicationController
 
   # GET /api/v1/subscriptions
   def index
+    return render_error("No account associated with user", status: :unauthorized) unless current_account
+
     subscription = current_account.subscription
 
     render_success(
@@ -19,6 +21,8 @@ class Api::V1::SubscriptionsController < ApplicationController
 
   # POST /api/v1/subscriptions
   def create
+    return render_error("No account associated with user", status: :unauthorized) unless current_account
+
     @subscription = current_account.build_subscription(subscription_params)
 
     if @subscription.save
@@ -78,6 +82,8 @@ class Api::V1::SubscriptionsController < ApplicationController
 
   # GET /api/v1/subscriptions/history
   def history
+    return render_error("No account associated with user", status: :unauthorized) unless current_account
+
     subscription = current_account.subscription
 
     # Get audit logs related to subscription changes for this account
@@ -126,6 +132,11 @@ class Api::V1::SubscriptionsController < ApplicationController
   private
 
   def set_subscription
+    # Guard against nil current_account
+    unless current_account
+      return render_error("No account associated with user", status: :unauthorized)
+    end
+
     @subscription = current_account.subscription
 
     # Verify the subscription ID matches if provided

@@ -309,7 +309,7 @@ class AuditLogIntegrityService
         audit_log.account_id,
         audit_log.ip_address,
         audit_log.user_agent,
-        normalize_details(audit_log.details),
+        normalize_details(audit_log.metadata),
         audit_log.created_at&.to_i,
         audit_log.sequence_number,
         previous_hash

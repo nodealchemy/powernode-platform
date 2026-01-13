@@ -13,8 +13,6 @@ class Account < ApplicationRecord
   has_many :webhook_events, dependent: :destroy
   has_many :revenue_snapshots, dependent: :destroy
   has_many :workers, dependent: :destroy
-  has_many :apps, dependent: :destroy
-  has_many :app_subscriptions, dependent: :destroy
   has_many :api_keys, dependent: :destroy
   has_many :webhook_endpoints, dependent: :destroy
 
@@ -23,7 +21,7 @@ class Account < ApplicationRecord
   has_many :ai_provider_credentials, class_name: "Ai::ProviderCredential", dependent: :destroy
   has_many :ai_agents, class_name: "Ai::Agent", dependent: :destroy
   has_many :ai_conversations, class_name: "Ai::Conversation", dependent: :destroy
-  has_many :ai_messages, class_name: "Ai::Message", dependent: :destroy
+  has_many :ai_messages, through: :ai_conversations, source: :messages
   has_many :ai_agent_executions, class_name: "Ai::AgentExecution", dependent: :destroy
   has_many :ai_agent_teams, class_name: "Ai::AgentTeam", dependent: :destroy
 

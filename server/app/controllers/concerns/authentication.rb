@@ -58,13 +58,14 @@ module Authentication
       # Validate user/account status for user tokens
       if @current_user
         return render_unauthorized("User inactive") unless @current_user.active?
+        return render_unauthorized("No account associated") unless @current_account
         return render_unauthorized("Account suspended") unless @current_account.active?
         @current_user.record_login! if should_record_login?
       end
 
     rescue StandardError => e
       Rails.logger.error "Authentication error: #{e.message}"
-      render_unauthorized("Invalid access token")
+      return render_unauthorized("Invalid access token")
     end
   end
 
