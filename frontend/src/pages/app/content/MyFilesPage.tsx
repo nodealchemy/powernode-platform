@@ -206,11 +206,18 @@ const MyFilesPage: React.FC = () => {
     return Math.round((fileStats.total_size / quotaBytes) * 100);
   };
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Content', href: '/app/content' },
+    { label: 'My Files' }
+  ];
+
   if (!canRead) {
     return (
       <PageContainer
         title="My Files"
         description="Access denied"
+        breadcrumbs={breadcrumbs}
       >
         <div className="text-center py-12">
           <p className="text-theme-secondary">
@@ -225,6 +232,7 @@ const MyFilesPage: React.FC = () => {
     <PageContainer
       title="My Files"
       description="Manage your personal files and documents"
+      breadcrumbs={breadcrumbs}
       actions={
         canUpload
           ? [

@@ -180,10 +180,17 @@ const AgentTeamsPage: React.FC = () => {
     }
   };
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'AI', href: '/app/ai' },
+    { label: 'Agent Teams' }
+  ];
+
   return (
     <PageContainer
       title="Agent Teams"
       description="Manage CrewAI-style multi-agent teams for collaborative AI orchestration"
+      breadcrumbs={breadcrumbs}
       actions={[
         {
           label: 'Create Team',

@@ -103,9 +103,14 @@ const PrivacyDashboardPage: React.FC = () => {
     }
   };
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Privacy Center' }
+  ];
+
   if (loading) {
     return (
-      <PageContainer title="Privacy Center">
+      <PageContainer title="Privacy Center" breadcrumbs={breadcrumbs}>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-theme-primary"></div>
         </div>
@@ -117,6 +122,7 @@ const PrivacyDashboardPage: React.FC = () => {
     <PageContainer
       title="Privacy Center"
       description="Manage your privacy settings and data"
+      breadcrumbs={breadcrumbs}
     >
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

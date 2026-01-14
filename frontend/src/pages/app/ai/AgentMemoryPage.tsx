@@ -18,6 +18,13 @@ export function AgentMemoryPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'AI', href: '/app/ai' },
+    { label: 'Agents', href: '/app/ai/agents' },
+    { label: agent?.name || 'Memory' }
+  ];
+
   useEffect(() => {
     if (agentId) {
       loadAgentMemory();
@@ -75,7 +82,7 @@ export function AgentMemoryPage() {
 
   if (isLoading) {
     return (
-      <PageContainer title="Loading..." description="">
+      <PageContainer title="Loading..." description="" breadcrumbs={breadcrumbs}>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-theme-primary border-t-transparent" />
         </div>
@@ -85,7 +92,7 @@ export function AgentMemoryPage() {
 
   if (!agentId || !agent) {
     return (
-      <PageContainer title="Agent Not Found" description="">
+      <PageContainer title="Agent Not Found" description="" breadcrumbs={breadcrumbs}>
         <div className="text-center py-12">
           <p className="text-theme-secondary">The agent you're looking for doesn't exist.</p>
           <button
@@ -105,6 +112,7 @@ export function AgentMemoryPage() {
       <PageContainer
         title={editingEntry ? 'Edit Memory' : 'Add Memory'}
         description={agent.name}
+        breadcrumbs={breadcrumbs}
         actions={[
           {
             label: 'Cancel',
@@ -138,6 +146,7 @@ export function AgentMemoryPage() {
     <PageContainer
       title={`${agent.name} Memory`}
       description="View and manage agent memories"
+      breadcrumbs={breadcrumbs}
       actions={[
         {
           label: 'Clear All',

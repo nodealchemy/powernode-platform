@@ -74,7 +74,10 @@
     "lint:check": "eslint --print-config .eslintrc.js",
     "typecheck": "tsc --noEmit",
     "cypress:open": "cypress open",
-    "cypress:run": "cypress run"
+    "cypress:run": "cypress run",
+    "cypress:parallel": "cypress-split",
+    "cypress:parallel:2": "npm run cypress:parallel -- --split 2",
+    "cypress:parallel:4": "npm run cypress:parallel -- --split 4"
   },
   "eslintConfig": {
     "plugins": [
@@ -107,9 +110,6 @@
     "@babel/preset-env": "^7.28.5",
     "@babel/preset-react": "^7.28.5",
     "@babel/preset-typescript": "^7.28.5",
-    "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
-    "jest-watch-typeahead": "^2.2.2",
     "@cypress/react": "^9.0.1",
     "@cypress/webpack-dev-server": "^4.1.1",
     "@testing-library/jest-dom": "^6.6.4",
@@ -119,9 +119,13 @@
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.0",
     "cypress": "^14.5.4",
+    "cypress-split": "^1.24.25",
     "eslint-plugin-security": "^3.0.1",
     "glob": "^11.0.3",
     "identity-obj-proxy": "^3.0.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "jest-watch-typeahead": "^2.2.2",
     "postcss": "^8.5.6",
     "redux-mock-store": "^1.5.5",
     "tailwindcss": "^3.4.17",

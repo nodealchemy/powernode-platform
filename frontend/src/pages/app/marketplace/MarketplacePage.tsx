@@ -90,11 +90,17 @@ export const MarketplacePage: React.FC = () => {
     }
   }, [items, addNotification]);
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Marketplace' }
+  ];
+
   if (loading) {
     return (
       <PageContainer
         title="Marketplace"
         description="Browse and subscribe to workflow, pipeline, integration, and prompt templates"
+        breadcrumbs={breadcrumbs}
       >
         <LoadingSpinner className="py-12" />
       </PageContainer>
@@ -105,6 +111,7 @@ export const MarketplacePage: React.FC = () => {
     <PageContainer
       title="Marketplace"
       description="Browse and subscribe to workflow, pipeline, integration, and prompt templates"
+      breadcrumbs={breadcrumbs}
     >
       {/* Search and Filters */}
       <div className="mb-6 space-y-4">

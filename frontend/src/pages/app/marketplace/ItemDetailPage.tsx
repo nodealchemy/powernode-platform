@@ -79,9 +79,15 @@ export const ItemDetailPage: React.FC = () => {
     navigate('/app/marketplace');
   };
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Marketplace', href: '/app/marketplace' },
+    { label: item?.name || 'Item Details' }
+  ];
+
   if (loading) {
     return (
-      <PageContainer title="Loading...">
+      <PageContainer title="Loading..." breadcrumbs={breadcrumbs}>
         <LoadingSpinner className="py-12" />
       </PageContainer>
     );
@@ -99,6 +105,7 @@ export const ItemDetailPage: React.FC = () => {
     <PageContainer
       title={item.name}
       description={item.description}
+      breadcrumbs={breadcrumbs}
       actions={[
         {
           label: 'Back to Marketplace',

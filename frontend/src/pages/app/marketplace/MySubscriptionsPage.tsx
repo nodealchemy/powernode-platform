@@ -172,11 +172,18 @@ export const MySubscriptionsPage: React.FC = () => {
     }`;
   };
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Marketplace', href: '/app/marketplace' },
+    { label: 'My Subscriptions' }
+  ];
+
   if (loading) {
     return (
       <PageContainer
         title="My Subscriptions"
         description="Manage your marketplace subscriptions"
+        breadcrumbs={breadcrumbs}
       >
         <LoadingSpinner className="py-12" />
       </PageContainer>
@@ -187,6 +194,7 @@ export const MySubscriptionsPage: React.FC = () => {
     <PageContainer
       title="My Subscriptions"
       description="Manage your marketplace subscriptions"
+      breadcrumbs={breadcrumbs}
       actions={[
         {
           label: 'Browse Marketplace',
