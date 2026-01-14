@@ -20,17 +20,18 @@
 describe('Business Customers Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Customers page', () => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Customers') ||
@@ -46,7 +47,7 @@ describe('Business Customers Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Customers');
@@ -60,7 +61,7 @@ describe('Business Customers Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Manage') ||
@@ -75,7 +76,7 @@ describe('Business Customers Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -92,7 +93,7 @@ describe('Business Customers Page Tests', () => {
   describe('Statistics Cards', () => {
     beforeEach(() => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Customers stat', () => {
@@ -170,7 +171,7 @@ describe('Business Customers Page Tests', () => {
   describe('Customer List Display', () => {
     beforeEach(() => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display customer list or empty state', () => {
@@ -238,7 +239,7 @@ describe('Business Customers Page Tests', () => {
   describe('Search and Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display search input', () => {
@@ -256,8 +257,7 @@ describe('Business Customers Page Tests', () => {
       cy.get('body').then($body => {
         const searchInput = $body.find('input[placeholder*="Search"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('john');
-          cy.wait(500);
+          cy.wrap(searchInput).first().should('be.visible').type('john');
           cy.log('Search performed');
         }
       });
@@ -282,11 +282,10 @@ describe('Business Customers Page Tests', () => {
       cy.get('body').then($body => {
         const selects = $body.find('select');
         if (selects.length > 0) {
-          cy.wrap(selects).first().then($select => {
+          cy.wrap(selects).first().should('be.visible').then($select => {
             const options = $select.find('option');
             if (options.length > 1) {
               cy.wrap($select).select(1);
-              cy.wait(500);
               cy.log('Filtered by status');
             }
           });
@@ -300,7 +299,7 @@ describe('Business Customers Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Add Customer button', () => {
@@ -340,8 +339,8 @@ describe('Business Customers Page Tests', () => {
       cy.get('body').then($body => {
         const addButton = $body.find('button:contains("Add Customer"), button:contains("New Customer"), button:contains("Create")');
         if (addButton.length > 0) {
-          cy.wrap(addButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(addButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[class*="modal"], [class*="Modal"]').length > 0 ||
                              $modalBody.text().includes('Add Customer') ||
@@ -360,13 +359,13 @@ describe('Business Customers Page Tests', () => {
   describe('Add Customer Modal', () => {
     beforeEach(() => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       // Try to open add customer modal
       cy.get('body').then($body => {
         const addButton = $body.find('button:contains("Add Customer"), button:contains("New Customer")');
         if (addButton.length > 0) {
-          cy.wrap(addButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(addButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
         }
       });
     });
@@ -433,7 +432,7 @@ describe('Business Customers Page Tests', () => {
   describe('Customer Actions', () => {
     beforeEach(() => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have View action', () => {
@@ -484,7 +483,7 @@ describe('Business Customers Page Tests', () => {
   describe('Pagination', () => {
     beforeEach(() => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pagination controls', () => {
@@ -516,7 +515,7 @@ describe('Business Customers Page Tests', () => {
   describe('Permission Check', () => {
     it('should show permission message for unauthorized users', () => {
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermission = $body.text().includes("don't have permission") ||
@@ -536,10 +535,10 @@ describe('Business Customers Page Tests', () => {
       cy.intercept('GET', '/api/v1/customers*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getCustomersError');
 
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -550,10 +549,10 @@ describe('Business Customers Page Tests', () => {
       cy.intercept('GET', '/api/v1/customers*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load customers' }
-      });
+      }).as('getCustomersError');
 
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -574,7 +573,7 @@ describe('Business Customers Page Tests', () => {
         delay: 1000,
         statusCode: 200,
         body: { success: true, customers: [] }
-      });
+      }).as('getCustomersDelayed');
 
       cy.visit('/app/business/customers');
 
@@ -595,10 +594,10 @@ describe('Business Customers Page Tests', () => {
       cy.intercept('GET', '/api/v1/customers*', {
         statusCode: 200,
         body: { success: true, customers: [] }
-      });
+      }).as('getCustomersEmpty');
 
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmpty = $body.text().includes('No customers') ||
@@ -616,7 +615,7 @@ describe('Business Customers Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -630,7 +629,7 @@ describe('Business Customers Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -644,7 +643,7 @@ describe('Business Customers Page Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -652,7 +651,7 @@ describe('Business Customers Page Tests', () => {
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/business/customers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMultiColumn = $body.find('[class*="grid-cols"], [class*="md:grid-cols"]').length > 0;
@@ -665,3 +664,6 @@ describe('Business Customers Page Tests', () => {
     });
   });
 });
+
+
+export {};

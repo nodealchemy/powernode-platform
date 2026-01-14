@@ -17,30 +17,31 @@
 describe('AI Providers Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to AI Providers from sidebar', () => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const aiLink = $body.find('a[href*="/ai"], button:contains("AI")');
 
         if (aiLink.length > 0) {
-          cy.wrap(aiLink).first().click();
-          cy.wait(500);
+          cy.wrap(aiLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
 
           cy.get('body').then($newBody => {
             const providersLink = $newBody.find('a[href*="/providers"]');
             if (providersLink.length > 0) {
-              cy.wrap(providersLink).first().click();
+              cy.wrap(providersLink).first().should('be.visible').click();
             } else {
               cy.visit('/app/ai/providers');
             }
@@ -56,6 +57,7 @@ describe('AI Providers Tests', () => {
 
     it('should load AI Providers page directly', () => {
       cy.visit('/app/ai/providers');
+      cy.waitForPageLoad();
 
       cy.url().then(url => {
         if (url.includes('/providers')) {
@@ -71,6 +73,7 @@ describe('AI Providers Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/ai/providers');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') &&
@@ -88,12 +91,12 @@ describe('AI Providers Tests', () => {
   describe('Providers List Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display providers list or empty state', () => {
       cy.get('body').then($body => {
-        const hasProviders = $body.find('[class*="provider"], [class*="card"], [class*="list"]').length > 0 ||
+        const _hasProviders = $body.find('[class*="provider"], [class*="card"], [class*="list"]').length > 0 ||
                              $body.text().includes('No providers') ||
                              $body.text().includes('Configure');
 
@@ -160,7 +163,7 @@ describe('AI Providers Tests', () => {
   describe('Provider Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have configure action for providers', () => {
@@ -181,8 +184,8 @@ describe('AI Providers Tests', () => {
         const configureButton = $body.find('button:contains("Configure"), button:contains("Setup")');
 
         if (configureButton.length > 0) {
-          cy.wrap(configureButton).first().click();
-          cy.wait(500);
+          cy.wrap(configureButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0 ||
@@ -204,8 +207,8 @@ describe('AI Providers Tests', () => {
         const configureButton = $body.find('button:contains("Configure"), button:contains("Setup")');
 
         if (configureButton.length > 0) {
-          cy.wrap(configureButton).first().click();
-          cy.wait(500);
+          cy.wrap(configureButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const apiKeyInput = $newBody.find('input[name="apiKey"], input[name="api_key"], input[placeholder*="API"]');
@@ -226,15 +229,15 @@ describe('AI Providers Tests', () => {
         const configureButton = $body.find('button:contains("Configure")');
 
         if (configureButton.length > 0) {
-          cy.wrap(configureButton).first().click();
-          cy.wait(500);
+          cy.wrap(configureButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const cancelButton = $newBody.find('button:contains("Cancel"), button:contains("Close")');
 
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click();
-              cy.wait(500);
+              cy.wrap(cancelButton).first().should('be.visible').click();
+              cy.waitForModalClose();
               cy.log('Modal closed');
             }
           });
@@ -248,7 +251,7 @@ describe('AI Providers Tests', () => {
   describe('Provider Status Management', () => {
     beforeEach(() => {
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have enable/disable action for providers', () => {
@@ -269,8 +272,8 @@ describe('AI Providers Tests', () => {
         const toggleButton = $body.find('button:contains("Enable"), button:contains("Disable")');
 
         if (toggleButton.length > 0) {
-          cy.wrap(toggleButton).first().click();
-          cy.wait(1000);
+          cy.wrap(toggleButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.get('body').should('be.visible');
           cy.log('Provider status toggled');
         }
@@ -297,7 +300,7 @@ describe('AI Providers Tests', () => {
   describe('Provider Details', () => {
     beforeEach(() => {
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have view details action', () => {
@@ -347,7 +350,7 @@ describe('AI Providers Tests', () => {
   describe('API Key Management', () => {
     beforeEach(() => {
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should mask API keys when displayed', () => {
@@ -382,8 +385,8 @@ describe('AI Providers Tests', () => {
         const configureButton = $body.find('button:contains("Configure")');
 
         if (configureButton.length > 0) {
-          cy.wrap(configureButton).first().click();
-          cy.wait(500);
+          cy.wrap(configureButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const apiKeyInput = $newBody.find('input[name="apiKey"], input[name="api_key"]');
@@ -393,8 +396,8 @@ describe('AI Providers Tests', () => {
 
               const saveButton = $newBody.find('button[type="submit"], button:contains("Save")');
               if (saveButton.length > 0) {
-                cy.wrap(saveButton).first().click();
-                cy.wait(500);
+                cy.wrap(saveButton).first().should('be.visible').click();
+                cy.waitForPageLoad();
 
                 // Check for validation error
                 cy.get('body').then($errorBody => {
@@ -419,7 +422,7 @@ describe('AI Providers Tests', () => {
   describe('Provider Testing', () => {
     beforeEach(() => {
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have test connection action', () => {
@@ -440,8 +443,8 @@ describe('AI Providers Tests', () => {
         const testButton = $body.find('button:contains("Test")');
 
         if (testButton.length > 0) {
-          cy.wrap(testButton).first().click();
-          cy.wait(2000);
+          cy.wrap(testButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
 
           cy.get('body').then($newBody => {
             const hasResult = $newBody.text().includes('Success') ||
@@ -463,7 +466,7 @@ describe('AI Providers Tests', () => {
   describe('Provider Settings', () => {
     beforeEach(() => {
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have settings/preferences option', () => {
@@ -516,10 +519,11 @@ describe('AI Providers Tests', () => {
           success: true,
           data: { providers: [] }
         }
-      });
+      }).as('emptyProviders');
 
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.wait('@emptyProviders');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmptyState = $body.text().includes('No providers') ||
@@ -541,10 +545,11 @@ describe('AI Providers Tests', () => {
       cy.intercept('GET', '/api/v1/ai/providers*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('serverError');
 
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.wait('@serverError');
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -555,10 +560,11 @@ describe('AI Providers Tests', () => {
       cy.intercept('GET', '/api/v1/ai/providers*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load providers' }
-      });
+      }).as('loadError');
 
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.wait('@loadError');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -577,17 +583,17 @@ describe('AI Providers Tests', () => {
       cy.intercept('POST', '/api/v1/ai/providers/*/test', {
         statusCode: 401,
         body: { success: false, error: 'Invalid API key' }
-      });
+      }).as('invalidKeyError');
 
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const testButton = $body.find('button:contains("Test")');
 
         if (testButton.length > 0) {
-          cy.wrap(testButton).first().click();
-          cy.wait(1000);
+          cy.wrap(testButton).first().should('be.visible').click();
+          cy.wait('@invalidKeyError');
 
           cy.get('body').then($newBody => {
             const hasError = $newBody.text().includes('Invalid') ||
@@ -609,7 +615,7 @@ describe('AI Providers Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -623,7 +629,7 @@ describe('AI Providers Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -637,9 +643,12 @@ describe('AI Providers Tests', () => {
     it('should stack provider cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

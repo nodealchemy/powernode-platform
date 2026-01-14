@@ -9,12 +9,14 @@
 describe('User Profile and Settings Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.waitForPageLoad();
   });
 
   describe('User Profile Display', () => {
@@ -53,7 +55,7 @@ describe('User Profile and Settings Tests', () => {
 
         for (const selector of userMenuSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -64,6 +66,7 @@ describe('User Profile and Settings Tests', () => {
 
     it('should access settings page directly', () => {
       cy.visit('/app/settings/profile');
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -79,7 +82,7 @@ describe('User Profile and Settings Tests', () => {
 
         for (const selector of settingsSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -90,6 +93,7 @@ describe('User Profile and Settings Tests', () => {
 
     it('should display settings form', () => {
       cy.visit('/app/settings/profile');
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const formElements = [
           'form',
@@ -110,6 +114,7 @@ describe('User Profile and Settings Tests', () => {
   describe('Security Settings', () => {
     it('should navigate to security settings if available', () => {
       cy.visit('/app/settings/security');
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -120,8 +125,9 @@ describe('User Profile and Settings Tests', () => {
         if ($body.find('[data-testid="theme-toggle"], .theme-toggle, [aria-label*="theme"]').length > 0) {
           cy.get('[data-testid="theme-toggle"], .theme-toggle, [aria-label*="theme"]')
             .first()
+            .should('be.visible')
             .click();
-          cy.wait(500);
+          cy.waitForPageLoad();
           cy.get('body').should('be.visible');
         } else {
           cy.log('Theme toggle not available');
@@ -131,6 +137,7 @@ describe('User Profile and Settings Tests', () => {
 
     it('should persist preferences across page reload', () => {
       cy.reload();
+      cy.waitForPageLoad();
       cy.url().should('match', /\/(app|dashboard)/);
       cy.get('body').should('be.visible');
     });
@@ -139,12 +146,14 @@ describe('User Profile and Settings Tests', () => {
   describe('Mobile Profile Management', () => {
     it('should handle profile management on mobile viewport', () => {
       cy.viewport(375, 667);
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
       cy.url().should('match', /\/(app|dashboard)/);
     });
 
     it('should access user menu on mobile', () => {
       cy.viewport(375, 667);
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const userMenuSelectors = [
           '[data-testid="user-menu"]',
@@ -154,7 +163,7 @@ describe('User Profile and Settings Tests', () => {
 
         for (const selector of userMenuSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -165,6 +174,7 @@ describe('User Profile and Settings Tests', () => {
 
     it('should handle tablet viewport', () => {
       cy.viewport('ipad-2');
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -178,9 +188,11 @@ describe('User Profile and Settings Tests', () => {
 
     it('should maintain session across navigation', () => {
       cy.visit('/app/settings/profile');
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
 
       cy.visit('/app');
+      cy.waitForPageLoad();
       cy.url().should('match', /\/(app|dashboard)/);
     });
   });
@@ -191,3 +203,6 @@ describe('User Profile and Settings Tests', () => {
     });
   });
 });
+
+
+export {};

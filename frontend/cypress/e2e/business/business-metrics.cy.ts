@@ -16,17 +16,18 @@
 describe('Business Metrics Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Metrics page', () => {
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Metrics') ||
@@ -42,7 +43,7 @@ describe('Business Metrics Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Metrics');
@@ -56,7 +57,7 @@ describe('Business Metrics Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Key performance indicators') ||
@@ -71,7 +72,7 @@ describe('Business Metrics Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard');
@@ -87,7 +88,7 @@ describe('Business Metrics Page Tests', () => {
   describe('Revenue Metrics Display', () => {
     beforeEach(() => {
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Monthly Recurring Revenue', () => {
@@ -166,7 +167,7 @@ describe('Business Metrics Page Tests', () => {
   describe('KPI Section', () => {
     beforeEach(() => {
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Key Performance Indicators section', () => {
@@ -206,7 +207,7 @@ describe('Business Metrics Page Tests', () => {
   describe('Growth Metrics', () => {
     beforeEach(() => {
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Customer Acquisition Rate', () => {
@@ -246,7 +247,7 @@ describe('Business Metrics Page Tests', () => {
   describe('Retention Metrics', () => {
     beforeEach(() => {
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Customer Retention Rate', () => {
@@ -286,7 +287,7 @@ describe('Business Metrics Page Tests', () => {
   describe('Progress Bars', () => {
     beforeEach(() => {
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display progress bars for metrics', () => {
@@ -327,7 +328,7 @@ describe('Business Metrics Page Tests', () => {
   describe('Metric Cards Layout', () => {
     beforeEach(() => {
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display metrics in grid layout', () => {
@@ -378,7 +379,7 @@ describe('Business Metrics Page Tests', () => {
   describe('Trend Indicators', () => {
     beforeEach(() => {
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display upward trend indicator', () => {
@@ -412,7 +413,7 @@ describe('Business Metrics Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -426,7 +427,7 @@ describe('Business Metrics Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -440,7 +441,7 @@ describe('Business Metrics Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -448,7 +449,7 @@ describe('Business Metrics Page Tests', () => {
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/business/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMultiColumn = $body.find('[class*="md:grid-cols"], [class*="lg:grid-cols"]').length > 0 ||
@@ -462,3 +463,6 @@ describe('Business Metrics Page Tests', () => {
     });
   });
 });
+
+
+export {};

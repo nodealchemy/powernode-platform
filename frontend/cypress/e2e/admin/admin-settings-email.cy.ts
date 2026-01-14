@@ -14,17 +14,18 @@
 describe('Admin Settings Email Tab Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Email Settings tab', () => {
       cy.visit('/app/admin/settings/email');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Email') ||
@@ -41,7 +42,7 @@ describe('Admin Settings Email Tab Tests', () => {
     it('should redirect unauthorized users', () => {
       // Test handles authorization check - page should either load or redirect
       cy.visit('/app/admin/settings/email');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -49,7 +50,7 @@ describe('Admin Settings Email Tab Tests', () => {
   describe('SMTP Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/email');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display SMTP host field', () => {
@@ -120,7 +121,7 @@ describe('Admin Settings Email Tab Tests', () => {
   describe('Email Provider Selection', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/email');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display provider options', () => {
@@ -152,7 +153,7 @@ describe('Admin Settings Email Tab Tests', () => {
   describe('Email Templates', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/email');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display email templates section', () => {
@@ -185,7 +186,7 @@ describe('Admin Settings Email Tab Tests', () => {
   describe('Test Email Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/email');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have test email button', () => {
@@ -217,7 +218,7 @@ describe('Admin Settings Email Tab Tests', () => {
   describe('Save Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/email');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have save button', () => {
@@ -252,7 +253,7 @@ describe('Admin Settings Email Tab Tests', () => {
       });
 
       cy.visit('/app/admin/settings/email');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -263,7 +264,7 @@ describe('Admin Settings Email Tab Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/email');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -271,9 +272,12 @@ describe('Admin Settings Email Tab Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/settings/email');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

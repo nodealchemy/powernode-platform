@@ -21,17 +21,18 @@
 describe('Account Profile Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Profile page', () => {
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Profile') ||
@@ -47,7 +48,7 @@ describe('Account Profile Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Profile') ||
@@ -62,7 +63,7 @@ describe('Account Profile Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -79,7 +80,7 @@ describe('Account Profile Page Tests', () => {
   describe('Profile Information Display', () => {
     beforeEach(() => {
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display user name', () => {
@@ -134,7 +135,7 @@ describe('Account Profile Page Tests', () => {
   describe('Profile Editing', () => {
     beforeEach(() => {
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Edit Profile button', () => {
@@ -174,7 +175,7 @@ describe('Account Profile Page Tests', () => {
   describe('Security Settings', () => {
     beforeEach(() => {
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display security section', () => {
@@ -231,7 +232,7 @@ describe('Account Profile Page Tests', () => {
   describe('Email Preferences', () => {
     beforeEach(() => {
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display email preferences section', () => {
@@ -262,7 +263,7 @@ describe('Account Profile Page Tests', () => {
   describe('Account Information', () => {
     beforeEach(() => {
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display account name', () => {
@@ -308,7 +309,7 @@ describe('Account Profile Page Tests', () => {
   describe('Danger Zone', () => {
     beforeEach(() => {
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display danger zone section', () => {
@@ -328,7 +329,7 @@ describe('Account Profile Page Tests', () => {
   describe('API Key Management', () => {
     beforeEach(() => {
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display API keys section', () => {
@@ -352,7 +353,7 @@ describe('Account Profile Page Tests', () => {
       });
 
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -363,16 +364,16 @@ describe('Account Profile Page Tests', () => {
       cy.intercept('PUT', '/api/v1/profile*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to update profile' }
-      });
+      }).as('updateProfile');
 
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const saveButton = $body.find('button:contains("Save"), button:contains("Update")');
         if (saveButton.length > 0) {
-          cy.wrap(saveButton).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(saveButton).first().should('be.visible').click();
+          cy.wait('@updateProfile');
         }
       });
 
@@ -405,7 +406,7 @@ describe('Account Profile Page Tests', () => {
   describe('Session Information', () => {
     beforeEach(() => {
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display active sessions', () => {
@@ -439,7 +440,7 @@ describe('Account Profile Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -453,7 +454,7 @@ describe('Account Profile Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -467,7 +468,7 @@ describe('Account Profile Page Tests', () => {
     it('should stack sections on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -475,7 +476,7 @@ describe('Account Profile Page Tests', () => {
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/account/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMultiColumn = $body.find('[class*="md:grid-cols"], [class*="lg:grid-cols"]').length > 0 ||
@@ -489,3 +490,6 @@ describe('Account Profile Page Tests', () => {
     });
   });
 });
+
+
+export {};

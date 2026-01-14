@@ -16,16 +16,17 @@ describe('Content Page Editor Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.setupContentIntercepts();
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Pages management', () => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Pages') ||
@@ -41,7 +42,7 @@ describe('Content Page Editor Tests', () => {
 
     it('should display page list', () => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPageList = $body.find('table, [class*="list"], [class*="grid"]').length > 0;
@@ -57,7 +58,7 @@ describe('Content Page Editor Tests', () => {
   describe('Page Creation', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Create Page button', () => {
@@ -75,8 +76,8 @@ describe('Content Page Editor Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create"), button:contains("New Page")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
 
           cy.get('body').then($editorBody => {
             const hasEditor = $editorBody.text().includes('Title') ||
@@ -93,8 +94,8 @@ describe('Content Page Editor Tests', () => {
     });
 
     it('should have title field', () => {
-      cy.get('button').contains(/Create|New/).first().click({ force: true });
-      cy.wait(1000);
+      cy.get('button').contains(/Create|New/).first().should('be.visible').click();
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.find('input[name*="title"], input[placeholder*="Title"]').length > 0 ||
@@ -108,8 +109,8 @@ describe('Content Page Editor Tests', () => {
     });
 
     it('should have slug field', () => {
-      cy.get('button').contains(/Create|New/).first().click({ force: true });
-      cy.wait(1000);
+      cy.get('button').contains(/Create|New/).first().should('be.visible').click();
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasSlug = $body.find('input[name*="slug"], input[placeholder*="slug"]').length > 0 ||
@@ -127,9 +128,9 @@ describe('Content Page Editor Tests', () => {
   describe('Rich Text Editor', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
-      cy.get('button').contains(/Create|New|Edit/).first().click({ force: true });
-      cy.wait(1000);
+      cy.waitForPageLoad();
+      cy.get('button').contains(/Create|New|Edit/).first().should('be.visible').click();
+      cy.waitForPageLoad();
     });
 
     it('should display rich text editor', () => {
@@ -208,9 +209,9 @@ describe('Content Page Editor Tests', () => {
   describe('Page Settings', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
-      cy.get('button').contains(/Create|New|Edit/).first().click({ force: true });
-      cy.wait(1000);
+      cy.waitForPageLoad();
+      cy.get('button').contains(/Create|New|Edit/).first().should('be.visible').click();
+      cy.waitForPageLoad();
     });
 
     it('should have SEO settings', () => {
@@ -255,9 +256,9 @@ describe('Content Page Editor Tests', () => {
   describe('Publishing Workflow', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
-      cy.get('button').contains(/Create|New|Edit/).first().click({ force: true });
-      cy.wait(1000);
+      cy.waitForPageLoad();
+      cy.get('button').contains(/Create|New|Edit/).first().should('be.visible').click();
+      cy.waitForPageLoad();
     });
 
     it('should have Save Draft button', () => {
@@ -311,9 +312,9 @@ describe('Content Page Editor Tests', () => {
   describe('Preview Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
-      cy.get('button').contains(/Create|New|Edit/).first().click({ force: true });
-      cy.wait(1000);
+      cy.waitForPageLoad();
+      cy.get('button').contains(/Create|New|Edit/).first().should('be.visible').click();
+      cy.waitForPageLoad();
     });
 
     it('should have Preview button', () => {
@@ -344,7 +345,7 @@ describe('Content Page Editor Tests', () => {
   describe('Page List Actions', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have edit action', () => {
@@ -402,7 +403,7 @@ describe('Content Page Editor Tests', () => {
       });
 
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -410,16 +411,16 @@ describe('Content Page Editor Tests', () => {
 
     it('should show validation errors', () => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
-      cy.get('button').contains(/Create|New/).first().click({ force: true });
-      cy.wait(1000);
+      cy.waitForPageLoad();
+      cy.get('button').contains(/Create|New/).first().should('be.visible').click();
+      cy.waitForPageLoad();
 
       // Try to save without required fields
       cy.get('body').then($body => {
         const saveButton = $body.find('button:contains("Save"), button:contains("Publish")');
         if (saveButton.length > 0) {
-          cy.wrap(saveButton).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(saveButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
 
           cy.get('body').then($errorBody => {
             const hasError = $errorBody.text().includes('required') ||
@@ -439,9 +440,9 @@ describe('Content Page Editor Tests', () => {
   describe('Auto-save', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
-      cy.get('button').contains(/Create|New|Edit/).first().click({ force: true });
-      cy.wait(1000);
+      cy.waitForPageLoad();
+      cy.get('button').contains(/Create|New|Edit/).first().should('be.visible').click();
+      cy.waitForPageLoad();
     });
 
     it('should auto-save content', () => {
@@ -462,7 +463,7 @@ describe('Content Page Editor Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -470,7 +471,7 @@ describe('Content Page Editor Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -478,11 +479,14 @@ describe('Content Page Editor Tests', () => {
     it('should display editor properly on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/content/pages');
-      cy.wait(2000);
-      cy.get('button').contains(/Create|New|Edit/).first().click({ force: true });
-      cy.wait(1000);
+      cy.waitForPageLoad();
+      cy.get('button').contains(/Create|New|Edit/).first().should('be.visible').click();
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

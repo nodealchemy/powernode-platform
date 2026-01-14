@@ -15,17 +15,18 @@
 describe('Admin Impersonation Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Admin Impersonation page', () => {
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Impersonation') ||
@@ -42,7 +43,7 @@ describe('Admin Impersonation Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Impersonation') ||
@@ -57,7 +58,7 @@ describe('Admin Impersonation Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Admin') ||
@@ -74,7 +75,7 @@ describe('Admin Impersonation Page Tests', () => {
   describe('Quick Action Cards', () => {
     beforeEach(() => {
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Start Session card', () => {
@@ -131,15 +132,15 @@ describe('Admin Impersonation Page Tests', () => {
   describe('Impersonation Session Modal', () => {
     beforeEach(() => {
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should open impersonate user modal', () => {
       cy.get('body').then($body => {
         const startButton = $body.find('button:contains("Start"), button:contains("Impersonate"), button:contains("New Session")');
         if (startButton.length > 0) {
-          cy.wrap(startButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(startButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[role="dialog"], [class*="modal"], [class*="Modal"]').length > 0;
             if (hasModal) {
@@ -158,8 +159,8 @@ describe('Admin Impersonation Page Tests', () => {
       cy.get('body').then($body => {
         const startButton = $body.find('button:contains("Start"), button:contains("Impersonate")');
         if (startButton.length > 0) {
-          cy.wrap(startButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(startButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasSearch = $modalBody.find('input[type="search"], input[placeholder*="search"], input[placeholder*="Search"]').length > 0;
             if (hasSearch) {
@@ -176,8 +177,8 @@ describe('Admin Impersonation Page Tests', () => {
       cy.get('body').then($body => {
         const startButton = $body.find('button:contains("Start"), button:contains("Impersonate")');
         if (startButton.length > 0) {
-          cy.wrap(startButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(startButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasReason = $modalBody.find('textarea, input[name*="reason"]').length > 0 ||
                               $modalBody.text().includes('Reason');
@@ -195,14 +196,14 @@ describe('Admin Impersonation Page Tests', () => {
       cy.get('body').then($body => {
         const startButton = $body.find('button:contains("Start"), button:contains("Impersonate")');
         if (startButton.length > 0) {
-          cy.wrap(startButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(startButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($modalBody => {
             const cancelButton = $modalBody.find('button:contains("Cancel"), button:contains("Close")');
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click({ force: true });
-              cy.wait(300);
+              cy.wrap(cancelButton).first().should('be.visible').click();
+              cy.waitForModalClose();
               cy.log('Modal closed on cancel');
             }
           });
@@ -216,7 +217,7 @@ describe('Admin Impersonation Page Tests', () => {
   describe('Session History Display', () => {
     beforeEach(() => {
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display session history section', () => {
@@ -275,7 +276,7 @@ describe('Admin Impersonation Page Tests', () => {
   describe('Audit Log Link', () => {
     beforeEach(() => {
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have link to audit logs', () => {
@@ -293,8 +294,7 @@ describe('Admin Impersonation Page Tests', () => {
       cy.get('body').then($body => {
         const auditLink = $body.find('a[href*="audit"]');
         if (auditLink.length > 0) {
-          cy.wrap(auditLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(auditLink).first().should('be.visible').click();
           cy.url().should('include', 'audit');
         } else {
           cy.log('Audit link not clickable or not found');
@@ -320,7 +320,7 @@ describe('Admin Impersonation Page Tests', () => {
       });
 
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermissionCheck = $body.text().includes('Permission') ||
@@ -337,7 +337,7 @@ describe('Admin Impersonation Page Tests', () => {
 
     it('should show impersonation controls for authorized users', () => {
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasControls = $body.find('button:contains("Start"), button:contains("Impersonate")').length > 0 ||
@@ -354,7 +354,7 @@ describe('Admin Impersonation Page Tests', () => {
   describe('Active Session Warning', () => {
     beforeEach(() => {
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display warning about active sessions', () => {
@@ -391,7 +391,7 @@ describe('Admin Impersonation Page Tests', () => {
       });
 
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -405,7 +405,7 @@ describe('Admin Impersonation Page Tests', () => {
       });
 
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -424,7 +424,7 @@ describe('Admin Impersonation Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -438,7 +438,7 @@ describe('Admin Impersonation Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -452,9 +452,12 @@ describe('Admin Impersonation Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/admin/impersonation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

@@ -16,18 +16,19 @@
 describe('AI Analytics Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to AI Analytics from AI section', () => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const analyticsLink = $body.find('a[href*="/analytics"], button:contains("Analytics")');
@@ -45,7 +46,7 @@ describe('AI Analytics Page Tests', () => {
 
     it('should load AI Analytics page directly', () => {
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const text = $body.text();
@@ -96,7 +97,7 @@ describe('AI Analytics Page Tests', () => {
   describe('Analytics Dashboard Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display analytics dashboard', () => {
@@ -131,7 +132,7 @@ describe('AI Analytics Page Tests', () => {
   describe('Key Metrics Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display token usage metrics', () => {
@@ -193,7 +194,7 @@ describe('AI Analytics Page Tests', () => {
   describe('Charts and Visualizations', () => {
     beforeEach(() => {
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display charts', () => {
@@ -240,7 +241,7 @@ describe('AI Analytics Page Tests', () => {
   describe('Date Range Selection', () => {
     beforeEach(() => {
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have date range selector', () => {
@@ -261,15 +262,15 @@ describe('AI Analytics Page Tests', () => {
         const dateRangeButton = $body.find('button:contains("30 days"), button:contains("7 days"), button:contains("Last")').not('select option');
 
         if (dateRangeButton.length > 0) {
-          cy.wrap(dateRangeButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(dateRangeButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Date range changed');
         } else {
           // If using a select dropdown, handle differently
           const selectElement = $body.find('select');
           if (selectElement.length > 0) {
-            cy.wrap(selectElement).first().select(1, { force: true });
-            cy.wait(500);
+            cy.wrap(selectElement).first().should('be.visible').select(1);
+            cy.waitForPageLoad();
             cy.log('Date range changed via select');
           } else {
             cy.log('Date range selector not found - may not be available');
@@ -284,7 +285,7 @@ describe('AI Analytics Page Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -305,8 +306,8 @@ describe('AI Analytics Page Tests', () => {
         const refreshButton = $body.find('button:contains("Refresh")');
 
         if (refreshButton.length > 0) {
-          cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
+          cy.wrap(refreshButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Analytics data refreshed');
         }
       });
@@ -318,7 +319,7 @@ describe('AI Analytics Page Tests', () => {
   describe('Export Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Export button', () => {
@@ -338,11 +339,11 @@ describe('AI Analytics Page Tests', () => {
     it('should handle no analytics data gracefully', () => {
       cy.intercept('GET', '/api/v1/ai/analytics*', {
         statusCode: 200,
-        body: { success: true, data: { metrics: [], charts: [] } }
+        body: { metrics: [], charts: [] }
       });
 
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -358,7 +359,7 @@ describe('AI Analytics Page Tests', () => {
       });
 
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -372,7 +373,7 @@ describe('AI Analytics Page Tests', () => {
       });
 
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -391,7 +392,7 @@ describe('AI Analytics Page Tests', () => {
   describe('Permission-Based Display', () => {
     it('should show content based on permissions', () => {
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('Permission') || $body.text().includes('Access')) {
@@ -409,7 +410,7 @@ describe('AI Analytics Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -423,7 +424,7 @@ describe('AI Analytics Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -437,9 +438,12 @@ describe('AI Analytics Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

@@ -20,17 +20,19 @@
 describe('Admin Marketplace Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
+    cy.setupMarketplaceIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Admin Marketplace page', () => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Marketplace') ||
@@ -47,7 +49,7 @@ describe('Admin Marketplace Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Marketplace') ||
@@ -62,7 +64,7 @@ describe('Admin Marketplace Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Manage') ||
@@ -78,7 +80,7 @@ describe('Admin Marketplace Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -95,7 +97,7 @@ describe('Admin Marketplace Page Tests', () => {
   describe('Tab Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Items tab', () => {
@@ -148,8 +150,8 @@ describe('Admin Marketplace Page Tests', () => {
       cy.get('body').then($body => {
         const pendingTab = $body.find('button:contains("Pending")');
         if (pendingTab.length > 0) {
-          cy.wrap(pendingTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(pendingTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Pending Review tab');
         }
       });
@@ -161,8 +163,8 @@ describe('Admin Marketplace Page Tests', () => {
       cy.get('body').then($body => {
         const reviewsTab = $body.find('button:contains("Reviews")');
         if (reviewsTab.length > 0) {
-          cy.wrap(reviewsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(reviewsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Reviews tab');
         }
       });
@@ -174,8 +176,8 @@ describe('Admin Marketplace Page Tests', () => {
       cy.get('body').then($body => {
         const analyticsTab = $body.find('button:contains("Analytics")');
         if (analyticsTab.length > 0) {
-          cy.wrap(analyticsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(analyticsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Analytics tab');
         }
       });
@@ -187,7 +189,7 @@ describe('Admin Marketplace Page Tests', () => {
   describe('Statistics Cards', () => {
     beforeEach(() => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Items stat', () => {
@@ -241,7 +243,7 @@ describe('Admin Marketplace Page Tests', () => {
   describe('Template List Display', () => {
     beforeEach(() => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display template list or empty state', () => {
@@ -312,7 +314,7 @@ describe('Admin Marketplace Page Tests', () => {
   describe('Search and Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display search input', () => {
@@ -330,8 +332,8 @@ describe('Admin Marketplace Page Tests', () => {
       cy.get('body').then($body => {
         const searchInput = $body.find('input[placeholder*="Search"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('workflow');
-          cy.wait(500);
+          cy.wrap(searchInput).first().should('be.visible').type('workflow');
+          cy.waitForPageLoad();
           cy.log('Search performed');
         }
       });
@@ -368,7 +370,7 @@ describe('Admin Marketplace Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Export Report button', () => {
@@ -397,7 +399,7 @@ describe('Admin Marketplace Page Tests', () => {
   describe('Template Actions', () => {
     beforeEach(() => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have View action', () => {
@@ -459,13 +461,13 @@ describe('Admin Marketplace Page Tests', () => {
   describe('Pending Review Tab', () => {
     beforeEach(() => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       // Switch to Pending Review tab
       cy.get('body').then($body => {
         const pendingTab = $body.find('button:contains("Pending")');
         if (pendingTab.length > 0) {
-          cy.wrap(pendingTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(pendingTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -500,13 +502,13 @@ describe('Admin Marketplace Page Tests', () => {
   describe('Reviews Tab', () => {
     beforeEach(() => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       // Switch to Reviews tab
       cy.get('body').then($body => {
         const reviewsTab = $body.find('button:contains("Reviews")');
         if (reviewsTab.length > 0) {
-          cy.wrap(reviewsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(reviewsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -552,13 +554,13 @@ describe('Admin Marketplace Page Tests', () => {
   describe('Analytics Tab', () => {
     beforeEach(() => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       // Switch to Analytics tab
       cy.get('body').then($body => {
         const analyticsTab = $body.find('button:contains("Analytics")');
         if (analyticsTab.length > 0) {
-          cy.wrap(analyticsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(analyticsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -604,7 +606,7 @@ describe('Admin Marketplace Page Tests', () => {
   describe('Permission Check', () => {
     it('should show permission message for unauthorized users', () => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermission = $body.text().includes("don't have permission") ||
@@ -624,10 +626,10 @@ describe('Admin Marketplace Page Tests', () => {
       cy.intercept('GET', '/api/v1/admin/marketplace*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('marketplaceError');
 
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -638,10 +640,10 @@ describe('Admin Marketplace Page Tests', () => {
       cy.intercept('GET', '/api/v1/admin/marketplace*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load marketplace data' }
-      });
+      }).as('marketplaceError');
 
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -662,7 +664,7 @@ describe('Admin Marketplace Page Tests', () => {
         delay: 1000,
         statusCode: 200,
         body: { success: true, templates: [] }
-      });
+      }).as('marketplaceDelay');
 
       cy.visit('/app/admin/marketplace');
 
@@ -683,10 +685,10 @@ describe('Admin Marketplace Page Tests', () => {
       cy.intercept('GET', '/api/v1/admin/marketplace*', {
         statusCode: 200,
         body: { success: true, templates: [] }
-      });
+      }).as('marketplaceEmpty');
 
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmpty = $body.text().includes('No templates') ||
@@ -703,7 +705,7 @@ describe('Admin Marketplace Page Tests', () => {
   describe('Pagination', () => {
     beforeEach(() => {
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pagination controls', () => {
@@ -724,7 +726,7 @@ describe('Admin Marketplace Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -738,7 +740,7 @@ describe('Admin Marketplace Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -752,7 +754,7 @@ describe('Admin Marketplace Page Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -760,7 +762,7 @@ describe('Admin Marketplace Page Tests', () => {
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/admin/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMultiColumn = $body.find('[class*="grid-cols"], [class*="md:grid-cols"]').length > 0;
@@ -773,3 +775,6 @@ describe('Admin Marketplace Page Tests', () => {
     });
   });
 });
+
+
+export {};

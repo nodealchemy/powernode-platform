@@ -1,4 +1,5 @@
 import { defineConfig } from 'cypress';
+import cypressSplit from 'cypress-split';
 
 export default defineConfig({
   e2e: {
@@ -15,8 +16,14 @@ export default defineConfig({
       runMode: 2,
       openMode: 0,
     },
+    // Parallelization settings
+    // Run tests in parallel: npm run cypress:parallel:4 (splits across 4 processes)
+    experimentalRunAllSpecs: true, // Enables running multiple spec files more efficiently
     setupNodeEvents(on, config) {
-      // implement node event listeners here
+      // Enable cypress-split for local parallelization
+      cypressSplit(on, config);
+
+      return config;
     },
     env: {
       apiUrl: 'http://localhost:3000/api/v1',

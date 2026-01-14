@@ -17,16 +17,17 @@ describe('Admin Roles & Permissions Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.setupAdminIntercepts();
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Admin Roles page', () => {
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Roles') ||
@@ -43,7 +44,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Roles') ||
@@ -58,7 +59,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Admin') ||
@@ -75,7 +76,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
   describe('Built-in Roles Display', () => {
     beforeEach(() => {
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display built-in roles section', () => {
@@ -182,7 +183,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
   describe('Custom Roles Section', () => {
     beforeEach(() => {
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display custom roles section', () => {
@@ -224,15 +225,14 @@ describe('Admin Roles & Permissions Page Tests', () => {
   describe('Role Form Modal', () => {
     beforeEach(() => {
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should open create role modal', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Role"), button:contains("Add Role"), button:contains("New Role")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[role="dialog"], [class*="modal"], [class*="Modal"]').length > 0;
             if (hasModal) {
@@ -251,8 +251,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Role"), button:contains("Add Role")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
           cy.get('body').then($modalBody => {
             const hasNameField = $modalBody.find('input[name*="name"], input[placeholder*="name"], input[placeholder*="Name"]').length > 0;
             if (hasNameField) {
@@ -269,8 +268,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Role"), button:contains("Add Role")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
           cy.get('body').then($modalBody => {
             const hasDescField = $modalBody.find('textarea, input[name*="description"]').length > 0;
             if (hasDescField) {
@@ -287,8 +285,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Role"), button:contains("Add Role")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
           cy.get('body').then($modalBody => {
             const hasPermissions = $modalBody.find('input[type="checkbox"], [class*="permission"]').length > 0 ||
                                    $modalBody.text().includes('Permission');
@@ -306,14 +303,12 @@ describe('Admin Roles & Permissions Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Role"), button:contains("Add Role")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
 
           cy.get('body').then($modalBody => {
             const cancelButton = $modalBody.find('button:contains("Cancel"), button:contains("Close")');
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click({ force: true });
-              cy.wait(300);
+              cy.wrap(cancelButton).first().should('be.visible').click();
               cy.log('Modal closed on cancel');
             }
           });
@@ -327,7 +322,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
   describe('Role Actions', () => {
     beforeEach(() => {
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have edit button for custom roles', () => {
@@ -378,15 +373,14 @@ describe('Admin Roles & Permissions Page Tests', () => {
   describe('Role Users Modal', () => {
     beforeEach(() => {
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should open role users modal', () => {
       cy.get('body').then($body => {
         const viewUsersButton = $body.find('button:contains("View Users"), button:contains("Users"), button:contains("Members")');
         if (viewUsersButton.length > 0) {
-          cy.wrap(viewUsersButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(viewUsersButton).first().should('be.visible').click();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[role="dialog"], [class*="modal"]').length > 0;
             if (hasModal) {
@@ -403,8 +397,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
       cy.get('body').then($body => {
         const viewUsersButton = $body.find('button:contains("View Users"), button:contains("Users")');
         if (viewUsersButton.length > 0) {
-          cy.wrap(viewUsersButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(viewUsersButton).first().should('be.visible').click();
           cy.get('body').then($modalBody => {
             const hasUsers = $modalBody.text().includes('User') ||
                              $modalBody.text().includes('Email') ||
@@ -423,7 +416,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
   describe('Permission Reference Grid', () => {
     beforeEach(() => {
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display permission reference', () => {
@@ -472,15 +465,14 @@ describe('Admin Roles & Permissions Page Tests', () => {
   describe('Delete Confirmation', () => {
     beforeEach(() => {
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should show delete confirmation dialog', () => {
       cy.get('body').then($body => {
         const deleteButton = $body.find('button:contains("Delete"), [aria-label*="delete"]');
         if (deleteButton.length > 0) {
-          cy.wrap(deleteButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(deleteButton).first().should('be.visible').click();
           cy.get('body').then($confirmBody => {
             const hasConfirm = $confirmBody.text().includes('Confirm') ||
                                $confirmBody.text().includes('Are you sure') ||
@@ -499,13 +491,11 @@ describe('Admin Roles & Permissions Page Tests', () => {
       cy.get('body').then($body => {
         const deleteButton = $body.find('button:contains("Delete"), [aria-label*="delete"]');
         if (deleteButton.length > 0) {
-          cy.wrap(deleteButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(deleteButton).first().should('be.visible').click();
           cy.get('body').then($confirmBody => {
             const cancelButton = $confirmBody.find('button:contains("Cancel"), button:contains("No")');
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click({ force: true });
-              cy.wait(300);
+              cy.wrap(cancelButton).first().should('be.visible').click();
               cy.log('Deletion cancelled');
             }
           });
@@ -524,7 +514,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
       });
 
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -538,7 +528,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
       });
 
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -568,7 +558,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
       });
 
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermissionCheck = $body.text().includes('Permission') ||
@@ -596,7 +586,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
       });
 
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Role")');
@@ -613,7 +603,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -627,7 +617,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -641,9 +631,12 @@ describe('Admin Roles & Permissions Page Tests', () => {
     it('should stack sections on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/admin/roles');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

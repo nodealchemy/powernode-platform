@@ -16,17 +16,18 @@
 describe('Admin Settings Security Tab Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Security Settings tab', () => {
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Security') ||
@@ -42,7 +43,7 @@ describe('Admin Settings Security Tab Tests', () => {
 
     it('should redirect unauthorized users', () => {
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -50,7 +51,7 @@ describe('Admin Settings Security Tab Tests', () => {
   describe('Security Overview', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display overall security score', () => {
@@ -118,7 +119,7 @@ describe('Admin Settings Security Tab Tests', () => {
   describe('Password Settings', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display password complexity options', () => {
@@ -165,7 +166,7 @@ describe('Admin Settings Security Tab Tests', () => {
   describe('Session Settings', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display session timeout field', () => {
@@ -210,7 +211,7 @@ describe('Admin Settings Security Tab Tests', () => {
   describe('Access Control Settings', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display maintenance mode toggle', () => {
@@ -265,7 +266,7 @@ describe('Admin Settings Security Tab Tests', () => {
   describe('Rate Limiting Settings', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display rate limiting toggle', () => {
@@ -308,7 +309,7 @@ describe('Admin Settings Security Tab Tests', () => {
   describe('Section Toggle Controls', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display section toggle buttons', () => {
@@ -327,8 +328,8 @@ describe('Admin Settings Security Tab Tests', () => {
       cy.get('body').then($body => {
         const buttons = $body.find('button');
         if (buttons.length > 0) {
-          cy.wrap(buttons).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(buttons).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Section toggle clicked');
         }
       });
@@ -340,7 +341,7 @@ describe('Admin Settings Security Tab Tests', () => {
   describe('Saving Settings', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should show saving indicator', () => {
@@ -371,7 +372,7 @@ describe('Admin Settings Security Tab Tests', () => {
       });
 
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -384,7 +385,7 @@ describe('Admin Settings Security Tab Tests', () => {
       });
 
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -404,7 +405,7 @@ describe('Admin Settings Security Tab Tests', () => {
       cy.intercept('GET', '**/api/**/admin/**', {
         delay: 2000,
         statusCode: 200,
-        body: { success: true, data: {} }
+        body: {}
       });
 
       cy.visit('/app/admin/settings/security');
@@ -425,7 +426,7 @@ describe('Admin Settings Security Tab Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -433,7 +434,7 @@ describe('Admin Settings Security Tab Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -441,9 +442,12 @@ describe('Admin Settings Security Tab Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/admin/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

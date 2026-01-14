@@ -18,6 +18,9 @@ describe('Smoke Test', () => {
     cy.get('[data-testid="login-submit-btn"]').click();
 
     // After login, user is redirected to either /app or /dashboard
-    cy.url({ timeout: 10000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 });
+
+
+export {};

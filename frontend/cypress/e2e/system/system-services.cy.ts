@@ -15,17 +15,18 @@
 describe('System Services Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupSystemIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to System Services page', () => {
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Services') ||
@@ -42,7 +43,7 @@ describe('System Services Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Services') ||
@@ -57,7 +58,7 @@ describe('System Services Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('System') ||
@@ -74,7 +75,7 @@ describe('System Services Page Tests', () => {
   describe('Services List Display', () => {
     beforeEach(() => {
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display services list', () => {
@@ -135,7 +136,7 @@ describe('System Services Page Tests', () => {
   describe('Service Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have configure button for services', () => {
@@ -153,8 +154,8 @@ describe('System Services Page Tests', () => {
       cy.get('body').then($body => {
         const configureButton = $body.find('button:contains("Configure"), button:contains("Settings")');
         if (configureButton.length > 0) {
-          cy.wrap(configureButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(configureButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[role="dialog"], [class*="modal"], [class*="Modal"]').length > 0;
             if (hasModal) {
@@ -171,8 +172,8 @@ describe('System Services Page Tests', () => {
       cy.get('body').then($body => {
         const configureButton = $body.find('button:contains("Configure"), button:contains("Settings")');
         if (configureButton.length > 0) {
-          cy.wrap(configureButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(configureButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasFields = $modalBody.find('input, select, textarea').length > 0;
             if (hasFields) {
@@ -189,14 +190,14 @@ describe('System Services Page Tests', () => {
       cy.get('body').then($body => {
         const configureButton = $body.find('button:contains("Configure"), button:contains("Settings")');
         if (configureButton.length > 0) {
-          cy.wrap(configureButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(configureButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($modalBody => {
             const cancelButton = $modalBody.find('button:contains("Cancel"), button:contains("Close")');
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click({ force: true });
-              cy.wait(300);
+              cy.wrap(cancelButton).first().should('be.visible').click();
+              cy.waitForModalClose();
               cy.log('Modal closed on cancel');
             }
           });
@@ -210,7 +211,7 @@ describe('System Services Page Tests', () => {
   describe('Service Actions', () => {
     beforeEach(() => {
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have enable/disable toggle', () => {
@@ -251,7 +252,7 @@ describe('System Services Page Tests', () => {
   describe('Service Categories', () => {
     beforeEach(() => {
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display email service configuration', () => {
@@ -311,7 +312,7 @@ describe('System Services Page Tests', () => {
   describe('Service Health Monitoring', () => {
     beforeEach(() => {
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display health indicators', () => {
@@ -364,7 +365,7 @@ describe('System Services Page Tests', () => {
       });
 
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -378,7 +379,7 @@ describe('System Services Page Tests', () => {
       });
 
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -408,7 +409,7 @@ describe('System Services Page Tests', () => {
       });
 
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermissionCheck = $body.text().includes('Permission') ||
@@ -424,7 +425,7 @@ describe('System Services Page Tests', () => {
 
     it('should show services for authorized users', () => {
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasServices = $body.text().includes('Service') ||
@@ -442,7 +443,7 @@ describe('System Services Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -456,7 +457,7 @@ describe('System Services Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -470,9 +471,12 @@ describe('System Services Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/system/services');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

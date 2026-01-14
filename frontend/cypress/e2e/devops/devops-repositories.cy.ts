@@ -19,24 +19,25 @@
 describe('DevOps Repositories Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupDevopsIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Repositories from DevOps', () => {
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const reposLink = $body.find('a[href*="/repositories"], button:contains("Repositories")');
 
         if (reposLink.length > 0) {
-          cy.wrap(reposLink).first().click();
+          cy.wrap(reposLink).first().should('be.visible').click();
           cy.url().should('include', '/repositories');
         } else {
           cy.visit('/app/devops/repositories');
@@ -48,6 +49,7 @@ describe('DevOps Repositories Tests', () => {
 
     it('should load Repositories page directly', () => {
       cy.visit('/app/devops/repositories');
+      cy.waitForPageLoad();
 
       cy.url().then(url => {
         if (url.includes('/repositories')) {
@@ -63,6 +65,7 @@ describe('DevOps Repositories Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/devops/repositories');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') &&
@@ -80,12 +83,12 @@ describe('DevOps Repositories Tests', () => {
   describe('Repository List Display', () => {
     beforeEach(() => {
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display repository list or empty state', () => {
       cy.get('body').then($body => {
-        const hasRepos = $body.find('[class*="repository"], [class*="card"]').length > 0 ||
+        const _hasRepos = $body.find('[class*="repository"], [class*="card"]').length > 0 ||
                           $body.text().includes('No Repositories Found') ||
                           $body.text().includes('Sync repositories');
 
@@ -168,7 +171,7 @@ describe('DevOps Repositories Tests', () => {
   describe('Search Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have search input', () => {
@@ -189,8 +192,9 @@ describe('DevOps Repositories Tests', () => {
         const searchInput = $body.find('input[placeholder*="Search"], input[type="text"]');
 
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('powernode');
-          cy.wait(500);
+          cy.wrap(searchInput).first().should('be.visible').type('powernode');
+          // Wait for search results to update
+          cy.get('body').should('be.visible');
           cy.log('Search filter applied');
         }
       });
@@ -202,7 +206,7 @@ describe('DevOps Repositories Tests', () => {
   describe('Filter Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have provider filter', () => {
@@ -235,17 +239,14 @@ describe('DevOps Repositories Tests', () => {
         const filtersButton = $body.find('button:contains("Filters")');
 
         if (filtersButton.length > 0) {
-          cy.wrap(filtersButton).first().click();
-          cy.wait(500);
+          cy.wrap(filtersButton).first().should('be.visible').click();
 
-          cy.get('body').then($newBody => {
-            const filtersVisible = $newBody.find('[class*="filter"]').length > 0 ||
-                                    $newBody.text().includes('Private only');
-
-            if (filtersVisible) {
-              cy.log('Filters panel toggled');
-            }
+          // Wait for filters panel to appear
+          cy.get('body').should('satisfy', ($newBody) => {
+            return $newBody.find('[class*="filter"]').length > 0 ||
+                   $newBody.text().includes('Private only');
           });
+          cy.log('Filters panel toggled');
         }
       });
 
@@ -257,10 +258,10 @@ describe('DevOps Repositories Tests', () => {
         const searchInput = $body.find('input[placeholder*="Search"]');
 
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('test');
-          cy.wait(300);
+          cy.wrap(searchInput).first().should('be.visible').type('test');
 
-          cy.get('body').then($newBody => {
+          // Wait for filter to be applied and check for Clear button
+          cy.get('body').should('be.visible').then($newBody => {
             const clearButton = $newBody.find('button:contains("Clear")');
 
             if (clearButton.length > 0) {
@@ -277,7 +278,7 @@ describe('DevOps Repositories Tests', () => {
   describe('Sync Repositories', () => {
     beforeEach(() => {
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Sync All button', () => {
@@ -298,16 +299,14 @@ describe('DevOps Repositories Tests', () => {
         const menuButton = $body.find('button:contains("•••"), [class*="menu-button"], [aria-label*="more"]');
 
         if (menuButton.length > 0) {
-          cy.wrap(menuButton).first().click();
-          cy.wait(300);
+          cy.wrap(menuButton).first().should('be.visible').click();
 
-          cy.get('body').then($newBody => {
-            const syncOption = $newBody.find('button:contains("Sync")');
-
-            if (syncOption.length > 0) {
-              cy.log('Sync option found in menu');
-            }
+          // Wait for menu to appear
+          cy.get('body').should('satisfy', ($newBody) => {
+            return $newBody.find('button:contains("Sync")').length > 0 ||
+                   $newBody.find('[role="menu"], [role="menuitem"]').length > 0;
           });
+          cy.log('Sync option found in menu');
         }
       });
 
@@ -318,7 +317,7 @@ describe('DevOps Repositories Tests', () => {
   describe('Configure Webhooks', () => {
     beforeEach(() => {
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have webhook action in repository menu', () => {
@@ -326,16 +325,14 @@ describe('DevOps Repositories Tests', () => {
         const menuButton = $body.find('button:contains("•••"), [class*="menu-button"]');
 
         if (menuButton.length > 0) {
-          cy.wrap(menuButton).first().click();
-          cy.wait(300);
+          cy.wrap(menuButton).first().should('be.visible').click();
 
-          cy.get('body').then($newBody => {
-            const webhookOption = $newBody.find('button:contains("Webhook"), button:contains("Configure")');
-
-            if (webhookOption.length > 0) {
-              cy.log('Webhook option found in menu');
-            }
+          // Wait for menu to appear and check for webhook option
+          cy.get('body').should('satisfy', ($newBody) => {
+            return $newBody.find('button:contains("Webhook"), button:contains("Configure")').length > 0 ||
+                   $newBody.find('[role="menu"], [role="menuitem"]').length > 0;
           });
+          cy.log('Webhook option found in menu');
         }
       });
 
@@ -346,7 +343,7 @@ describe('DevOps Repositories Tests', () => {
   describe('Repository Card Expansion', () => {
     beforeEach(() => {
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should expand repository card on click', () => {
@@ -354,18 +351,15 @@ describe('DevOps Repositories Tests', () => {
         const repoCard = $body.find('[class*="card"][class*="cursor-pointer"]');
 
         if (repoCard.length > 0) {
-          cy.wrap(repoCard).first().click();
-          cy.wait(500);
+          cy.wrap(repoCard).first().should('be.visible').click();
 
-          cy.get('body').then($newBody => {
-            const isExpanded = $newBody.find('[class*="expanded"]').length > 0 ||
-                                $newBody.text().includes('Overview') ||
-                                $newBody.text().includes('Branches');
-
-            if (isExpanded) {
-              cy.log('Repository card expanded');
-            }
+          // Wait for card to expand
+          cy.get('body').should('satisfy', ($newBody) => {
+            return $newBody.find('[class*="expanded"]').length > 0 ||
+                   $newBody.text().includes('Overview') ||
+                   $newBody.text().includes('Branches');
           });
+          cy.log('Repository card expanded');
         }
       });
 
@@ -377,18 +371,15 @@ describe('DevOps Repositories Tests', () => {
         const repoCard = $body.find('[class*="card"][class*="cursor-pointer"]');
 
         if (repoCard.length > 0) {
-          cy.wrap(repoCard).first().click();
-          cy.wait(500);
+          cy.wrap(repoCard).first().should('be.visible').click();
 
-          cy.get('body').then($newBody => {
-            const hasTabs = $newBody.text().includes('Overview') ||
-                             $newBody.text().includes('Code') ||
-                             $newBody.text().includes('Pull Requests');
-
-            if (hasTabs) {
-              cy.log('Tabs displayed in expanded view');
-            }
+          // Wait for tabs to appear
+          cy.get('body').should('satisfy', ($newBody) => {
+            return $newBody.text().includes('Overview') ||
+                   $newBody.text().includes('Code') ||
+                   $newBody.text().includes('Pull Requests');
           });
+          cy.log('Tabs displayed in expanded view');
         }
       });
 
@@ -400,15 +391,17 @@ describe('DevOps Repositories Tests', () => {
         const repoCard = $body.find('[class*="card"][class*="cursor-pointer"]');
 
         if (repoCard.length > 0) {
-          cy.wrap(repoCard).first().click();
-          cy.wait(500);
+          cy.wrap(repoCard).first().should('be.visible').click();
 
-          cy.get('body').then($newBody => {
+          // Wait for card to expand, then find close button
+          cy.get('body').should('satisfy', ($newBody) => {
+            return $newBody.find('[class*="expanded"]').length > 0 ||
+                   $newBody.text().includes('Overview');
+          }).then($newBody => {
             const closeButton = $newBody.find('button:contains("×"), [aria-label*="close"]');
 
             if (closeButton.length > 0) {
-              cy.wrap(closeButton).first().click();
-              cy.wait(300);
+              cy.wrap(closeButton).first().should('be.visible').click();
               cy.log('Card collapsed');
             }
           });
@@ -422,7 +415,7 @@ describe('DevOps Repositories Tests', () => {
   describe('Pagination', () => {
     beforeEach(() => {
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pagination when many repositories exist', () => {
@@ -444,8 +437,9 @@ describe('DevOps Repositories Tests', () => {
         const nextButton = $body.find('button:contains("Next")');
 
         if (nextButton.length > 0 && !nextButton.is(':disabled')) {
-          cy.wrap(nextButton).first().click();
-          cy.wait(500);
+          cy.wrap(nextButton).first().should('be.visible').click();
+          // Wait for page navigation
+          cy.get('body').should('be.visible');
           cy.log('Navigated to next page');
         }
       });
@@ -457,7 +451,7 @@ describe('DevOps Repositories Tests', () => {
   describe('Empty State', () => {
     it('should display empty state when no repositories', () => {
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('No Repositories Found')) {
@@ -471,7 +465,7 @@ describe('DevOps Repositories Tests', () => {
 
     it('should have Sync button in empty state', () => {
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('No Repositories')) {
@@ -494,7 +488,7 @@ describe('DevOps Repositories Tests', () => {
       });
 
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -508,7 +502,7 @@ describe('DevOps Repositories Tests', () => {
       });
 
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -528,7 +522,7 @@ describe('DevOps Repositories Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -542,7 +536,7 @@ describe('DevOps Repositories Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -556,9 +550,12 @@ describe('DevOps Repositories Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/devops/repositories');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

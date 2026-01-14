@@ -39,3 +39,5 @@ describe('Simple Login Test', () => {
     });
   });
 });
+
+export {};

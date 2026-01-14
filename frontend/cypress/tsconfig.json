@@ -13,16 +13,16 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
-    "strict": true
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
   },
   "include": [
     "**/*.ts",
-    "**/*.tsx",
-    "../src/**/*.ts",
-    "../src/**/*.tsx"
+    "**/*.tsx"
   ],
   "exclude": [
-    "../src/**/*.spec.ts",
-    "../src/**/*.test.ts"
+    "../src/**/*.ts",
+    "../src/**/*.tsx"
   ]
 }

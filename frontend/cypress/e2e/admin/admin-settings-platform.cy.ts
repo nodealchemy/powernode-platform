@@ -14,17 +14,18 @@
 describe('Admin Settings Platform Tab Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Platform Settings tab', () => {
       cy.visit('/app/admin/settings/platform');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Platform') ||
@@ -40,7 +41,7 @@ describe('Admin Settings Platform Tab Tests', () => {
 
     it('should redirect unauthorized users', () => {
       cy.visit('/app/admin/settings/platform');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -48,7 +49,7 @@ describe('Admin Settings Platform Tab Tests', () => {
   describe('Platform Branding', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/platform');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display platform name field', () => {
@@ -95,7 +96,7 @@ describe('Admin Settings Platform Tab Tests', () => {
   describe('Feature Flags', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/platform');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display feature flags section', () => {
@@ -127,8 +128,8 @@ describe('Admin Settings Platform Tab Tests', () => {
       cy.get('body').then($body => {
         const toggle = $body.find('input[type="checkbox"], [role="switch"]');
         if (toggle.length > 0) {
-          cy.wrap(toggle).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(toggle).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Feature toggle clicked');
         }
       });
@@ -140,7 +141,7 @@ describe('Admin Settings Platform Tab Tests', () => {
   describe('System Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/platform');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display system version', () => {
@@ -198,7 +199,7 @@ describe('Admin Settings Platform Tab Tests', () => {
   describe('Multi-Tenancy Settings', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/platform');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display multi-tenancy options', () => {
@@ -231,7 +232,7 @@ describe('Admin Settings Platform Tab Tests', () => {
   describe('API Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/platform');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display API settings', () => {
@@ -263,7 +264,7 @@ describe('Admin Settings Platform Tab Tests', () => {
   describe('Save Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/platform');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have save button', () => {
@@ -290,7 +291,7 @@ describe('Admin Settings Platform Tab Tests', () => {
       });
 
       cy.visit('/app/admin/settings/platform');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -301,7 +302,7 @@ describe('Admin Settings Platform Tab Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/platform');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -309,9 +310,12 @@ describe('Admin Settings Platform Tab Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/settings/platform');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

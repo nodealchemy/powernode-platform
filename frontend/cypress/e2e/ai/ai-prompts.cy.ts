@@ -20,16 +20,17 @@ describe('AI Prompts Page Tests', () => {
     cy.clearAppData();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.setupAiIntercepts();
   });
 
   describe('Page Navigation', () => {
     it('should navigate to AI Prompts from sidebar', () => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const promptsLink = $body.find('a[href*="/prompts"], button:contains("Prompts")');
@@ -80,12 +81,12 @@ describe('AI Prompts Page Tests', () => {
   describe('Template List Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display template list or empty state', () => {
       cy.get('body').then($body => {
-        const hasTemplates = $body.find('[class*="template"], [class*="card"]').length > 0 ||
+        const _hasTemplates = $body.find('[class*="template"], [class*="card"]').length > 0 ||
                               $body.text().includes('No prompt templates') ||
                               $body.text().includes('Create your first');
 
@@ -169,7 +170,7 @@ describe('AI Prompts Page Tests', () => {
   describe('Category Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display category filter tabs', () => {
@@ -191,7 +192,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (generalTab.length > 0) {
           cy.wrap(generalTab).first().click();
-          cy.wait(500);
           cy.log('Filtered by General category');
         }
       });
@@ -205,7 +205,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (agentTab.length > 0) {
           cy.wrap(agentTab).first().click();
-          cy.wait(500);
           cy.log('Filtered by Agent category');
         }
       });
@@ -219,7 +218,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (workflowTab.length > 0) {
           cy.wrap(workflowTab).first().click();
-          cy.wait(500);
           cy.log('Filtered by Workflow category');
         }
       });
@@ -233,7 +231,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (allTab.length > 0) {
           cy.wrap(allTab).first().click();
-          cy.wait(500);
           cy.log('Showing all templates');
         }
       });
@@ -245,7 +242,7 @@ describe('AI Prompts Page Tests', () => {
   describe('Create Template', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Create Template button', () => {
@@ -269,7 +266,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (createButton.length > 0) {
           cy.wrap(createButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const editorVisible = $newBody.text().includes('Create Prompt Template') ||
@@ -292,7 +288,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (createButton.length > 0) {
           cy.wrap(createButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const nameInput = $newBody.find('input[type="text"]');
@@ -313,7 +308,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (createButton.length > 0) {
           cy.wrap(createButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const hasCategory = $newBody.text().includes('Category') ||
@@ -335,7 +329,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (createButton.length > 0) {
           cy.wrap(createButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const contentArea = $newBody.find('textarea');
@@ -356,14 +349,12 @@ describe('AI Prompts Page Tests', () => {
 
         if (createButton.length > 0) {
           cy.wrap(createButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const cancelButton = $newBody.find('button:contains("Cancel")');
 
             if (cancelButton.length > 0) {
               cy.wrap(cancelButton).first().click();
-              cy.wait(500);
               cy.log('Editor closed');
             }
           });
@@ -377,7 +368,7 @@ describe('AI Prompts Page Tests', () => {
   describe('Edit Template', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should open editor when template card clicked', () => {
@@ -386,7 +377,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (templateCard.length > 0) {
           cy.wrap(templateCard).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const editorVisible = $newBody.text().includes('Edit Prompt Template') ||
@@ -408,7 +398,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (templateCard.length > 0) {
           cy.wrap(templateCard).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const nameInput = $newBody.find('input[type="text"]');
@@ -427,7 +416,7 @@ describe('AI Prompts Page Tests', () => {
   describe('Preview Template', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Preview button on templates', () => {
@@ -449,7 +438,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (previewButton.length > 0) {
           cy.wrap(previewButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[class*="modal"], [class*="fixed"]').length > 0 ||
@@ -471,7 +459,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (previewButton.length > 0) {
           cy.wrap(previewButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const hasContent = $newBody.find('pre').length > 0 ||
@@ -493,14 +480,12 @@ describe('AI Prompts Page Tests', () => {
 
         if (previewButton.length > 0) {
           cy.wrap(previewButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const closeButton = $newBody.find('button:contains("Close"), [class*="close"]');
 
             if (closeButton.length > 0) {
               cy.wrap(closeButton).first().click();
-              cy.wait(500);
               cy.log('Preview modal closed');
             }
           });
@@ -514,7 +499,7 @@ describe('AI Prompts Page Tests', () => {
   describe('Duplicate Template', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Duplicate action in menu', () => {
@@ -523,7 +508,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (menuButton.length > 0) {
           cy.wrap(menuButton).first().click();
-          cy.wait(300);
 
           cy.get('body').then($newBody => {
             const duplicateOption = $newBody.find('button:contains("Duplicate")');
@@ -542,7 +526,7 @@ describe('AI Prompts Page Tests', () => {
   describe('Delete Template', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Delete action in menu', () => {
@@ -551,7 +535,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (menuButton.length > 0) {
           cy.wrap(menuButton).first().click();
-          cy.wait(300);
 
           cy.get('body').then($newBody => {
             const deleteOption = $newBody.find('button:contains("Delete")');
@@ -570,7 +553,7 @@ describe('AI Prompts Page Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -592,7 +575,6 @@ describe('AI Prompts Page Tests', () => {
 
         if (refreshButton.length > 0) {
           cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
           cy.get('body').should('be.visible');
           cy.log('Refresh triggered');
         }
@@ -610,7 +592,7 @@ describe('AI Prompts Page Tests', () => {
       });
 
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -622,7 +604,7 @@ describe('AI Prompts Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -636,7 +618,7 @@ describe('AI Prompts Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -650,9 +632,12 @@ describe('AI Prompts Page Tests', () => {
     it('should stack template cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

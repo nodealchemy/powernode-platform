@@ -33,7 +33,7 @@ describe('Login Selector Test', () => {
     });
 
     it('should have plan cards with data-testid', () => {
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('have.length.at.least', 1);
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('have.length.at.least', 1);
     });
 
     it('should have billing toggle buttons', () => {
@@ -51,13 +51,13 @@ describe('Login Selector Test', () => {
     beforeEach(() => {
       // Navigate through plan selection to reach registration
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).first().click();
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).first().click();
       cy.get('[data-testid="continue-to-registration"]').click();
       cy.url().should('include', '/register');
     });
 
     it('should have all required data-testid attributes on registration page', () => {
-      cy.get('[data-testid="selected-plan"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="selected-plan"]', { timeout: 5000 }).should('be.visible');
       cy.get('[data-testid="account-name-input"]').should('be.visible');
       cy.get('[data-testid="name-input"]').should('be.visible');
       cy.get('[data-testid="register-email-input"]').should('be.visible');
@@ -76,3 +76,5 @@ describe('Login Selector Test', () => {
     });
   });
 });
+
+export {};

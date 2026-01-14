@@ -18,12 +18,13 @@
 describe('DevOps Overview Dashboard Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupDevopsIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
@@ -97,7 +98,7 @@ describe('DevOps Overview Dashboard Tests', () => {
   describe('Stats Cards Display', () => {
     beforeEach(() => {
       cy.visit('/app/devops');
-      cy.wait(2000); // Wait for data to load
+      cy.waitForPageLoad();
     });
 
     it('should display Git Providers stats card', () => {
@@ -201,7 +202,7 @@ describe('DevOps Overview Dashboard Tests', () => {
   describe('Quick Access Links', () => {
     beforeEach(() => {
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Quick Access section', () => {
@@ -281,7 +282,7 @@ describe('DevOps Overview Dashboard Tests', () => {
   describe('Runner Health Section', () => {
     beforeEach(() => {
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Runner Health section', () => {
@@ -331,7 +332,7 @@ describe('DevOps Overview Dashboard Tests', () => {
   describe('Webhook Deliveries Section', () => {
     beforeEach(() => {
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Webhook Deliveries section', () => {
@@ -367,7 +368,7 @@ describe('DevOps Overview Dashboard Tests', () => {
   describe('Commit Activity Section', () => {
     beforeEach(() => {
       cy.visit('/app/devops');
-      cy.wait(3000); // Allow time for activity data to load
+      cy.waitForPageLoad();
     });
 
     it('should display Commit Activity section', () => {
@@ -401,7 +402,7 @@ describe('DevOps Overview Dashboard Tests', () => {
   describe('Attention Required Alerts', () => {
     beforeEach(() => {
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display attention alerts when issues exist', () => {
@@ -438,7 +439,7 @@ describe('DevOps Overview Dashboard Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have refresh button', () => {
@@ -461,9 +462,9 @@ describe('DevOps Overview Dashboard Tests', () => {
         const refreshButton = $body.find('button:contains("Refresh"), [aria-label*="refresh"]');
 
         if (refreshButton.length > 0) {
-          cy.wrap(refreshButton).first().click();
+          cy.wrap(refreshButton).first().should('be.visible').click();
           // Should show loading or refreshing state
-          cy.wait(1000);
+          cy.waitForPageLoad();
           cy.get('body').should('be.visible');
           cy.log('Refresh action triggered');
         }
@@ -477,7 +478,7 @@ describe('DevOps Overview Dashboard Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
 
@@ -493,7 +494,7 @@ describe('DevOps Overview Dashboard Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
 
@@ -509,7 +510,7 @@ describe('DevOps Overview Dashboard Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const cards = $body.find('[class*="card"], [class*="stat"]');
@@ -531,7 +532,7 @@ describe('DevOps Overview Dashboard Tests', () => {
       });
 
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       // Page should still be visible and not crash
       cy.get('body').should('be.visible');
@@ -563,3 +564,6 @@ describe('DevOps Overview Dashboard Tests', () => {
     });
   });
 });
+
+
+export {};

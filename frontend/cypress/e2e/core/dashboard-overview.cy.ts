@@ -14,17 +14,18 @@
 describe('Dashboard Overview Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Load', () => {
     it('should load dashboard overview page', () => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasWelcome = $body.text().includes('Welcome') ||
@@ -40,7 +41,7 @@ describe('Dashboard Overview Tests', () => {
 
     it('should display personalized welcome message', () => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPersonalized = $body.text().includes('Welcome back') ||
@@ -55,7 +56,7 @@ describe('Dashboard Overview Tests', () => {
 
     it('should display page actions', () => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasActions = $body.text().includes('Analytics') ||
@@ -73,7 +74,7 @@ describe('Dashboard Overview Tests', () => {
   describe('Key Metrics Cards', () => {
     beforeEach(() => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Revenue card', () => {
@@ -141,7 +142,7 @@ describe('Dashboard Overview Tests', () => {
   describe('Getting Started Widget', () => {
     beforeEach(() => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Getting Started section', () => {
@@ -237,7 +238,7 @@ describe('Dashboard Overview Tests', () => {
   describe('Quick Actions', () => {
     beforeEach(() => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Quick Actions section', () => {
@@ -291,8 +292,8 @@ describe('Dashboard Overview Tests', () => {
       cy.get('body').then($body => {
         const customerBtn = $body.find('button:contains("Customers")');
         if (customerBtn.length > 0) {
-          cy.wrap(customerBtn).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(customerBtn).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Quick action navigation triggered');
         }
       });
@@ -304,7 +305,7 @@ describe('Dashboard Overview Tests', () => {
   describe('System Status', () => {
     beforeEach(() => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display system status alert', () => {
@@ -337,7 +338,7 @@ describe('Dashboard Overview Tests', () => {
   describe('Header Actions', () => {
     beforeEach(() => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Analytics button in header', () => {
@@ -371,7 +372,7 @@ describe('Dashboard Overview Tests', () => {
       });
 
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -382,7 +383,7 @@ describe('Dashboard Overview Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -390,7 +391,7 @@ describe('Dashboard Overview Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -398,7 +399,7 @@ describe('Dashboard Overview Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -406,7 +407,7 @@ describe('Dashboard Overview Tests', () => {
     it('should display multi-column layout on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasGrid = $body.find('[class*="grid"]').length > 0;
@@ -419,3 +420,6 @@ describe('Dashboard Overview Tests', () => {
     });
   });
 });
+
+
+export {};

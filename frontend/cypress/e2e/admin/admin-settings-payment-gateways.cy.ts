@@ -15,17 +15,18 @@
 describe('Admin Settings Payment Gateways Tab Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Payment Gateways tab', () => {
       cy.visit('/app/admin/settings/payment-gateways');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Payment') ||
@@ -42,7 +43,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
 
     it('should redirect unauthorized users', () => {
       cy.visit('/app/admin/settings/payment-gateways');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -50,7 +51,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
   describe('Overview Statistics', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/payment-gateways');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display total transactions stat', () => {
@@ -94,7 +95,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
   describe('Stripe Gateway', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/payment-gateways');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Stripe card', () => {
@@ -173,7 +174,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
   describe('PayPal Gateway', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/payment-gateways');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display PayPal card', () => {
@@ -216,15 +217,15 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
   describe('Gateway Configuration Modal', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/payment-gateways');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should open configuration modal on Configure click', () => {
       cy.get('body').then($body => {
         const configButton = $body.find('button:contains("Configure")');
         if (configButton.length > 0) {
-          cy.wrap(configButton).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(configButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($updatedBody => {
             const hasModal = $updatedBody.find('[role="dialog"], [class*="modal"]').length > 0 ||
@@ -241,8 +242,8 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     });
 
     it('should display API key fields in modal', () => {
-      cy.get('button').contains(/Configure|Reconfigure/).first().click({ force: true });
-      cy.wait(1000);
+      cy.get('button').contains(/Configure|Reconfigure/).first().scrollIntoView().should('exist').click();
+      cy.waitForStableDOM();
 
       cy.get('body').then($body => {
         const hasAPIFields = $body.text().includes('API Key') ||
@@ -257,8 +258,8 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     });
 
     it('should have cancel button in modal', () => {
-      cy.get('button').contains(/Configure|Reconfigure/).first().click({ force: true });
-      cy.wait(1000);
+      cy.get('button').contains(/Configure|Reconfigure/).first().scrollIntoView().should('exist').click();
+      cy.waitForStableDOM();
 
       cy.get('body').then($body => {
         const hasCancel = $body.find('button:contains("Cancel")').length > 0;
@@ -271,8 +272,8 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     });
 
     it('should have save button in modal', () => {
-      cy.get('button').contains(/Configure|Reconfigure/).first().click({ force: true });
-      cy.wait(1000);
+      cy.get('button').contains(/Configure|Reconfigure/).first().scrollIntoView().should('exist').click();
+      cy.waitForStableDOM();
 
       cy.get('body').then($body => {
         const hasSave = $body.find('button:contains("Save"), button:contains("Update")').length > 0;
@@ -288,7 +289,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
   describe('Connection Test Results', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/payment-gateways');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display test results section after test', () => {
@@ -325,7 +326,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
       });
 
       cy.visit('/app/admin/settings/payment-gateways');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -341,7 +342,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
       cy.intercept('GET', '**/api/**/payment_gateways/**', {
         delay: 2000,
         statusCode: 200,
-        body: { success: true, data: {} }
+        body: {}
       });
 
       cy.visit('/app/admin/settings/payment-gateways');
@@ -362,7 +363,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/payment-gateways');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -370,7 +371,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/settings/payment-gateways');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -378,7 +379,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     it('should stack gateway cards on mobile', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/payment-gateways');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasStack = $body.find('[class*="grid"]').length > 0;
@@ -391,3 +392,6 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     });
   });
 });
+
+
+export {};

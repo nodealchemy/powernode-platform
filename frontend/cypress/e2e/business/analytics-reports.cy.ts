@@ -11,10 +11,10 @@ describe('Analytics & Reports', () => {
     cy.clearAppData();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Dashboard Analytics', () => {
@@ -60,7 +60,7 @@ describe('Analytics & Reports', () => {
 
         for (const selector of analyticsSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -195,7 +195,7 @@ describe('Analytics & Reports', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .should('have.length.at.least', 1);
     });
 
@@ -208,10 +208,10 @@ describe('Analytics & Reports', () => {
 
       // Re-login and check app
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
   });
 
@@ -231,3 +231,6 @@ describe('Analytics & Reports', () => {
     });
   });
 });
+
+
+export {};

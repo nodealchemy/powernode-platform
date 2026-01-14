@@ -4,12 +4,12 @@ describe('Dashboard Navigation Tests', () => {
 
     // Login with seeded demo user instead of registering new user each time
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
 
     // Should be on app/dashboard after login
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Main Navigation', () => {
@@ -43,7 +43,7 @@ describe('Dashboard Navigation Tests', () => {
         // Look for sidebar navigation items
         const navItems = $body.find('nav a, aside a, [role="navigation"] a');
         if (navItems.length > 0) {
-          cy.wrap(navItems.first()).click({ force: true });
+          cy.wrap(navItems.first()).should('be.visible').click();
           cy.url().should('match', /\/(app|dashboard)/);
         }
       });
@@ -94,7 +94,7 @@ describe('Dashboard Navigation Tests', () => {
       // Visit with performance measurement
       cy.visit('/app').then(() => {
         // Page should load within reasonable time
-        cy.get('main, [role="main"], .main-content', { timeout: 10000 }).should('exist');
+        cy.get('main, [role="main"], .main-content', { timeout: 5000 }).should('exist');
       });
     });
 
@@ -155,7 +155,10 @@ describe('Dashboard Navigation Tests', () => {
       cy.visit('/app');
 
       // Should show content eventually
-      cy.get('main, [role="main"], .main-content', { timeout: 15000 }).should('exist');
+      cy.get('main, [role="main"], .main-content', { timeout: 5000 }).should('exist');
     });
   });
 });
+
+
+export {};

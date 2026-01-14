@@ -15,17 +15,18 @@
 describe('Admin Settings Performance Tab Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Performance tab', () => {
       cy.visit('/app/admin/settings/performance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Performance') ||
@@ -41,7 +42,7 @@ describe('Admin Settings Performance Tab Tests', () => {
 
     it('should redirect unauthorized users', () => {
       cy.visit('/app/admin/settings/performance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -49,7 +50,7 @@ describe('Admin Settings Performance Tab Tests', () => {
   describe('Performance Overview', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/performance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display performance metrics', () => {
@@ -83,7 +84,7 @@ describe('Admin Settings Performance Tab Tests', () => {
   describe('Caching Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/performance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display cache settings section', () => {
@@ -137,7 +138,7 @@ describe('Admin Settings Performance Tab Tests', () => {
   describe('Database Optimization', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/performance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display database settings', () => {
@@ -182,7 +183,7 @@ describe('Admin Settings Performance Tab Tests', () => {
   describe('Asset Optimization', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/performance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display asset settings', () => {
@@ -227,7 +228,7 @@ describe('Admin Settings Performance Tab Tests', () => {
   describe('Monitoring Settings', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/performance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display monitoring options', () => {
@@ -260,7 +261,7 @@ describe('Admin Settings Performance Tab Tests', () => {
   describe('Performance Actions', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/performance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have optimize button', () => {
@@ -294,7 +295,7 @@ describe('Admin Settings Performance Tab Tests', () => {
       });
 
       cy.visit('/app/admin/settings/performance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -306,7 +307,7 @@ describe('Admin Settings Performance Tab Tests', () => {
       cy.intercept('GET', '**/api/**/admin/**', {
         delay: 2000,
         statusCode: 200,
-        body: { success: true, data: {} }
+        body: {}
       });
 
       cy.visit('/app/admin/settings/performance');
@@ -327,7 +328,7 @@ describe('Admin Settings Performance Tab Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/performance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -335,9 +336,12 @@ describe('Admin Settings Performance Tab Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/settings/performance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

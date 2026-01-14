@@ -19,17 +19,18 @@
 describe('AI Workflow Detail Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Workflows page first', () => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Workflows') ||
@@ -45,7 +46,7 @@ describe('AI Workflow Detail Page Tests', () => {
 
     it('should display workflow list', () => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasList = $body.find('[class*="table"], [class*="list"], [class*="card"]').length > 0;
@@ -62,15 +63,15 @@ describe('AI Workflow Detail Page Tests', () => {
     beforeEach(() => {
       // Navigate to workflows and try to access a detail page
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display workflow detail page when clicking a workflow', () => {
       cy.get('body').then($body => {
         const workflowLinks = $body.find('a[href*="/workflows/"], [data-testid*="workflow"], tr[class*="cursor-pointer"]');
         if (workflowLinks.length > 0) {
-          cy.wrap(workflowLinks).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(workflowLinks).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Navigated to workflow detail');
         }
       });
@@ -95,7 +96,7 @@ describe('AI Workflow Detail Page Tests', () => {
   describe('Overview Cards', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display status card', () => {
@@ -140,7 +141,7 @@ describe('AI Workflow Detail Page Tests', () => {
   describe('Tab Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Overview tab', () => {
@@ -204,7 +205,7 @@ describe('AI Workflow Detail Page Tests', () => {
   describe('Workflow Information Section', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display workflow description', () => {
@@ -261,7 +262,7 @@ describe('AI Workflow Detail Page Tests', () => {
   describe('Action Buttons', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Validate button', () => {
@@ -312,7 +313,7 @@ describe('AI Workflow Detail Page Tests', () => {
   describe('Execution History', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display execution history section', () => {
@@ -371,7 +372,7 @@ describe('AI Workflow Detail Page Tests', () => {
   describe('Nodes Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display workflow nodes list', () => {
@@ -404,7 +405,7 @@ describe('AI Workflow Detail Page Tests', () => {
   describe('Validation Panel', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display validation section', () => {
@@ -435,7 +436,7 @@ describe('AI Workflow Detail Page Tests', () => {
   describe('Settings Section', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display timeout setting', () => {
@@ -466,7 +467,7 @@ describe('AI Workflow Detail Page Tests', () => {
   describe('Error Handling', () => {
     it('should handle workflow not found', () => {
       cy.visit('/app/ai/workflows/nonexistent-workflow-id');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Not Found') ||
@@ -488,7 +489,7 @@ describe('AI Workflow Detail Page Tests', () => {
       });
 
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -499,7 +500,7 @@ describe('AI Workflow Detail Page Tests', () => {
   describe('Template Conversion', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Save as Template button for workflows', () => {
@@ -529,7 +530,7 @@ describe('AI Workflow Detail Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -543,7 +544,7 @@ describe('AI Workflow Detail Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -557,7 +558,7 @@ describe('AI Workflow Detail Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -565,7 +566,7 @@ describe('AI Workflow Detail Page Tests', () => {
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMultiColumn = $body.find('[class*="md:grid-cols"], [class*="lg:grid-cols"]').length > 0 ||
@@ -579,3 +580,6 @@ describe('AI Workflow Detail Page Tests', () => {
     });
   });
 });
+
+
+export {};

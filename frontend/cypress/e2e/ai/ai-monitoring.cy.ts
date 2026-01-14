@@ -22,24 +22,25 @@
 describe('AI Monitoring Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to AI Monitoring from AI section', () => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const monitoringLink = $body.find('a[href*="/monitoring"], button:contains("Monitoring")');
 
         if (monitoringLink.length > 0) {
-          cy.wrap(monitoringLink).first().click();
+          cy.wrap(monitoringLink).first().should('be.visible').click();
           cy.url().should('include', '/monitoring');
         } else {
           cy.visit('/app/ai/monitoring');
@@ -51,7 +52,7 @@ describe('AI Monitoring Page Tests', () => {
 
     it('should load AI Monitoring page directly', () => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const text = $body.text();
@@ -70,6 +71,7 @@ describe('AI Monitoring Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/ai/monitoring');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('AI System Monitoring') ||
@@ -85,6 +87,7 @@ describe('AI Monitoring Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/ai/monitoring');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -102,7 +105,7 @@ describe('AI Monitoring Page Tests', () => {
   describe('Status Bar Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display connection status', () => {
@@ -152,7 +155,7 @@ describe('AI Monitoring Page Tests', () => {
   describe('Overview Cards', () => {
     beforeEach(() => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display overview statistics cards', () => {
@@ -204,7 +207,7 @@ describe('AI Monitoring Page Tests', () => {
   describe('Tab Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display monitoring tabs', () => {
@@ -225,8 +228,8 @@ describe('AI Monitoring Page Tests', () => {
         const providersTab = $body.find('button:contains("Providers"), [role="tab"]:contains("Providers")');
 
         if (providersTab.length > 0) {
-          cy.wrap(providersTab).first().click();
-          cy.wait(500);
+          cy.wrap(providersTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Providers tab');
         }
       });
@@ -239,8 +242,8 @@ describe('AI Monitoring Page Tests', () => {
         const agentsTab = $body.find('button:contains("Agents"), [role="tab"]:contains("Agents")');
 
         if (agentsTab.length > 0) {
-          cy.wrap(agentsTab).first().click();
-          cy.wait(500);
+          cy.wrap(agentsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Agents tab');
         }
       });
@@ -253,8 +256,8 @@ describe('AI Monitoring Page Tests', () => {
         const workflowsTab = $body.find('button:contains("Workflows"), [role="tab"]:contains("Workflows")');
 
         if (workflowsTab.length > 0) {
-          cy.wrap(workflowsTab).first().click();
-          cy.wait(500);
+          cy.wrap(workflowsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Workflows tab');
         }
       });
@@ -267,8 +270,8 @@ describe('AI Monitoring Page Tests', () => {
         const conversationsTab = $body.find('button:contains("Conversations"), [role="tab"]:contains("Conversations")');
 
         if (conversationsTab.length > 0) {
-          cy.wrap(conversationsTab).first().click();
-          cy.wait(500);
+          cy.wrap(conversationsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Conversations tab');
         }
       });
@@ -281,8 +284,8 @@ describe('AI Monitoring Page Tests', () => {
         const alertsTab = $body.find('button:contains("Alerts"), [role="tab"]:contains("Alerts")');
 
         if (alertsTab.length > 0) {
-          cy.wrap(alertsTab).first().click();
-          cy.wait(500);
+          cy.wrap(alertsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Alerts tab');
         }
       });
@@ -294,7 +297,7 @@ describe('AI Monitoring Page Tests', () => {
   describe('Real-Time Updates', () => {
     beforeEach(() => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Enable Real-time button', () => {
@@ -314,8 +317,8 @@ describe('AI Monitoring Page Tests', () => {
         const realTimeButton = $body.find('button:contains("Enable Real-time"), button:contains("Disable Real-time")');
 
         if (realTimeButton.length > 0) {
-          cy.wrap(realTimeButton).first().click();
-          cy.wait(500);
+          cy.wrap(realTimeButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Real-time updates toggled');
         }
       });
@@ -327,7 +330,7 @@ describe('AI Monitoring Page Tests', () => {
   describe('Time Range Selection', () => {
     beforeEach(() => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have time range selector', () => {
@@ -348,15 +351,15 @@ describe('AI Monitoring Page Tests', () => {
         const timeRangeButton = $body.find('button:contains("24h"), button:contains("7d"), button:contains("1h")').not('select option');
 
         if (timeRangeButton.length > 0) {
-          cy.wrap(timeRangeButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(timeRangeButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Time range changed');
         } else {
           // If using a select dropdown, handle differently
           const selectElement = $body.find('select');
           if (selectElement.length > 0) {
-            cy.wrap(selectElement).first().select(1, { force: true });
-            cy.wait(500);
+            cy.wrap(selectElement).first().should('be.visible').select(1);
+            cy.waitForPageLoad();
             cy.log('Time range changed via select');
           } else {
             cy.log('Time range selector not found - may not be available');
@@ -371,7 +374,7 @@ describe('AI Monitoring Page Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -392,8 +395,8 @@ describe('AI Monitoring Page Tests', () => {
         const refreshButton = $body.find('button:contains("Refresh")');
 
         if (refreshButton.length > 0) {
-          cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
+          cy.wrap(refreshButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Monitoring data refreshed');
         }
       });
@@ -405,7 +408,7 @@ describe('AI Monitoring Page Tests', () => {
   describe('System Health Dashboard', () => {
     beforeEach(() => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display system health information', () => {
@@ -440,14 +443,14 @@ describe('AI Monitoring Page Tests', () => {
   describe('Provider Monitoring', () => {
     beforeEach(() => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       // Try to switch to Providers tab
       cy.get('body').then($body => {
         const providersTab = $body.find('button:contains("Providers")');
         if (providersTab.length > 0) {
-          cy.wrap(providersTab).first().click();
-          cy.wait(500);
+          cy.wrap(providersTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -484,14 +487,14 @@ describe('AI Monitoring Page Tests', () => {
   describe('Agent Performance', () => {
     beforeEach(() => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       // Try to switch to Agents tab
       cy.get('body').then($body => {
         const agentsTab = $body.find('button:contains("Agents")');
         if (agentsTab.length > 0) {
-          cy.wrap(agentsTab).first().click();
-          cy.wait(500);
+          cy.wrap(agentsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -514,14 +517,14 @@ describe('AI Monitoring Page Tests', () => {
   describe('Alert Management', () => {
     beforeEach(() => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       // Try to switch to Alerts tab
       cy.get('body').then($body => {
         const alertsTab = $body.find('button:contains("Alerts")');
         if (alertsTab.length > 0) {
-          cy.wrap(alertsTab).first().click();
-          cy.wait(500);
+          cy.wrap(alertsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -560,7 +563,7 @@ describe('AI Monitoring Page Tests', () => {
   describe('Permission-Based Access', () => {
     it('should show access denied for unauthorized users', () => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('Access Denied') || $body.text().includes('permission')) {
@@ -582,7 +585,7 @@ describe('AI Monitoring Page Tests', () => {
       });
 
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -596,7 +599,7 @@ describe('AI Monitoring Page Tests', () => {
       });
 
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -616,7 +619,7 @@ describe('AI Monitoring Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -630,7 +633,7 @@ describe('AI Monitoring Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -644,9 +647,12 @@ describe('AI Monitoring Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

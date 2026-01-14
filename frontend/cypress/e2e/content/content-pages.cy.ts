@@ -18,17 +18,18 @@
 describe('Content Pages Management Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupContentIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Pages page', () => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Pages') ||
@@ -45,7 +46,7 @@ describe('Content Pages Management Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Pages');
@@ -59,7 +60,7 @@ describe('Content Pages Management Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Manage') ||
@@ -75,7 +76,7 @@ describe('Content Pages Management Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard');
@@ -91,7 +92,7 @@ describe('Content Pages Management Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -120,7 +121,7 @@ describe('Content Pages Management Tests', () => {
   describe('Search and Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display search input', () => {
@@ -139,7 +140,7 @@ describe('Content Pages Management Tests', () => {
         const searchInput = $body.find('input[placeholder*="Search pages"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
           cy.wrap(searchInput).first().type('home');
-          cy.wait(500);
+          cy.waitForPageLoad();
           cy.log('Search performed');
         }
       });
@@ -165,7 +166,7 @@ describe('Content Pages Management Tests', () => {
         const statusSelect = $body.find('select');
         if (statusSelect.length > 0) {
           cy.wrap(statusSelect).first().select('draft');
-          cy.wait(500);
+          cy.waitForPageLoad();
           cy.log('Filtered by status');
         }
       });
@@ -177,7 +178,7 @@ describe('Content Pages Management Tests', () => {
   describe('Pages List Display', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pages list', () => {
@@ -258,7 +259,7 @@ describe('Content Pages Management Tests', () => {
   describe('Page Row Actions', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have view page button', () => {
@@ -320,7 +321,7 @@ describe('Content Pages Management Tests', () => {
   describe('Pagination', () => {
     beforeEach(() => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pagination when multiple pages', () => {
@@ -362,7 +363,7 @@ describe('Content Pages Management Tests', () => {
   describe('Permission-Based Access', () => {
     it('should show access denied for unauthorized users', () => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasAccessDenied = $body.text().includes('Access Denied') ||
@@ -377,7 +378,7 @@ describe('Content Pages Management Tests', () => {
 
     it('should show Create Page for authorized users', () => {
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Page")');
@@ -398,7 +399,7 @@ describe('Content Pages Management Tests', () => {
       });
 
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -412,7 +413,7 @@ describe('Content Pages Management Tests', () => {
       });
 
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -432,7 +433,7 @@ describe('Content Pages Management Tests', () => {
       cy.intercept('GET', '/api/v1/pages*', {
         delay: 1000,
         statusCode: 200,
-        body: { success: true, data: [], meta: { total_pages: 1 } }
+        body: { data: [], meta: { total_pages: 1 } }
       });
 
       cy.visit('/app/content/pages');
@@ -453,7 +454,7 @@ describe('Content Pages Management Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -467,7 +468,7 @@ describe('Content Pages Management Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -481,9 +482,12 @@ describe('Content Pages Management Tests', () => {
     it('should have horizontal scroll on table for small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/content/pages');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

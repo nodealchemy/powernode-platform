@@ -18,17 +18,18 @@
 describe('Knowledge Base Article Editor Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupContentIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('New Article Page', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should navigate to new article editor', () => {
@@ -85,7 +86,7 @@ describe('Knowledge Base Article Editor Tests', () => {
   describe('Editor Tabs', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display editor tab', () => {
@@ -140,8 +141,8 @@ describe('Knowledge Base Article Editor Tests', () => {
       cy.get('body').then($body => {
         const tabButtons = $body.find('button:contains("Settings"), button:contains("SEO"), button:contains("Preview")');
         if (tabButtons.length > 0) {
-          cy.wrap(tabButtons).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(tabButtons).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Tab switched');
         }
       });
@@ -153,7 +154,7 @@ describe('Knowledge Base Article Editor Tests', () => {
   describe('Article Settings', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display status options', () => {
@@ -198,7 +199,7 @@ describe('Knowledge Base Article Editor Tests', () => {
   describe('Tag Management', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display tags input', () => {
@@ -218,7 +219,7 @@ describe('Knowledge Base Article Editor Tests', () => {
         const tagInput = $body.find('input[placeholder*="tag"]');
         if (tagInput.length > 0) {
           cy.wrap(tagInput).type('test-tag{enter}');
-          cy.wait(500);
+          cy.waitForPageLoad();
           cy.log('Tag added');
         }
       });
@@ -230,7 +231,7 @@ describe('Knowledge Base Article Editor Tests', () => {
   describe('SEO Settings', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display meta title field', () => {
@@ -238,8 +239,8 @@ describe('Knowledge Base Article Editor Tests', () => {
         // Navigate to SEO tab if available
         const seoTab = $body.find('button:contains("SEO")');
         if (seoTab.length > 0) {
-          cy.wrap(seoTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(seoTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
 
         const hasMetaTitle = $body.text().includes('Meta Title') ||
@@ -256,8 +257,8 @@ describe('Knowledge Base Article Editor Tests', () => {
       cy.get('body').then($body => {
         const seoTab = $body.find('button:contains("SEO")');
         if (seoTab.length > 0) {
-          cy.wrap(seoTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(seoTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
 
         const hasMetaDesc = $body.text().includes('Meta Description') ||
@@ -287,7 +288,7 @@ describe('Knowledge Base Article Editor Tests', () => {
   describe('Save Actions', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have save button', () => {
@@ -316,7 +317,7 @@ describe('Knowledge Base Article Editor Tests', () => {
   describe('Permission Handling', () => {
     it('should redirect unauthorized users', () => {
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermissionMsg = $body.text().includes('Permission') ||
@@ -335,7 +336,7 @@ describe('Knowledge Base Article Editor Tests', () => {
   describe('Markdown Editor', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display markdown toolbar', () => {
@@ -356,7 +357,7 @@ describe('Knowledge Base Article Editor Tests', () => {
         const textarea = $body.find('textarea');
         if (textarea.length > 0) {
           cy.wrap(textarea).first().type('# Test Heading\n\nTest content here.');
-          cy.wait(500);
+          cy.waitForPageLoad();
           cy.log('Content entered');
         }
       });
@@ -373,7 +374,7 @@ describe('Knowledge Base Article Editor Tests', () => {
       });
 
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -386,7 +387,7 @@ describe('Knowledge Base Article Editor Tests', () => {
       });
 
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -397,7 +398,7 @@ describe('Knowledge Base Article Editor Tests', () => {
       cy.intercept('GET', '**/api/**/kb/articles/**', {
         delay: 2000,
         statusCode: 200,
-        body: { success: true, data: { article: {} } }
+        body: { article: {} }
       });
 
       cy.visit('/app/content/kb/articles/test-id/edit');
@@ -418,7 +419,7 @@ describe('Knowledge Base Article Editor Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -426,7 +427,7 @@ describe('Knowledge Base Article Editor Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -434,9 +435,12 @@ describe('Knowledge Base Article Editor Tests', () => {
     it('should display properly on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/content/kb/articles/new');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

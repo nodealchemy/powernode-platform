@@ -9,16 +9,17 @@
 describe('Two-Factor Authentication Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
   });
 
   describe('2FA Setup and Enablement', () => {
     it('should allow users to enable 2FA from security settings', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
 
       // Try to navigate to security settings
       cy.visit('/settings/security');
@@ -64,10 +65,10 @@ describe('Two-Factor Authentication Tests', () => {
     it('should display QR code and backup codes for 2FA setup', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
 
       // Try to access 2FA setup directly
       cy.visit('/settings/security');
@@ -119,12 +120,12 @@ describe('Two-Factor Authentication Tests', () => {
       }).as('loginWith2FA');
 
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('test2fa@example.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('test2fa@example.com');
       cy.get('[data-testid="password-input"]').type('TestPassword123!');
       cy.get('[data-testid="login-submit-btn"]').click();
 
       cy.wait('@loginWith2FA');
-      cy.wait(2000);
+      cy.waitForStableDOM();
 
       // Check if 2FA verification page is shown
       cy.url().then(url => {
@@ -181,7 +182,7 @@ describe('Two-Factor Authentication Tests', () => {
               cy.get('input[name="code"], input[name="token"], input[name="otp"]').first().type('123456');
               cy.get('button[type="submit"], button:contains("Verify")').click();
               cy.wait('@invalid2FA');
-              cy.wait(1000);
+              cy.waitForStableDOM();
               cy.get('body').should('be.visible');
             }
           });
@@ -241,10 +242,10 @@ describe('Two-Factor Authentication Tests', () => {
     it('should allow users to disable 2FA with password confirmation', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
 
       cy.visit('/settings/security');
 
@@ -272,10 +273,10 @@ describe('Two-Factor Authentication Tests', () => {
     it('should allow regeneration of backup codes', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
 
       cy.visit('/settings/security');
 
@@ -355,7 +356,7 @@ describe('Two-Factor Authentication Tests', () => {
                 cy.get('input[name="code"], input[name="token"], input[name="otp"]').first().clear().type('000000');
                 cy.get('button[type="submit"], button:contains("Verify")').click();
                 cy.wait('@failed2FA');
-                cy.wait(500);
+                cy.waitForStableDOM();
               }
             }
           });
@@ -366,3 +367,6 @@ describe('Two-Factor Authentication Tests', () => {
     });
   });
 });
+
+
+export {};

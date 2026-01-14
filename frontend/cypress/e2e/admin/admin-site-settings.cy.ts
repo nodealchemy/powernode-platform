@@ -4,10 +4,10 @@ describe('Admin Site Settings Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
@@ -367,7 +367,7 @@ describe('Admin Site Settings Page Tests', () => {
       cy.visit('/app/admin/site-settings');
       cy.get('body').then($body => {
         if ($body.text().includes('Show URLs') || $body.text().includes('Hide URLs')) {
-          cy.contains('Show URLs').click({ force: true }).then(() => {
+          cy.contains('Show URLs').should('be.visible').click().then(() => {
             cy.log('Toggle clicked');
           });
         }
@@ -477,3 +477,6 @@ describe('Admin Site Settings Page Tests', () => {
     });
   });
 });
+
+
+export {};

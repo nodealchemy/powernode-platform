@@ -20,17 +20,18 @@
 describe('Business Billing Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Billing page', () => {
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Billing') ||
@@ -46,7 +47,7 @@ describe('Business Billing Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Billing');
@@ -60,7 +61,7 @@ describe('Business Billing Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Manage') ||
@@ -76,7 +77,7 @@ describe('Business Billing Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -93,7 +94,7 @@ describe('Business Billing Page Tests', () => {
   describe('Tab Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Overview tab', () => {
@@ -133,8 +134,8 @@ describe('Business Billing Page Tests', () => {
       cy.get('body').then($body => {
         const invoicesTab = $body.find('button:contains("Invoices")');
         if (invoicesTab.length > 0) {
-          cy.wrap(invoicesTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(invoicesTab).first().should('be.visible').click();
+          cy.get('body').should('contain.text', 'Invoices');
           cy.log('Switched to Invoices tab');
         }
       });
@@ -146,8 +147,8 @@ describe('Business Billing Page Tests', () => {
       cy.get('body').then($body => {
         const analyticsTab = $body.find('button:contains("Analytics")');
         if (analyticsTab.length > 0) {
-          cy.wrap(analyticsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(analyticsTab).first().should('be.visible').click();
+          cy.get('body').should('contain.text', 'Analytics');
           cy.log('Switched to Analytics tab');
         }
       });
@@ -159,7 +160,7 @@ describe('Business Billing Page Tests', () => {
   describe('Overview Tab - Statistics Cards', () => {
     beforeEach(() => {
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Outstanding stat', () => {
@@ -212,7 +213,7 @@ describe('Business Billing Page Tests', () => {
   describe('Overview Tab - Quick Actions', () => {
     beforeEach(() => {
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Create Invoice action card', () => {
@@ -253,7 +254,7 @@ describe('Business Billing Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Create Invoice button', () => {
@@ -282,8 +283,8 @@ describe('Business Billing Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Invoice")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[class*="modal"], [class*="Modal"]').length > 0 ||
                              $modalBody.text().includes('Create Invoice') ||
@@ -302,13 +303,13 @@ describe('Business Billing Page Tests', () => {
   describe('Invoices Tab', () => {
     beforeEach(() => {
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       // Switch to Invoices tab
       cy.get('body').then($body => {
         const invoicesTab = $body.find('button:contains("Invoices")');
         if (invoicesTab.length > 0) {
-          cy.wrap(invoicesTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(invoicesTab).first().should('be.visible').click();
+          cy.get('body').should('contain.text', 'Invoices');
         }
       });
     });
@@ -388,13 +389,13 @@ describe('Business Billing Page Tests', () => {
   describe('Analytics Tab', () => {
     beforeEach(() => {
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       // Switch to Analytics tab
       cy.get('body').then($body => {
         const analyticsTab = $body.find('button:contains("Analytics")');
         if (analyticsTab.length > 0) {
-          cy.wrap(analyticsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(analyticsTab).first().should('be.visible').click();
+          cy.get('body').should('contain.text', 'Analytics');
         }
       });
     });
@@ -448,7 +449,7 @@ describe('Business Billing Page Tests', () => {
   describe('Permission Check', () => {
     it('should show permission message for unauthorized users', () => {
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermission = $body.text().includes("don't have permission") ||
@@ -471,7 +472,7 @@ describe('Business Billing Page Tests', () => {
       });
 
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -485,7 +486,7 @@ describe('Business Billing Page Tests', () => {
       });
 
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -506,7 +507,7 @@ describe('Business Billing Page Tests', () => {
       });
 
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const retryButton = $body.find('button:contains("Try Again")');
@@ -545,7 +546,7 @@ describe('Business Billing Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -559,7 +560,7 @@ describe('Business Billing Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -573,7 +574,7 @@ describe('Business Billing Page Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -581,7 +582,7 @@ describe('Business Billing Page Tests', () => {
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/business/billing');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMultiColumn = $body.find('[class*="grid-cols"], [class*="md:grid-cols"]').length > 0;
@@ -594,3 +595,6 @@ describe('Business Billing Page Tests', () => {
     });
   });
 });
+
+
+export {};

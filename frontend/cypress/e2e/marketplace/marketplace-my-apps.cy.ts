@@ -15,17 +15,18 @@
 describe('Marketplace My Apps Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupMarketplaceIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to My Apps page', () => {
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('My Apps') ||
@@ -42,7 +43,7 @@ describe('Marketplace My Apps Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('My Apps');
@@ -56,7 +57,7 @@ describe('Marketplace My Apps Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -73,7 +74,7 @@ describe('Marketplace My Apps Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Create App button', () => {
@@ -102,7 +103,7 @@ describe('Marketplace My Apps Page Tests', () => {
   describe('App List Display', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display apps list', () => {
@@ -144,15 +145,15 @@ describe('Marketplace My Apps Page Tests', () => {
   describe('Create App Modal', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should open create app modal', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create App"), button:contains("Create")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[role="dialog"], [class*="modal"], [class*="Modal"]').length > 0;
             if (hasModal) {
@@ -169,8 +170,8 @@ describe('Marketplace My Apps Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create App"), button:contains("Create")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasNameField = $modalBody.find('input[name*="name"], input[placeholder*="name"]').length > 0;
             if (hasNameField) {
@@ -187,8 +188,8 @@ describe('Marketplace My Apps Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create App"), button:contains("Create")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasDescField = $modalBody.find('textarea, input[name*="description"]').length > 0;
             if (hasDescField) {
@@ -205,14 +206,14 @@ describe('Marketplace My Apps Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create App"), button:contains("Create")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($modalBody => {
             const cancelButton = $modalBody.find('button:contains("Cancel"), button:contains("Close")');
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click({ force: true });
-              cy.wait(300);
+              cy.wrap(cancelButton).first().should('be.visible').click();
+              cy.waitForModalClose();
               cy.log('Modal closed on cancel');
             }
           });
@@ -226,7 +227,7 @@ describe('Marketplace My Apps Page Tests', () => {
   describe('App Actions', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have manage app option', () => {
@@ -244,8 +245,8 @@ describe('Marketplace My Apps Page Tests', () => {
       cy.get('body').then($body => {
         const manageButton = $body.find('button:contains("Manage"), button:contains("View")');
         if (manageButton.length > 0) {
-          cy.wrap(manageButton).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(manageButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Navigated to app management');
         }
       });
@@ -262,7 +263,7 @@ describe('Marketplace My Apps Page Tests', () => {
       });
 
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -276,7 +277,7 @@ describe('Marketplace My Apps Page Tests', () => {
       });
 
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -294,7 +295,7 @@ describe('Marketplace My Apps Page Tests', () => {
   describe('Permission-Based Access', () => {
     it('should show create button for authorized users', () => {
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create App")');
@@ -311,7 +312,7 @@ describe('Marketplace My Apps Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -325,7 +326,7 @@ describe('Marketplace My Apps Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -339,9 +340,12 @@ describe('Marketplace My Apps Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/marketplace/apps');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

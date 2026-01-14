@@ -14,17 +14,18 @@
 describe('Admin Settings Proxy Tab Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Proxy tab', () => {
       cy.visit('/app/admin/settings/proxy');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Proxy') ||
@@ -40,7 +41,7 @@ describe('Admin Settings Proxy Tab Tests', () => {
 
     it('should redirect unauthorized users', () => {
       cy.visit('/app/admin/settings/proxy');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -48,7 +49,7 @@ describe('Admin Settings Proxy Tab Tests', () => {
   describe('Proxy Host Management', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/proxy');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display proxy hosts list', () => {
@@ -106,7 +107,7 @@ describe('Admin Settings Proxy Tab Tests', () => {
   describe('Proxy Detection Status', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/proxy');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display detection status', () => {
@@ -139,7 +140,7 @@ describe('Admin Settings Proxy Tab Tests', () => {
   describe('Connection Testing', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/proxy');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have test connection button', () => {
@@ -184,7 +185,7 @@ describe('Admin Settings Proxy Tab Tests', () => {
   describe('Load Balancing Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/proxy');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display load balancing options', () => {
@@ -231,7 +232,7 @@ describe('Admin Settings Proxy Tab Tests', () => {
   describe('SSL/TLS Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/proxy');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display SSL settings', () => {
@@ -264,7 +265,7 @@ describe('Admin Settings Proxy Tab Tests', () => {
   describe('Saving Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/proxy');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have save button', () => {
@@ -291,7 +292,7 @@ describe('Admin Settings Proxy Tab Tests', () => {
       });
 
       cy.visit('/app/admin/settings/proxy');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -302,7 +303,7 @@ describe('Admin Settings Proxy Tab Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/proxy');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -310,9 +311,12 @@ describe('Admin Settings Proxy Tab Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/settings/proxy');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

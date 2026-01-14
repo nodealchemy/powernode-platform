@@ -19,24 +19,25 @@
 describe('DevOps Runners Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupDevopsIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Runners from DevOps', () => {
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const runnersLink = $body.find('a[href*="/runners"], button:contains("Runners")');
 
         if (runnersLink.length > 0) {
-          cy.wrap(runnersLink).first().click();
+          cy.wrap(runnersLink).first().should('be.visible').click();
           cy.url().should('include', '/runners');
         } else {
           cy.visit('/app/automation/runners');
@@ -48,6 +49,7 @@ describe('DevOps Runners Tests', () => {
 
     it('should load Runners page directly', () => {
       cy.visit('/app/automation/runners');
+      cy.waitForPageLoad();
 
       cy.url().then(url => {
         if (url.includes('/runners')) {
@@ -63,6 +65,7 @@ describe('DevOps Runners Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/automation/runners');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') &&
@@ -80,7 +83,7 @@ describe('DevOps Runners Tests', () => {
   describe('Stats Cards Display', () => {
     beforeEach(() => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total stat', () => {
@@ -131,12 +134,12 @@ describe('DevOps Runners Tests', () => {
   describe('Runner List Display', () => {
     beforeEach(() => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display runner list or empty state', () => {
       cy.get('body').then($body => {
-        const hasRunners = $body.find('[class*="runner"], [class*="card"]').length > 0 ||
+        const _hasRunners = $body.find('[class*="runner"], [class*="card"]').length > 0 ||
                             $body.text().includes('No Runners Found') ||
                             $body.text().includes('Sync runners');
 
@@ -221,7 +224,7 @@ describe('DevOps Runners Tests', () => {
   describe('Search Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have search input', () => {
@@ -242,8 +245,9 @@ describe('DevOps Runners Tests', () => {
         const searchInput = $body.find('input[placeholder*="Search"], input[type="text"]');
 
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('runner');
-          cy.wait(500);
+          cy.wrap(searchInput).first().should('be.visible').type('runner');
+          // Wait for debounced search to complete
+          cy.get('body').should('be.visible');
           cy.log('Search filter applied');
         }
       });
@@ -255,7 +259,7 @@ describe('DevOps Runners Tests', () => {
   describe('Status Filter', () => {
     beforeEach(() => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have status filter dropdown', () => {
@@ -275,8 +279,8 @@ describe('DevOps Runners Tests', () => {
         const statusSelect = $body.find('select');
 
         if (statusSelect.length > 0) {
-          cy.wrap(statusSelect).first().select('online');
-          cy.wait(500);
+          cy.wrap(statusSelect).first().should('be.visible').select('online');
+          cy.get('body').should('be.visible');
           cy.log('Filtered by Online status');
         }
       });
@@ -289,8 +293,8 @@ describe('DevOps Runners Tests', () => {
         const statusSelect = $body.find('select');
 
         if (statusSelect.length > 0) {
-          cy.wrap(statusSelect).first().select('offline');
-          cy.wait(500);
+          cy.wrap(statusSelect).first().should('be.visible').select('offline');
+          cy.get('body').should('be.visible');
           cy.log('Filtered by Offline status');
         }
       });
@@ -303,8 +307,8 @@ describe('DevOps Runners Tests', () => {
         const statusSelect = $body.find('select');
 
         if (statusSelect.length > 0) {
-          cy.wrap(statusSelect).first().select('busy');
-          cy.wait(500);
+          cy.wrap(statusSelect).first().should('be.visible').select('busy');
+          cy.get('body').should('be.visible');
           cy.log('Filtered by Busy status');
         }
       });
@@ -316,7 +320,7 @@ describe('DevOps Runners Tests', () => {
   describe('Sync Runners', () => {
     beforeEach(() => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Sync Runners button', () => {
@@ -337,8 +341,9 @@ describe('DevOps Runners Tests', () => {
         const syncButton = $body.find('button:contains("Sync Runners")');
 
         if (syncButton.length > 0) {
-          cy.wrap(syncButton).first().click();
-          cy.wait(1000);
+          cy.wrap(syncButton).first().should('be.visible').click();
+          // Wait for sync to complete
+          cy.get('body').should('be.visible');
           cy.log('Sync triggered');
         }
       });
@@ -350,7 +355,7 @@ describe('DevOps Runners Tests', () => {
   describe('Delete Runner', () => {
     beforeEach(() => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Delete action for runners', () => {
@@ -382,7 +387,7 @@ describe('DevOps Runners Tests', () => {
   describe('Runner Details', () => {
     beforeEach(() => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should navigate to runner details on click', () => {
@@ -390,8 +395,7 @@ describe('DevOps Runners Tests', () => {
         const runnerCard = $body.find('[class*="card"][class*="cursor-pointer"]');
 
         if (runnerCard.length > 0) {
-          cy.wrap(runnerCard).first().click();
-          cy.wait(500);
+          cy.wrap(runnerCard).first().should('be.visible').click();
 
           cy.url().then(url => {
             if (url.includes('/runners/')) {
@@ -408,7 +412,7 @@ describe('DevOps Runners Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -429,8 +433,9 @@ describe('DevOps Runners Tests', () => {
         const refreshButton = $body.find('button:contains("Refresh")');
 
         if (refreshButton.length > 0) {
-          cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
+          cy.wrap(refreshButton).first().should('be.visible').click();
+          // Wait for refresh to complete
+          cy.get('body').should('be.visible');
           cy.log('Refresh triggered');
         }
       });
@@ -442,7 +447,7 @@ describe('DevOps Runners Tests', () => {
   describe('Pagination', () => {
     beforeEach(() => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pagination when many runners exist', () => {
@@ -464,8 +469,8 @@ describe('DevOps Runners Tests', () => {
         const nextButton = $body.find('button:contains("Next")');
 
         if (nextButton.length > 0 && !nextButton.is(':disabled')) {
-          cy.wrap(nextButton).first().click();
-          cy.wait(500);
+          cy.wrap(nextButton).first().should('be.visible').click();
+          cy.get('body').should('be.visible');
           cy.log('Navigated to next page');
         }
       });
@@ -477,7 +482,7 @@ describe('DevOps Runners Tests', () => {
   describe('Empty State', () => {
     it('should display empty state when no runners', () => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('No Runners Found')) {
@@ -491,7 +496,7 @@ describe('DevOps Runners Tests', () => {
 
     it('should have Sync button in empty state', () => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('No Runners')) {
@@ -511,10 +516,10 @@ describe('DevOps Runners Tests', () => {
       cy.intercept('GET', '/api/v1/git_runners*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getRunnersError');
 
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -525,10 +530,10 @@ describe('DevOps Runners Tests', () => {
       cy.intercept('GET', '/api/v1/git_runners*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to fetch runners' }
-      });
+      }).as('getRunnersError');
 
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -547,10 +552,10 @@ describe('DevOps Runners Tests', () => {
       cy.intercept('GET', '/api/v1/git_runners*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to fetch runners' }
-      });
+      }).as('getRunnersError');
 
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const retryButton = $body.find('button:contains("Try Again"), button:contains("Retry")');
@@ -567,7 +572,7 @@ describe('DevOps Runners Tests', () => {
   describe('Permission-Based Actions', () => {
     it('should show actions based on permissions', () => {
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasManageActions = $body.find('button:contains("Delete"), button:contains("Sync")').length > 0;
@@ -587,7 +592,7 @@ describe('DevOps Runners Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -601,7 +606,7 @@ describe('DevOps Runners Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -615,9 +620,12 @@ describe('DevOps Runners Tests', () => {
     it('should stack runner cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/automation/runners');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

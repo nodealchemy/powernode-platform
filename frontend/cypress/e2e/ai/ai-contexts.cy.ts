@@ -17,17 +17,18 @@
 describe('AI Contexts Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Contexts page', () => {
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Contexts') ||
@@ -43,7 +44,7 @@ describe('AI Contexts Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Contexts');
@@ -57,7 +58,7 @@ describe('AI Contexts Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('memory') ||
@@ -72,7 +73,7 @@ describe('AI Contexts Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -89,7 +90,7 @@ describe('AI Contexts Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -118,7 +119,7 @@ describe('AI Contexts Page Tests', () => {
   describe('Tab Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display tab navigation', () => {
@@ -138,8 +139,8 @@ describe('AI Contexts Page Tests', () => {
       cy.get('body').then($body => {
         const browseTab = $body.find('button:contains("Browse")');
         if (browseTab.length > 0) {
-          cy.wrap(browseTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(browseTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Browse tab');
         }
       });
@@ -151,8 +152,8 @@ describe('AI Contexts Page Tests', () => {
       cy.get('body').then($body => {
         const searchTab = $body.find('button:contains("Search")');
         if (searchTab.length > 0) {
-          cy.wrap(searchTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(searchTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Search tab');
         }
       });
@@ -164,8 +165,8 @@ describe('AI Contexts Page Tests', () => {
       cy.get('body').then($body => {
         const createTab = $body.find('button:contains("Create New"), button:contains("Create")');
         if (createTab.length > 0) {
-          cy.wrap(createTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Create tab');
         }
       });
@@ -177,7 +178,7 @@ describe('AI Contexts Page Tests', () => {
   describe('Context Browser', () => {
     beforeEach(() => {
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display context list', () => {
@@ -219,12 +220,12 @@ describe('AI Contexts Page Tests', () => {
   describe('Search Tab', () => {
     beforeEach(() => {
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const searchTab = $body.find('button:contains("Search")');
         if (searchTab.length > 0) {
-          cy.wrap(searchTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(searchTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -245,7 +246,7 @@ describe('AI Contexts Page Tests', () => {
         const searchInput = $body.find('input[type="search"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
           cy.wrap(searchInput).first().type('test{enter}');
-          cy.wait(1000);
+          cy.waitForPageLoad();
           cy.log('Search performed');
         }
       });
@@ -269,12 +270,12 @@ describe('AI Contexts Page Tests', () => {
   describe('Create Context Form', () => {
     beforeEach(() => {
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const createTab = $body.find('button:contains("Create New"), button:contains("Create")');
         if (createTab.length > 0) {
-          cy.wrap(createTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -367,12 +368,12 @@ describe('AI Contexts Page Tests', () => {
   describe('Form Validation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const createTab = $body.find('button:contains("Create New"), button:contains("Create")');
         if (createTab.length > 0) {
-          cy.wrap(createTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -381,8 +382,8 @@ describe('AI Contexts Page Tests', () => {
       cy.get('body').then($body => {
         const submitButton = $body.find('button:contains("Create Context"), button[type="submit"]');
         if (submitButton.length > 0) {
-          cy.wrap(submitButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(submitButton).first().scrollIntoView().should('exist').click();
+          cy.waitForPageLoad();
           cy.get('body').then($validationBody => {
             const hasError = $validationBody.text().includes('required') ||
                              $validationBody.find('[class*="error"]').length > 0;
@@ -404,8 +405,8 @@ describe('AI Contexts Page Tests', () => {
           cy.get('body').then($cancelBody => {
             const cancelButton = $cancelBody.find('button:contains("Cancel")');
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click({ force: true });
-              cy.wait(500);
+              cy.wrap(cancelButton).first().should('be.visible').click();
+              cy.waitForPageLoad();
               cy.log('Form cancelled');
             }
           });
@@ -421,10 +422,10 @@ describe('AI Contexts Page Tests', () => {
       cy.intercept('GET', '/api/v1/ai/contexts*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getContextsError');
 
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.wait('@getContextsError');
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -435,10 +436,10 @@ describe('AI Contexts Page Tests', () => {
       cy.intercept('GET', '/api/v1/ai/contexts*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load contexts' }
-      });
+      }).as('getContextsError');
 
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.wait('@getContextsError');
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -458,8 +459,8 @@ describe('AI Contexts Page Tests', () => {
       cy.intercept('GET', '/api/v1/ai/contexts*', {
         delay: 1000,
         statusCode: 200,
-        body: { success: true, data: [] }
-      });
+        body: []
+      }).as('getContextsDelayed');
 
       cy.visit('/app/ai/contexts');
 
@@ -471,6 +472,7 @@ describe('AI Contexts Page Tests', () => {
         }
       });
 
+      cy.wait('@getContextsDelayed');
       cy.get('body').should('be.visible');
     });
   });
@@ -479,7 +481,7 @@ describe('AI Contexts Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -493,7 +495,7 @@ describe('AI Contexts Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -507,9 +509,12 @@ describe('AI Contexts Page Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/contexts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

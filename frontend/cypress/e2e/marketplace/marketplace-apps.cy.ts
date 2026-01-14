@@ -4,10 +4,10 @@ describe('Marketplace Apps Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
@@ -129,7 +129,7 @@ describe('Marketplace Apps Page Tests', () => {
       cy.get('body').then($body => {
         if ($body.find('button:contains("Create App")').length > 0) {
           cy.contains('button', 'Create App').click();
-          cy.wait(500);
+          cy.waitForPageLoad();
           cy.get('body').then($updated => {
             if ($updated.find('button:contains("Cancel")').length > 0) {
               cy.contains('button', 'Cancel').click();
@@ -313,3 +313,6 @@ describe('Marketplace Apps Page Tests', () => {
     });
   });
 });
+
+
+export {};

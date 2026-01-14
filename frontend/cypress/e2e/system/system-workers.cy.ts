@@ -18,16 +18,17 @@ describe('System Workers Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.setupSystemIntercepts();
   });
 
   describe('Page Navigation', () => {
     it('should navigate to System Workers page', () => {
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Workers') ||
@@ -44,7 +45,7 @@ describe('System Workers Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Workers') ||
@@ -59,7 +60,7 @@ describe('System Workers Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('System') ||
@@ -76,7 +77,7 @@ describe('System Workers Page Tests', () => {
   describe('Tab Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display worker tabs', () => {
@@ -94,8 +95,7 @@ describe('System Workers Page Tests', () => {
       cy.get('body').then($body => {
         const overviewTab = $body.find('button:contains("Overview"), [role="tab"]:contains("Overview")');
         if (overviewTab.length > 0) {
-          cy.wrap(overviewTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(overviewTab).first().should('be.visible').click();
           cy.log('Switched to Overview tab');
         }
       });
@@ -107,8 +107,7 @@ describe('System Workers Page Tests', () => {
       cy.get('body').then($body => {
         const managementTab = $body.find('button:contains("Management"), [role="tab"]:contains("Management")');
         if (managementTab.length > 0) {
-          cy.wrap(managementTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(managementTab).first().should('be.visible').click();
           cy.log('Switched to Management tab');
         }
       });
@@ -120,8 +119,7 @@ describe('System Workers Page Tests', () => {
       cy.get('body').then($body => {
         const activityTab = $body.find('button:contains("Activity"), [role="tab"]:contains("Activity")');
         if (activityTab.length > 0) {
-          cy.wrap(activityTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(activityTab).first().should('be.visible').click();
           cy.log('Switched to Activity tab');
         }
       });
@@ -133,8 +131,7 @@ describe('System Workers Page Tests', () => {
       cy.get('body').then($body => {
         const securityTab = $body.find('button:contains("Security"), [role="tab"]:contains("Security")');
         if (securityTab.length > 0) {
-          cy.wrap(securityTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(securityTab).first().should('be.visible').click();
           cy.log('Switched to Security tab');
         }
       });
@@ -146,8 +143,7 @@ describe('System Workers Page Tests', () => {
       cy.get('body').then($body => {
         const settingsTab = $body.find('button:contains("Settings"), [role="tab"]:contains("Settings")');
         if (settingsTab.length > 0) {
-          cy.wrap(settingsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(settingsTab).first().should('be.visible').click();
           cy.log('Switched to Settings tab');
         }
       });
@@ -159,8 +155,7 @@ describe('System Workers Page Tests', () => {
       cy.get('body').then($body => {
         const activityTab = $body.find('button:contains("Activity"), [role="tab"]:contains("Activity")');
         if (activityTab.length > 0) {
-          cy.wrap(activityTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(activityTab).first().should('be.visible').click();
           cy.url().then(url => {
             if (url.includes('tab=') || url.includes('activity')) {
               cy.log('URL updated with tab parameter');
@@ -176,7 +171,7 @@ describe('System Workers Page Tests', () => {
   describe('Stats Display', () => {
     beforeEach(() => {
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Workers stat', () => {
@@ -249,7 +244,7 @@ describe('System Workers Page Tests', () => {
   describe('Worker List Display', () => {
     beforeEach(() => {
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display worker list', () => {
@@ -306,7 +301,7 @@ describe('System Workers Page Tests', () => {
   describe('Filtering and Sorting', () => {
     beforeEach(() => {
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have search input', () => {
@@ -359,7 +354,7 @@ describe('System Workers Page Tests', () => {
   describe('Create Worker Modal', () => {
     beforeEach(() => {
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Create Worker button', () => {
@@ -377,8 +372,7 @@ describe('System Workers Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Worker"), button:contains("Add Worker"), button:contains("New")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[role="dialog"], [class*="modal"], [class*="Modal"]').length > 0;
             if (hasModal) {
@@ -395,8 +389,7 @@ describe('System Workers Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Worker"), button:contains("Add Worker")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
           cy.get('body').then($modalBody => {
             const hasNameField = $modalBody.find('input[name*="name"], input[placeholder*="name"]').length > 0;
             if (hasNameField) {
@@ -413,8 +406,7 @@ describe('System Workers Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Worker"), button:contains("Add Worker")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
           cy.get('body').then($modalBody => {
             const hasTypeSelect = $modalBody.find('select, input[type="radio"]').length > 0 ||
                                   $modalBody.text().includes('Type');
@@ -432,14 +424,12 @@ describe('System Workers Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Worker"), button:contains("Add Worker")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
 
           cy.get('body').then($modalBody => {
             const cancelButton = $modalBody.find('button:contains("Cancel"), button:contains("Close")');
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click({ force: true });
-              cy.wait(300);
+              cy.wrap(cancelButton).first().should('be.visible').click();
               cy.log('Modal closed on cancel');
             }
           });
@@ -453,7 +443,7 @@ describe('System Workers Page Tests', () => {
   describe('Worker Actions', () => {
     beforeEach(() => {
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have activate button', () => {
@@ -515,7 +505,7 @@ describe('System Workers Page Tests', () => {
   describe('Bulk Actions', () => {
     beforeEach(() => {
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have select all checkbox', () => {
@@ -533,8 +523,7 @@ describe('System Workers Page Tests', () => {
       cy.get('body').then($body => {
         const checkbox = $body.find('input[type="checkbox"]');
         if (checkbox.length > 1) {
-          cy.wrap(checkbox).eq(1).click({ force: true });
-          cy.wait(300);
+          cy.wrap(checkbox).eq(1).should('be.visible').click();
           cy.get('body').then($bulkBody => {
             const hasBulkActions = $bulkBody.text().includes('selected') ||
                                    $bulkBody.find('[class*="bulk"], [class*="actions"]').length > 0;
@@ -585,7 +574,7 @@ describe('System Workers Page Tests', () => {
   describe('Activity Tab Content', () => {
     beforeEach(() => {
       cy.visit('/app/system/workers?tab=activity');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display activity log', () => {
@@ -618,7 +607,7 @@ describe('System Workers Page Tests', () => {
   describe('Security Tab Content', () => {
     beforeEach(() => {
       cy.visit('/app/system/workers?tab=security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display security settings', () => {
@@ -651,7 +640,7 @@ describe('System Workers Page Tests', () => {
   describe('Settings Tab Content', () => {
     beforeEach(() => {
       cy.visit('/app/system/workers?tab=settings');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display settings form', () => {
@@ -687,7 +676,7 @@ describe('System Workers Page Tests', () => {
       });
 
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -701,7 +690,7 @@ describe('System Workers Page Tests', () => {
       });
 
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -731,7 +720,7 @@ describe('System Workers Page Tests', () => {
       });
 
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermissionCheck = $body.text().includes('Permission') ||
@@ -759,7 +748,7 @@ describe('System Workers Page Tests', () => {
       });
 
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Worker")');
@@ -776,7 +765,7 @@ describe('System Workers Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -790,7 +779,7 @@ describe('System Workers Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -804,9 +793,12 @@ describe('System Workers Page Tests', () => {
     it('should display tabs properly on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/system/workers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

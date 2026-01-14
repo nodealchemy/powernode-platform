@@ -9,12 +9,14 @@
 describe('Role & Permission Management', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.waitForPageLoad();
   });
 
   describe('User Authentication', () => {
@@ -57,7 +59,8 @@ describe('Role & Permission Management', () => {
       cy.get('body').then($body => {
         const navLinks = $body.find('nav a, aside a');
         if (navLinks.length > 0) {
-          cy.wrap(navLinks.first()).click({ force: true });
+          cy.wrap(navLinks.first()).should('be.visible').click();
+          cy.waitForPageLoad();
           cy.get('body').should('be.visible');
         }
       });
@@ -67,6 +70,7 @@ describe('Role & Permission Management', () => {
   describe('Dashboard Access', () => {
     it('should display dashboard content', () => {
       cy.visit('/app');
+      cy.waitForPageLoad();
       cy.get('main, [role="main"], .main-content, [class*="container"]')
         .should('exist');
     });
@@ -90,17 +94,19 @@ describe('Role & Permission Management', () => {
 
         for (const selector of settingsSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
       });
 
+      cy.waitForPageLoad();
       cy.url().should('match', /\/(app|dashboard|settings|profile)/);
     });
 
     it('should display settings content', () => {
       cy.visit('/app/settings/profile');
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -117,7 +123,7 @@ describe('Role & Permission Management', () => {
 
         for (const selector of menuTriggers) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -138,7 +144,7 @@ describe('Role & Permission Management', () => {
 
         for (const selector of menuTriggers) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -147,34 +153,16 @@ describe('Role & Permission Management', () => {
       // Click profile/settings if available
       cy.get('body').then($body => {
         if ($body.find(':contains("Profile")').length > 0) {
-          cy.contains('Profile').click({ force: true });
+          cy.contains('Profile').should('be.visible').click();
         } else if ($body.find(':contains("Settings")').length > 0) {
-          cy.contains('Settings').click({ force: true });
+          cy.contains('Settings').should('be.visible').click();
         }
       });
+      cy.waitForPageLoad();
     });
   });
 
-  describe('Plans Access', () => {
-    it('should access plans page', () => {
-      // Clear session to see public plans
-      cy.clearCookies();
-      cy.clearLocalStorage();
-      cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
-        .should('have.length.at.least', 1);
-    });
-
-    it('should display plan information', () => {
-      // Clear session to see public plans
-      cy.clearCookies();
-      cy.clearLocalStorage();
-      cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
-        .first()
-        .should('be.visible');
-    });
-  });
+  // Note: Plans Access tests moved to separate describe block below (no login required)
 
   describe('Logout Functionality', () => {
     it('should allow user to logout', () => {
@@ -185,7 +173,7 @@ describe('Role & Permission Management', () => {
       // Clear session manually
       cy.clearAppData();
       cy.visit('/app');
-      cy.url({ timeout: 10000 }).should('include', '/login');
+      cy.url({ timeout: 5000 }).should('include', '/login');
     });
   });
 
@@ -193,21 +181,50 @@ describe('Role & Permission Management', () => {
     it('should redirect unauthenticated users to login', () => {
       cy.clearAppData();
       cy.visit('/app');
-      cy.url({ timeout: 10000 }).should('include', '/login');
+      cy.url({ timeout: 5000 }).should('include', '/login');
     });
 
     it('should maintain session across page navigation', () => {
       cy.visit('/app');
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
       cy.url().should('match', /\/(app|dashboard)/);
 
       // Navigate to another page
       cy.visit('/plans');
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
 
       // Return to app
       cy.visit('/app');
+      cy.waitForPageLoad();
       cy.url().should('match', /\/(app|dashboard)/);
     });
   });
 });
+
+// Separate describe block for public pages - no login required
+describe('Public Plans Access', () => {
+  beforeEach(() => {
+    // Clear any existing session for public access testing
+    cy.clearAppData();
+  });
+
+  it('should access plans page', () => {
+    cy.visit('/plans');
+    cy.get('body').should('be.visible');
+    cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
+      .should('have.length.at.least', 1);
+  });
+
+  it('should display plan information', () => {
+    cy.visit('/plans');
+    cy.get('body').should('be.visible');
+    cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
+      .first()
+      .should('be.visible');
+  });
+});
+
+
+export {};

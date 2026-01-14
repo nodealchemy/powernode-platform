@@ -16,17 +16,18 @@
 describe('Content Knowledge Base Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupContentIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Knowledge Base page', () => {
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Knowledge Base') ||
@@ -43,7 +44,7 @@ describe('Content Knowledge Base Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Knowledge Base');
@@ -57,7 +58,7 @@ describe('Content Knowledge Base Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard');
@@ -71,7 +72,7 @@ describe('Content Knowledge Base Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('articles') ||
@@ -89,7 +90,7 @@ describe('Content Knowledge Base Page Tests', () => {
   describe('Search Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display search bar', () => {
@@ -107,8 +108,8 @@ describe('Content Knowledge Base Page Tests', () => {
       cy.get('body').then($body => {
         const searchInput = $body.find('input[type="search"], input[placeholder*="search"], input[placeholder*="Search"]');
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('test{enter}');
-          cy.wait(1000);
+          cy.wrap(searchInput).first().should('be.visible').type('test{enter}');
+          cy.waitForPageLoad();
           cy.log('Search performed');
         }
       });
@@ -120,8 +121,8 @@ describe('Content Knowledge Base Page Tests', () => {
       cy.get('body').then($body => {
         const searchInput = $body.find('input[type="search"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('guide{enter}');
-          cy.wait(1000);
+          cy.wrap(searchInput).first().should('be.visible').type('guide{enter}');
+          cy.waitForPageLoad();
           cy.get('body').then($resultsBody => {
             const hasResults = $resultsBody.text().includes('Results') ||
                                $resultsBody.text().includes('Search') ||
@@ -140,8 +141,8 @@ describe('Content Knowledge Base Page Tests', () => {
       cy.get('body').then($body => {
         const searchInput = $body.find('input[type="search"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('test');
-          cy.wait(500);
+          cy.wrap(searchInput).first().should('be.visible').type('test');
+          cy.waitForPageLoad();
           cy.get('body').then($clearBody => {
             const clearButton = $clearBody.find('button:contains("Clear"), [aria-label*="clear"]');
             if (clearButton.length > 0) {
@@ -158,8 +159,8 @@ describe('Content Knowledge Base Page Tests', () => {
       cy.get('body').then($body => {
         const searchInput = $body.find('input[type="search"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('zzzzzzxyznonexistent{enter}');
-          cy.wait(1000);
+          cy.wrap(searchInput).first().should('be.visible').type('zzzzzzxyznonexistent{enter}');
+          cy.waitForPageLoad();
           cy.get('body').then($resultsBody => {
             const hasNoResults = $resultsBody.text().includes('No articles found') ||
                                  $resultsBody.text().includes('No results') ||
@@ -178,7 +179,7 @@ describe('Content Knowledge Base Page Tests', () => {
   describe('Category Browsing', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display categories section', () => {
@@ -208,8 +209,8 @@ describe('Content Knowledge Base Page Tests', () => {
       cy.get('body').then($body => {
         const categoryItems = $body.find('[class*="category"] button, [class*="category"] a, button[class*="category"], a[class*="category"]');
         if (categoryItems.length > 0) {
-          cy.wrap(categoryItems).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(categoryItems).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Filtered by category');
         } else {
           cy.log('No category items found to filter');
@@ -235,7 +236,7 @@ describe('Content Knowledge Base Page Tests', () => {
   describe('Featured Articles', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display featured articles section', () => {
@@ -266,8 +267,8 @@ describe('Content Knowledge Base Page Tests', () => {
       cy.get('body').then($body => {
         const articleLink = $body.find('a[href*="article"], a[href*="kb/"]');
         if (articleLink.length > 0) {
-          cy.wrap(articleLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(articleLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Navigated to article');
         }
       });
@@ -279,7 +280,7 @@ describe('Content Knowledge Base Page Tests', () => {
   describe('Recent Articles', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display recent articles section', () => {
@@ -334,7 +335,7 @@ describe('Content Knowledge Base Page Tests', () => {
   describe('Permission-Based Actions', () => {
     beforeEach(() => {
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should show Create Article button for authorized users', () => {
@@ -386,7 +387,7 @@ describe('Content Knowledge Base Page Tests', () => {
   describe('URL Parameters', () => {
     it('should handle search query parameter', () => {
       cy.visit('/app/content/kb?q=getting+started');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasSearch = $body.text().includes('Search Results') ||
@@ -402,7 +403,7 @@ describe('Content Knowledge Base Page Tests', () => {
 
     it('should handle category parameter', () => {
       cy.visit('/app/content/kb?category=test');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasCategory = $body.text().includes('Category') ||
@@ -424,7 +425,7 @@ describe('Content Knowledge Base Page Tests', () => {
       });
 
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -438,7 +439,7 @@ describe('Content Knowledge Base Page Tests', () => {
       });
 
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -458,7 +459,7 @@ describe('Content Knowledge Base Page Tests', () => {
       cy.intercept('GET', '/api/v1/kb/*', {
         delay: 1000,
         statusCode: 200,
-        body: { success: true, data: { articles: [], categories: [] } }
+        body: { articles: [], categories: [] }
       });
 
       cy.visit('/app/content/kb');
@@ -479,7 +480,7 @@ describe('Content Knowledge Base Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -493,7 +494,7 @@ describe('Content Knowledge Base Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -507,7 +508,7 @@ describe('Content Knowledge Base Page Tests', () => {
     it('should stack layout on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -515,7 +516,7 @@ describe('Content Knowledge Base Page Tests', () => {
     it('should show sidebar on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/content/kb');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasSidebar = $body.find('[class*="sidebar"], [class*="col-span"]').length > 0;
@@ -528,3 +529,6 @@ describe('Content Knowledge Base Page Tests', () => {
     });
   });
 });
+
+
+export {};

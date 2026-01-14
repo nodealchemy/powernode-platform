@@ -16,7 +16,7 @@ describe('Visual Regression Tests', () => {
       cy.visit('/login');
 
       // Wait for page to fully load
-      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 5000 }).should('be.visible');
       cy.get('[data-testid="password-input"], input[type="password"]').should('be.visible');
       cy.get('[data-testid="login-submit-btn"], button[type="submit"]').should('be.visible');
 
@@ -30,7 +30,7 @@ describe('Visual Regression Tests', () => {
     it('should match login page tablet layout', () => {
       cy.viewport(768, 1024);
       cy.visit('/login');
-      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 5000 }).should('be.visible');
 
       cy.screenshot('login-page-tablet', {
         capture: 'viewport'
@@ -40,7 +40,7 @@ describe('Visual Regression Tests', () => {
     it('should match login page mobile layout', () => {
       cy.viewport(375, 667);
       cy.visit('/login');
-      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 5000 }).should('be.visible');
 
       cy.screenshot('login-page-mobile', {
         capture: 'viewport'
@@ -51,7 +51,7 @@ describe('Visual Regression Tests', () => {
       cy.visit('/plans');
 
       // Wait for plans to load
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
 
       cy.screenshot('plans-page-desktop', {
         capture: 'fullPage'
@@ -61,7 +61,7 @@ describe('Visual Regression Tests', () => {
     it('should match plans page tablet layout', () => {
       cy.viewport(768, 1024);
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
 
       cy.screenshot('plans-page-tablet', {
         capture: 'fullPage'
@@ -71,7 +71,7 @@ describe('Visual Regression Tests', () => {
     it('should match plans page mobile layout', () => {
       cy.viewport(375, 667);
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
 
       cy.screenshot('plans-page-mobile', {
         capture: 'fullPage'
@@ -81,10 +81,10 @@ describe('Visual Regression Tests', () => {
     it('should show plan selected state', () => {
       cy.viewport(1280, 720);
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .click();
-      cy.get('[data-testid="plan-select-btn"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="plan-select-btn"]', { timeout: 5000 }).should('be.visible');
 
       cy.screenshot('plans-page-plan-selected', {
         capture: 'fullPage'
@@ -95,10 +95,10 @@ describe('Visual Regression Tests', () => {
   describe('Authenticated Pages', () => {
     beforeEach(() => {
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
 
     it('should match dashboard layout', () => {
@@ -139,7 +139,7 @@ describe('Visual Regression Tests', () => {
 
         for (const selector of userMenuSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -154,14 +154,14 @@ describe('Visual Regression Tests', () => {
   describe('Component States', () => {
     it('should capture empty form state', () => {
       cy.visit('/login');
-      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 5000 }).should('be.visible');
 
       cy.screenshot('form-state-empty');
     });
 
     it('should capture filled form state', () => {
       cy.visit('/login');
-      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 10000 })
+      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 5000 })
         .type('test@example.com');
       cy.get('[data-testid="password-input"], input[type="password"]')
         .type('TestPassword123!');
@@ -171,7 +171,7 @@ describe('Visual Regression Tests', () => {
 
     it('should capture hover states on plan cards', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .trigger('mouseover');
 
@@ -180,7 +180,7 @@ describe('Visual Regression Tests', () => {
 
     it('should capture focus states', () => {
       cy.visit('/login');
-      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 10000 }).focus();
+      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 5000 }).focus();
 
       cy.screenshot('input-focus-state');
     });
@@ -199,7 +199,7 @@ describe('Visual Regression Tests', () => {
       it(`should render login page correctly at ${viewport.name}`, () => {
         cy.viewport(viewport.width, viewport.height);
         cy.visit('/login');
-        cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 10000 }).should('be.visible');
+        cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 5000 }).should('be.visible');
 
         cy.screenshot(`login-${viewport.name}`);
       });
@@ -209,7 +209,7 @@ describe('Visual Regression Tests', () => {
       it(`should render plans page correctly at ${viewport.name}`, () => {
         cy.viewport(viewport.width, viewport.height);
         cy.visit('/plans');
-        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 }).should('exist');
+        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
 
         cy.screenshot(`plans-${viewport.name}`, {
           capture: 'fullPage'
@@ -221,15 +221,18 @@ describe('Visual Regression Tests', () => {
   describe('Error States', () => {
     it('should capture login error state', () => {
       cy.visit('/login');
-      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 10000 })
+      cy.get('[data-testid="email-input"], input[type="email"]', { timeout: 5000 })
         .type('test@example.com');
       cy.get('[data-testid="password-input"], input[type="password"]')
         .type('wrongpassword');
       cy.get('[data-testid="login-submit-btn"], button[type="submit"]').click();
 
       // Wait for error message
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.screenshot('login-error-state');
     });
   });
 });
+
+
+export {};

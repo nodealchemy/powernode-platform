@@ -18,24 +18,25 @@
 describe('DevOps Git Providers Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupDevopsIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Git Providers from DevOps', () => {
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const providersLink = $body.find('a[href*="/git-providers"], a[href*="/providers"], button:contains("Git Providers")');
 
         if (providersLink.length > 0) {
-          cy.wrap(providersLink).first().click();
+          cy.wrap(providersLink).first().should('be.visible').click();
           cy.url().should('include', '/providers');
         } else {
           cy.visit('/app/devops/git-providers');
@@ -47,7 +48,7 @@ describe('DevOps Git Providers Tests', () => {
 
     it('should load Git Providers page directly', () => {
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.url().then(url => {
         if (url.includes('/git-providers') || url.includes('/providers')) {
@@ -70,6 +71,7 @@ describe('DevOps Git Providers Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/devops/git-providers');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -88,12 +90,12 @@ describe('DevOps Git Providers Tests', () => {
   describe('Provider List Display', () => {
     beforeEach(() => {
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display provider list or empty state', () => {
       cy.get('body').then($body => {
-        const hasProviders = $body.find('[class*="provider"], [class*="card"]').length > 0 ||
+        const _hasProviders = $body.find('[class*="provider"], [class*="card"]').length > 0 ||
                               $body.text().includes('No Git Providers') ||
                               $body.text().includes('Add a Git provider');
 
@@ -153,7 +155,7 @@ describe('DevOps Git Providers Tests', () => {
   describe('Add Provider', () => {
     beforeEach(() => {
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Add Provider button', () => {
@@ -176,8 +178,8 @@ describe('DevOps Git Providers Tests', () => {
         const addButton = $body.find('button:contains("Add Provider")');
 
         if (addButton.length > 0) {
-          cy.wrap(addButton).first().click();
-          cy.wait(500);
+          cy.wrap(addButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0;
@@ -196,7 +198,7 @@ describe('DevOps Git Providers Tests', () => {
   describe('Manage Credentials', () => {
     beforeEach(() => {
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Add Credential action for providers', () => {
@@ -216,8 +218,8 @@ describe('DevOps Git Providers Tests', () => {
         const credentialButton = $body.find('button:contains("Add Credential"), button:contains("Connect")');
 
         if (credentialButton.length > 0) {
-          cy.wrap(credentialButton).first().click();
-          cy.wait(500);
+          cy.wrap(credentialButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"], [class*="panel"]').length > 0;
@@ -237,8 +239,8 @@ describe('DevOps Git Providers Tests', () => {
         const credentialButton = $body.find('button:contains("Add Credential"), button:contains("Connect")');
 
         if (credentialButton.length > 0) {
-          cy.wrap(credentialButton).first().click();
-          cy.wait(500);
+          cy.wrap(credentialButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const tokenInput = $newBody.find('input[type="password"], input[name*="token"], input[placeholder*="token"]');
@@ -257,7 +259,7 @@ describe('DevOps Git Providers Tests', () => {
   describe('Edit Provider', () => {
     beforeEach(() => {
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Edit action for providers', () => {
@@ -277,8 +279,8 @@ describe('DevOps Git Providers Tests', () => {
         const editButton = $body.find('button:contains("Edit"), [aria-label*="edit"]');
 
         if (editButton.length > 0) {
-          cy.wrap(editButton).first().click();
-          cy.wait(500);
+          cy.wrap(editButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0;
@@ -297,7 +299,7 @@ describe('DevOps Git Providers Tests', () => {
   describe('Delete Provider', () => {
     beforeEach(() => {
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Delete action for providers', () => {
@@ -329,7 +331,7 @@ describe('DevOps Git Providers Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -350,8 +352,8 @@ describe('DevOps Git Providers Tests', () => {
         const refreshButton = $body.find('button:contains("Refresh")');
 
         if (refreshButton.length > 0) {
-          cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
+          cy.wrap(refreshButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Refresh triggered');
         }
       });
@@ -363,7 +365,7 @@ describe('DevOps Git Providers Tests', () => {
   describe('Empty State', () => {
     it('should display empty state when no providers', () => {
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('No Git Providers')) {
@@ -377,7 +379,7 @@ describe('DevOps Git Providers Tests', () => {
 
     it('should have Add Provider button in empty state', () => {
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('No Git Providers')) {
@@ -400,7 +402,7 @@ describe('DevOps Git Providers Tests', () => {
       });
 
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -414,7 +416,7 @@ describe('DevOps Git Providers Tests', () => {
       });
 
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -433,7 +435,7 @@ describe('DevOps Git Providers Tests', () => {
   describe('Permission-Based Actions', () => {
     it('should show actions based on permissions', () => {
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasManageActions = $body.find('button:contains("Add"), button:contains("Edit"), button:contains("Delete")').length > 0;
@@ -453,7 +455,7 @@ describe('DevOps Git Providers Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -467,7 +469,7 @@ describe('DevOps Git Providers Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -481,9 +483,12 @@ describe('DevOps Git Providers Tests', () => {
     it('should stack provider cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/devops/git-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

@@ -19,17 +19,18 @@
 describe('AI Workflow Templates Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Workflow Templates page', () => {
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Workflow Templates') ||
@@ -45,7 +46,7 @@ describe('AI Workflow Templates Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Workflow Templates');
@@ -59,7 +60,7 @@ describe('AI Workflow Templates Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Pre-built') ||
@@ -75,7 +76,7 @@ describe('AI Workflow Templates Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('AI') ||
@@ -92,7 +93,7 @@ describe('AI Workflow Templates Page Tests', () => {
   describe('Search Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display search input', () => {
@@ -111,7 +112,7 @@ describe('AI Workflow Templates Page Tests', () => {
         const searchInput = $body.find('input[type="search"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
           cy.wrap(searchInput).first().type('data');
-          cy.wait(500);
+          cy.get('body').should('be.visible');
           cy.log('Search performed');
         }
       });
@@ -124,7 +125,7 @@ describe('AI Workflow Templates Page Tests', () => {
         const searchInput = $body.find('input[type="search"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
           cy.wrap(searchInput).first().type('nonexistent-template-xyz');
-          cy.wait(500);
+          cy.get('body').should('be.visible');
           cy.log('Search filter applied');
         }
       });
@@ -136,7 +137,7 @@ describe('AI Workflow Templates Page Tests', () => {
   describe('Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display category filter', () => {
@@ -169,8 +170,8 @@ describe('AI Workflow Templates Page Tests', () => {
       cy.get('body').then($body => {
         const selects = $body.find('select, [class*="select"]');
         if (selects.length > 0) {
-          cy.wrap(selects).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(selects).first().should('be.visible').click();
+          cy.get('body').should('be.visible');
           cy.log('Category filter clicked');
         }
       });
@@ -196,7 +197,7 @@ describe('AI Workflow Templates Page Tests', () => {
         const searchInput = $body.find('input[placeholder*="search"]');
         if (searchInput.length > 0) {
           cy.wrap(searchInput).first().type('test');
-          cy.wait(500);
+          cy.get('body').should('be.visible');
           cy.get('body').then($filterBody => {
             const clearButton = $filterBody.find('button:contains("Clear Filters"), button:contains("Clear")');
             if (clearButton.length > 0) {
@@ -213,7 +214,7 @@ describe('AI Workflow Templates Page Tests', () => {
   describe('Template Cards Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display template grid', () => {
@@ -325,7 +326,7 @@ describe('AI Workflow Templates Page Tests', () => {
   describe('Template Actions', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have View button', () => {
@@ -354,8 +355,8 @@ describe('AI Workflow Templates Page Tests', () => {
       cy.get('body').then($body => {
         const viewButton = $body.find('button:contains("View")');
         if (viewButton.length > 0) {
-          cy.wrap(viewButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(viewButton).first().should('be.visible').click();
+          cy.get('body').should('be.visible');
           cy.log('View button clicked');
         }
       });
@@ -367,7 +368,7 @@ describe('AI Workflow Templates Page Tests', () => {
   describe('Permission-Based Access', () => {
     it('should show Use button for users with ai.workflows.create permission', () => {
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const useButton = $body.find('button:contains("Use")');
@@ -384,11 +385,11 @@ describe('AI Workflow Templates Page Tests', () => {
     it('should display empty state when no templates', () => {
       cy.intercept('GET', '/api/v1/ai/workflow-templates*', {
         statusCode: 200,
-        body: { success: true, data: [] }
-      });
+        body: []
+      }).as('getEmptyTemplates');
 
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmpty = $body.text().includes('No templates found') ||
@@ -404,13 +405,13 @@ describe('AI Workflow Templates Page Tests', () => {
 
     it('should show message when filters return no results', () => {
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const searchInput = $body.find('input[placeholder*="search"]');
         if (searchInput.length > 0) {
           cy.wrap(searchInput).first().type('zzzznonexistenttemplatexxxx');
-          cy.wait(500);
+          cy.get('body').should('be.visible');
           cy.get('body').then($emptyBody => {
             const hasNoResults = $emptyBody.text().includes('No templates found') ||
                                  $emptyBody.text().includes('No results') ||
@@ -431,10 +432,10 @@ describe('AI Workflow Templates Page Tests', () => {
       cy.intercept('GET', '/api/v1/ai/workflow-templates*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getTemplatesError');
 
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -445,10 +446,10 @@ describe('AI Workflow Templates Page Tests', () => {
       cy.intercept('GET', '/api/v1/ai/workflow-templates*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load templates' }
-      });
+      }).as('getTemplatesFailure');
 
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -468,8 +469,8 @@ describe('AI Workflow Templates Page Tests', () => {
       cy.intercept('GET', '/api/v1/ai/workflow-templates*', {
         delay: 1000,
         statusCode: 200,
-        body: { success: true, data: [] }
-      });
+        body: []
+      }).as('getTemplatesDelayed');
 
       cy.visit('/app/ai/workflow-templates');
 
@@ -489,7 +490,7 @@ describe('AI Workflow Templates Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -503,7 +504,7 @@ describe('AI Workflow Templates Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -517,7 +518,7 @@ describe('AI Workflow Templates Page Tests', () => {
     it('should stack filters on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -525,7 +526,7 @@ describe('AI Workflow Templates Page Tests', () => {
     it('should show multi-column grid on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/ai/workflow-templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasGrid = $body.find('[class*="grid"]').length > 0;
@@ -538,3 +539,6 @@ describe('AI Workflow Templates Page Tests', () => {
     });
   });
 });
+
+
+export {};

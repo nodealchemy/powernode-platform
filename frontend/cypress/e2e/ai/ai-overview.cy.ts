@@ -16,24 +16,25 @@
 describe('AI Overview Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to AI Overview from sidebar', () => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const aiLink = $body.find('a[href*="/ai"], a[href*="/app/ai"]');
 
         if (aiLink.length > 0) {
-          cy.wrap(aiLink).first().click();
+          cy.wrap(aiLink).first().should('be.visible').click();
           cy.url().should('include', '/ai');
         } else {
           cy.visit('/app/ai/overview');
@@ -45,7 +46,7 @@ describe('AI Overview Page Tests', () => {
 
     it('should load AI Overview page directly', () => {
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const text = $body.text();
@@ -95,7 +96,7 @@ describe('AI Overview Page Tests', () => {
   describe('Dashboard Stats Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display AI stats cards', () => {
@@ -147,7 +148,7 @@ describe('AI Overview Page Tests', () => {
   describe('Quick Actions', () => {
     beforeEach(() => {
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -180,8 +181,8 @@ describe('AI Overview Page Tests', () => {
         const refreshButton = $body.find('button:contains("Refresh")');
 
         if (refreshButton.length > 0) {
-          cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
+          cy.wrap(refreshButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Refresh triggered');
         }
       });
@@ -194,8 +195,8 @@ describe('AI Overview Page Tests', () => {
         const liveButton = $body.find('button:contains("Live"), button:contains("Paused")');
 
         if (liveButton.length > 0) {
-          cy.wrap(liveButton).first().click();
-          cy.wait(500);
+          cy.wrap(liveButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Live updates toggled');
         }
       });
@@ -207,7 +208,7 @@ describe('AI Overview Page Tests', () => {
   describe('System Health Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display system health status', () => {
@@ -243,7 +244,7 @@ describe('AI Overview Page Tests', () => {
   describe('Quick Access Links', () => {
     beforeEach(() => {
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have links to AI subpages', () => {
@@ -263,7 +264,7 @@ describe('AI Overview Page Tests', () => {
         const workflowLink = $body.find('a[href*="/workflows"]');
 
         if (workflowLink.length > 0) {
-          cy.wrap(workflowLink).first().click();
+          cy.wrap(workflowLink).first().should('be.visible').click();
           cy.url().should('include', '/workflow');
           cy.log('Navigated to Workflows');
         }
@@ -274,13 +275,13 @@ describe('AI Overview Page Tests', () => {
 
     it('should navigate to Agents when clicked', () => {
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const agentLink = $body.find('a[href*="/agents"]');
 
         if (agentLink.length > 0) {
-          cy.wrap(agentLink).first().click();
+          cy.wrap(agentLink).first().should('be.visible').click();
           cy.url().should('include', '/agent');
           cy.log('Navigated to Agents');
         }
@@ -294,11 +295,11 @@ describe('AI Overview Page Tests', () => {
     it('should handle empty AI system gracefully', () => {
       cy.intercept('GET', '/api/v1/ai/*', {
         statusCode: 200,
-        body: { success: true, data: [] }
+        body: []
       });
 
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -314,7 +315,7 @@ describe('AI Overview Page Tests', () => {
       });
 
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -328,7 +329,7 @@ describe('AI Overview Page Tests', () => {
       });
 
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -347,7 +348,7 @@ describe('AI Overview Page Tests', () => {
   describe('Permission-Based Display', () => {
     it('should show content based on permissions', () => {
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('Permission') || $body.text().includes('Access')) {
@@ -365,7 +366,7 @@ describe('AI Overview Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -379,7 +380,7 @@ describe('AI Overview Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -393,9 +394,12 @@ describe('AI Overview Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/overview');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

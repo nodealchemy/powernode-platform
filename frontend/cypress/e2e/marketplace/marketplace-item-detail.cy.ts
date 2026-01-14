@@ -16,22 +16,23 @@ describe('Marketplace Item Detail Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.setupMarketplaceIntercepts();
   });
 
   describe('Page Navigation', () => {
     it('should navigate from marketplace to item detail', () => {
       cy.visit('/app/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const itemLink = $body.find('a[href*="/app/marketplace/"], button:contains("View")');
         if (itemLink.length > 0) {
-          cy.wrap(itemLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(itemLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Navigated to item detail');
         }
       });
@@ -41,13 +42,13 @@ describe('Marketplace Item Detail Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const itemLink = $body.find('a[href*="/app/marketplace/"]');
         if (itemLink.length > 0) {
-          cy.wrap(itemLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(itemLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.get('body').then($detailBody => {
             const hasTitle = $detailBody.find('h1, h2').length > 0;
             if (hasTitle) {
@@ -64,12 +65,12 @@ describe('Marketplace Item Detail Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const itemLink = $body.find('a[href*="/app/marketplace/"]');
         if (itemLink.length > 0) {
-          cy.wrap(itemLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(itemLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -100,8 +101,8 @@ describe('Marketplace Item Detail Page Tests', () => {
       cy.get('body').then($body => {
         const backButton = $body.find('button:contains("Back"), a[href="/app/marketplace"]');
         if (backButton.length > 0) {
-          cy.wrap(backButton).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(backButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.url().should('include', 'marketplace');
         }
       });
@@ -113,12 +114,12 @@ describe('Marketplace Item Detail Page Tests', () => {
   describe('Item Details Display', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const itemLink = $body.find('a[href*="/app/marketplace/"]');
         if (itemLink.length > 0) {
-          cy.wrap(itemLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(itemLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -172,12 +173,12 @@ describe('Marketplace Item Detail Page Tests', () => {
   describe('Rating and Stats', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const itemLink = $body.find('a[href*="/app/marketplace/"]');
         if (itemLink.length > 0) {
-          cy.wrap(itemLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(itemLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -224,12 +225,12 @@ describe('Marketplace Item Detail Page Tests', () => {
   describe('Details Card', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const itemLink = $body.find('a[href*="/app/marketplace/"]');
         if (itemLink.length > 0) {
-          cy.wrap(itemLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(itemLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -288,12 +289,12 @@ describe('Marketplace Item Detail Page Tests', () => {
   describe('Tags Display', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const itemLink = $body.find('a[href*="/app/marketplace/"]');
         if (itemLink.length > 0) {
-          cy.wrap(itemLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(itemLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -325,12 +326,12 @@ describe('Marketplace Item Detail Page Tests', () => {
   describe('Subscribe Action', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const itemLink = $body.find('a[href*="/app/marketplace/"]');
         if (itemLink.length > 0) {
-          cy.wrap(itemLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(itemLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
     });
@@ -351,7 +352,7 @@ describe('Marketplace Item Detail Page Tests', () => {
   describe('Error Handling', () => {
     it('should handle invalid item gracefully', () => {
       cy.visit('/app/marketplace/app/invalid-id-123');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -365,7 +366,7 @@ describe('Marketplace Item Detail Page Tests', () => {
       });
 
       cy.visit('/app/marketplace/app/nonexistent');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -385,7 +386,7 @@ describe('Marketplace Item Detail Page Tests', () => {
       cy.intercept('GET', '/api/v1/marketplace/*', {
         delay: 1000,
         statusCode: 200,
-        body: { success: true, data: {} }
+        body: {}
       });
 
       cy.visit('/app/marketplace/app/test');
@@ -405,7 +406,7 @@ describe('Marketplace Item Detail Page Tests', () => {
   describe('Responsive Design', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display properly on mobile viewport', () => {
@@ -413,8 +414,8 @@ describe('Marketplace Item Detail Page Tests', () => {
       cy.get('body').then($body => {
         const itemLink = $body.find('a[href*="/app/marketplace/"]');
         if (itemLink.length > 0) {
-          cy.wrap(itemLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(itemLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
 
@@ -426,8 +427,8 @@ describe('Marketplace Item Detail Page Tests', () => {
       cy.get('body').then($body => {
         const itemLink = $body.find('a[href*="/app/marketplace/"]');
         if (itemLink.length > 0) {
-          cy.wrap(itemLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(itemLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
         }
       });
 
@@ -439,8 +440,8 @@ describe('Marketplace Item Detail Page Tests', () => {
       cy.get('body').then($body => {
         const itemLink = $body.find('a[href*="/app/marketplace/"]');
         if (itemLink.length > 0) {
-          cy.wrap(itemLink).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(itemLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.get('body').then($detailBody => {
             const hasGrid = $detailBody.find('[class*="grid"], [class*="col"]').length > 0;
             if (hasGrid) {
@@ -454,3 +455,6 @@ describe('Marketplace Item Detail Page Tests', () => {
     });
   });
 });
+
+
+export {};

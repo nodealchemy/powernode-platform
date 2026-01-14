@@ -19,17 +19,18 @@
 describe('Content My Files Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupContentIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to My Files page', () => {
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('My Files') ||
@@ -45,7 +46,7 @@ describe('Content My Files Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('My Files');
@@ -59,7 +60,7 @@ describe('Content My Files Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('personal files') ||
@@ -77,7 +78,7 @@ describe('Content My Files Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Upload Files button', () => {
@@ -106,7 +107,7 @@ describe('Content My Files Page Tests', () => {
   describe('Search and Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display search input', () => {
@@ -125,7 +126,6 @@ describe('Content My Files Page Tests', () => {
         const searchInput = $body.find('input[placeholder*="Search files"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
           cy.wrap(searchInput).first().type('document');
-          cy.wait(500);
           cy.log('Search performed');
         }
       });
@@ -166,7 +166,6 @@ describe('Content My Files Page Tests', () => {
             const options = $select.find('option');
             if (options.length > 1) {
               cy.wrap($select).select(1);
-              cy.wait(500);
               cy.log('Filtered by category');
             }
           });
@@ -180,7 +179,7 @@ describe('Content My Files Page Tests', () => {
   describe('Files List Display', () => {
     beforeEach(() => {
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display files list', () => {
@@ -235,17 +234,17 @@ describe('Content My Files Page Tests', () => {
   describe('Upload Modal', () => {
     beforeEach(() => {
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should open upload modal', () => {
       cy.get('body').then($body => {
         const uploadButton = $body.find('button:contains("Upload Files"), button:contains("Upload")');
         if (uploadButton.length > 0) {
-          cy.wrap(uploadButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(uploadButton).first().scrollIntoView().should('exist').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
-            const hasModal = $modalBody.find('[class*="modal"], [class*="Modal"]').length > 0 ||
+            const hasModal = $modalBody.find('[class*="modal"], [class*="Modal"], [role="dialog"]').length > 0 ||
                              $modalBody.text().includes('Upload Files');
             if (hasModal) {
               cy.log('Upload modal opened');
@@ -261,8 +260,8 @@ describe('Content My Files Page Tests', () => {
       cy.get('body').then($body => {
         const uploadButton = $body.find('button:contains("Upload Files"), button:contains("Upload")');
         if (uploadButton.length > 0) {
-          cy.wrap(uploadButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(uploadButton).first().scrollIntoView().should('exist').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasStorageSelector = $modalBody.text().includes('Storage Provider') ||
                                        $modalBody.find('select').length > 0;
@@ -280,13 +279,13 @@ describe('Content My Files Page Tests', () => {
       cy.get('body').then($body => {
         const uploadButton = $body.find('button:contains("Upload Files"), button:contains("Upload")');
         if (uploadButton.length > 0) {
-          cy.wrap(uploadButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(uploadButton).first().scrollIntoView().should('exist').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const closeButton = $modalBody.find('button:contains("Close"), button:contains("Cancel")');
             if (closeButton.length > 0) {
-              cy.wrap(closeButton).first().click({ force: true });
-              cy.wait(300);
+              cy.wrap(closeButton).first().scrollIntoView().should('exist').click();
+              cy.waitForStableDOM();
               cy.log('Modal closed');
             }
           });
@@ -300,15 +299,14 @@ describe('Content My Files Page Tests', () => {
   describe('Bulk Actions', () => {
     beforeEach(() => {
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should show bulk action bar when files selected', () => {
       cy.get('body').then($body => {
         const checkboxes = $body.find('input[type="checkbox"]');
         if (checkboxes.length > 1) {
-          cy.wrap(checkboxes).eq(1).click({ force: true });
-          cy.wait(500);
+          cy.wrap(checkboxes).eq(1).should('be.visible').click();
           cy.get('body').then($bulkBody => {
             const hasBulkActions = $bulkBody.text().includes('selected') ||
                                    $bulkBody.find('button:contains("Download")').length > 0;
@@ -359,7 +357,7 @@ describe('Content My Files Page Tests', () => {
   describe('Storage Statistics', () => {
     beforeEach(() => {
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display storage usage', () => {
@@ -409,7 +407,7 @@ describe('Content My Files Page Tests', () => {
       });
 
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -423,7 +421,7 @@ describe('Content My Files Page Tests', () => {
       });
 
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -464,7 +462,7 @@ describe('Content My Files Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -478,7 +476,7 @@ describe('Content My Files Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -492,9 +490,12 @@ describe('Content My Files Page Tests', () => {
     it('should stack filters on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/content/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

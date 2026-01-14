@@ -24,16 +24,17 @@ describe('AI Conversations Page Tests', () => {
     cy.clearAppData();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.setupAiIntercepts();
   });
 
   describe('Page Navigation', () => {
     it('should navigate to AI Conversations from AI section', () => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const conversationsLink = $body.find('a[href*="/conversations"], button:contains("Conversations")');
@@ -51,7 +52,7 @@ describe('AI Conversations Page Tests', () => {
 
     it('should load AI Conversations page directly', () => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const text = $body.text();
@@ -101,12 +102,12 @@ describe('AI Conversations Page Tests', () => {
   describe('Conversation List Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display conversation list or empty state', () => {
       cy.get('body').then($body => {
-        const hasConversations = $body.find('[class*="table"], [class*="list"]').length > 0 ||
+        const _hasConversations = $body.find('[class*="table"], [class*="list"]').length > 0 ||
                                   $body.text().includes('No conversations') ||
                                   $body.text().includes('Start Conversation');
 
@@ -191,7 +192,7 @@ describe('AI Conversations Page Tests', () => {
   describe('Search Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have search input', () => {
@@ -213,7 +214,6 @@ describe('AI Conversations Page Tests', () => {
 
         if (searchInput.length > 0) {
           cy.wrap(searchInput).type('test conversation');
-          cy.wait(500);
           cy.log('Search filter applied');
         }
       });
@@ -227,9 +227,7 @@ describe('AI Conversations Page Tests', () => {
 
         if (searchInput.length > 0) {
           cy.wrap(searchInput).type('test');
-          cy.wait(300);
           cy.wrap(searchInput).clear();
-          cy.wait(300);
           cy.log('Search cleared');
         }
       });
@@ -241,7 +239,7 @@ describe('AI Conversations Page Tests', () => {
   describe('Filter by Status', () => {
     beforeEach(() => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have status filter dropdown', () => {
@@ -262,13 +260,11 @@ describe('AI Conversations Page Tests', () => {
 
         if (statusFilter.length > 0) {
           cy.wrap(statusFilter).first().click();
-          cy.wait(300);
 
           cy.get('body').then($newBody => {
             const activeOption = $newBody.find('option:contains("Active"), [role="option"]:contains("Active"), button:contains("Active")');
             if (activeOption.length > 0) {
               cy.wrap(activeOption).first().click();
-              cy.wait(500);
               cy.log('Filtered by Active status');
             }
           });
@@ -284,13 +280,11 @@ describe('AI Conversations Page Tests', () => {
 
         if (statusFilter.length > 0) {
           cy.wrap(statusFilter).first().click();
-          cy.wait(300);
 
           cy.get('body').then($newBody => {
             const completedOption = $newBody.find('option:contains("Completed"), [role="option"]:contains("Completed")');
             if (completedOption.length > 0) {
               cy.wrap(completedOption).first().click();
-              cy.wait(500);
               cy.log('Filtered by Completed status');
             }
           });
@@ -306,13 +300,11 @@ describe('AI Conversations Page Tests', () => {
 
         if (statusFilter.length > 0) {
           cy.wrap(statusFilter).first().click();
-          cy.wait(300);
 
           cy.get('body').then($newBody => {
             const archivedOption = $newBody.find('option:contains("Archived"), [role="option"]:contains("Archived")');
             if (archivedOption.length > 0) {
               cy.wrap(archivedOption).first().click();
-              cy.wait(500);
               cy.log('Filtered by Archived status');
             }
           });
@@ -326,7 +318,7 @@ describe('AI Conversations Page Tests', () => {
   describe('Filter by Agent', () => {
     beforeEach(() => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have agent filter dropdown', () => {
@@ -347,7 +339,6 @@ describe('AI Conversations Page Tests', () => {
 
         if (agentFilter.length > 0) {
           cy.wrap(agentFilter).first().click();
-          cy.wait(300);
           cy.log('Agent filter dropdown opened');
         }
       });
@@ -359,7 +350,7 @@ describe('AI Conversations Page Tests', () => {
   describe('Create Conversation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Start Conversation button', () => {
@@ -383,7 +374,6 @@ describe('AI Conversations Page Tests', () => {
 
         if (createButton.length > 0) {
           cy.wrap(createButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0;
@@ -402,7 +392,7 @@ describe('AI Conversations Page Tests', () => {
   describe('View Conversation Details', () => {
     beforeEach(() => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have View action for conversations', () => {
@@ -423,7 +413,6 @@ describe('AI Conversations Page Tests', () => {
 
         if (viewButton.length > 0) {
           cy.wrap(viewButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0;
@@ -442,7 +431,7 @@ describe('AI Conversations Page Tests', () => {
   describe('Continue Conversation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Continue action for active conversations', () => {
@@ -463,7 +452,6 @@ describe('AI Conversations Page Tests', () => {
 
         if (continueButton.length > 0) {
           cy.wrap(continueButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"], [class*="chat"]').length > 0;
@@ -482,7 +470,7 @@ describe('AI Conversations Page Tests', () => {
   describe('Export Conversation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Export action for conversations', () => {
@@ -501,7 +489,7 @@ describe('AI Conversations Page Tests', () => {
   describe('Archive/Unarchive Conversation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Archive action for conversations', () => {
@@ -520,7 +508,7 @@ describe('AI Conversations Page Tests', () => {
   describe('Delete Conversation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Delete action for conversations', () => {
@@ -541,7 +529,6 @@ describe('AI Conversations Page Tests', () => {
 
         if (deleteButton.length > 0) {
           cy.wrap(deleteButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const confirmVisible = $newBody.text().includes('Are you sure') ||
@@ -561,7 +548,7 @@ describe('AI Conversations Page Tests', () => {
   describe('Pagination', () => {
     beforeEach(() => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pagination when many conversations exist', () => {
@@ -582,7 +569,6 @@ describe('AI Conversations Page Tests', () => {
 
         if (nextButton.length > 0 && !nextButton.is(':disabled')) {
           cy.wrap(nextButton).click();
-          cy.wait(500);
           cy.log('Navigated to next page');
         }
       });
@@ -594,7 +580,7 @@ describe('AI Conversations Page Tests', () => {
   describe('Empty State', () => {
     it('should display empty state when no conversations', () => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('No conversations')) {
@@ -607,7 +593,7 @@ describe('AI Conversations Page Tests', () => {
 
     it('should have Start Conversation button in empty state', () => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('No conversations')) {
@@ -630,7 +616,7 @@ describe('AI Conversations Page Tests', () => {
       });
 
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -644,7 +630,7 @@ describe('AI Conversations Page Tests', () => {
       });
 
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -663,7 +649,7 @@ describe('AI Conversations Page Tests', () => {
   describe('Permission-Based Actions', () => {
     it('should show actions based on permissions', () => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasManageActions = $body.find('button:contains("Start"), button:contains("Delete"), button:contains("Export")').length > 0;
@@ -683,7 +669,7 @@ describe('AI Conversations Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -697,7 +683,7 @@ describe('AI Conversations Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -711,9 +697,12 @@ describe('AI Conversations Page Tests', () => {
     it('should adapt table layout on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

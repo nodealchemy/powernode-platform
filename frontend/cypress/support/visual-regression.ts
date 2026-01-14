@@ -90,7 +90,7 @@ Cypress.Commands.add('screenshotConsistent', (name: string, options = {}) => {
   };
   
   // Wait for any pending animations or transitions
-  cy.wait(500);
+  cy.waitForAnimations();
   
   // Blackout dynamic elements
   if (screenshotOptions.blackout && screenshotOptions.blackout.length > 0) {

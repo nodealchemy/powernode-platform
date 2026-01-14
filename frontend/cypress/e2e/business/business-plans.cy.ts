@@ -20,17 +20,18 @@
 describe('Business Plans Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Plans page', () => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Plans') ||
@@ -46,7 +47,7 @@ describe('Business Plans Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Plans') ||
@@ -61,7 +62,7 @@ describe('Business Plans Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Manage') ||
@@ -76,7 +77,7 @@ describe('Business Plans Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -93,7 +94,7 @@ describe('Business Plans Page Tests', () => {
   describe('Tab Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Overview tab', () => {
@@ -133,8 +134,7 @@ describe('Business Plans Page Tests', () => {
       cy.get('body').then($body => {
         const activePlansTab = $body.find('button:contains("Active Plans")');
         if (activePlansTab.length > 0) {
-          cy.wrap(activePlansTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(activePlansTab).first().should('be.visible').click();
           cy.log('Switched to Active Plans tab');
         }
       });
@@ -146,8 +146,7 @@ describe('Business Plans Page Tests', () => {
       cy.get('body').then($body => {
         const analyticsTab = $body.find('button:contains("Analytics")');
         if (analyticsTab.length > 0) {
-          cy.wrap(analyticsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(analyticsTab).first().should('be.visible').click();
           cy.log('Switched to Analytics tab');
         }
       });
@@ -159,7 +158,7 @@ describe('Business Plans Page Tests', () => {
   describe('Statistics Cards', () => {
     beforeEach(() => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Plans stat', () => {
@@ -214,7 +213,7 @@ describe('Business Plans Page Tests', () => {
   describe('Plans List Display', () => {
     beforeEach(() => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display plans list or empty state', () => {
@@ -271,7 +270,7 @@ describe('Business Plans Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Create Plan button', () => {
@@ -300,8 +299,7 @@ describe('Business Plans Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Plan"), button:contains("Add Plan"), button:contains("New Plan")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[class*="modal"], [class*="Modal"]').length > 0 ||
                              $modalBody.text().includes('Create Plan') ||
@@ -320,7 +318,7 @@ describe('Business Plans Page Tests', () => {
   describe('Plan Actions', () => {
     beforeEach(() => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Edit action', () => {
@@ -371,7 +369,7 @@ describe('Business Plans Page Tests', () => {
   describe('Search and Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display search input', () => {
@@ -389,8 +387,7 @@ describe('Business Plans Page Tests', () => {
       cy.get('body').then($body => {
         const searchInput = $body.find('input[placeholder*="Search"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('basic');
-          cy.wait(500);
+          cy.wrap(searchInput).first().should('be.visible').type('basic');
           cy.log('Search performed');
         }
       });
@@ -415,7 +412,7 @@ describe('Business Plans Page Tests', () => {
   describe('Quick Actions', () => {
     beforeEach(() => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display quick action cards', () => {
@@ -435,13 +432,12 @@ describe('Business Plans Page Tests', () => {
   describe('Analytics Tab', () => {
     beforeEach(() => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       // Switch to Analytics tab
       cy.get('body').then($body => {
         const analyticsTab = $body.find('button:contains("Analytics")');
         if (analyticsTab.length > 0) {
-          cy.wrap(analyticsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(analyticsTab).first().should('be.visible').click();
         }
       });
     });
@@ -475,7 +471,7 @@ describe('Business Plans Page Tests', () => {
   describe('Permission Check', () => {
     it('should show permission message for unauthorized users', () => {
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermission = $body.text().includes("don't have permission") ||
@@ -495,10 +491,10 @@ describe('Business Plans Page Tests', () => {
       cy.intercept('GET', '/api/v1/plans*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getPlansError');
 
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -509,10 +505,10 @@ describe('Business Plans Page Tests', () => {
       cy.intercept('GET', '/api/v1/plans*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load plans' }
-      });
+      }).as('getPlansError');
 
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -533,7 +529,7 @@ describe('Business Plans Page Tests', () => {
         delay: 1000,
         statusCode: 200,
         body: { success: true, plans: [] }
-      });
+      }).as('getPlansDelayed');
 
       cy.visit('/app/business/plans');
 
@@ -554,10 +550,10 @@ describe('Business Plans Page Tests', () => {
       cy.intercept('GET', '/api/v1/plans*', {
         statusCode: 200,
         body: { success: true, plans: [] }
-      });
+      }).as('getPlansEmpty');
 
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmpty = $body.text().includes('No plans') ||
@@ -575,7 +571,7 @@ describe('Business Plans Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -589,7 +585,7 @@ describe('Business Plans Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -603,7 +599,7 @@ describe('Business Plans Page Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -611,7 +607,7 @@ describe('Business Plans Page Tests', () => {
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/business/plans');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMultiColumn = $body.find('[class*="grid-cols"], [class*="md:grid-cols"]').length > 0;
@@ -624,3 +620,6 @@ describe('Business Plans Page Tests', () => {
     });
   });
 });
+
+
+export {};

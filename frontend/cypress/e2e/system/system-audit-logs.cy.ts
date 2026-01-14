@@ -18,24 +18,25 @@
 describe('System Audit Logs Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupSystemIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Audit Logs from System section', () => {
       cy.visit('/app/system');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const auditLink = $body.find('a[href*="/audit"], button:contains("Audit")');
 
         if (auditLink.length > 0) {
-          cy.wrap(auditLink).first().click();
+          cy.wrap(auditLink).first().should('be.visible').click();
           cy.url().should('include', '/audit');
         } else {
           cy.visit('/app/system/audit-logs');
@@ -47,7 +48,7 @@ describe('System Audit Logs Page Tests', () => {
 
     it('should load Audit Logs page directly', () => {
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const text = $body.text();
@@ -66,6 +67,7 @@ describe('System Audit Logs Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/system/audit-logs');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Audit Logs') ||
@@ -81,6 +83,7 @@ describe('System Audit Logs Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/system/audit-logs');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -98,7 +101,7 @@ describe('System Audit Logs Page Tests', () => {
   describe('Metrics Cards Display', () => {
     beforeEach(() => {
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Events metric', () => {
@@ -145,12 +148,12 @@ describe('System Audit Logs Page Tests', () => {
   describe('Table View', () => {
     beforeEach(() => {
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display audit logs table or empty state', () => {
       cy.get('body').then($body => {
-        const hasTable = $body.find('table, [class*="table"]').length > 0 ||
+        const _hasTable = $body.find('table, [class*="table"]').length > 0 ||
                           $body.text().includes('No audit logs') ||
                           $body.text().includes('No events');
 
@@ -209,7 +212,7 @@ describe('System Audit Logs Page Tests', () => {
   describe('Tab Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Table View tab', () => {
@@ -241,8 +244,8 @@ describe('System Audit Logs Page Tests', () => {
         const analyticsTab = $body.find('button:contains("Analytics"), [role="tab"]:contains("Analytics")');
 
         if (analyticsTab.length > 0) {
-          cy.wrap(analyticsTab).first().click();
-          cy.wait(500);
+          cy.wrap(analyticsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.url().should('include', '/analytics');
           cy.log('Switched to Analytics tab');
         }
@@ -255,7 +258,7 @@ describe('System Audit Logs Page Tests', () => {
   describe('Filter Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Filters button', () => {
@@ -276,8 +279,8 @@ describe('System Audit Logs Page Tests', () => {
         const filtersButton = $body.find('button:contains("Filters")');
 
         if (filtersButton.length > 0) {
-          cy.wrap(filtersButton).first().click();
-          cy.wait(500);
+          cy.wrap(filtersButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
 
           cy.get('body').then($newBody => {
             const filtersVisible = $newBody.find('[class*="filter"]').length > 0 ||
@@ -299,8 +302,8 @@ describe('System Audit Logs Page Tests', () => {
         const filtersButton = $body.find('button:contains("Filters")');
 
         if (filtersButton.length > 0) {
-          cy.wrap(filtersButton).first().click();
-          cy.wait(500);
+          cy.wrap(filtersButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
 
           cy.get('body').then($newBody => {
             if ($newBody.text().includes('Event Type') || $newBody.text().includes('Action')) {
@@ -318,8 +321,8 @@ describe('System Audit Logs Page Tests', () => {
         const filtersButton = $body.find('button:contains("Filters")');
 
         if (filtersButton.length > 0) {
-          cy.wrap(filtersButton).first().click();
-          cy.wait(500);
+          cy.wrap(filtersButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
 
           cy.get('body').then($newBody => {
             if ($newBody.text().includes('Date') || $newBody.find('input[type="date"]').length > 0) {
@@ -336,7 +339,7 @@ describe('System Audit Logs Page Tests', () => {
   describe('Export Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Export button', () => {
@@ -358,8 +361,8 @@ describe('System Audit Logs Page Tests', () => {
         const exportButton = $body.find('button:contains("Export")');
 
         if (exportButton.length > 0) {
-          cy.wrap(exportButton).first().click();
-          cy.wait(500);
+          cy.wrap(exportButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
 
           cy.get('body').then($newBody => {
             const exportVisible = $newBody.text().includes('CSV') ||
@@ -380,7 +383,7 @@ describe('System Audit Logs Page Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -401,8 +404,8 @@ describe('System Audit Logs Page Tests', () => {
         const refreshButton = $body.find('button:contains("Refresh")');
 
         if (refreshButton.length > 0) {
-          cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
+          cy.wrap(refreshButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Audit logs refreshed');
         }
       });
@@ -414,7 +417,7 @@ describe('System Audit Logs Page Tests', () => {
   describe('Pagination', () => {
     beforeEach(() => {
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pagination when many logs exist', () => {
@@ -448,8 +451,8 @@ describe('System Audit Logs Page Tests', () => {
         const nextButton = $body.find('button:contains("Next")');
 
         if (nextButton.length > 0 && !nextButton.is(':disabled')) {
-          cy.wrap(nextButton).click();
-          cy.wait(500);
+          cy.wrap(nextButton).should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Navigated to next page');
         }
       });
@@ -461,7 +464,7 @@ describe('System Audit Logs Page Tests', () => {
   describe('Permission-Based Access', () => {
     it('should show access restricted for unauthorized users', () => {
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('Access Restricted') || $body.text().includes('permission')) {
@@ -478,7 +481,7 @@ describe('System Audit Logs Page Tests', () => {
   describe('Analytics View', () => {
     beforeEach(() => {
       cy.visit('/app/system/audit-logs/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display analytics dashboard', () => {
@@ -513,10 +516,10 @@ describe('System Audit Logs Page Tests', () => {
       cy.intercept('GET', '/api/v1/audit_logs*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('auditLogsError');
 
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -527,10 +530,10 @@ describe('System Audit Logs Page Tests', () => {
       cy.intercept('GET', '/api/v1/audit_logs*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load audit logs' }
-      });
+      }).as('auditLogsError');
 
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -550,7 +553,7 @@ describe('System Audit Logs Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -564,7 +567,7 @@ describe('System Audit Logs Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -578,9 +581,12 @@ describe('System Audit Logs Page Tests', () => {
     it('should adapt table layout on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/system/audit-logs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

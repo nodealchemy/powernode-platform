@@ -18,30 +18,31 @@
 describe('AI Agents Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to AI Agents from sidebar', () => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const aiLink = $body.find('a[href*="/ai"], button:contains("AI")');
 
         if (aiLink.length > 0) {
-          cy.wrap(aiLink).first().click();
-          cy.wait(500);
+          cy.wrap(aiLink).first().should('be.visible').click();
+          cy.waitForPageLoad();
 
           cy.get('body').then($newBody => {
             const agentsLink = $newBody.find('a[href*="/agents"]');
             if (agentsLink.length > 0) {
-              cy.wrap(agentsLink).first().click();
+              cy.wrap(agentsLink).first().should('be.visible').click();
             } else {
               cy.visit('/app/ai/agents');
             }
@@ -57,6 +58,7 @@ describe('AI Agents Tests', () => {
 
     it('should load AI Agents page directly', () => {
       cy.visit('/app/ai/agents');
+      cy.waitForPageLoad();
 
       cy.url().then(url => {
         if (url.includes('/agents')) {
@@ -72,6 +74,7 @@ describe('AI Agents Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/ai/agents');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') &&
@@ -89,12 +92,12 @@ describe('AI Agents Tests', () => {
   describe('Agent Dashboard Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display agent dashboard or empty state', () => {
       cy.get('body').then($body => {
-        const hasAgents = $body.find('[class*="agent"], [class*="card"], [class*="list"]').length > 0 ||
+        const _hasAgents = $body.find('[class*="agent"], [class*="card"], [class*="list"]').length > 0 ||
                           $body.text().includes('No agents') ||
                           $body.text().includes('Create Agent');
 
@@ -154,7 +157,7 @@ describe('AI Agents Tests', () => {
   describe('Create Agent', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Create Agent button', () => {
@@ -177,8 +180,8 @@ describe('AI Agents Tests', () => {
         const createButton = $body.find('button:contains("Create Agent")');
 
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click();
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0 ||
@@ -200,8 +203,8 @@ describe('AI Agents Tests', () => {
         const createButton = $body.find('button:contains("Create Agent")');
 
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click();
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const nameInput = $newBody.find('input[name="name"], input[placeholder*="name"]');
@@ -222,8 +225,8 @@ describe('AI Agents Tests', () => {
         const createButton = $body.find('button:contains("Create Agent")');
 
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click();
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const hasTypeSelection = $newBody.text().includes('Type') ||
@@ -245,15 +248,15 @@ describe('AI Agents Tests', () => {
         const createButton = $body.find('button:contains("Create Agent")');
 
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click();
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const cancelButton = $newBody.find('button:contains("Cancel"), button:contains("Close")');
 
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click();
-              cy.wait(500);
+              cy.wrap(cancelButton).first().should('be.visible').click();
+              cy.waitForModalClose();
               cy.log('Modal closed');
             }
           });
@@ -267,7 +270,7 @@ describe('AI Agents Tests', () => {
   describe('Agent List/Grid Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display agent metrics', () => {
@@ -316,7 +319,7 @@ describe('AI Agents Tests', () => {
   describe('Agent Actions', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have edit action for agents', () => {
@@ -366,7 +369,7 @@ describe('AI Agents Tests', () => {
   describe('Edit Agent', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should open edit modal when edit clicked', () => {
@@ -374,8 +377,8 @@ describe('AI Agents Tests', () => {
         const editButton = $body.find('button:contains("Edit"), [aria-label*="edit"]');
 
         if (editButton.length > 0) {
-          cy.wrap(editButton).first().click();
-          cy.wait(500);
+          cy.wrap(editButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0;
@@ -395,8 +398,8 @@ describe('AI Agents Tests', () => {
         const editButton = $body.find('button:contains("Edit")');
 
         if (editButton.length > 0) {
-          cy.wrap(editButton).first().click();
-          cy.wait(500);
+          cy.wrap(editButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const nameInput = $newBody.find('input[name="name"]');
@@ -416,7 +419,7 @@ describe('AI Agents Tests', () => {
   describe('Delete Agent', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should show confirmation before delete', () => {
@@ -424,8 +427,8 @@ describe('AI Agents Tests', () => {
         const deleteButton = $body.find('button:contains("Delete"), [aria-label*="delete"]');
 
         if (deleteButton.length > 0) {
-          cy.wrap(deleteButton).first().click();
-          cy.wait(500);
+          cy.wrap(deleteButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const hasConfirmation = $newBody.find('[role="dialog"], [class*="modal"], [class*="confirm"]').length > 0 ||
@@ -438,7 +441,7 @@ describe('AI Agents Tests', () => {
               // Cancel the deletion
               const cancelButton = $newBody.find('button:contains("Cancel")');
               if (cancelButton.length > 0) {
-                cy.wrap(cancelButton).first().click();
+                cy.wrap(cancelButton).first().should('be.visible').click();
               }
             }
           });
@@ -452,7 +455,7 @@ describe('AI Agents Tests', () => {
   describe('Agent Status Toggle', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have status toggle action', () => {
@@ -473,8 +476,8 @@ describe('AI Agents Tests', () => {
         const toggleButton = $body.find('button:contains("Activate"), button:contains("Deactivate")');
 
         if (toggleButton.length > 0) {
-          cy.wrap(toggleButton).first().click();
-          cy.wait(1000);
+          cy.wrap(toggleButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.get('body').should('be.visible');
           cy.log('Status toggled');
         }
@@ -492,10 +495,11 @@ describe('AI Agents Tests', () => {
           success: true,
           data: { agents: [] }
         }
-      });
+      }).as('getEmptyAgents');
 
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.wait('@getEmptyAgents');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmptyState = $body.text().includes('No agents') ||
@@ -518,10 +522,11 @@ describe('AI Agents Tests', () => {
           success: true,
           data: { agents: [] }
         }
-      });
+      }).as('getEmptyAgents');
 
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.wait('@getEmptyAgents');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create")');
@@ -541,10 +546,11 @@ describe('AI Agents Tests', () => {
       cy.intercept('GET', '/api/v1/ai/agents*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getAgentsError');
 
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.wait('@getAgentsError');
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -555,10 +561,11 @@ describe('AI Agents Tests', () => {
       cy.intercept('GET', '/api/v1/ai/agents*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load agents' }
-      });
+      }).as('getAgentsError');
 
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.wait('@getAgentsError');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -577,7 +584,7 @@ describe('AI Agents Tests', () => {
   describe('Permission-Based Actions', () => {
     it('should show actions based on permissions', () => {
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasCreatePermission = $body.find('button:contains("Create Agent")').length > 0;
@@ -597,7 +604,7 @@ describe('AI Agents Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -611,7 +618,7 @@ describe('AI Agents Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -625,9 +632,12 @@ describe('AI Agents Tests', () => {
     it('should stack agent cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

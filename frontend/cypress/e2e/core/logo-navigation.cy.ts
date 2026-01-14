@@ -11,10 +11,10 @@ describe('Logo Navigation Tests', () => {
     cy.clearAppData();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   it('should display logo in navigation', () => {
@@ -76,3 +76,6 @@ describe('Logo Navigation Tests', () => {
     cy.url().should('match', /\/(app|dashboard)/);
   });
 });
+
+
+export {};

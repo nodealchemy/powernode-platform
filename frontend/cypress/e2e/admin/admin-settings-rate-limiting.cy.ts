@@ -15,17 +15,18 @@
 describe('Admin Settings Rate Limiting Tab Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Rate Limiting tab', () => {
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Rate Limiting') ||
@@ -41,7 +42,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
 
     it('should redirect unauthorized users', () => {
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -49,7 +50,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
   describe('Rate Limiting Overview', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display rate limiting toggle', () => {
@@ -81,7 +82,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
   describe('API Rate Limits', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display API requests per minute field', () => {
@@ -125,7 +126,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
   describe('Authentication Rate Limits', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display login attempts limit', () => {
@@ -181,7 +182,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
   describe('Rate Limit Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display limit input fields', () => {
@@ -221,7 +222,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
   describe('IP Whitelist/Blacklist', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display whitelist section', () => {
@@ -265,7 +266,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
   describe('Rate Limit Statistics', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display current usage statistics', () => {
@@ -297,7 +298,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
   describe('Saving Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should auto-save on change', () => {
@@ -306,7 +307,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
         const input = $body.find('input[type="number"]');
         if (input.length > 0) {
           cy.wrap(input).first().clear().type('50');
-          cy.wait(1000);
+          cy.waitForPageLoad();
           cy.log('Setting changed - auto-save triggered');
         }
       });
@@ -336,7 +337,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
       });
 
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -349,7 +350,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
       });
 
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -359,7 +360,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -367,7 +368,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -375,9 +376,12 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
     it('should stack sections on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/admin/settings/rate-limiting');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

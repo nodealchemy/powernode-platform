@@ -9,12 +9,14 @@
 describe('Marketplace Browsing', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupMarketplaceIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.waitForPageLoad();
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Marketplace Navigation', () => {
@@ -30,7 +32,7 @@ describe('Marketplace Browsing', () => {
 
         for (const selector of marketplaceSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -51,7 +53,7 @@ describe('Marketplace Browsing', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .should('have.length.at.least', 1);
     });
 
@@ -60,7 +62,7 @@ describe('Marketplace Browsing', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .should('be.visible')
         .within(() => {
@@ -74,7 +76,7 @@ describe('Marketplace Browsing', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .within(() => {
           cy.contains(/\$|Free|price|month|year/i).should('exist');
@@ -86,7 +88,7 @@ describe('Marketplace Browsing', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .click();
 
@@ -107,7 +109,7 @@ describe('Marketplace Browsing', () => {
 
         for (const selector of subscriptionSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -168,7 +170,7 @@ describe('Marketplace Browsing', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .should('be.visible');
     });
@@ -179,7 +181,7 @@ describe('Marketplace Browsing', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .should('have.length.at.least', 1);
     });
   });
@@ -200,8 +202,11 @@ describe('Marketplace Browsing', () => {
       cy.clearLocalStorage();
       cy.visit('/plans');
       // Should eventually show content (not just loading)
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .should('have.length.at.least', 1);
     });
   });
 });
+
+
+export {};

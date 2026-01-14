@@ -18,3 +18,6 @@ describe('Simple Registration Test', () => {
     cy.url().should('match', /\/(app|dashboard|verify-email)/);
   });
 });
+
+
+export {};

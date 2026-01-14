@@ -15,17 +15,18 @@
 describe('Marketplace Subscriptions Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupMarketplaceIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to My Subscriptions page', () => {
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Subscriptions') ||
@@ -42,7 +43,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('My Subscriptions') ||
@@ -57,7 +58,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Manage') ||
@@ -74,7 +75,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Browse Marketplace button', () => {
@@ -92,8 +93,8 @@ describe('Marketplace Subscriptions Page Tests', () => {
       cy.get('body').then($body => {
         const browseButton = $body.find('button:contains("Browse Marketplace"), button:contains("Marketplace")');
         if (browseButton.length > 0) {
-          cy.wrap(browseButton).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(browseButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.url().should('include', 'marketplace');
         }
       });
@@ -105,7 +106,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
   describe('Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display type filter', () => {
@@ -136,8 +137,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
       cy.get('body').then($body => {
         const typeButton = $body.find('button:contains("Apps"), button:contains("Plugins"), button:contains("Templates")');
         if (typeButton.length > 0) {
-          cy.wrap(typeButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(typeButton).first().should('be.visible').click();
           cy.log('Filtered by type');
         }
       });
@@ -149,8 +149,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
       cy.get('body').then($body => {
         const statusButton = $body.find('button:contains("Active"), button:contains("Paused")');
         if (statusButton.length > 0) {
-          cy.wrap(statusButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(statusButton).first().should('be.visible').click();
           cy.log('Filtered by status');
         }
       });
@@ -162,7 +161,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
   describe('Subscriptions List Display', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display subscriptions list', () => {
@@ -242,7 +241,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
   describe('Subscription Actions', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have View button', () => {
@@ -305,11 +304,11 @@ describe('Marketplace Subscriptions Page Tests', () => {
     it('should display empty state when no subscriptions', () => {
       cy.intercept('GET', '/api/v1/marketplace/subscriptions*', {
         statusCode: 200,
-        body: { success: true, data: [] }
-      });
+        body: []
+      }).as('getEmptySubscriptions');
 
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmpty = $body.text().includes('No subscriptions') ||
@@ -326,11 +325,11 @@ describe('Marketplace Subscriptions Page Tests', () => {
     it('should have call to action in empty state', () => {
       cy.intercept('GET', '/api/v1/marketplace/subscriptions*', {
         statusCode: 200,
-        body: { success: true, data: [] }
-      });
+        body: []
+      }).as('getEmptySubscriptions');
 
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasAction = $body.find('button:contains("Browse"), button:contains("Marketplace")').length > 0;
@@ -346,7 +345,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
   describe('Paused Subscription Warning', () => {
     beforeEach(() => {
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display warning for paused subscriptions', () => {
@@ -367,10 +366,10 @@ describe('Marketplace Subscriptions Page Tests', () => {
       cy.intercept('GET', '/api/v1/marketplace/subscriptions*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getSubscriptionsError');
 
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -381,10 +380,10 @@ describe('Marketplace Subscriptions Page Tests', () => {
       cy.intercept('GET', '/api/v1/marketplace/subscriptions*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load subscriptions' }
-      });
+      }).as('getSubscriptionsError');
 
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -404,8 +403,8 @@ describe('Marketplace Subscriptions Page Tests', () => {
       cy.intercept('GET', '/api/v1/marketplace/subscriptions*', {
         delay: 1000,
         statusCode: 200,
-        body: { success: true, data: [] }
-      });
+        body: []
+      }).as('getSubscriptionsDelayed');
 
       cy.visit('/app/marketplace/subscriptions');
 
@@ -424,7 +423,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -438,7 +437,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -452,9 +451,12 @@ describe('Marketplace Subscriptions Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/marketplace/subscriptions');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

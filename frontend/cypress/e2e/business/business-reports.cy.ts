@@ -20,17 +20,18 @@
 describe('Business Reports Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Reports page', () => {
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Reports') ||
@@ -46,7 +47,7 @@ describe('Business Reports Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Reports');
@@ -60,7 +61,7 @@ describe('Business Reports Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Generate and manage') ||
@@ -75,7 +76,7 @@ describe('Business Reports Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -92,7 +93,7 @@ describe('Business Reports Page Tests', () => {
   describe('Tab Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Overview tab', () => {
@@ -169,7 +170,7 @@ describe('Business Reports Page Tests', () => {
   describe('Report Library', () => {
     beforeEach(() => {
       cy.visit('/app/business/reports/library');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display report templates', () => {
@@ -238,7 +239,7 @@ describe('Business Reports Page Tests', () => {
   describe('Report Builder', () => {
     beforeEach(() => {
       cy.visit('/app/business/reports/builder');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display report builder wizard', () => {
@@ -303,7 +304,7 @@ describe('Business Reports Page Tests', () => {
   describe('Report Queue', () => {
     beforeEach(() => {
       cy.visit('/app/business/reports/queue');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display report queue', () => {
@@ -372,7 +373,7 @@ describe('Business Reports Page Tests', () => {
   describe('Scheduled Reports', () => {
     beforeEach(() => {
       cy.visit('/app/business/reports/scheduled');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display scheduled reports section', () => {
@@ -440,7 +441,7 @@ describe('Business Reports Page Tests', () => {
   describe('Reports Analytics', () => {
     beforeEach(() => {
       cy.visit('/app/business/reports/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display usage statistics', () => {
@@ -496,7 +497,7 @@ describe('Business Reports Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -514,7 +515,7 @@ describe('Business Reports Page Tests', () => {
   describe('Date Range Filter', () => {
     beforeEach(() => {
       cy.visit('/app/business/reports/builder');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display date range filter', () => {
@@ -533,7 +534,7 @@ describe('Business Reports Page Tests', () => {
   describe('Report Format Selection', () => {
     beforeEach(() => {
       cy.visit('/app/business/reports/builder');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display format options', () => {
@@ -560,7 +561,7 @@ describe('Business Reports Page Tests', () => {
       });
 
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -574,7 +575,7 @@ describe('Business Reports Page Tests', () => {
       });
 
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -594,7 +595,7 @@ describe('Business Reports Page Tests', () => {
       cy.intercept('GET', '/api/v1/reports/templates*', {
         delay: 1000,
         statusCode: 200,
-        body: { success: true, data: [] }
+        body: []
       });
 
       cy.visit('/app/business/reports');
@@ -615,7 +616,7 @@ describe('Business Reports Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -629,7 +630,7 @@ describe('Business Reports Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -643,7 +644,7 @@ describe('Business Reports Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -651,7 +652,7 @@ describe('Business Reports Page Tests', () => {
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/business/reports');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMultiColumn = $body.find('[class*="md:grid-cols"], [class*="lg:grid-cols"]').length > 0 ||
@@ -665,3 +666,6 @@ describe('Business Reports Page Tests', () => {
     });
   });
 });
+
+
+export {};

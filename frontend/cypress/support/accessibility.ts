@@ -71,6 +71,7 @@ export const AXE_CONFIG = {
 };
 
 // Custom tab command for keyboard navigation
+// @ts-expect-error - Cypress prevSubject type definition is overly strict
 Cypress.Commands.add('tab', { prevSubject: 'optional' }, (subject) => {
   if (subject) {
     return cy.wrap(subject).trigger('keydown', { key: 'Tab', keyCode: 9, which: 9 });
@@ -222,7 +223,7 @@ export const testFocusTrap = (containerSelector: string) => {
     cy.get(SCREEN_READER_SELECTORS.focusable).as('focusableElements');
     
     // Tab through all elements
-    cy.get('@focusableElements').each(($el, index) => {
+    cy.get('@focusableElements').each(($el, _index) => {
       cy.wrap($el).focus();
       cy.focused().should('equal', $el[0]);
     });

@@ -19,17 +19,18 @@
 describe('Account Notifications Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Notifications page', () => {
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Notifications') ||
@@ -44,7 +45,7 @@ describe('Account Notifications Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Notifications');
@@ -58,7 +59,7 @@ describe('Account Notifications Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('View and manage') ||
@@ -73,7 +74,7 @@ describe('Account Notifications Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard');
@@ -89,7 +90,7 @@ describe('Account Notifications Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Mark All Read button when unread exists', () => {
@@ -107,7 +108,7 @@ describe('Account Notifications Page Tests', () => {
   describe('Filter Tabs', () => {
     beforeEach(() => {
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display All filter tab', () => {
@@ -136,8 +137,8 @@ describe('Account Notifications Page Tests', () => {
       cy.get('body').then($body => {
         const allTab = $body.find('button:contains("All")');
         if (allTab.length > 0) {
-          cy.wrap(allTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(allTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to All filter');
         }
       });
@@ -149,8 +150,8 @@ describe('Account Notifications Page Tests', () => {
       cy.get('body').then($body => {
         const unreadTab = $body.find('button:contains("Unread")');
         if (unreadTab.length > 0) {
-          cy.wrap(unreadTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(unreadTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Unread filter');
         }
       });
@@ -174,7 +175,7 @@ describe('Account Notifications Page Tests', () => {
   describe('Notifications List', () => {
     beforeEach(() => {
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display notifications list', () => {
@@ -252,7 +253,7 @@ describe('Account Notifications Page Tests', () => {
   describe('Notification Actions', () => {
     beforeEach(() => {
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have mark as read button', () => {
@@ -295,10 +296,11 @@ describe('Account Notifications Page Tests', () => {
       cy.intercept('GET', '/api/v1/notifications*', {
         statusCode: 200,
         body: { notifications: [], unread_count: 0, pagination: { total_pages: 1 } }
-      });
+      }).as('getEmptyNotifications');
 
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.wait('@getEmptyNotifications');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmpty = $body.text().includes('No notifications') ||
@@ -313,13 +315,13 @@ describe('Account Notifications Page Tests', () => {
 
     it('should show different message for unread filter empty', () => {
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const unreadTab = $body.find('button:contains("Unread")');
         if (unreadTab.length > 0) {
-          cy.wrap(unreadTab).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(unreadTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.get('body').then($emptyBody => {
             const hasEmptyUnread = $emptyBody.text().includes('read all') ||
                                    $emptyBody.text().includes('No notifications');
@@ -337,7 +339,7 @@ describe('Account Notifications Page Tests', () => {
   describe('Pagination', () => {
     beforeEach(() => {
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pagination when multiple pages', () => {
@@ -390,7 +392,7 @@ describe('Account Notifications Page Tests', () => {
   describe('Severity Colors', () => {
     beforeEach(() => {
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display info severity style', () => {
@@ -443,10 +445,11 @@ describe('Account Notifications Page Tests', () => {
       cy.intercept('GET', '/api/v1/notifications*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getNotificationsError');
 
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.wait('@getNotificationsError');
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -457,10 +460,11 @@ describe('Account Notifications Page Tests', () => {
       cy.intercept('GET', '/api/v1/notifications*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load notifications' }
-      });
+      }).as('getNotificationsFailed');
 
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.wait('@getNotificationsFailed');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -481,7 +485,7 @@ describe('Account Notifications Page Tests', () => {
         delay: 1000,
         statusCode: 200,
         body: { notifications: [], unread_count: 0, pagination: { total_pages: 1 } }
-      });
+      }).as('getNotificationsDelayed');
 
       cy.visit('/app/account/notifications');
 
@@ -493,6 +497,7 @@ describe('Account Notifications Page Tests', () => {
         }
       });
 
+      cy.wait('@getNotificationsDelayed');
       cy.get('body').should('be.visible');
     });
   });
@@ -501,7 +506,7 @@ describe('Account Notifications Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -515,7 +520,7 @@ describe('Account Notifications Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -529,9 +534,12 @@ describe('Account Notifications Page Tests', () => {
     it('should stack layout on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/account/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

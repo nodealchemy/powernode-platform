@@ -14,12 +14,13 @@
 describe('Subscription Lifecycle', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Platform Plan Subscription', () => {
@@ -28,7 +29,7 @@ describe('Subscription Lifecycle', () => {
         cy.clearCookies();
         cy.clearLocalStorage();
         cy.visit('/plans');
-        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
           .should('have.length.at.least', 1);
       });
 
@@ -36,7 +37,7 @@ describe('Subscription Lifecycle', () => {
         cy.clearCookies();
         cy.clearLocalStorage();
         cy.visit('/plans');
-        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
           .first()
           .within(() => {
             cy.contains(/\$|Free|month|year/i).should('exist');
@@ -47,7 +48,7 @@ describe('Subscription Lifecycle', () => {
         cy.clearCookies();
         cy.clearLocalStorage();
         cy.visit('/plans');
-        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
           .should('have.length.at.least', 1);
       });
 
@@ -81,7 +82,7 @@ describe('Subscription Lifecycle', () => {
         cy.clearCookies();
         cy.clearLocalStorage();
         cy.visit('/plans');
-        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
           .first()
           .click();
 
@@ -100,11 +101,11 @@ describe('Subscription Lifecycle', () => {
         cy.clearCookies();
         cy.clearLocalStorage();
         cy.visit('/plans');
-        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+        cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
           .first()
           .click();
 
-        cy.get('[data-testid="continue-to-registration"], [data-testid="plan-select-btn"]', { timeout: 10000 })
+        cy.get('[data-testid="continue-to-registration"], [data-testid="plan-select-btn"]', { timeout: 5000 })
           .first()
           .click();
 
@@ -216,7 +217,7 @@ describe('Subscription Lifecycle', () => {
             const filterButton = $body.find(`button:contains("${filter}")`);
             if (filterButton.length > 0) {
               cy.wrap(filterButton).first().click();
-              cy.wait(300);
+              cy.waitForStableDOM();
             }
           });
         });
@@ -234,7 +235,7 @@ describe('Subscription Lifecycle', () => {
             const filterButton = $body.find(`button:contains("${filter}")`);
             if (filterButton.length > 0) {
               cy.wrap(filterButton).first().click();
-              cy.wait(300);
+              cy.waitForStableDOM();
             }
           });
         });
@@ -410,7 +411,7 @@ describe('Subscription Lifecycle', () => {
 
           for (const selector of billingLinks) {
             if ($body.find(selector).length > 0) {
-              cy.get(selector).first().click({ force: true });
+              cy.get(selector).first().should('be.visible').click();
               break;
             }
           }
@@ -641,7 +642,7 @@ describe('Subscription Lifecycle', () => {
       cy.intercept('GET', '/api/v1/marketplace/subscriptions*', {
         delay: 10000,
         statusCode: 200,
-        body: { success: true, data: [] }
+        body: []
       }).as('slowLoad');
 
       cy.visit('/app/marketplace/subscriptions');
@@ -672,7 +673,7 @@ describe('Subscription Lifecycle', () => {
       cy.clearLocalStorage();
       cy.visit('/plans');
 
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .should('exist')
         .first()
         .click();
@@ -691,11 +692,12 @@ describe('Subscription Lifecycle', () => {
 describe('Subscription Upgrade/Downgrade Flow', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   it('should display upgrade options for current plan', () => {
@@ -726,7 +728,7 @@ describe('Subscription Upgrade/Downgrade Flow', () => {
     cy.visit('/plans');
 
     // Multiple plans should be visible for comparison
-    cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+    cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
       .should('have.length.at.least', 1);
 
     // Check for comparison features
@@ -771,11 +773,12 @@ describe('Subscription Upgrade/Downgrade Flow', () => {
 describe('Subscription Trial Management', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   it('should display trial status if on trial', () => {
@@ -825,11 +828,12 @@ describe('Subscription Trial Management', () => {
 describe('Subscription Configuration', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   it('should navigate to subscription configuration', () => {
@@ -885,3 +889,6 @@ describe('Subscription Configuration', () => {
     });
   });
 });
+
+
+export {};

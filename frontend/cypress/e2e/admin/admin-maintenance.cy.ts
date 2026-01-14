@@ -17,17 +17,18 @@
 describe('Admin Maintenance Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Admin Maintenance page', () => {
       cy.visit('/app/admin/maintenance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Maintenance') ||
@@ -44,7 +45,7 @@ describe('Admin Maintenance Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/admin/maintenance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Maintenance') ||
@@ -59,7 +60,7 @@ describe('Admin Maintenance Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/admin/maintenance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Admin') ||
@@ -76,7 +77,7 @@ describe('Admin Maintenance Page Tests', () => {
   describe('Tab Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/admin/maintenance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display maintenance tabs', () => {
@@ -94,8 +95,8 @@ describe('Admin Maintenance Page Tests', () => {
       cy.get('body').then($body => {
         const overviewTab = $body.find('button:contains("Overview"), [role="tab"]:contains("Overview")');
         if (overviewTab.length > 0) {
-          cy.wrap(overviewTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(overviewTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Overview tab');
         }
       });
@@ -107,8 +108,8 @@ describe('Admin Maintenance Page Tests', () => {
       cy.get('body').then($body => {
         const modeTab = $body.find('button:contains("Mode"), button:contains("Maintenance Mode"), [role="tab"]:contains("Mode")');
         if (modeTab.length > 0) {
-          cy.wrap(modeTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(modeTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Maintenance Mode tab');
         }
       });
@@ -120,8 +121,8 @@ describe('Admin Maintenance Page Tests', () => {
       cy.get('body').then($body => {
         const healthTab = $body.find('button:contains("Health"), button:contains("System Health"), [role="tab"]:contains("Health")');
         if (healthTab.length > 0) {
-          cy.wrap(healthTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(healthTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to System Health tab');
         }
       });
@@ -133,8 +134,8 @@ describe('Admin Maintenance Page Tests', () => {
       cy.get('body').then($body => {
         const backupsTab = $body.find('button:contains("Backup"), [role="tab"]:contains("Backup")');
         if (backupsTab.length > 0) {
-          cy.wrap(backupsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(backupsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Backups tab');
         }
       });
@@ -146,8 +147,8 @@ describe('Admin Maintenance Page Tests', () => {
       cy.get('body').then($body => {
         const cleanupTab = $body.find('button:contains("Cleanup"), [role="tab"]:contains("Cleanup")');
         if (cleanupTab.length > 0) {
-          cy.wrap(cleanupTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(cleanupTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Cleanup tab');
         }
       });
@@ -159,8 +160,8 @@ describe('Admin Maintenance Page Tests', () => {
       cy.get('body').then($body => {
         const operationsTab = $body.find('button:contains("Operations"), [role="tab"]:contains("Operations")');
         if (operationsTab.length > 0) {
-          cy.wrap(operationsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(operationsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Operations tab');
         }
       });
@@ -172,8 +173,8 @@ describe('Admin Maintenance Page Tests', () => {
       cy.get('body').then($body => {
         const schedulesTab = $body.find('button:contains("Schedule"), [role="tab"]:contains("Schedule")');
         if (schedulesTab.length > 0) {
-          cy.wrap(schedulesTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(schedulesTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Schedules tab');
         }
       });
@@ -185,8 +186,8 @@ describe('Admin Maintenance Page Tests', () => {
       cy.get('body').then($body => {
         const healthTab = $body.find('button:contains("Health"), [role="tab"]:contains("Health")');
         if (healthTab.length > 0) {
-          cy.wrap(healthTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(healthTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.url().then(url => {
             if (url.includes('tab=') || url.includes('health')) {
               cy.log('URL updated with tab parameter');
@@ -202,7 +203,7 @@ describe('Admin Maintenance Page Tests', () => {
   describe('Overview Tab Content', () => {
     beforeEach(() => {
       cy.visit('/app/admin/maintenance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display system status overview', () => {
@@ -237,7 +238,7 @@ describe('Admin Maintenance Page Tests', () => {
   describe('Maintenance Mode Controls', () => {
     beforeEach(() => {
       cy.visit('/app/admin/maintenance?tab=mode');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display maintenance mode toggle', () => {
@@ -280,7 +281,7 @@ describe('Admin Maintenance Page Tests', () => {
   describe('System Health Display', () => {
     beforeEach(() => {
       cy.visit('/app/admin/maintenance?tab=health');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display system health metrics', () => {
@@ -340,7 +341,7 @@ describe('Admin Maintenance Page Tests', () => {
   describe('Backup Management', () => {
     beforeEach(() => {
       cy.visit('/app/admin/maintenance?tab=backups');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display backup list', () => {
@@ -407,7 +408,7 @@ describe('Admin Maintenance Page Tests', () => {
   describe('Cleanup Operations', () => {
     beforeEach(() => {
       cy.visit('/app/admin/maintenance?tab=cleanup');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display cleanup options', () => {
@@ -463,7 +464,7 @@ describe('Admin Maintenance Page Tests', () => {
   describe('Scheduled Maintenance', () => {
     beforeEach(() => {
       cy.visit('/app/admin/maintenance?tab=schedules');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display scheduled maintenance list', () => {
@@ -530,7 +531,7 @@ describe('Admin Maintenance Page Tests', () => {
   describe('Tab-Specific Actions', () => {
     it('should show Create Backup action on backups tab', () => {
       cy.visit('/app/admin/maintenance?tab=backups');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasAction = $body.find('button:contains("Create Backup"), button:contains("New Backup")').length > 0;
@@ -544,7 +545,7 @@ describe('Admin Maintenance Page Tests', () => {
 
     it('should show Run Cleanup action on cleanup tab', () => {
       cy.visit('/app/admin/maintenance?tab=cleanup');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasAction = $body.find('button:contains("Run Cleanup"), button:contains("Start Cleanup")').length > 0;
@@ -558,7 +559,7 @@ describe('Admin Maintenance Page Tests', () => {
 
     it('should show New Schedule action on schedules tab', () => {
       cy.visit('/app/admin/maintenance?tab=schedules');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasAction = $body.find('button:contains("New Schedule"), button:contains("Create Schedule")').length > 0;
@@ -579,7 +580,7 @@ describe('Admin Maintenance Page Tests', () => {
       });
 
       cy.visit('/app/admin/maintenance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -593,7 +594,7 @@ describe('Admin Maintenance Page Tests', () => {
       });
 
       cy.visit('/app/admin/maintenance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -623,7 +624,7 @@ describe('Admin Maintenance Page Tests', () => {
       });
 
       cy.visit('/app/admin/maintenance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermissionCheck = $body.text().includes('Permission') ||
@@ -642,7 +643,7 @@ describe('Admin Maintenance Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/maintenance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -656,7 +657,7 @@ describe('Admin Maintenance Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/maintenance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -670,9 +671,12 @@ describe('Admin Maintenance Page Tests', () => {
     it('should display tabs properly on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/admin/maintenance');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

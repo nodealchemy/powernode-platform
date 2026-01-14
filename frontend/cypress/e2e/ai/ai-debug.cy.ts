@@ -17,17 +17,18 @@
 describe('AI Debug Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to AI Debug page', () => {
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Debug') ||
@@ -44,7 +45,7 @@ describe('AI Debug Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Debug') ||
@@ -59,7 +60,7 @@ describe('AI Debug Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -77,7 +78,7 @@ describe('AI Debug Page Tests', () => {
   describe('Debug Information Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display permissions debug component', () => {
@@ -123,7 +124,7 @@ describe('AI Debug Page Tests', () => {
   describe('Troubleshooting Steps', () => {
     beforeEach(() => {
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display troubleshooting section', () => {
@@ -156,7 +157,7 @@ describe('AI Debug Page Tests', () => {
   describe('Common Solutions', () => {
     beforeEach(() => {
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display common solutions section', () => {
@@ -202,7 +203,7 @@ describe('AI Debug Page Tests', () => {
   describe('Debug Actions', () => {
     beforeEach(() => {
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -242,7 +243,7 @@ describe('AI Debug Page Tests', () => {
   describe('System Status', () => {
     beforeEach(() => {
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display system status', () => {
@@ -274,7 +275,7 @@ describe('AI Debug Page Tests', () => {
   describe('Permission Check', () => {
     it('should show permission message for unauthorized users', () => {
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermission = $body.text().includes("don't have permission") ||
@@ -297,7 +298,7 @@ describe('AI Debug Page Tests', () => {
       });
 
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -311,7 +312,7 @@ describe('AI Debug Page Tests', () => {
       });
 
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -352,7 +353,7 @@ describe('AI Debug Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -366,7 +367,7 @@ describe('AI Debug Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -380,9 +381,12 @@ describe('AI Debug Page Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/debug');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

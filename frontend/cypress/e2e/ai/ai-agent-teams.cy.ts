@@ -18,17 +18,18 @@
 describe('AI Agent Teams Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Agent Teams page', () => {
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Agent Teams') ||
@@ -44,7 +45,7 @@ describe('AI Agent Teams Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Agent Teams');
@@ -58,7 +59,7 @@ describe('AI Agent Teams Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('CrewAI') ||
@@ -76,7 +77,7 @@ describe('AI Agent Teams Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Create Team button', () => {
@@ -94,7 +95,7 @@ describe('AI Agent Teams Page Tests', () => {
   describe('Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display status filter', () => {
@@ -126,7 +127,6 @@ describe('AI Agent Teams Page Tests', () => {
         const statusSelect = $body.find('select#status-filter');
         if (statusSelect.length > 0) {
           cy.wrap(statusSelect).select('active');
-          cy.wait(500);
           cy.log('Filtered by status');
         }
       });
@@ -139,7 +139,6 @@ describe('AI Agent Teams Page Tests', () => {
         const typeSelect = $body.find('select#type-filter');
         if (typeSelect.length > 0) {
           cy.wrap(typeSelect).select('hierarchical');
-          cy.wait(500);
           cy.log('Filtered by type');
         }
       });
@@ -177,7 +176,7 @@ describe('AI Agent Teams Page Tests', () => {
   describe('Teams Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display teams grid', () => {
@@ -233,15 +232,15 @@ describe('AI Agent Teams Page Tests', () => {
   describe('Team Builder Modal', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should open team builder modal', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Team"), button:contains("Create")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[role="dialog"], [class*="modal"], [class*="Modal"]').length > 0;
             if (hasModal) {
@@ -258,8 +257,8 @@ describe('AI Agent Teams Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Team"), button:contains("Create")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasNameField = $modalBody.find('input[name*="name"], input[placeholder*="name"]').length > 0;
             if (hasNameField) {
@@ -276,13 +275,13 @@ describe('AI Agent Teams Page Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create Team"), button:contains("Create")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const closeButton = $modalBody.find('button:contains("Close"), button:contains("Cancel"), [aria-label*="close"]');
             if (closeButton.length > 0) {
-              cy.wrap(closeButton).first().click({ force: true });
-              cy.wait(300);
+              cy.wrap(closeButton).first().scrollIntoView().should('exist').click();
+              cy.waitForModalClose();
               cy.log('Modal closed');
             }
           });
@@ -296,7 +295,7 @@ describe('AI Agent Teams Page Tests', () => {
   describe('Team Actions', () => {
     beforeEach(() => {
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have edit team option', () => {
@@ -336,7 +335,7 @@ describe('AI Agent Teams Page Tests', () => {
   describe('Execution Monitor', () => {
     it('should display execution monitor when team is executing', () => {
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMonitor = $body.text().includes('Execution') ||
@@ -359,7 +358,7 @@ describe('AI Agent Teams Page Tests', () => {
       });
 
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -373,7 +372,7 @@ describe('AI Agent Teams Page Tests', () => {
       });
 
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -393,7 +392,7 @@ describe('AI Agent Teams Page Tests', () => {
       cy.intercept('GET', '/api/v1/ai/agent-teams*', {
         delay: 1000,
         statusCode: 200,
-        body: { success: true, data: [] }
+        body: []
       });
 
       cy.visit('/app/ai/agent-teams');
@@ -414,7 +413,7 @@ describe('AI Agent Teams Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -428,7 +427,7 @@ describe('AI Agent Teams Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -442,7 +441,7 @@ describe('AI Agent Teams Page Tests', () => {
     it('should show single column on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -450,7 +449,7 @@ describe('AI Agent Teams Page Tests', () => {
     it('should show multi-column grid on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/ai/agent-teams');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasGrid = $body.find('[class*="grid"]').length > 0;
@@ -463,3 +462,6 @@ describe('AI Agent Teams Page Tests', () => {
     });
   });
 });
+
+
+export {};

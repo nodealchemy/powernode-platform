@@ -16,17 +16,18 @@
 describe('Account Settings Update Flow Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Account Settings', () => {
       cy.visit('/app/settings/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Profile') ||
@@ -42,7 +43,7 @@ describe('Account Settings Update Flow Tests', () => {
 
     it('should display settings navigation', () => {
       cy.visit('/app/settings');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasNav = $body.find('a, button, [class*="nav"]').length > 0;
@@ -58,7 +59,7 @@ describe('Account Settings Update Flow Tests', () => {
   describe('Profile Settings', () => {
     beforeEach(() => {
       cy.visit('/app/settings/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display first name field', () => {
@@ -149,7 +150,7 @@ describe('Account Settings Update Flow Tests', () => {
   describe('Password Change', () => {
     beforeEach(() => {
       cy.visit('/app/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should navigate to Security settings', () => {
@@ -229,7 +230,7 @@ describe('Account Settings Update Flow Tests', () => {
   describe('Two-Factor Authentication', () => {
     beforeEach(() => {
       cy.visit('/app/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display 2FA section', () => {
@@ -273,7 +274,7 @@ describe('Account Settings Update Flow Tests', () => {
   describe('Notification Preferences', () => {
     beforeEach(() => {
       cy.visit('/app/settings/notifications');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should navigate to Notification settings', () => {
@@ -342,8 +343,8 @@ describe('Account Settings Update Flow Tests', () => {
       cy.get('body').then($body => {
         const toggle = $body.find('input[type="checkbox"], [role="switch"]');
         if (toggle.length > 0) {
-          cy.wrap(toggle).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(toggle).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Notification preference changed');
         }
       });
@@ -355,7 +356,7 @@ describe('Account Settings Update Flow Tests', () => {
   describe('Session Management', () => {
     beforeEach(() => {
       cy.visit('/app/settings/security');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display active sessions', () => {
@@ -387,7 +388,7 @@ describe('Account Settings Update Flow Tests', () => {
   describe('Account Deletion', () => {
     beforeEach(() => {
       cy.visit('/app/settings/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have delete account option', () => {
@@ -420,7 +421,7 @@ describe('Account Settings Update Flow Tests', () => {
   describe('Form Validation', () => {
     beforeEach(() => {
       cy.visit('/app/settings/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should validate required fields', () => {
@@ -431,8 +432,8 @@ describe('Account Settings Update Flow Tests', () => {
           cy.get('body').then($body2 => {
             const saveBtn = $body2.find('button:contains("Save")');
             if (saveBtn.length > 0) {
-              cy.wrap(saveBtn).first().click({ force: true });
-              cy.wait(500);
+              cy.wrap(saveBtn).first().should('be.visible').click();
+              cy.waitForPageLoad();
               cy.log('Validation triggered');
             }
           });
@@ -458,7 +459,7 @@ describe('Account Settings Update Flow Tests', () => {
   describe('Success/Error States', () => {
     beforeEach(() => {
       cy.visit('/app/settings/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should show success notification on save', () => {
@@ -469,8 +470,8 @@ describe('Account Settings Update Flow Tests', () => {
 
           const saveBtn = $body.find('button:contains("Save")');
           if (saveBtn.length > 0) {
-            cy.wrap(saveBtn).first().click({ force: true });
-            cy.wait(1000);
+            cy.wrap(saveBtn).first().should('be.visible').click();
+            cy.waitForPageLoad();
             cy.log('Save action completed');
           }
         }
@@ -488,7 +489,7 @@ describe('Account Settings Update Flow Tests', () => {
       });
 
       cy.visit('/app/settings/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -500,7 +501,7 @@ describe('Account Settings Update Flow Tests', () => {
       cy.intercept('GET', '**/api/**/users/**', {
         delay: 2000,
         statusCode: 200,
-        body: { success: true, data: {} }
+        body: {}
       });
 
       cy.visit('/app/settings/profile');
@@ -521,7 +522,7 @@ describe('Account Settings Update Flow Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/settings/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -529,7 +530,7 @@ describe('Account Settings Update Flow Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/settings/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -537,9 +538,12 @@ describe('Account Settings Update Flow Tests', () => {
     it('should display properly on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/settings/profile');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

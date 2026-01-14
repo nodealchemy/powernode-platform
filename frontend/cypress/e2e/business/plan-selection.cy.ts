@@ -1,6 +1,7 @@
 describe('Plan Selection Workflow Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
   });
 
   describe('Plans Page', () => {
@@ -8,7 +9,7 @@ describe('Plan Selection Workflow Tests', () => {
       cy.visit('/plans');
       
       // Should show plan cards
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
       cy.get('[data-testid="plan-card"]').should('have.length.at.least', 1);
       
       // Each plan card should have essential information
@@ -26,28 +27,28 @@ describe('Plan Selection Workflow Tests', () => {
 
     it('should handle plan selection', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
 
       // Click on first plan card to select it
-      cy.get('[data-testid="plan-card"]').first().click({ force: true });
+      cy.get('[data-testid="plan-card"]').first().should('be.visible').click();
 
       // Should show the continue button after selection
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
 
       // Click continue to proceed to registration
-      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+      cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
 
       // Should navigate to registration with plan selected
       cy.url().should('include', '/register');
       cy.url().should('include', 'plan=');
 
       // Should show selected plan information
-      cy.get('[data-testid="selected-plan"]', { timeout: 15000 }).should('be.visible');
+      cy.get('[data-testid="selected-plan"]', { timeout: 5000 }).should('be.visible');
     });
 
     it('should show plan details and features', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
       
       // Check each plan card for details
       cy.get('[data-testid="plan-card"]').each(($card) => {
@@ -60,7 +61,7 @@ describe('Plan Selection Workflow Tests', () => {
 
     it('should handle different billing cycles if available', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
       
       // Check for billing cycle toggles
       cy.get('body').then($body => {
@@ -82,26 +83,26 @@ describe('Plan Selection Workflow Tests', () => {
   describe('Plan Selection Flow', () => {
     it('should complete full plan selection to registration flow', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
 
       // Get plan details before selecting
-      let planName: string;
+      let _planName: string;
       cy.get('[data-testid="plan-card"]').first().within(() => {
         cy.get('h3, h2, .plan-name').first().invoke('text').then(text => {
-          planName = text.trim();
+          _planName = text.trim();
         });
       });
 
       // Select plan by clicking the card
-      cy.get('[data-testid="plan-card"]').first().click({ force: true });
+      cy.get('[data-testid="plan-card"]').first().should('be.visible').click();
 
       // Wait for continue button to appear and click it
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
-      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
 
       // Verify plan selection carried over to registration
       cy.url().should('include', '/register');
-      cy.get('[data-testid="selected-plan"]', { timeout: 15000 }).should('be.visible');
+      cy.get('[data-testid="selected-plan"]', { timeout: 5000 }).should('be.visible');
 
       // Complete registration using data-testid selectors
       const timestamp = Date.now();
@@ -114,7 +115,7 @@ describe('Plan Selection Workflow Tests', () => {
       cy.get('[data-testid="register-submit-btn"]').click();
 
       // Should complete registration (redirects to /app or /dashboard)
-      cy.url({ timeout: 20000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
 
     it('should redirect to plan selection when accessing registration directly', () => {
@@ -127,15 +128,15 @@ describe('Plan Selection Workflow Tests', () => {
 
     it('should preserve plan selection through browser refresh', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
 
       // Select first plan
-      cy.get('[data-testid="plan-card"]').first().click({ force: true });
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
-      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+      cy.get('[data-testid="plan-card"]').first().should('be.visible').click();
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
 
       cy.url().should('include', '/register');
-      cy.get('[data-testid="selected-plan"]', { timeout: 15000 }).should('be.visible');
+      cy.get('[data-testid="selected-plan"]', { timeout: 5000 }).should('be.visible');
 
       // Refresh the page
       cy.reload();
@@ -148,12 +149,12 @@ describe('Plan Selection Workflow Tests', () => {
 
     it('should allow changing plan selection', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
 
       // Select first plan
-      cy.get('[data-testid="plan-card"]').first().click({ force: true });
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
-      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+      cy.get('[data-testid="plan-card"]').first().should('be.visible').click();
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
 
       cy.url().should('include', '/register');
 
@@ -164,9 +165,9 @@ describe('Plan Selection Workflow Tests', () => {
       cy.get('[data-testid="plan-card"]').then($cards => {
         if ($cards.length > 1) {
           // Select second plan
-          cy.get('[data-testid="plan-card"]').eq(1).click({ force: true });
-          cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
-          cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+          cy.get('[data-testid="plan-card"]').eq(1).should('be.visible').click();
+          cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
+          cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
 
           // Should update registration with new plan
           cy.url().should('include', '/register');
@@ -179,13 +180,13 @@ describe('Plan Selection Workflow Tests', () => {
   describe('Plan Comparison', () => {
     it('should allow comparing multiple plans', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
       
       // Check if multiple plans are available
       cy.get('[data-testid="plan-card"]').then($cards => {
         if ($cards.length > 1) {
           // Compare features across plans
-          cy.get('[data-testid="plan-card"]').each(($card, index) => {
+          cy.get('[data-testid="plan-card"]').each(($card, _index) => {
             cy.wrap($card).within(() => {
               cy.get('h3, h2, .plan-name').should('exist');
               cy.contains(/\$|\d+|Free/i).should('exist');
@@ -200,17 +201,15 @@ describe('Plan Selection Workflow Tests', () => {
     it('should handle slow plan loading', () => {
       // Intercept plans API with delay
       cy.intercept('GET', '/api/v1/public/plans', (req) => {
-        req.reply((res) => {
-          return new Promise(resolve => {
-            setTimeout(() => resolve(res), 2000);
-          });
+        req.on('response', (res) => {
+          res.setDelay(2000);
         });
       }).as('slowPlans');
       
       cy.visit('/plans');
       
       // Should eventually show plans
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
       cy.wait('@slowPlans');
     });
 
@@ -224,7 +223,7 @@ describe('Plan Selection Workflow Tests', () => {
       cy.get('body').should('be.visible');
       
       // Wait a moment for the error to potentially manifest
-      cy.wait(2000);
+      cy.waitForStableDOM();
       
       // Page should still be functional (either show error or fallback content)
       cy.get('body').should('not.be.empty');
@@ -234,7 +233,7 @@ describe('Plan Selection Workflow Tests', () => {
   describe('Pricing Display', () => {
     it('should show proper pricing format', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
       
       cy.get('[data-testid="plan-card"]').each(($card) => {
         cy.wrap($card).within(() => {
@@ -246,7 +245,7 @@ describe('Plan Selection Workflow Tests', () => {
 
     it('should handle different currencies if supported', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
       
       // Check for currency symbols
       cy.get('[data-testid="plan-card"]').first().within(() => {
@@ -258,7 +257,7 @@ describe('Plan Selection Workflow Tests', () => {
   describe('Plan Features', () => {
     it('should display plan features clearly', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
       
       cy.get('[data-testid="plan-card"]').first().within(() => {
         // Should have some kind of feature list
@@ -268,7 +267,7 @@ describe('Plan Selection Workflow Tests', () => {
 
     it('should highlight popular or recommended plans', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
       
       // Check for popular/recommended badges
       cy.get('body').then($body => {
@@ -288,3 +287,5 @@ describe('Plan Selection Workflow Tests', () => {
     });
   });
 });
+
+export {};

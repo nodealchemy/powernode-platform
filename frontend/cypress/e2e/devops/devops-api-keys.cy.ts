@@ -21,24 +21,25 @@
 describe('DevOps API Keys Management Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupDevopsIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to API Keys page from DevOps', () => {
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const apiKeyLink = $body.find('a[href*="/api-keys"], button:contains("API Keys")');
 
         if (apiKeyLink.length > 0) {
-          cy.wrap(apiKeyLink).first().click();
+          cy.wrap(apiKeyLink).first().should('be.visible').click();
           cy.url().should('include', '/api-keys');
         } else {
           cy.visit('/app/devops/api-keys');
@@ -83,12 +84,12 @@ describe('DevOps API Keys Management Tests', () => {
   describe('API Key List Display', () => {
     beforeEach(() => {
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display API keys list or empty state', () => {
       cy.get('body').then($body => {
-        const hasApiKeys = $body.find('[class*="key"], [class*="card"]').length > 0 ||
+        const _hasApiKeys = $body.find('[class*="key"], [class*="card"]').length > 0 ||
                            $body.text().includes('No API Keys');
 
         if ($body.text().includes('No API Keys')) {
@@ -199,7 +200,7 @@ describe('DevOps API Keys Management Tests', () => {
   describe('Generate New API Key', () => {
     beforeEach(() => {
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Generate New Key button', () => {
@@ -222,8 +223,8 @@ describe('DevOps API Keys Management Tests', () => {
         const generateButton = $body.find('button:contains("Generate"), button:contains("New Key")');
 
         if (generateButton.length > 0) {
-          cy.wrap(generateButton).first().click();
-          cy.wait(500);
+          cy.wrap(generateButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           // Check for modal
           cy.get('body').then($newBody => {
@@ -246,8 +247,8 @@ describe('DevOps API Keys Management Tests', () => {
         const generateButton = $body.find('button:contains("Generate"), button:contains("New Key")');
 
         if (generateButton.length > 0) {
-          cy.wrap(generateButton).first().click();
-          cy.wait(500);
+          cy.wrap(generateButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const nameInput = $newBody.find('input[name="name"], input[placeholder*="name"]');
@@ -268,8 +269,8 @@ describe('DevOps API Keys Management Tests', () => {
         const generateButton = $body.find('button:contains("Generate"), button:contains("New Key")');
 
         if (generateButton.length > 0) {
-          cy.wrap(generateButton).first().click();
-          cy.wait(500);
+          cy.wrap(generateButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const hasScopes = $newBody.text().includes('Scope') ||
@@ -291,15 +292,15 @@ describe('DevOps API Keys Management Tests', () => {
         const generateButton = $body.find('button:contains("Generate"), button:contains("New Key")');
 
         if (generateButton.length > 0) {
-          cy.wrap(generateButton).first().click();
-          cy.wait(500);
+          cy.wrap(generateButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($newBody => {
             const cancelButton = $newBody.find('button:contains("Cancel"), button:contains("Close")');
 
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click();
-              cy.wait(500);
+              cy.wrap(cancelButton).first().should('be.visible').click();
+              cy.waitForModalClose();
               cy.log('Modal closed');
             }
           });
@@ -313,7 +314,7 @@ describe('DevOps API Keys Management Tests', () => {
   describe('Copy API Key', () => {
     beforeEach(() => {
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have copy button for API keys', () => {
@@ -336,8 +337,7 @@ describe('DevOps API Keys Management Tests', () => {
         const copyButton = $body.find('button:contains("Copy")');
 
         if (copyButton.length > 0) {
-          cy.wrap(copyButton).first().click();
-          cy.wait(500);
+          cy.wrap(copyButton).first().should('be.visible').click();
 
           // Check for success feedback
           cy.get('body').then($newBody => {
@@ -359,7 +359,7 @@ describe('DevOps API Keys Management Tests', () => {
   describe('Regenerate API Key', () => {
     beforeEach(() => {
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have regenerate button for API keys', () => {
@@ -382,8 +382,8 @@ describe('DevOps API Keys Management Tests', () => {
         const regenerateButton = $body.find('button:contains("Regenerate")');
 
         if (regenerateButton.length > 0) {
-          cy.wrap(regenerateButton).first().click();
-          cy.wait(500);
+          cy.wrap(regenerateButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           // Check for confirmation dialog
           cy.get('body').then($newBody => {
@@ -397,7 +397,7 @@ describe('DevOps API Keys Management Tests', () => {
               // Cancel the regeneration
               const cancelButton = $newBody.find('button:contains("Cancel")');
               if (cancelButton.length > 0) {
-                cy.wrap(cancelButton).first().click();
+                cy.wrap(cancelButton).first().should('be.visible').click();
               }
             }
           });
@@ -411,7 +411,7 @@ describe('DevOps API Keys Management Tests', () => {
   describe('Toggle API Key Status', () => {
     beforeEach(() => {
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have revoke/activate button for API keys', () => {
@@ -434,9 +434,9 @@ describe('DevOps API Keys Management Tests', () => {
         const statusButton = $body.find('button:contains("Revoke"), button:contains("Activate")');
 
         if (statusButton.length > 0) {
-          const initialText = statusButton.first().text();
-          cy.wrap(statusButton).first().click();
-          cy.wait(1000);
+          const _initialText = statusButton.first().text();
+          cy.wrap(statusButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
 
           // Verify status changed
           cy.get('body').should('be.visible');
@@ -451,7 +451,7 @@ describe('DevOps API Keys Management Tests', () => {
   describe('Security Notice', () => {
     beforeEach(() => {
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display security notice', () => {
@@ -473,7 +473,7 @@ describe('DevOps API Keys Management Tests', () => {
   describe('API Call Stats', () => {
     beforeEach(() => {
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display API Calls Today stat', () => {
@@ -522,10 +522,10 @@ describe('DevOps API Keys Management Tests', () => {
             stats: { requests_today: 0, total_keys: 0 }
           }
         }
-      });
+      }).as('getEmptyApiKeys');
 
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmptyState = $body.text().includes('No API Keys') ||
@@ -550,10 +550,10 @@ describe('DevOps API Keys Management Tests', () => {
             stats: { requests_today: 0, total_keys: 0 }
           }
         }
-      });
+      }).as('getEmptyApiKeys');
 
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const generateButton = $body.find('button:contains("Generate")');
@@ -573,10 +573,10 @@ describe('DevOps API Keys Management Tests', () => {
       cy.intercept('GET', '/api/v1/api_keys*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getApiKeysError');
 
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -587,10 +587,10 @@ describe('DevOps API Keys Management Tests', () => {
       cy.intercept('GET', '/api/v1/api_keys*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load API keys' }
-      });
+      }).as('getApiKeysError');
 
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -609,10 +609,10 @@ describe('DevOps API Keys Management Tests', () => {
       cy.intercept('GET', '/api/v1/api_keys*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getApiKeysError');
 
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const retryButton = $body.find('button:contains("Retry"), button:contains("Try again")');
@@ -630,7 +630,7 @@ describe('DevOps API Keys Management Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have refresh button', () => {
@@ -651,8 +651,8 @@ describe('DevOps API Keys Management Tests', () => {
         const refreshButton = $body.find('button:contains("Refresh")');
 
         if (refreshButton.length > 0) {
-          cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
+          cy.wrap(refreshButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.get('body').should('be.visible');
           cy.log('Refresh triggered');
         }
@@ -666,7 +666,7 @@ describe('DevOps API Keys Management Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -680,7 +680,7 @@ describe('DevOps API Keys Management Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -694,9 +694,12 @@ describe('DevOps API Keys Management Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/devops/api-keys');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

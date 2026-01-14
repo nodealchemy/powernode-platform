@@ -18,24 +18,25 @@
 describe('DevOps Pipelines Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupDevopsIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Pipelines from Automation', () => {
       cy.visit('/app/automation');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const pipelinesLink = $body.find('a[href*="/pipelines"], button:contains("Pipelines")');
 
         if (pipelinesLink.length > 0) {
-          cy.wrap(pipelinesLink).first().click();
+          cy.wrap(pipelinesLink).first().should('be.visible').click();
           cy.url().should('include', '/pipelines');
         } else {
           cy.visit('/app/automation/pipelines');
@@ -47,6 +48,7 @@ describe('DevOps Pipelines Tests', () => {
 
     it('should load Pipelines page directly', () => {
       cy.visit('/app/automation/pipelines');
+      cy.waitForPageLoad();
 
       cy.url().then(url => {
         if (url.includes('/pipelines')) {
@@ -62,6 +64,7 @@ describe('DevOps Pipelines Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/automation/pipelines');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') &&
@@ -79,12 +82,12 @@ describe('DevOps Pipelines Tests', () => {
   describe('Pipeline List Display', () => {
     beforeEach(() => {
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pipeline list or empty state', () => {
       cy.get('body').then($body => {
-        const hasPipelines = $body.find('[class*="pipeline"], [class*="card"]').length > 0 ||
+        const _hasPipelines = $body.find('[class*="pipeline"], [class*="card"]').length > 0 ||
                               $body.text().includes('No pipelines') ||
                               $body.text().includes('Create your first');
 
@@ -127,7 +130,7 @@ describe('DevOps Pipelines Tests', () => {
   describe('Filter Tabs', () => {
     beforeEach(() => {
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display filter tabs', () => {
@@ -148,8 +151,8 @@ describe('DevOps Pipelines Tests', () => {
         const allTab = $body.find('button:contains("All")');
 
         if (allTab.length > 0) {
-          cy.wrap(allTab).first().click();
-          cy.wait(500);
+          cy.wrap(allTab).first().should('be.visible').click();
+          cy.get('body').should('be.visible');
           cy.log('Showing all pipelines');
         }
       });
@@ -162,8 +165,8 @@ describe('DevOps Pipelines Tests', () => {
         const activeTab = $body.find('button:contains("Active")');
 
         if (activeTab.length > 0) {
-          cy.wrap(activeTab).first().click();
-          cy.wait(500);
+          cy.wrap(activeTab).first().should('be.visible').click();
+          cy.get('body').should('be.visible');
           cy.log('Filtered by Active pipelines');
         }
       });
@@ -176,8 +179,8 @@ describe('DevOps Pipelines Tests', () => {
         const inactiveTab = $body.find('button:contains("Inactive")');
 
         if (inactiveTab.length > 0) {
-          cy.wrap(inactiveTab).first().click();
-          cy.wait(500);
+          cy.wrap(inactiveTab).first().should('be.visible').click();
+          cy.get('body').should('be.visible');
           cy.log('Filtered by Inactive pipelines');
         }
       });
@@ -201,7 +204,7 @@ describe('DevOps Pipelines Tests', () => {
   describe('Create Pipeline', () => {
     beforeEach(() => {
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Create Pipeline button', () => {
@@ -224,8 +227,7 @@ describe('DevOps Pipelines Tests', () => {
         const createButton = $body.find('button:contains("Create Pipeline")');
 
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click();
-          cy.wait(500);
+          cy.wrap(createButton).first().should('be.visible').click();
 
           cy.url().then(url => {
             if (url.includes('/new') || url.includes('/create')) {
@@ -242,7 +244,7 @@ describe('DevOps Pipelines Tests', () => {
   describe('Trigger Pipeline', () => {
     beforeEach(() => {
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Trigger action for pipelines', () => {
@@ -261,7 +263,7 @@ describe('DevOps Pipelines Tests', () => {
   describe('Duplicate Pipeline', () => {
     beforeEach(() => {
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Duplicate action for pipelines', () => {
@@ -269,8 +271,7 @@ describe('DevOps Pipelines Tests', () => {
         const menuButton = $body.find('button:contains("•••"), [class*="menu"], [aria-label*="more"]');
 
         if (menuButton.length > 0) {
-          cy.wrap(menuButton).first().click();
-          cy.wait(300);
+          cy.wrap(menuButton).first().should('be.visible').click();
 
           cy.get('body').then($newBody => {
             const duplicateOption = $newBody.find('button:contains("Duplicate")');
@@ -289,7 +290,7 @@ describe('DevOps Pipelines Tests', () => {
   describe('Delete Pipeline', () => {
     beforeEach(() => {
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Delete action for pipelines', () => {
@@ -297,8 +298,7 @@ describe('DevOps Pipelines Tests', () => {
         const menuButton = $body.find('button:contains("•••"), [class*="menu"]');
 
         if (menuButton.length > 0) {
-          cy.wrap(menuButton).first().click();
-          cy.wait(300);
+          cy.wrap(menuButton).first().should('be.visible').click();
 
           cy.get('body').then($newBody => {
             const deleteOption = $newBody.find('button:contains("Delete")');
@@ -331,7 +331,7 @@ describe('DevOps Pipelines Tests', () => {
   describe('Export YAML', () => {
     beforeEach(() => {
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Export YAML action for pipelines', () => {
@@ -339,8 +339,7 @@ describe('DevOps Pipelines Tests', () => {
         const menuButton = $body.find('button:contains("•••"), [class*="menu"]');
 
         if (menuButton.length > 0) {
-          cy.wrap(menuButton).first().click();
-          cy.wait(300);
+          cy.wrap(menuButton).first().should('be.visible').click();
 
           cy.get('body').then($newBody => {
             const exportOption = $newBody.find('button:contains("Export"), button:contains("YAML")');
@@ -359,7 +358,7 @@ describe('DevOps Pipelines Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -380,8 +379,8 @@ describe('DevOps Pipelines Tests', () => {
         const refreshButton = $body.find('button:contains("Refresh")');
 
         if (refreshButton.length > 0) {
-          cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
+          cy.wrap(refreshButton).first().should('be.visible').click();
+          cy.get('body').should('be.visible');
           cy.log('Refresh triggered');
         }
       });
@@ -393,7 +392,7 @@ describe('DevOps Pipelines Tests', () => {
   describe('Empty State', () => {
     it('should display empty state when no pipelines', () => {
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('No pipelines') || $body.text().includes('Create your first')) {
@@ -413,7 +412,7 @@ describe('DevOps Pipelines Tests', () => {
       });
 
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -427,7 +426,7 @@ describe('DevOps Pipelines Tests', () => {
       });
 
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -447,7 +446,7 @@ describe('DevOps Pipelines Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -461,7 +460,7 @@ describe('DevOps Pipelines Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -475,9 +474,12 @@ describe('DevOps Pipelines Tests', () => {
     it('should stack pipeline cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/automation/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

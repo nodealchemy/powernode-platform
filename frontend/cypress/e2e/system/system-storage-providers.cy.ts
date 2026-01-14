@@ -17,17 +17,18 @@
 describe('System Storage Providers Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupSystemIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Storage Providers page', () => {
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Storage') ||
@@ -44,7 +45,7 @@ describe('System Storage Providers Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Storage') ||
@@ -59,7 +60,7 @@ describe('System Storage Providers Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('System') ||
@@ -76,7 +77,7 @@ describe('System Storage Providers Page Tests', () => {
   describe('Stats Display', () => {
     beforeEach(() => {
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Providers stat', () => {
@@ -129,7 +130,7 @@ describe('System Storage Providers Page Tests', () => {
   describe('Provider List Display', () => {
     beforeEach(() => {
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display provider list', () => {
@@ -224,7 +225,7 @@ describe('System Storage Providers Page Tests', () => {
   describe('Create Provider Modal', () => {
     beforeEach(() => {
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Add Provider button', () => {
@@ -242,8 +243,8 @@ describe('System Storage Providers Page Tests', () => {
       cy.get('body').then($body => {
         const addButton = $body.find('button:contains("Add Provider"), button:contains("New Provider"), button:contains("Create")');
         if (addButton.length > 0) {
-          cy.wrap(addButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(addButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[role="dialog"], [class*="modal"], [class*="Modal"]').length > 0;
             if (hasModal) {
@@ -260,8 +261,8 @@ describe('System Storage Providers Page Tests', () => {
       cy.get('body').then($body => {
         const addButton = $body.find('button:contains("Add Provider"), button:contains("New Provider")');
         if (addButton.length > 0) {
-          cy.wrap(addButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(addButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasTypeSelect = $modalBody.find('select, [class*="select"], input[type="radio"]').length > 0 ||
                                   $modalBody.text().includes('Type');
@@ -279,8 +280,8 @@ describe('System Storage Providers Page Tests', () => {
       cy.get('body').then($body => {
         const addButton = $body.find('button:contains("Add Provider"), button:contains("New Provider")');
         if (addButton.length > 0) {
-          cy.wrap(addButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(addButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasNameField = $modalBody.find('input[name*="name"], input[placeholder*="name"]').length > 0;
             if (hasNameField) {
@@ -297,14 +298,14 @@ describe('System Storage Providers Page Tests', () => {
       cy.get('body').then($body => {
         const addButton = $body.find('button:contains("Add Provider"), button:contains("New Provider")');
         if (addButton.length > 0) {
-          cy.wrap(addButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(addButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($modalBody => {
             const cancelButton = $modalBody.find('button:contains("Cancel"), button:contains("Close")');
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click({ force: true });
-              cy.wait(300);
+              cy.wrap(cancelButton).first().should('be.visible').click();
+              cy.waitForModalClose();
               cy.log('Modal closed on cancel');
             }
           });
@@ -318,7 +319,7 @@ describe('System Storage Providers Page Tests', () => {
   describe('Provider Actions', () => {
     beforeEach(() => {
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have edit button', () => {
@@ -369,15 +370,15 @@ describe('System Storage Providers Page Tests', () => {
   describe('Connection Test Modal', () => {
     beforeEach(() => {
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should open connection test modal', () => {
       cy.get('body').then($body => {
         const testButton = $body.find('button:contains("Test"), button:contains("Verify")');
         if (testButton.length > 0) {
-          cy.wrap(testButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(testButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[role="dialog"], [class*="modal"]').length > 0 ||
                              $modalBody.text().includes('Testing') ||
@@ -396,8 +397,10 @@ describe('System Storage Providers Page Tests', () => {
       cy.get('body').then($body => {
         const testButton = $body.find('button:contains("Test"), button:contains("Verify")');
         if (testButton.length > 0) {
-          cy.wrap(testButton).first().click({ force: true });
-          cy.wait(2000);
+          cy.wrap(testButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
+          // Wait for test results to appear
+          cy.get('[role="dialog"], [class*="modal"]', { timeout: 5000 }).should('be.visible');
           cy.get('body').then($modalBody => {
             const hasResults = $modalBody.text().includes('Success') ||
                                $modalBody.text().includes('Failed') ||
@@ -417,15 +420,15 @@ describe('System Storage Providers Page Tests', () => {
   describe('Edit Provider Modal', () => {
     beforeEach(() => {
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should open edit provider modal', () => {
       cy.get('body').then($body => {
         const editButton = $body.find('button:contains("Edit"), [aria-label*="edit"]');
         if (editButton.length > 0) {
-          cy.wrap(editButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(editButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[role="dialog"], [class*="modal"]').length > 0;
             if (hasModal) {
@@ -442,8 +445,8 @@ describe('System Storage Providers Page Tests', () => {
       cy.get('body').then($body => {
         const editButton = $body.find('button:contains("Edit"), [aria-label*="edit"]');
         if (editButton.length > 0) {
-          cy.wrap(editButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(editButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasData = $modalBody.find('input[value], input:not([value=""])').length > 0;
             if (hasData) {
@@ -460,15 +463,15 @@ describe('System Storage Providers Page Tests', () => {
   describe('Delete Confirmation', () => {
     beforeEach(() => {
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should show delete confirmation dialog', () => {
       cy.get('body').then($body => {
         const deleteButton = $body.find('button:contains("Delete"), [aria-label*="delete"]');
         if (deleteButton.length > 0) {
-          cy.wrap(deleteButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(deleteButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($confirmBody => {
             const hasConfirm = $confirmBody.text().includes('Confirm') ||
                                $confirmBody.text().includes('Are you sure') ||
@@ -487,13 +490,13 @@ describe('System Storage Providers Page Tests', () => {
       cy.get('body').then($body => {
         const deleteButton = $body.find('button:contains("Delete"), [aria-label*="delete"]');
         if (deleteButton.length > 0) {
-          cy.wrap(deleteButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(deleteButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($confirmBody => {
             const cancelButton = $confirmBody.find('button:contains("Cancel"), button:contains("No")');
             if (cancelButton.length > 0) {
-              cy.wrap(cancelButton).first().click({ force: true });
-              cy.wait(300);
+              cy.wrap(cancelButton).first().should('be.visible').click();
+              cy.waitForModalClose();
               cy.log('Deletion cancelled');
             }
           });
@@ -509,10 +512,10 @@ describe('System Storage Providers Page Tests', () => {
       cy.intercept('GET', '/api/v1/system/storage*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getStorageError');
 
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -523,10 +526,10 @@ describe('System Storage Providers Page Tests', () => {
       cy.intercept('GET', '/api/v1/system/storage*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load storage providers' }
-      });
+      }).as('getStorageError');
 
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -553,10 +556,10 @@ describe('System Storage Providers Page Tests', () => {
             permissions: ['basic.read']
           }
         }
-      });
+      }).as('getCurrentUserLimited');
 
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermissionCheck = $body.text().includes('Permission') ||
@@ -581,10 +584,10 @@ describe('System Storage Providers Page Tests', () => {
             permissions: ['admin.storage.read']
           }
         }
-      });
+      }).as('getCurrentUserReadOnly');
 
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const addButton = $body.find('button:contains("Add Provider")');
@@ -601,7 +604,7 @@ describe('System Storage Providers Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -615,7 +618,7 @@ describe('System Storage Providers Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -629,9 +632,12 @@ describe('System Storage Providers Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/system/storage-providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

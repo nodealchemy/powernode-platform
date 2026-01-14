@@ -3,6 +3,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
 
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
   });
 
   describe('Sign-up Flow - Complete Registration Process', () => {
@@ -19,16 +20,16 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
 
       // Navigate to sign-up (via plans page)
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
 
       // Step 2: Plan selection
-      cy.get('[data-testid="plan-card"]').first().click({ force: true });
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
-      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+      cy.get('[data-testid="plan-card"]').first().should('be.visible').click();
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
 
       // Step 3: Registration form
       cy.url().should('include', '/register');
-      cy.get('[data-testid="selected-plan"]', { timeout: 15000 }).should('be.visible');
+      cy.get('[data-testid="selected-plan"]', { timeout: 5000 }).should('be.visible');
 
       // Fill out complete registration form using data-testid selectors
       cy.get('[data-testid="account-name-input"]').type(userData.accountName);
@@ -43,24 +44,24 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.get('[data-testid="register-submit-btn"]').click();
 
       // Step 5: Verify successful registration - redirects to app, dashboard, or verify-email
-      cy.url({ timeout: 20000 }).should('match', /\/(app|dashboard|verify-email)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard|verify-email)/);
     });
 
     it('should handle sign-up with different plan selections', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
 
       // Test different plan selection if multiple plans available
       cy.get('[data-testid="plan-card"]').then($cards => {
         if ($cards.length > 1) {
           // Select second plan
-          cy.get('[data-testid="plan-card"]').eq(1).click({ force: true });
-          cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
-          cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+          cy.get('[data-testid="plan-card"]').eq(1).should('be.visible').click();
+          cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
+          cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
 
           // Verify plan is selected
           cy.url().should('include', '/register');
-          cy.get('[data-testid="selected-plan"]', { timeout: 15000 }).should('be.visible');
+          cy.get('[data-testid="selected-plan"]', { timeout: 5000 }).should('be.visible');
 
           // Complete registration with different plan
           const userData = {
@@ -78,7 +79,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
           cy.get('[data-testid="register-submit-btn"]').should('not.be.disabled');
           cy.get('[data-testid="register-submit-btn"]').click();
 
-          cy.url({ timeout: 20000 }).should('match', /\/(app|dashboard|verify-email)/);
+          cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard|verify-email)/);
         } else {
           cy.log('Only one plan available - skipping multi-plan test');
         }
@@ -87,14 +88,14 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
 
     it('should validate sign-up form with comprehensive field validation', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
-      cy.get('[data-testid="plan-card"]').first().click({ force: true });
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
-      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
+      cy.get('[data-testid="plan-card"]').first().should('be.visible').click();
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
 
       // Wait for registration form
       cy.url().should('include', '/register');
-      cy.get('[data-testid="selected-plan"]', { timeout: 15000 }).should('be.visible');
+      cy.get('[data-testid="selected-plan"]', { timeout: 5000 }).should('be.visible');
 
       // Test empty form validation - submit button should be disabled
       cy.get('[data-testid="register-submit-btn"]').should('be.disabled');
@@ -107,7 +108,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.visit('/login');
 
       // Verify login form is properly loaded using actual data-testid selectors
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).should('be.visible').and('not.be.disabled');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').and('not.be.disabled');
       cy.get('[data-testid="password-input"]').should('be.visible').and('not.be.disabled');
       cy.get('[data-testid="login-submit-btn"]').should('be.visible');
 
@@ -122,14 +123,14 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.get('[data-testid="login-submit-btn"]').click();
 
       // Verify successful login
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
 
     it('should handle login errors with proper feedback', () => {
       cy.visit('/login');
 
       // Wait for login page to fully load
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible');
 
       // Fill email field
       cy.get('[data-testid="email-input"]').clear().type('demo@democompany.com');
@@ -141,7 +142,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.get('[data-testid="login-submit-btn"]').click();
 
       // Wait for authentication attempt
-      cy.wait(3000);
+      cy.waitForStableDOM();
 
       // Should stay on login page
       cy.url().should('include', '/login');
@@ -150,7 +151,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
     it('should handle non-existent user login attempts', () => {
       cy.visit('/login');
 
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible');
 
       // Test with non-existent email
       cy.get('[data-testid="email-input"]').clear().type('nonexistent-user-123456@example.com');
@@ -160,7 +161,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.get('[data-testid="login-submit-btn"]').click();
 
       // Wait for authentication response
-      cy.wait(3000);
+      cy.waitForStableDOM();
 
       // Should stay on login page
       cy.url().should('include', '/login');
@@ -171,11 +172,11 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
 
       const testEmail = 'maintain-state@example.com';
 
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type(testEmail);
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type(testEmail);
       cy.get('[data-testid="password-input"]').type('wrongpassword');
       cy.get('[data-testid="login-submit-btn"]').click();
 
-      cy.wait(2000);
+      cy.waitForStableDOM();
 
       // Email should be maintained (good UX)
       cy.get('[data-testid="email-input"]').should('have.value', testEmail);
@@ -189,7 +190,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.visit('/login');
 
       // Wait for form to load
-      cy.get('[data-testid="email-input"]', { timeout: 15000 }).should('be.visible');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible');
 
       // Test elements are focusable
       cy.get('[data-testid="email-input"]').focus().should('be.focused');
@@ -203,10 +204,10 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
   describe('Password Security & Validation', () => {
     it('should enforce password strength requirements', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
-      cy.get('[data-testid="plan-card"]').first().click({ force: true });
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
-      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
+      cy.get('[data-testid="plan-card"]').first().should('be.visible').click();
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
 
       // Wait for registration form
       cy.url().should('include', '/register');
@@ -250,10 +251,10 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.intercept('POST', '/api/v1/auth/register', { forceNetworkError: true }).as('networkFailure');
 
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"]', { timeout: 15000 }).should('exist');
-      cy.get('[data-testid="plan-card"]').first().click({ force: true });
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 }).should('be.visible');
-      cy.get('[data-testid="continue-to-registration"]').click({ force: true });
+      cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
+      cy.get('[data-testid="plan-card"]').first().should('be.visible').click();
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
 
       const userData = {
         email: `network-test-${timestamp}@example.com`,
@@ -271,7 +272,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
 
       // Wait for network error
       cy.wait('@networkFailure');
-      cy.wait(2000);
+      cy.waitForStableDOM();
 
       // Should stay on register page
       cy.url().should('include', '/register');
@@ -284,11 +285,11 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
     it('should handle session timeout and re-authentication', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
 
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
 
       // Simulate session expiry by clearing local storage
       cy.clearLocalStorage();
@@ -304,7 +305,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
 
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
   });
 
@@ -334,20 +335,20 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
     it('should handle session persistence', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
 
       // Check remember me if available
       cy.get('body').then($body => {
         if ($body.find('input[type="checkbox"]').length > 0) {
-          cy.get('input[type="checkbox"]').first().check({ force: true });
+          cy.get('input[type="checkbox"]').first().should('be.visible').check();
         }
       });
 
       cy.get('[data-testid="login-submit-btn"]').click();
 
       // Wait for login to complete
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
 
       // Test session persistence with page reload
       cy.reload();
@@ -357,3 +358,6 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
     });
   });
 });
+
+
+export {};

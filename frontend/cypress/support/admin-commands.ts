@@ -401,8 +401,8 @@ Cypress.Commands.add('searchUsers', (query: string) => {
   cy.get('[data-testid="users-search"], input[placeholder*="Search"], input[type="search"]')
     .clear()
     .type(query);
-  // Wait for debounced search
-  cy.wait(500);
+  // Wait for debounced search by checking for stable DOM or API call completion
+  cy.waitForStableDOM();
 });
 
 // Filter users by role

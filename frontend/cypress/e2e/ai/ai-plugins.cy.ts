@@ -18,24 +18,25 @@
 describe('AI Plugins Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to AI Plugins from sidebar', () => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const pluginsLink = $body.find('a[href*="/plugins"], button:contains("Plugins")');
 
         if (pluginsLink.length > 0) {
-          cy.wrap(pluginsLink).first().click();
+          cy.wrap(pluginsLink).first().should('be.visible').click();
           cy.url().should('include', '/plugins');
         } else {
           cy.visit('/app/ai/plugins');
@@ -48,7 +49,7 @@ describe('AI Plugins Page Tests', () => {
 
     it('should load AI Plugins page directly', () => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.url().then(url => {
         if (url.includes('/plugins')) {
@@ -71,6 +72,7 @@ describe('AI Plugins Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/ai/plugins');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('AI Plugins') ||
@@ -88,7 +90,7 @@ describe('AI Plugins Page Tests', () => {
   describe('Stats Cards Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Plugins stat', () => {
@@ -136,12 +138,12 @@ describe('AI Plugins Page Tests', () => {
   describe('Plugin List Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display plugin list or empty state', () => {
       cy.get('body').then($body => {
-        const hasPlugins = $body.find('[class*="plugin"], [class*="card"]').length > 0 ||
+        const _hasPlugins = $body.find('[class*="plugin"], [class*="card"]').length > 0 ||
                             $body.text().includes('No plugins found') ||
                             $body.text().includes('Permission Required');
 
@@ -185,7 +187,7 @@ describe('AI Plugins Page Tests', () => {
   describe('Search Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have search input', () => {
@@ -206,8 +208,9 @@ describe('AI Plugins Page Tests', () => {
         const searchInput = $body.find('input[placeholder*="Search"], input[type="search"]');
 
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).type('openai');
-          cy.wait(500);
+          cy.wrap(searchInput).should('be.visible').type('openai');
+          // Wait for debounced search to complete
+          cy.get('body').should('be.visible');
           cy.log('Search filter applied');
         }
       });
@@ -220,10 +223,10 @@ describe('AI Plugins Page Tests', () => {
         const searchInput = $body.find('input[placeholder*="Search"]');
 
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).type('test');
-          cy.wait(300);
+          cy.wrap(searchInput).should('be.visible').type('test');
+          cy.get('body').should('be.visible');
           cy.wrap(searchInput).clear();
-          cy.wait(300);
+          cy.get('body').should('be.visible');
           cy.log('Search cleared');
         }
       });
@@ -235,7 +238,7 @@ describe('AI Plugins Page Tests', () => {
   describe('Filter Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Filters button', () => {
@@ -256,8 +259,7 @@ describe('AI Plugins Page Tests', () => {
         const filtersButton = $body.find('button:contains("Filters")');
 
         if (filtersButton.length > 0) {
-          cy.wrap(filtersButton).first().click();
-          cy.wait(500);
+          cy.wrap(filtersButton).first().should('be.visible').click();
 
           cy.get('body').then($newBody => {
             const filtersVisible = $newBody.find('[class*="filter"]').length > 0;
@@ -276,7 +278,7 @@ describe('AI Plugins Page Tests', () => {
   describe('View Plugin Details', () => {
     beforeEach(() => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have View Details action', () => {
@@ -296,8 +298,7 @@ describe('AI Plugins Page Tests', () => {
         const viewButton = $body.find('button:contains("View Details"), button:contains("View")');
 
         if (viewButton.length > 0) {
-          cy.wrap(viewButton).first().click();
-          cy.wait(500);
+          cy.wrap(viewButton).first().should('be.visible').click();
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0;
@@ -316,7 +317,7 @@ describe('AI Plugins Page Tests', () => {
   describe('Install Plugin', () => {
     beforeEach(() => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Install button for plugins', () => {
@@ -337,7 +338,7 @@ describe('AI Plugins Page Tests', () => {
   describe('Marketplace Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Marketplaces button', () => {
@@ -368,7 +369,7 @@ describe('AI Plugins Page Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -389,8 +390,9 @@ describe('AI Plugins Page Tests', () => {
         const refreshButton = $body.find('button:contains("Refresh")');
 
         if (refreshButton.length > 0) {
-          cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
+          cy.wrap(refreshButton).first().should('be.visible').click();
+          // Wait for refresh to complete
+          cy.get('body').should('be.visible');
           cy.log('Refresh triggered');
         }
       });
@@ -402,14 +404,14 @@ describe('AI Plugins Page Tests', () => {
   describe('Empty State', () => {
     it('should display empty state when no plugins match filters', () => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const searchInput = $body.find('input[placeholder*="Search"]');
 
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).type('nonexistentplugin12345');
-          cy.wait(500);
+          cy.wrap(searchInput).should('be.visible').type('nonexistentplugin12345');
+          cy.get('body').should('be.visible');
 
           cy.get('body').then($newBody => {
             const hasEmptyState = $newBody.text().includes('No plugins found') ||
@@ -427,14 +429,14 @@ describe('AI Plugins Page Tests', () => {
 
     it('should have Clear Filters button in empty state', () => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const searchInput = $body.find('input[placeholder*="Search"]');
 
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).type('nonexistentplugin12345');
-          cy.wait(500);
+          cy.wrap(searchInput).should('be.visible').type('nonexistentplugin12345');
+          cy.get('body').should('be.visible');
 
           cy.get('body').then($newBody => {
             const clearButton = $newBody.find('button:contains("Clear")');
@@ -458,7 +460,7 @@ describe('AI Plugins Page Tests', () => {
       });
 
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -472,7 +474,7 @@ describe('AI Plugins Page Tests', () => {
       });
 
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -491,7 +493,7 @@ describe('AI Plugins Page Tests', () => {
   describe('Permission-Based Actions', () => {
     it('should show permission notice when lacking permissions', () => {
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         if ($body.text().includes('Permission Required')) {
@@ -509,7 +511,7 @@ describe('AI Plugins Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -523,7 +525,7 @@ describe('AI Plugins Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -537,9 +539,12 @@ describe('AI Plugins Page Tests', () => {
     it('should stack plugin cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/plugins');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

@@ -23,11 +23,11 @@ describe('Basic Accessibility Tests', () => {
 
     it('should support keyboard focus on plans page', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
 
       // Plan cards should be clickable
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]').first().click();
-      cy.get('[data-testid="plan-select-btn"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="plan-select-btn"]', { timeout: 5000 }).should('be.visible');
 
       // Select button should be focusable
       cy.get('[data-testid="plan-select-btn"]').first().focus().should('be.focused');
@@ -36,17 +36,17 @@ describe('Basic Accessibility Tests', () => {
     it('should support keyboard focus on registration page', () => {
       // Navigate to registration
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]').first().click();
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 })
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 })
         .should('be.visible')
         .click();
 
       // Wait for registration page
-      cy.url({ timeout: 15000 }).should('include', '/register');
+      cy.url({ timeout: 5000 }).should('include', '/register');
 
       // Test that form fields are focusable
-      cy.get('input[name="accountName"]', { timeout: 10000 }).should('be.visible').focus().should('be.focused');
+      cy.get('input[name="accountName"]', { timeout: 5000 }).should('be.visible').focus().should('be.focused');
       cy.get('input[name="name"]').should('be.visible').focus().should('be.focused');
       cy.get('input[name="email"]').should('be.visible').focus().should('be.focused');
       cy.get('input[name="password"]').should('be.visible').focus().should('be.focused');
@@ -70,17 +70,17 @@ describe('Basic Accessibility Tests', () => {
 
     it('should have proper form structure on registration page', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]').first().click();
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 })
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 })
         .should('be.visible')
         .click();
 
       // Check form structure
-      cy.url({ timeout: 15000 }).should('include', '/register');
+      cy.url({ timeout: 5000 }).should('include', '/register');
 
       // Check that required fields exist
-      cy.get('input[name="name"]', { timeout: 10000 }).should('exist');
+      cy.get('input[name="name"]', { timeout: 5000 }).should('exist');
       cy.get('input[name="email"]').should('exist');
       cy.get('input[name="password"]').should('exist');
 
@@ -106,7 +106,7 @@ describe('Basic Accessibility Tests', () => {
 
     it('should show focus indicators on plan cards', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
 
       // Plan cards should show hover states
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]').first().trigger('mouseover');
@@ -130,7 +130,7 @@ describe('Basic Accessibility Tests', () => {
 
     it('should use semantic HTML elements on plans page', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
 
       // Check for heading structure in plan cards
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]').first().within(() => {
@@ -156,12 +156,12 @@ describe('Basic Accessibility Tests', () => {
     it('should be accessible on tablet viewport', () => {
       cy.viewport(768, 1024);
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
 
       // Plan cards should be properly sized and accessible
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]').first().should('be.visible');
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]').first().click();
-      cy.get('[data-testid="plan-select-btn"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="plan-select-btn"]', { timeout: 5000 }).should('be.visible');
     });
   });
 
@@ -175,10 +175,13 @@ describe('Basic Accessibility Tests', () => {
       cy.get('[data-testid="login-submit-btn"]').click();
 
       // Wait for response
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       // Should stay on login page (indicating failed login)
       cy.url().should('include', '/login');
     });
   });
 });
+
+
+export {};

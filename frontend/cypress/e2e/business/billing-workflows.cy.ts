@@ -16,10 +16,10 @@ describe('Billing Workflows', () => {
     cy.clearAppData();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Billing Navigation', () => {
@@ -35,7 +35,7 @@ describe('Billing Workflows', () => {
         let found = false;
         for (const selector of billingSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             found = true;
             break;
           }
@@ -553,7 +553,7 @@ describe('Billing Workflows', () => {
       cy.clearLocalStorage();
       cy.visit('/plans');
 
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .within(() => {
           cy.contains(/\$|Free|month|year/i).should('exist');
@@ -576,7 +576,7 @@ describe('Billing Workflows', () => {
         for (const selector of toggleButtons) {
           if ($body.find(selector).length > 0) {
             cy.get(selector).first().click();
-            cy.wait(300);
+            cy.waitForPageLoad();
             cy.log('Billing cycle toggle clicked');
             return;
           }
@@ -738,7 +738,7 @@ describe('Billing Workflows', () => {
       cy.clearLocalStorage();
       cy.visit('/plans');
 
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .should('exist')
         .first()
         .click();
@@ -752,10 +752,10 @@ describe('Billing Security', () => {
   beforeEach(() => {
     cy.clearAppData();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   it('should not expose full card numbers', () => {
@@ -778,3 +778,6 @@ describe('Billing Security', () => {
     cy.url().should('include', '/login');
   });
 });
+
+
+export {};

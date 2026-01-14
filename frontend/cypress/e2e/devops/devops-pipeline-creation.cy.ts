@@ -15,17 +15,18 @@
 describe('DevOps Pipeline Creation Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupDevopsIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Pipeline List', () => {
     it('should navigate to Pipelines page', () => {
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Pipeline') ||
@@ -41,7 +42,7 @@ describe('DevOps Pipeline Creation Tests', () => {
 
     it('should display pipeline list', () => {
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPipelineList = $body.find('table, [class*="list"], [class*="grid"]').length > 0;
@@ -55,7 +56,7 @@ describe('DevOps Pipeline Creation Tests', () => {
 
     it('should display pipeline names', () => {
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasNames = $body.text().includes('Pipeline') ||
@@ -70,7 +71,7 @@ describe('DevOps Pipeline Creation Tests', () => {
 
     it('should display pipeline status', () => {
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasStatus = $body.text().includes('Running') ||
@@ -89,7 +90,7 @@ describe('DevOps Pipeline Creation Tests', () => {
   describe('Pipeline Creation', () => {
     beforeEach(() => {
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Create Pipeline button', () => {
@@ -107,8 +108,8 @@ describe('DevOps Pipeline Creation Tests', () => {
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create"), button:contains("New Pipeline")');
         if (createButton.length > 0) {
-          cy.wrap(createButton).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(createButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
 
           cy.get('body').then($formBody => {
             const hasForm = $formBody.find('input, textarea, select').length > 0 ||
@@ -125,12 +126,19 @@ describe('DevOps Pipeline Creation Tests', () => {
     });
 
     it('should have pipeline name field', () => {
-      cy.get('button').contains(/Create|New/).first().click({ force: true });
-      cy.wait(1000);
+      // Find Create Pipeline button in page header/actions area (not sidebar)
+      cy.get('[data-testid="page-container"], main, [class*="page"]').first().within(() => {
+        cy.get('button').filter(':contains("Create Pipeline"), :contains("Create"), :contains("New")').first().then($btn => {
+          if ($btn.length > 0) {
+            cy.wrap($btn).click();
+            cy.waitForStableDOM();
+          }
+        });
+      });
 
-      cy.get('body').then($body => {
-        const hasNameField = $body.find('input[name*="name"], input[placeholder*="name"]').length > 0 ||
-                             $body.text().includes('Name');
+      cy.get('body').then($formBody => {
+        const hasNameField = $formBody.find('input[name*="name"], input[placeholder*="name"]').length > 0 ||
+                             $formBody.text().includes('Name');
         if (hasNameField) {
           cy.log('Pipeline name field found');
         }
@@ -140,12 +148,19 @@ describe('DevOps Pipeline Creation Tests', () => {
     });
 
     it('should have description field', () => {
-      cy.get('button').contains(/Create|New/).first().click({ force: true });
-      cy.wait(1000);
+      // Find Create Pipeline button in page header/actions area (not sidebar)
+      cy.get('[data-testid="page-container"], main, [class*="page"]').first().within(() => {
+        cy.get('button').filter(':contains("Create Pipeline"), :contains("Create"), :contains("New")').first().then($btn => {
+          if ($btn.length > 0) {
+            cy.wrap($btn).click();
+            cy.waitForStableDOM();
+          }
+        });
+      });
 
-      cy.get('body').then($body => {
-        const hasDesc = $body.find('textarea, input[name*="description"]').length > 0 ||
-                        $body.text().includes('Description');
+      cy.get('body').then($formBody => {
+        const hasDesc = $formBody.find('textarea, input[name*="description"]').length > 0 ||
+                        $formBody.text().includes('Description');
         if (hasDesc) {
           cy.log('Description field found');
         }
@@ -155,14 +170,21 @@ describe('DevOps Pipeline Creation Tests', () => {
     });
 
     it('should have trigger selection', () => {
-      cy.get('button').contains(/Create|New/).first().click({ force: true });
-      cy.wait(1000);
+      // Find Create Pipeline button in page header/actions area (not sidebar)
+      cy.get('[data-testid="page-container"], main, [class*="page"]').first().within(() => {
+        cy.get('button').filter(':contains("Create Pipeline"), :contains("Create"), :contains("New")').first().then($btn => {
+          if ($btn.length > 0) {
+            cy.wrap($btn).click();
+            cy.waitForStableDOM();
+          }
+        });
+      });
 
-      cy.get('body').then($body => {
-        const hasTrigger = $body.text().includes('Trigger') ||
-                           $body.text().includes('Manual') ||
-                           $body.text().includes('Schedule') ||
-                           $body.text().includes('Webhook');
+      cy.get('body').then($formBody => {
+        const hasTrigger = $formBody.text().includes('Trigger') ||
+                           $formBody.text().includes('Manual') ||
+                           $formBody.text().includes('Schedule') ||
+                           $formBody.text().includes('Webhook');
         if (hasTrigger) {
           cy.log('Trigger selection found');
         }
@@ -175,9 +197,16 @@ describe('DevOps Pipeline Creation Tests', () => {
   describe('Pipeline Configuration', () => {
     beforeEach(() => {
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
-      cy.get('button').contains(/Create|New|Edit|Configure/).first().click({ force: true });
-      cy.wait(1000);
+      cy.waitForPageLoad();
+      // Find Create/Configure button in page header/actions area (not sidebar)
+      cy.get('[data-testid="page-container"], main, [class*="page"]').first().within(() => {
+        cy.get('button').filter(':contains("Create Pipeline"), :contains("Create"), :contains("Edit"), :contains("Configure")').first().then($btn => {
+          if ($btn.length > 0) {
+            cy.wrap($btn).click();
+            cy.waitForStableDOM();
+          }
+        });
+      });
     });
 
     it('should have steps/stages configuration', () => {
@@ -249,7 +278,7 @@ describe('DevOps Pipeline Creation Tests', () => {
   describe('Pipeline Execution', () => {
     beforeEach(() => {
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Run button', () => {
@@ -292,7 +321,7 @@ describe('DevOps Pipeline Creation Tests', () => {
   describe('Run Monitoring', () => {
     beforeEach(() => {
       cy.visit('/app/devops/pipelines/runs');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should navigate to Runs page', () => {
@@ -384,7 +413,7 @@ describe('DevOps Pipeline Creation Tests', () => {
   describe('Pipeline Templates', () => {
     beforeEach(() => {
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have template selection', () => {
@@ -418,7 +447,7 @@ describe('DevOps Pipeline Creation Tests', () => {
   describe('Pipeline Actions', () => {
     beforeEach(() => {
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have edit option', () => {
@@ -476,7 +505,7 @@ describe('DevOps Pipeline Creation Tests', () => {
       });
 
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -488,7 +517,7 @@ describe('DevOps Pipeline Creation Tests', () => {
       cy.intercept('GET', '**/api/**/pipelines/**', {
         delay: 2000,
         statusCode: 200,
-        body: { success: true, data: [] }
+        body: []
       });
 
       cy.visit('/app/devops/pipelines');
@@ -509,7 +538,7 @@ describe('DevOps Pipeline Creation Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -517,7 +546,7 @@ describe('DevOps Pipeline Creation Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -525,9 +554,12 @@ describe('DevOps Pipeline Creation Tests', () => {
     it('should display properly on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/devops/pipelines');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

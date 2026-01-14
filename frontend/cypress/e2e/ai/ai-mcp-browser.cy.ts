@@ -19,17 +19,18 @@
 describe('AI MCP Browser Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to MCP Browser page', () => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('MCP Browser') ||
@@ -46,7 +47,7 @@ describe('AI MCP Browser Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('MCP Browser');
@@ -60,7 +61,7 @@ describe('AI MCP Browser Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Browse and interact') ||
@@ -75,7 +76,7 @@ describe('AI MCP Browser Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -92,7 +93,7 @@ describe('AI MCP Browser Page Tests', () => {
   describe('Statistics Cards', () => {
     beforeEach(() => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Servers card', () => {
@@ -154,7 +155,7 @@ describe('AI MCP Browser Page Tests', () => {
   describe('Search and Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display search input', () => {
@@ -172,8 +173,7 @@ describe('AI MCP Browser Page Tests', () => {
       cy.get('body').then($body => {
         const searchInput = $body.find('input[placeholder*="Search servers"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('test');
-          cy.wait(500);
+          cy.wrap(searchInput).first().should('be.visible').type('test');
           cy.log('Search performed');
         }
       });
@@ -197,11 +197,10 @@ describe('AI MCP Browser Page Tests', () => {
       cy.get('body').then($body => {
         const selects = $body.find('select');
         if (selects.length > 0) {
-          cy.wrap(selects).first().then($select => {
+          cy.wrap(selects).first().should('be.visible').then($select => {
             const options = $select.find('option');
             if (options.length > 1) {
               cy.wrap($select).select(1);
-              cy.wait(500);
               cy.log('Filtered by status');
             }
           });
@@ -215,7 +214,7 @@ describe('AI MCP Browser Page Tests', () => {
   describe('Server Cards', () => {
     beforeEach(() => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display server cards or empty state', () => {
@@ -271,7 +270,7 @@ describe('AI MCP Browser Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Add Server button', () => {
@@ -300,8 +299,8 @@ describe('AI MCP Browser Page Tests', () => {
       cy.get('body').then($body => {
         const addButton = $body.find('button:contains("Add Server")');
         if (addButton.length > 0) {
-          cy.wrap(addButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(addButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[class*="modal"], [class*="Modal"]').length > 0 ||
                              $modalBody.text().includes('Add Server') ||
@@ -320,7 +319,7 @@ describe('AI MCP Browser Page Tests', () => {
   describe('Server Management', () => {
     beforeEach(() => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Connect action for disconnected servers', () => {
@@ -382,7 +381,7 @@ describe('AI MCP Browser Page Tests', () => {
   describe('Tool Explorer', () => {
     beforeEach(() => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display tools list within server cards', () => {
@@ -412,7 +411,7 @@ describe('AI MCP Browser Page Tests', () => {
   describe('Permission Check', () => {
     it('should show permission message for unauthorized users', () => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermission = $body.text().includes("don't have permission") ||
@@ -432,10 +431,10 @@ describe('AI MCP Browser Page Tests', () => {
       cy.intercept('GET', '/api/v1/mcp/servers*', {
         statusCode: 200,
         body: { success: true, servers: [], tools: [] }
-      });
+      }).as('getEmptyServers');
 
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmpty = $body.text().includes('No MCP servers') ||
@@ -455,10 +454,10 @@ describe('AI MCP Browser Page Tests', () => {
       cy.intercept('GET', '/api/v1/mcp/servers*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getServersError');
 
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -469,10 +468,10 @@ describe('AI MCP Browser Page Tests', () => {
       cy.intercept('GET', '/api/v1/mcp/servers*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load MCP servers' }
-      });
+      }).as('getServersFailure');
 
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -493,7 +492,7 @@ describe('AI MCP Browser Page Tests', () => {
         delay: 1000,
         statusCode: 200,
         body: { success: true, servers: [], tools: [] }
-      });
+      }).as('getServersDelayed');
 
       cy.visit('/app/ai/mcp');
 
@@ -513,7 +512,7 @@ describe('AI MCP Browser Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -527,7 +526,7 @@ describe('AI MCP Browser Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -541,7 +540,7 @@ describe('AI MCP Browser Page Tests', () => {
     it('should stack server cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -549,7 +548,7 @@ describe('AI MCP Browser Page Tests', () => {
     it('should show two-column layout on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMultiColumn = $body.find('[class*="lg:grid-cols-2"]').length > 0 ||
@@ -563,3 +562,6 @@ describe('AI MCP Browser Page Tests', () => {
     });
   });
 });
+
+
+export {};

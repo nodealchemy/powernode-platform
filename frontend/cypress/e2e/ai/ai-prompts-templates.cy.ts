@@ -16,17 +16,18 @@
 describe('AI Prompt Templates Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Prompts page', () => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Prompt') ||
@@ -41,7 +42,7 @@ describe('AI Prompt Templates Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Prompt Templates') ||
@@ -58,7 +59,7 @@ describe('AI Prompt Templates Tests', () => {
   describe('Template List', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display template list', () => {
@@ -128,7 +129,7 @@ describe('AI Prompt Templates Tests', () => {
   describe('Template Creation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Create Template button', () => {
@@ -146,13 +147,14 @@ describe('AI Prompt Templates Tests', () => {
       cy.get('body').then($body => {
         const createBtn = $body.find('button:contains("Create"), button:contains("New Template")');
         if (createBtn.length > 0) {
-          cy.wrap(createBtn).first().click({ force: true });
-          cy.wait(1000);
-
+          cy.wrap(createBtn).first().scrollIntoView().should('exist').click();
+          // Check if modal opens or page navigates
+          cy.waitForStableDOM();
           cy.get('body').then($formBody => {
             const hasForm = $formBody.text().includes('Name') ||
                            $formBody.text().includes('Category') ||
-                           $formBody.find('form, input').length > 0;
+                           $formBody.find('form, input').length > 0 ||
+                           $formBody.find('[role="dialog"], [class*="modal"]').length > 0;
             if (hasForm) {
               cy.log('Create template form opened');
             }
@@ -167,9 +169,8 @@ describe('AI Prompt Templates Tests', () => {
       cy.get('body').then($body => {
         const createBtn = $body.find('button:contains("Create"), button:contains("New")');
         if (createBtn.length > 0) {
-          cy.wrap(createBtn).first().click({ force: true });
-          cy.wait(1000);
-
+          cy.wrap(createBtn).first().scrollIntoView().should('exist').click();
+          cy.waitForStableDOM();
           cy.get('body').then($formBody => {
             const hasName = $formBody.find('input[type="text"]').length > 0 ||
                            $formBody.text().includes('Name');
@@ -187,9 +188,8 @@ describe('AI Prompt Templates Tests', () => {
       cy.get('body').then($body => {
         const createBtn = $body.find('button:contains("Create"), button:contains("New")');
         if (createBtn.length > 0) {
-          cy.wrap(createBtn).first().click({ force: true });
-          cy.wait(1000);
-
+          cy.wrap(createBtn).first().scrollIntoView().should('exist').click();
+          cy.waitForStableDOM();
           cy.get('body').then($formBody => {
             const hasCategory = $formBody.find('select').length > 0 ||
                                $formBody.text().includes('Category');
@@ -207,9 +207,8 @@ describe('AI Prompt Templates Tests', () => {
       cy.get('body').then($body => {
         const createBtn = $body.find('button:contains("Create"), button:contains("New")');
         if (createBtn.length > 0) {
-          cy.wrap(createBtn).first().click({ force: true });
-          cy.wait(1000);
-
+          cy.wrap(createBtn).first().scrollIntoView().should('exist').click();
+          cy.waitForStableDOM();
           cy.get('body').then($formBody => {
             const hasDomain = $formBody.find('select').length > 0 ||
                              $formBody.text().includes('Domain');
@@ -227,9 +226,8 @@ describe('AI Prompt Templates Tests', () => {
       cy.get('body').then($body => {
         const createBtn = $body.find('button:contains("Create"), button:contains("New")');
         if (createBtn.length > 0) {
-          cy.wrap(createBtn).first().click({ force: true });
-          cy.wait(1000);
-
+          cy.wrap(createBtn).first().scrollIntoView().should('exist').click();
+          cy.waitForStableDOM();
           cy.get('body').then($formBody => {
             const hasContent = $formBody.find('textarea').length > 0 ||
                               $formBody.text().includes('Content');
@@ -247,9 +245,8 @@ describe('AI Prompt Templates Tests', () => {
       cy.get('body').then($body => {
         const createBtn = $body.find('button:contains("Create"), button:contains("New")');
         if (createBtn.length > 0) {
-          cy.wrap(createBtn).first().click({ force: true });
-          cy.wait(1000);
-
+          cy.wrap(createBtn).first().scrollIntoView().should('exist').click();
+          cy.waitForStableDOM();
           cy.get('body').then($formBody => {
             const hasCancel = $formBody.find('button:contains("Cancel")').length > 0;
             if (hasCancel) {
@@ -266,7 +263,7 @@ describe('AI Prompt Templates Tests', () => {
   describe('Template Categories', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display category filter', () => {
@@ -300,7 +297,7 @@ describe('AI Prompt Templates Tests', () => {
   describe('Template Actions', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have edit action', () => {
@@ -352,7 +349,7 @@ describe('AI Prompt Templates Tests', () => {
   describe('Variables Handling', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display variable indicators', () => {
@@ -372,7 +369,7 @@ describe('AI Prompt Templates Tests', () => {
   describe('Search and Filter', () => {
     beforeEach(() => {
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have search functionality', () => {
@@ -395,7 +392,7 @@ describe('AI Prompt Templates Tests', () => {
       });
 
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -407,7 +404,7 @@ describe('AI Prompt Templates Tests', () => {
       cy.intercept('GET', '**/api/**/prompts/**', {
         delay: 2000,
         statusCode: 200,
-        body: { success: true, data: [] }
+        body: []
       });
 
       cy.visit('/app/ai/prompts');
@@ -428,7 +425,7 @@ describe('AI Prompt Templates Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -436,7 +433,7 @@ describe('AI Prompt Templates Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -444,9 +441,12 @@ describe('AI Prompt Templates Tests', () => {
     it('should display properly on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/ai/prompts');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

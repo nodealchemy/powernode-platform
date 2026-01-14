@@ -27,23 +27,23 @@ describe('AI Workflows Tests', () => {
     cy.clearAppData();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.setupAiIntercepts();
   });
 
   describe('Page Navigation', () => {
     it('should navigate to AI Workflows from sidebar', () => {
       cy.visit('/app');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const aiLink = $body.find('a[href*="/ai"], button:contains("AI")');
 
         if (aiLink.length > 0) {
           cy.wrap(aiLink).first().click();
-          cy.wait(500);
 
           // Then look for Workflows link
           cy.get('body').then($newBody => {
@@ -97,12 +97,12 @@ describe('AI Workflows Tests', () => {
   describe('Workflows List Display', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display workflows list or empty state', () => {
       cy.get('body').then($body => {
-        const hasWorkflows = $body.find('table, [class*="list"], [class*="grid"]').length > 0 ||
+        const _hasWorkflows = $body.find('table, [class*="list"], [class*="grid"]').length > 0 ||
                              $body.text().includes('No workflows') ||
                              $body.text().includes('Create Workflow');
 
@@ -204,7 +204,7 @@ describe('AI Workflows Tests', () => {
   describe('Search Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have search input', () => {
@@ -226,7 +226,6 @@ describe('AI Workflows Tests', () => {
 
         if (searchInput.length > 0) {
           cy.wrap(searchInput).type('test');
-          cy.wait(500);
           cy.get('body').should('be.visible');
           cy.log('Search filter applied');
         }
@@ -241,9 +240,7 @@ describe('AI Workflows Tests', () => {
 
         if (searchInput.length > 0) {
           cy.wrap(searchInput).type('test');
-          cy.wait(300);
           cy.wrap(searchInput).clear();
-          cy.wait(500);
           cy.get('body').should('be.visible');
           cy.log('Search cleared');
         }
@@ -256,7 +253,7 @@ describe('AI Workflows Tests', () => {
   describe('Status Filter', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have status filter dropdown', () => {
@@ -277,13 +274,11 @@ describe('AI Workflows Tests', () => {
 
         if (statusFilter.length > 0) {
           cy.wrap(statusFilter).first().click();
-          cy.wait(300);
 
           cy.get('body').then($newBody => {
             const draftOption = $newBody.find('option:contains("Draft"), li:contains("Draft"), button:contains("Draft")');
             if (draftOption.length > 0) {
               cy.wrap(draftOption).first().click();
-              cy.wait(500);
               cy.log('Filtered by draft status');
             }
           });
@@ -299,13 +294,11 @@ describe('AI Workflows Tests', () => {
 
         if (statusFilter.length > 0) {
           cy.wrap(statusFilter).first().click();
-          cy.wait(300);
 
           cy.get('body').then($newBody => {
             const activeOption = $newBody.find('option:contains("Active"), li:contains("Active"), button:contains("Active")');
             if (activeOption.length > 0) {
               cy.wrap(activeOption).first().click();
-              cy.wait(500);
               cy.log('Filtered by active status');
             }
           });
@@ -319,7 +312,7 @@ describe('AI Workflows Tests', () => {
   describe('Visibility Filter', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have visibility filter', () => {
@@ -340,13 +333,11 @@ describe('AI Workflows Tests', () => {
 
         if (visibilityFilter.length > 0) {
           cy.wrap(visibilityFilter).first().click();
-          cy.wait(300);
 
           cy.get('body').then($newBody => {
             const privateOption = $newBody.find('option:contains("Private"), li:contains("Private")');
             if (privateOption.length > 0) {
               cy.wrap(privateOption).first().click();
-              cy.wait(500);
               cy.log('Filtered by private visibility');
             }
           });
@@ -360,7 +351,7 @@ describe('AI Workflows Tests', () => {
   describe('Type Filter (All, Workflows, Templates)', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have type filter buttons', () => {
@@ -382,7 +373,6 @@ describe('AI Workflows Tests', () => {
 
         if (workflowsButton.length > 0) {
           cy.wrap(workflowsButton).first().click();
-          cy.wait(500);
           cy.url().should('include', 'type=workflows');
           cy.log('Filtered to workflows only');
         }
@@ -397,7 +387,6 @@ describe('AI Workflows Tests', () => {
 
         if (templatesButton.length > 0) {
           cy.wrap(templatesButton).first().click();
-          cy.wait(500);
           cy.url().should('include', 'type=templates');
           cy.log('Filtered to templates only');
         }
@@ -408,14 +397,13 @@ describe('AI Workflows Tests', () => {
 
     it('should show all when All button clicked', () => {
       cy.visit('/app/ai/workflows?type=templates');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const allButton = $body.find('button:contains("All")').first();
 
         if (allButton.length > 0) {
           cy.wrap(allButton).click();
-          cy.wait(500);
           cy.log('Showing all workflows');
         }
       });
@@ -427,7 +415,7 @@ describe('AI Workflows Tests', () => {
   describe('Sorting', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have sort controls', () => {
@@ -450,7 +438,6 @@ describe('AI Workflows Tests', () => {
 
         if (nameHeader.length > 0) {
           cy.wrap(nameHeader).first().click();
-          cy.wait(500);
           cy.log('Sorted by name');
         }
       });
@@ -464,7 +451,6 @@ describe('AI Workflows Tests', () => {
 
         if (dateHeader.length > 0) {
           cy.wrap(dateHeader).first().click();
-          cy.wait(500);
           cy.log('Sorted by created date');
         }
       });
@@ -478,7 +464,6 @@ describe('AI Workflows Tests', () => {
 
         if (sortToggle.length > 0) {
           cy.wrap(sortToggle).first().click();
-          cy.wait(500);
           cy.log('Sort order toggled');
         }
       });
@@ -490,7 +475,7 @@ describe('AI Workflows Tests', () => {
   describe('Create Workflow', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Create Workflow button', () => {
@@ -514,7 +499,6 @@ describe('AI Workflows Tests', () => {
 
         if (createButton.length > 0) {
           cy.wrap(createButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0 ||
@@ -537,7 +521,6 @@ describe('AI Workflows Tests', () => {
 
         if (createButton.length > 0) {
           cy.wrap(createButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const nameInput = $newBody.find('input[name="name"], input[placeholder*="name"]');
@@ -559,7 +542,6 @@ describe('AI Workflows Tests', () => {
 
         if (createButton.length > 0) {
           cy.wrap(createButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const descInput = $newBody.find('textarea[name="description"], input[name="description"]');
@@ -581,14 +563,12 @@ describe('AI Workflows Tests', () => {
 
         if (createButton.length > 0) {
           cy.wrap(createButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const cancelButton = $newBody.find('button:contains("Cancel"), button:contains("Close")');
 
             if (cancelButton.length > 0) {
               cy.wrap(cancelButton).first().click();
-              cy.wait(500);
               cy.log('Modal closed');
             }
           });
@@ -602,7 +582,7 @@ describe('AI Workflows Tests', () => {
   describe('View Workflow Details', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have view details action', () => {
@@ -626,7 +606,6 @@ describe('AI Workflows Tests', () => {
 
         if (viewButton.length > 0) {
           cy.wrap(viewButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const detailsVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0;
@@ -647,7 +626,6 @@ describe('AI Workflows Tests', () => {
 
         if (workflowLink.length > 0) {
           cy.wrap(workflowLink).click();
-          cy.wait(500);
 
           cy.url().then(url => {
             if (url.includes('/workflows/')) {
@@ -666,7 +644,7 @@ describe('AI Workflows Tests', () => {
   describe('Execute Workflow', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have execute action for active workflows', () => {
@@ -690,7 +668,6 @@ describe('AI Workflows Tests', () => {
 
         if (executeButton.length > 0) {
           cy.wrap(executeButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0 ||
@@ -710,7 +687,7 @@ describe('AI Workflows Tests', () => {
   describe('Duplicate Workflow', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have duplicate action', () => {
@@ -734,7 +711,6 @@ describe('AI Workflows Tests', () => {
 
         if (duplicateButton.length > 0) {
           cy.wrap(duplicateButton).first().click();
-          cy.wait(1000);
 
           // Check for success notification
           cy.get('body').then($newBody => {
@@ -756,7 +732,7 @@ describe('AI Workflows Tests', () => {
   describe('Delete Workflow', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have delete action', () => {
@@ -780,7 +756,6 @@ describe('AI Workflows Tests', () => {
 
         if (deleteButton.length > 0) {
           cy.wrap(deleteButton).first().click();
-          cy.wait(500);
 
           // Check for confirmation dialog (browser confirm)
           cy.on('window:confirm', () => {
@@ -797,7 +772,7 @@ describe('AI Workflows Tests', () => {
   describe('Workflow Builder/Design', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have design action', () => {
@@ -819,7 +794,6 @@ describe('AI Workflows Tests', () => {
 
         if (designButton.length > 0) {
           cy.wrap(designButton).first().click();
-          cy.wait(1000);
 
           cy.get('body').then($newBody => {
             const builderVisible = $newBody.find('[role="dialog"], [class*="modal"], [class*="builder"]').length > 0;
@@ -838,7 +812,7 @@ describe('AI Workflows Tests', () => {
   describe('Pagination', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pagination controls when many workflows exist', () => {
@@ -861,7 +835,6 @@ describe('AI Workflows Tests', () => {
 
         if (nextButton.length > 0 && !nextButton.is(':disabled')) {
           cy.wrap(nextButton).first().click();
-          cy.wait(500);
           cy.get('body').should('be.visible');
           cy.log('Navigated to next page');
         }
@@ -883,7 +856,7 @@ describe('AI Workflows Tests', () => {
       });
 
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmptyState = $body.text().includes('No workflows') ||
@@ -909,7 +882,7 @@ describe('AI Workflows Tests', () => {
       });
 
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const createButton = $body.find('button:contains("Create")');
@@ -927,7 +900,7 @@ describe('AI Workflows Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have refresh button', () => {
@@ -949,7 +922,6 @@ describe('AI Workflows Tests', () => {
 
         if (refreshButton.length > 0) {
           cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
           cy.get('body').should('be.visible');
           cy.log('Refresh triggered');
         }
@@ -962,7 +934,7 @@ describe('AI Workflows Tests', () => {
   describe('Monitoring Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have monitoring button', () => {
@@ -984,7 +956,7 @@ describe('AI Workflows Tests', () => {
 
         if (monitoringButton.length > 0) {
           cy.wrap(monitoringButton).first().click();
-          cy.wait(500);
+          cy.waitForPageLoad();
           cy.url().should('include', '/monitoring');
           cy.log('Navigated to monitoring');
         }
@@ -997,7 +969,7 @@ describe('AI Workflows Tests', () => {
   describe('Import Workflow', () => {
     beforeEach(() => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have import button', () => {
@@ -1019,7 +991,7 @@ describe('AI Workflows Tests', () => {
 
         if (importButton.length > 0) {
           cy.wrap(importButton).first().click();
-          cy.wait(500);
+          cy.waitForPageLoad();
           cy.url().should('include', '/import');
           cy.log('Navigated to import page');
         }
@@ -1037,7 +1009,7 @@ describe('AI Workflows Tests', () => {
       });
 
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -1051,7 +1023,7 @@ describe('AI Workflows Tests', () => {
       });
 
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -1071,7 +1043,7 @@ describe('AI Workflows Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -1085,7 +1057,7 @@ describe('AI Workflows Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -1099,9 +1071,12 @@ describe('AI Workflows Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

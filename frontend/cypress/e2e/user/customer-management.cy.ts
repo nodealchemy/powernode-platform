@@ -9,12 +9,14 @@
 describe('Customer Management', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.waitForPageLoad();
   });
 
   describe('Dashboard Access', () => {
@@ -46,12 +48,13 @@ describe('Customer Management', () => {
 
         for (const selector of customerSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
       });
 
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -76,6 +79,7 @@ describe('Customer Management', () => {
 
     it('should access profile settings', () => {
       cy.visit('/app/settings/profile');
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -91,17 +95,19 @@ describe('Customer Management', () => {
 
         for (const selector of settingsSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
       });
 
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
 
     it('should display settings form', () => {
       cy.visit('/app/settings/profile');
+      cy.waitForPageLoad();
       cy.get('body').then($body => {
         const formElements = [
           'form',
@@ -131,12 +137,13 @@ describe('Customer Management', () => {
 
         for (const selector of teamSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
       });
 
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -183,7 +190,8 @@ describe('Customer Management', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.waitForPageLoad();
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .should('have.length.at.least', 1);
     });
 
@@ -192,7 +200,8 @@ describe('Customer Management', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.waitForPageLoad();
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .within(() => {
           cy.contains(/\$|Free|price/i).should('exist');
@@ -203,12 +212,14 @@ describe('Customer Management', () => {
   describe('Responsive Design', () => {
     it('should handle mobile viewport', () => {
       cy.viewport('iphone-x');
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
       cy.get('main, [role="main"], .main-content').should('be.visible');
     });
 
     it('should handle tablet viewport', () => {
       cy.viewport('ipad-2');
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -228,10 +239,15 @@ describe('Customer Management', () => {
 
     it('should maintain session across navigation', () => {
       cy.visit('/plans');
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
 
       cy.visit('/app');
+      cy.waitForPageLoad();
       cy.url().should('match', /\/(app|dashboard)/);
     });
   });
 });
+
+
+export {};

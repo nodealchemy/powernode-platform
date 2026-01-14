@@ -9,12 +9,13 @@
 describe('Admin User Management', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Dashboard Access', () => {
@@ -50,7 +51,7 @@ describe('Admin User Management', () => {
 
     it('should open user dropdown menu', () => {
       // Click the user menu button
-      cy.get('button[aria-haspopup="true"]', { timeout: 10000 }).first().click();
+      cy.get('button[aria-haspopup="true"]', { timeout: 5000 }).first().click();
 
       // Should show dropdown options - check for common menu items
       cy.get('body').should('satisfy', ($body) => {
@@ -74,7 +75,7 @@ describe('Admin User Management', () => {
         // Try to find navigation links
         const navLinks = $body.find('nav a, aside a');
         if (navLinks.length > 0) {
-          cy.wrap(navLinks.first()).click({ force: true });
+          cy.wrap(navLinks.first()).should('be.visible').click();
           cy.url().should('include', '/');
         }
       });
@@ -93,7 +94,7 @@ describe('Admin User Management', () => {
 
         for (const selector of settingsSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -122,3 +123,6 @@ describe('Admin User Management', () => {
     });
   });
 });
+
+
+export {};

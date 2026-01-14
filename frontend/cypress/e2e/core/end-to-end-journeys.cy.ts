@@ -14,55 +14,55 @@ describe('End-to-End User Journey Tests', () => {
   describe('Complete New User Journey', () => {
     it('should show plan selection page', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .should('have.length.at.least', 1);
     });
 
     it('should allow plan selection', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .click();
 
-      cy.get('[data-testid="plan-select-btn"]', { timeout: 10000 }).should('be.visible');
+      cy.get('[data-testid="plan-select-btn"]', { timeout: 5000 }).should('be.visible');
     });
 
     it('should navigate to registration after plan selection', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .click();
       // Wait for the button to be visible and clickable
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 })
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 })
         .should('be.visible')
         .click();
 
-      cy.url({ timeout: 15000 }).should('include', '/register');
+      cy.url({ timeout: 5000 }).should('include', '/register');
     });
 
     it('should display registration form with selected plan', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .click();
       // Wait for the button to be visible and clickable
-      cy.get('[data-testid="continue-to-registration"]', { timeout: 10000 })
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 })
         .should('be.visible')
         .click();
 
-      cy.url({ timeout: 15000 }).should('include', '/register');
-      cy.get('form', { timeout: 10000 }).should('exist');
-      cy.get('input[name="email"], input[type="email"]', { timeout: 10000 }).should('exist');
+      cy.url({ timeout: 5000 }).should('include', '/register');
+      cy.get('form', { timeout: 5000 }).should('exist');
+      cy.get('input[name="email"], input[type="email"]', { timeout: 5000 }).should('exist');
     });
   });
 
   describe('Returning User Journey', () => {
     beforeEach(() => {
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
 
     it('should allow returning user to login', () => {
@@ -81,22 +81,22 @@ describe('End-to-End User Journey Tests', () => {
       cy.logout();
 
       // Re-login
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
   });
 
   describe('Error Recovery Journeys', () => {
     it('should handle invalid login credentials', () => {
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('invalid@example.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('invalid@example.com');
       cy.get('[data-testid="password-input"]').type('wrongpassword');
       cy.get('[data-testid="login-submit-btn"]').click();
 
       // Should stay on login page or show error
-      cy.wait(2000);
+      cy.waitForPageLoad();
       cy.url().should('include', '/login');
     });
 
@@ -119,10 +119,10 @@ describe('End-to-End User Journey Tests', () => {
   describe('Multi-Device User Journey', () => {
     beforeEach(() => {
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
 
     it('should handle desktop to mobile viewport transition', () => {
@@ -156,10 +156,10 @@ describe('End-to-End User Journey Tests', () => {
   describe('Navigation Journey', () => {
     beforeEach(() => {
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
 
     it('should navigate between pages smoothly', () => {
@@ -191,7 +191,7 @@ describe('End-to-End User Journey Tests', () => {
       cy.visit('/login');
 
       // Tab through form elements
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).focus();
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).focus();
       cy.focused().should('have.attr', 'name', 'email');
 
       cy.get('[data-testid="password-input"]').focus();
@@ -201,7 +201,7 @@ describe('End-to-End User Journey Tests', () => {
     it('should maintain focus management', () => {
       cy.visit('/login');
 
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).focus();
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).focus();
       cy.focused().should('be.visible');
 
       cy.get('[data-testid="password-input"]').focus();
@@ -209,3 +209,6 @@ describe('End-to-End User Journey Tests', () => {
     });
   });
 });
+
+
+export {};

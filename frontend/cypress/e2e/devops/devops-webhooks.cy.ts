@@ -24,16 +24,17 @@ describe('DevOps Webhooks Management Tests', () => {
     cy.clearAppData();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.setupDevopsIntercepts();
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Webhooks page from DevOps', () => {
       cy.visit('/app/devops');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const webhookLink = $body.find('a[href*="/webhooks"], button:contains("Webhooks")');
@@ -84,7 +85,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Stats Overview', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Endpoints stat', () => {
@@ -157,12 +158,12 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Webhook List Display', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display webhook list or empty state', () => {
       cy.get('body').then($body => {
-        const hasWebhooks = $body.find('[class*="webhook"], [class*="list-item"]').length > 0 ||
+        const _hasWebhooks = $body.find('[class*="webhook"], [class*="list-item"]').length > 0 ||
                             $body.text().includes('No webhooks') ||
                             $body.text().includes('Add your first');
 
@@ -224,7 +225,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Add Webhook', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Add Webhook button', () => {
@@ -248,7 +249,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (addButton.length > 0) {
           cy.wrap(addButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0 ||
@@ -271,7 +271,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (addButton.length > 0) {
           cy.wrap(addButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const urlInput = $newBody.find('input[name="url"], input[placeholder*="url"], input[type="url"]');
@@ -293,7 +292,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (addButton.length > 0) {
           cy.wrap(addButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const hasEvents = $newBody.text().includes('Events') ||
@@ -316,7 +314,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (addButton.length > 0) {
           cy.wrap(addButton).first().click();
-          cy.wait(500);
 
           // Check for modal and URL input
           cy.get('body').then($newBody => {
@@ -333,7 +330,6 @@ describe('DevOps Webhooks Management Tests', () => {
                 const submitButton = modal.find('button[type="submit"], button:contains("Create"), button:contains("Save"), button:contains("Add")');
                 if (submitButton.length > 0) {
                   cy.wrap(submitButton).first().click();
-                  cy.wait(500);
 
                   // Check if there's any validation feedback (error or form stays open)
                   cy.get('body').then($afterBody => {
@@ -372,14 +368,12 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (addButton.length > 0) {
           cy.wrap(addButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const cancelButton = $newBody.find('button:contains("Cancel"), button:contains("Close")');
 
             if (cancelButton.length > 0) {
               cy.wrap(cancelButton).first().click();
-              cy.wait(500);
               cy.log('Modal closed');
             }
           });
@@ -393,7 +387,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('View Webhook Details', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have view details action', () => {
@@ -417,7 +411,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (viewButton.length > 0) {
           cy.wrap(viewButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const inDetailsView = $newBody.text().includes('Details') ||
@@ -438,7 +431,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Edit Webhook', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have edit action for webhooks', () => {
@@ -462,7 +455,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (editButton.length > 0) {
           cy.wrap(editButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const modalVisible = $newBody.find('[role="dialog"], [class*="modal"]').length > 0;
@@ -481,7 +473,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Toggle Webhook Status', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have toggle status action', () => {
@@ -505,7 +497,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (toggleButton.length > 0) {
           cy.wrap(toggleButton).first().click();
-          cy.wait(1000);
           cy.get('body').should('be.visible');
           cy.log('Status toggle clicked');
         }
@@ -518,7 +509,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Delete Webhook', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have delete action', () => {
@@ -542,7 +533,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (deleteButton.length > 0) {
           cy.wrap(deleteButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const hasConfirmation = $newBody.find('[role="dialog"], [class*="modal"], [class*="confirm"]').length > 0 ||
@@ -569,7 +559,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Retry Failed Deliveries', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display retry button when failed deliveries exist', () => {
@@ -593,7 +583,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (retryButton.length > 0) {
           cy.wrap(retryButton).first().click();
-          cy.wait(1000);
           cy.get('body').should('be.visible');
           cy.log('Retry triggered');
         }
@@ -606,7 +595,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Statistics View', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Statistics button', () => {
@@ -628,7 +617,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (statsButton.length > 0) {
           cy.wrap(statsButton).first().click();
-          cy.wait(1000);
 
           cy.get('body').then($newBody => {
             const inStatsView = $newBody.text().includes('Statistics') ||
@@ -651,7 +639,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (statsButton.length > 0) {
           cy.wrap(statsButton).first().click();
-          cy.wait(500);
 
           cy.get('body').then($newBody => {
             const backButton = $newBody.find('button:contains("Back"), button:contains("List")');
@@ -671,7 +658,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Filter and Search', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have search input', () => {
@@ -705,7 +692,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (searchInput.length > 0) {
           cy.wrap(searchInput).type('test');
-          cy.wait(500);
           cy.get('body').should('be.visible');
           cy.log('Search filter applied');
         }
@@ -718,7 +704,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Pagination', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pagination when many webhooks exist', () => {
@@ -741,7 +727,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (nextButton.length > 0 && !nextButton.is(':disabled')) {
           cy.wrap(nextButton).first().click();
-          cy.wait(500);
           cy.get('body').should('be.visible');
           cy.log('Navigated to next page');
         }
@@ -754,7 +739,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have refresh button', () => {
@@ -776,7 +761,6 @@ describe('DevOps Webhooks Management Tests', () => {
 
         if (refreshButton.length > 0) {
           cy.wrap(refreshButton).first().click();
-          cy.wait(1000);
           cy.get('body').should('be.visible');
           cy.log('Refresh triggered');
         }
@@ -794,7 +778,7 @@ describe('DevOps Webhooks Management Tests', () => {
       });
 
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -808,7 +792,7 @@ describe('DevOps Webhooks Management Tests', () => {
       });
 
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -827,7 +811,7 @@ describe('DevOps Webhooks Management Tests', () => {
   describe('Permission-Based Actions', () => {
     it('should show actions based on permissions', () => {
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         // Check if any management actions are visible
@@ -848,7 +832,7 @@ describe('DevOps Webhooks Management Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -862,7 +846,7 @@ describe('DevOps Webhooks Management Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -876,9 +860,12 @@ describe('DevOps Webhooks Management Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/devops/webhooks');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

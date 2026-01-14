@@ -17,17 +17,18 @@
 describe('AI Orchestration Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to AI Orchestration page', () => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('AI Orchestration') ||
@@ -43,7 +44,7 @@ describe('AI Orchestration Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('AI Orchestration');
@@ -57,7 +58,7 @@ describe('AI Orchestration Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Manage') ||
@@ -74,7 +75,7 @@ describe('AI Orchestration Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -91,7 +92,7 @@ describe('AI Orchestration Page Tests', () => {
   describe('Tab Navigation', () => {
     beforeEach(() => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Overview tab', () => {
@@ -188,15 +189,15 @@ describe('AI Orchestration Page Tests', () => {
   describe('Tab Switching', () => {
     beforeEach(() => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should switch to AI Providers tab', () => {
       cy.get('body').then($body => {
         const providersTab = $body.find('button:contains("Providers"), a:contains("Providers")');
         if (providersTab.length > 0) {
-          cy.wrap(providersTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(providersTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to AI Providers tab');
         }
       });
@@ -208,8 +209,8 @@ describe('AI Orchestration Page Tests', () => {
       cy.get('body').then($body => {
         const agentsTab = $body.find('button:contains("Agents"), a:contains("Agents")');
         if (agentsTab.length > 0) {
-          cy.wrap(agentsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(agentsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to AI Agents tab');
         }
       });
@@ -221,8 +222,8 @@ describe('AI Orchestration Page Tests', () => {
       cy.get('body').then($body => {
         const workflowsTab = $body.find('button:contains("Workflows"), a:contains("Workflows")');
         if (workflowsTab.length > 0) {
-          cy.wrap(workflowsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(workflowsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Workflows tab');
         }
       });
@@ -234,8 +235,8 @@ describe('AI Orchestration Page Tests', () => {
       cy.get('body').then($body => {
         const conversationsTab = $body.find('button:contains("Conversations"), a:contains("Conversations")');
         if (conversationsTab.length > 0) {
-          cy.wrap(conversationsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(conversationsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Conversations tab');
         }
       });
@@ -247,8 +248,8 @@ describe('AI Orchestration Page Tests', () => {
       cy.get('body').then($body => {
         const analyticsTab = $body.find('button:contains("Analytics"), a:contains("Analytics")');
         if (analyticsTab.length > 0) {
-          cy.wrap(analyticsTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(analyticsTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Analytics tab');
         }
       });
@@ -260,8 +261,8 @@ describe('AI Orchestration Page Tests', () => {
       cy.get('body').then($body => {
         const monitoringTab = $body.find('button:contains("Monitoring"), a:contains("Monitoring")');
         if (monitoringTab.length > 0) {
-          cy.wrap(monitoringTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(monitoringTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to Monitoring tab');
         }
       });
@@ -273,8 +274,8 @@ describe('AI Orchestration Page Tests', () => {
       cy.get('body').then($body => {
         const mcpTab = $body.find('button:contains("MCP"), a:contains("MCP")');
         if (mcpTab.length > 0) {
-          cy.wrap(mcpTab).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(mcpTab).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.log('Switched to MCP tab');
         }
       });
@@ -286,7 +287,7 @@ describe('AI Orchestration Page Tests', () => {
   describe('Overview Tab Content', () => {
     beforeEach(() => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Enhanced AI Overview', () => {
@@ -318,7 +319,7 @@ describe('AI Orchestration Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Refresh button', () => {
@@ -336,7 +337,7 @@ describe('AI Orchestration Page Tests', () => {
   describe('Permission Check', () => {
     it('should show permission message for unauthorized users', () => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermission = $body.text().includes("don't have permission") ||
@@ -352,7 +353,7 @@ describe('AI Orchestration Page Tests', () => {
 
     it('should hide tabs based on permissions', () => {
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       // Check that tabs are rendered based on permissions
       cy.get('body').then($body => {
@@ -367,7 +368,7 @@ describe('AI Orchestration Page Tests', () => {
   describe('Direct Tab Navigation', () => {
     it('should navigate directly to providers tab', () => {
       cy.visit('/app/ai/providers');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasProviders = $body.text().includes('Provider') ||
@@ -382,7 +383,7 @@ describe('AI Orchestration Page Tests', () => {
 
     it('should navigate directly to agents tab', () => {
       cy.visit('/app/ai/agents');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasAgents = $body.text().includes('Agent') ||
@@ -397,7 +398,7 @@ describe('AI Orchestration Page Tests', () => {
 
     it('should navigate directly to workflows tab', () => {
       cy.visit('/app/ai/workflows');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasWorkflows = $body.text().includes('Workflow') ||
@@ -412,7 +413,7 @@ describe('AI Orchestration Page Tests', () => {
 
     it('should navigate directly to conversations tab', () => {
       cy.visit('/app/ai/conversations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasConversations = $body.text().includes('Conversation') ||
@@ -427,7 +428,7 @@ describe('AI Orchestration Page Tests', () => {
 
     it('should navigate directly to analytics tab', () => {
       cy.visit('/app/ai/analytics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasAnalytics = $body.text().includes('Analytics') ||
@@ -442,7 +443,7 @@ describe('AI Orchestration Page Tests', () => {
 
     it('should navigate directly to monitoring tab', () => {
       cy.visit('/app/ai/monitoring');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMonitoring = $body.text().includes('Monitoring') ||
@@ -457,7 +458,7 @@ describe('AI Orchestration Page Tests', () => {
 
     it('should navigate directly to MCP tab', () => {
       cy.visit('/app/ai/mcp');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMCP = $body.text().includes('MCP') ||
@@ -479,7 +480,7 @@ describe('AI Orchestration Page Tests', () => {
       });
 
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -493,7 +494,7 @@ describe('AI Orchestration Page Tests', () => {
       });
 
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -534,7 +535,7 @@ describe('AI Orchestration Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -548,7 +549,7 @@ describe('AI Orchestration Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -562,7 +563,7 @@ describe('AI Orchestration Page Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -570,7 +571,7 @@ describe('AI Orchestration Page Tests', () => {
     it('should handle horizontal tab scrolling on mobile', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTabs = $body.find('[role="tablist"], [class*="tab"]').length > 0;
@@ -583,3 +584,6 @@ describe('AI Orchestration Page Tests', () => {
     });
   });
 });
+
+
+export {};

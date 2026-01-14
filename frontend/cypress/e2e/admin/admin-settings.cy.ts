@@ -9,12 +9,13 @@
 describe('Admin Settings', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Settings Navigation', () => {
@@ -29,7 +30,7 @@ describe('Admin Settings', () => {
 
         for (const selector of settingsSelectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -88,7 +89,7 @@ describe('Admin Settings', () => {
 
         for (const selector of securityLinks) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click({ force: true });
+            cy.get(selector).first().should('be.visible').click();
             break;
           }
         }
@@ -142,7 +143,7 @@ describe('Admin Settings', () => {
   describe('Account Actions', () => {
     it('should display logout option', () => {
       // Open user menu first
-      cy.get('button[aria-haspopup="true"]', { timeout: 10000 }).first().click();
+      cy.get('button[aria-haspopup="true"]', { timeout: 5000 }).first().click();
 
       // Should have logout option
       cy.contains('Sign Out', { timeout: 5000 }).should('be.visible');
@@ -161,3 +162,6 @@ describe('Admin Settings', () => {
     });
   });
 });
+
+
+export {};

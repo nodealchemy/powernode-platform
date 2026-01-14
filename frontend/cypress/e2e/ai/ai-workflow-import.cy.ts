@@ -4,10 +4,10 @@ describe('AI Workflow Import Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
@@ -152,7 +152,7 @@ describe('AI Workflow Import Page Tests', () => {
     it('should display validation section after file upload', () => {
       cy.visit('/app/ai/workflows/import');
       cy.get('body').then($body => {
-        const hasValidation = $body.text().includes('Validation Results') ||
+        const _hasValidation = $body.text().includes('Validation Results') ||
                              $body.text().includes('Validation');
         // This will show after a file is uploaded
         cy.log('Validation section exists (shown after upload)');
@@ -165,7 +165,7 @@ describe('AI Workflow Import Page Tests', () => {
     it('should display Workflow Name input after validation', () => {
       cy.visit('/app/ai/workflows/import');
       cy.get('body').then($body => {
-        const hasNameInput = $body.text().includes('Workflow Name') ||
+        const _hasNameInput = $body.text().includes('Workflow Name') ||
                             $body.find('input[placeholder*="workflow name"]').length > 0;
         // This shows after successful validation
         cy.log('Workflow Name input exists (shown after validation)');
@@ -176,7 +176,7 @@ describe('AI Workflow Import Page Tests', () => {
     it('should display Import Workflow button after validation', () => {
       cy.visit('/app/ai/workflows/import');
       cy.get('body').then($body => {
-        const hasImport = $body.text().includes('Import Workflow') ||
+        const _hasImport = $body.text().includes('Import Workflow') ||
                          $body.find('button:contains("Import")').length > 0;
         cy.log('Import button exists');
       });
@@ -266,3 +266,6 @@ describe('AI Workflow Import Page Tests', () => {
     });
   });
 });
+
+
+export {};

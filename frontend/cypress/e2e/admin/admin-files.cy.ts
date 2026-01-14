@@ -18,17 +18,18 @@
 describe('Admin Files Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupAdminIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Admin Files page', () => {
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Files') ||
@@ -44,7 +45,7 @@ describe('Admin Files Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Files') ||
@@ -59,7 +60,7 @@ describe('Admin Files Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -76,7 +77,7 @@ describe('Admin Files Page Tests', () => {
   describe('Files List Display', () => {
     beforeEach(() => {
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display files list or empty state', () => {
@@ -109,7 +110,7 @@ describe('Admin Files Page Tests', () => {
   describe('Search and Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display search input', () => {
@@ -128,7 +129,7 @@ describe('Admin Files Page Tests', () => {
         const searchInput = $body.find('input[placeholder*="Search"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
           cy.wrap(searchInput).first().type('document');
-          cy.wait(500);
+          cy.waitForPageLoad();
           cy.log('Search performed');
         }
       });
@@ -153,7 +154,7 @@ describe('Admin Files Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Upload button', () => {
@@ -182,7 +183,7 @@ describe('Admin Files Page Tests', () => {
   describe('File Actions', () => {
     beforeEach(() => {
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have View action', () => {
@@ -222,7 +223,7 @@ describe('Admin Files Page Tests', () => {
   describe('Storage Statistics', () => {
     beforeEach(() => {
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display storage usage', () => {
@@ -255,7 +256,7 @@ describe('Admin Files Page Tests', () => {
   describe('Pagination', () => {
     beforeEach(() => {
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display pagination controls', () => {
@@ -280,7 +281,7 @@ describe('Admin Files Page Tests', () => {
       });
 
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -294,7 +295,7 @@ describe('Admin Files Page Tests', () => {
       });
 
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -339,7 +340,7 @@ describe('Admin Files Page Tests', () => {
       });
 
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmpty = $body.text().includes('No files') ||
@@ -357,7 +358,7 @@ describe('Admin Files Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -371,7 +372,7 @@ describe('Admin Files Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -385,9 +386,12 @@ describe('Admin Files Page Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/admin/files');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

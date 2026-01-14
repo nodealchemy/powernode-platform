@@ -23,7 +23,7 @@ describe('Logo Contrast and Visual Tests', () => {
 
     it('should display branding on plans page', () => {
       cy.visit('/plans');
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 }).should('exist');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
 
       // Check for branding
       cy.get('body').then($body => {
@@ -41,15 +41,15 @@ describe('Logo Contrast and Visual Tests', () => {
     beforeEach(() => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
       cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
       cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
 
     it('should display navigation branding', () => {
       // Verify app is loaded and has navigation elements
-      cy.get('button[aria-haspopup="true"]', { timeout: 10000 }).should('exist');
+      cy.get('button[aria-haspopup="true"]', { timeout: 5000 }).should('exist');
       cy.get('body').should('be.visible');
     });
 
@@ -78,9 +78,12 @@ describe('Logo Contrast and Visual Tests', () => {
       cy.visit('/plans');
 
       // Plan cards should be visible
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 15000 })
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .should('be.visible');
     });
   });
 });
+
+
+export {};

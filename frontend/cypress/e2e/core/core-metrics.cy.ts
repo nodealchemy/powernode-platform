@@ -15,17 +15,18 @@
 describe('Core Metrics Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Metrics page', () => {
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Metrics') ||
@@ -41,7 +42,7 @@ describe('Core Metrics Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Metrics') ||
@@ -57,7 +58,7 @@ describe('Core Metrics Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -74,7 +75,7 @@ describe('Core Metrics Page Tests', () => {
   describe('Metrics Overview', () => {
     beforeEach(() => {
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display key metrics cards', () => {
@@ -131,7 +132,7 @@ describe('Core Metrics Page Tests', () => {
   describe('Charts and Visualizations', () => {
     beforeEach(() => {
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display chart containers', () => {
@@ -184,7 +185,7 @@ describe('Core Metrics Page Tests', () => {
   describe('Time Range Selection', () => {
     beforeEach(() => {
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display time range selector', () => {
@@ -230,7 +231,7 @@ describe('Core Metrics Page Tests', () => {
   describe('Metrics Categories', () => {
     beforeEach(() => {
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display subscription metrics', () => {
@@ -276,7 +277,7 @@ describe('Core Metrics Page Tests', () => {
   describe('Export Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have export button', () => {
@@ -307,7 +308,7 @@ describe('Core Metrics Page Tests', () => {
   describe('Refresh Functionality', () => {
     beforeEach(() => {
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have refresh button', () => {
@@ -343,7 +344,7 @@ describe('Core Metrics Page Tests', () => {
       });
 
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -356,7 +357,7 @@ describe('Core Metrics Page Tests', () => {
       });
 
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -376,7 +377,7 @@ describe('Core Metrics Page Tests', () => {
       cy.intercept('GET', '**/api/**/metrics/**', {
         delay: 2000,
         statusCode: 200,
-        body: { success: true, data: {} }
+        body: {}
       });
 
       cy.visit('/app/metrics');
@@ -397,7 +398,7 @@ describe('Core Metrics Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -405,7 +406,7 @@ describe('Core Metrics Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -413,7 +414,7 @@ describe('Core Metrics Page Tests', () => {
     it('should stack metrics on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -421,7 +422,7 @@ describe('Core Metrics Page Tests', () => {
     it('should display multi-column layout on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/metrics');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasMultiCol = $body.find('[class*="grid"]').length > 0;
@@ -434,3 +435,6 @@ describe('Core Metrics Page Tests', () => {
     });
   });
 });
+
+
+export {};

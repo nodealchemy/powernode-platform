@@ -16,17 +16,18 @@
 describe('DevOps Integrations Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupDevopsIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Integrations page', () => {
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Integrations') ||
@@ -43,7 +44,7 @@ describe('DevOps Integrations Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Integrations') ||
@@ -58,7 +59,7 @@ describe('DevOps Integrations Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('DevOps') ||
@@ -73,7 +74,7 @@ describe('DevOps Integrations Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('Manage') ||
@@ -90,7 +91,7 @@ describe('DevOps Integrations Page Tests', () => {
   describe('Stats Display', () => {
     beforeEach(() => {
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Integrations stat', () => {
@@ -155,7 +156,7 @@ describe('DevOps Integrations Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Browse Marketplace button', () => {
@@ -184,8 +185,8 @@ describe('DevOps Integrations Page Tests', () => {
       cy.get('body').then($body => {
         const browseButton = $body.find('button:contains("Browse Marketplace"), button:contains("Marketplace")');
         if (browseButton.length > 0) {
-          cy.wrap(browseButton).first().click({ force: true });
-          cy.wait(1000);
+          cy.wrap(browseButton).first().should('be.visible').click();
+          cy.waitForPageLoad();
           cy.url().then(url => {
             if (url.includes('marketplace')) {
               cy.log('Navigated to marketplace');
@@ -201,7 +202,7 @@ describe('DevOps Integrations Page Tests', () => {
   describe('Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display status filter', () => {
@@ -241,8 +242,8 @@ describe('DevOps Integrations Page Tests', () => {
       cy.get('body').then($body => {
         const statusSelect = $body.find('select').first();
         if (statusSelect.length > 0) {
-          cy.wrap(statusSelect).select(1, { force: true });
-          cy.wait(500);
+          cy.wrap(statusSelect).should('be.visible').select(1);
+          cy.waitForPageLoad();
           cy.log('Filtered by status');
         }
       });
@@ -254,8 +255,8 @@ describe('DevOps Integrations Page Tests', () => {
       cy.get('body').then($body => {
         const typeSelect = $body.find('select').eq(1);
         if (typeSelect.length > 0) {
-          cy.wrap(typeSelect).select(1, { force: true });
-          cy.wait(500);
+          cy.wrap(typeSelect).should('be.visible').select(1);
+          cy.waitForPageLoad();
           cy.log('Filtered by type');
         }
       });
@@ -267,7 +268,7 @@ describe('DevOps Integrations Page Tests', () => {
   describe('Integration List Display', () => {
     beforeEach(() => {
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display integration list', () => {
@@ -351,7 +352,7 @@ describe('DevOps Integrations Page Tests', () => {
   describe('Integration Actions', () => {
     beforeEach(() => {
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have activate button', () => {
@@ -413,13 +414,14 @@ describe('DevOps Integrations Page Tests', () => {
 
   describe('Empty State', () => {
     it('should display empty state when no integrations', () => {
-      cy.intercept('GET', '/api/v1/devops/integrations*', {
+      cy.intercept('GET', '**/integrations/instances*', {
         statusCode: 200,
-        body: { success: true, data: { instances: [] } }
-      });
+        body: { instances: [] }
+      }).as('getEmptyIntegrations');
 
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.wait('@getEmptyIntegrations');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmpty = $body.text().includes('No integrations') ||
@@ -435,13 +437,14 @@ describe('DevOps Integrations Page Tests', () => {
     });
 
     it('should have call to action in empty state', () => {
-      cy.intercept('GET', '/api/v1/devops/integrations*', {
+      cy.intercept('GET', '**/integrations/instances*', {
         statusCode: 200,
-        body: { success: true, data: { instances: [] } }
-      });
+        body: { instances: [] }
+      }).as('getEmptyIntegrations');
 
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.wait('@getEmptyIntegrations');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasAction = $body.find('button:contains("Browse"), button:contains("Add"), a[href*="marketplace"]').length > 0;
@@ -456,13 +459,14 @@ describe('DevOps Integrations Page Tests', () => {
 
   describe('Error Handling', () => {
     it('should handle API error gracefully', () => {
-      cy.intercept('GET', '/api/v1/devops/integrations*', {
+      cy.intercept('GET', '**/integrations/instances*', {
         statusCode: 500,
         body: { success: false, error: 'Server error' }
-      });
+      }).as('getIntegrationsError');
 
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.wait('@getIntegrationsError');
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -470,13 +474,14 @@ describe('DevOps Integrations Page Tests', () => {
     });
 
     it('should display error notification on failure', () => {
-      cy.intercept('GET', '/api/v1/devops/integrations*', {
+      cy.intercept('GET', '**/integrations/instances*', {
         statusCode: 500,
         body: { success: false, error: 'Failed to load integrations' }
-      });
+      }).as('getIntegrationsError');
 
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.wait('@getIntegrationsError');
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -493,11 +498,11 @@ describe('DevOps Integrations Page Tests', () => {
 
   describe('Loading State', () => {
     it('should display loading indicator', () => {
-      cy.intercept('GET', '/api/v1/devops/integrations*', {
+      cy.intercept('GET', '**/integrations/instances*', {
         delay: 1000,
         statusCode: 200,
-        body: { success: true, data: { instances: [] } }
-      });
+        body: { instances: [] }
+      }).as('getIntegrationsDelayed');
 
       cy.visit('/app/devops/integrations');
 
@@ -508,6 +513,7 @@ describe('DevOps Integrations Page Tests', () => {
         }
       });
 
+      cy.wait('@getIntegrationsDelayed');
       cy.get('body').should('be.visible');
     });
   });
@@ -516,7 +522,7 @@ describe('DevOps Integrations Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -530,7 +536,7 @@ describe('DevOps Integrations Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -544,7 +550,7 @@ describe('DevOps Integrations Page Tests', () => {
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
@@ -552,7 +558,7 @@ describe('DevOps Integrations Page Tests', () => {
     it('should display two-column grid on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/devops/integrations');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasGrid = $body.find('[class*="grid"], [class*="lg:grid-cols"]').length > 0;
@@ -565,3 +571,6 @@ describe('DevOps Integrations Page Tests', () => {
     });
   });
 });
+
+
+export {};

@@ -4,10 +4,10 @@ describe('Knowledge Base Admin Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
@@ -466,7 +466,7 @@ describe('Knowledge Base Admin Page Tests', () => {
     it('should display empty state when no articles', () => {
       cy.intercept('GET', '**/api/**/kb/articles**', {
         statusCode: 200,
-        body: { success: true, data: { articles: [], stats: { total: 0 } } }
+        body: { articles: [], stats: { total: 0 } }
       }).as('emptyArticles');
 
       cy.visit('/app/content/kb/admin');
@@ -521,3 +521,6 @@ describe('Knowledge Base Admin Page Tests', () => {
     });
   });
 });
+
+
+export {};

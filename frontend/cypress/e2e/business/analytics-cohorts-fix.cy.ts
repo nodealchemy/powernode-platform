@@ -11,10 +11,10 @@ describe('Analytics Dashboard - Cohorts Tab Fix', () => {
     cy.clearAppData();
     // Login with demo user
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   it('should handle Cohorts tab without errors', () => {
@@ -90,7 +90,7 @@ describe('Analytics Dashboard - Cohorts Tab Fix', () => {
               cy.get('body').should('not.contain.text', 'Cannot read');
 
               // Wait a bit for content to load
-              cy.wait(300);
+              cy.waitForPageLoad();
             }
           });
         });
@@ -100,3 +100,6 @@ describe('Analytics Dashboard - Cohorts Tab Fix', () => {
     cy.get('body').should('be.visible');
   });
 });
+
+
+export {};

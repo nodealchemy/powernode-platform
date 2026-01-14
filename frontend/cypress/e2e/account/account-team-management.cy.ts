@@ -20,17 +20,18 @@
 describe('Account Team Management Page Tests', () => {
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
     cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 10000 }).type('demo@democompany.com');
+    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
     cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
     cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
   });
 
   describe('Page Navigation', () => {
     it('should navigate to Team Management page', () => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('User Management') ||
@@ -47,7 +48,7 @@ describe('Account Team Management Page Tests', () => {
 
     it('should display page title', () => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('User Management') ||
@@ -62,7 +63,7 @@ describe('Account Team Management Page Tests', () => {
 
     it('should display page description', () => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasDescription = $body.text().includes('users') ||
@@ -77,7 +78,7 @@ describe('Account Team Management Page Tests', () => {
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
@@ -94,7 +95,7 @@ describe('Account Team Management Page Tests', () => {
   describe('Statistics Cards', () => {
     beforeEach(() => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display Total Users stat', () => {
@@ -148,7 +149,7 @@ describe('Account Team Management Page Tests', () => {
   describe('Users List Display', () => {
     beforeEach(() => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display users list or empty state', () => {
@@ -217,7 +218,7 @@ describe('Account Team Management Page Tests', () => {
   describe('Search and Filtering', () => {
     beforeEach(() => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should display search input', () => {
@@ -235,8 +236,7 @@ describe('Account Team Management Page Tests', () => {
       cy.get('body').then($body => {
         const searchInput = $body.find('input[placeholder*="Search"], input[placeholder*="search"]');
         if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('john');
-          cy.wait(500);
+          cy.wrap(searchInput).first().should('be.visible').type('john');
           cy.log('Search performed');
         }
       });
@@ -295,7 +295,7 @@ describe('Account Team Management Page Tests', () => {
   describe('Page Actions', () => {
     beforeEach(() => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Add New User button', () => {
@@ -335,8 +335,8 @@ describe('Account Team Management Page Tests', () => {
       cy.get('body').then($body => {
         const addButton = $body.find('button:contains("Add New User"), button:contains("Add User")');
         if (addButton.length > 0) {
-          cy.wrap(addButton).first().click({ force: true });
-          cy.wait(500);
+          cy.wrap(addButton).first().should('be.visible').click();
+          cy.waitForStableDOM();
           cy.get('body').then($modalBody => {
             const hasModal = $modalBody.find('[class*="modal"], [class*="Modal"]').length > 0 ||
                              $modalBody.text().includes('Create') ||
@@ -355,7 +355,7 @@ describe('Account Team Management Page Tests', () => {
   describe('User Actions', () => {
     beforeEach(() => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have Edit action', () => {
@@ -417,7 +417,7 @@ describe('Account Team Management Page Tests', () => {
   describe('Bulk Actions', () => {
     beforeEach(() => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have checkbox for bulk selection', () => {
@@ -435,8 +435,7 @@ describe('Account Team Management Page Tests', () => {
       cy.get('body').then($body => {
         const checkbox = $body.find('input[type="checkbox"]');
         if (checkbox.length > 1) {
-          cy.wrap(checkbox.eq(1)).check({ force: true });
-          cy.wait(500);
+          cy.wrap(checkbox.eq(1)).should('be.visible').check();
           cy.get('body').then($actionsBody => {
             const hasBulkActions = $actionsBody.text().includes('selected') ||
                                    $actionsBody.find('button:contains("Suspend")').length > 0;
@@ -454,7 +453,7 @@ describe('Account Team Management Page Tests', () => {
   describe('Sorting', () => {
     beforeEach(() => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
     });
 
     it('should have sort toggle button', () => {
@@ -472,7 +471,7 @@ describe('Account Team Management Page Tests', () => {
   describe('Permission Check', () => {
     it('should show permission message for unauthorized users', () => {
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasPermission = $body.text().includes("don't have permission") ||
@@ -495,7 +494,7 @@ describe('Account Team Management Page Tests', () => {
       });
 
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
@@ -509,7 +508,7 @@ describe('Account Team Management Page Tests', () => {
       });
 
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
@@ -554,7 +553,7 @@ describe('Account Team Management Page Tests', () => {
       });
 
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasEmpty = $body.text().includes('No users') ||
@@ -572,7 +571,7 @@ describe('Account Team Management Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -586,7 +585,7 @@ describe('Account Team Management Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
       cy.get('body').then($body => {
@@ -600,9 +599,12 @@ describe('Account Team Management Page Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/account/users');
-      cy.wait(2000);
+      cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
     });
   });
 });
+
+
+export {};

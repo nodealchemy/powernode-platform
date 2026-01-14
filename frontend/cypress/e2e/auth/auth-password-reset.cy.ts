@@ -3,12 +3,13 @@ describe('Password Reset Flow Tests', () => {
 
   beforeEach(() => {
     cy.clearAppData();
+    cy.setupApiIntercepts();
   });
 
   describe('Password Reset Request', () => {
     it('should navigate to forgot password page from login', () => {
       cy.visit('/login');
-      cy.get('[data-testid="forgot-password-link"]', { timeout: 10000 }).click();
+      cy.get('[data-testid="forgot-password-link"]', { timeout: 5000 }).click();
       cy.url().should('include', '/forgot-password');
     });
 
@@ -16,7 +17,7 @@ describe('Password Reset Flow Tests', () => {
       cy.visit('/forgot-password');
 
       // Should show email input
-      cy.get('input[name="email"], input[type="email"], [data-testid="email-input"]', { timeout: 10000 })
+      cy.get('input[name="email"], input[type="email"], [data-testid="email-input"]', { timeout: 5000 })
         .should('be.visible')
         .type('demo@democompany.com');
 
@@ -24,14 +25,14 @@ describe('Password Reset Flow Tests', () => {
       cy.get('button[type="submit"]').click();
 
       // Should show success message or stay on page
-      cy.wait(2000);
+      cy.waitForStableDOM();
       cy.get('body').should('exist');
     });
 
     it('should validate email format in password reset', () => {
       cy.visit('/forgot-password');
 
-      cy.get('input[name="email"], input[type="email"], [data-testid="email-input"]', { timeout: 10000 })
+      cy.get('input[name="email"], input[type="email"], [data-testid="email-input"]', { timeout: 5000 })
         .type('invalid-email-format');
 
       cy.get('button[type="submit"]').click();
@@ -45,12 +46,12 @@ describe('Password Reset Flow Tests', () => {
     it('should handle non-existent email gracefully', () => {
       cy.visit('/forgot-password');
 
-      cy.get('input[name="email"], input[type="email"], [data-testid="email-input"]', { timeout: 10000 })
+      cy.get('input[name="email"], input[type="email"], [data-testid="email-input"]', { timeout: 5000 })
         .type(`nonexistent-${timestamp}@example.com`);
 
       cy.get('button[type="submit"]').click();
 
-      cy.wait(2000);
+      cy.waitForStableDOM();
 
       // Should handle gracefully (not reveal if email exists)
       cy.get('body').should('exist');
@@ -80,3 +81,6 @@ describe('Password Reset Flow Tests', () => {
     });
   });
 });
+
+
+export {};
