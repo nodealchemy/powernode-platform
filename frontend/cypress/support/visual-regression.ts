@@ -28,6 +28,12 @@ declare global {
        * @example cy.setupVisualTesting()
        */
       setupVisualTesting(): Chainable<void>;
+
+      /**
+       * Wait for CSS animations and transitions to complete
+       * @example cy.waitForAnimations()
+       */
+      waitForAnimations(): Chainable<void>;
     }
   }
 }
@@ -80,6 +86,14 @@ Cypress.Commands.add('setupVisualTesting', () => {
   cy.document().then(doc => {
     return doc.fonts.ready;
   });
+});
+
+// Wait for animations and transitions to complete
+Cypress.Commands.add('waitForAnimations', () => {
+  // Wait for any CSS animations to complete
+  cy.get('body').should('be.visible');
+  // Small delay to allow transitions to settle
+  cy.wait(100);
 });
 
 // Take a consistent screenshot

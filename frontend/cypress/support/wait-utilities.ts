@@ -1533,37 +1533,37 @@ Cypress.Commands.add('setupPrivacyIntercepts', () => {
 
 // Wait for page load (loading spinner gone, page container visible)
 Cypress.Commands.add('waitForPageLoad', () => {
-  // Wait for any loading spinners to disappear
-  cy.get('[data-testid="loading-spinner"], .loading-spinner, [data-loading="true"]', { timeout: 100 })
+  // Wait for any loading spinners to disappear (quick check)
+  cy.get('[data-testid="loading-spinner"], .loading-spinner, [data-loading="true"]', { timeout: 50 })
     .should('not.exist')
-    .then({ timeout: 100 }, () => {}); // Ignore if not found
+    .then({ timeout: 50 }, () => {}); // Ignore if not found
 
-  // Wait for page container to be visible
-  cy.get('[data-testid="page-container"], [data-testid="page-content"], main', { timeout: 10000 })
+  // Wait for page container to be visible (reduced from 10s to 5s)
+  cy.get('[data-testid="page-container"], [data-testid="page-content"], main', { timeout: 5000 })
     .should('be.visible');
 });
 
 // Wait for table to load with data
 Cypress.Commands.add('waitForTableLoad', () => {
-  // Wait for table to exist and have rows
-  cy.get('table tbody tr, [data-testid="table-row"], [role="row"]', { timeout: 10000 })
+  // Wait for table to exist and have rows (reduced from 10s to 5s)
+  cy.get('table tbody tr, [data-testid="table-row"], [role="row"]', { timeout: 5000 })
     .should('exist');
 
   // Ensure loading states are cleared
-  cy.get('[data-testid="table-loading"], [data-loading="true"]', { timeout: 100 })
+  cy.get('[data-testid="table-loading"], [data-loading="true"]', { timeout: 50 })
     .should('not.exist')
-    .then({ timeout: 100 }, () => {}); // Ignore if not found
+    .then({ timeout: 50 }, () => {}); // Ignore if not found
 });
 
-// Wait for modal to be visible
+// Wait for modal to be visible (reduced from 10s to 5s)
 Cypress.Commands.add('waitForModal', () => {
-  cy.get('[data-testid="modal"], [role="dialog"], .modal', { timeout: 10000 })
+  cy.get('[data-testid="modal"], [role="dialog"], .modal', { timeout: 5000 })
     .should('be.visible');
 });
 
-// Wait for modal to close
+// Wait for modal to close (reduced from 10s to 5s)
 Cypress.Commands.add('waitForModalClose', () => {
-  cy.get('[data-testid="modal"], [role="dialog"], .modal', { timeout: 10000 })
+  cy.get('[data-testid="modal"], [role="dialog"], .modal', { timeout: 5000 })
     .should('not.exist');
 });
 
@@ -1574,20 +1574,20 @@ Cypress.Commands.add('waitForStableDOM', () => {
   cy.get('body').should('be.visible');
   // Only check for page-level loading spinners, not button spinners
   // Use a more specific selector to avoid matching button loading states
-  cy.get('[data-testid="loading-spinner"], .loading-spinner, [data-loading="true"]', { timeout: 100 })
+  cy.get('[data-testid="loading-spinner"], .loading-spinner, [data-loading="true"]', { timeout: 50 })
     .should('not.exist')
-    .then({ timeout: 100 }, () => {}); // Ignore if not found
+    .then({ timeout: 50 }, () => {}); // Ignore if not found
 });
 
 // Wait for element to be actionable (visible and not covered by overlays)
 Cypress.Commands.add('waitForActionable', (selector: string) => {
   // First ensure any overlays are gone
-  cy.get('[data-testid="modal-overlay"], .modal-backdrop, [data-testid="loading-overlay"]', { timeout: 100 })
+  cy.get('[data-testid="modal-overlay"], .modal-backdrop, [data-testid="loading-overlay"]', { timeout: 50 })
     .should('not.exist')
-    .then({ timeout: 100 }, () => {}); // Ignore if not found
+    .then({ timeout: 50 }, () => {}); // Ignore if not found
 
-  // Then wait for element to be visible and return it
-  return cy.get(selector, { timeout: 10000 }).should('be.visible');
+  // Then wait for element to be visible and return it (reduced from 10s to 5s)
+  return cy.get(selector, { timeout: 5000 }).should('be.visible');
 });
 
 export {};

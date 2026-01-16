@@ -29,10 +29,11 @@ declare global {
       /**
        * Test responsive design across multiple viewports
        * @example cy.testResponsiveDesign('/app/dashboard')
+       * @example cy.testResponsiveDesign('/app/dashboard', { checkContent: ['Dashboard', 'Overview'] })
        */
       testResponsiveDesign(
         url: string,
-        options?: { viewports?: ViewportConfig[]; checkContent?: string }
+        options?: { viewports?: ViewportConfig[]; checkContent?: string | string[] }
       ): Chainable<void>;
 
       /**
@@ -44,12 +45,13 @@ declare global {
       /**
        * Test error handling for an API endpoint
        * @example cy.testErrorHandling('/api/v1/users', { statusCode: 500 })
+       * @example cy.testErrorHandling(new RegExp('/api/v1/users.*'), { statusCode: 500 })
        */
       testErrorHandling(
-        endpoint: string,
+        endpoint: string | RegExp,
         options?: {
           statusCode?: number;
-          method?: string;
+          method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
           visitUrl?: string;
           expectRetryButton?: boolean;
         }
@@ -78,10 +80,10 @@ declare global {
        * @example cy.mockEndpoint('GET', '/api/v1/users', 'users.json')
        */
       mockEndpoint(
-        method: string,
-        endpoint: string,
+        method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS',
+        endpoint: string | RegExp,
         fixtureOrBody: string | object,
-        options?: { statusCode?: number; delay?: number; alias?: string }
+        options?: { statusCode?: number; delay?: number; alias?: string; wrapResponse?: boolean }
       ): Chainable<void>;
 
       /**
@@ -89,7 +91,7 @@ declare global {
        * @example cy.mockApiError('/api/v1/users', 500, 'Server error')
        */
       mockApiError(
-        endpoint: string,
+        endpoint: string | RegExp,
         statusCode?: number,
         errorMessage?: string
       ): Chainable<void>;
@@ -240,17 +242,17 @@ Cypress.Commands.add(
 Cypress.Commands.add(
   'testErrorHandling',
   (
-    endpoint: string,
+    endpoint: string | RegExp,
     options: {
       statusCode?: number;
-      method?: string;
+      method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
       visitUrl?: string;
       expectRetryButton?: boolean;
     } = {}
   ) => {
     const {
       statusCode = 500,
-      method = 'GET',
+      method = 'GET' as const,
       visitUrl,
       expectRetryButton = false,
     } = options;
@@ -345,17 +347,26 @@ Cypress.Commands.add(
 
 // Mock endpoint with fixture or body
 // Automatically wraps responses in { success: true, data: ... } format
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+
+interface InterceptConfig {
+  statusCode?: number;
+  delay?: number;
+  fixture?: string;
+  body?: unknown;
+}
+
 Cypress.Commands.add(
   'mockEndpoint',
   (
-    method: string,
+    method: HttpMethod,
     endpoint: string | RegExp,
     fixtureOrBody: string | object,
     options: { statusCode?: number; delay?: number; alias?: string; wrapResponse?: boolean } = {}
   ) => {
     const { statusCode = 200, delay = 0, alias, wrapResponse = true } = options;
 
-    const interceptConfig: Partial<Cypress.StaticResponse> = {
+    const interceptConfig: InterceptConfig = {
       statusCode,
       delay,
     };
@@ -467,10 +478,10 @@ Cypress.Commands.add('assertContainsAny', (texts: string[]) => {
   });
 });
 
-// Assert at least one of the given selectors exists
+// Assert at least one of the given selectors exists (reduced from 10s to 5s)
 Cypress.Commands.add('assertHasElement', (selectors: string[]) => {
   const combinedSelector = selectors.join(', ');
-  return cy.get(combinedSelector, { timeout: 10000 }).should('exist').first();
+  return cy.get(combinedSelector, { timeout: 5000 }).should('exist').first();
 });
 
 // Assert page section is visible with characteristics

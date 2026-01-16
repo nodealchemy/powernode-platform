@@ -8,11 +8,11 @@ export default defineConfig({
     viewportHeight: 720,
     video: false,
     screenshotOnRunFailure: true,
-    // Optimized timeouts - reduced from 15s to speed up failure detection
-    defaultCommandTimeout: 8000,
-    requestTimeout: 10000,
-    responseTimeout: 10000,
-    pageLoadTimeout: 20000,
+    // Optimized timeouts for faster test execution
+    defaultCommandTimeout: 5000,
+    requestTimeout: 8000,
+    responseTimeout: 8000,
+    pageLoadTimeout: 15000,
     retries: {
       runMode: process.env.CI ? 2 : 0,  // No retries in dev for faster feedback
       openMode: 0,

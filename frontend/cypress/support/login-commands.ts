@@ -78,23 +78,42 @@ const getCredentials = (role?: string): RoleCredentials => {
   };
 };
 
-// Login as demo user with session caching
+// Login as demo user with session caching (API-first for speed)
 Cypress.Commands.add('loginAsDemo', (options: LoginOptions = {}) => {
   const { skipDashboardNav = false, redirectUrl, waitForLoad = true } = options;
   const credentials = getCredentials();
+  const apiUrl = Cypress.env('apiUrl') || 'http://localhost:3000/api/v1';
 
   cy.session(
     ['demo-user', credentials.email],
     () => {
-      // Perform UI login
-      cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 })
-        .should('be.visible')
-        .clear()
-        .type(credentials.email);
-      cy.get('[data-testid="password-input"]').clear().type(credentials.password);
-      cy.get('[data-testid="login-submit-btn"]').should('not.be.disabled').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      // Try API login first (much faster than UI)
+      cy.request({
+        method: 'POST',
+        url: `${apiUrl}/auth/login`,
+        body: { email: credentials.email, password: credentials.password },
+        failOnStatusCode: false,
+      }).then((response) => {
+        if (response.status === 200 && response.body?.data?.access_token) {
+          // API login succeeded - store tokens
+          cy.window().then((win) => {
+            win.localStorage.setItem('access_token', response.body.data.access_token);
+            if (response.body.data.refresh_token) {
+              win.localStorage.setItem('refresh_token', response.body.data.refresh_token);
+            }
+          });
+        } else {
+          // Fallback to UI login if API fails
+          cy.visit('/login');
+          cy.get('[data-testid="email-input"]', { timeout: 5000 })
+            .should('be.visible')
+            .clear()
+            .type(credentials.email);
+          cy.get('[data-testid="password-input"]').clear().type(credentials.password);
+          cy.get('[data-testid="login-submit-btn"]').should('not.be.disabled').click();
+          cy.url({ timeout: 10000 }).should('match', /\/(app|dashboard)/);
+        }
+      });
     },
     {
       validate: () => {
@@ -117,22 +136,42 @@ Cypress.Commands.add('loginAsDemo', (options: LoginOptions = {}) => {
   }
 });
 
-// Login as specific role
+// Login as specific role (API-first for speed)
 Cypress.Commands.add('loginAsRole', (role: string, options: LoginOptions = {}) => {
   const { skipDashboardNav = false, redirectUrl, waitForLoad = true } = options;
   const credentials = getCredentials(role);
+  const apiUrl = Cypress.env('apiUrl') || 'http://localhost:3000/api/v1';
 
   cy.session(
     ['role-user', role, credentials.email],
     () => {
-      cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 10000 })
-        .should('be.visible')
-        .clear()
-        .type(credentials.email);
-      cy.get('[data-testid="password-input"]').clear().type(credentials.password);
-      cy.get('[data-testid="login-submit-btn"]').should('not.be.disabled').click();
-      cy.url({ timeout: 15000 }).should('match', /\/(app|dashboard)/);
+      // Try API login first (much faster than UI)
+      cy.request({
+        method: 'POST',
+        url: `${apiUrl}/auth/login`,
+        body: { email: credentials.email, password: credentials.password },
+        failOnStatusCode: false,
+      }).then((response) => {
+        if (response.status === 200 && response.body?.data?.access_token) {
+          // API login succeeded - store tokens
+          cy.window().then((win) => {
+            win.localStorage.setItem('access_token', response.body.data.access_token);
+            if (response.body.data.refresh_token) {
+              win.localStorage.setItem('refresh_token', response.body.data.refresh_token);
+            }
+          });
+        } else {
+          // Fallback to UI login if API fails
+          cy.visit('/login');
+          cy.get('[data-testid="email-input"]', { timeout: 5000 })
+            .should('be.visible')
+            .clear()
+            .type(credentials.email);
+          cy.get('[data-testid="password-input"]').clear().type(credentials.password);
+          cy.get('[data-testid="login-submit-btn"]').should('not.be.disabled').click();
+          cy.url({ timeout: 10000 }).should('match', /\/(app|dashboard)/);
+        }
+      });
     },
     {
       validate: () => {
