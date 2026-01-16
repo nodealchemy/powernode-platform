@@ -1,41 +1,30 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
-import { GitBranch, Plus, ArrowRightLeft, Trash2 } from 'lucide-react';
+import { PlayCircle, GitBranch } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
 import { NodeActionsMenu } from '../NodeActionsMenu';
 import { useWorkflowContext } from '../WorkflowContext';
-import { GitBranchNode as GitBranchNodeType } from '@/shared/types/workflow';
+import { DevopsTriggerNode as DevopsTriggerNodeType } from '@/shared/types/workflow';
 
-export const GitBranchNode: React.FC<NodeProps<GitBranchNodeType>> = ({
+export const DevopsTriggerNode: React.FC<NodeProps<DevopsTriggerNodeType>> = ({
   id,
   data,
   selected
 }) => {
   const { onOpenChat } = useWorkflowContext();
 
-  const getActionIcon = () => {
-    switch (data.configuration?.action) {
-      case 'create':
-        return <Plus className="h-3 w-3" />;
-      case 'switch':
-        return <ArrowRightLeft className="h-3 w-3" />;
-      case 'delete':
-        return <Trash2 className="h-3 w-3" />;
+  const getProviderLabel = () => {
+    switch (data.configuration?.provider) {
+      case 'github':
+        return 'GitHub Actions';
+      case 'gitlab':
+        return 'GitLab CI';
+      case 'jenkins':
+        return 'Jenkins';
+      case 'circleci':
+        return 'CircleCI';
       default:
-        return <GitBranch className="h-3 w-3" />;
-    }
-  };
-
-  const getActionLabel = () => {
-    switch (data.configuration?.action) {
-      case 'create':
-        return 'Create Branch';
-      case 'switch':
-        return 'Switch Branch';
-      case 'delete':
-        return 'Delete Branch';
-      default:
-        return 'Branch';
+        return 'Pipeline';
     }
   };
 
@@ -46,10 +35,10 @@ export const GitBranchNode: React.FC<NodeProps<GitBranchNodeType>> = ({
       hover:shadow-xl transition-all duration-200
     `}>
       {/* Header */}
-      <div className="px-4 py-3 rounded-t-lg bg-gradient-to-r from-teal-500 to-teal-600">
+      <div className="px-4 py-3 rounded-t-lg bg-gradient-to-r from-orange-500 to-orange-600">
         <div className="flex items-center gap-2 text-white">
-          <GitBranch className="h-4 w-4" />
-          <span className="font-medium text-sm">GIT BRANCH</span>
+          <PlayCircle className="h-4 w-4" />
+          <span className="font-medium text-sm">DEVOPS TRIGGER</span>
         </div>
       </div>
 
@@ -57,7 +46,7 @@ export const GitBranchNode: React.FC<NodeProps<GitBranchNodeType>> = ({
       <div className="p-4 space-y-3">
         <div>
           <h3 className="font-medium text-theme-primary text-sm truncate">
-            {data.name || 'Git Branch'}
+            {data.name || 'DevOps Trigger'}
           </h3>
           {data.description && (
             <p className="text-xs text-theme-secondary mt-1 line-clamp-2">
@@ -66,25 +55,27 @@ export const GitBranchNode: React.FC<NodeProps<GitBranchNodeType>> = ({
           )}
         </div>
 
-        {/* Action Badge */}
-        <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full text-theme-cyan bg-theme-cyan/10">
-          {getActionIcon()}
-          {getActionLabel()}
+        {/* Provider Badge */}
+        <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full text-theme-warning bg-theme-warning/10">
+          {getProviderLabel()}
         </span>
 
-        {/* Branch Info */}
+        {/* Workflow/Branch Info */}
         <div className="space-y-1">
-          {data.configuration?.branch_name && (
+          {data.configuration?.workflow_name && (
             <div className="flex items-center gap-1 text-xs">
-              <GitBranch className="h-3 w-3 text-theme-muted" />
+              <PlayCircle className="h-3 w-3 text-theme-muted" />
               <span className="text-theme-secondary font-mono truncate">
-                {data.configuration.branch_name}
+                {data.configuration.workflow_name}
               </span>
             </div>
           )}
-          {data.configuration?.base_branch && (
-            <div className="text-xs text-theme-tertiary">
-              from: <span className="font-mono">{data.configuration.base_branch}</span>
+          {data.configuration?.branch && (
+            <div className="flex items-center gap-1 text-xs">
+              <GitBranch className="h-3 w-3 text-theme-muted" />
+              <span className="text-theme-secondary font-mono">
+                {data.configuration.branch}
+              </span>
             </div>
           )}
         </div>
@@ -93,7 +84,7 @@ export const GitBranchNode: React.FC<NodeProps<GitBranchNodeType>> = ({
       {/* Node Actions Menu */}
       <NodeActionsMenu
         nodeId={id}
-        nodeType="git_branch"
+        nodeType="devops_trigger"
         nodeName={data.name}
         isSelected={selected}
         hasErrors={false}
@@ -102,7 +93,7 @@ export const GitBranchNode: React.FC<NodeProps<GitBranchNodeType>> = ({
 
       {/* Auto-positioning Handles */}
       <DynamicNodeHandles
-        nodeType="git_branch"
+        nodeType="devops_trigger"
         isEndNode={data.isEndNode}
         handlePositions={data.handlePositions}
       />

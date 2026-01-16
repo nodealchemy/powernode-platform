@@ -24,6 +24,9 @@ export type {
   DataProcessorNodeData,
   DatabaseNodeData,
   DelayNodeData,
+  DevopsGetLogsNodeData,
+  DevopsTriggerNodeData,
+  DevopsWaitStatusNodeData,
   EmailNodeData,
   EndNodeData,
   FileNodeData,
@@ -43,21 +46,6 @@ export type {
   TriggerNodeData,
   ValidatorNodeData,
   WebhookNodeData,
-  // CI/CD node data types
-  CiTriggerNodeData,
-  CiWaitStatusNodeData,
-  CiCancelNodeData,
-  CiGetLogsNodeData,
-  GitCommitStatusNodeData,
-  GitCreateCheckNodeData,
-  // New CI/CD Pipeline node data types
-  GitCheckoutNodeData,
-  GitBranchNodeData,
-  GitPullRequestNodeData,
-  GitCommentNodeData,
-  DeployNodeData,
-  RunTestsNodeData,
-  ShellCommandNodeData,
   WorkflowNodeData,
   // ReactFlow node types
   AiAgentNode,
@@ -66,6 +54,9 @@ export type {
   DataProcessorNode,
   DatabaseNode,
   DelayNode,
+  DevopsGetLogsNode,
+  DevopsTriggerNode,
+  DevopsWaitStatusNode,
   EmailNode,
   EndNode,
   FileNode,
@@ -85,21 +76,6 @@ export type {
   TriggerNode,
   ValidatorNode,
   WebhookNode,
-  // CI/CD ReactFlow node types
-  CiTriggerNode,
-  CiWaitStatusNode,
-  CiCancelNode,
-  CiGetLogsNode,
-  GitCommitStatusNode,
-  GitCreateCheckNode,
-  // New CI/CD Pipeline ReactFlow node types
-  GitCheckoutNode,
-  GitBranchNode,
-  GitPullRequestNode,
-  GitCommentNode,
-  DeployNode,
-  RunTestsNode,
-  ShellCommandNode,
   WorkflowNode
 } from './workflow-node-data';
 

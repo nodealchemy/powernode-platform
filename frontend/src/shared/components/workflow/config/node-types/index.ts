@@ -23,15 +23,6 @@ export { NotificationNodeConfig } from './NotificationNodeConfig';
 export { SchedulerNodeConfig } from './SchedulerNodeConfig';
 export { DefaultNodeConfig } from './DefaultNodeConfig';
 
-// CI/CD Pipeline node configs
-export { DeployNodeConfig } from './DeployNodeConfig';
-export { RunTestsNodeConfig } from './RunTestsNodeConfig';
-export { GitCheckoutNodeConfig } from './GitCheckoutNodeConfig';
-export { GitBranchNodeConfig } from './GitBranchNodeConfig';
-export { GitPullRequestNodeConfig } from './GitPullRequestNodeConfig';
-export { GitCommentNodeConfig } from './GitCommentNodeConfig';
-export { ShellCommandNodeConfig } from './ShellCommandNodeConfig';
-
 // KB Article node configs
 export { KbArticleCreateConfig } from './KbArticleCreateConfig';
 export { KbArticleReadConfig } from './KbArticleReadConfig';
@@ -96,14 +87,6 @@ import { McpToolNodeConfig } from './McpToolNodeConfig';
 import { McpResourceNodeConfig } from './McpResourceNodeConfig';
 import { McpPromptNodeConfig } from './McpPromptNodeConfig';
 import { McpOperationConfig } from './McpOperationConfig';
-// CI/CD Pipeline node configs
-import { DeployNodeConfig } from './DeployNodeConfig';
-import { RunTestsNodeConfig } from './RunTestsNodeConfig';
-import { GitCheckoutNodeConfig } from './GitCheckoutNodeConfig';
-import { GitBranchNodeConfig } from './GitBranchNodeConfig';
-import { GitPullRequestNodeConfig } from './GitPullRequestNodeConfig';
-import { GitCommentNodeConfig } from './GitCommentNodeConfig';
-import { ShellCommandNodeConfig } from './ShellCommandNodeConfig';
 import type { NodeTypeConfigComponent } from './types';
 
 export const nodeTypeConfigRegistry: Record<string, NodeTypeConfigComponent> = {
@@ -161,15 +144,6 @@ export const nodeTypeConfigRegistry: Record<string, NodeTypeConfigComponent> = {
   mcp_resource: McpResourceNodeConfig,
   mcp_prompt: McpPromptNodeConfig,
   mcp_operation: McpOperationConfig,
-
-  // CI/CD Pipeline nodes
-  deploy: DeployNodeConfig,
-  run_tests: RunTestsNodeConfig,
-  git_checkout: GitCheckoutNodeConfig,
-  git_branch: GitBranchNodeConfig,
-  git_pull_request: GitPullRequestNodeConfig,
-  git_comment: GitCommentNodeConfig,
-  shell_command: ShellCommandNodeConfig,
 
   // Default fallback
   default: DefaultNodeConfig,

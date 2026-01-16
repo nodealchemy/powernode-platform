@@ -1,12 +1,12 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
-import { Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Timer, CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
 import { NodeActionsMenu } from '../NodeActionsMenu';
 import { useWorkflowContext } from '../WorkflowContext';
-import { CiWaitStatusNode as CiWaitStatusNodeType } from '@/shared/types/workflow';
+import { DevopsWaitStatusNode as DevopsWaitStatusNodeType } from '@/shared/types/workflow';
 
-export const CiWaitStatusNode: React.FC<NodeProps<CiWaitStatusNodeType>> = ({
+export const DevopsWaitStatusNode: React.FC<NodeProps<DevopsWaitStatusNodeType>> = ({
   id,
   data,
   selected
@@ -23,7 +23,7 @@ export const CiWaitStatusNode: React.FC<NodeProps<CiWaitStatusNodeType>> = ({
       case 'any':
         return <Loader2 className="h-3 w-3 text-theme-info" />;
       default:
-        return <Clock className="h-3 w-3 text-theme-muted" />;
+        return <Timer className="h-3 w-3 text-theme-muted" />;
     }
   };
 
@@ -57,8 +57,8 @@ export const CiWaitStatusNode: React.FC<NodeProps<CiWaitStatusNodeType>> = ({
       {/* Header */}
       <div className="px-4 py-3 rounded-t-lg bg-gradient-to-r from-amber-500 to-amber-600">
         <div className="flex items-center gap-2 text-white">
-          <Clock className="h-4 w-4" />
-          <span className="font-medium text-sm">CI WAIT STATUS</span>
+          <Timer className="h-4 w-4" />
+          <span className="font-medium text-sm">DEVOPS WAIT</span>
         </div>
       </div>
 
@@ -102,7 +102,7 @@ export const CiWaitStatusNode: React.FC<NodeProps<CiWaitStatusNodeType>> = ({
       {/* Node Actions Menu */}
       <NodeActionsMenu
         nodeId={id}
-        nodeType="ci_wait_status"
+        nodeType="devops_wait_status"
         nodeName={data.name}
         isSelected={selected}
         hasErrors={false}
@@ -111,7 +111,7 @@ export const CiWaitStatusNode: React.FC<NodeProps<CiWaitStatusNodeType>> = ({
 
       {/* Auto-positioning Handles */}
       <DynamicNodeHandles
-        nodeType="ci_wait_status"
+        nodeType="devops_wait_status"
         isEndNode={data.isEndNode}
         handlePositions={data.handlePositions}
       />

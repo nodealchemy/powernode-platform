@@ -28,21 +28,10 @@ import { NotificationNode } from '../nodes/NotificationNode';
 import { KbArticleNode } from '../nodes/KbArticleNode';
 import { PageNode } from '../nodes/PageNode';
 import { McpOperationNode } from '../nodes/McpOperationNode';
-// CI/CD Integration Nodes
-import { CiTriggerNode } from '../nodes/CiTriggerNode';
-import { CiWaitStatusNode } from '../nodes/CiWaitStatusNode';
-import { CiGetLogsNode } from '../nodes/CiGetLogsNode';
-import { CiCancelNode } from '../nodes/CiCancelNode';
-import { GitCommitStatusNode } from '../nodes/GitCommitStatusNode';
-import { GitCreateCheckNode } from '../nodes/GitCreateCheckNode';
-// CI/CD Pipeline Nodes
-import { GitCheckoutNode } from '../nodes/GitCheckoutNode';
-import { GitBranchNode } from '../nodes/GitBranchNode';
-import { GitPullRequestNode } from '../nodes/GitPullRequestNode';
-import { GitCommentNode } from '../nodes/GitCommentNode';
-import { DeployNode } from '../nodes/DeployNode';
-import { RunTestsNode } from '../nodes/RunTestsNode';
-import { ShellCommandNode } from '../nodes/ShellCommandNode';
+// DevOps Orchestration Nodes (for AI workflow integration with DevOps pipelines)
+import { DevopsTriggerNode } from '../nodes/DevopsTriggerNode';
+import { DevopsWaitStatusNode } from '../nodes/DevopsWaitStatusNode';
+import { DevopsGetLogsNode } from '../nodes/DevopsGetLogsNode';
 
 // Node types mapping for React Flow
 export const NODE_TYPES = {
@@ -81,21 +70,10 @@ export const NODE_TYPES = {
   page: PageNode,
   // MCP Operation: unified node with operation_type parameter (tool, resource, prompt)
   mcp_operation: McpOperationNode,
-  // CI/CD Integration Nodes
-  ci_trigger: CiTriggerNode,
-  ci_wait_status: CiWaitStatusNode,
-  ci_get_logs: CiGetLogsNode,
-  ci_cancel: CiCancelNode,
-  git_commit_status: GitCommitStatusNode,
-  git_create_check: GitCreateCheckNode,
-  // CI/CD Pipeline Nodes
-  git_checkout: GitCheckoutNode,
-  git_branch: GitBranchNode,
-  git_pull_request: GitPullRequestNode,
-  git_comment: GitCommentNode,
-  deploy: DeployNode,
-  run_tests: RunTestsNode,
-  shell_command: ShellCommandNode,
+  // DevOps Orchestration Nodes (for AI workflow integration with DevOps pipelines)
+  devops_trigger: DevopsTriggerNode,
+  devops_wait_status: DevopsWaitStatusNode,
+  devops_get_logs: DevopsGetLogsNode,
 } as const;
 
 export type NodeTypeKey = keyof typeof NODE_TYPES;

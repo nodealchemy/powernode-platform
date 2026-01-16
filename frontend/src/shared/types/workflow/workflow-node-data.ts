@@ -307,173 +307,40 @@ export interface WebhookNodeData extends BaseWorkflowNodeData {
   };
 }
 
-// ===== CI/CD NODE DATA TYPES =====
+// ===== DEVOPS ORCHESTRATION NODE DATA TYPES =====
 
-/** CI Trigger node data */
-export interface CiTriggerNodeData extends BaseWorkflowNodeData {
+/** DevOps Trigger node data - triggers DevOps pipelines from AI workflows */
+export interface DevopsTriggerNodeData extends BaseWorkflowNodeData {
   configuration?: {
-    repository_id?: string;
+    provider?: 'github' | 'gitlab' | 'jenkins' | 'circleci';
+    workflow_name?: string;
     workflow_id?: string;
-    ref?: string;
-    trigger_action?: 'workflow_dispatch' | 'repository_dispatch' | 'create_run';
-    inputs?: Record<string, string>;
-  };
-}
-
-/** CI Wait Status node data */
-export interface CiWaitStatusNodeData extends BaseWorkflowNodeData {
-  configuration?: {
-    repository_id?: string;
-    run_id?: string;
-    expected_status?: 'success' | 'failure' | 'completed' | 'any';
-    poll_interval_seconds?: number;
-    timeout_seconds?: number;
-  };
-}
-
-/** CI Cancel node data */
-export interface CiCancelNodeData extends BaseWorkflowNodeData {
-  configuration?: {
-    repository_id?: string;
-    run_id?: string;
-    reason?: string;
-  };
-}
-
-/** CI Get Logs node data */
-export interface CiGetLogsNodeData extends BaseWorkflowNodeData {
-  configuration?: {
-    repository_id?: string;
-    run_id?: string;
-    job_id?: string;
-    include_steps?: boolean;
-    max_log_size?: number;
-  };
-}
-
-/** Git Commit Status node data */
-export interface GitCommitStatusNodeData extends BaseWorkflowNodeData {
-  configuration?: {
-    repository_id?: string;
-    sha?: string;
-    state?: 'pending' | 'success' | 'failure' | 'error';
-    context?: string;
-    description?: string;
-    target_url?: string;
-  };
-}
-
-/** Git Create Check node data */
-export interface GitCreateCheckNodeData extends BaseWorkflowNodeData {
-  configuration?: {
-    repository_id?: string;
-    sha?: string;
-    name?: string;
-    status?: 'queued' | 'in_progress' | 'completed';
-    conclusion?: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required';
-    title?: string;
-    summary?: string;
-    details_url?: string;
-  };
-}
-
-// ===== NEW CI/CD PIPELINE NODE DATA TYPES =====
-
-/** Git Checkout node data - Clone repository code */
-export interface GitCheckoutNodeData extends BaseWorkflowNodeData {
-  configuration?: {
-    repository_id?: string;
-    repository_url?: string;
-    ref?: string;
     branch?: string;
-    depth?: number;
-    submodules?: boolean;
-    lfs?: boolean;
-    clean?: boolean;
-    fetch_depth?: number;
+    inputs?: Record<string, unknown>;
+    wait_for_completion?: boolean;
   };
 }
 
-/** Git Branch node data - Create or switch branches */
-export interface GitBranchNodeData extends BaseWorkflowNodeData {
+/** DevOps Wait Status node data - waits for DevOps pipeline status */
+export interface DevopsWaitStatusNodeData extends BaseWorkflowNodeData {
   configuration?: {
-    repository_id?: string;
-    action?: 'create' | 'switch' | 'delete';
-    branch_name?: string;
-    base_branch?: string;
-    force?: boolean;
-  };
-}
-
-/** Git Pull Request node data - Create pull requests */
-export interface GitPullRequestNodeData extends BaseWorkflowNodeData {
-  configuration?: {
-    repository_id?: string;
-    title?: string;
-    body?: string;
-    head_branch?: string;
-    base_branch?: string;
-    draft?: boolean;
-    labels?: string[];
-    reviewers?: string[];
-    assignees?: string[];
-    auto_merge?: boolean;
-  };
-}
-
-/** Git Comment node data - Post comments on PRs or issues */
-export interface GitCommentNodeData extends BaseWorkflowNodeData {
-  configuration?: {
-    repository_id?: string;
-    target_type?: 'pull_request' | 'issue' | 'commit';
-    target_id?: string;
-    body?: string;
-    template?: string;
-    variables?: Record<string, string>;
-  };
-}
-
-/** Deploy node data - Deploy to environments */
-export interface DeployNodeData extends BaseWorkflowNodeData {
-  configuration?: {
-    environment?: 'development' | 'staging' | 'production' | 'custom';
-    custom_environment?: string;
-    strategy?: 'rolling' | 'blue_green' | 'canary' | 'recreate';
-    replicas?: number;
-    health_check_path?: string;
+    provider?: 'github' | 'gitlab' | 'jenkins' | 'circleci';
+    job_id?: string;
+    run_id?: string;
+    expected_status?: 'success' | 'failure' | 'any' | 'completed';
     timeout_seconds?: number;
-    rollback_on_failure?: boolean;
-    pre_deploy_script?: string;
-    post_deploy_script?: string;
+    poll_interval_seconds?: number;
   };
 }
 
-/** Run Tests node data - Execute test suites */
-export interface RunTestsNodeData extends BaseWorkflowNodeData {
+/** DevOps Get Logs node data - retrieves DevOps pipeline logs */
+export interface DevopsGetLogsNodeData extends BaseWorkflowNodeData {
   configuration?: {
-    test_framework?: 'jest' | 'rspec' | 'pytest' | 'mocha' | 'cypress' | 'playwright' | 'custom';
-    command?: string;
-    coverage?: boolean;
-    coverage_threshold?: number;
-    parallel?: boolean;
-    test_pattern?: string;
-    exclude_pattern?: string;
-    env_vars?: Record<string, string>;
-    fail_fast?: boolean;
-    retry_count?: number;
-  };
-}
-
-/** Shell Command node data - Run custom shell commands */
-export interface ShellCommandNodeData extends BaseWorkflowNodeData {
-  configuration?: {
-    command?: string;
-    shell?: 'bash' | 'sh' | 'zsh' | 'powershell';
-    working_directory?: string;
-    env_vars?: Record<string, string>;
-    timeout_seconds?: number;
-    continue_on_error?: boolean;
-    capture_output?: boolean;
+    provider?: 'github' | 'gitlab' | 'jenkins' | 'circleci';
+    job_id?: string;
+    run_id?: string;
+    step_name?: string;
+    tail_lines?: number;
   };
 }
 
@@ -485,6 +352,9 @@ export type WorkflowNodeData =
   | DataProcessorNodeData
   | DatabaseNodeData
   | DelayNodeData
+  | DevopsGetLogsNodeData
+  | DevopsTriggerNodeData
+  | DevopsWaitStatusNodeData
   | EmailNodeData
   | EndNodeData
   | FileNodeData
@@ -503,20 +373,7 @@ export type WorkflowNodeData =
   | TransformNodeData
   | TriggerNodeData
   | ValidatorNodeData
-  | WebhookNodeData
-  | CiTriggerNodeData
-  | CiWaitStatusNodeData
-  | CiCancelNodeData
-  | CiGetLogsNodeData
-  | GitCommitStatusNodeData
-  | GitCreateCheckNodeData
-  | GitCheckoutNodeData
-  | GitBranchNodeData
-  | GitPullRequestNodeData
-  | GitCommentNodeData
-  | DeployNodeData
-  | RunTestsNodeData
-  | ShellCommandNodeData;
+  | WebhookNodeData;
 
 // ===== REACTFLOW NODE TYPES =====
 // Full node types for use with NodeProps<T>
@@ -571,32 +428,12 @@ export type TriggerNode = Node<TriggerNodeData, 'trigger'>;
 export type ValidatorNode = Node<ValidatorNodeData, 'validator'>;
 /** Webhook workflow node type */
 export type WebhookNode = Node<WebhookNodeData, 'webhook'>;
-/** CI Trigger workflow node type */
-export type CiTriggerNode = Node<CiTriggerNodeData, 'ci_trigger'>;
-/** CI Wait Status workflow node type */
-export type CiWaitStatusNode = Node<CiWaitStatusNodeData, 'ci_wait_status'>;
-/** CI Cancel workflow node type */
-export type CiCancelNode = Node<CiCancelNodeData, 'ci_cancel'>;
-/** CI Get Logs workflow node type */
-export type CiGetLogsNode = Node<CiGetLogsNodeData, 'ci_get_logs'>;
-/** Git Commit Status workflow node type */
-export type GitCommitStatusNode = Node<GitCommitStatusNodeData, 'git_commit_status'>;
-/** Git Create Check workflow node type */
-export type GitCreateCheckNode = Node<GitCreateCheckNodeData, 'git_create_check'>;
-/** Git Checkout workflow node type */
-export type GitCheckoutNode = Node<GitCheckoutNodeData, 'git_checkout'>;
-/** Git Branch workflow node type */
-export type GitBranchNode = Node<GitBranchNodeData, 'git_branch'>;
-/** Git Pull Request workflow node type */
-export type GitPullRequestNode = Node<GitPullRequestNodeData, 'git_pull_request'>;
-/** Git Comment workflow node type */
-export type GitCommentNode = Node<GitCommentNodeData, 'git_comment'>;
-/** Deploy workflow node type */
-export type DeployNode = Node<DeployNodeData, 'deploy'>;
-/** Run Tests workflow node type */
-export type RunTestsNode = Node<RunTestsNodeData, 'run_tests'>;
-/** Shell Command workflow node type */
-export type ShellCommandNode = Node<ShellCommandNodeData, 'shell_command'>;
+/** DevOps Trigger workflow node type */
+export type DevopsTriggerNode = Node<DevopsTriggerNodeData, 'devops_trigger'>;
+/** DevOps Wait Status workflow node type */
+export type DevopsWaitStatusNode = Node<DevopsWaitStatusNodeData, 'devops_wait_status'>;
+/** DevOps Get Logs workflow node type */
+export type DevopsGetLogsNode = Node<DevopsGetLogsNodeData, 'devops_get_logs'>;
 
 /** Union of all workflow node types */
 export type WorkflowNode =
@@ -606,6 +443,9 @@ export type WorkflowNode =
   | DataProcessorNode
   | DatabaseNode
   | DelayNode
+  | DevopsGetLogsNode
+  | DevopsTriggerNode
+  | DevopsWaitStatusNode
   | EmailNode
   | EndNode
   | FileNode
@@ -624,17 +464,4 @@ export type WorkflowNode =
   | TransformNode
   | TriggerNode
   | ValidatorNode
-  | WebhookNode
-  | CiTriggerNode
-  | CiWaitStatusNode
-  | CiCancelNode
-  | CiGetLogsNode
-  | GitCommitStatusNode
-  | GitCreateCheckNode
-  | GitCheckoutNode
-  | GitBranchNode
-  | GitPullRequestNode
-  | GitCommentNode
-  | DeployNode
-  | RunTestsNode
-  | ShellCommandNode;
+  | WebhookNode;

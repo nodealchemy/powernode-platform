@@ -4,20 +4,28 @@ import { FileText, Download } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
 import { NodeActionsMenu } from '../NodeActionsMenu';
 import { useWorkflowContext } from '../WorkflowContext';
-import { CiGetLogsNode as CiGetLogsNodeType } from '@/shared/types/workflow';
+import { DevopsGetLogsNode as DevopsGetLogsNodeType } from '@/shared/types/workflow';
 
-export const CiGetLogsNode: React.FC<NodeProps<CiGetLogsNodeType>> = ({
+export const DevopsGetLogsNode: React.FC<NodeProps<DevopsGetLogsNodeType>> = ({
   id,
   data,
   selected
 }) => {
   const { onOpenChat } = useWorkflowContext();
 
-  const formatLogSize = (bytes?: number) => {
-    if (!bytes) return null;
-    if (bytes < 1024) return `${bytes}B`;
-    if (bytes < 1024 * 1024) return `${Math.floor(bytes / 1024)}KB`;
-    return `${Math.floor(bytes / (1024 * 1024))}MB`;
+  const getProviderLabel = () => {
+    switch (data.configuration?.provider) {
+      case 'github':
+        return 'GitHub';
+      case 'gitlab':
+        return 'GitLab';
+      case 'jenkins':
+        return 'Jenkins';
+      case 'circleci':
+        return 'CircleCI';
+      default:
+        return 'Pipeline';
+    }
   };
 
   return (
@@ -30,7 +38,7 @@ export const CiGetLogsNode: React.FC<NodeProps<CiGetLogsNodeType>> = ({
       <div className="px-4 py-3 rounded-t-lg bg-gradient-to-r from-slate-500 to-slate-600">
         <div className="flex items-center gap-2 text-white">
           <FileText className="h-4 w-4" />
-          <span className="font-medium text-sm">CI GET LOGS</span>
+          <span className="font-medium text-sm">DEVOPS LOGS</span>
         </div>
       </div>
 
@@ -47,17 +55,22 @@ export const CiGetLogsNode: React.FC<NodeProps<CiGetLogsNodeType>> = ({
           )}
         </div>
 
+        {/* Provider Badge */}
+        <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full text-theme-secondary bg-theme-secondary/10">
+          {getProviderLabel()}
+        </span>
+
         {/* Options */}
         <div className="flex flex-wrap gap-2">
-          {data.configuration?.include_steps !== false && (
+          {data.configuration?.step_name && (
             <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-theme-surface-alt text-theme-secondary">
               <Download className="h-3 w-3" />
-              Steps
+              {data.configuration.step_name}
             </span>
           )}
-          {data.configuration?.max_log_size && (
+          {data.configuration?.tail_lines && (
             <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-theme-surface-alt text-theme-secondary">
-              Max: {formatLogSize(data.configuration.max_log_size)}
+              Last {data.configuration.tail_lines} lines
             </span>
           )}
         </div>
@@ -86,7 +99,7 @@ export const CiGetLogsNode: React.FC<NodeProps<CiGetLogsNodeType>> = ({
       {/* Node Actions Menu */}
       <NodeActionsMenu
         nodeId={id}
-        nodeType="ci_get_logs"
+        nodeType="devops_get_logs"
         nodeName={data.name}
         isSelected={selected}
         hasErrors={false}
@@ -95,7 +108,7 @@ export const CiGetLogsNode: React.FC<NodeProps<CiGetLogsNodeType>> = ({
 
       {/* Auto-positioning Handles */}
       <DynamicNodeHandles
-        nodeType="ci_get_logs"
+        nodeType="devops_get_logs"
         isEndNode={data.isEndNode}
         handlePositions={data.handlePositions}
       />

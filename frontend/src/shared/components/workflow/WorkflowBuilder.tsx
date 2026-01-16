@@ -38,7 +38,7 @@ import {
 import { getDefaultHandlePositions, type HandlePositions } from './nodes/DynamicNodeHandles';
 
 // Components
-import { NodePalette, type WorkflowBuilderMode } from './NodePalette';
+import { NodePalette } from './NodePalette';
 import { NodeConfigPanel } from './NodeConfigPanel';
 import { WorkflowToolbar } from './WorkflowToolbar';
 import { NodeOperationsChat } from './NodeOperationsChat';
@@ -70,8 +70,6 @@ export interface WorkflowBuilderProps {
   isSaving?: boolean;
   layoutOrientation?: 'horizontal' | 'vertical';
   onLayoutOrientationChange?: (orientation: 'horizontal' | 'vertical') => void;
-  /** Mode filter for node palette: 'full' shows all nodes, 'cicd' shows CI/CD nodes, 'ai' shows AI nodes */
-  mode?: WorkflowBuilderMode;
 }
 
 export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
@@ -89,8 +87,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
   onPreviewModeToggle,
   isSaving = false,
   layoutOrientation = 'vertical',
-  onLayoutOrientationChange,
-  mode = 'full'
+  onLayoutOrientationChange
 }) => {
   const [nodes, setNodes, onNodesChangeOriginal] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -1223,7 +1220,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 
         {!readOnly && !isPreviewMode && (
           <Panel position="top-right">
-            <NodePalette onAddNode={onAddNode} mode={mode} />
+            <NodePalette onAddNode={onAddNode} />
           </Panel>
         )}
 
