@@ -19,13 +19,7 @@
 
 describe('Business Reports Page Tests', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupApiIntercepts();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Page Navigation', () => {

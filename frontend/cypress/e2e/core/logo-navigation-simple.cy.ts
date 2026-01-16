@@ -21,11 +21,8 @@ describe('Logo Navigation - Simple Tests', () => {
   });
 
   it('should navigate to dashboard after login', () => {
-    // Login with demo user
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
+    // Login with demo user using standardized command
+    cy.loginAsDemo();
     cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
 
     // Check navigation exists

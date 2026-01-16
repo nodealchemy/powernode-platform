@@ -5,7 +5,7 @@ import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { Button } from '@/shared/components/ui/Button';
 import { PromptTemplateList } from '../components/PromptTemplateList';
 import { usePromptTemplates } from '../hooks/usePromptTemplates';
-import type { CiCdPromptTemplate, CiCdPromptCategory, CiCdPromptTemplateFormData, CiCdPromptPreviewResponse } from '@/types/cicd';
+import type { CiCdPromptTemplate, CiCdPromptCategory, CiCdPromptTemplateFormData, CiCdPromptPreviewResponse } from '@/types/devops-pipelines';
 
 interface TemplateEditorProps {
   template?: CiCdPromptTemplate;

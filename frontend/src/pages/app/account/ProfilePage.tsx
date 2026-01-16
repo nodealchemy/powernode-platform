@@ -465,7 +465,7 @@ export const ProfilePage: React.FC = () => {
                   <p className="text-sm text-theme-secondary mt-1">Update your personal information</p>
                 </div>
                 <div className="p-6">
-                  <form id="profile-form" onSubmit={handleProfileUpdate}>
+                  <form id="profile-form" data-testid="profile-form" onSubmit={handleProfileUpdate}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="md:col-span-2">
                         <label className="label-theme">
@@ -473,6 +473,7 @@ export const ProfilePage: React.FC = () => {
                         </label>
                         <input
                           type="text"
+                          name="name"
                           value={profileForm.name}
                           onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
                           className={`input-theme w-full ${
@@ -491,6 +492,7 @@ export const ProfilePage: React.FC = () => {
                         </label>
                         <input
                           type="email"
+                          name="email"
                           value={profileForm.email}
                           onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
                           className={`input-theme w-full ${

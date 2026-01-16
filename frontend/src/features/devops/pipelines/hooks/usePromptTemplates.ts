@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ciCdPromptTemplatesApi } from '@/services/ciCdApi';
-import type { CiCdPromptTemplate, CiCdPromptTemplateFormData, CiCdPromptPreviewResponse } from '@/types/cicd';
+import { devopsPromptTemplatesApi } from '@/services/devopsPipelinesApi';
+import type { CiCdPromptTemplate, CiCdPromptTemplateFormData, CiCdPromptPreviewResponse } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UsePromptTemplatesParams {
@@ -26,7 +26,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
     try {
       setLoading(true);
       setError(null);
-      const data = await ciCdPromptTemplatesApi.getAll(params);
+      const data = await devopsPromptTemplatesApi.getAll(params);
       setTemplates(data.prompt_templates);
       setMeta(data.meta);
     } catch (err) {
@@ -49,7 +49,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
 
   const createTemplate = async (data: CiCdPromptTemplateFormData) => {
     try {
-      const template = await ciCdPromptTemplatesApi.create(data);
+      const template = await devopsPromptTemplatesApi.create(data);
       showNotification('Prompt template created successfully', 'success');
       await fetchTemplates();
       return template;
@@ -61,7 +61,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
 
   const updateTemplate = async (id: string, data: Partial<CiCdPromptTemplateFormData>) => {
     try {
-      const template = await ciCdPromptTemplatesApi.update(id, data);
+      const template = await devopsPromptTemplatesApi.update(id, data);
       showNotification('Prompt template updated successfully', 'success');
       await fetchTemplates();
       return template;
@@ -73,7 +73,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
 
   const deleteTemplate = async (id: string) => {
     try {
-      await ciCdPromptTemplatesApi.delete(id);
+      await devopsPromptTemplatesApi.delete(id);
       showNotification('Prompt template deleted successfully', 'success');
       await fetchTemplates();
       return true;
@@ -85,7 +85,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
 
   const duplicateTemplate = async (id: string) => {
     try {
-      const template = await ciCdPromptTemplatesApi.duplicate(id);
+      const template = await devopsPromptTemplatesApi.duplicate(id);
       showNotification('Prompt template duplicated successfully', 'success');
       await fetchTemplates();
       return template;
@@ -97,7 +97,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
 
   const previewTemplate = async (id: string, variables: Record<string, string>): Promise<CiCdPromptPreviewResponse | null> => {
     try {
-      const result = await ciCdPromptTemplatesApi.preview(id, variables);
+      const result = await devopsPromptTemplatesApi.preview(id, variables);
       return result;
     } catch (err) {
       showNotification('Failed to preview prompt template', 'error');
@@ -133,7 +133,7 @@ export function usePromptTemplate(id: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const data = await ciCdPromptTemplatesApi.getById(id, true);
+      const data = await devopsPromptTemplatesApi.getById(id, true);
       setTemplate(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch prompt template';
@@ -155,7 +155,7 @@ export function usePromptTemplate(id: string | null) {
     if (!id) return null;
 
     try {
-      const updated = await ciCdPromptTemplatesApi.update(id, data);
+      const updated = await devopsPromptTemplatesApi.update(id, data);
       showNotification('Prompt template updated successfully', 'success');
       setTemplate(updated);
       return updated;

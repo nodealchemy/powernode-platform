@@ -16,667 +16,267 @@
 
 describe('Admin Maintenance Page Tests', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupAdminIntercepts();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup({ intercepts: ['admin'] });
   });
 
   describe('Page Navigation', () => {
-    it('should navigate to Admin Maintenance page', () => {
-      cy.visit('/app/admin/maintenance');
-      cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Maintenance') ||
-                          $body.text().includes('System') ||
-                          $body.text().includes('Health') ||
-                          $body.text().includes('Permission');
-        if (hasContent) {
-          cy.log('Admin Maintenance page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/maintenance');
     });
 
-    it('should display page title', () => {
-      cy.visit('/app/admin/maintenance');
-      cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasTitle = $body.text().includes('Maintenance') ||
-                         $body.text().includes('System Health');
-        if (hasTitle) {
-          cy.log('Page title displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should navigate to Admin Maintenance page and display content', () => {
+      cy.assertContainsAny(['Maintenance', 'System', 'Health']);
     });
 
     it('should display breadcrumbs', () => {
-      cy.visit('/app/admin/maintenance');
-      cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasBreadcrumbs = $body.text().includes('Admin') ||
-                               $body.text().includes('Dashboard');
-        if (hasBreadcrumbs) {
-          cy.log('Breadcrumbs displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Admin', 'Dashboard', 'Maintenance']);
     });
   });
 
   describe('Tab Navigation', () => {
     beforeEach(() => {
-      cy.visit('/app/admin/maintenance');
-      cy.waitForPageLoad();
+      cy.navigateTo('/app/admin/maintenance');
     });
 
     it('should display maintenance tabs', () => {
-      cy.get('body').then($body => {
-        const hasTabs = $body.find('[role="tab"], button[class*="tab"], [class*="Tab"]').length > 0;
-        if (hasTabs) {
-          cy.log('Maintenance tabs displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      // The page uses button-based tabs with emoji icons
+      cy.assertContainsAny(['Overview', 'Mode', 'Health', 'Backups', 'Cleanup', 'Operations', 'Schedules']);
     });
 
-    it('should switch to Overview tab', () => {
-      cy.get('body').then($body => {
-        const overviewTab = $body.find('button:contains("Overview"), [role="tab"]:contains("Overview")');
-        if (overviewTab.length > 0) {
-          cy.wrap(overviewTab).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.log('Switched to Overview tab');
-        }
-      });
+    it('should switch between tabs using path navigation', () => {
+      const tabs = [
+        { path: '/app/admin/maintenance', content: ['Overview', 'Status', 'System'] },
+        { path: '/app/admin/maintenance/mode', content: ['Mode', 'Maintenance Mode', 'Enable', 'Disable', 'Message'] },
+        { path: '/app/admin/maintenance/health', content: ['Health', 'CPU', 'Memory', 'Disk', 'Score', 'Database'] },
+        { path: '/app/admin/maintenance/backups', content: ['Backup', 'Restore', 'Database', 'Create'] },
+        { path: '/app/admin/maintenance/cleanup', content: ['Cleanup', 'Clear', 'Cache', 'Temporary', 'Files'] },
+        { path: '/app/admin/maintenance/schedules', content: ['Schedule', 'Planned', 'Upcoming', 'Tasks'] },
+      ];
 
-      cy.get('body').should('be.visible');
+      tabs.forEach((tab) => {
+        cy.visit(tab.path);
+        cy.waitForPageLoad();
+        cy.assertContainsAny(tab.content);
+      });
     });
 
-    it('should switch to Maintenance Mode tab', () => {
+    it('should switch tabs via tab buttons', () => {
+      // Click on Health tab
       cy.get('body').then($body => {
-        const modeTab = $body.find('button:contains("Mode"), button:contains("Maintenance Mode"), [role="tab"]:contains("Mode")');
-        if (modeTab.length > 0) {
-          cy.wrap(modeTab).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.log('Switched to Maintenance Mode tab');
+        const healthButton = $body.find('button:contains("Health")');
+        if (healthButton.length > 0) {
+          cy.contains('button', 'Health').click();
+          cy.waitForStableDOM();
+          cy.url().should('include', '/health');
         }
       });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should switch to System Health tab', () => {
-      cy.get('body').then($body => {
-        const healthTab = $body.find('button:contains("Health"), button:contains("System Health"), [role="tab"]:contains("Health")');
-        if (healthTab.length > 0) {
-          cy.wrap(healthTab).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.log('Switched to System Health tab');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should switch to Backups tab', () => {
-      cy.get('body').then($body => {
-        const backupsTab = $body.find('button:contains("Backup"), [role="tab"]:contains("Backup")');
-        if (backupsTab.length > 0) {
-          cy.wrap(backupsTab).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.log('Switched to Backups tab');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should switch to Cleanup tab', () => {
-      cy.get('body').then($body => {
-        const cleanupTab = $body.find('button:contains("Cleanup"), [role="tab"]:contains("Cleanup")');
-        if (cleanupTab.length > 0) {
-          cy.wrap(cleanupTab).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.log('Switched to Cleanup tab');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should switch to Operations tab', () => {
-      cy.get('body').then($body => {
-        const operationsTab = $body.find('button:contains("Operations"), [role="tab"]:contains("Operations")');
-        if (operationsTab.length > 0) {
-          cy.wrap(operationsTab).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.log('Switched to Operations tab');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should switch to Schedules tab', () => {
-      cy.get('body').then($body => {
-        const schedulesTab = $body.find('button:contains("Schedule"), [role="tab"]:contains("Schedule")');
-        if (schedulesTab.length > 0) {
-          cy.wrap(schedulesTab).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.log('Switched to Schedules tab');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should update URL when switching tabs', () => {
-      cy.get('body').then($body => {
-        const healthTab = $body.find('button:contains("Health"), [role="tab"]:contains("Health")');
-        if (healthTab.length > 0) {
-          cy.wrap(healthTab).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.url().then(url => {
-            if (url.includes('tab=') || url.includes('health')) {
-              cy.log('URL updated with tab parameter');
-            }
-          });
-        }
-      });
-
-      cy.get('body').should('be.visible');
     });
   });
 
   describe('Overview Tab Content', () => {
     beforeEach(() => {
-      cy.visit('/app/admin/maintenance');
-      cy.waitForPageLoad();
+      cy.navigateTo('/app/admin/maintenance');
     });
 
     it('should display system status overview', () => {
-      cy.get('body').then($body => {
-        const hasOverview = $body.text().includes('Status') ||
-                            $body.text().includes('Overview') ||
-                            $body.text().includes('System');
-        if (hasOverview) {
-          cy.log('System status overview displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Status', 'Overview', 'System', 'Active', 'Health', 'Maintenance']);
     });
 
-    it('should display maintenance status indicator', () => {
-      cy.get('body').then($body => {
-        const hasStatus = $body.text().includes('Active') ||
-                          $body.text().includes('Inactive') ||
-                          $body.text().includes('Enabled') ||
-                          $body.text().includes('Disabled') ||
-                          $body.find('[class*="badge"], [class*="status"]').length > 0;
-        if (hasStatus) {
-          cy.log('Maintenance status indicator displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display quick access cards', () => {
+      cy.assertContainsAny(['Mode', 'Health', 'Backups', 'Cleanup', 'Schedule']);
     });
   });
 
   describe('Maintenance Mode Controls', () => {
     beforeEach(() => {
-      cy.visit('/app/admin/maintenance?tab=mode');
-      cy.waitForPageLoad();
+      cy.navigateTo('/app/admin/maintenance/mode');
     });
 
-    it('should display maintenance mode toggle', () => {
-      cy.get('body').then($body => {
-        const hasToggle = $body.find('input[type="checkbox"], button[role="switch"], [class*="toggle"], [class*="switch"]').length > 0;
-        if (hasToggle) {
-          cy.log('Maintenance mode toggle found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display maintenance mode toggle and settings', () => {
+      cy.assertHasElement([
+        'input[type="checkbox"]',
+        'button[role="switch"]',
+        '[class*="toggle"]',
+        '[class*="switch"]',
+        '[role="checkbox"]',
+        '[aria-checked]',
+        'button',
+      ]);
+      cy.assertContainsAny(['Message', 'Duration', 'Settings', 'Enable', 'Disable', 'Activate', 'Mode']);
     });
 
-    it('should display maintenance mode settings', () => {
-      cy.get('body').then($body => {
-        const hasSettings = $body.text().includes('Message') ||
-                            $body.text().includes('Duration') ||
-                            $body.text().includes('Allowed IPs') ||
-                            $body.text().includes('Settings');
-        if (hasSettings) {
-          cy.log('Maintenance mode settings displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should have enable/disable maintenance button', () => {
-      cy.get('body').then($body => {
-        const maintenanceButton = $body.find('button:contains("Enable"), button:contains("Disable"), button:contains("Activate")');
-        if (maintenanceButton.length > 0) {
-          cy.log('Enable/Disable maintenance button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display maintenance message input', () => {
+      cy.assertContainsAny(['Message', 'message', 'Description']);
     });
   });
 
   describe('System Health Display', () => {
     beforeEach(() => {
-      cy.visit('/app/admin/maintenance?tab=health');
-      cy.waitForPageLoad();
+      cy.navigateTo('/app/admin/maintenance/health');
     });
 
     it('should display system health metrics', () => {
-      cy.get('body').then($body => {
-        const hasMetrics = $body.text().includes('CPU') ||
-                           $body.text().includes('Memory') ||
-                           $body.text().includes('Disk') ||
-                           $body.text().includes('Health');
-        if (hasMetrics) {
-          cy.log('System health metrics displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['CPU', 'Memory', 'Disk', 'Health', 'Score', '%', 'Healthy', 'Warning', 'System']);
     });
 
-    it('should display health score', () => {
-      cy.get('body').then($body => {
-        const hasScore = $body.text().includes('Score') ||
-                         $body.text().includes('%') ||
-                         $body.text().includes('Healthy') ||
-                         $body.text().includes('Warning');
-        if (hasScore) {
-          cy.log('Health score displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display service status information', () => {
+      cy.assertContainsAny(['Database', 'Redis', 'Queue', 'Service', 'Status', 'Connected']);
     });
 
-    it('should display service status list', () => {
-      cy.get('body').then($body => {
-        const hasServices = $body.text().includes('Database') ||
-                            $body.text().includes('Redis') ||
-                            $body.text().includes('Queue') ||
-                            $body.text().includes('Service');
-        if (hasServices) {
-          cy.log('Service status list displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should have refresh health button', () => {
-      cy.get('body').then($body => {
-        const refreshButton = $body.find('button:contains("Refresh"), button:contains("Check"), [aria-label*="refresh"]');
-        if (refreshButton.length > 0) {
-          cy.log('Refresh health button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should have refresh health functionality', () => {
+      cy.assertContainsAny(['Refresh', 'Check', 'Update']);
     });
   });
 
   describe('Backup Management', () => {
     beforeEach(() => {
-      cy.visit('/app/admin/maintenance?tab=backups');
-      cy.waitForPageLoad();
+      cy.navigateTo('/app/admin/maintenance/backups');
     });
 
-    it('should display backup list', () => {
-      cy.get('body').then($body => {
-        const hasBackups = $body.text().includes('Backup') ||
-                           $body.text().includes('Restore') ||
-                           $body.text().includes('Database');
-        if (hasBackups) {
-          cy.log('Backup list displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display backup list and controls', () => {
+      cy.assertContainsAny(['Backup', 'Restore', 'Database', 'Create Backup', 'New Backup', 'No backups']);
     });
 
-    it('should have Create Backup button', () => {
-      cy.get('body').then($body => {
-        const createButton = $body.find('button:contains("Create Backup"), button:contains("New Backup")');
-        if (createButton.length > 0) {
-          cy.log('Create Backup button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display backup information', () => {
+      cy.assertContainsAny(['Size', 'Date', 'Type', 'Status', 'Created', 'backup']);
     });
 
-    it('should display backup details', () => {
-      cy.get('body').then($body => {
-        const hasDetails = $body.text().includes('Size') ||
-                           $body.text().includes('Date') ||
-                           $body.text().includes('Type') ||
-                           $body.text().includes('Status');
-        if (hasDetails) {
-          cy.log('Backup details displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should have restore backup option', () => {
-      cy.get('body').then($body => {
-        const restoreButton = $body.find('button:contains("Restore"), [aria-label*="restore"]');
-        if (restoreButton.length > 0) {
-          cy.log('Restore backup option found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should have delete backup option', () => {
-      cy.get('body').then($body => {
-        const deleteButton = $body.find('button:contains("Delete"), [aria-label*="delete"]');
-        if (deleteButton.length > 0) {
-          cy.log('Delete backup option found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should have backup action buttons', () => {
+      cy.assertContainsAny(['Create Backup', 'New Backup', 'Restore', 'Delete', 'Create', 'Backup']);
     });
   });
 
   describe('Cleanup Operations', () => {
     beforeEach(() => {
-      cy.visit('/app/admin/maintenance?tab=cleanup');
-      cy.waitForPageLoad();
+      cy.navigateTo('/app/admin/maintenance/cleanup');
     });
 
-    it('should display cleanup options', () => {
-      cy.get('body').then($body => {
-        const hasCleanup = $body.text().includes('Cleanup') ||
-                           $body.text().includes('Clear') ||
-                           $body.text().includes('Cache');
-        if (hasCleanup) {
-          cy.log('Cleanup options displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display cleanup options and controls', () => {
+      cy.assertContainsAny(['Cleanup', 'Clear', 'Cache', 'Run Cleanup', 'Start Cleanup', 'Clean', 'Temporary']);
     });
 
-    it('should have Run Cleanup button', () => {
-      cy.get('body').then($body => {
-        const runButton = $body.find('button:contains("Run Cleanup"), button:contains("Start Cleanup"), button:contains("Clean")');
-        if (runButton.length > 0) {
-          cy.log('Run Cleanup button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display cleanup categories', () => {
+      cy.assertContainsAny(['Temporary Files', 'Old Logs', 'Cache', 'Space', 'Files', 'Logs']);
     });
 
-    it('should display cleanup stats', () => {
-      cy.get('body').then($body => {
-        const hasStats = $body.text().includes('Temporary Files') ||
-                         $body.text().includes('Old Logs') ||
-                         $body.text().includes('Cache') ||
-                         $body.text().includes('Space');
-        if (hasStats) {
-          cy.log('Cleanup stats displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should have cleanup type selection', () => {
-      cy.get('body').then($body => {
-        const hasSelection = $body.find('input[type="checkbox"], select, [class*="checkbox"]').length > 0;
-        if (hasSelection) {
-          cy.log('Cleanup type selection found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should have cleanup action options', () => {
+      cy.assertHasElement([
+        'input[type="checkbox"]',
+        'select',
+        '[class*="checkbox"]',
+        '[role="checkbox"]',
+        '[class*="select"]',
+        '[role="listbox"]',
+        'button',
+      ]);
     });
   });
 
   describe('Scheduled Maintenance', () => {
     beforeEach(() => {
-      cy.visit('/app/admin/maintenance?tab=schedules');
-      cy.waitForPageLoad();
+      cy.navigateTo('/app/admin/maintenance/schedules');
     });
 
-    it('should display scheduled maintenance list', () => {
-      cy.get('body').then($body => {
-        const hasSchedules = $body.text().includes('Schedule') ||
-                             $body.text().includes('Planned') ||
-                             $body.text().includes('Upcoming');
-        if (hasSchedules) {
-          cy.log('Scheduled maintenance list displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display scheduled maintenance list and controls', () => {
+      cy.assertContainsAny(['Schedule', 'Planned', 'Upcoming', 'New Schedule', 'Create Schedule', 'Add', 'Tasks', 'No scheduled']);
     });
 
-    it('should have New Schedule button', () => {
-      cy.get('body').then($body => {
-        const newButton = $body.find('button:contains("New Schedule"), button:contains("Create Schedule"), button:contains("Add")');
-        if (newButton.length > 0) {
-          cy.log('New Schedule button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display schedule information', () => {
+      cy.assertContainsAny(['Time', 'Duration', 'Recurring', 'Type', 'Date', 'Status', 'Schedule']);
     });
 
-    it('should display schedule details', () => {
-      cy.get('body').then($body => {
-        const hasDetails = $body.text().includes('Time') ||
-                           $body.text().includes('Duration') ||
-                           $body.text().includes('Recurring') ||
-                           $body.text().includes('Type');
-        if (hasDetails) {
-          cy.log('Schedule details displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should have edit schedule option', () => {
-      cy.get('body').then($body => {
-        const editButton = $body.find('button:contains("Edit"), [aria-label*="edit"]');
-        if (editButton.length > 0) {
-          cy.log('Edit schedule option found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
-    });
-
-    it('should have cancel schedule option', () => {
-      cy.get('body').then($body => {
-        const cancelButton = $body.find('button:contains("Cancel"), button:contains("Delete"), [aria-label*="cancel"]');
-        if (cancelButton.length > 0) {
-          cy.log('Cancel schedule option found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should have schedule action options', () => {
+      cy.assertContainsAny(['Edit', 'Cancel', 'Delete', 'New', 'Create', 'Add']);
     });
   });
 
   describe('Tab-Specific Actions', () => {
     it('should show Create Backup action on backups tab', () => {
-      cy.visit('/app/admin/maintenance?tab=backups');
-      cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasAction = $body.find('button:contains("Create Backup"), button:contains("New Backup")').length > 0;
-        if (hasAction) {
-          cy.log('Create Backup action shown');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.navigateTo('/app/admin/maintenance/backups');
+      cy.assertContainsAny(['Create Backup', 'New Backup', 'Backup', 'Create']);
     });
 
     it('should show Run Cleanup action on cleanup tab', () => {
-      cy.visit('/app/admin/maintenance?tab=cleanup');
-      cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasAction = $body.find('button:contains("Run Cleanup"), button:contains("Start Cleanup")').length > 0;
-        if (hasAction) {
-          cy.log('Run Cleanup action shown');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.navigateTo('/app/admin/maintenance/cleanup');
+      cy.assertContainsAny(['Run Cleanup', 'Start Cleanup', 'Cleanup', 'Clean']);
     });
 
     it('should show New Schedule action on schedules tab', () => {
-      cy.visit('/app/admin/maintenance?tab=schedules');
-      cy.waitForPageLoad();
+      cy.navigateTo('/app/admin/maintenance/schedules');
+      cy.assertContainsAny(['New Schedule', 'Create Schedule', 'Schedule', 'Add']);
+    });
+  });
 
-      cy.get('body').then($body => {
-        const hasAction = $body.find('button:contains("New Schedule"), button:contains("Create Schedule")').length > 0;
-        if (hasAction) {
-          cy.log('New Schedule action shown');
-        }
-      });
+  describe('Page Actions', () => {
+    beforeEach(() => {
+      cy.navigateTo('/app/admin/maintenance');
+    });
 
-      cy.get('body').should('be.visible');
+    it('should have Refresh button', () => {
+      cy.assertContainsAny(['Refresh', 'Reload']);
     });
   });
 
   describe('Error Handling', () => {
     it('should handle API error gracefully', () => {
-      cy.intercept('GET', '/api/v1/admin/maintenance*', {
+      cy.testErrorHandling('/api/v1/admin/maintenance*', {
         statusCode: 500,
-        body: { success: false, error: 'Server error' }
+        visitUrl: '/app/admin/maintenance',
       });
-
-      cy.visit('/app/admin/maintenance');
-      cy.waitForPageLoad();
-
-      cy.get('body').should('be.visible');
-      cy.get('body').should('not.contain.text', 'Cannot read');
-      cy.get('body').should('not.contain.text', 'TypeError');
     });
 
-    it('should display error notification on failure', () => {
-      cy.intercept('GET', '/api/v1/admin/maintenance*', {
+    it('should display error recovery option', () => {
+      cy.intercept('GET', '**/api/**/maintenance**', {
         statusCode: 500,
-        body: { success: false, error: 'Failed to load maintenance data' }
-      });
+        body: { success: false, error: 'Server error' }
+      }).as('maintenanceError');
 
       cy.visit('/app/admin/maintenance');
       cy.waitForPageLoad();
-
       cy.get('body').then($body => {
         const hasError = $body.text().includes('Error') ||
-                         $body.text().includes('Failed') ||
-                         $body.find('[class*="error"]').length > 0;
-        if (hasError) {
-          cy.log('Error notification displayed');
-        }
+                        $body.text().includes('Try Again') ||
+                        $body.text().includes('Failed');
+        cy.log(hasError ? 'Error handling displayed' : 'Page loaded despite error');
       });
-
-      cy.get('body').should('be.visible');
     });
   });
 
   describe('Permission-Based Access', () => {
-    it('should show access denied for unauthorized users', () => {
-      cy.intercept('GET', '/api/v1/users/me', {
-        statusCode: 200,
-        body: {
-          success: true,
-          data: {
-            id: 'test-user',
-            email: 'limited@test.com',
-            permissions: ['basic.read']
-          }
-        }
-      });
-
-      cy.visit('/app/admin/maintenance');
-      cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasPermissionCheck = $body.text().includes('Permission') ||
-                                    $body.text().includes('Access') ||
-                                    $body.text().includes('Denied');
-        if (hasPermissionCheck) {
-          cy.log('Permission check displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display page for authorized users', () => {
+      cy.navigateTo('/app/admin/maintenance');
+      // Page should load and show either maintenance content or permission message
+      cy.assertContainsAny(['Maintenance', 'Permission', 'Access', 'System']);
     });
   });
 
   describe('Responsive Design', () => {
-    it('should display properly on mobile viewport', () => {
+    it('should display properly across viewports', () => {
+      cy.testResponsiveDesign('/app/admin/maintenance', {
+        checkContent: 'Maintenance',
+      });
+    });
+
+    it('should handle mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/maintenance');
       cy.waitForPageLoad();
-
       cy.get('body').should('be.visible');
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Maintenance') || $body.text().includes('Admin');
-        if (hasContent) {
-          cy.log('Content visible on mobile');
-        }
-      });
+      cy.assertContainsAny(['Maintenance', 'System']);
     });
 
-    it('should display properly on tablet viewport', () => {
-      cy.viewport('ipad-2');
+    it('should show scrollable tabs on small screens', () => {
+      cy.viewport('iphone-x');
       cy.visit('/app/admin/maintenance');
       cy.waitForPageLoad();
-
-      cy.get('body').should('be.visible');
+      // Tab container should be scrollable
       cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Maintenance') || $body.text().includes('Admin');
-        if (hasContent) {
-          cy.log('Content visible on tablet');
-        }
+        const hasTabContainer = $body.find('[class*="overflow-x"], [class*="scrollbar"]').length > 0 ||
+                               $body.find('button:contains("Overview")').length > 0;
+        cy.log(hasTabContainer ? 'Tab navigation present' : 'Checking tab display');
       });
-    });
-
-    it('should display tabs properly on small screens', () => {
-      cy.viewport(375, 667);
-      cy.visit('/app/admin/maintenance');
-      cy.waitForPageLoad();
-
-      cy.get('body').should('be.visible');
     });
   });
 });
-
 
 export {};

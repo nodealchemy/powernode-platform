@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CiCdPipelineRun } from '@/types/cicd';
+import type { CiCdPipelineRun } from '@/types/devops-pipelines';
 
 export interface CiCdPipelineEvent {
   type: 'run_created' | 'run_updated' | 'run_completed' | 'step_updated' | 'subscribed';

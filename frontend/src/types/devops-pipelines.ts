@@ -1,4 +1,5 @@
-// CI/CD Pipeline Management Types
+// DevOps Pipeline Management Types
+// Note: Types use CiCd prefix for backward compatibility during migration
 
 // Provider types
 export type CiCdProviderType = 'gitea' | 'github' | 'gitlab' | 'jenkins';
@@ -401,3 +402,16 @@ export interface CiCdConnectionTestResponse {
   details?: Record<string, unknown>;
   tested_at: string;
 }
+
+// Type aliases for future migration to Devops naming convention
+export type DevopsProviderType = CiCdProviderType;
+export type DevopsProvider = CiCdProvider;
+export type DevopsProviderFormData = CiCdProviderFormData;
+export type DevopsPipeline = CiCdPipeline;
+export type DevopsPipelineFormData = CiCdPipelineFormData;
+export type DevopsPipelineRun = CiCdPipelineRun;
+export type DevopsPipelineRunStatus = CiCdPipelineRunStatus;
+export type DevopsSchedule = CiCdSchedule;
+export type DevopsScheduleFormData = CiCdScheduleFormData;
+export type DevopsRepository = CiCdRepository;
+export type DevopsRepositoryFormData = CiCdRepositoryFormData;

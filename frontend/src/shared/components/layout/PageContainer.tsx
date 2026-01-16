@@ -124,6 +124,8 @@ export const PageContainer: React.FC<PageContainerProps> = ({
                 onClick={action.onClick}
                 disabled={action.disabled}
                 className={`${getButtonClasses(action.variant, action.size)} ${action.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                data-testid={action.id ? `action-${action.id}` : `action-${index}`}
+                aria-label={action.label}
               >
                 {renderIcon(action.icon, 'w-4 h-4 mr-2')}
                 {action.label}

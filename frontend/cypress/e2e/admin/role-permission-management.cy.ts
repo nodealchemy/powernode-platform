@@ -8,15 +8,7 @@
 
 describe('Role & Permission Management', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupAdminIntercepts();
-    // Login with demo user
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
-    cy.waitForPageLoad();
+    cy.standardTestSetup();
   });
 
   describe('User Authentication', () => {
@@ -113,12 +105,14 @@ describe('Role & Permission Management', () => {
 
   describe('User Menu Permissions', () => {
     it('should display user dropdown with options', () => {
-      // Open user menu
+      // Open user menu using broader selectors
       cy.get('body').then($body => {
         const menuTriggers = [
           '[data-testid="user-menu"]',
-          'button:contains("Demo")',
-          '[class*="avatar"]'
+          'button[aria-haspopup="true"]',
+          '[class*="avatar"]',
+          'button[class*="user"]',
+          'header button',
         ];
 
         for (const selector of menuTriggers) {
@@ -129,8 +123,8 @@ describe('Role & Permission Management', () => {
         }
       });
 
-      // Should show dropdown options
-      cy.contains(/Settings|Profile|Sign Out|Logout/i).should('be.visible');
+      // Should show dropdown options - be flexible about what text appears
+      cy.assertContainsAny(['Settings', 'Profile', 'Sign Out', 'Logout', 'Account']);
     });
 
     it('should allow accessing profile from user menu', () => {

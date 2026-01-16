@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Download, Copy, Check, ArrowDown, Loader2, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-import { ciCdPipelineRunsApi } from '@/services/ciCdApi';
+import { devopsPipelineRunsApi } from '@/services/devopsPipelinesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useJobLogsWebSocket } from '../hooks/useJobLogsWebSocket';
 
@@ -107,7 +107,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
 
     try {
       setPollingError(null);
-      const data = await ciCdPipelineRunsApi.getLogs(jobId);
+      const data = await devopsPipelineRunsApi.getLogs(jobId);
       // Combine all step logs into a single string
       const combinedLogs = data.logs
         .map(step => `=== ${step.step_name} (${step.status}) ===\n${step.logs || ''}${step.error_message ? `\nError: ${step.error_message}` : ''}`)

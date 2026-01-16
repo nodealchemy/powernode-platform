@@ -9,7 +9,7 @@ import { PipelineStatsCards } from '../components/PipelineStatsCards';
 import { usePipelines } from '../hooks/usePipelines';
 import { usePipelineRuns } from '../hooks/usePipelineRuns';
 import { usePromptTemplates } from '../hooks/usePromptTemplates';
-import type { CiCdPipeline, CiCdPipelineRun, CiCdPipelineRunStatus } from '@/types/cicd';
+import type { CiCdPipeline, CiCdPipelineRun, CiCdPipelineRunStatus } from '@/types/devops-pipelines';
 
 const getStatusConfig = (status: CiCdPipelineRunStatus) => {
   const configs: Record<CiCdPipelineRunStatus, { bg: string; text: string; icon: React.ElementType }> = {
@@ -98,21 +98,21 @@ const AiPipelinesOverviewContent: React.FC = () => {
     {
       id: 'pipelines',
       label: 'Pipelines',
-      onClick: () => navigate('/app/automation/pipelines'),
+      onClick: () => navigate('/app/devops/pipelines'),
       variant: 'secondary' as const,
       icon: Play
     },
     {
       id: 'prompts',
       label: 'Prompts',
-      onClick: () => navigate('/app/automation/templates'),
+      onClick: () => navigate('/app/ai/prompts'),
       variant: 'secondary' as const,
       icon: FileText
     },
     {
       id: 'settings',
       label: 'Settings',
-      onClick: () => navigate('/app/automation/settings'),
+      onClick: () => navigate('/app/devops'),
       variant: 'secondary' as const,
       icon: Settings
     },
@@ -146,7 +146,7 @@ const AiPipelinesOverviewContent: React.FC = () => {
             <div className="p-4 border-b border-theme flex items-center justify-between">
               <h3 className="font-medium text-theme-primary">Recent Runs</h3>
               <Button
-                onClick={() => navigate('/app/automation/runs')}
+                onClick={() => navigate('/app/devops/pipelines')}
                 variant="ghost"
                 size="sm"
               >
@@ -164,7 +164,7 @@ const AiPipelinesOverviewContent: React.FC = () => {
                     <RecentRunRow
                       key={run.id}
                       run={run}
-                      onClick={() => navigate(`/app/automation/runs/${run.id}`)}
+                      onClick={() => navigate(`/app/devops/pipelines/${run.id}`)}
                     />
                   ))}
                 </div>
@@ -179,7 +179,7 @@ const AiPipelinesOverviewContent: React.FC = () => {
             <div className="p-4 border-b border-theme flex items-center justify-between">
               <h3 className="font-medium text-theme-primary">Pipelines</h3>
               <Button
-                onClick={() => navigate('/app/automation/pipelines')}
+                onClick={() => navigate('/app/devops/pipelines')}
                 variant="ghost"
                 size="sm"
               >
@@ -197,7 +197,7 @@ const AiPipelinesOverviewContent: React.FC = () => {
                     <PipelineCard
                       key={pipeline.id}
                       pipeline={pipeline}
-                      onClick={() => navigate(`/app/automation/pipelines/${pipeline.id}`)}
+                      onClick={() => navigate(`/app/devops/pipelines/${pipeline.id}`)}
                     />
                   ))}
                 </div>
@@ -206,7 +206,7 @@ const AiPipelinesOverviewContent: React.FC = () => {
                   <Play className="w-10 h-10 text-theme-secondary mx-auto mb-3" />
                   <p className="text-theme-secondary mb-3">No pipelines yet</p>
                   <Button
-                    onClick={() => navigate('/app/automation/pipelines/new')}
+                    onClick={() => navigate('/app/devops/pipelines/new')}
                     variant="primary"
                     size="sm"
                   >

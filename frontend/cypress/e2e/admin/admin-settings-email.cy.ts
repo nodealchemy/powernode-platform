@@ -13,20 +13,15 @@
 
 describe('Admin Settings Email Tab Tests', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupAdminIntercepts();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Page Navigation', () => {
-    it('should navigate to Email Settings tab', () => {
-      cy.visit('/app/admin/settings/email');
-      cy.waitForPageLoad();
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/email');
+    });
 
+    it('should navigate to Email Settings tab', () => {
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Email') ||
                           $body.text().includes('SMTP') ||
@@ -41,8 +36,6 @@ describe('Admin Settings Email Tab Tests', () => {
 
     it('should redirect unauthorized users', () => {
       // Test handles authorization check - page should either load or redirect
-      cy.visit('/app/admin/settings/email');
-      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -246,6 +239,10 @@ describe('Admin Settings Email Tab Tests', () => {
   });
 
   describe('Error Handling', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/email');
+    });
+
     it('should handle API errors gracefully', () => {
       cy.intercept('GET', '**/api/**/admin/settings/**', {
         statusCode: 500,
@@ -261,6 +258,10 @@ describe('Admin Settings Email Tab Tests', () => {
   });
 
   describe('Responsive Design', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/email');
+    });
+
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/email');

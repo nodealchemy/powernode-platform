@@ -13,51 +13,23 @@
 
 describe('Dashboard Overview Tests', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupApiIntercepts();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Page Load', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app');
+    });
+
     it('should load dashboard overview page', () => {
-      cy.visit('/app');
-      cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasWelcome = $body.text().includes('Welcome') ||
-                          $body.text().includes('Dashboard') ||
-                          $body.text().includes('Overview');
-        if (hasWelcome) {
-          cy.log('Dashboard overview loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Welcome', 'Dashboard', 'Overview']);
     });
 
     it('should display personalized welcome message', () => {
-      cy.visit('/app');
-      cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasPersonalized = $body.text().includes('Welcome back') ||
-                               $body.text().includes('Hello');
-        if (hasPersonalized) {
-          cy.log('Personalized welcome message displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Welcome back', 'Hello', 'Welcome']);
     });
 
     it('should display page actions', () => {
-      cy.visit('/app');
-      cy.waitForPageLoad();
-
       cy.get('body').then($body => {
         const hasActions = $body.text().includes('Analytics') ||
                           $body.text().includes('Customers') ||
@@ -73,63 +45,29 @@ describe('Dashboard Overview Tests', () => {
 
   describe('Key Metrics Cards', () => {
     beforeEach(() => {
-      cy.visit('/app');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app');
     });
 
     it('should display Total Revenue card', () => {
-      cy.get('body').then($body => {
-        const hasRevenue = $body.text().includes('Total Revenue') ||
-                          $body.text().includes('Revenue');
-        if (hasRevenue) {
-          cy.log('Total Revenue card displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Total Revenue', 'Revenue']);
     });
 
     it('should display Active Subscriptions card', () => {
-      cy.get('body').then($body => {
-        const hasSubscriptions = $body.text().includes('Active Subscriptions') ||
-                                $body.text().includes('Subscriptions');
-        if (hasSubscriptions) {
-          cy.log('Active Subscriptions card displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Active Subscriptions', 'Subscriptions']);
     });
 
     it('should display Monthly Growth card', () => {
-      cy.get('body').then($body => {
-        const hasGrowth = $body.text().includes('Monthly Growth') ||
-                         $body.text().includes('Growth');
-        if (hasGrowth) {
-          cy.log('Monthly Growth card displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Monthly Growth', 'Growth']);
     });
 
     it('should display System Health card', () => {
-      cy.get('body').then($body => {
-        const hasHealth = $body.text().includes('System Health') ||
-                         $body.text().includes('Health') ||
-                         $body.text().includes('operational');
-        if (hasHealth) {
-          cy.log('System Health card displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['System Health', 'Health', 'operational']);
     });
 
     it('should display metrics in grid layout', () => {
       cy.get('body').then($body => {
         const hasGrid = $body.find('[class*="grid"]').length > 0 ||
-                       $body.find('[class*="card"]').length >= 4;
+                       $body.find('[class*="card"]').length >= 2;
         if (hasGrid) {
           cy.log('Metrics displayed in grid layout');
         }
@@ -141,19 +79,11 @@ describe('Dashboard Overview Tests', () => {
 
   describe('Getting Started Widget', () => {
     beforeEach(() => {
-      cy.visit('/app');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app');
     });
 
     it('should display Getting Started section', () => {
-      cy.get('body').then($body => {
-        const hasGettingStarted = $body.text().includes('Getting Started');
-        if (hasGettingStarted) {
-          cy.log('Getting Started section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Getting Started', 'Setup', 'Quick Start']);
     });
 
     it('should show task completion progress', () => {
@@ -170,122 +100,45 @@ describe('Dashboard Overview Tests', () => {
     });
 
     it('should show Account created status', () => {
-      cy.get('body').then($body => {
-        const hasAccountStatus = $body.text().includes('Account created') ||
-                                $body.text().includes('account');
-        if (hasAccountStatus) {
-          cy.log('Account created status displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Account created', 'account', 'Account']);
     });
 
     it('should show Email verification status', () => {
-      cy.get('body').then($body => {
-        const hasEmailStatus = $body.text().includes('Email') ||
-                              $body.text().includes('verification') ||
-                              $body.text().includes('verified');
-        if (hasEmailStatus) {
-          cy.log('Email verification status displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Email', 'verification', 'verified']);
     });
 
     it('should show Plans setup status', () => {
-      cy.get('body').then($body => {
-        const hasPlansStatus = $body.text().includes('plan') ||
-                              $body.text().includes('Plan') ||
-                              $body.text().includes('subscription');
-        if (hasPlansStatus) {
-          cy.log('Plans setup status displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['plan', 'Plan', 'subscription']);
     });
 
     it('should show Payment gateways status', () => {
-      cy.get('body').then($body => {
-        const hasPaymentStatus = $body.text().includes('Payment') ||
-                                $body.text().includes('gateway') ||
-                                $body.text().includes('Stripe') ||
-                                $body.text().includes('PayPal');
-        if (hasPaymentStatus) {
-          cy.log('Payment gateways status displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Payment', 'gateway', 'Stripe', 'PayPal']);
     });
 
     it('should have setup action buttons', () => {
-      cy.get('body').then($body => {
-        const hasSetupButtons = $body.text().includes('Configure') ||
-                               $body.text().includes('Create') ||
-                               $body.text().includes('Verify');
-        if (hasSetupButtons) {
-          cy.log('Setup action buttons found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Configure', 'Create', 'Verify', 'Setup']);
     });
   });
 
   describe('Quick Actions', () => {
     beforeEach(() => {
-      cy.visit('/app');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app');
     });
 
     it('should display Quick Actions section', () => {
-      cy.get('body').then($body => {
-        const hasQuickActions = $body.text().includes('Quick Actions');
-        if (hasQuickActions) {
-          cy.log('Quick Actions section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Quick Actions', 'Actions']);
     });
 
     it('should have Manage Customers action', () => {
-      cy.get('body').then($body => {
-        const hasCustomers = $body.text().includes('Manage Customers') ||
-                            $body.text().includes('Customers');
-        if (hasCustomers) {
-          cy.log('Manage Customers action found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Manage Customers', 'Customers']);
     });
 
     it('should have View Analytics action', () => {
-      cy.get('body').then($body => {
-        const hasAnalytics = $body.text().includes('View Analytics') ||
-                            $body.text().includes('Analytics');
-        if (hasAnalytics) {
-          cy.log('View Analytics action found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['View Analytics', 'Analytics']);
     });
 
     it('should have Account Settings action', () => {
-      cy.get('body').then($body => {
-        const hasSettings = $body.text().includes('Account Settings') ||
-                           $body.text().includes('Settings');
-        if (hasSettings) {
-          cy.log('Account Settings action found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Account Settings', 'Settings']);
     });
 
     it('should navigate when clicking quick action', () => {
@@ -304,26 +157,16 @@ describe('Dashboard Overview Tests', () => {
 
   describe('System Status', () => {
     beforeEach(() => {
-      cy.visit('/app');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app');
     });
 
     it('should display system status alert', () => {
-      cy.get('body').then($body => {
-        const hasStatus = $body.text().includes('Powernode') ||
-                         $body.text().includes('Ready') ||
-                         $body.text().includes('Platform');
-        if (hasStatus) {
-          cy.log('System status alert displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Powernode', 'Ready', 'Platform']);
     });
 
     it('should show positive system message', () => {
       cy.get('body').then($body => {
-        const hasPositive = $body.find('[class*="success"]').length > 0 ||
+        const hasPositive = $body.find('[class*="success"], [class*="green"]').length > 0 ||
                            $body.text().includes('Ready') ||
                            $body.text().includes('operational');
         if (hasPositive) {
@@ -337,13 +180,13 @@ describe('Dashboard Overview Tests', () => {
 
   describe('Header Actions', () => {
     beforeEach(() => {
-      cy.visit('/app');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app');
     });
 
     it('should have Analytics button in header', () => {
       cy.get('body').then($body => {
-        const hasAnalytics = $body.find('button:contains("Analytics")').length > 0;
+        const hasAnalytics = $body.find('button:contains("Analytics")').length > 0 ||
+                            $body.text().includes('Analytics');
         if (hasAnalytics) {
           cy.log('Analytics header button found');
         }
@@ -354,7 +197,8 @@ describe('Dashboard Overview Tests', () => {
 
     it('should have Customers button in header', () => {
       cy.get('body').then($body => {
-        const hasCustomers = $body.find('button:contains("Customers")').length > 0;
+        const hasCustomers = $body.find('button:contains("Customers")').length > 0 ||
+                            $body.text().includes('Customers');
         if (hasCustomers) {
           cy.log('Customers header button found');
         }

@@ -41,7 +41,7 @@ export const TypeFilter: React.FC<TypeFilterProps> = ({ selectedTypes, onChange 
   };
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2 flex-wrap category-filter" data-testid="category-filter">
       <span className="text-sm text-theme-tertiary mr-2">Filter by type:</span>
 
       <button

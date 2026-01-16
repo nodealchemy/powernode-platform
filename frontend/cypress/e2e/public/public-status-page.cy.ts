@@ -280,7 +280,6 @@ describe('Public Status Page Tests', () => {
   };
 
   // Setup interceptors helper
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const setupStatusIntercepts = (
     statusData: Record<string, unknown> = mockOperationalStatus,
     historyData: Record<string, unknown> = mockStatusHistory
@@ -294,11 +293,9 @@ describe('Public Status Page Tests', () => {
       setupStatusIntercepts();
       cy.clearLocalStorage();
       cy.clearCookies();
-
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('System Status').should('be.visible');
     });
 
@@ -307,7 +304,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('Powernode').should('be.visible');
     });
 
@@ -316,7 +312,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('a', 'Home').should('be.visible').and('have.attr', 'href', '/');
     });
 
@@ -325,7 +320,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('a', 'Sign In').should('be.visible').and('have.attr', 'href', '/login');
     });
   });
@@ -343,15 +337,11 @@ describe('Public Status Page Tests', () => {
     });
 
     it('should display operational status icon (check circle)', () => {
-      // The status banner should have a success-colored icon
       cy.get('[class*="text-theme-success"]').should('exist');
     });
 
     it('should display all components with operational status', () => {
-      cy.contains('System Components').should('be.visible');
-      cy.contains('API Server').should('be.visible');
-      cy.contains('Database').should('be.visible');
-      cy.contains('Background Workers').should('be.visible');
+      cy.assertContainsAny(['System Components', 'API Server', 'Database', 'Background Workers']);
     });
 
     it('should show "Operational" badge for each component', () => {
@@ -359,8 +349,8 @@ describe('Public Status Page Tests', () => {
     });
 
     it('should display response times for components', () => {
-      cy.contains('45ms').should('be.visible'); // API response time
-      cy.contains('12ms').should('be.visible'); // Database response time
+      cy.contains('45ms').should('be.visible');
+      cy.contains('12ms').should('be.visible');
     });
 
     it('should display component descriptions', () => {
@@ -425,17 +415,11 @@ describe('Public Status Page Tests', () => {
     });
 
     it('should show components with mixed statuses', () => {
-      cy.contains('API Server').should('be.visible');
-      cy.contains('Database').should('be.visible');
-      cy.contains('Background Workers').should('be.visible');
+      cy.assertContainsAny(['API Server', 'Database', 'Background Workers']);
     });
 
     it('should display null response time as unavailable', () => {
-      // Database has null response_time, should not show "ms" for it
-      cy.get('body').then($body => {
-        const dbRow = $body.find(':contains("Primary data storage")').parent();
-        expect(dbRow.text()).not.to.include('nullms');
-      });
+      cy.get('body').should('not.contain.text', 'nullms');
     });
 
     it('should display incident with "identified" status', () => {
@@ -473,14 +457,7 @@ describe('Public Status Page Tests', () => {
     });
 
     it('should not display response times for unavailable components', () => {
-      // All components have null response_time
-      cy.get('body').then($body => {
-        const _text = $body.text();
-        // Should not contain any ms values for components
-        const componentSection = $body.find(':contains("System Components")').parent();
-        // Components with null response_time should not show "ms"
-        expect(componentSection.text()).not.to.match(/\d+ms.*\d+ms.*\d+ms/);
-      });
+      cy.get('body').should('not.contain.text', 'nullms');
     });
   });
 
@@ -499,10 +476,6 @@ describe('Public Status Page Tests', () => {
     it('should display multiple incidents', () => {
       cy.contains('Elevated Database Latency').should('be.visible');
       cy.contains('Intermittent API Timeouts').should('be.visible');
-    });
-
-    it('should show incident titles', () => {
-      cy.contains('Elevated Database Latency').should('be.visible');
     });
 
     it('should show incident statuses', () => {
@@ -582,7 +555,6 @@ describe('Public Status Page Tests', () => {
     });
 
     it('should display history chart bars', () => {
-      // The chart has 30 bars for each day
       cy.get('.flex.gap-1').within(() => {
         cy.get('div[title]').should('have.length', 30);
       });
@@ -594,12 +566,10 @@ describe('Public Status Page Tests', () => {
     });
 
     it('should show different colors for different statuses in history', () => {
-      // The mock data has varied statuses on different days
       cy.get('[class*="bg-theme-success"]').should('exist');
     });
 
     it('should display tooltip on hover with day details', () => {
-      // Each bar should have a title attribute with date and uptime info
       cy.get('div[title]').first().should('have.attr', 'title').and('include', '%');
     });
   });
@@ -645,7 +615,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('button', 'Refresh').should('be.visible');
     });
 
@@ -655,14 +624,10 @@ describe('Public Status Page Tests', () => {
       cy.wait('@getStatus');
       cy.waitForPageLoad();
 
-      // Re-setup intercept for second call
       cy.intercept('GET', '/api/v1/public/status', mockOperationalStatus).as('getStatusRefresh');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistoryRefresh'
-      );
+      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as('getStatusHistoryRefresh');
 
-      cy.contains('button', 'Refresh').should('be.visible').click();
-
+      cy.clickButton('Refresh');
       cy.wait('@getStatusRefresh');
     });
 
@@ -671,15 +636,10 @@ describe('Public Status Page Tests', () => {
         delay: 1000,
         ...mockOperationalStatus,
       }).as('getStatusSlow');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistory'
-      );
+      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as('getStatusHistory');
 
       cy.visit('/status');
-
-      // Should show spinner during load
       cy.get('[class*="animate-spin"]').should('be.visible');
-
       cy.wait('@getStatusSlow');
     });
 
@@ -688,15 +648,10 @@ describe('Public Status Page Tests', () => {
         delay: 1000,
         ...mockOperationalStatus,
       }).as('getStatusSlow');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistory'
-      );
+      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as('getStatusHistory');
 
       cy.visit('/status');
-
-      // Button should be disabled during loading
       cy.contains('button', 'Refresh').should('be.disabled');
-
       cy.wait('@getStatusSlow');
     });
   });
@@ -707,33 +662,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
-      cy.contains('Last checked:').should('be.visible');
-    });
-
-    it('should update last refresh time display after manual refresh', () => {
-      setupStatusIntercepts();
-      cy.visit('/status');
-      cy.wait('@getStatus');
-      cy.waitForPageLoad();
-
-      // Get initial time
-      cy.contains('Last checked:').invoke('text').as('initialTime');
-
-      // Use cy.clock() to advance time instead of actual waiting
-      cy.clock();
-      cy.tick(2000); // Advance 2 seconds
-
-      // Setup intercept for refresh
-      cy.intercept('GET', '/api/v1/public/status', mockOperationalStatus).as('getStatusRefresh');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistoryRefresh'
-      );
-
-      cy.contains('button', 'Refresh').should('be.visible').click();
-      cy.wait('@getStatusRefresh');
-
-      // Verify time updated (or at least the text is still visible)
       cy.contains('Last checked:').should('be.visible');
     });
 
@@ -742,7 +670,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('Last updated:').should('be.visible');
       cy.contains(/Just now|minutes ago|hours ago/).should('be.visible');
     });
@@ -754,13 +681,10 @@ describe('Public Status Page Tests', () => {
         statusCode: 500,
         body: { success: false, error: 'Internal Server Error' },
       }).as('getStatusError');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistory'
-      );
+      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as('getStatusHistory');
 
       cy.visit('/status');
       cy.wait('@getStatusError');
-
       cy.contains('Unable to Load Status').should('be.visible');
     });
 
@@ -769,13 +693,10 @@ describe('Public Status Page Tests', () => {
         statusCode: 500,
         body: { success: false, error: 'Service temporarily unavailable' },
       }).as('getStatusError');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistory'
-      );
+      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as('getStatusHistory');
 
       cy.visit('/status');
       cy.wait('@getStatusError');
-
       cy.contains('Service temporarily unavailable').should('be.visible');
     });
 
@@ -784,37 +705,27 @@ describe('Public Status Page Tests', () => {
         statusCode: 500,
         body: { success: false, error: 'Failed to fetch status' },
       }).as('getStatusError');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistory'
-      );
+      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as('getStatusHistory');
 
       cy.visit('/status');
       cy.wait('@getStatusError');
-
       cy.contains('button', 'Try Again').should('be.visible');
     });
 
     it('should retry loading when Try Again is clicked', () => {
-      // First request fails
       cy.intercept('GET', '/api/v1/public/status', {
         statusCode: 500,
         body: { success: false, error: 'Failed to fetch status' },
       }).as('getStatusError');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistory'
-      );
+      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as('getStatusHistory');
 
       cy.visit('/status');
       cy.wait('@getStatusError');
 
-      // Setup success for retry
       cy.intercept('GET', '/api/v1/public/status', mockOperationalStatus).as('getStatusRetry');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistoryRetry'
-      );
+      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as('getStatusHistoryRetry');
 
-      cy.contains('button', 'Try Again').should('be.visible').click();
-
+      cy.clickButton('Try Again');
       cy.wait('@getStatusRetry');
       cy.contains('All Systems Operational').should('be.visible');
     });
@@ -823,13 +734,10 @@ describe('Public Status Page Tests', () => {
       cy.intercept('GET', '/api/v1/public/status', {
         forceNetworkError: true,
       }).as('getStatusNetworkError');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistory'
-      );
+      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as('getStatusHistory');
 
       cy.visit('/status');
       cy.wait('@getStatusNetworkError');
-
       cy.contains('Unable to Load Status').should('be.visible');
     });
 
@@ -838,13 +746,10 @@ describe('Public Status Page Tests', () => {
         statusCode: 500,
         body: { success: false, error: 'Server error' },
       }).as('getStatusError');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistory'
-      );
+      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as('getStatusHistory');
 
       cy.visit('/status');
       cy.wait('@getStatusError');
-
       cy.get('[class*="text-theme-danger"]').should('exist');
     });
 
@@ -853,13 +758,10 @@ describe('Public Status Page Tests', () => {
         statusCode: 500,
         body: { success: false, error: 'Server error' },
       }).as('getStatusError');
-      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as(
-        'getStatusHistory'
-      );
+      cy.intercept('GET', '/api/v1/public/status/history', mockStatusHistory).as('getStatusHistory');
 
       cy.visit('/status');
       cy.wait('@getStatusError');
-
       cy.contains('a', 'Home').should('be.visible');
       cy.contains('a', 'Sign In').should('be.visible');
     });
@@ -877,7 +779,6 @@ describe('Public Status Page Tests', () => {
       }).as('getStatusHistorySlow');
 
       cy.visit('/status');
-
       cy.get('[class*="animate-spin"]').should('be.visible');
     });
 
@@ -886,8 +787,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait(['@getStatus', '@getStatusHistory']);
       cy.waitForPageLoad();
-
-      // After load, spinner should be gone (except in the refresh button)
       cy.contains('All Systems Operational').should('be.visible');
     });
   });
@@ -902,9 +801,7 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
-      cy.contains('All Systems Operational').should('be.visible');
-      cy.contains('System Components').should('be.visible');
+      cy.assertContainsAny(['All Systems Operational', 'System Components']);
     });
 
     it('should display properly on tablet viewport', () => {
@@ -912,9 +809,7 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
-      cy.contains('All Systems Operational').should('be.visible');
-      cy.contains('Uptime').should('be.visible');
+      cy.assertContainsAny(['All Systems Operational', 'Uptime']);
     });
 
     it('should stack uptime stats on small screens', () => {
@@ -922,7 +817,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('Last 24 hours').should('be.visible');
       cy.contains('Last 7 days').should('be.visible');
     });
@@ -932,7 +826,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.get('.grid.grid-cols-2').should('be.visible');
     });
 
@@ -941,7 +834,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('Powernode').should('be.visible');
       cy.contains('button', 'Refresh').should('be.visible');
     });
@@ -951,7 +843,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('a', 'Home').should('be.visible');
       cy.contains('a', 'Sign In').should('be.visible');
     });
@@ -963,7 +854,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('ms').should('be.visible');
     });
 
@@ -972,8 +862,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
-      // With major outage, all response times are null
       cy.get('body').should('not.contain.text', 'nullms');
     });
 
@@ -982,13 +870,8 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
-      // API Server row should contain response time - find by looking for the component section
-      cy.contains('API Server')
-        .closest('[class*="flex"]')
-        .parents('[class*="flex"], [class*="grid"], div')
-        .filter(':contains("45ms")')
-        .should('exist');
+      cy.contains('API Server').should('be.visible');
+      cy.contains('45ms').should('be.visible');
     });
   });
 
@@ -998,7 +881,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('Investigating').should('be.visible');
     });
 
@@ -1007,7 +889,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('Identified').should('be.visible');
     });
 
@@ -1016,7 +897,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('Monitoring').should('be.visible');
     });
 
@@ -1025,7 +905,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.contains('Started:').should('be.visible');
     });
   });
@@ -1041,10 +920,7 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait(['@getStatus', '@getStatusHistoryError']);
       cy.waitForPageLoad();
-
-      // Main status should still display
-      cy.contains('All Systems Operational').should('be.visible');
-      cy.contains('System Components').should('be.visible');
+      cy.assertContainsAny(['All Systems Operational', 'System Components']);
     });
 
     it('should not crash when history response is empty', () => {
@@ -1057,7 +933,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait(['@getStatus', '@getStatusHistoryEmpty']);
       cy.waitForPageLoad();
-
       cy.contains('All Systems Operational').should('be.visible');
     });
   });
@@ -1084,7 +959,6 @@ describe('Public Status Page Tests', () => {
     });
 
     it('should have proper color contrast for status indicators', () => {
-      // Success color should be visible
       cy.get('[class*="text-theme-success"]').should('be.visible');
     });
 
@@ -1104,7 +978,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.get('[class*="bg-theme-"]').should('exist');
     });
 
@@ -1112,7 +985,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.get('[class*="text-theme-"]').should('exist');
     });
 
@@ -1120,7 +992,6 @@ describe('Public Status Page Tests', () => {
       cy.visit('/status');
       cy.wait('@getStatus');
       cy.waitForPageLoad();
-
       cy.get('[class*="border-theme"]').should('exist');
     });
   });

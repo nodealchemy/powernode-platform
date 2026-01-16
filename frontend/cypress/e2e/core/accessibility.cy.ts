@@ -56,12 +56,7 @@ describe('Accessibility Tests', () => {
 
   describe('Authenticated Pages Accessibility', () => {
     beforeEach(() => {
-      // Login with demo user
-      cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-      cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+      cy.standardTestSetup();
     });
 
     it('should have proper structure on dashboard', () => {

@@ -1,7 +1,7 @@
 // Navigation Configuration
 import {
   Home, BarChart3, Users, User, Settings, CreditCard,
-  FileText, Package, UserCheck, Store, Smartphone,
+  FileText, Package, UserCheck, Store,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
   HardDrive, Workflow, Server, GitBranch, FolderGit2,
   Puzzle, BookOpen, UserCog, Key
@@ -317,14 +317,6 @@ export const defaultNavigationConfig: NavigationConfig = {
       description: 'Check your latest metrics'
     },
     {
-      id: 'create-app',
-      name: 'Create App',
-      href: '/app/marketplace/my-apps',
-      icon: Smartphone,
-      description: 'Build a new marketplace app',
-      permissions: ['app.create']
-    },
-    {
       id: 'configure-payments',
       name: 'Configure Payments',
       href: '/app/admin/settings/payment-gateways',
@@ -387,13 +379,22 @@ export const adminNavigationOverrides = {
           order: 2
         },
         {
+          id: 'pipelines',
+          name: 'Pipelines',
+          href: '/app/devops/pipelines',
+          icon: Workflow,
+          description: 'CI/CD pipelines for automated deployments',
+          permissions: ['devops.pipelines.read'],
+          order: 3
+        },
+        {
           id: 'runners',
           name: 'Runners',
           href: '/app/devops/runners',
           icon: Server,
           description: 'Self-hosted workflow execution agents',
           permissions: ['cicd.runners.read', 'git.runners.read'],
-          order: 3
+          order: 4
         },
         {
           id: 'webhooks',
@@ -402,7 +403,7 @@ export const adminNavigationOverrides = {
           icon: '🔗',
           description: 'Manage webhook endpoints and events',
           permissions: ['webhook.read'],
-          order: 4
+          order: 5
         },
         {
           id: 'integrations',
@@ -411,7 +412,7 @@ export const adminNavigationOverrides = {
           icon: Puzzle,
           description: 'Third-party service integrations and webhooks',
           permissions: ['integrations.read'],
-          order: 5
+          order: 6
         },
         {
           id: 'api-keys',
@@ -420,10 +421,10 @@ export const adminNavigationOverrides = {
           icon: Key,
           description: 'API keys and authentication tokens',
           permissions: ['api.manage_keys'],
-          order: 6
+          order: 7
         }
       ],
-      permissions: ['git.providers.read', 'git.repositories.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys'],
+      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys'],
       collapsible: true,
       defaultExpanded: false,
       order: 20  // After Content (15)

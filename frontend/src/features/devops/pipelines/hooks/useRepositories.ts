@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ciCdRepositoriesApi } from '@/services/ciCdApi';
-import type { CiCdRepository, CiCdRepositoryFormData } from '@/types/cicd';
+import { devopsRepositoriesApi } from '@/services/devopsPipelinesApi';
+import type { CiCdRepository, CiCdRepositoryFormData } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UseRepositoriesParams {
@@ -26,7 +26,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
     try {
       setLoading(true);
       setError(null);
-      const data = await ciCdRepositoriesApi.getAll(params);
+      const data = await devopsRepositoriesApi.getAll(params);
       setRepositories(data.repositories);
       setMeta(data.meta);
     } catch (err) {
@@ -49,7 +49,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
 
   const createRepository = async (data: CiCdRepositoryFormData) => {
     try {
-      const repository = await ciCdRepositoriesApi.create(data);
+      const repository = await devopsRepositoriesApi.create(data);
       showNotification('Repository created successfully', 'success');
       await fetchRepositories();
       return repository;
@@ -61,7 +61,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
 
   const updateRepository = async (id: string, data: Partial<CiCdRepositoryFormData>) => {
     try {
-      const repository = await ciCdRepositoriesApi.update(id, data);
+      const repository = await devopsRepositoriesApi.update(id, data);
       showNotification('Repository updated successfully', 'success');
       await fetchRepositories();
       return repository;
@@ -73,7 +73,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
 
   const deleteRepository = async (id: string) => {
     try {
-      await ciCdRepositoriesApi.delete(id);
+      await devopsRepositoriesApi.delete(id);
       showNotification('Repository deleted successfully', 'success');
       await fetchRepositories();
       return true;
@@ -85,7 +85,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
 
   const syncRepository = async (id: string) => {
     try {
-      const result = await ciCdRepositoriesApi.sync(id);
+      const result = await devopsRepositoriesApi.sync(id);
       showNotification(result.message || 'Repository synced', 'success');
       await fetchRepositories();
       return result;
@@ -97,7 +97,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
 
   const attachPipeline = async (id: string, pipelineId: string, overrides?: Record<string, unknown>) => {
     try {
-      const repository = await ciCdRepositoriesApi.attachPipeline(id, pipelineId, overrides);
+      const repository = await devopsRepositoriesApi.attachPipeline(id, pipelineId, overrides);
       showNotification('Pipeline attached successfully', 'success');
       await fetchRepositories();
       return repository;
@@ -109,7 +109,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
 
   const detachPipeline = async (id: string, pipelineId: string) => {
     try {
-      const repository = await ciCdRepositoriesApi.detachPipeline(id, pipelineId);
+      const repository = await devopsRepositoriesApi.detachPipeline(id, pipelineId);
       showNotification('Pipeline detached successfully', 'success');
       await fetchRepositories();
       return repository;
@@ -148,7 +148,7 @@ export function useRepository(id: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const data = await ciCdRepositoriesApi.getById(id, true);
+      const data = await devopsRepositoriesApi.getById(id, true);
       setRepository(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch repository';
@@ -170,7 +170,7 @@ export function useRepository(id: string | null) {
     if (!id) return null;
 
     try {
-      const updated = await ciCdRepositoriesApi.update(id, data);
+      const updated = await devopsRepositoriesApi.update(id, data);
       showNotification('Repository updated successfully', 'success');
       setRepository(updated);
       return updated;

@@ -6,6 +6,7 @@
  */
 
 
+import { Link } from 'react-router-dom';
 import { Package, Star, CheckCircle, Users, Workflow, GitBranch, Puzzle, MessageSquare } from 'lucide-react';
 import type { MarketplaceItem, MarketplaceItemType } from '../types/marketplace';
 import { getTypeBadgeColor, getTypeDisplayName } from '../types/marketplace';
@@ -141,14 +142,13 @@ export const ItemCard: React.FC<ItemCardProps> = ({
 
           {/* Action buttons */}
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleViewDetails}
-              className="text-xs"
+            <Link
+              to={`/app/marketplace/${item.type}/${item.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-theme bg-theme-surface text-theme-primary hover:bg-theme-surface-hover transition-colors"
             >
-              Details
-            </Button>
+              View
+            </Link>
 
             {showInstallButton && onInstall && (
               <Button

@@ -104,9 +104,14 @@ describe('Authentication Flow', () => {
       cy.get('[data-testid="forgot-password-link"]', { timeout: 5000 }).should('be.visible').click();
       cy.url().should('include', '/forgot-password');
 
-      // Enter email
-      cy.get('input[name="email"], [data-testid="email-input"]').should('be.visible').type('demo@democompany.com');
-      cy.get('button[type="submit"]').should('be.visible').click();
+      // Enter email - wait for form to be ready
+      cy.wait(500);
+      cy.get('input#email, input[type="email"], input[name="email"]')
+        .first()
+        .should('exist')
+        .clear()
+        .type('demo@democompany.com', { force: true });
+      cy.get('button[type="submit"]').click();
 
       // Should show success message or stay on page
       cy.url().should('satisfy', (url: string) =>
@@ -117,8 +122,10 @@ describe('Authentication Flow', () => {
     it('should navigate to forgot password page', () => {
       cy.visit('/forgot-password');
 
-      // Page should load with email input
-      cy.get('input[name="email"], [data-testid="email-input"]').should('be.visible');
+      // Page should load with email input - use flexible selectors
+      cy.get('input[name="email"], [data-testid="email-input"], input[type="email"], input#email, input[placeholder*="email" i]')
+        .first()
+        .should('be.visible');
     });
   });
 

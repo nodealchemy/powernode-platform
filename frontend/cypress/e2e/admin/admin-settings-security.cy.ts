@@ -15,19 +15,15 @@
 
 describe('Admin Settings Security Tab Tests', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupAdminIntercepts();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Page Navigation', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/security');
+    });
+
     it('should navigate to Security Settings tab', () => {
-      cy.visit('/app/admin/settings/security');
-      cy.waitForPageLoad();
 
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Security') ||
@@ -365,6 +361,10 @@ describe('Admin Settings Security Tab Tests', () => {
   });
 
   describe('Error Handling', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/security');
+    });
+
     it('should handle API errors gracefully', () => {
       cy.intercept('GET', '**/api/**/admin/**', {
         statusCode: 500,
@@ -401,6 +401,10 @@ describe('Admin Settings Security Tab Tests', () => {
   });
 
   describe('Loading State', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/security');
+    });
+
     it('should display loading indicator', () => {
       cy.intercept('GET', '**/api/**/admin/**', {
         delay: 2000,
@@ -423,6 +427,10 @@ describe('Admin Settings Security Tab Tests', () => {
   });
 
   describe('Responsive Design', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/security');
+    });
+
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/security');

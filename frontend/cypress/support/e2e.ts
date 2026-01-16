@@ -16,6 +16,10 @@
 // Import commands.js using ES2015 syntax:
 import './commands';
 import './wait-utilities';
+import './login-commands';
+import './navigation-commands';
+import './form-commands';
+import './testing-commands';
 
 // Alternatively you can use CommonJS syntax:
 // require('./commands')

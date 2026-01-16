@@ -229,7 +229,7 @@ export function GitProvidersPage() {
 
   const handleViewRepositories = (providerId: string) => {
     setOpenMenuId(null);
-    navigate(`/app/automation/repositories?provider=${providerId}`);
+    navigate(`/app/devops/repositories?provider=${providerId}`);
   };
 
   const mapProviderType = (type?: string): GitProvider['type'] => {

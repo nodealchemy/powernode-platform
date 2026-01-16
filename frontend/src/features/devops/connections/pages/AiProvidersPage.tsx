@@ -41,7 +41,7 @@ export function AiProvidersPage() {
     {
       id: 'add-provider',
       label: 'Add Provider',
-      onClick: () => navigate('/app/connections/ai/new'),
+      onClick: () => navigate('/app/ai/providers/new'),
       variant: 'primary',
       icon: Plus
     }

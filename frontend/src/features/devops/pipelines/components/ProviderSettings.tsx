@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Server, CheckCircle, RefreshCw, Trash2, Edit, Plus } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import type { CiCdProvider, CiCdProviderType, CiCdProviderFormData } from '@/types/cicd';
+import type { CiCdProvider, CiCdProviderType, CiCdProviderFormData } from '@/types/devops-pipelines';
 
 interface ProviderSettingsProps {
   providers: CiCdProvider[];

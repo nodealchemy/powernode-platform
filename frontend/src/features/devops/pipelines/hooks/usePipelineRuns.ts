@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ciCdPipelineRunsApi } from '@/services/ciCdApi';
-import type { CiCdPipelineRun } from '@/types/cicd';
+import { devopsPipelineRunsApi } from '@/services/devopsPipelinesApi';
+import type { CiCdPipelineRun } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useCiCdRunsWebSocket } from './useCiCdWebSocket';
 
@@ -32,7 +32,7 @@ export function usePipelineRuns(params: UsePipelineRunsParams = {}) {
     try {
       setLoading(true);
       setError(null);
-      const data = await ciCdPipelineRunsApi.getAll(params);
+      const data = await devopsPipelineRunsApi.getAll(params);
       setRuns(data.pipeline_runs);
       setMeta(data.meta);
     } catch (err) {
@@ -76,7 +76,7 @@ export function usePipelineRuns(params: UsePipelineRunsParams = {}) {
 
   const cancelRun = async (id: string) => {
     try {
-      const run = await ciCdPipelineRunsApi.cancel(id);
+      const run = await devopsPipelineRunsApi.cancel(id);
       showNotification('Pipeline run cancelled', 'success');
       await fetchRuns();
       return run;
@@ -92,7 +92,7 @@ export function usePipelineRuns(params: UsePipelineRunsParams = {}) {
 
   const retryRun = async (id: string) => {
     try {
-      const run = await ciCdPipelineRunsApi.retry(id);
+      const run = await devopsPipelineRunsApi.retry(id);
       showNotification('Pipeline run retried', 'success');
       await fetchRuns();
       return run;
@@ -144,7 +144,7 @@ export function usePipelineRun(id: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const data = await ciCdPipelineRunsApi.getById(id);
+      const data = await devopsPipelineRunsApi.getById(id);
       setRun(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch pipeline run';
@@ -159,7 +159,7 @@ export function usePipelineRun(id: string | null) {
 
     try {
       setLogsLoading(true);
-      const data = await ciCdPipelineRunsApi.getLogs(id);
+      const data = await devopsPipelineRunsApi.getLogs(id);
       setLogs(data.logs);
     } catch (err) {
       // Logs might not be available yet
@@ -201,7 +201,7 @@ export function usePipelineRun(id: string | null) {
     if (!id) return null;
 
     try {
-      const updated = await ciCdPipelineRunsApi.cancel(id);
+      const updated = await devopsPipelineRunsApi.cancel(id);
       showNotification('Pipeline run cancelled', 'success');
       setRun(updated);
       return updated;
@@ -219,7 +219,7 @@ export function usePipelineRun(id: string | null) {
     if (!id) return null;
 
     try {
-      const newRun = await ciCdPipelineRunsApi.retry(id);
+      const newRun = await devopsPipelineRunsApi.retry(id);
       showNotification('Pipeline run retried', 'success');
       return newRun;
     } catch (err: unknown) {

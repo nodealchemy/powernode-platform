@@ -247,9 +247,9 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
             </p>
 
             <div className="space-y-4">
-              {Object.entries(eventCategories).map(([category, events]) => {
-                const selectedInCategory = events.filter(event => form.values.event_types.includes(event)).length;
-                const allSelected = selectedInCategory === events.length;
+              {Object.entries(eventCategories || {}).map(([category, events]) => {
+                const selectedInCategory = (events || []).filter(event => form.values.event_types.includes(event)).length;
+                const allSelected = selectedInCategory === (events || []).length;
                 
                 return (
                   <div key={category} className="border border-theme rounded-lg overflow-hidden">
@@ -268,21 +268,21 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
                                 : 'border-theme'
                           }`}>
                             {allSelected && <CheckCircle className="w-3 h-3 text-theme-on-primary" />}
-                            {selectedInCategory > 0 && selectedInCategory < events.length && (
+                            {selectedInCategory > 0 && selectedInCategory < (events || []).length && (
                               <div className="w-2 h-2 bg-theme-interactive-primary rounded-full" />
                             )}
                           </div>
                           <span className="font-medium text-theme-primary">{category}</span>
                         </div>
                         <span className="text-xs text-theme-secondary">
-                          {selectedInCategory}/{events.length} selected
+                          {selectedInCategory}/{(events || []).length} selected
                         </span>
                       </div>
                     </div>
 
                     {/* Category Events */}
                     <div className="p-4 space-y-2">
-                      {events.map(eventType => (
+                      {(events || []).map(eventType => (
                         <div key={eventType} className="flex items-center gap-3">
                           <input
                             type="checkbox"

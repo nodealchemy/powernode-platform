@@ -16,9 +16,6 @@ export type MarketplaceItemType =
   | 'integration_template' // Integrations
   | 'prompt_template';     // Prompts
 
-// Legacy types for backward compatibility during migration
-export type LegacyMarketplaceItemType = 'app' | 'plugin' | 'template' | 'integration';
-
 // Publisher information
 export interface Publisher {
   id: string;

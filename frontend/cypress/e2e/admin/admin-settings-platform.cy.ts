@@ -13,20 +13,15 @@
 
 describe('Admin Settings Platform Tab Tests', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupAdminIntercepts();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Page Navigation', () => {
-    it('should navigate to Platform Settings tab', () => {
-      cy.visit('/app/admin/settings/platform');
-      cy.waitForPageLoad();
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/platform');
+    });
 
+    it('should navigate to Platform Settings tab', () => {
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Platform') ||
                           $body.text().includes('Configuration') ||
@@ -40,8 +35,6 @@ describe('Admin Settings Platform Tab Tests', () => {
     });
 
     it('should redirect unauthorized users', () => {
-      cy.visit('/app/admin/settings/platform');
-      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
   });
@@ -284,6 +277,10 @@ describe('Admin Settings Platform Tab Tests', () => {
   });
 
   describe('Error Handling', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/platform');
+    });
+
     it('should handle API errors gracefully', () => {
       cy.intercept('GET', '**/api/**/admin/**', {
         statusCode: 500,
@@ -299,6 +296,10 @@ describe('Admin Settings Platform Tab Tests', () => {
   });
 
   describe('Responsive Design', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/platform');
+    });
+
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/platform');

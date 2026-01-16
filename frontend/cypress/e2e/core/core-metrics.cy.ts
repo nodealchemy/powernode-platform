@@ -14,135 +14,77 @@
 
 describe('Core Metrics Page Tests', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupApiIntercepts();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Page Navigation', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/metrics');
+    });
+
     it('should navigate to Metrics page', () => {
-      cy.visit('/app/metrics');
-      cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Metrics') ||
-                          $body.text().includes('Analytics') ||
-                          $body.text().includes('Performance');
-        if (hasContent) {
-          cy.log('Metrics page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Metrics', 'Analytics', 'Performance']);
     });
 
     it('should display page title', () => {
-      cy.visit('/app/metrics');
-      cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasTitle = $body.text().includes('Metrics') ||
-                         $body.text().includes('Analytics') ||
-                         $body.text().includes('Dashboard');
-        if (hasTitle) {
-          cy.log('Page title displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Metrics', 'Analytics', 'Dashboard']);
     });
 
     it('should display breadcrumbs', () => {
-      cy.visit('/app/metrics');
-      cy.waitForPageLoad();
-
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
-                               $body.find('[class*="breadcrumb"]').length > 0;
+                               $body.find('[class*="breadcrumb"], nav[aria-label*="breadcrumb"]').length > 0;
         if (hasBreadcrumbs) {
           cy.log('Breadcrumbs displayed');
         }
       });
-
       cy.get('body').should('be.visible');
     });
   });
 
   describe('Metrics Overview', () => {
     beforeEach(() => {
-      cy.visit('/app/metrics');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app/metrics');
     });
 
     it('should display key metrics cards', () => {
       cy.get('body').then($body => {
-        const hasCards = $body.find('[class*="card"], [class*="stat"]').length > 0;
+        const hasCards = $body.find('[class*="card"], [class*="stat"], [class*="metric"]').length > 0 ||
+                        $body.find('div').filter(function() {
+                          return $(this).find('h3, h4, p').length >= 2;
+                        }).length > 0;
         if (hasCards) {
           cy.log('Key metrics cards displayed');
         }
       });
-
       cy.get('body').should('be.visible');
     });
 
     it('should display user metrics', () => {
-      cy.get('body').then($body => {
-        const hasUserMetrics = $body.text().includes('Users') ||
-                               $body.text().includes('Active') ||
-                               $body.text().includes('Registrations');
-        if (hasUserMetrics) {
-          cy.log('User metrics displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Users', 'Active', 'Registrations']);
     });
 
     it('should display revenue metrics', () => {
-      cy.get('body').then($body => {
-        const hasRevenueMetrics = $body.text().includes('Revenue') ||
-                                   $body.text().includes('MRR') ||
-                                   $body.text().includes('$');
-        if (hasRevenueMetrics) {
-          cy.log('Revenue metrics displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Revenue', 'MRR', '$']);
     });
 
     it('should display growth indicators', () => {
-      cy.get('body').then($body => {
-        const hasGrowth = $body.text().includes('%') ||
-                          $body.text().includes('Growth') ||
-                          $body.text().includes('Change');
-        if (hasGrowth) {
-          cy.log('Growth indicators displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['%', 'Growth', 'Change']);
     });
   });
 
   describe('Charts and Visualizations', () => {
     beforeEach(() => {
-      cy.visit('/app/metrics');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app/metrics');
     });
 
     it('should display chart containers', () => {
       cy.get('body').then($body => {
-        const hasCharts = $body.find('canvas, svg, [class*="chart"]').length > 0;
+        const hasCharts = $body.find('canvas, svg, [class*="chart"], [class*="graph"]').length > 0;
         if (hasCharts) {
           cy.log('Chart containers displayed');
         }
       });
-
       cy.get('body').should('be.visible');
     });
 
@@ -154,7 +96,6 @@ describe('Core Metrics Page Tests', () => {
           cy.log('Line charts displayed');
         }
       });
-
       cy.get('body').should('be.visible');
     });
 
@@ -166,7 +107,6 @@ describe('Core Metrics Page Tests', () => {
           cy.log('Bar charts displayed');
         }
       });
-
       cy.get('body').should('be.visible');
     });
 
@@ -177,42 +117,32 @@ describe('Core Metrics Page Tests', () => {
           cy.log('Chart legends displayed');
         }
       });
-
       cy.get('body').should('be.visible');
     });
   });
 
   describe('Time Range Selection', () => {
     beforeEach(() => {
-      cy.visit('/app/metrics');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app/metrics');
     });
 
     it('should display time range selector', () => {
       cy.get('body').then($body => {
-        const hasTimeRange = $body.find('select, [class*="date"], button:contains("day")').length > 0 ||
+        const hasTimeRange = $body.find('select, [class*="date"], button').filter(function() {
+                               const text = $(this).text();
+                               return text.includes('day') || text.includes('week') || text.includes('month');
+                             }).length > 0 ||
                              $body.text().includes('7 days') ||
                              $body.text().includes('30 days');
         if (hasTimeRange) {
           cy.log('Time range selector displayed');
         }
       });
-
       cy.get('body').should('be.visible');
     });
 
     it('should have preset time ranges', () => {
-      cy.get('body').then($body => {
-        const hasPresets = $body.text().includes('Today') ||
-                           $body.text().includes('Week') ||
-                           $body.text().includes('Month') ||
-                           $body.text().includes('Year');
-        if (hasPresets) {
-          cy.log('Preset time ranges found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Today', 'Week', 'Month', 'Year']);
     });
 
     it('should allow custom date range selection', () => {
@@ -223,116 +153,68 @@ describe('Core Metrics Page Tests', () => {
           cy.log('Custom date range selection available');
         }
       });
-
       cy.get('body').should('be.visible');
     });
   });
 
   describe('Metrics Categories', () => {
     beforeEach(() => {
-      cy.visit('/app/metrics');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app/metrics');
     });
 
     it('should display subscription metrics', () => {
-      cy.get('body').then($body => {
-        const hasSubscriptions = $body.text().includes('Subscription') ||
-                                  $body.text().includes('Churn') ||
-                                  $body.text().includes('Retention');
-        if (hasSubscriptions) {
-          cy.log('Subscription metrics displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Subscription', 'Churn', 'Retention']);
     });
 
     it('should display API metrics', () => {
-      cy.get('body').then($body => {
-        const hasAPI = $body.text().includes('API') ||
-                       $body.text().includes('Requests') ||
-                       $body.text().includes('Latency');
-        if (hasAPI) {
-          cy.log('API metrics displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['API', 'Requests', 'Latency']);
     });
 
     it('should display system metrics', () => {
-      cy.get('body').then($body => {
-        const hasSystem = $body.text().includes('System') ||
-                          $body.text().includes('Performance') ||
-                          $body.text().includes('Uptime');
-        if (hasSystem) {
-          cy.log('System metrics displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['System', 'Performance', 'Uptime']);
     });
   });
 
   describe('Export Functionality', () => {
     beforeEach(() => {
-      cy.visit('/app/metrics');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app/metrics');
     });
 
     it('should have export button', () => {
       cy.get('body').then($body => {
-        const hasExport = $body.find('button:contains("Export"), button:contains("Download")').length > 0;
+        const hasExport = $body.find('button:contains("Export"), button:contains("Download")').length > 0 ||
+                          $body.text().includes('Export') ||
+                          $body.text().includes('Download');
         if (hasExport) {
           cy.log('Export button found');
         }
       });
-
       cy.get('body').should('be.visible');
     });
 
     it('should have export format options', () => {
-      cy.get('body').then($body => {
-        const hasFormats = $body.text().includes('CSV') ||
-                           $body.text().includes('PDF') ||
-                           $body.text().includes('Excel');
-        if (hasFormats) {
-          cy.log('Export format options available');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['CSV', 'PDF', 'Excel', 'Export']);
     });
   });
 
   describe('Refresh Functionality', () => {
     beforeEach(() => {
-      cy.visit('/app/metrics');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app/metrics');
     });
 
     it('should have refresh button', () => {
       cy.get('body').then($body => {
-        const hasRefresh = $body.find('button:contains("Refresh"), [aria-label*="refresh"]').length > 0;
+        const hasRefresh = $body.find('button:contains("Refresh"), [aria-label*="refresh"]').length > 0 ||
+                          $body.find('button svg').length > 0;
         if (hasRefresh) {
           cy.log('Refresh button found');
         }
       });
-
       cy.get('body').should('be.visible');
     });
 
     it('should display last updated timestamp', () => {
-      cy.get('body').then($body => {
-        const hasTimestamp = $body.text().includes('Updated') ||
-                             $body.text().includes('Last') ||
-                             $body.text().includes('ago');
-        if (hasTimestamp) {
-          cy.log('Last updated timestamp displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Updated', 'Last', 'ago']);
     });
   });
 
@@ -383,8 +265,11 @@ describe('Core Metrics Page Tests', () => {
       cy.visit('/app/metrics');
 
       cy.get('body').then($body => {
-        const hasLoading = $body.find('[class*="spin"]').length > 0 ||
-                           $body.text().includes('Loading');
+        const hasLoading = $body.find('.animate-spin, [class*="loading"], [class*="spinner"]').length > 0 ||
+                          $body.find('svg').filter(function() {
+                            return $(this).attr('class')?.includes('animate') || false;
+                          }).length > 0 ||
+                          $body.text().includes('Loading');
         if (hasLoading) {
           cy.log('Loading indicator displayed');
         }

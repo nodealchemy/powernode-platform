@@ -53,7 +53,7 @@ const PipelinesPageContent: React.FC = () => {
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
-    { label: 'Automation', href: '/app/automation' },
+    { label: 'Automation', href: '/app/devops' },
     { label: 'Pipelines' }
   ];
 
@@ -68,7 +68,7 @@ const PipelinesPageContent: React.FC = () => {
     {
       id: 'create',
       label: 'Create Pipeline',
-      onClick: () => navigate('/app/automation/pipelines/new'),
+      onClick: () => navigate('/app/devops/pipelines/new'),
       variant: 'primary' as const,
       icon: Plus
     }

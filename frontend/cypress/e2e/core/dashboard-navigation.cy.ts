@@ -1,18 +1,15 @@
+/// <reference types="cypress" />
+
 describe('Dashboard Navigation Tests', () => {
   beforeEach(() => {
-    cy.clearAppData();
-
-    // Login with seeded demo user instead of registering new user each time
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-
-    // Should be on app/dashboard after login
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Main Navigation', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app');
+    });
+
     it('should display main dashboard elements', () => {
       // Check for main content area
       cy.get('main, [role="main"], .main-content').should('exist');
@@ -53,6 +50,8 @@ describe('Dashboard Navigation Tests', () => {
   describe('Responsive Design', () => {
     it('should work on mobile viewport', () => {
       cy.viewport('iphone-x');
+      cy.visit('/app');
+      cy.waitForPageLoad();
 
       // Page should still be functional
       cy.get('main, [role="main"], .main-content').should('exist');
@@ -60,6 +59,8 @@ describe('Dashboard Navigation Tests', () => {
 
     it('should work on tablet viewport', () => {
       cy.viewport('ipad-2');
+      cy.visit('/app');
+      cy.waitForPageLoad();
 
       // Page should still be functional
       cy.get('main, [role="main"], .main-content').should('exist');
@@ -67,6 +68,8 @@ describe('Dashboard Navigation Tests', () => {
 
     it('should work on desktop viewport', () => {
       cy.viewport(1920, 1080);
+      cy.visit('/app');
+      cy.waitForPageLoad();
 
       // Page should still be functional
       cy.get('main, [role="main"], .main-content').should('exist');
@@ -74,6 +77,10 @@ describe('Dashboard Navigation Tests', () => {
   });
 
   describe('Theme Support', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app');
+    });
+
     it('should have proper theme classes applied', () => {
       // Check for theme-aware classes or CSS variables
       cy.get('body').should('exist');
@@ -134,6 +141,10 @@ describe('Dashboard Navigation Tests', () => {
   });
 
   describe('Accessibility', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app');
+    });
+
     it('should have proper landmarks', () => {
       // Check for main landmarks
       cy.get('main, [role="main"]').should('exist');

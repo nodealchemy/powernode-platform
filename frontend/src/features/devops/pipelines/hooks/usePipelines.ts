@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ciCdPipelinesApi } from '@/services/ciCdApi';
-import type { CiCdPipeline, CiCdPipelineFormData } from '@/types/cicd';
+import { devopsPipelinesApi } from '@/services/devopsPipelinesApi';
+import type { CiCdPipeline, CiCdPipelineFormData } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UsePipelinesParams {
@@ -25,7 +25,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
     try {
       setLoading(true);
       setError(null);
-      const data = await ciCdPipelinesApi.getAll(params);
+      const data = await devopsPipelinesApi.getAll(params);
       setPipelines(data.pipelines);
       setMeta(data.meta);
     } catch (err) {
@@ -48,7 +48,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
 
   const createPipeline = async (data: CiCdPipelineFormData) => {
     try {
-      const pipeline = await ciCdPipelinesApi.create(data);
+      const pipeline = await devopsPipelinesApi.create(data);
       showNotification('Pipeline created successfully', 'success');
       await fetchPipelines();
       return pipeline;
@@ -64,7 +64,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
 
   const updatePipeline = async (id: string, data: Partial<CiCdPipelineFormData>) => {
     try {
-      const pipeline = await ciCdPipelinesApi.update(id, data);
+      const pipeline = await devopsPipelinesApi.update(id, data);
       showNotification('Pipeline updated successfully', 'success');
       await fetchPipelines();
       return pipeline;
@@ -80,7 +80,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
 
   const deletePipeline = async (id: string) => {
     try {
-      await ciCdPipelinesApi.delete(id);
+      await devopsPipelinesApi.delete(id);
       showNotification('Pipeline deleted successfully', 'success');
       await fetchPipelines();
       return true;
@@ -96,7 +96,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
 
   const triggerPipeline = async (id: string, context?: Record<string, unknown>) => {
     try {
-      const run = await ciCdPipelinesApi.trigger(id, context);
+      const run = await devopsPipelinesApi.trigger(id, context);
       showNotification('Pipeline triggered successfully', 'success');
       return run;
     } catch (err: unknown) {
@@ -111,7 +111,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
 
   const duplicatePipeline = async (id: string) => {
     try {
-      const pipeline = await ciCdPipelinesApi.duplicate(id);
+      const pipeline = await devopsPipelinesApi.duplicate(id);
       showNotification('Pipeline duplicated successfully', 'success');
       await fetchPipelines();
       return pipeline;
@@ -127,7 +127,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
 
   const exportPipelineYaml = async (id: string) => {
     try {
-      const result = await ciCdPipelinesApi.exportYaml(id);
+      const result = await devopsPipelinesApi.exportYaml(id);
       return result;
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { error?: string } }; message?: string };
@@ -169,7 +169,7 @@ export function usePipeline(id: string | null) {
       setLoading(true);
       setError(null);
       // Pass true to include recent runs in the response
-      const data = await ciCdPipelinesApi.getById(id, true);
+      const data = await devopsPipelinesApi.getById(id, true);
       setPipeline(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch pipeline';
@@ -191,7 +191,7 @@ export function usePipeline(id: string | null) {
     if (!id) return null;
 
     try {
-      const updated = await ciCdPipelinesApi.update(id, data);
+      const updated = await devopsPipelinesApi.update(id, data);
       showNotification('Pipeline updated successfully', 'success');
       setPipeline(updated);
       return updated;

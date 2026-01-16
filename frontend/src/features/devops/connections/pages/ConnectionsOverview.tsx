@@ -37,7 +37,7 @@ export function ConnectionsOverview() {
       name: 'AI Providers',
       description: 'OpenAI, Anthropic, and other AI providers',
       icon: <Brain className="w-6 h-6" />,
-      href: '/app/connections/ai',
+      href: '/app/ai/providers',
       count: 0,
       activeCount: 0,
       errorCount: 0
@@ -47,7 +47,7 @@ export function ConnectionsOverview() {
       name: 'Git Providers',
       description: 'GitHub, GitLab, Gitea, and other git providers',
       icon: <GitBranch className="w-6 h-6" />,
-      href: '/app/connections/git',
+      href: '/app/devops/git',
       count: 0,
       activeCount: 0,
       errorCount: 0
@@ -57,7 +57,7 @@ export function ConnectionsOverview() {
       name: 'Integrations',
       description: 'Third-party service integrations',
       icon: <Puzzle className="w-6 h-6" />,
-      href: '/app/connections/integrations',
+      href: '/app/devops/integrations',
       count: 0,
       activeCount: 0,
       errorCount: 0
@@ -67,7 +67,7 @@ export function ConnectionsOverview() {
       name: 'Credentials',
       description: 'API keys and authentication tokens',
       icon: <Key className="w-6 h-6" />,
-      href: '/app/connections/credentials',
+      href: '/app/devops/api-keys',
       count: 0,
       activeCount: 0,
       errorCount: 0
@@ -80,7 +80,7 @@ export function ConnectionsOverview() {
     {
       id: 'add-connection',
       label: 'Add Connection',
-      onClick: () => navigate('/app/connections/integrations/marketplace'),
+      onClick: () => navigate('/app/devops/integrations/marketplace'),
       variant: 'primary',
       icon: Plus
     }
@@ -236,11 +236,11 @@ export function ConnectionsOverview() {
   const getTypeHref = (type: RecentConnection['type']) => {
     switch (type) {
       case 'ai':
-        return '/app/connections/ai';
+        return '/app/ai/providers';
       case 'git':
-        return '/app/connections/git';
+        return '/app/devops/git';
       case 'integration':
-        return '/app/connections/integrations';
+        return '/app/devops/integrations';
     }
   };
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ciCdProvidersApi } from '@/services/ciCdApi';
-import type { CiCdProvider, CiCdProviderFormData, CiCdConnectionTestResponse } from '@/types/cicd';
+import { devopsProvidersApi } from '@/services/devopsPipelinesApi';
+import type { CiCdProvider, CiCdProviderFormData, CiCdConnectionTestResponse } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UseProvidersParams {
@@ -25,7 +25,7 @@ export function useProviders(params: UseProvidersParams = {}) {
     try {
       setLoading(true);
       setError(null);
-      const data = await ciCdProvidersApi.getAll(params);
+      const data = await devopsProvidersApi.getAll(params);
       setProviders(data.providers);
       setMeta(data.meta);
     } catch (err) {
@@ -48,7 +48,7 @@ export function useProviders(params: UseProvidersParams = {}) {
 
   const createProvider = async (data: CiCdProviderFormData) => {
     try {
-      const provider = await ciCdProvidersApi.create(data);
+      const provider = await devopsProvidersApi.create(data);
       showNotification('Provider created successfully', 'success');
       await fetchProviders();
       return provider;
@@ -60,7 +60,7 @@ export function useProviders(params: UseProvidersParams = {}) {
 
   const updateProvider = async (id: string, data: Partial<CiCdProviderFormData>) => {
     try {
-      const provider = await ciCdProvidersApi.update(id, data);
+      const provider = await devopsProvidersApi.update(id, data);
       showNotification('Provider updated successfully', 'success');
       await fetchProviders();
       return provider;
@@ -72,7 +72,7 @@ export function useProviders(params: UseProvidersParams = {}) {
 
   const deleteProvider = async (id: string) => {
     try {
-      await ciCdProvidersApi.delete(id);
+      await devopsProvidersApi.delete(id);
       showNotification('Provider deleted successfully', 'success');
       await fetchProviders();
       return true;
@@ -84,7 +84,7 @@ export function useProviders(params: UseProvidersParams = {}) {
 
   const testConnection = async (id: string): Promise<CiCdConnectionTestResponse | null> => {
     try {
-      const result = await ciCdProvidersApi.testConnection(id);
+      const result = await devopsProvidersApi.testConnection(id);
       if (result.connected) {
         showNotification('Connection successful', 'success');
       } else {
@@ -99,7 +99,7 @@ export function useProviders(params: UseProvidersParams = {}) {
 
   const syncRepositories = async (id: string) => {
     try {
-      const result = await ciCdProvidersApi.syncRepositories(id);
+      const result = await devopsProvidersApi.syncRepositories(id);
       showNotification(result.message || 'Repositories synced', 'success');
       return result;
     } catch (err) {
@@ -136,7 +136,7 @@ export function useProvider(id: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const data = await ciCdProvidersApi.getById(id, true);
+      const data = await devopsProvidersApi.getById(id, true);
       setProvider(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch provider';
@@ -158,7 +158,7 @@ export function useProvider(id: string | null) {
     if (!id) return null;
 
     try {
-      const updated = await ciCdProvidersApi.update(id, data);
+      const updated = await devopsProvidersApi.update(id, data);
       showNotification('Provider updated successfully', 'success');
       setProvider(updated);
       return updated;

@@ -3,18 +3,12 @@
 /**
  * Analytics & Reports E2E Tests
  *
- * Simplified tests for analytics and reporting functionality
+ * Tests for analytics and reporting functionality
  */
 
 describe('Analytics & Reports', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    // Login with demo user
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Dashboard Analytics', () => {
@@ -24,133 +18,81 @@ describe('Analytics & Reports', () => {
     });
 
     it('should show main content area', () => {
-      cy.get('main, [role="main"], .main-content, [class*="container"]')
+      cy.assertHasElement(['main', '[role="main"]', '.main-content', '[class*="container"]'])
         .should('exist');
     });
 
     it('should display dashboard widgets if available', () => {
-      cy.get('body').then($body => {
-        const widgetSelectors = [
-          '[data-testid="dashboard-widget"]',
-          '[class*="widget"]',
-          '[class*="card"]',
-          '[class*="metric"]',
-          '[class*="stat"]'
-        ];
-
-        for (const selector of widgetSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible');
-            break;
-          }
-        }
-      });
+      cy.assertHasElement([
+        '[data-testid="dashboard-widget"]',
+        '[class*="widget"]',
+        '[class*="card"]',
+        '[class*="metric"]',
+        '[class*="stat"]',
+      ]).should('be.visible');
     });
   });
 
   describe('Navigation to Analytics', () => {
     it('should navigate to analytics if available', () => {
       cy.get('body').then($body => {
-        const analyticsSelectors = [
-          'a[href*="analytics"]',
-          'a[href*="reports"]',
-          'a[href*="insights"]',
-          '[data-testid="nav-analytics"]'
-        ];
-
-        for (const selector of analyticsSelectors) {
+        const selectors = ['a[href*="analytics"]', 'a[href*="reports"]', 'a[href*="insights"]', '[data-testid="nav-analytics"]'];
+        for (const selector of selectors) {
           if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
+            cy.get(selector).first().click();
             break;
           }
         }
       });
-
       cy.get('body').should('be.visible');
     });
 
     it('should display page content', () => {
-      cy.get('main, [role="main"], .main-content').should('exist');
+      cy.assertHasElement(['main', '[role="main"]', '.main-content']).should('exist');
     });
   });
 
   describe('Date Range Selection', () => {
     it('should have date selection if available', () => {
-      cy.get('body').then($body => {
-        const dateSelectors = [
-          '[data-testid="date-range"]',
-          'input[type="date"]',
-          '[class*="date-picker"]',
-          'button:contains("Last")',
-          '[class*="calendar"]'
-        ];
-
-        for (const selector of dateSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('exist');
-            break;
-          }
-        }
-      });
+      cy.assertHasElement([
+        '[data-testid="date-range"]',
+        'input[type="date"]',
+        '[class*="date-picker"]',
+        '[class*="calendar"]',
+      ]).should('exist');
     });
   });
 
   describe('Charts and Visualizations', () => {
     it('should display charts if available', () => {
-      cy.get('body').then($body => {
-        const chartSelectors = [
-          'canvas',
-          '[data-testid="chart"]',
-          '[class*="chart"]',
-          'svg[class*="recharts"]',
-          '[class*="visualization"]'
-        ];
-
-        for (const selector of chartSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('exist');
-            break;
-          }
-        }
-      });
+      cy.assertHasElement([
+        'canvas',
+        '[data-testid="chart"]',
+        '[class*="chart"]',
+        'svg[class*="recharts"]',
+        '[class*="visualization"]',
+      ]).should('exist');
     });
   });
 
   describe('Metrics Display', () => {
     it('should display metric cards if available', () => {
-      cy.get('body').then($body => {
-        const metricSelectors = [
-          '[data-testid="metric-card"]',
-          '[class*="metric"]',
-          '[class*="stat"]',
-          '[class*="kpi"]'
-        ];
-
-        for (const selector of metricSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible');
-            break;
-          }
-        }
-      });
+      cy.assertHasElement([
+        '[data-testid="metric-card"]',
+        '[class*="metric"]',
+        '[class*="stat"]',
+        '[class*="kpi"]',
+      ]).should('be.visible');
     });
   });
 
   describe('Export Functionality', () => {
     it('should have export options if available', () => {
       cy.get('body').then($body => {
-        const exportSelectors = [
-          '[data-testid="export-btn"]',
-          'button:contains("Export")',
-          'button:contains("Download")',
-          '[class*="export"]'
-        ];
-
-        for (const selector of exportSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('exist');
-            break;
-          }
+        const hasExport = $body.find('[data-testid="export-btn"], button:contains("Export"), button:contains("Download")').length > 0;
+        if (hasExport) {
+          cy.assertHasElement(['[data-testid="export-btn"]', 'button:contains("Export")', 'button:contains("Download")'])
+            .should('exist');
         }
       });
     });
@@ -158,40 +100,28 @@ describe('Analytics & Reports', () => {
 
   describe('Filter Options', () => {
     it('should display filter controls if available', () => {
-      cy.get('body').then($body => {
-        const filterSelectors = [
-          '[data-testid="filter"]',
-          'select',
-          '[class*="filter"]',
-          '[class*="dropdown"]'
-        ];
-
-        for (const selector of filterSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('exist');
-            break;
-          }
-        }
-      });
+      cy.assertHasElement([
+        '[data-testid="filter"]',
+        'select',
+        '[class*="filter"]',
+        '[class*="dropdown"]',
+      ]).should('exist');
     });
   });
 
   describe('Responsive Design', () => {
-    it('should handle mobile viewport', () => {
-      cy.viewport('iphone-x');
-      cy.get('body').should('be.visible');
-      cy.get('main, [role="main"], .main-content').should('be.visible');
-    });
-
-    it('should handle tablet viewport', () => {
-      cy.viewport('ipad-2');
-      cy.get('body').should('be.visible');
+    it('should handle mobile and tablet viewports', () => {
+      cy.testResponsiveDesign('/app', {
+        viewports: [
+          { name: 'mobile', width: 375, height: 667 },
+          { name: 'tablet', width: 768, height: 1024 },
+        ],
+      });
     });
   });
 
   describe('User Navigation', () => {
-    it('should allow user to access other pages', () => {
-      // Clear session to see public plans
+    it('should allow user to access plans page', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
@@ -200,17 +130,12 @@ describe('Analytics & Reports', () => {
     });
 
     it('should maintain session across navigation', () => {
-      // Clear session to see public plans
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
       cy.get('body').should('be.visible');
 
-      // Re-login and check app
-      cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-      cy.get('[data-testid="login-submit-btn"]').click();
+      cy.loginAsDemo();
       cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
   });
@@ -223,14 +148,11 @@ describe('Analytics & Reports', () => {
         .and('not.contain.text', 'Page not found');
     });
 
-    it('should display proper loading states', () => {
+    it('should not be stuck in loading', () => {
       cy.get('body').should('be.visible');
-      // Should not be stuck in loading
-      cy.get('[data-testid="loading"], .loading', { timeout: 1000 })
-        .should('not.exist');
+      cy.get('[data-testid="loading"], .loading', { timeout: 1000 }).should('not.exist');
     });
   });
 });
-
 
 export {};

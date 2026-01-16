@@ -8,15 +8,7 @@
 
 describe('User Profile and Settings Tests', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupApiIntercepts();
-    // Login with demo user
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
-    cy.waitForPageLoad();
+    cy.standardTestSetup();
   });
 
   describe('User Profile Display', () => {
@@ -26,113 +18,63 @@ describe('User Profile and Settings Tests', () => {
     });
 
     it('should have user menu visible', () => {
-      cy.get('body').then($body => {
-        const userMenuSelectors = [
-          '[data-testid="user-menu"]',
-          '[class*="avatar"]',
-          'button[aria-haspopup="menu"]'
-        ];
-
-        for (const selector of userMenuSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible');
-            break;
-          }
-        }
-      });
+      // Header user button has aria-haspopup="true" and shows user initials in a rounded-full div
+      cy.assertHasElement([
+        '[data-testid="user-menu"]',
+        'button[aria-haspopup="true"]',
+        '[class*="avatar"]',
+        '.rounded-full'
+      ]);
     });
   });
 
   describe('Profile Navigation', () => {
     it('should navigate to profile settings if available', () => {
-      cy.get('body').then($body => {
-        // Try opening user menu first
-        const userMenuSelectors = [
-          '[data-testid="user-menu"]',
-          '[class*="avatar"]',
-          'button[aria-haspopup="menu"]'
-        ];
-
-        for (const selector of userMenuSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
-
+      // Header user button has aria-haspopup="true"
+      cy.assertHasElement([
+        '[data-testid="user-menu"]',
+        'button[aria-haspopup="true"]',
+        '[class*="avatar"]',
+        '.rounded-full'
+      ]);
       cy.get('body').should('be.visible');
     });
 
     it('should access settings page directly', () => {
-      cy.visit('/app/settings/profile');
-      cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      // Profile page is at /app/profile
+      cy.assertPageReady('/app/profile');
     });
   });
 
   describe('Account Settings', () => {
     it('should navigate to account settings', () => {
-      cy.get('body').then($body => {
-        const settingsSelectors = [
-          'a[href*="settings"]',
-          'a[href*="account"]',
-          '[data-testid="nav-settings"]'
-        ];
-
-        for (const selector of settingsSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
-
+      cy.navigateTo('settings');
       cy.get('body').should('be.visible');
     });
 
     it('should display settings form', () => {
-      cy.visit('/app/settings/profile');
-      cy.waitForPageLoad();
-      cy.get('body').then($body => {
-        const formElements = [
-          'form',
-          'input[name]',
-          '[data-testid="settings-form"]'
-        ];
-
-        for (const selector of formElements) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('exist');
-            break;
-          }
-        }
-      });
+      // Profile page is at /app/profile and has a profile-form
+      cy.assertPageReady('/app/profile');
+      cy.assertHasElement([
+        'form',
+        'input[name]',
+        '[data-testid="settings-form"]',
+        '[data-testid="profile-form"]',
+        'form#profile-form'
+      ]);
     });
   });
 
   describe('Security Settings', () => {
     it('should navigate to security settings if available', () => {
-      cy.visit('/app/settings/security');
-      cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      // Security settings is at /app/profile/security
+      cy.assertPageReady('/app/profile/security');
     });
   });
 
   describe('Theme Preferences', () => {
     it('should handle theme toggle if available', () => {
-      cy.get('body').then($body => {
-        if ($body.find('[data-testid="theme-toggle"], .theme-toggle, [aria-label*="theme"]').length > 0) {
-          cy.get('[data-testid="theme-toggle"], .theme-toggle, [aria-label*="theme"]')
-            .first()
-            .should('be.visible')
-            .click();
-          cy.waitForPageLoad();
-          cy.get('body').should('be.visible');
-        } else {
-          cy.log('Theme toggle not available');
-        }
-      });
+      cy.assertHasElement(['[data-testid="theme-toggle"]', '.theme-toggle', '[aria-label*="theme"]']);
     });
 
     it('should persist preferences across page reload', () => {
@@ -145,36 +87,23 @@ describe('User Profile and Settings Tests', () => {
 
   describe('Mobile Profile Management', () => {
     it('should handle profile management on mobile viewport', () => {
-      cy.viewport(375, 667);
-      cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.testViewport('mobile', '/app');
       cy.url().should('match', /\/(app|dashboard)/);
     });
 
     it('should access user menu on mobile', () => {
-      cy.viewport(375, 667);
-      cy.waitForPageLoad();
-      cy.get('body').then($body => {
-        const userMenuSelectors = [
-          '[data-testid="user-menu"]',
-          '[class*="avatar"]',
-          'button[aria-haspopup="menu"]'
-        ];
-
-        for (const selector of userMenuSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.testViewport('mobile', '/app');
+      // Header user button has aria-haspopup="true" and shows user initials in a rounded-full div
+      cy.assertHasElement([
+        '[data-testid="user-menu"]',
+        'button[aria-haspopup="true"]',
+        '[class*="avatar"]',
+        '.rounded-full'
+      ]);
     });
 
     it('should handle tablet viewport', () => {
-      cy.viewport('ipad-2');
-      cy.waitForPageLoad();
+      cy.testViewport('tablet', '/app');
       cy.get('body').should('be.visible');
     });
   });

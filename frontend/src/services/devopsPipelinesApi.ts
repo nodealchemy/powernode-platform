@@ -20,13 +20,15 @@ import type {
   CiCdRepositoryFormData,
   CiCdRepositoriesResponse,
   CiCdConnectionTestResponse,
-} from '@/types/cicd';
+} from '@/types/devops-pipelines';
 
-const BASE_PATH = '/ci_cd';
+// DevOps Pipelines API Service
+// Uses /api/v1/devops namespace for all pipeline-related endpoints
+const BASE_PATH = '/devops';
 
 // ==================== Providers ====================
 
-export const ciCdProvidersApi = {
+export const devopsProvidersApi = {
   getAll: async (params?: { provider_type?: string; is_active?: boolean }) => {
     const response = await apiClient.get<{ data: CiCdProvidersResponse }>(
       `${BASE_PATH}/providers`,
@@ -80,7 +82,7 @@ export const ciCdProvidersApi = {
 
 // ==================== Prompt Templates ====================
 
-export const ciCdPromptTemplatesApi = {
+export const devopsPromptTemplatesApi = {
   getAll: async (params?: { category?: string; is_active?: boolean; root_only?: boolean }) => {
     const response = await apiClient.get<{ data: CiCdPromptTemplatesResponse }>(
       `${BASE_PATH}/prompt_templates`,
@@ -135,7 +137,7 @@ export const ciCdPromptTemplatesApi = {
 
 // ==================== Pipelines ====================
 
-export const ciCdPipelinesApi = {
+export const devopsPipelinesApi = {
   getAll: async (params?: { is_active?: boolean }) => {
     const response = await apiClient.get<{ data: CiCdPipelinesResponse }>(
       `${BASE_PATH}/pipelines`,
@@ -197,7 +199,7 @@ export const ciCdPipelinesApi = {
 
 // ==================== Pipeline Runs ====================
 
-export const ciCdPipelineRunsApi = {
+export const devopsPipelineRunsApi = {
   getAll: async (params?: {
     pipeline_id?: string;
     status?: string;
@@ -258,7 +260,7 @@ export const ciCdPipelineRunsApi = {
 
 // ==================== Schedules ====================
 
-export const ciCdSchedulesApi = {
+export const devopsSchedulesApi = {
   getAll: async (params?: { pipeline_id?: string; is_active?: boolean }) => {
     const response = await apiClient.get<{ data: CiCdSchedulesResponse }>(
       `${BASE_PATH}/schedules`,
@@ -305,7 +307,7 @@ export const ciCdSchedulesApi = {
 
 // ==================== Repositories ====================
 
-export const ciCdRepositoriesApi = {
+export const devopsRepositoriesApi = {
   getAll: async (params?: { provider_id?: string; is_active?: boolean }) => {
     const response = await apiClient.get<{ data: CiCdRepositoriesResponse }>(
       `${BASE_PATH}/repositories`,
@@ -373,13 +375,13 @@ export const ciCdRepositoriesApi = {
 // Combined API export for convenience
 // Note: AI configuration is now managed through the global AiProvider system
 // Use providersApi from '@/shared/services/ai/ProvidersApiService' for AI provider management
-export const ciCdApi = {
-  providers: ciCdProvidersApi,
-  promptTemplates: ciCdPromptTemplatesApi,
-  pipelines: ciCdPipelinesApi,
-  pipelineRuns: ciCdPipelineRunsApi,
-  schedules: ciCdSchedulesApi,
-  repositories: ciCdRepositoriesApi,
+export const devopsApi = {
+  providers: devopsProvidersApi,
+  promptTemplates: devopsPromptTemplatesApi,
+  pipelines: devopsPipelinesApi,
+  pipelineRuns: devopsPipelineRunsApi,
+  schedules: devopsSchedulesApi,
+  repositories: devopsRepositoriesApi,
 };
 
-export default ciCdApi;
+export default devopsApi;

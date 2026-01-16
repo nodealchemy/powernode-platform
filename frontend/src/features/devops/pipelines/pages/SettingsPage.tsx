@@ -6,7 +6,7 @@ import { ProviderSettings } from '../components/ProviderSettings';
 import { AiConfigSettings } from '../components/AiConfigSettings';
 import { useProviders } from '../hooks/useProviders';
 import { useAiConfigs } from '../hooks/useAiConfigs';
-import type { CiCdProviderFormData } from '@/types/cicd';
+import type { CiCdProviderFormData } from '@/types/devops-pipelines';
 
 type SettingsTab = 'providers' | 'ai-configs';
 

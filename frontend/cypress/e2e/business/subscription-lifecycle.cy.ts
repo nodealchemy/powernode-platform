@@ -13,14 +13,7 @@
 
 describe('Subscription Lifecycle', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupApiIntercepts();
-    // Login with demo user
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Platform Plan Subscription', () => {
@@ -691,13 +684,7 @@ describe('Subscription Lifecycle', () => {
 
 describe('Subscription Upgrade/Downgrade Flow', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupApiIntercepts();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   it('should display upgrade options for current plan', () => {
@@ -772,13 +759,7 @@ describe('Subscription Upgrade/Downgrade Flow', () => {
 
 describe('Subscription Trial Management', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupApiIntercepts();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   it('should display trial status if on trial', () => {
@@ -827,13 +808,7 @@ describe('Subscription Trial Management', () => {
 
 describe('Subscription Configuration', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupApiIntercepts();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   it('should navigate to subscription configuration', () => {

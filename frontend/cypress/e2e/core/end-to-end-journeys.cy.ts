@@ -58,11 +58,7 @@ describe('End-to-End User Journey Tests', () => {
 
   describe('Returning User Journey', () => {
     beforeEach(() => {
-      cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-      cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+      cy.standardTestSetup();
     });
 
     it('should allow returning user to login', () => {
@@ -80,10 +76,8 @@ describe('End-to-End User Journey Tests', () => {
       // Logout using custom command
       cy.logout();
 
-      // Re-login
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-      cy.get('[data-testid="login-submit-btn"]').click();
+      // Re-login using standardized command
+      cy.loginAsDemo();
       cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
     });
   });
@@ -118,11 +112,7 @@ describe('End-to-End User Journey Tests', () => {
 
   describe('Multi-Device User Journey', () => {
     beforeEach(() => {
-      cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-      cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+      cy.standardTestSetup();
     });
 
     it('should handle desktop to mobile viewport transition', () => {
@@ -155,11 +145,7 @@ describe('End-to-End User Journey Tests', () => {
 
   describe('Navigation Journey', () => {
     beforeEach(() => {
-      cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-      cy.get('[data-testid="login-submit-btn"]').click();
-      cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+      cy.standardTestSetup();
     });
 
     it('should navigate between pages smoothly', () => {

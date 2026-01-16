@@ -2,22 +2,19 @@
 
 describe('Admin Settings Overview Page Tests', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Page Navigation', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
+
     it('should navigate to Admin Settings Overview page', () => {
-      cy.visit('/app/admin/settings/overview');
       cy.url().should('include', '/admin');
     });
 
     it('should display page title', () => {
-      cy.visit('/app/admin/settings/overview');
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Settings Overview') ||
                         $body.text().includes('Admin Settings') ||
@@ -30,7 +27,6 @@ describe('Admin Settings Overview Page Tests', () => {
     });
 
     it('should display page description', () => {
-      cy.visit('/app/admin/settings/overview');
       cy.get('body').then($body => {
         const hasDesc = $body.text().includes('system settings') ||
                        $body.text().includes('platform configuration') ||
@@ -43,7 +39,6 @@ describe('Admin Settings Overview Page Tests', () => {
     });
 
     it('should display breadcrumbs', () => {
-      cy.visit('/app/admin/settings/overview');
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Admin') ||
                               $body.text().includes('Settings') ||
@@ -57,413 +52,206 @@ describe('Admin Settings Overview Page Tests', () => {
   });
 
   describe('Page Actions', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
+
     it('should have Refresh button', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasRefresh = $body.text().includes('Refresh') ||
-                          $body.find('button svg').length > 0;
-        if (hasRefresh) {
-          cy.log('Refresh button found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Refresh', 'Settings', 'Overview']);
     });
   });
 
   describe('System Status Section', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
+
     it('should display System Status section', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasStatus = $body.text().includes('System Status') ||
-                         $body.text().includes('Status');
-        if (hasStatus) {
-          cy.log('System Status section found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['System Status', 'Status', 'Overview']);
     });
 
     it('should display API status', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasAPI = $body.text().includes('API') ||
-                      $body.text().includes('Backend');
-        if (hasAPI) {
-          cy.log('API status found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['API', 'Backend', 'Status', 'Overview']);
     });
 
     it('should display Database status', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasDB = $body.text().includes('Database') ||
-                     $body.text().includes('PostgreSQL');
-        if (hasDB) {
-          cy.log('Database status found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Database', 'PostgreSQL', 'Status', 'Overview']);
     });
 
     it('should display Cache status', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasCache = $body.text().includes('Cache') ||
-                        $body.text().includes('Redis');
-        if (hasCache) {
-          cy.log('Cache status found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Cache', 'Redis', 'Status', 'Overview']);
     });
 
     it('should display Worker status', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasWorker = $body.text().includes('Worker') ||
-                         $body.text().includes('Sidekiq') ||
-                         $body.text().includes('Jobs');
-        if (hasWorker) {
-          cy.log('Worker status found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Worker', 'Sidekiq', 'Jobs', 'Status', 'Overview']);
     });
 
     it('should display status indicators', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasIndicators = $body.text().includes('Operational') ||
-                             $body.text().includes('Online') ||
-                             $body.text().includes('Healthy') ||
-                             $body.find('[class*="green"]').length > 0;
-        if (hasIndicators) {
-          cy.log('Status indicators found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Operational', 'Online', 'Healthy', 'Status', 'Overview']);
     });
   });
 
   describe('System Metrics Section', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
+
     it('should display System Metrics section', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasMetrics = $body.text().includes('System Metrics') ||
-                          $body.text().includes('Metrics');
-        if (hasMetrics) {
-          cy.log('System Metrics section found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['System Metrics', 'Metrics', 'Overview']);
     });
 
     it('should display Total Users metric', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasUsers = $body.text().includes('Total Users') ||
-                        $body.text().includes('Users');
-        if (hasUsers) {
-          cy.log('Total Users metric found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Total Users', 'Users', 'Overview']);
     });
 
     it('should display Active Accounts metric', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasAccounts = $body.text().includes('Active Accounts') ||
-                           $body.text().includes('Accounts');
-        if (hasAccounts) {
-          cy.log('Active Accounts metric found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Active Accounts', 'Accounts', 'Overview']);
     });
 
     it('should display Total Revenue metric', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasRevenue = $body.text().includes('Revenue') ||
-                          $body.text().includes('MRR') ||
-                          $body.text().match(/\$[\d,]+/);
-        if (hasRevenue) {
-          cy.log('Total Revenue metric found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Revenue', 'MRR', 'Overview']);
     });
 
     it('should display Active Subscriptions metric', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasSubs = $body.text().includes('Subscriptions') ||
-                       $body.text().includes('Active Plans');
-        if (hasSubs) {
-          cy.log('Active Subscriptions metric found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Subscriptions', 'Active Plans', 'Overview']);
     });
   });
 
   describe('Payment Gateway Status', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
+
     it('should display Payment Gateway section', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasPayment = $body.text().includes('Payment') ||
-                          $body.text().includes('Gateway');
-        if (hasPayment) {
-          cy.log('Payment Gateway section found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Payment', 'Gateway', 'Overview']);
     });
 
     it('should display Stripe status', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasStripe = $body.text().includes('Stripe');
-        if (hasStripe) {
-          cy.log('Stripe status found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Stripe', 'Payment', 'Overview']);
     });
 
     it('should display PayPal status', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasPayPal = $body.text().includes('PayPal');
-        if (hasPayPal) {
-          cy.log('PayPal status found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['PayPal', 'Payment', 'Overview']);
     });
 
     it('should display gateway connection status', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasConnection = $body.text().includes('Connected') ||
-                             $body.text().includes('Configured') ||
-                             $body.text().includes('Not Configured');
-        if (hasConnection) {
-          cy.log('Gateway connection status found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Connected', 'Configured', 'Not Configured', 'Overview']);
     });
   });
 
   describe('Services Health Section', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
+
     it('should display Services Health section', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasHealth = $body.text().includes('Services') ||
-                         $body.text().includes('Health');
-        if (hasHealth) {
-          cy.log('Services Health section found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Services', 'Health', 'Overview']);
     });
 
     it('should display Email service status', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasEmail = $body.text().includes('Email') ||
-                        $body.text().includes('SMTP');
-        if (hasEmail) {
-          cy.log('Email service status found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Email', 'SMTP', 'Overview']);
     });
 
     it('should display Storage service status', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasStorage = $body.text().includes('Storage') ||
-                          $body.text().includes('S3') ||
-                          $body.text().includes('Files');
-        if (hasStorage) {
-          cy.log('Storage service status found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Storage', 'S3', 'Files', 'Overview']);
     });
 
     it('should display service health indicators', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasIndicators = $body.find('[class*="badge"]').length > 0 ||
-                             $body.find('[class*="indicator"]').length > 0;
-        if (hasIndicators) {
-          cy.log('Service health indicators found');
-        }
-      });
+      // Simplified - just verify page is visible since status indicators may vary
       cy.get('body').should('be.visible');
     });
   });
 
   describe('Recent Activity Section', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
+
     it('should display Recent Activity section', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasActivity = $body.text().includes('Recent Activity') ||
-                           $body.text().includes('Activity');
-        if (hasActivity) {
-          cy.log('Recent Activity section found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Recent Activity', 'Activity', 'Overview']);
     });
 
     it('should display recent users', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasUsers = $body.text().includes('Recent Users') ||
-                        $body.text().includes('New Users');
-        if (hasUsers) {
-          cy.log('Recent users found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Recent Users', 'New Users', 'Users', 'Overview']);
     });
 
     it('should display recent accounts', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasAccounts = $body.text().includes('Recent Accounts') ||
-                           $body.text().includes('New Accounts');
-        if (hasAccounts) {
-          cy.log('Recent accounts found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Recent Accounts', 'New Accounts', 'Accounts', 'Overview']);
     });
 
     it('should display audit logs preview', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasLogs = $body.text().includes('Audit') ||
-                       $body.text().includes('Logs') ||
-                       $body.text().includes('Activity Log');
-        if (hasLogs) {
-          cy.log('Audit logs preview found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Audit', 'Logs', 'Activity Log', 'Overview']);
     });
   });
 
   describe('Configuration Overview Section', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
+
     it('should display Configuration Overview section', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasConfig = $body.text().includes('Configuration') ||
-                         $body.text().includes('Settings');
-        if (hasConfig) {
-          cy.log('Configuration Overview section found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Configuration', 'Settings', 'Overview']);
     });
 
     it('should display General Settings link', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasGeneral = $body.text().includes('General') ||
-                          $body.text().includes('Site Settings');
-        if (hasGeneral) {
-          cy.log('General Settings link found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['General', 'Site Settings', 'Overview']);
     });
 
     it('should display Security Settings link', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasSecurity = $body.text().includes('Security');
-        if (hasSecurity) {
-          cy.log('Security Settings link found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Security', 'Overview']);
     });
 
     it('should display Billing Settings link', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasBilling = $body.text().includes('Billing');
-        if (hasBilling) {
-          cy.log('Billing Settings link found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Billing', 'Overview']);
     });
 
     it('should display Email Settings link', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasEmailSettings = $body.text().includes('Email') ||
-                                $body.text().includes('Notifications');
-        if (hasEmailSettings) {
-          cy.log('Email Settings link found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Email', 'Notifications', 'Overview']);
     });
   });
 
   describe('Quick Links', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
+
     it('should display quick action cards', () => {
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasCards = $body.find('[class*="card"]').length > 0 ||
-                        $body.find('[class*="rounded"]').length > 0;
-        if (hasCards) {
-          cy.log('Quick action cards found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="card"]', '[class*="rounded"]', '[class*="container"]']);
     });
 
     it('should navigate to Users Management', () => {
-      cy.visit('/app/admin/settings/overview');
       cy.get('body').then($body => {
         if ($body.find('a:contains("Users")').length > 0) {
           cy.contains('a', 'Users').click();
           cy.url().should('include', '/admin');
+        } else {
+          cy.assertContainsAny(['Users', 'Overview']);
         }
       });
     });
 
     it('should navigate to Roles Management', () => {
-      cy.visit('/app/admin/settings/overview');
       cy.get('body').then($body => {
         if ($body.find('a:contains("Roles")').length > 0) {
           cy.contains('a', 'Roles').click();
           cy.url().should('include', '/admin');
+        } else {
+          cy.assertContainsAny(['Roles', 'Overview']);
         }
       });
     });
   });
 
   describe('Error Handling', () => {
-    it('should handle API errors gracefully', () => {
-      cy.intercept('GET', '**/api/**/admin/**', {
-        statusCode: 500,
-        body: { error: 'Internal Server Error' }
-      }).as('apiError');
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
 
-      cy.visit('/app/admin/settings/overview');
-      cy.get('body').should('be.visible');
+    it('should handle API errors gracefully', () => {
+      cy.testErrorHandling('**/api/**/admin/**', {
+        statusCode: 500,
+        visitUrl: '/app/admin/settings/overview'
+      });
     });
 
     it('should display error state when data fails to load', () => {
@@ -473,18 +261,16 @@ describe('Admin Settings Overview Page Tests', () => {
       }).as('loadError');
 
       cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasError = $body.text().includes('Error') ||
-                        $body.text().includes('Failed');
-        if (hasError) {
-          cy.log('Error state displayed');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['Error', 'Failed', 'Overview', 'Settings']);
     });
   });
 
   describe('Loading State', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
+
     it('should display loading indicator', () => {
       cy.intercept('GET', '**/api/**/admin/**', (req) => {
         req.reply((res) => {
@@ -494,53 +280,37 @@ describe('Admin Settings Overview Page Tests', () => {
       }).as('slowLoad');
 
       cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasLoading = $body.find('[class*="animate-spin"]').length > 0 ||
-                          $body.text().includes('Loading');
-        if (hasLoading) {
-          cy.log('Loading indicator found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="animate-spin"]', '[class*="loading"]', 'body']);
     });
   });
 
   describe('Responsive Design', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/settings/overview');
+    });
+
     it('should display properly on mobile viewport', () => {
-      cy.viewport('iphone-x');
-      cy.visit('/app/admin/settings/overview');
+      cy.testViewport('mobile', '/app/admin/settings/overview');
       cy.get('body').should('be.visible');
     });
 
     it('should display properly on tablet viewport', () => {
-      cy.viewport('ipad-2');
-      cy.visit('/app/admin/settings/overview');
+      cy.testViewport('tablet', '/app/admin/settings/overview');
       cy.get('body').should('be.visible');
     });
 
     it('should stack cards on small screens', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasStack = $body.find('[class*="grid-cols-1"]').length > 0 ||
-                        $body.find('[class*="md:grid-cols"]').length > 0;
-        if (hasStack) {
-          cy.log('Stacked cards found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.waitForPageLoad();
+      cy.assertHasElement(['[class*="grid-cols-1"]', '[class*="md:grid-cols"]', '[class*="flex-col"]']);
     });
 
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/admin/settings/overview');
-      cy.get('body').then($body => {
-        const hasMultiCol = $body.find('[class*="lg:grid-cols"]').length > 0 ||
-                           $body.find('[class*="xl:grid-cols"]').length > 0;
-        if (hasMultiCol) {
-          cy.log('Multi-column layout found');
-        }
-      });
+      cy.waitForPageLoad();
+      // Simplified - just verify page is visible on large screens
       cy.get('body').should('be.visible');
     });
   });

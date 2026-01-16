@@ -8,88 +8,82 @@
 
 describe('Admin User Management', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupAdminIntercepts();
-    // Login with demo user
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Dashboard Access', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/dashboard');
+    });
+
     it('should display dashboard after login', () => {
       cy.get('body').should('be.visible');
       cy.url().should('match', /\/(app|dashboard)/);
     });
 
     it('should display navigation menu', () => {
-      cy.get('nav, [role="navigation"], aside, [class*="sidebar"], header')
-        .should('exist');
+      cy.assertHasElement([
+        'nav',
+        '[role="navigation"]',
+        'aside',
+        '[class*="sidebar"]',
+        '[class*="nav"]',
+        'header',
+      ]);
     });
   });
 
   describe('User Menu', () => {
-    it('should display current user info', () => {
-      cy.get('body').then($body => {
-        const userIndicators = [
-          '[data-testid="user-menu"]',
-          ':contains("Demo")',
-          '[class*="avatar"]',
-          '[class*="user"]'
-        ];
+    beforeEach(() => {
+      cy.assertPageReady('/app/dashboard');
+    });
 
-        for (const selector of userIndicators) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible');
-            break;
-          }
-        }
-      });
+    it('should display current user info', () => {
+      cy.assertHasElement([
+        '[data-testid="user-menu"]',
+        '[class*="avatar"]',
+        '[class*="user"]',
+        '[class*="profile"]',
+        'button[aria-haspopup="true"]',
+      ]);
     });
 
     it('should open user dropdown menu', () => {
-      // Click the user menu button
       cy.get('button[aria-haspopup="true"]', { timeout: 5000 }).first().click();
-
-      // Should show dropdown options - check for common menu items
-      cy.get('body').should('satisfy', ($body) => {
-        const text = $body.text();
-        return text.includes('Settings') ||
-               text.includes('Profile') ||
-               text.includes('Sign Out') ||
-               text.includes('Logout');
-      });
+      cy.assertContainsAny(['Settings', 'Profile', 'Sign Out', 'Logout']);
     });
   });
 
   describe('Navigation', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/dashboard');
+    });
+
     it('should have working navigation links', () => {
-      cy.get('nav a, aside a, [role="navigation"] a')
-        .should('have.length.at.least', 1);
+      cy.get('nav a, aside a, [role="navigation"] a').should('have.length.at.least', 1);
     });
 
     it('should allow navigation to different sections', () => {
-      cy.get('body').then($body => {
-        // Try to find navigation links
-        const navLinks = $body.find('nav a, aside a');
-        if (navLinks.length > 0) {
-          cy.wrap(navLinks.first()).should('be.visible').click();
-          cy.url().should('include', '/');
-        }
-      });
+      cy.get('nav a, aside a').first().should('be.visible').click();
+      cy.url().should('include', '/');
     });
   });
 
   describe('Settings Access', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/dashboard');
+    });
+
     it('should navigate to settings if available', () => {
+      // Use broader element selection to handle different nav structures
       cy.get('body').then($body => {
         const settingsSelectors = [
           'a[href*="settings"]',
           'a[href*="profile"]',
           '[data-testid="settings-link"]',
-          ':contains("Settings")'
+          '[data-testid="nav-settings"]',
+          'nav a',
+          'aside a',
         ];
 
         for (const selector of settingsSelectors) {
@@ -99,30 +93,34 @@ describe('Admin User Management', () => {
           }
         }
       });
-
-      // Should be on a valid page
       cy.url().should('match', /\/(app|dashboard|settings|profile)/);
     });
 
     it('should display page content', () => {
-      cy.get('main, [role="main"], .main-content, [class*="container"]')
-        .should('exist');
+      cy.assertHasElement([
+        'main',
+        '[role="main"]',
+        '.main-content',
+        '[class*="container"]',
+        '[class*="content"]',
+      ]);
     });
   });
 
   describe('Responsive Design', () => {
-    it('should handle mobile viewport', () => {
-      cy.viewport('iphone-x');
-      cy.get('body').should('be.visible');
-      cy.get('main, [role="main"], .main-content').should('be.visible');
+    beforeEach(() => {
+      cy.assertPageReady('/app/dashboard');
     });
 
-    it('should handle tablet viewport', () => {
-      cy.viewport('ipad-2');
-      cy.get('body').should('be.visible');
+    it('should handle all viewports', () => {
+      cy.testResponsiveDesign('/app/dashboard', {
+        viewports: [
+          { name: 'mobile', width: 375, height: 667 },
+          { name: 'tablet', width: 768, height: 1024 },
+        ],
+      });
     });
   });
 });
-
 
 export {};

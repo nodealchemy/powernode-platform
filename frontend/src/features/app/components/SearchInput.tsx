@@ -44,16 +44,17 @@ export const SearchInput: React.FC<SearchInputProps> = ({
   }, []);
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full search-container">
       <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-theme-tertiary">
         <Search className="h-4 w-4" />
       </div>
       <Input
-        type="text"
+        type="search"
         value={localValue}
         onChange={handleChange}
         placeholder={placeholder}
         className="pl-10 w-full"
+        data-testid="search-input"
       />
     </div>
   );

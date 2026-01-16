@@ -3,149 +3,117 @@
 /**
  * Admin Settings E2E Tests
  *
- * Simplified tests for settings functionality
+ * Tests for settings functionality via the Profile page
  */
 
 describe('Admin Settings', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupAdminIntercepts();
-    // Login with demo user
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Settings Navigation', () => {
-    it('should navigate to settings page', () => {
-      cy.get('body').then($body => {
-        const settingsSelectors = [
-          'a[href*="settings"]',
-          'a[href*="profile"]',
-          '[data-testid="settings-link"]',
-          '[data-testid="nav-settings"]'
-        ];
+    beforeEach(() => {
+      cy.assertPageReady('/app/profile');
+    });
 
-        for (const selector of settingsSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
-
-      cy.url().should('match', /\/(app|dashboard|settings|profile)/);
+    it('should navigate to settings page via user menu', () => {
+      // Open user menu
+      cy.get('button[aria-haspopup="true"]', { timeout: 5000 }).first().click();
+      // Click on profile/settings link
+      cy.assertHasElement([
+        '[data-testid="nav-profile"]',
+        '[data-testid="nav-account-settings"]',
+        'a[href*="profile"]',
+        '[class*="menu-item"]',
+      ])
+        .first()
+        .click();
+      cy.url().should('include', '/profile');
     });
 
     it('should display settings content', () => {
-      cy.visit('/app/settings/profile').then(() => {
-        cy.get('body').should('be.visible');
-      });
+      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'My Profile', 'Settings']);
     });
   });
 
   describe('Profile Settings', () => {
-    it('should display user profile section', () => {
-      cy.visit('/app/settings/profile');
-      cy.get('body').then($body => {
-        const profileIndicators = [
-          'input[name="name"]',
-          'input[name="email"]',
-          'input[name="firstName"]',
-          'input[name="first_name"]',
-          '[data-testid="profile-form"]',
-          'form'
-        ];
+    beforeEach(() => {
+      cy.assertPageReady('/app/profile');
+    });
 
-        for (const selector of profileIndicators) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible');
-            break;
-          }
-        }
-      });
+    it('should display user profile section', () => {
+      cy.assertHasElement([
+        '[data-testid="profile-form"]',
+        'input[name="name"]',
+        'input[name="email"]',
+        'form',
+        '[class*="form"]',
+      ]);
     });
 
     it('should allow viewing profile information', () => {
-      cy.visit('/app/settings/profile');
-      cy.get('body').should('be.visible');
-      // Profile page should have content
-      cy.get('main, [role="main"], .main-content, [class*="container"]')
-        .should('exist');
+      cy.assertHasElement(['main', '[role="main"]', '.main-content', '[class*="container"]', '[class*="content"]']);
     });
   });
 
   describe('Security Settings', () => {
-    it('should navigate to security section if available', () => {
-      cy.get('body').then($body => {
-        const securityLinks = [
-          'a[href*="security"]',
-          'a[href*="password"]',
-          'button:contains("Security")',
-          '[data-testid="security-tab"]'
-        ];
+    beforeEach(() => {
+      cy.assertPageReady('/app/profile');
+    });
 
-        for (const selector of securityLinks) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should navigate to security section', () => {
+      // Click on Security tab
+      cy.clickTab('Security');
+      cy.assertContainsAny(['Change Password', 'Security', 'Current Password', 'Password']);
     });
   });
 
   describe('Notification Settings', () => {
-    it('should have notification options if available', () => {
-      cy.get('body').then($body => {
-        const notificationSelectors = [
-          'a[href*="notifications"]',
-          '[data-testid="notifications-tab"]',
-          'button:contains("Notifications")',
-          'input[type="checkbox"]'
-        ];
+    beforeEach(() => {
+      cy.assertPageReady('/app/profile');
+    });
 
-        for (const selector of notificationSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('exist');
-            break;
-          }
-        }
-      });
+    it('should have notification options', () => {
+      // Click on Notifications tab
+      cy.clickTab('Notifications');
+      cy.assertHasElement([
+        'input[type="checkbox"]',
+        '.toggle-theme',
+        '[class*="toggle"]',
+        '[role="switch"]',
+        '[class*="switch"]',
+      ]);
+      cy.assertContainsAny(['Email Notifications', 'Notifications', 'Preferences']);
     });
   });
 
   describe('Theme Settings', () => {
-    it('should display theme toggle if available', () => {
-      cy.get('body').then($body => {
-        const themeSelectors = [
-          '[data-testid="theme-toggle"]',
-          'button[aria-label*="theme"]',
-          '[class*="theme"]',
-          'button:contains("Dark")',
-          'button:contains("Light")'
-        ];
+    beforeEach(() => {
+      cy.assertPageReady('/app/profile');
+    });
 
-        for (const selector of themeSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('exist');
-            break;
-          }
-        }
-      });
+    it('should display theme toggle in preferences', () => {
+      // Click on Preferences tab
+      cy.clickTab('Preferences');
+      cy.assertContainsAny(['Theme', 'Light', 'Dark', 'Appearance']);
+      cy.assertHasElement([
+        'select',
+        '[data-testid="theme-toggle"]',
+        'button[aria-label*="theme"]',
+        '[role="listbox"]',
+        '[class*="select"]',
+      ]);
     });
   });
 
   describe('Account Actions', () => {
-    it('should display logout option', () => {
-      // Open user menu first
-      cy.get('button[aria-haspopup="true"]', { timeout: 5000 }).first().click();
+    beforeEach(() => {
+      cy.assertPageReady('/app/profile');
+    });
 
-      // Should have logout option
+    it('should display logout option', () => {
+      cy.get('button[aria-haspopup="true"]', { timeout: 5000 }).first().click();
       cy.contains('Sign Out', { timeout: 5000 }).should('be.visible');
     });
 
@@ -155,13 +123,16 @@ describe('Admin Settings', () => {
   });
 
   describe('Responsive Design', () => {
-    it('should handle mobile viewport', () => {
-      cy.viewport('iphone-x');
-      cy.visit('/app/settings/profile');
-      cy.get('body').should('be.visible');
+    beforeEach(() => {
+      cy.assertPageReady('/app/profile');
+    });
+
+    it('should handle all viewports', () => {
+      cy.testResponsiveDesign('/app/profile', {
+        viewports: [{ name: 'mobile', width: 375, height: 667 }],
+      });
     });
   });
 });
-
 
 export {};

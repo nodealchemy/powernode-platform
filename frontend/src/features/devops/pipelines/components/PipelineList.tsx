@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Play, Clock, Copy, Trash2, MoreVertical, FileCode } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import type { CiCdPipeline } from '@/types/cicd';
+import type { CiCdPipeline } from '@/types/devops-pipelines';
 
 interface PipelineListProps {
   pipelines: CiCdPipeline[];
@@ -208,7 +208,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
           onDuplicate={() => onDuplicate(pipeline.id)}
           onDelete={() => onDelete(pipeline.id)}
           onExportYaml={() => onExportYaml(pipeline.id)}
-          onClick={() => navigate(`/app/automation/pipelines/${pipeline.id}`)}
+          onClick={() => navigate(`/app/devops/pipelines/${pipeline.id}`)}
         />
       ))}
     </div>

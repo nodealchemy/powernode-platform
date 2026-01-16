@@ -183,7 +183,7 @@ export function IntegrationsPage() {
               Browse the marketplace to add your first integration
             </p>
             <button
-              onClick={() => navigate('/app/automation/integrations/marketplace')}
+              onClick={() => navigate('/app/marketplace?types=integration')}
               className="inline-block mt-4 px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
             >
               Browse Marketplace

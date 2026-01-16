@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import type { CiCdPipelineRun, CiCdPipelineRunStatus } from '@/types/cicd';
+import type { CiCdPipelineRun, CiCdPipelineRunStatus } from '@/types/devops-pipelines';
 
 interface RunHistoryProps {
   runs: CiCdPipelineRun[];
@@ -299,7 +299,7 @@ export const RunHistory: React.FC<RunHistoryProps> = ({
           run={run}
           isExpanded={expandedId === run.id}
           onToggle={() => toggleExpand(run.id)}
-          onNavigate={() => navigate(`/app/automation/runs/${run.id}`)}
+          onNavigate={() => navigate(`/app/devops/pipelines/${run.id}`)}
           onCancel={() => onCancel(run.id)}
           onRetry={() => onRetry(run.id)}
         />

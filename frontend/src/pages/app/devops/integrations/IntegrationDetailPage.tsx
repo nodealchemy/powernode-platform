@@ -102,7 +102,7 @@ export function IntegrationDetailPage() {
     const response = await integrationsApi.deleteInstance(id);
     if (response.success) {
       showNotification('Integration deleted', 'success');
-      navigate('/app/integrations');
+      navigate('/app/devops/integrations');
     } else {
       showNotification(response.error || 'Failed to delete integration', 'error');
     }
@@ -150,7 +150,7 @@ export function IntegrationDetailPage() {
         <div className="text-center py-12">
           <p className="text-theme-secondary">The integration you're looking for doesn't exist.</p>
           <a
-            href="/app/integrations"
+            href="/app/devops/integrations"
             className="inline-block mt-4 text-theme-primary hover:underline"
           >
             Back to Integrations

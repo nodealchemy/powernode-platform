@@ -216,7 +216,7 @@ export const ItemDetailPage: React.FC = () => {
                 {item.tags.map((tag, index) => (
                   <span
                     key={index}
-                    className="px-3 py-1 bg-theme-surface text-theme-tertiary text-sm rounded border border-theme"
+                    className="tag-badge px-3 py-1 bg-theme-surface text-theme-tertiary text-sm rounded border border-theme"
                   >
                     {tag}
                   </span>

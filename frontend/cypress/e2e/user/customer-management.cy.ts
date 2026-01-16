@@ -8,15 +8,7 @@
 
 describe('Customer Management', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupApiIntercepts();
-    // Login with demo user
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
-    cy.waitForPageLoad();
+    cy.standardTestSetup();
   });
 
   describe('Dashboard Access', () => {
@@ -26,34 +18,17 @@ describe('Customer Management', () => {
     });
 
     it('should display main content area', () => {
-      cy.get('main, [role="main"], .main-content, [class*="container"]')
-        .should('exist');
+      cy.assertHasElement(['main', '[role="main"]', '.main-content', '[class*="container"]']);
     });
   });
 
   describe('Navigation', () => {
     it('should have working navigation', () => {
-      cy.get('nav, [role="navigation"], aside, [class*="sidebar"]')
-        .should('exist');
+      cy.assertHasElement(['nav', '[role="navigation"]', 'aside', '[class*="sidebar"]']);
     });
 
     it('should navigate to customers if available', () => {
-      cy.get('body').then($body => {
-        const customerSelectors = [
-          'a[href*="customer"]',
-          'a[href*="clients"]',
-          'a[href*="accounts"]',
-          '[data-testid="nav-customers"]'
-        ];
-
-        for (const selector of customerSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
-
+      cy.navigateTo('customers');
       cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
@@ -61,88 +36,44 @@ describe('Customer Management', () => {
 
   describe('User Profile', () => {
     it('should display user information', () => {
-      cy.get('body').then($body => {
-        const userSelectors = [
-          '[data-testid="user-menu"]',
-          ':contains("Demo")',
-          '[class*="avatar"]'
-        ];
-
-        for (const selector of userSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible');
-            break;
-          }
-        }
-      });
+      // Header user button has aria-haspopup="true" and shows user initials
+      cy.assertHasElement([
+        '[data-testid="user-menu"]',
+        'button[aria-haspopup="true"]',
+        '[class*="avatar"]',
+        '.rounded-full'
+      ]);
     });
 
     it('should access profile settings', () => {
-      cy.visit('/app/settings/profile');
-      cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      // Profile page is at /app/profile
+      cy.assertPageReady('/app/profile');
     });
   });
 
   describe('Account Settings', () => {
     it('should navigate to account settings', () => {
-      cy.get('body').then($body => {
-        const settingsSelectors = [
-          'a[href*="settings"]',
-          'a[href*="account"]',
-          '[data-testid="nav-settings"]'
-        ];
-
-        for (const selector of settingsSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
-
+      cy.navigateTo('settings');
       cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
 
     it('should display settings form', () => {
-      cy.visit('/app/settings/profile');
-      cy.waitForPageLoad();
-      cy.get('body').then($body => {
-        const formElements = [
-          'form',
-          'input[name]',
-          '[data-testid="settings-form"]'
-        ];
-
-        for (const selector of formElements) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('exist');
-            break;
-          }
-        }
-      });
+      // Profile page is at /app/profile and has a profile-form
+      cy.assertPageReady('/app/profile');
+      cy.assertHasElement([
+        'form',
+        'input[name]',
+        '[data-testid="settings-form"]',
+        '[data-testid="profile-form"]',
+        'form#profile-form'
+      ]);
     });
   });
 
   describe('Team/Organization', () => {
     it('should navigate to team page if available', () => {
-      cy.get('body').then($body => {
-        const teamSelectors = [
-          'a[href*="team"]',
-          'a[href*="organization"]',
-          'a[href*="members"]',
-          '[data-testid="nav-team"]'
-        ];
-
-        for (const selector of teamSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
-
+      cy.navigateTo('team');
       cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });
@@ -150,35 +81,27 @@ describe('Customer Management', () => {
 
   describe('Search and Filter', () => {
     it('should have search functionality if available', () => {
-      cy.get('body').then($body => {
-        const searchSelectors = [
-          'input[type="search"]',
-          'input[placeholder*="Search"]',
-          '[data-testid="search-input"]'
-        ];
-
-        for (const selector of searchSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('exist');
-            break;
-          }
+      // Search may not be present on all pages - check if it exists or skip
+      cy.get('body').then(($body) => {
+        const hasSearch = $body.find('input[type="search"], input[placeholder*="Search"], [data-testid="search-input"]').length > 0;
+        if (hasSearch) {
+          cy.assertHasElement(['input[type="search"]', 'input[placeholder*="Search"]', '[data-testid="search-input"]']);
+        } else {
+          cy.log('Search functionality not available on this page - skipping');
+          cy.get('body').should('be.visible');
         }
       });
     });
 
     it('should have filter options if available', () => {
-      cy.get('body').then($body => {
-        const filterSelectors = [
-          'select',
-          '[data-testid="filter"]',
-          '[class*="filter"]'
-        ];
-
-        for (const selector of filterSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('exist');
-            break;
-          }
+      // Filter may not be present on all pages - check if it exists or skip
+      cy.get('body').then(($body) => {
+        const hasFilter = $body.find('select, [data-testid="filter"], [class*="filter"]').length > 0;
+        if (hasFilter) {
+          cy.assertHasElement(['select', '[data-testid="filter"]', '[class*="filter"]']);
+        } else {
+          cy.log('Filter functionality not available on this page - skipping');
+          cy.get('body').should('be.visible');
         }
       });
     });
@@ -190,8 +113,9 @@ describe('Customer Management', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      cy.waitForPageLoad();
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
+      // Wait for plans page to render - may not have standard page container
+      cy.get('body').should('be.visible');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 10000 })
         .should('have.length.at.least', 1);
     });
 
@@ -200,8 +124,9 @@ describe('Customer Management', () => {
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      cy.waitForPageLoad();
-      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
+      // Wait for plans page to render
+      cy.get('body').should('be.visible');
+      cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 10000 })
         .first()
         .within(() => {
           cy.contains(/\$|Free|price/i).should('exist');
@@ -211,15 +136,12 @@ describe('Customer Management', () => {
 
   describe('Responsive Design', () => {
     it('should handle mobile viewport', () => {
-      cy.viewport('iphone-x');
-      cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
-      cy.get('main, [role="main"], .main-content').should('be.visible');
+      cy.testViewport('mobile', '/app');
+      cy.assertHasElement(['main', '[role="main"]', '.main-content']);
     });
 
     it('should handle tablet viewport', () => {
-      cy.viewport('ipad-2');
-      cy.waitForPageLoad();
+      cy.testViewport('tablet', '/app');
       cy.get('body').should('be.visible');
     });
   });

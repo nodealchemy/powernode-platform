@@ -5,7 +5,7 @@ import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { Button } from '@/shared/components/ui/Button';
 import { RunHistory } from '../components/RunHistory';
 import { usePipelineRuns } from '../hooks/usePipelineRuns';
-import type { CiCdPipelineRunStatus, CiCdTriggerType } from '@/types/cicd';
+import type { CiCdPipelineRunStatus, CiCdTriggerType } from '@/types/devops-pipelines';
 
 const RunsPageContent: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<CiCdPipelineRunStatus | 'all'>('all');

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ciCdSchedulesApi } from '@/services/ciCdApi';
-import type { CiCdSchedule, CiCdScheduleFormData } from '@/types/cicd';
+import { devopsSchedulesApi } from '@/services/devopsPipelinesApi';
+import type { CiCdSchedule, CiCdScheduleFormData } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UseSchedulesParams {
@@ -26,7 +26,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
     try {
       setLoading(true);
       setError(null);
-      const data = await ciCdSchedulesApi.getAll(params);
+      const data = await devopsSchedulesApi.getAll(params);
       setSchedules(data.schedules);
       setMeta(data.meta);
     } catch (err) {
@@ -49,7 +49,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
 
   const createSchedule = async (data: CiCdScheduleFormData) => {
     try {
-      const schedule = await ciCdSchedulesApi.create(data);
+      const schedule = await devopsSchedulesApi.create(data);
       showNotification('Schedule created successfully', 'success');
       await fetchSchedules();
       return schedule;
@@ -61,7 +61,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
 
   const updateSchedule = async (id: string, data: Partial<CiCdScheduleFormData>) => {
     try {
-      const schedule = await ciCdSchedulesApi.update(id, data);
+      const schedule = await devopsSchedulesApi.update(id, data);
       showNotification('Schedule updated successfully', 'success');
       await fetchSchedules();
       return schedule;
@@ -73,7 +73,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
 
   const deleteSchedule = async (id: string) => {
     try {
-      await ciCdSchedulesApi.delete(id);
+      await devopsSchedulesApi.delete(id);
       showNotification('Schedule deleted successfully', 'success');
       await fetchSchedules();
       return true;
@@ -85,7 +85,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
 
   const toggleSchedule = async (id: string) => {
     try {
-      const schedule = await ciCdSchedulesApi.toggle(id);
+      const schedule = await devopsSchedulesApi.toggle(id);
       showNotification(
         schedule.is_active ? 'Schedule enabled' : 'Schedule disabled',
         'success'
@@ -125,7 +125,7 @@ export function useSchedule(id: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const data = await ciCdSchedulesApi.getById(id, true);
+      const data = await devopsSchedulesApi.getById(id, true);
       setSchedule(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch schedule';
@@ -147,7 +147,7 @@ export function useSchedule(id: string | null) {
     if (!id) return null;
 
     try {
-      const updated = await ciCdSchedulesApi.update(id, data);
+      const updated = await devopsSchedulesApi.update(id, data);
       showNotification('Schedule updated successfully', 'success');
       setSchedule(updated);
       return updated;

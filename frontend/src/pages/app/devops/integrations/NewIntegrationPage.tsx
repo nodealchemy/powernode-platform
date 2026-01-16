@@ -12,7 +12,7 @@ export function NewIntegrationPage() {
       actions={[
         {
           label: 'Cancel',
-          onClick: () => navigate('/app/integrations/marketplace'),
+          onClick: () => navigate('/app/devops/integrations'),
           variant: 'secondary',
         },
       ]}

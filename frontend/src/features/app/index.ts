@@ -1,51 +1,6 @@
 // Main marketplace feature exports
 
-// Types - Export from index to avoid conflicts with marketplace.ts types
-export type {
-  App,
-  AppStatus,
-  AppPlan,
-  BillingInterval,
-  AppFeature,
-  FeatureType,
-  FeatureSummary,
-  PlanSummary,
-  MarketplaceListing,
-  ReviewStatus,
-  AppSummary,
-  ListingSummary,
-  Screenshot,
-  AppSubscription,
-  SubscriptionStatus,
-  AppReview,
-  ApiResponse,
-  PaginatedResponse,
-  AppFormData,
-  AppPlanFormData,
-  AppFeatureFormData,
-  MarketplaceListingFormData,
-  AppReviewFormData,
-  AppFilters,
-  AppPlanFilters,
-  AppFeatureFilters,
-  AppAnalytics,
-  PlanAnalytics,
-  HttpMethod,
-  WebhookMethod,
-  DeliveryStatus,
-  AppEndpoint,
-  AppEndpointAnalytics,
-  AppEndpointCall,
-  AppWebhook,
-  AppWebhookAnalytics,
-  AppWebhookDelivery,
-  AppEndpointFormData,
-  AppWebhookFormData,
-  AppEndpointFilters,
-  AppWebhookFilters
-} from './types';
-
-// New marketplace types (apps, plugins, templates, integrations)
+// Marketplace types (templates: workflows, pipelines, integrations, prompts)
 export type {
   MarketplaceItemType,
   MarketplaceItem,
@@ -70,7 +25,7 @@ export type {
 } from './types/marketplace';
 
 // API Services
-export { marketplaceApi, unifiedMarketplaceApi } from './services/marketplaceApi';
+export { marketplaceApi } from './services/marketplaceApi';
 
 // Components
 export * from './components';

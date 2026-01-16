@@ -2,7 +2,7 @@ import React from 'react';
 import { FileText, Copy, Trash2, MoreVertical, Eye, Tag } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import type { CiCdPromptTemplate, CiCdPromptCategory } from '@/types/cicd';
+import type { CiCdPromptTemplate, CiCdPromptCategory } from '@/types/devops-pipelines';
 
 interface PromptTemplateListProps {
   templates: CiCdPromptTemplate[];

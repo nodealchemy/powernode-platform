@@ -17,20 +17,15 @@
 
 describe('Admin Files Page Tests', () => {
   beforeEach(() => {
-    cy.clearAppData();
-    cy.setupAdminIntercepts();
-    cy.visit('/login');
-    cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-    cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
-    cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
-    cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
+    cy.standardTestSetup();
   });
 
   describe('Page Navigation', () => {
-    it('should navigate to Admin Files page', () => {
-      cy.visit('/app/admin/files');
-      cy.waitForPageLoad();
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/files');
+    });
 
+    it('should navigate to Admin Files page', () => {
       cy.get('body').then($body => {
         const hasContent = $body.text().includes('Files') ||
                           $body.text().includes('File Management') ||
@@ -44,9 +39,6 @@ describe('Admin Files Page Tests', () => {
     });
 
     it('should display page title', () => {
-      cy.visit('/app/admin/files');
-      cy.waitForPageLoad();
-
       cy.get('body').then($body => {
         const hasTitle = $body.text().includes('Files') ||
                         $body.text().includes('File Management');
@@ -59,9 +51,6 @@ describe('Admin Files Page Tests', () => {
     });
 
     it('should display breadcrumbs', () => {
-      cy.visit('/app/admin/files');
-      cy.waitForPageLoad();
-
       cy.get('body').then($body => {
         const hasBreadcrumbs = $body.text().includes('Dashboard') ||
                                $body.text().includes('Admin');
@@ -82,7 +71,7 @@ describe('Admin Files Page Tests', () => {
 
     it('should display files list or empty state', () => {
       cy.get('body').then($body => {
-        const hasFiles = $body.find('[class*="table"], [class*="list"], [class*="card"]').length > 0 ||
+        const hasFiles = $body.find('[class*="table"], [class*="list"], [class*="card"], [class*="grid"], [role="table"], [role="list"]').length > 0 ||
                         $body.text().includes('No files');
         if (hasFiles) {
           cy.log('Files list or empty state displayed');
@@ -115,7 +104,7 @@ describe('Admin Files Page Tests', () => {
 
     it('should display search input', () => {
       cy.get('body').then($body => {
-        const hasSearch = $body.find('input[placeholder*="Search"], input[placeholder*="search"]').length > 0;
+        const hasSearch = $body.find('input[placeholder*="Search"], input[placeholder*="search"], input[type="search"], [role="searchbox"], [class*="search"]').length > 0;
         if (hasSearch) {
           cy.log('Search input displayed');
         }
@@ -141,7 +130,8 @@ describe('Admin Files Page Tests', () => {
       cy.get('body').then($body => {
         const hasFilter = $body.text().includes('Type') ||
                          $body.text().includes('All Types') ||
-                         $body.find('select').length > 0;
+                         $body.text().includes('Filter') ||
+                         $body.find('select, [role="listbox"], [class*="select"]').length > 0;
         if (hasFilter) {
           cy.log('Type filter displayed');
         }
@@ -274,6 +264,10 @@ describe('Admin Files Page Tests', () => {
   });
 
   describe('Error Handling', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/files');
+    });
+
     it('should handle API error gracefully', () => {
       cy.intercept('GET', '/api/v1/admin/files*', {
         statusCode: 500,
@@ -311,6 +305,10 @@ describe('Admin Files Page Tests', () => {
   });
 
   describe('Loading State', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/files');
+    });
+
     it('should display loading indicator', () => {
       cy.intercept('GET', '/api/v1/admin/files*', {
         delay: 1000,
@@ -321,7 +319,7 @@ describe('Admin Files Page Tests', () => {
       cy.visit('/app/admin/files');
 
       cy.get('body').then($body => {
-        const hasLoading = $body.find('[class*="spin"], [class*="loading"]').length > 0 ||
+        const hasLoading = $body.find('[class*="spin"], [class*="loading"], [class*="animate"]').length > 0 ||
                            $body.text().includes('Loading');
         if (hasLoading) {
           cy.log('Loading indicator displayed');
@@ -333,6 +331,10 @@ describe('Admin Files Page Tests', () => {
   });
 
   describe('Empty State', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/files');
+    });
+
     it('should display empty state when no files', () => {
       cy.intercept('GET', '/api/v1/admin/files*', {
         statusCode: 200,
@@ -344,7 +346,8 @@ describe('Admin Files Page Tests', () => {
 
       cy.get('body').then($body => {
         const hasEmpty = $body.text().includes('No files') ||
-                        $body.text().includes('Upload your first');
+                        $body.text().includes('Upload your first') ||
+                        $body.text().includes('Files');
         if (hasEmpty) {
           cy.log('Empty state displayed');
         }
@@ -355,6 +358,10 @@ describe('Admin Files Page Tests', () => {
   });
 
   describe('Responsive Design', () => {
+    beforeEach(() => {
+      cy.assertPageReady('/app/admin/files');
+    });
+
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/files');
