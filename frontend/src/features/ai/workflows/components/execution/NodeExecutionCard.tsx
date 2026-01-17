@@ -203,10 +203,9 @@ export const NodeExecutionCard: React.FC<NodeExecutionCardProps> = ({
 
           {/* Expanded Node Details */}
           {isExpanded && (
-            // @ts-expect-error React 19 types strict children check
             <div className="border-t border-theme px-2 pb-1 space-y-1">
               {/* Input */}
-              {node.input_data && (
+              {node.input_data != null && (
                 <div className="mt-2">
                   <p className="text-xs text-theme-muted mb-2 flex items-center gap-1">
                     <ArrowRight className="h-3 w-3" />
@@ -223,7 +222,7 @@ export const NodeExecutionCard: React.FC<NodeExecutionCardProps> = ({
               )}
 
               {/* Output */}
-              {node.output_data && (
+              {node.output_data != null && (
                 <div>
                   <p className="text-xs text-theme-muted mb-2 flex items-center gap-1">
                     <FileText className="h-3 w-3" />
