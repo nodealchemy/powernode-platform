@@ -33,13 +33,6 @@ jest.mock('../services/accountSwitcherApi', () => ({
   }
 }));
 
-// Mock window.location.reload
-const mockReload = jest.fn();
-Object.defineProperty(window, 'location', {
-  value: { reload: mockReload },
-  writable: true
-});
-
 describe('AccountSwitcher', () => {
   const mockUser = {
     id: 'user-1',

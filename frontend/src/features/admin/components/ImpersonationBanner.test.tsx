@@ -53,11 +53,6 @@ describe('ImpersonationBanner', () => {
       type: 'auth/stopImpersonation',
       unwrap: jest.fn().mockResolvedValue(undefined)
     });
-    // Mock window.location.reload
-    Object.defineProperty(window, 'location', {
-      writable: true,
-      value: { reload: jest.fn() }
-    });
   });
 
   describe('visibility', () => {
