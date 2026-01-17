@@ -171,10 +171,16 @@ Cypress.Commands.add('setupAiIntercepts', () => {
     ...mockWorkflows[0],
     nodes: [
       { id: 'node-1', type: 'trigger', name: 'Start Trigger', position: { x: 0, y: 0 } },
-      { id: 'node-2', type: 'action', name: 'Process Data', position: { x: 200, y: 0 } },
+      { id: 'node-2', type: 'transform', name: 'Process Data', position: { x: 200, y: 0 } },
       { id: 'node-3', type: 'condition', name: 'Check Result', position: { x: 400, y: 0 } },
-      { id: 'node-4', type: 'llm', name: 'AI Analysis', position: { x: 600, y: 0 } },
-      { id: 'node-5', type: 'action', name: 'Send Notification', position: { x: 800, y: 0 } }
+      { id: 'node-4', type: 'ai_agent', name: 'AI Analysis', position: { x: 600, y: 0 } },
+      { id: 'node-5', type: 'notification', name: 'Send Notification', position: { x: 800, y: 0 } }
+    ],
+    edges: [
+      { id: 'edge-1', source: 'node-1', target: 'node-2', type: 'default' },
+      { id: 'edge-2', source: 'node-2', target: 'node-3', type: 'default' },
+      { id: 'edge-3', source: 'node-3', target: 'node-4', type: 'success' },
+      { id: 'edge-4', source: 'node-4', target: 'node-5', type: 'default' }
     ],
     executions: [
       { id: 'exec-1', status: 'completed', duration_ms: 1250, cost: 0.05, created_at: '2024-01-16T10:00:00Z' },
