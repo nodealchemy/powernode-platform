@@ -24,7 +24,7 @@
     "setup:frontend": "cd frontend && npm install"
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^9.2.1"
   },
   "engines": {
     "node": ">=18.0.0",

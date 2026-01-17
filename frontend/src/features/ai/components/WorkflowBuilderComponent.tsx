@@ -14,26 +14,7 @@ interface WorkflowStep {
 
 export const WorkflowBuilderComponent: React.FC = () => {
   const [workflowName, setWorkflowName] = useState('');
-  const [steps, setSteps] = useState<WorkflowStep[]>([
-    {
-      id: '1',
-      name: 'Trigger: New Message',
-      type: 'trigger',
-      status: 'completed'
-    },
-    {
-      id: '2',
-      name: 'Process with AI',
-      type: 'action',
-      status: 'pending'
-    },
-    {
-      id: '3',
-      name: 'Send Response',
-      type: 'action',
-      status: 'pending'
-    }
-  ]);
+  const [steps, setSteps] = useState<WorkflowStep[]>([]);
 
   const getStepColor = (type: string) => {
     switch (type) {
