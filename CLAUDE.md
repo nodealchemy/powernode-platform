@@ -2,524 +2,197 @@
 
 Development guidance for **Powernode** subscription platform.
 
-## Project Overview & Architecture
+## Project Overview
 
 **Powernode** - Subscription lifecycle management platform:
-- **Backend**: Rails 8 API (`./server`) - JWT auth, UUIDv7 primary keys, audit logging
+- **Backend**: Rails 8 API (`./server`) - JWT auth, UUIDv7 primary keys
 - **Frontend**: React TypeScript (`./frontend`) - Theme-aware, Tailwind CSS
-- **Worker**: Sidekiq standalone service (`./worker`) - API-only communication
-- **Database**: PostgreSQL with native UUID schema, UUIDv7 generation
+- **Worker**: Sidekiq standalone (`./worker`) - API-only communication
+- **Database**: PostgreSQL with native UUID schema
 - **Payments**: Stripe, PayPal with PCI compliance
-- **Testing**: RSpec (203+ tests), Jest/Cypress
 
-**ALWAYS REFERENCE docs/TODO.md FOR CURRENT PROGRESS AND STATUS**
+**Project Status**: See [docs/TODO.md](docs/TODO.md)
 
-### Core Models & Relations
-- **Account** → User (many), Subscription (one)
-- **Subscription** → Plan, Payments, Invoices  
-- **User** → Roles (`resource.action` format), Permissions, Invitations
-- **UUID Strategy**: All models use UUIDv7 format for chronologically sortable, globally unique identifiers
+### Core Models
+```
+Account → User (many), Subscription (one)
+Subscription → Plan, Payments, Invoices
+User → Roles, Permissions, Invitations
+```
 
-### Git & Release Management
-- **CRITICAL**: **NEVER commit to git unless explicitly requested by the user**
-- **IMPORTANT**: Clean commit messages without Claude attribution
-- **Git-Flow & Semantic Versioning**: See **[DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md#git-workflow--release-management)** for complete workflow documentation
-- Current version: `0.0.1` → `0.1.0` (next release)
-- Branch strategy: `develop` → `feature/*` → `release/*` → `main`
+---
 
-## Development Workflow
+## Specialist Documentation Index
 
-**See [DevOps Engineer - Development Workflow](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md#development-workflow) for complete development procedures including:**
-- Process management and service startup procedures
-- Database operations and schema management (consolidated UUID strategy)
-- Development command reference
-- Testing workflow and project tracking
-
-
-## Project Structure & Organization
-
-**See [React Architect - Project Structure](docs/frontend/REACT_ARCHITECT_SPECIALIST.md#1-project-structure-mandatory) for complete project organization including:**
-- Overall project layout and directory structure
-- Feature-based frontend architecture  
-- File naming conventions and import rules
-- TypeScript organization standards
-- Migration strategy for restructuring
-
-## MCP Specialist Architecture
-
-The Powernode platform uses specialized MCP (Model Context Protocol) connections for different aspects of development. Each specialist has detailed documentation with architectural patterns, code standards, and integration points.
+**Task Delegation**: See [MCP Configuration](docs/platform/MCP_CONFIGURATION.md#task-tool-specialist-delegation) for spawning specialists via Task tool.
 
 ### Backend Specialists
-- **[Data Modeler](docs/backend/DATA_MODELER_SPECIALIST.md)**: Database architecture, ActiveRecord patterns, schema design
-- **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)**: Rails 8 API architecture, authentication, WebSocket integration
-- **[Payment Integration Specialist](docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md)**: Stripe/PayPal integration, PCI compliance
-- **[API Developer](docs/backend/API_DEVELOPER_SPECIALIST.md)**: RESTful API design, serialization, error handling
-- **[Billing Engine Developer](docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md)**: Subscription lifecycle, automated renewals
-- **[Background Job Engineer](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)**: Sidekiq configuration, queue management
+| Specialist | Documentation | Model |
+|------------|---------------|-------|
+| Rails Architect | [RAILS_ARCHITECT_SPECIALIST.md](docs/backend/RAILS_ARCHITECT_SPECIALIST.md) | sonnet |
+| Data Modeler | [DATA_MODELER_SPECIALIST.md](docs/backend/DATA_MODELER_SPECIALIST.md) | sonnet |
+| API Developer | [API_DEVELOPER_SPECIALIST.md](docs/backend/API_DEVELOPER_SPECIALIST.md) | sonnet |
+| Payment Integration | [PAYMENT_INTEGRATION_SPECIALIST.md](docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md) | **opus** |
+| Billing Engine | [BILLING_ENGINE_DEVELOPER_SPECIALIST.md](docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md) | **opus** |
+| Background Jobs | [BACKGROUND_JOB_ENGINEER_SPECIALIST.md](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md) | sonnet |
 
-### Frontend Specialists  
-- **[React Architect](docs/frontend/REACT_ARCHITECT_SPECIALIST.md)**: TypeScript architecture, routing, state management
-- **[UI Component Developer](docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md)**: Design system, theme-aware components
-- **[Dashboard Specialist](docs/frontend/DASHBOARD_SPECIALIST.md)**: Interactive charts, analytics visualization
-- **[Admin Panel Developer](docs/frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md)**: Administrative interfaces, system management
+### Frontend Specialists
+| Specialist | Documentation | Model |
+|------------|---------------|-------|
+| React Architect | [REACT_ARCHITECT_SPECIALIST.md](docs/frontend/REACT_ARCHITECT_SPECIALIST.md) | sonnet |
+| UI Components | [UI_COMPONENT_DEVELOPER_SPECIALIST.md](docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md) | haiku |
+| Dashboard | [DASHBOARD_SPECIALIST.md](docs/frontend/DASHBOARD_SPECIALIST.md) | sonnet |
+| Admin Panel | [ADMIN_PANEL_DEVELOPER_SPECIALIST.md](docs/frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md) | sonnet |
 
-### Testing Specialists
-- **[Backend Test Engineer](docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md)**: RSpec testing, API integration tests
-- **[Frontend Test Engineer](docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md)**: Jest/Cypress testing, component testing
-
-### Infrastructure Specialists
-- **[DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md)**: CI/CD, deployment, monitoring
-- **[Security Specialist](docs/infrastructure/SECURITY_SPECIALIST.md)**: Application security, PCI compliance
-- **[Performance Optimizer](docs/infrastructure/PERFORMANCE_OPTIMIZER.md)**: Performance tuning, load testing
+### Infrastructure & Testing Specialists
+| Specialist | Documentation | Model |
+|------------|---------------|-------|
+| DevOps Engineer | [DEVOPS_ENGINEER_SPECIALIST.md](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md) | **opus** |
+| Security | [SECURITY_SPECIALIST.md](docs/infrastructure/SECURITY_SPECIALIST.md) | **opus** |
+| Performance | [PERFORMANCE_OPTIMIZER.md](docs/infrastructure/PERFORMANCE_OPTIMIZER.md) | **opus** |
+| Backend Testing | [BACKEND_TEST_ENGINEER_SPECIALIST.md](docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md) | sonnet |
+| Frontend Testing | [FRONTEND_TEST_ENGINEER_SPECIALIST.md](docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md) | haiku |
 
 ### Service Specialists
-- **[Notification Engineer](docs/services/NOTIFICATION_ENGINEER.md)**: Email, SMS, real-time notifications
-- **[Documentation Specialist](docs/services/DOCUMENTATION_SPECIALIST.md)**: API docs, knowledge base
-- **[Analytics Engineer](docs/services/ANALYTICS_ENGINEER.md)**: Business intelligence, KPI tracking
+| Specialist | Documentation | Model |
+|------------|---------------|-------|
+| Project Manager | [PROJECT_MANAGER_SPECIALIST.md](docs/services/PROJECT_MANAGER_SPECIALIST.md) | sonnet |
+| Notifications | [NOTIFICATION_ENGINEER.md](docs/services/NOTIFICATION_ENGINEER.md) | sonnet |
+| Documentation | [DOCUMENTATION_SPECIALIST.md](docs/services/DOCUMENTATION_SPECIALIST.md) | haiku |
+| Analytics | [ANALYTICS_ENGINEER.md](docs/services/ANALYTICS_ENGINEER.md) | **opus** |
 
-### Working with Specialists
+---
 
-When working on specific areas of the platform, reference the appropriate specialist documentation for:
-- Architectural patterns and standards
-- Code examples and best practices  
-- Integration points with other systems
-- Development commands and workflows
-- Quick reference guides
+## Quick Reference - Critical Rules
 
-**Key Principle**: Each specialist maintains expertise in their domain while coordinating with the platform architect for system-wide coherence.
+### Git Rules
+- **NEVER** commit unless explicitly requested
+- **NEVER** include Claude attribution in commits
+- Branch strategy: `develop` → `feature/*` → `release/*` → `main`
 
-## Platform Standardization (COMPLETED)
+### Permission-Based Access Control (CRITICAL)
+**Frontend MUST use permissions ONLY - NEVER roles for access control**
 
-### Comprehensive Pattern Discovery & Documentation
-The platform has undergone comprehensive pattern analysis and standardization (January 2025). All architectural patterns have been discovered, documented, and integrated into MCP specialist documentation.
-
-#### Completed Standardization Work
-✅ **Pattern Discovery**: Comprehensive audit of backend, frontend, and worker services  
-✅ **MCP Documentation Enhancement**: All 18+ specialists updated with discovered patterns  
-✅ **Validation Tools**: Automated compliance checking and pre-commit hooks  
-✅ **Platform Standards**: Consolidated architectural guidelines and best practices  
-
-#### Key Standardized Patterns
-
-**Backend (Rails API)**:
-- **API Response Format**: Mandatory `{success: boolean, data: object, error?: string}` structure
-- **Controller Pattern**: `Api::V1` namespace, permission-based authorization, serialization concerns
-- **Model Structure**: 8-step organization (Authentication → Concerns → Associations → Validations → Scopes → Callbacks → Methods → Private)
-- **UUID Strategy**: Consistent string-based UUIDs across all models
-- **Service Integration**: Complex operations delegated to worker service via API
-
-**Frontend (React TypeScript)**:
-- **Permission-Based Access Control**: MANDATORY `hasPermission()` usage, NEVER role-based access
-- **Theme-Aware Components**: `bg-theme-*`, `text-theme-*`, `border-theme` classes only
-- **Component Architecture**: Feature-based organization with standardized structure
-- **API Service Pattern**: Centralized client with consistent error handling
-
-**Worker (Sidekiq Service)**:
-- **BaseJob Pattern**: All jobs inherit from standardized BaseJob with exponential backoff
-- **API-Only Communication**: Workers use BackendApiClient, NO direct database access  
-- **Execute Method**: Jobs implement `execute()`, never override `perform()`
-- **Environment Isolation**: Complete separation from main Rails application
-
-#### Pattern Validation Tools
-```bash
-# Comprehensive pattern audit (25+ checks)
-./scripts/pattern-validation.sh
-
-# Quick development feedback
-./scripts/quick-pattern-check.sh
-
-# Pre-commit validation (prevents pattern violations)
-./scripts/pre-commit-pattern-check.sh
-
-# Generate usage statistics
-./scripts/generate-pattern-stats.sh
-```
-
-#### Standardization Documentation
-- **[Platform Patterns Analysis](docs/platform/PLATFORM_PATTERNS_ANALYSIS.md)**: Complete pattern discovery findings
-- **[MCP Documentation Enhancement Plan](docs/platform/MCP_DOCUMENTATION_ENHANCEMENT_PLAN.md)**: Implementation roadmap
-- **[Platform Standardization Recommendations](docs/platform/PLATFORM_STANDARDIZATION_RECOMMENDATIONS.md)**: Strategic recommendations
-
-**Platform Compliance**: 95%+ pattern consistency across all services
-
-## Security & Permissions
-
-### Security Requirements
-- **JWT Authentication**: 15min access tokens, 7-day refresh tokens, HMAC-SHA256
-- **Email Verification**: Required before login, time-limited tokens
-- **Password Security**: 12+ chars, complexity rules, history tracking, account lockout
-- **PCI Compliance**: Secure payment data handling
-- **Rate Limiting**: All endpoints protected
-
-### Permission-Based Access Control System (CRITICAL)
-**ABSOLUTE MANDATE**: Frontend access control MUST use permissions ONLY - NEVER roles.
-
-**FORBIDDEN FRONTEND PATTERNS**:
 ```typescript
-// ❌ NEVER DO THIS - Role-based frontend access control
-const canManage = currentUser?.roles?.includes('account.manager');
-const isSystemAdmin = currentUser?.role === 'system.admin';
-if (user.roles.includes('billing.manager')) { return <AdminPanel />; }
+// ✅ CORRECT
+currentUser?.permissions?.includes('users.manage')
 
-// ❌ NEVER DO THIS - Mixed role/permission checks
-const hasAccess = user.roles.includes('admin') || user.permissions.includes('read');
+// ❌ FORBIDDEN
+currentUser?.roles?.includes('admin')
+user.role === 'manager'
 ```
 
-**MANDATORY FRONTEND PATTERNS**:
-```typescript
-// ✅ ALWAYS DO THIS - Permission-based access control ONLY
-const canManageUsers = currentUser?.permissions?.includes('users.manage');
-const canViewBilling = currentUser?.permissions?.includes('billing.read');
-const canCreateContent = currentUser?.permissions?.includes('pages.create');
+**Backend**: Use `current_user.has_permission?('name')` - NEVER `permissions.include?()` (returns objects)
 
-// ✅ Component access control
-const canAccessAdminPanel = currentUser?.permissions?.includes('admin.access');
-if (!canAccessAdminPanel) return <AccessDenied />;
+### Frontend Patterns
+| Pattern | Rule |
+|---------|------|
+| Colors | Theme classes only: `bg-theme-*`, `text-theme-*` |
+| Navigation | Flat structure - no submenus |
+| Actions | ALL in PageContainer - none in page content |
+| State | Global notifications only - no local success/error |
+| Imports | Path aliases for cross-feature: `@/shared/`, `@/features/` |
+| Logging | No `console.log` in production |
+| Types | No `any` - proper TypeScript types required |
 
-// ✅ UI element control
-<Button disabled={!currentUser?.permissions?.includes('users.create')}>
-  Create User
-</Button>
-```
+### Backend Patterns
+| Pattern | Rule |
+|---------|------|
+| Controllers | `Api::V1` namespace, inherit ApplicationController |
+| Responses | MANDATORY: `render_success()`, `render_error()` |
+| Worker Jobs | Inherit BaseJob, use `execute()` method, API-only |
+| Ruby Files | `# frozen_string_literal: true` pragma required |
+| Logging | `Rails.logger` - no `puts`/`print` |
 
-#### Backend Role System (For Permission Assignment Only)
-**Backend roles exist ONLY to assign permissions - frontend NEVER checks roles**
+---
 
-**Standard Roles** (Backend assignment only):
-- **`system.admin`**: Grants all permissions across system
-- **`account.manager`**: Grants account-scoped permissions
-- **`account.member`**: Grants basic user permissions  
-- **`billing.manager`**: Grants billing management permissions
+## Service Management
 
-**Permission Categories**:
-- **User Management**: `users.create`, `users.read`, `users.update`, `users.delete`, `users.manage`, `team.manage`
-- **Billing Operations**: `billing.read`, `billing.update`, `billing.manage`, `invoices.create`, `payments.process`
-- **System Administration**: `admin.access`, `system.admin`, `accounts.manage`, `settings.update`  
-- **Content Management**: `pages.create`, `pages.update`, `pages.delete`, `content.manage`
-- **Analytics**: `analytics.read`, `analytics.export`, `reports.generate`
-
-#### Implementation Rules
-1. **Frontend**: Check `currentUser.permissions.includes('permission.name')` ONLY
-2. **Backend**: Use `current_user.has_permission?('permission.name')` ONLY - NEVER use `current_user.permissions.include?('permission.name')` (returns Permission objects, not strings)
-3. **API Responses**: Always include `permissions` array in user objects (use `permission_names` method)
-4. **UI Controls**: Disable/hide elements based on permissions
-5. **Navigation**: Filter menu items by permissions, not roles
-
-## Backend & Worker Architecture
-
-The backend architecture follows Rails 8 API patterns with a separate Sidekiq worker service. See the specialist documentation for detailed implementation patterns:
-
-- **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)**: Controller patterns, middleware, authentication
-- **[Data Modeler](docs/backend/DATA_MODELER_SPECIALIST.md)**: Model patterns, UUID strategy, database schema
-- **[Background Job Engineer](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)**: Worker job patterns, queue management
-- **[API Developer](docs/backend/API_DEVELOPER_SPECIALIST.md)**: API design, serialization, error handling
-
-### Key Architectural Principles
-- **API-First**: Rails API backend with structured JSON responses
-- **Worker Delegation**: Complex operations handled by Sidekiq workers
-- **UUIDv7 Strategy**: All models use UUIDv7 primary keys for chronological ordering
-- **Service Layer**: Business logic in service objects
-- **API-Only Workers**: Workers communicate via API calls, no direct database access
-
-### UUIDv7 System Architecture
-- **Default Behavior**: All models inherit UUIDv7 generation from ApplicationRecord
-- **Database Schema**: Native PostgreSQL UUID types (not string-based)
-- **Performance Benefits**: Chronologically sortable, optimal B-tree index performance
-- **Platform Coverage**: 64/64 models use UUIDv7 format automatically
-- **Documentation**: See [UUID System Implementation](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md)
-
-
-
-## Quick Reference - CRITICAL Requirements
-
-### 🚨 ABSOLUTE PROHIBITIONS
-**Frontend**:
-1. **NO role-based access control**: ONLY permission-based access control allowed
-2. **NO hardcoded colors**: Use `bg-theme-*`, `text-theme-*` classes only (Exception: `text-white` on colored backgrounds) ⚡ Auto-fixable: `./scripts/fix-hardcoded-colors.sh`
-3. **NO submenu navigation**: Flat navigation structure only - no `children` arrays
-4. **NO action buttons in page content**: ALL actions in PageContainer only
-5. **NO local success/error state**: Global notifications only
-6. **NO cross-feature relative imports**: Use path aliases (`@/shared/`, `@/features/`) for imports outside current feature ⚡ Auto-fixable: `./scripts/convert-relative-imports.sh`
-7. **NO inline styles**: All styling via Tailwind classes
-8. **NO console.log in production**: Wrap debug logging in `process.env.NODE_ENV === 'development'` checks ⚡ Auto-fixable: `./scripts/cleanup-all-console-logs.sh`
-9. **NO any types**: Proper TypeScript types required
-
-**CRITICAL - Permission-Based Access Control**:
-- **NEVER**: `currentUser?.roles?.includes('admin')` or `user.role === 'manager'`
-- **NEVER**: `if (user.roles.includes('system.admin'))` for access control
-- **NEVER**: Mixed role/permission checks for access decisions
-- **ALWAYS**: `currentUser?.permissions?.includes('users.manage')` for access control
-
-**Backend**:
-9. **NO direct database access in worker**: Use API client only
-10. **NO puts/p/print in code**: Use proper logging (Rails.logger/logger)
-11. **NO missing frozen_string_literal**: All Ruby files must include pragma
-12. **NO ApplicationJob inheritance**: Worker jobs inherit from BaseJob
-13. **NO perform method in worker**: Use execute method instead
-14. **NO manual JSON responses**: MANDATORY use ApiResponse methods (`render_success`, `render_error`, etc.)
-15. **NO including ApiResponse concern**: ApplicationController already includes it - inheritance is automatic
-16. **NO manual service commands**: NEVER use `rails server`, `sidekiq`, `npm start` directly
-17. **NO Claude attribution**: Clean commit messages only
-18. **NO git commits**: NEVER commit to git unless explicitly requested by user
-19. **NO redundant add_index**: Rails auto-creates indexes for foreign keys/references - ONLY add explicit indexes for unique constraints, composite indexes, or custom names
-20. **NO current_user.permissions.include?**: NEVER use `current_user.permissions.include?('permission.name')` - permissions returns objects not strings. ALWAYS use `current_user.has_permission?('permission.name')`
-
-**Service Management**:
-17. **NO manual service starts**: Use `scripts/auto-dev.sh` or delegate to MCP specialists
-18. **NO direct service commands**: Use automated scripts for all service operations
-19. **NO service troubleshooting without MCP**: Delegate service issues to appropriate specialists
-
-### ✅ MANDATORY PATTERNS
-**Frontend**:
-1. **Permission-Based Access Control**: `currentUser?.permissions?.includes('users.manage')` for ALL access decisions
-2. **PageContainer**: All app pages use PageContainer with consolidated actions
-3. **Theme Classes**: `bg-theme-surface`, `text-theme-primary`, `border-theme`
-4. **API Services**: Standard pattern with `serviceNameApi = { getItems, createItem, ... }`
-5. **Component Structure**: Props interface → Hooks → Effects → Handlers → Render
-6. **Form Handling**: preventDefault → Validation → API call → Global notification
-7. **Mobile-First**: Start with mobile styles, add breakpoint modifiers
-8. **File Organization**: Feature-based structure - see [React Architect](docs/frontend/REACT_ARCHITECT_SPECIALIST.md#1-project-structure-mandatory)
-
-**Backend**:
-9. **Controller Pattern**: `Api::V1` namespace, inherit from ApplicationController (includes ApiResponse automatically)
-10. **API Responses**: MANDATORY use `render_success()`, `render_error()`, `render_validation_error()` methods (inherited from ApiResponse concern)
-11. **Permission Checking**: ALWAYS use `current_user.has_permission?('permission.name')` - NEVER use `current_user.permissions.include?()` (returns objects not strings)
-12. **Model Structure**: Associations → Validations → Scopes → Callbacks → Methods
-13. **Service Delegation**: Complex operations delegated to worker service
-14. **Worker Jobs**: Inherit BaseJob, use execute method, API-only communication
-15. **UUIDv7 Strategy**: All models automatically inherit UUIDv7 generation from ApplicationRecord
-16. **Database Schema**: Use native PostgreSQL UUID types, `type: :uuid` for foreign keys
-17. **Frozen Strings**: All Ruby files start with `# frozen_string_literal: true`
-18. **Error Handling**: Use ApiResponse methods only - never manual JSON responses
-19. **Migration Indexes**: Rails automatically creates indexes for foreign keys and references. ONLY add explicit `add_index` for: unique constraints, composite indexes, or custom index names. NEVER add redundant single-column indexes.
-
-**Universal**:
-17. **Conventional Commits & Git-Flow**: See [DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md#git-workflow--release-management)
-18. **Permission-Based Authorization**: Use permissions, not roles, for access control
-
-### 🔧 Service Management (MANDATORY)
-
-**CRITICAL**: Service management MUST use automated scripts and MCP specialists - NEVER manual service commands.
-
-#### Primary Service Management
 ```bash
-# ALWAYS use auto-dev.sh for service orchestration
-$POWERNODE_ROOT/scripts/auto-dev.sh ensure     # Start all services (preferred method)
-$POWERNODE_ROOT/scripts/auto-dev.sh status     # Check service status  
-$POWERNODE_ROOT/scripts/auto-dev.sh stop       # Stop all services
-$POWERNODE_ROOT/scripts/auto-dev.sh restart    # Restart all services
-$POWERNODE_ROOT/scripts/auto-dev.sh health     # Health check all services
+# Primary - use auto-dev.sh
+scripts/auto-dev.sh ensure    # Start all services
+scripts/auto-dev.sh status    # Check status
+scripts/auto-dev.sh stop      # Stop all
+scripts/auto-dev.sh health    # Health check
 ```
 
-#### MCP Service Management
-**When service management is needed, delegate to appropriate MCP specialist:**
-- **[DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md)**: Service orchestration, deployment, monitoring
-- **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)**: Backend service configuration and troubleshooting  
-- **[Background Job Engineer](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)**: Worker service management
-- **[React Architect](docs/frontend/REACT_ARCHITECT_SPECIALIST.md)**: Frontend development server issues
+**NEVER** use manual commands (`rails server`, `sidekiq`, `npm start`)
 
-#### Individual Service Scripts (When auto-dev.sh insufficient)
+---
+
+## Test Execution
+
+**Before running RSpec tests**:
 ```bash
-# Backend service
-scripts/backend-manager.sh start              # Start Rails server
-scripts/backend-manager.sh stop               # Stop Rails server
-scripts/backend-manager.sh restart            # Restart Rails server
-scripts/backend-manager.sh status             # Check backend status
-scripts/backend-manager.sh follow             # Monitor backend logs
-./server/scripts/service-health.sh            # Backend health check
-
-# Worker service
-scripts/worker-manager.sh start               # Start Sidekiq worker
-scripts/worker-manager.sh stop                # Stop Sidekiq worker
-scripts/worker-manager.sh restart             # Restart Sidekiq worker
-scripts/worker-manager.sh status              # Check worker status
-scripts/worker-manager.sh follow              # Monitor worker logs
-./worker/scripts/worker-status.sh             # Worker status check
-
-# Frontend service
-./frontend/scripts/dev-server.sh               # Start React dev server
-./frontend/scripts/build-check.sh             # Build verification
+pkill -f rspec 2>/dev/null || true; sleep 1; bundle exec rspec --format progress
 ```
 
-#### Service Management Rules
-1. **NEVER use manual commands** like `rails server`, `sidekiq`, or `npm start` directly
-2. **ALWAYS prefer scripts/auto-dev.sh** for multi-service operations
-3. **Use MCP specialists** for complex service issues or configuration
-4. **Individual scripts only** when auto-dev.sh cannot resolve specific service issues
-5. **Reference DevOps Engineer** for service architecture and deployment concerns
-
-### 🛠️ Code Quality Enforcement (AUTOMATED)
-
-**Pre-Commit Hooks**: Automated quality checks prevent violations before commit
-
-#### Install Git Hooks
+**Frontend tests** - always use CI=true:
 ```bash
-./scripts/install-git-hooks.sh  # One-time installation
+cd frontend && CI=true npm test
 ```
 
-**Automated Checks (runs on every commit):**
-1. ✅ No console.log in production code (dev-wrapped logging allowed)
-2. ✅ No hardcoded color classes (theme classes required)
-3. ✅ No puts/print in Ruby code (use Rails.logger)
-4. ✅ All Ruby files have frozen_string_literal pragma
-5. ⚠️  TypeScript 'any' type usage (warning only)
+---
 
-**Bypass Checks** (not recommended):
+## Key Platform Documentation
+
+| Topic | Documentation |
+|-------|---------------|
+| MCP Configuration | [MCP_CONFIGURATION.md](docs/platform/MCP_CONFIGURATION.md) |
+| Permission System | [PERMISSION_SYSTEM_REFERENCE.md](docs/platform/PERMISSION_SYSTEM_REFERENCE.md) |
+| Theme System | [THEME_SYSTEM_REFERENCE.md](docs/platform/THEME_SYSTEM_REFERENCE.md) |
+| API Standards | [API_RESPONSE_STANDARDS.md](docs/platform/API_RESPONSE_STANDARDS.md) |
+| UUID System | [UUID_SYSTEM_IMPLEMENTATION.md](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md) |
+| Workflow System | [WORKFLOW_SYSTEM_STANDARDS.md](docs/platform/WORKFLOW_SYSTEM_STANDARDS.md) |
+| Development | [DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+
+---
+
+## Task Tool Delegation
+
+For complex tasks, spawn specialists using the Task tool:
+
+```
+Task({
+  description: "Brief task description",
+  subagent_type: "general-purpose",
+  model: "sonnet",  // or "opus" for critical, "haiku" for routine
+  prompt: `You are a [Specialist] for Powernode.
+Reference: [path/to/SPECIALIST.md]
+Task: [specific task]
+Follow patterns in specialist documentation.`
+})
+```
+
+**Model Selection**:
+- **opus**: Payment, Security, DevOps, Performance, Analytics, Billing
+- **sonnet**: Rails, React, Data, API, Jobs, Dashboard, Admin, Backend Tests, Project Manager, Notifications
+- **haiku**: UI Components, Documentation, Frontend Tests
+
+---
+
+## File Organization
+
+**NEVER save files to project root**. Use:
+- `docs/platform/` - Platform architecture
+- `docs/backend/` - Backend documentation
+- `docs/frontend/` - Frontend documentation
+- `docs/testing/` - Testing documentation
+- `docs/services/` - Service documentation
+- `docs/infrastructure/` - Infrastructure documentation
+
+---
+
+## Automation Scripts
+
 ```bash
-git commit --no-verify  # Skip pre-commit checks
+# Code quality
+./scripts/pre-commit-quality-check.sh    # Run all checks
+./scripts/fix-hardcoded-colors.sh        # Fix theme violations
+./scripts/cleanup-all-console-logs.sh    # Remove console.log
+./scripts/convert-relative-imports.sh    # Fix import paths
+
+# Pattern validation
+./scripts/pattern-validation.sh          # Full audit
+./scripts/quick-pattern-check.sh         # Quick check
 ```
-
-#### Automation Scripts
-
-**Console Logging Cleanup:**
-```bash
-./scripts/cleanup-all-console-logs.sh  # Remove debug console statements
-```
-
-**Hardcoded Colors Fix:**
-```bash
-./scripts/fix-hardcoded-colors.sh      # Convert to theme classes
-```
-
-**Relative Imports Conversion:**
-```bash
-./scripts/convert-relative-imports.sh  # Convert deep relative paths to @/ aliases
-```
-
-**Quality Check** (manual run):
-```bash
-./scripts/pre-commit-quality-check.sh  # Run all checks manually
-```
-
-### 🧪 Test Execution Rules (CRITICAL)
-
-**MANDATORY: Before running ANY RSpec tests**, Claude MUST:
-1. **Check for existing rspec processes**: `ps aux | grep rspec | grep -v grep | wc -l`
-2. **Kill any existing rspec processes**: `pkill -f rspec` if count > 0
-3. **Wait for cleanup**: `sleep 2` after killing processes
-4. **Then run tests**: Only after confirming no rspec processes are running
-
-**Root Cause Prevention**: Background shells from previous conversation sessions can persist, causing multiple concurrent test runs. This wastes resources and can cause test interference.
-
-**Example Correct Test Execution**:
-```bash
-# ALWAYS do this before running tests
-pkill -f rspec 2>/dev/null || true; sleep 1; bundle exec rspec --exclude-pattern "**/channels/**/*_spec.rb" --format progress
-```
-
-**NEVER**: Start a new rspec run without first verifying no other rspec processes are running.
-
-### 🔧 Development Commands
-```bash
-# Database operations
-cd $POWERNODE_ROOT/server && rails db:migrate db:seed         # Database setup
-
-# Backend tests - ALWAYS cleanup first
-pkill -f rspec 2>/dev/null || true && bundle exec rspec       # Run backend tests (with cleanup)
-
-# Frontend tests - ALWAYS use CI=true to prevent watch mode
-cd $POWERNODE_ROOT/frontend && CI=true npm test               # Run all frontend tests
-cd $POWERNODE_ROOT/frontend && CI=true npm test -- --testPathPattern="ComponentName"  # Run specific test
-
-# Git Flow - See DevOps Engineer specialist for details
-git flow feature start ISSUE-description
-git flow release start v1.2.0
-npm version patch|minor|major
-
-# Audits
-# Permission-Based Access Control Audits (CRITICAL)
-grep -r "\.roles\?\.includes\|\.role.*==\|\.role.*!=" frontend/src/ | grep -v "member\.roles\?.*map\|formatRole\|getRoleColor"  # Find role-based access checks (should be empty)
-grep -r "currentUser.*roles\?\." frontend/src/ | grep -v "member\.roles\|user\.roles.*map\|formatRole"  # Find user role access (should be empty for access control)
-grep -r "user.*roles.*admin\|user.*role.*manager" frontend/src/ | grep -v "display\|format\|badge"  # Find hardcoded role checks (should be empty)
-grep -r "permissions.*includes" frontend/src/ | wc -l  # Count permission-based checks (should be > 0)
-
-# Frontend Design Pattern Audits
-grep -r "bg-red-\|bg-white\|text-black\|border-gray-" frontend/src/ | grep -v "text-white"  # Hardcoded colors
-grep -c "children:" frontend/src/config/navigation.tsx    # Should return 0
-grep -r "useState.*[Ss]uccess.*[Mm]essage" frontend/src/  # Should be empty
-grep -r "console.log" frontend/src/                       # Should be empty
-grep -r ": any" frontend/src/ | grep -v "node_modules"   # Find any types
-
-# Backend audits
-grep -r "puts \|p \|print " server/app/                   # Should be empty (no debug code)
-grep -L "frozen_string_literal" server/app/**/*.rb       # Files missing pragma
-grep -r "< ApplicationJob" worker/app/jobs/              # Should be empty (use BaseJob)
-grep -r "def perform" worker/app/jobs/                   # Should be empty (use execute)
-grep -r "ActiveRecord" worker/app/                       # Should be empty (API-only)
-grep -c "render json:.*success:" server/app/controllers/ # Count structured responses
-```
-
-## 📁 CLAUDE Documentation Organization (MANDATORY)
-
-### Documentation Directory Structure
-**CRITICAL**: All CLAUDE-generated documentation MUST be organized in appropriate subdirectories - NEVER save to root folder.
-
-```
-powernode-platform/
-├── docs/                    # Platform-wide documentation
-│   ├── platform/           # Platform architecture, migrations, system docs
-│   ├── backend/            # Backend-specific technical documentation
-│   ├── frontend/           # Frontend-specific technical documentation  
-│   └── worker/             # Worker service documentation
-├── server/docs/            # Backend implementation docs
-├── frontend/docs/          # Frontend implementation docs
-└── worker/docs/            # Worker implementation docs
-```
-
-### Document Categories & Placement Rules
-
-**Platform-Level** (`docs/platform/`):
-- System architecture documents
-- Migration plans and completion reports
-- Cross-component integration documentation
-- WebSocket and authentication system docs
-- Permission system documentation
-- Multi-service coordination docs
-
-**Backend-Specific** (`docs/backend/` or `server/docs/`):
-- Rails API documentation
-- Database schema and model documentation
-- Service layer architecture
-- Authentication and security implementation
-- Backend testing strategies
-
-**Frontend-Specific** (`docs/frontend/` or `frontend/docs/`):
-- React architecture and patterns
-- Component organization documentation
-- Styling and theming guides
-- Frontend testing documentation
-- UI/UX implementation guides
-
-**Worker-Specific** (`docs/worker/` or `worker/docs/`):
-- Sidekiq job documentation
-- Background processing architecture
-- Queue management documentation
-- Worker service integration
-
-### File Organization Commands
-```bash
-# NEVER save documentation to root - use appropriate directories
-# Platform docs
-docs/platform/PERMISSION_SYSTEM_COMPLETE.md
-docs/platform/MIGRATION_PHASE_1_IMPLEMENTATION.md
-docs/platform/WEBSOCKET_STATUS_SOLUTION.md
-
-# Frontend docs  
-frontend/docs/CONTAINER_PATTERNS.md
-frontend/docs/STYLING_IMPLEMENTATION_PLAN.md
-
-# Backend docs
-server/docs/PERMISSION_SYSTEM_V2_SUMMARY.md
-server/docs/ROLE_STANDARDIZATION.md
-
-# Worker docs
-worker/docs/ # For worker-specific documentation
-```
-
-### Documentation Standards
-- **Naming**: Use UPPERCASE with underscores for technical docs (FEATURE_IMPLEMENTATION.md)
-- **Location**: Choose most specific directory possible (component-specific over platform-wide)
-- **Cross-References**: Use relative paths when linking between docs
-- **Version Control**: All documentation committed to appropriate directories
-
-**ABSOLUTE RULE**: No `.md` files in project root except CLAUDE.md (TODO.md, CHANGELOG.md, and DEVELOPMENT.md are now in docs/)
