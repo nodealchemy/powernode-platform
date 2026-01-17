@@ -45,7 +45,7 @@ describe('UserMenu', () => {
   const renderComponent = (user = mockUser, props = {}) => {
     return render(
       <Provider store={createStore(user)}>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter>
           <UserMenu {...props} />
         </BrowserRouter>
       </Provider>

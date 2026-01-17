@@ -76,7 +76,7 @@ describe('AI Orchestration Performance Test Infrastructure', () => {
   const renderWithProviders = (component: React.ReactElement) => {
     return render(
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter>
           {component}
         </BrowserRouter>
       </QueryClientProvider>

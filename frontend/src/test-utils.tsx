@@ -71,12 +71,7 @@ const AllTheProviders: React.FC<AllTheProvidersProps> = ({ children, initialStat
 
   return (
     <Provider store={store}>
-      <BrowserRouter
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}
-      >
+      <BrowserRouter>
         <MockThemeProvider>
           {children}
         </MockThemeProvider>

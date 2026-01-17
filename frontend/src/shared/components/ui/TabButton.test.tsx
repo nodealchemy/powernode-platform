@@ -23,7 +23,7 @@ describe('TabButton', () => {
 
   const renderTabButton = (props = {}) => {
     return render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <TabButton {...defaultProps} {...props} />
       </MemoryRouter>
     );

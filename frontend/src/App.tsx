@@ -182,12 +182,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <Router 
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}
-    >
+    <Router>
       <div className="App bg-theme-background min-h-screen text-theme-primary">
         <Routes>
           {/* Public routes */}

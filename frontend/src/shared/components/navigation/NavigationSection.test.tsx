@@ -49,7 +49,7 @@ describe('NavigationSection', () => {
     props: Partial<React.ComponentProps<typeof NavigationSection>> = {}
   ) => {
     return render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <NavigationSection section={section} {...props} />
       </MemoryRouter>
     );

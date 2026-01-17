@@ -37,12 +37,7 @@ export function renderWithProviders(
   function Wrapper({ children }: { children?: React.ReactNode }): React.ReactElement {
     return (
       <Provider store={store}>
-        <BrowserRouter
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true,
-          }}
-        >
+        <BrowserRouter>
           <BreadcrumbProvider>
             {children}
           </BreadcrumbProvider>

@@ -39,7 +39,7 @@ describe('ProtectedRoute', () => {
   ) => {
     return render(
       <Provider store={createStore(authState)}>
-        <MemoryRouter initialEntries={[initialRoute]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <MemoryRouter initialEntries={[initialRoute]}>
           {ui}
         </MemoryRouter>
       </Provider>

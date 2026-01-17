@@ -189,7 +189,7 @@ describe('AIConversationsPage', () => {
 
   const renderComponent = () => {
     return render(
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <BrowserRouter>
         <AIConversationsPage />
       </BrowserRouter>
     );
@@ -563,7 +563,7 @@ describe('AIConversationsPage - API Integration', () => {
     });
 
     render(
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <BrowserRouter>
         <AIConversationsPage />
       </BrowserRouter>
     );
@@ -605,7 +605,7 @@ describe('AIConversationsPage - API Integration', () => {
     mockArchiveConversation.mockResolvedValue({ id: 'conv-1', status: 'archived' });
 
     render(
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <BrowserRouter>
         <AIConversationsPage />
       </BrowserRouter>
     );

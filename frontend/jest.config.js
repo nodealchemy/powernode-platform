@@ -17,7 +17,7 @@ module.exports = {
     }]
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(axios|react-router|react-router-dom)/)'
+    'node_modules/(?!(axios|react-router|react-router-dom|@remix-run)/)'
   ],
   moduleNameMapper: {
     '^@/test-utils$': '<rootDir>/src/test-utils.tsx',

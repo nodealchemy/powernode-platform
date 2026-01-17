@@ -154,7 +154,7 @@ const renderWithProviders = (component: React.ReactElement) => {
   return {
     ...render(
       <Provider store={store}>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter>
           {component}
         </BrowserRouter>
       </Provider>

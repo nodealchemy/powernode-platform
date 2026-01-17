@@ -219,7 +219,7 @@ describe('AiAgentDashboard', () => {
   const renderComponent = () => {
     return render(
       <Provider store={store}>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter>
           <AiAgentDashboard />
         </BrowserRouter>
       </Provider>

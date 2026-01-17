@@ -133,7 +133,7 @@ describe('AdminMaintenancePage', () => {
       result = render(
         <Provider store={store}>
           <BreadcrumbProvider>
-            <MemoryRouter initialEntries={[initialRoute]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <MemoryRouter initialEntries={[initialRoute]}>
               <AdminMaintenancePage />
             </MemoryRouter>
           </BreadcrumbProvider>

@@ -21,7 +21,7 @@ describe('TabContainer', () => {
     initialPath: string = '/app'
   ) => {
     return render(
-      <MemoryRouter initialEntries={[initialPath]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter initialEntries={[initialPath]}>
         {component}
       </MemoryRouter>
     );

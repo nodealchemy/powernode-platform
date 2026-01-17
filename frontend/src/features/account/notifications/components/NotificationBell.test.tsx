@@ -36,7 +36,7 @@ const renderWithProviders = (component: React.ReactElement, isAuthenticated = tr
   const store = createMockStore(isAuthenticated);
   return render(
     <Provider store={store}>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <BrowserRouter>
         {component}
       </BrowserRouter>
     </Provider>

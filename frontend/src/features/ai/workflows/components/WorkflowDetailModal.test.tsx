@@ -251,7 +251,7 @@ describe('WorkflowDetailModal', () => {
 
     return render(
       <Provider store={createTestStore()}>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter>
           <WorkflowDetailModal {...defaultProps} {...props} />
         </BrowserRouter>
       </Provider>

@@ -114,12 +114,7 @@ const renderSidebar = (props = { isOpen: true, onToggle: jest.fn() }) => {
   return {
     ...render(
       <Provider store={store}>
-        <BrowserRouter
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true,
-          }}
-        >
+        <BrowserRouter>
           <Sidebar {...props} />
         </BrowserRouter>
       </Provider>
