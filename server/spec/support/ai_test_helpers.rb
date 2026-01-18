@@ -9,17 +9,17 @@ module AiTestHelpers
       @anthropic_provider = create(:ai_provider, slug: 'anthropic', name: 'Anthropic', priority_order: 3)
     end
 
-    def setup_provider_credentials(account)
+    def setup_ai_provider_credentials(account)
       credentials = {
         ollama: { base_url: 'http://localhost:11434', model: 'llama2' },
         openai: { api_key: 'sk-test123', model: 'gpt-3.5-turbo' },
         anthropic: { api_key: 'ant-test123', model: 'claude-3-sonnet' }
       }
 
-      @provider_credentials = {}
+      @ai_provider_credentials = {}
       [ @ollama_provider, @openai_provider, @anthropic_provider ].each do |provider|
         slug = provider.slug.to_sym
-        @provider_credentials[slug] = create(:ai_provider_credential,
+        @ai_provider_credentials[slug] = create(:ai_provider_credential,
           account: account,
           provider: provider,
           name: "#{provider.name} Credential",
@@ -131,7 +131,7 @@ module AiTestHelpers
 
       message_count.times do |i|
         create(:ai_message,
-          ai_conversation: conversation,
+          conversation: conversation,
           account: account,
           sender_type: i.even? ? 'user' : 'ai',
           sender_id: i.even? ? account.users.first&.id : nil,
@@ -145,7 +145,7 @@ module AiTestHelpers
       user ||= conversation.account.users.first
 
       create(:ai_message,
-        ai_conversation: conversation,
+        conversation: conversation,
         account: conversation.account,
         sender_type: 'user',
         sender_id: user.id,
@@ -153,10 +153,10 @@ module AiTestHelpers
     end
 
     def simulate_ai_response(conversation, content = 'AI response', agent = nil)
-      agent ||= conversation.ai_agent
+      agent ||= conversation.agent
 
       create(:ai_message,
-        ai_conversation: conversation,
+        conversation: conversation,
         account: conversation.account,
         sender_type: 'ai',
         agent: agent,
@@ -293,7 +293,7 @@ module AiTestHelpers
     def expect_workflow_audit(workflow, action)
       audit_log = AuditLog.where(
         action: action,
-        resource_type: 'AiWorkflow',
+        resource_type: 'Ai::Workflow',
         resource_id: workflow.id
       ).last
       expect(audit_log).to be_present

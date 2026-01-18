@@ -311,7 +311,7 @@ class Ai::ProviderManagementService
       raise ValidationError, "Credentials data is required" unless credentials_data.present?
 
       # Validate credentials against provider schema
-      validate_provider_credentials(provider, credentials_data)
+      validate_ai_provider_credentials(provider, credentials_data)
 
       # Generate a name if not provided
       credential_name = name || "#{provider.name} Credentials"
@@ -362,7 +362,7 @@ class Ai::ProviderManagementService
     end
 
     # Validate provider credentials against the provider's schema
-    def validate_provider_credentials(provider, credentials_data)
+    def validate_ai_provider_credentials(provider, credentials_data)
       raise ValidationError, "Provider is required" unless provider
       raise ValidationError, "Credentials data is required" unless credentials_data.present?
 

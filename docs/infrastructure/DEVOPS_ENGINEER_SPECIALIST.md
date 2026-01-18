@@ -1,3 +1,8 @@
+---
+Last Updated: 2026-01-17
+Platform Version: 1.0.0
+---
+
 # DevOps Engineer Specialist
 
 **MCP Connection**: `devops_engineer`

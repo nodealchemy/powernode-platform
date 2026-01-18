@@ -45,13 +45,13 @@ puts ''
 puts "Step 2: Handling provider credentials..."
 
 # Check if old provider has credentials
-old_credentials = remove_provider.ai_provider_credentials rescue []
+old_credentials = remove_provider.provider_credentials rescue []
 puts "  Old provider credentials: #{old_credentials.count}"
 
 if old_credentials.any?
   # Check if keep provider already has credential for this account
   old_credentials.each do |old_cred|
-    existing_cred = keep_provider.ai_provider_credentials.find_by(account_id: old_cred.account_id) rescue nil
+    existing_cred = keep_provider.provider_credentials.find_by(account_id: old_cred.account_id) rescue nil
 
     if existing_cred
       puts "  ⚠️  Target provider already has credential for account #{old_cred.account_id}, deleting duplicate..."
@@ -82,7 +82,7 @@ if remaining_agents > 0
 end
 
 # Verify no credentials remain
-remaining_creds = remove_provider.ai_provider_credentials.count rescue 0
+remaining_creds = remove_provider.provider_credentials.count rescue 0
 
 if remaining_creds > 0
   puts "  ❌ ERROR: Provider still has #{remaining_creds} credentials. Cannot delete."

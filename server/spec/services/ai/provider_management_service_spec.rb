@@ -132,13 +132,13 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     end
   end
 
-  describe '.validate_provider_credentials' do
+  describe '.validate_ai_provider_credentials' do
     context 'for OpenAI provider' do
       let(:openai_provider) { create(:ai_provider, :openai) }
 
       it 'validates api_key is required' do
         expect {
-          described_class.validate_provider_credentials(
+          described_class.validate_ai_provider_credentials(
             openai_provider,
             { model: 'gpt-3.5-turbo' }
           )
@@ -147,7 +147,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
       it 'validates api_key format must start with sk-' do
         expect {
-          described_class.validate_provider_credentials(
+          described_class.validate_ai_provider_credentials(
             openai_provider,
             { api_key: 'invalid', model: 'gpt-3.5-turbo' }
           )
@@ -156,7 +156,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
       it 'passes validation for valid credentials' do
         expect {
-          described_class.validate_provider_credentials(
+          described_class.validate_ai_provider_credentials(
             openai_provider,
             { api_key: 'sk-1234567890abcdefghijklmnop', model: 'gpt-3.5-turbo' }
           )
@@ -169,7 +169,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
       it 'validates api_key is required' do
         expect {
-          described_class.validate_provider_credentials(
+          described_class.validate_ai_provider_credentials(
             anthropic_provider,
             { model: 'claude-3-sonnet' }
           )
@@ -178,7 +178,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
       it 'passes validation for valid Anthropic credentials' do
         expect {
-          described_class.validate_provider_credentials(
+          described_class.validate_ai_provider_credentials(
             anthropic_provider,
             { api_key: 'sk-ant-api-test1234567890', model: 'claude-3-sonnet' }
           )
@@ -192,7 +192,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
       it 'allows credentials without api_key' do
         # Ollama is provider_type 'ollama', no api_key validation
         expect {
-          described_class.validate_provider_credentials(
+          described_class.validate_ai_provider_credentials(
             ollama_provider,
             { base_url: 'http://localhost:11434', model: 'llama2' }
           )
@@ -365,14 +365,14 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
   describe 'error handling' do
     it 'handles invalid provider gracefully' do
       expect {
-        described_class.validate_provider_credentials(nil, {})
+        described_class.validate_ai_provider_credentials(nil, {})
       }.to raise_error(Ai::ProviderManagementService::ValidationError)
     end
 
     it 'handles nil credentials data' do
       provider = create(:ai_provider)
       expect {
-        described_class.validate_provider_credentials(provider, nil)
+        described_class.validate_ai_provider_credentials(provider, nil)
       }.to raise_error(Ai::ProviderManagementService::ValidationError)
     end
 

@@ -281,7 +281,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
           post :execute, params: { id: workflow.id }
         }.to change { AuditLog.count }.by_at_least(1)
 
-        # Note: AiWorkflowRun doesn't include Auditable concern, so audit log is created manually
+        # Note: Ai::WorkflowRun doesn't include Auditable concern, so audit log is created manually
         # The manual log_audit_event call happens after render, so we just verify logs were created
       end
     end

@@ -5,8 +5,8 @@ require 'rails_helper'
 RSpec.describe AiDebuggingService, type: :service do
   let(:account) { create(:account) }
   let(:provider) { create(:ai_provider, account: account) }
-  let(:agent) { create(:ai_agent, account: account, ai_provider: provider) }
-  let(:execution) { create(:ai_agent_execution, ai_agent: agent, status: 'failed', error_message: 'Rate limit exceeded') }
+  let(:agent) { create(:ai_agent, account: account, provider: provider) }
+  let(:execution) { create(:ai_agent_execution, agent: agent, status: 'failed', error_message: 'Rate limit exceeded') }
   let(:execution_context) { { request_id: 'test-123' } }
   let(:service) { described_class.new(account, execution_context) }
 
@@ -257,7 +257,7 @@ RSpec.describe AiDebuggingService, type: :service do
 
     context 'with workflow execution type' do
       let(:workflow) { create(:ai_workflow, account: account) }
-      let(:workflow_run) { create(:ai_workflow_run, ai_workflow: workflow) }
+      let(:workflow_run) { create(:ai_workflow_run, workflow: workflow) }
 
       it 'finds workflow run' do
         # This test would need more setup for the workflow execution finding logic

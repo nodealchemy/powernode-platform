@@ -725,7 +725,7 @@ class AiAnalyticsInsightsService
     @logger.info "Generating real-time metrics for account #{account_id}"
 
     # Get recent data (last hour)
-    recent_executions = AiAgentExecution.joins(:account)
+    recent_executions = Ai::AgentExecution.joins(:account)
                                        .where(accounts: { id: account_id })
                                        .where(created_at: 1.hour.ago..Time.current)
 
@@ -739,7 +739,7 @@ class AiAnalyticsInsightsService
 
     # Get current cost information
     recent_cost = recent_executions.sum(&:cost_usd) || 0.0
-    daily_cost = AiAgentExecution.joins(:account)
+    daily_cost = Ai::AgentExecution.joins(:account)
                                  .where(accounts: { id: account_id })
                                  .where(created_at: Time.current.beginning_of_day..Time.current)
                                  .sum(&:cost_usd) || 0.0
@@ -842,7 +842,7 @@ class AiAnalyticsInsightsService
     end
 
     # High cost alert (if daily cost exceeds threshold)
-    daily_cost = AiAgentExecution.joins(:account)
+    daily_cost = Ai::AgentExecution.joins(:account)
                                 .where(accounts: { id: @account.id })
                                 .where(created_at: Time.current.beginning_of_day..Time.current)
                                 .sum(&:cost_usd) || 0.0

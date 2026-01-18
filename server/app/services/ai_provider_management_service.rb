@@ -8,7 +8,7 @@ class AiProviderManagementService
   class << self
     # Get providers available for a specific account
     def get_available_providers_for_account(account)
-      AiProvider.active.includes(:ai_provider_credentials)
+      Ai::Provider.active.includes(:provider_credentials)
     end
 
     # Sync models for a specific provider
@@ -239,7 +239,7 @@ class AiProviderManagementService
 
       default_providers.each do |provider_data|
         # Check if provider already exists globally (since slug is globally unique)
-        existing_provider = AiProvider.find_by(slug: provider_data[:slug])
+        existing_provider = Ai::Provider.find_by(slug: provider_data[:slug])
 
         if existing_provider
           Rails.logger.info "Provider #{provider_data[:slug]} already exists, skipping creation"
@@ -252,7 +252,7 @@ class AiProviderManagementService
               api_endpoint: provider_data[:api_base_url] # Fix missing api_endpoint
             )
 
-            provider = AiProvider.create!(complete_provider_data)
+            provider = Ai::Provider.create!(complete_provider_data)
 
             # Add some default models for each provider
             sync_provider_models(provider)
@@ -276,7 +276,7 @@ class AiProviderManagementService
       raise ValidationError, "Credentials data is required" unless credentials_data.present?
 
       # Validate credentials against provider schema
-      validate_provider_credentials(provider, credentials_data)
+      validate_ai_provider_credentials(provider, credentials_data)
 
       # Generate a name if not provided
       credential_name = name || "#{provider.name} Credentials"
@@ -289,7 +289,7 @@ class AiProviderManagementService
 
       # Build credential attributes
       credential_attrs = {
-        ai_provider: provider,
+        provider: provider,
         name: credential_name,
         credentials: credentials_data,
         is_active: is_active.nil? ? true : is_active
@@ -326,7 +326,7 @@ class AiProviderManagementService
     end
 
     # Validate provider credentials against the provider's schema
-    def validate_provider_credentials(provider, credentials_data)
+    def validate_ai_provider_credentials(provider, credentials_data)
       raise ValidationError, "Provider is required" unless provider
       raise ValidationError, "Credentials data is required" unless credentials_data.present?
 
@@ -357,7 +357,7 @@ class AiProviderManagementService
 
     # Test all credentials for an account
     def test_all_credentials(account)
-      credentials = account.ai_provider_credentials.active.includes(:ai_provider)
+      credentials = account.ai_provider_credentials.active.includes(:provider)
       results = []
 
       credentials.find_each do |credential|
@@ -375,7 +375,7 @@ class AiProviderManagementService
           results << {
             credential_id: credential.id,
             credential_name: credential.name,
-            provider_name: credential.ai_provider.name,
+            provider_name: credential.provider.name,
             success: test_result[:success],
             error: test_result[:error],
             response_time_ms: test_result[:response_time_ms]
@@ -385,7 +385,7 @@ class AiProviderManagementService
           results << {
             credential_id: credential.id,
             credential_name: credential.name,
-            provider_name: credential.ai_provider.name,
+            provider_name: credential.provider.name,
             success: false,
             error: e.message,
             response_time_ms: nil

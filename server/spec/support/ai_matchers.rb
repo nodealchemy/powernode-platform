@@ -31,7 +31,7 @@ module AiMatchers
   # Matcher to verify workflow node configuration
   RSpec::Matchers.define :have_valid_node_configuration do
     match do |node|
-      return false unless node.is_a?(AiWorkflowNode)
+      return false unless node.is_a?(Ai::WorkflowNode)
 
       case node.node_type
       when 'ai_agent'
@@ -194,7 +194,7 @@ module AiMatchers
   # Matcher to verify workflow validation
   RSpec::Matchers.define :be_a_valid_workflow do
     match do |workflow|
-      workflow.is_a?(AiWorkflow) &&
+      workflow.is_a?(Ai::Workflow) &&
         workflow.valid? &&
         workflow.nodes.count > 0 &&
         has_start_node?(workflow) &&
@@ -203,7 +203,7 @@ module AiMatchers
 
     failure_message do |workflow|
       errors = []
-      errors << "not a valid AiWorkflow" unless workflow.is_a?(AiWorkflow)
+      errors << "not a valid Ai::Workflow" unless workflow.is_a?(Ai::Workflow)
       errors << "has validation errors: #{workflow.errors.full_messages.join(', ')}" unless workflow.valid?
       errors << "has no nodes" if workflow.nodes.count == 0
       errors << "missing start node" unless has_start_node?(workflow)

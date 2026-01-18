@@ -11,7 +11,7 @@ class AiProviderTestService
 
   def initialize(credential)
     @credential = credential
-    @provider = credential.ai_provider
+    @provider = credential.provider
     @test_config = {
       timeout: 10,
       max_retries: 3,
@@ -32,7 +32,7 @@ class AiProviderTestService
 
         {
           credential_id: credential.id,
-          provider_name: credential.ai_provider.name,
+          provider_name: credential.provider.name,
           success: result[:success],
           response_time_ms: result[:response_time_ms],
           error: result[:error_details]
@@ -57,7 +57,7 @@ class AiProviderTestService
     end
 
     def health_check_all_providers
-      AiProvider.active.map do |provider|
+      Ai::Provider.active.map do |provider|
         {
           provider_id: provider.id,
           provider_name: provider.name,

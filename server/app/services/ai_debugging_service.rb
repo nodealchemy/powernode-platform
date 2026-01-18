@@ -156,7 +156,7 @@ class AiDebuggingService
       @account.ai_workflows
               .joins(:ai_workflow_runs)
               .find_by(ai_workflow_runs: { id: execution_id })
-              &.ai_workflow_runs
+              &.workflow_runs
               &.find_by(id: execution_id)
     else
       nil
@@ -177,14 +177,14 @@ class AiDebuggingService
       base_info.merge!({
         type: "agent_execution",
         agent_id: execution.ai_agent_id,
-        agent_name: execution.ai_agent.name,
-        provider_id: execution.ai_agent.ai_provider_id
+        agent_name: execution.agent.name,
+        provider_id: execution.agent.ai_provider_id
       })
     else
       base_info.merge!({
         type: "workflow_execution",
         workflow_id: execution.ai_workflow_id,
-        workflow_name: execution.ai_workflow.name
+        workflow_name: execution.workflow.name
       })
     end
 
@@ -218,7 +218,7 @@ class AiDebuggingService
       load_stats: load_balancer.load_balancing_stats.dig(:providers)&.find { |p| p[:id] == provider.id },
       recent_failures: get_provider_recent_failures(provider),
       configuration: provider.configuration,
-      credentials_status: provider.ai_provider_credentials.active.exists?
+      credentials_status: provider.provider_credentials.active.exists?
     }
   end
 
@@ -271,7 +271,7 @@ class AiDebuggingService
     end
 
     if execution.respond_to?(:ai_agent)
-      provider = execution.ai_agent.ai_provider
+      provider = execution.agent.provider
       suggestions.concat(get_provider_suggestions(provider))
     end
 
@@ -343,11 +343,11 @@ class AiDebuggingService
     issues = []
 
     if execution.respond_to?(:ai_agent)
-      agent = execution.ai_agent
-      provider = agent.ai_provider
+      agent = execution.agent
+      provider = agent.provider
 
       # Check provider configuration
-      unless provider.ai_provider_credentials.active.exists?
+      unless provider.provider_credentials.active.exists?
         issues << {
           type: "missing_credentials",
           severity: "critical",

@@ -116,6 +116,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/glob": "^8.1.0",
     "@vitejs/plugin-react": "^5.1.2",
+    "@tailwindcss/postcss": "^4.1.11",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.0",
     "cypress": "^15.9.0",
@@ -128,7 +129,7 @@
     "jest-watch-typeahead": "^3.0.1",
     "postcss": "^8.5.6",
     "redux-mock-store": "^1.5.5",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^4.1.11",
     "vite": "^7.2.0",
     "vite-plugin-svgr": "^4.5.0",
     "vite-tsconfig-paths": "^4.3.2"

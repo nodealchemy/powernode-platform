@@ -85,7 +85,7 @@ class AiWorkflowRetryStrategyService
 
   # Broadcast retry event via WebSocket
   def broadcast_retry_event(delay_ms)
-    workflow_run = node_execution.ai_workflow_run
+    workflow_run = node_execution.workflow_run
 
     ActionCable.server.broadcast(
       "ai_workflow_run_#{workflow_run.id}",
@@ -149,11 +149,11 @@ class AiWorkflowRetryStrategyService
 
   def build_retry_config
     # Get node-level configuration
-    node_config = node_execution.ai_workflow_node&.configuration || {}
+    node_config = node_execution.node&.configuration || {}
     node_retry_config = node_config["retry"] || {}
 
     # Get workflow-level configuration
-    workflow = node_execution.ai_workflow_run&.ai_workflow
+    workflow = node_execution.workflow_run&.workflow
     workflow_config = workflow&.configuration || {}
     workflow_retry_config = workflow_config["retry"] || {}
 

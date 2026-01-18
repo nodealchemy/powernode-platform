@@ -226,9 +226,15 @@ class StorageProviderFactory
       missing = []
 
       begin
-        require "azure/storage/blob"
+        require "faraday"
       rescue LoadError
-        missing << "azure-storage-blob gem"
+        missing << "faraday gem"
+      end
+
+      begin
+        require "faraday/multipart"
+      rescue LoadError
+        missing << "faraday-multipart gem"
       end
 
       {

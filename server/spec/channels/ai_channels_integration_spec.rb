@@ -82,7 +82,7 @@ RSpec.describe 'AI Channels Integration', type: :integration do
 
       # Mock workflow execution
       created_workflow = Ai::Workflow.find(created_workflow_id)
-      mock_run = instance_double(AiWorkflowRun,
+      mock_run = instance_double(Ai::WorkflowRun,
         persisted?: true,
         run_id: 'integration-run-123',
         status: 'running',
@@ -271,7 +271,7 @@ RSpec.describe 'AI Channels Integration', type: :integration do
       monitoring_channel = subscribe_to_channel(AiWorkflowMonitoringChannel, user)
 
       # Cause error in orchestration channel
-      allow(AiWorkflow).to receive(:find).and_raise(StandardError, 'Database error')
+      allow(Ai::Workflow).to receive(:find).and_raise(StandardError, 'Database error')
 
       perform_on_channel(orchestration_channel, :update_workflow, {
         'workflow_id' => ai_workflow.id,
@@ -283,7 +283,7 @@ RSpec.describe 'AI Channels Integration', type: :integration do
       expect(error_response['type']).to eq('error')
 
       # Monitoring channel should still work
-      allow(AiWorkflow).to receive(:find).and_call_original
+      allow(Ai::Workflow).to receive(:find).and_call_original
 
       perform_on_channel(monitoring_channel, :get_dashboard_stats, {})
 

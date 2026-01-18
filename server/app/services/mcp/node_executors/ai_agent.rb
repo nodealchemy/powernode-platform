@@ -3,7 +3,7 @@
 module Mcp
   module NodeExecutors
     # AI Agent node executor - executes AI agents
-    class AiAgent < Base
+    class Ai::Agent < Base
       protected
 
       def perform_execution

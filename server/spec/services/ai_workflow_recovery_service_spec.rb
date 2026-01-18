@@ -13,7 +13,7 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
   end
   let(:workflow_run) do
     create(:ai_workflow_run,
-      ai_workflow: workflow,
+      workflow: workflow,
       account: account,
       triggered_by_user: user,
       status: 'running'
@@ -50,15 +50,15 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
   end
 
   describe '#create_checkpoint' do
-    let(:node) { workflow.ai_workflow_nodes.first }
+    let(:node) { workflow.workflow_nodes.first }
     let(:checkpoint_data) { { step: 1, progress: 50 } }
 
     before do
       # Create node executions with unique nodes to avoid unique constraint violation
-      workflow.ai_workflow_nodes.first(2).each do |wf_node|
+      workflow.workflow_nodes.first(2).each do |wf_node|
         create(:ai_workflow_node_execution, :completed,
-          ai_workflow_run: workflow_run,
-          ai_workflow_node: wf_node,
+          workflow_run: workflow_run,
+          node: wf_node,
           node_id: wf_node.node_id
         )
       end
@@ -116,7 +116,7 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
   end
 
   describe '#restore_from_checkpoint' do
-    let(:node) { workflow.ai_workflow_nodes.first }
+    let(:node) { workflow.workflow_nodes.first }
     let(:checkpoint_data) { { step: 2, progress: 75 } }
     let(:checkpoint_id) { service.create_checkpoint(node.node_id, checkpoint_data) }
 
@@ -217,7 +217,7 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
   describe '#retry_with_backoff' do
     let(:node_execution) do
       create(:ai_workflow_node_execution,
-        ai_workflow_run: workflow_run,
+        workflow_run: workflow_run,
         status: 'failed',
         error_details: { message: 'Temporary failure', type: 'temporary_error' }
       )
@@ -238,7 +238,7 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
       it 'returns the successful execution' do
         result = service.retry_with_backoff(node_execution, max_attempts: 3)
 
-        expect(result).to be_an(AiWorkflowNodeExecution)
+        expect(result).to be_an(Ai::WorkflowNodeExecution)
         expect(result.status).to eq('completed')
       end
 
@@ -323,16 +323,16 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
   describe '#capture_workflow_state' do
     before do
       # Setup workflow with some executions using unique nodes
-      nodes = workflow.ai_workflow_nodes.first(2)
+      nodes = workflow.workflow_nodes.first(2)
       create(:ai_workflow_node_execution, :completed,
-        ai_workflow_run: workflow_run,
-        ai_workflow_node: nodes.first,
+        workflow_run: workflow_run,
+        node: nodes.first,
         node_id: nodes.first.node_id,
         output_data: { result: 'step 1 complete' }
       )
       create(:ai_workflow_node_execution, :running,
-        ai_workflow_run: workflow_run,
-        ai_workflow_node: nodes.second,
+        workflow_run: workflow_run,
+        node: nodes.second,
         node_id: nodes.second.node_id
       )
     end
@@ -448,7 +448,7 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
     end
 
     describe '#resume_from_checkpoint' do
-      let(:resume_node) { workflow.ai_workflow_nodes.second } # Use actual workflow node
+      let(:resume_node) { workflow.workflow_nodes.second } # Use actual workflow node
       let(:checkpoint) do
         {
           id: SecureRandom.uuid,
@@ -513,7 +513,7 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
     describe 'node retry recovery' do
       let(:failed_execution) do
         create(:ai_workflow_node_execution, :failed,
-          ai_workflow_run: workflow_run
+          workflow_run: workflow_run
         )
       end
 
@@ -531,9 +531,9 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
       it 'skips failed non-critical nodes' do
         service.instance_variable_set(:@recovery_strategy, :graceful_degradation)
 
-        non_critical_node = workflow.ai_workflow_nodes.find_by(
+        non_critical_node = workflow.workflow_nodes.find_by(
           configuration: hash_including('critical' => false)
-        ) || create(:ai_workflow_node, ai_workflow: workflow,
+        ) || create(:ai_workflow_node, workflow: workflow,
                    configuration: { 'critical' => false })
 
         result = service.send(:apply_graceful_degradation, non_critical_node)
@@ -544,9 +544,9 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
       it 'fails fast on critical node failures' do
         service.instance_variable_set(:@recovery_strategy, :graceful_degradation)
 
-        critical_node = workflow.ai_workflow_nodes.find_by(
+        critical_node = workflow.workflow_nodes.find_by(
           configuration: hash_including('critical' => true)
-        ) || create(:ai_workflow_node, ai_workflow: workflow,
+        ) || create(:ai_workflow_node, workflow: workflow,
                    configuration: { 'critical' => true })
 
         result = service.send(:apply_graceful_degradation, critical_node)

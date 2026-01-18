@@ -33,6 +33,7 @@
   - [email, 2]             # Email delivery
   - [reports, 2]           # Report generation
   - [webhooks, 1]          # Webhook delivery
+  - [maintenance, 1]       # Maintenance tasks (backups, cleanup)
   - [default, 1]           # Default queue for misc tasks
 
 # Redis configuration
@@ -84,3 +85,28 @@
     class: AiWorkflow::ApprovalExpiryJob
     queue: default
     description: 'Expire stale AI workflow approval tokens'
+
+  # Database backup - daily full backup at 2 AM UTC
+  daily_database_backup:
+    cron: '0 2 * * *'  # Every day at 2:00 AM UTC
+    class: Maintenance::ScheduledBackupJob
+    queue: maintenance
+    args:
+      backup_type: full
+    description: 'Automated daily full database backup'
+
+  # Database backup - weekly schema backup on Sundays at 3 AM UTC
+  weekly_schema_backup:
+    cron: '0 3 * * 0'  # Every Sunday at 3:00 AM UTC
+    class: Maintenance::ScheduledBackupJob
+    queue: maintenance
+    args:
+      backup_type: schema_only
+    description: 'Automated weekly schema-only backup'
+
+  # Backup cleanup - remove backups older than retention period
+  backup_cleanup:
+    cron: '0 4 * * *'  # Every day at 4:00 AM UTC
+    class: Maintenance::BackupCleanupJob
+    queue: maintenance
+    description: 'Remove expired backups beyond retention period'

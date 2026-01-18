@@ -29,7 +29,7 @@ class AiWorkflowCheckpointRecoveryService
     checkpoint_data = build_checkpoint_data(type, node_id, metadata)
 
     # Create checkpoint record
-    new_checkpoint = workflow_run.ai_workflow_checkpoints.create!(
+    new_checkpoint = workflow_run.checkpoints.create!(
       checkpoint_type: type,
       node_id: node_id || "unknown",
       sequence_number: next_sequence_number,
@@ -99,7 +99,7 @@ class AiWorkflowCheckpointRecoveryService
   # Find best checkpoint for recovery
   def self.find_recovery_checkpoint(workflow_run)
     # Get all checkpoints ordered by sequence number (most recent first)
-    checkpoints = workflow_run.ai_workflow_checkpoints
+    checkpoints = workflow_run.checkpoints
                               .where("created_at > ?", RETENTION_DAYS.days.ago)
                               .order(sequence_number: :desc)
 
@@ -115,7 +115,7 @@ class AiWorkflowCheckpointRecoveryService
     return false unless workflow_run.failed? || workflow_run.cancelled?
 
     # Must have at least one checkpoint
-    workflow_run.ai_workflow_checkpoints.exists?
+    workflow_run.checkpoints.exists?
   end
 
   # Get recovery statistics
@@ -128,7 +128,7 @@ class AiWorkflowCheckpointRecoveryService
       checkpoint_age_seconds: (Time.current - checkpoint.created_at).to_i,
       checkpoint_node: checkpoint.node_id,
       sequence_number: checkpoint.sequence_number,
-      total_checkpoints: workflow_run.ai_workflow_checkpoints.count,
+      total_checkpoints: workflow_run.checkpoints.count,
       recoverable: self.class.recoverable?(workflow_run),
       estimated_resume_position: calculate_resume_position
     }
@@ -148,7 +148,7 @@ class AiWorkflowCheckpointRecoveryService
       metadata: {
         type: type,
         node_id: node_id,
-        workflow_version: workflow_run.ai_workflow.version,
+        workflow_version: workflow_run.workflow.version,
         total_nodes: workflow_run.total_nodes,
         completed_nodes: workflow_run.completed_nodes,
         progress_percentage: calculate_progress_percentage,
@@ -174,7 +174,7 @@ class AiWorkflowCheckpointRecoveryService
   end
 
   def capture_completed_nodes
-    workflow_run.ai_workflow_node_executions
+    workflow_run.node_executions
                 .where(status: "completed")
                 .pluck(:node_id)
   end
@@ -184,7 +184,7 @@ class AiWorkflowCheckpointRecoveryService
   end
 
   def capture_execution_path
-    workflow_run.ai_workflow_node_executions
+    workflow_run.node_executions
                 .where(status: %w[completed failed])
                 .order(:created_at)
                 .pluck(:node_id)
@@ -226,17 +226,17 @@ class AiWorkflowCheckpointRecoveryService
     # Mark nodes as completed that were completed at checkpoint
     completed_nodes.each do |node_id|
       # Find the workflow node to get required fields
-      workflow_node = workflow_run.ai_workflow.ai_workflow_nodes.find_by(node_id: node_id)
+      workflow_node = workflow_run.workflow.workflow_nodes.find_by(node_id: node_id)
       next unless workflow_node # Skip if node doesn't exist in workflow
 
-      node_execution = workflow_run.ai_workflow_node_executions
+      node_execution = workflow_run.node_executions
                                    .find_or_initialize_by(node_id: node_id)
 
       next if node_execution.completed? # Already marked completed
 
       # Set required fields for validation
       node_execution.assign_attributes(
-        ai_workflow_node: workflow_node,
+        node: workflow_node,
         node_type: workflow_node.node_type,
         status: "completed",
         started_at: checkpoint.created_at,
@@ -286,7 +286,7 @@ class AiWorkflowCheckpointRecoveryService
   end
 
   def next_sequence_number
-    last_checkpoint = workflow_run.ai_workflow_checkpoints
+    last_checkpoint = workflow_run.checkpoints
                                   .order(sequence_number: :desc)
                                   .first
 
@@ -297,7 +297,7 @@ class AiWorkflowCheckpointRecoveryService
     # Keep last N checkpoints and delete older ones
     keep_count = 10 # Keep last 10 checkpoints
 
-    old_checkpoints = workflow_run.ai_workflow_checkpoints
+    old_checkpoints = workflow_run.checkpoints
                                   .order(sequence_number: :desc)
                                   .offset(keep_count)
 

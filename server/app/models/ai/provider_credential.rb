@@ -12,6 +12,7 @@ module Ai
     belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"
     belongs_to :account
 
+
     # Validations
     validates :name, presence: true, length: { maximum: 255 }
     validates :encrypted_credentials, presence: true

@@ -8,10 +8,10 @@ RSpec.describe AiProviderClientService, type: :service do
   let(:openai_provider) { create(:ai_provider, :openai) }
   let(:anthropic_provider) { create(:ai_provider, :anthropic) }
   let(:ollama_provider) { create(:ai_provider, :ollama) }
-  let(:openai_credential) { create(:ai_provider_credential, account: account, ai_provider: openai_provider) }
-  let(:anthropic_credential) { create(:ai_provider_credential, account: account, ai_provider: anthropic_provider) }
+  let(:openai_credential) { create(:ai_provider_credential, account: account, provider: openai_provider) }
+  let(:anthropic_credential) { create(:ai_provider_credential, account: account, provider: anthropic_provider) }
   let(:ollama_credential) do
-    create(:ai_provider_credential, account: account, ai_provider: ollama_provider,
+    create(:ai_provider_credential, account: account, provider: ollama_provider,
            credentials: { 'base_url' => 'http://localhost:11434', 'model' => 'llama2' })
   end
 
@@ -184,7 +184,7 @@ RSpec.describe AiProviderClientService, type: :service do
 
         custom_ollama_credential = create(:ai_provider_credential,
           account: account,
-          ai_provider: ollama_provider,
+          provider: ollama_provider,
           credentials: { 'base_url' => 'http://custom-host:11434', 'model' => 'llama2' }
         )
 

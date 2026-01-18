@@ -28,11 +28,11 @@ class AiWorkflowValidationService
   private
 
   def nodes
-    @nodes ||= workflow.ai_workflow_nodes.to_a
+    @nodes ||= workflow.workflow_nodes.to_a
   end
 
   def edges
-    @edges ||= workflow.ai_workflow_edges.to_a
+    @edges ||= workflow.workflow_edges.to_a
   end
 
   def perform_structural_validation

@@ -12,7 +12,7 @@ module Devops
       def create_credential(provider, account, user, params)
         validate_credential_params(provider, params)
 
-        credential = account.git_provider_credentials.build(
+        credential = account.git_ai_provider_credentials.build(
           git_provider_id: provider.id,
           user: user,
           name: params[:name] || generate_credential_name(provider, params[:auth_type]),

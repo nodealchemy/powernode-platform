@@ -86,7 +86,7 @@ class AiAgentTeamOrchestrator
     accumulated_output = nil
 
     members.each do |member|
-      @logger.info "[TeamOrchestrator] Executing member: #{member.ai_agent_name} (priority: #{member.priority_order})"
+      @logger.info "[TeamOrchestrator] Executing member: #{member.agent_name} (priority: #{member.priority_order})"
 
       # Prepare input (first member gets original input, others get previous output)
       member_input = if member.priority_order.zero?
@@ -117,13 +117,13 @@ class AiAgentTeamOrchestrator
   def execute_parallel
     @logger.info "[TeamOrchestrator] Parallel execution started"
 
-    members = team.ai_agent_team_members.includes(:ai_agent) # Preload for thread safety
+    members = team.members.includes(:agent) # Preload for thread safety
     original_input = read_team_context("original_input")
 
     # Execute all members in parallel (simulated with threads)
     results = members.map do |member|
       Thread.new do
-        @logger.info "[TeamOrchestrator] Executing member (parallel): #{member.ai_agent_name}"
+        @logger.info "[TeamOrchestrator] Executing member (parallel): #{member.agent_name}"
         execute_member(member, original_input)
       end
     end.map(&:value)
@@ -147,7 +147,7 @@ class AiAgentTeamOrchestrator
     lead = team.team_lead
     raise NoMembersError, "Hierarchical team requires a lead member" unless lead
 
-    workers = team.ai_agent_team_members.non_leads.by_priority
+    workers = team.members.non_leads.by_priority
 
     # Lead analyzes input and creates work plan
     original_input = read_team_context("original_input")
@@ -158,7 +158,7 @@ class AiAgentTeamOrchestrator
       task = work_plan[:tasks].find { |t| t[:assigned_to] == worker.id }
       next unless task
 
-      @logger.info "[TeamOrchestrator] Lead delegating to #{worker.ai_agent_name}"
+      @logger.info "[TeamOrchestrator] Lead delegating to #{worker.agent_name}"
 
       # Send command from lead to worker
       command_msg = @communication_hub.send_command(
@@ -197,7 +197,7 @@ class AiAgentTeamOrchestrator
   def execute_mesh
     @logger.info "[TeamOrchestrator] Mesh execution started"
 
-    members = team.ai_agent_team_members.includes(:ai_agent) # Preload for thread safety
+    members = team.members.includes(:agent) # Preload for thread safety
     original_input = read_team_context("original_input")
 
     # Create blackboard for collaboration
@@ -215,7 +215,7 @@ class AiAgentTeamOrchestrator
 
     # Each member contributes to the solution
     members.each do |member|
-      @logger.info "[TeamOrchestrator] Member #{member.ai_agent_name} contributing to mesh"
+      @logger.info "[TeamOrchestrator] Member #{member.agent_name} contributing to mesh"
 
       # Read current blackboard state
       blackboard_state = @communication_hub.read_blackboard(
@@ -261,7 +261,7 @@ class AiAgentTeamOrchestrator
 
   def validate_team!
     raise TeamNotActiveError, "Team must be active" unless team.active?
-    raise NoMembersError, "Team has no members" if team.ai_agent_team_members.empty?
+    raise NoMembersError, "Team has no members" if team.members.empty?
   end
 
   def create_workflow_run(input, context)
@@ -282,7 +282,7 @@ class AiAgentTeamOrchestrator
       }
     end
 
-    workflow.ai_workflow_runs.create!(
+    workflow.workflow_runs.create!(
       account_id: team.account_id,
       run_id: "team_#{team.id}_#{SecureRandom.hex(8)}",
       status: "running",
@@ -298,7 +298,7 @@ class AiAgentTeamOrchestrator
       metadata: {
         "team_type" => team.team_type,
         "coordination_strategy" => team.coordination_strategy,
-        "member_count" => team.ai_agent_team_members.count,
+        "member_count" => team.members.count,
         "orchestrator" => "team_orchestrator"
       }
     )
@@ -306,7 +306,7 @@ class AiAgentTeamOrchestrator
 
   def setup_team_context(input, context)
     @communication_hub.create_context_pool(
-      owner_agent_id: team.ai_agent_team_members.first&.ai_agent_id,
+      owner_agent_id: team.members.first&.ai_agent_id,
       pool_type: "shared_memory",
       scope: "agent_group",  # Team is an agent_group
       initial_data: {
@@ -333,7 +333,7 @@ class AiAgentTeamOrchestrator
     {
       member_id: member.id,
       agent_id: member.ai_agent_id,
-      agent_name: member.ai_agent_name,
+      agent_name: member.agent_name,
       role: member.role,
       output: execution_result,
       should_stop: false
@@ -352,7 +352,7 @@ class AiAgentTeamOrchestrator
         {
           id: idx,
           assigned_to: worker.id,
-          agent_name: worker.ai_agent_name,
+          agent_name: worker.agent_name,
           role: worker.role,
           instructions: "Process input based on your #{worker.role} role",
           input: input

@@ -45,7 +45,7 @@ namespace :ai do
     puts "Claude Provider: #{claude_provider.name} (#{claude_provider.id})"
 
     # Create or update credential
-    credential = claude_provider.ai_provider_credentials.find_or_initialize_by(
+    credential = claude_provider.provider_credentials.find_or_initialize_by(
       account: account,
       name: "Default Claude API Key"
     )
@@ -101,7 +101,7 @@ namespace :ai do
       puts "  Active: #{provider.is_active}"
       puts "  Endpoint: #{provider.api_endpoint}"
 
-      creds = provider.ai_provider_credentials.where(account: account)
+      creds = provider.provider_credentials.where(account: account)
       if creds.any?
         puts "  Credentials:"
         creds.each do |c|

@@ -6,7 +6,7 @@ RSpec.describe AiAnalyticsInsightsService, type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:provider) { create(:ai_provider, account: account, slug: 'openai-analytics') }
-  let(:agent) { create(:ai_agent, account: account, ai_provider: provider, agent_type: 'assistant') }
+  let(:agent) { create(:ai_agent, account: account, provider: provider, agent_type: 'assistant') }
 
   describe '#initialize' do
     it 'initializes with account keyword argument' do
@@ -34,7 +34,7 @@ RSpec.describe AiAnalyticsInsightsService, type: :service do
     let(:service) { described_class.new(account: account) }
 
     before do
-      create_list(:ai_agent_execution, 3, :completed, account: account, ai_agent: agent)
+      create_list(:ai_agent_execution, 3, :completed, account: account, agent: agent)
     end
 
     it 'returns an ActiveRecord relation' do
@@ -44,8 +44,8 @@ RSpec.describe AiAnalyticsInsightsService, type: :service do
 
     it 'scopes to account' do
       other_account = create(:account)
-      other_agent = create(:ai_agent, account: other_account, ai_provider: provider, agent_type: 'assistant')
-      create(:ai_agent_execution, :completed, account: other_account, ai_agent: other_agent)
+      other_agent = create(:ai_agent, account: other_account, provider: provider, agent_type: 'assistant')
+      create(:ai_agent_execution, :completed, account: other_account, agent: other_agent)
 
       result = service.send(:base_executions_query)
       expect(result.pluck(:account_id).uniq).to eq([ account.id ])

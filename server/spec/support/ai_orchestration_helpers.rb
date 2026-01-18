@@ -280,7 +280,7 @@ module AiOrchestrationHelpers
     [
       Mcp::NodeExecutors::Start,
       Mcp::NodeExecutors::End,
-      Mcp::NodeExecutors::AiAgent,
+      Mcp::NodeExecutors::Ai::Agent,
       Mcp::NodeExecutors::Transform,
       Mcp::NodeExecutors::Condition,
       Mcp::NodeExecutors::ApiCall,

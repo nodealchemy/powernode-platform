@@ -23,6 +23,7 @@ module Ai
     has_many :agent_executions, class_name: "Ai::AgentExecution", foreign_key: "ai_provider_id", dependent: :restrict_with_error
     has_many :conversations, class_name: "Ai::Conversation", foreign_key: "ai_provider_id", dependent: :restrict_with_error
 
+
     # Validations
     validates :name, presence: true, length: { maximum: 255 }, uniqueness: { scope: :account_id }
     validates :slug, presence: true, uniqueness: true, length: { maximum: 50 },

@@ -7,6 +7,7 @@ FactoryBot.define do
     end
 
     association :workflow_run, factory: :ai_workflow_run
+    association :node, factory: :ai_workflow_node
 
     execution_id { SecureRandom.uuid }
     status { 'pending' }

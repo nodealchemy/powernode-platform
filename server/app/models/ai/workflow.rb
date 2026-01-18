@@ -39,6 +39,7 @@ module Ai
     has_many :runs, -> { }, class_name: "Ai::WorkflowRun", foreign_key: "ai_workflow_id", dependent: :destroy
     has_many :schedules, -> { }, class_name: "Ai::WorkflowSchedule", foreign_key: "ai_workflow_id", dependent: :destroy
 
+
     # Workflow type constants
     WORKFLOW_TYPES = %w[ai cicd].freeze
 

@@ -69,7 +69,7 @@ puts '   - Workflows should now execute successfully (if credentials are valid)'
 puts ''
 
 puts '🔑 Credentials Status:'
-cred = provider.ai_provider_credentials.active.first
+cred = provider.provider_credentials.active.first
 if cred
   puts '   ✅ Active credentials found'
   puts "   Created: #{cred.created_at}"

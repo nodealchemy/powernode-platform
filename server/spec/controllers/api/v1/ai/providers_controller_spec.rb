@@ -201,7 +201,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
     end
 
     context 'when accessing another account\'s provider' do
-      let(:other_provider) { create(:ai_provider) }
+      let(:other_provider) { create(:provider) }
       before { sign_in provider_read_user }
 
       it 'returns not found error' do
@@ -891,7 +891,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
         update_with_creds[:credential][:credentials] = { api_key: 'new-api-key-1234567890' }
 
         # Stub the validation method to not raise errors
-        allow(Ai::ProviderManagementService).to receive(:validate_provider_credentials)
+        allow(Ai::ProviderManagementService).to receive(:validate_ai_provider_credentials)
 
         patch :update, params: update_with_creds
 
@@ -902,7 +902,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
         update_with_creds = update_params.deep_dup
         update_with_creds[:credential][:credentials] = { api_key: 'new-api-key-1234567890' }
 
-        expect(Ai::ProviderManagementService).to receive(:validate_provider_credentials)
+        expect(Ai::ProviderManagementService).to receive(:validate_ai_provider_credentials)
 
         patch :update, params: update_with_creds
       end

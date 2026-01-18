@@ -67,7 +67,7 @@ module Devops
         OpenSSL::KDF.hkdf(
           key_base,
           salt: "git_credentials_encryption",
-          info: "git_provider_credentials",
+          info: "git_ai_provider_credentials",
           length: 32,
           hash: "SHA256"
         )

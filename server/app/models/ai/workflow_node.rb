@@ -13,6 +13,7 @@ module Ai
     # Associations
     belongs_to :workflow, class_name: "Ai::Workflow", foreign_key: "ai_workflow_id"
     has_many :node_executions, class_name: "Ai::WorkflowNodeExecution", foreign_key: "ai_workflow_node_id", dependent: :destroy
+
     has_many :source_edges, class_name: "Ai::WorkflowEdge",
              foreign_key: "source_node_id", primary_key: "node_id", dependent: :destroy
     has_many :target_edges, class_name: "Ai::WorkflowEdge",

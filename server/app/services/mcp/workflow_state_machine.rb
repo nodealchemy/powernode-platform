@@ -478,7 +478,7 @@ module Mcp
 
     def broadcast_status_change(from_state, to_state, update_attrs)
       # Since we use update_columns which bypasses callbacks, manually broadcast status changes
-      # This replicates the broadcast_status_change callback in AiWorkflowRun model
+      # This replicates the broadcast_status_change callback in Ai::WorkflowRun model
       @logger.debug "[STATE_MACHINE] Broadcasting status change: #{from_state} -> #{to_state}"
 
       # Reload to get updated values

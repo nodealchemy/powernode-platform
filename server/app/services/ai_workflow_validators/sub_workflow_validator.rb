@@ -21,7 +21,7 @@ module WorkflowValidators
       workflow_id = node.configuration["workflow_id"] || node.configuration[:workflow_id]
       return if workflow_id.blank?
 
-      unless AiWorkflow.exists?(workflow_id)
+      unless Ai::Workflow.exists?(workflow_id)
         add_issue(
           code: "workflow_not_found",
           severity: "error",
@@ -39,7 +39,7 @@ module WorkflowValidators
       return if workflow_id.blank?
 
       # Get the parent workflow from the node
-      parent_workflow = node.ai_workflow
+      parent_workflow = node.workflow
       return unless parent_workflow
 
       if workflow_id == parent_workflow.id

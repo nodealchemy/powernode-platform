@@ -1,0 +1,236 @@
+/**
+ * Tailwind CSS 4.x Theme Configuration
+ *
+ * This file uses the CSS-first @theme directive to define custom colors
+ * that reference CSS variables from themes.css
+ */
+
+@theme {
+  /* Primary color scale */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+  --color-primary-950: #172554;
+
+  /* Theme interactive colors - reference CSS variables */
+  --color-theme-interactive-primary: var(--color-interactive-primary);
+  --color-theme-interactive-primary-hover: var(--color-interactive-primary-hover);
+  --color-theme-interactive-primary-active: var(--color-interactive-primary-active);
+  --color-theme-interactive-primary-disabled: var(--color-interactive-primary-disabled);
+  --color-theme-interactive-secondary: var(--color-interactive-secondary);
+  --color-theme-interactive-secondary-hover: var(--color-interactive-secondary-hover);
+  --color-theme-interactive-secondary-active: var(--color-interactive-secondary-active);
+  --color-theme-interactive-secondary-disabled: var(--color-interactive-secondary-disabled);
+
+  /* Theme text colors */
+  --color-theme-primary: var(--color-text-primary);
+  --color-theme-secondary: var(--color-text-secondary);
+  --color-theme-tertiary: var(--color-text-tertiary);
+  --color-theme-link: var(--color-text-link);
+  --color-theme-link-hover: var(--color-text-link-hover);
+
+  /* Theme surface colors */
+  --color-theme-surface: var(--color-surface);
+  --color-theme-surface-hover: var(--color-surface-hover);
+  --color-theme-surface-selected: var(--color-surface-selected);
+  --color-theme-background-secondary: var(--color-background-secondary);
+
+  /* Theme semantic colors */
+  --color-theme-success: var(--color-success);
+  --color-theme-warning: var(--color-warning);
+  --color-theme-error: var(--color-error);
+  --color-theme-info: var(--color-info);
+
+  /* Workflow node colors - all 24 node types */
+  --color-node-trigger: var(--node-trigger-bg);
+  --color-node-ai-agent: var(--node-ai-agent-bg);
+  --color-node-data-processor: var(--node-data-processor-bg);
+  --color-node-condition: var(--node-condition-bg);
+  --color-node-loop: var(--node-loop-bg);
+  --color-node-api-call: var(--node-api-call-bg);
+  --color-node-webhook: var(--node-webhook-bg);
+  --color-node-database: var(--node-database-bg);
+  --color-node-email: var(--node-email-bg);
+  --color-node-scheduler: var(--node-scheduler-bg);
+  --color-node-file: var(--node-file-bg);
+  --color-node-transformer: var(--node-transformer-bg);
+  --color-node-validator: var(--node-validator-bg);
+  --color-node-notification: var(--node-notification-bg);
+  --color-node-delay: var(--node-delay-bg);
+  --color-node-merge: var(--node-merge-bg);
+  --color-node-split: var(--node-split-bg);
+  --color-node-end: var(--node-end-bg);
+  --color-node-start: var(--node-start-bg);
+  --color-node-prompt-template: var(--node-prompt-template-bg);
+  --color-node-human-approval: var(--node-human-approval-bg);
+  --color-node-sub-workflow: var(--node-sub-workflow-bg);
+
+  /* Consolidated workflow node colors */
+  --color-node-kb-article: var(--node-kb-article-bg);
+  --color-node-kb-article-border: var(--node-kb-article-border);
+  --color-node-page: var(--node-page-bg);
+  --color-node-page-border: var(--node-page-border);
+  --color-node-mcp-operation: var(--node-mcp-operation-bg);
+  --color-node-mcp-operation-border: var(--node-mcp-operation-border);
+
+  /* Workflow handle colors */
+  --color-handle-default: var(--handle-default);
+  --color-handle-input: var(--handle-input);
+  --color-handle-output: var(--handle-output);
+  --color-handle-true: var(--handle-true);
+  --color-handle-false: var(--handle-false);
+  --color-handle-loop-back: var(--handle-loop-back);
+  --color-handle-loop-exit: var(--handle-loop-exit);
+
+  /* Border colors */
+  --color-border-theme: var(--color-border);
+  --color-border-theme-light: var(--color-border-light);
+  --color-border-theme-strong: var(--color-border-strong);
+  --color-border-theme-focus: var(--color-border-focus);
+  --color-border-theme-success: var(--color-success-border);
+  --color-border-theme-warning: var(--color-warning-border);
+  --color-border-theme-error: var(--color-error-border);
+  --color-border-theme-info: var(--color-info-border);
+
+  /* Background semantic colors */
+  --color-bg-theme-success: var(--color-success-background);
+  --color-bg-theme-warning: var(--color-warning-background);
+  --color-bg-theme-error: var(--color-error-background);
+  --color-bg-theme-info: var(--color-info-background);
+
+  /* Font family */
+  --font-sans: 'Inter', ui-sans-serif, system-ui;
+}
+
+/* Safelist equivalent - ensure these classes are always generated */
+@layer utilities {
+  /* Theme interactive backgrounds */
+  .bg-theme-interactive-primary { background-color: var(--color-interactive-primary); }
+  .hover\:bg-theme-interactive-primary-hover:hover { background-color: var(--color-interactive-primary-hover); }
+  .bg-theme-interactive-secondary { background-color: var(--color-interactive-secondary); }
+  .hover\:bg-theme-interactive-secondary-hover:hover { background-color: var(--color-interactive-secondary-hover); }
+
+  /* Theme text colors */
+  .text-theme-primary { color: var(--color-text-primary); }
+  .text-theme-secondary { color: var(--color-text-secondary); }
+  .text-theme-tertiary { color: var(--color-text-tertiary); }
+  .text-theme-link { color: var(--color-text-link); }
+  .hover\:text-theme-link-hover:hover { color: var(--color-text-link-hover); }
+  .text-theme-success { color: var(--color-success); }
+  .text-theme-warning { color: var(--color-warning); }
+  .text-theme-error { color: var(--color-error); }
+  .text-theme-info { color: var(--color-info); }
+
+  /* Theme surface backgrounds */
+  .bg-theme-surface { background-color: var(--color-surface); }
+  .hover\:bg-theme-surface-hover:hover { background-color: var(--color-surface-hover); }
+  .bg-theme-surface-selected { background-color: var(--color-surface-selected); }
+  .bg-theme-background-secondary { background-color: var(--color-background-secondary); }
+  .bg-theme-success { background-color: var(--color-success-background); }
+  .bg-theme-warning { background-color: var(--color-warning-background); }
+  .bg-theme-error { background-color: var(--color-error-background); }
+  .bg-theme-info { background-color: var(--color-info-background); }
+
+  /* Theme borders */
+  .border-theme { border-color: var(--color-border); }
+  .border-theme-light { border-color: var(--color-border-light); }
+  .border-theme-strong { border-color: var(--color-border-strong); }
+  .border-theme-focus { border-color: var(--color-border-focus); }
+  .border-theme-success { border-color: var(--color-success-border); }
+  .border-theme-warning { border-color: var(--color-warning-border); }
+  .border-theme-error { border-color: var(--color-error-border); }
+  .border-theme-info { border-color: var(--color-info-border); }
+  .divide-theme > :not([hidden]) ~ :not([hidden]) { border-color: var(--color-divider); }
+
+  /* Workflow handle backgrounds */
+  .bg-handle-default { background-color: var(--handle-default); }
+  .bg-handle-input { background-color: var(--handle-input); }
+  .bg-handle-output { background-color: var(--handle-output); }
+  .bg-handle-true { background-color: var(--handle-true); }
+  .bg-handle-false { background-color: var(--handle-false); }
+  .bg-handle-loop-back { background-color: var(--handle-loop-back); }
+  .bg-handle-loop-exit { background-color: var(--handle-loop-exit); }
+
+  /* Node background colors */
+  .bg-node-trigger { background-color: var(--node-trigger-bg); }
+  .bg-node-ai-agent { background-color: var(--node-ai-agent-bg); }
+  .bg-node-data-processor { background-color: var(--node-data-processor-bg); }
+  .bg-node-condition { background-color: var(--node-condition-bg); }
+  .bg-node-loop { background-color: var(--node-loop-bg); }
+  .bg-node-api-call { background-color: var(--node-api-call-bg); }
+  .bg-node-webhook { background-color: var(--node-webhook-bg); }
+  .bg-node-database { background-color: var(--node-database-bg); }
+  .bg-node-email { background-color: var(--node-email-bg); }
+  .bg-node-scheduler { background-color: var(--node-scheduler-bg); }
+  .bg-node-file { background-color: var(--node-file-bg); }
+  .bg-node-transformer { background-color: var(--node-transformer-bg); }
+  .bg-node-validator { background-color: var(--node-validator-bg); }
+  .bg-node-notification { background-color: var(--node-notification-bg); }
+  .bg-node-delay { background-color: var(--node-delay-bg); }
+  .bg-node-merge { background-color: var(--node-merge-bg); }
+  .bg-node-split { background-color: var(--node-split-bg); }
+  .bg-node-end { background-color: var(--node-end-bg); }
+  .bg-node-start { background-color: var(--node-start-bg); }
+  .bg-node-prompt-template { background-color: var(--node-prompt-template-bg); }
+  .bg-node-human-approval { background-color: var(--node-human-approval-bg); }
+  .bg-node-sub-workflow { background-color: var(--node-sub-workflow-bg); }
+  .bg-node-kb-article { background-color: var(--node-kb-article-bg); }
+  .bg-node-page { background-color: var(--node-page-bg); }
+  .bg-node-mcp-operation { background-color: var(--node-mcp-operation-bg); }
+
+  /* Node border colors */
+  .border-node-trigger { border-color: var(--node-trigger-bg); }
+  .border-node-ai-agent { border-color: var(--node-ai-agent-bg); }
+  .border-node-data-processor { border-color: var(--node-data-processor-bg); }
+  .border-node-condition { border-color: var(--node-condition-bg); }
+  .border-node-loop { border-color: var(--node-loop-bg); }
+  .border-node-api-call { border-color: var(--node-api-call-bg); }
+  .border-node-webhook { border-color: var(--node-webhook-bg); }
+  .border-node-database { border-color: var(--node-database-bg); }
+  .border-node-email { border-color: var(--node-email-bg); }
+  .border-node-scheduler { border-color: var(--node-scheduler-bg); }
+  .border-node-file { border-color: var(--node-file-bg); }
+  .border-node-transformer { border-color: var(--node-transformer-bg); }
+  .border-node-validator { border-color: var(--node-validator-bg); }
+  .border-node-notification { border-color: var(--node-notification-bg); }
+  .border-node-delay { border-color: var(--node-delay-bg); }
+  .border-node-merge { border-color: var(--node-merge-bg); }
+  .border-node-split { border-color: var(--node-split-bg); }
+  .border-node-end { border-color: var(--node-end-bg); }
+  .border-node-start { border-color: var(--node-start-bg); }
+  .border-node-prompt-template { border-color: var(--node-prompt-template-bg); }
+  .border-node-human-approval { border-color: var(--node-human-approval-bg); }
+  .border-node-sub-workflow { border-color: var(--node-sub-workflow-bg); }
+  .border-node-kb-article { border-color: var(--node-kb-article-border); }
+  .border-node-page { border-color: var(--node-page-border); }
+  .border-node-mcp-operation { border-color: var(--node-mcp-operation-border); }
+
+  /* Dark mode specific classes from safelist */
+  .dark\:text-green-100:is(.dark *) { color: #dcfce7; }
+  .dark\:text-red-100:is(.dark *) { color: #fee2e2; }
+  .dark\:text-yellow-100:is(.dark *) { color: #fef3c7; }
+  .dark\:text-blue-100:is(.dark *) { color: #dbeafe; }
+  .dark\:text-green-200:is(.dark *) { color: #bbf7d0; }
+  .dark\:text-red-200:is(.dark *) { color: #fecaca; }
+  .dark\:text-yellow-200:is(.dark *) { color: #fde68a; }
+  .dark\:text-blue-200:is(.dark *) { color: #bfdbfe; }
+  .dark\:hover\:text-green-100:hover:is(.dark *) { color: #dcfce7; }
+  .dark\:hover\:text-red-100:hover:is(.dark *) { color: #fee2e2; }
+  .dark\:hover\:text-yellow-100:hover:is(.dark *) { color: #fef3c7; }
+  .dark\:hover\:text-blue-100:hover:is(.dark *) { color: #dbeafe; }
+  .dark\:bg-green-800:is(.dark *) { background-color: #166534; }
+  .dark\:bg-red-800:is(.dark *) { background-color: #991b1b; }
+  .dark\:bg-yellow-800:is(.dark *) { background-color: #92400e; }
+  .dark\:bg-blue-800:is(.dark *) { background-color: #1e40af; }
+  .dark\:border-green-600:is(.dark *) { border-color: #16a34a; }
+  .dark\:border-red-600:is(.dark *) { border-color: #dc2626; }
+  .dark\:border-yellow-600:is(.dark *) { border-color: #d97706; }
+  .dark\:border-blue-600:is(.dark *) { border-color: #2563eb; }
+}

@@ -86,7 +86,7 @@ class Ai::AgentTeamOrchestrator
     accumulated_output = nil
 
     members.each do |member|
-      @logger.info "[TeamOrchestrator] Executing member: #{member.ai_agent_name} (priority: #{member.priority_order})"
+      @logger.info "[TeamOrchestrator] Executing member: #{member.agent_name} (priority: #{member.priority_order})"
 
       # Prepare input (first member gets original input, others get previous output)
       member_input = if member.priority_order.zero?
@@ -123,7 +123,7 @@ class Ai::AgentTeamOrchestrator
     # Execute all members in parallel (simulated with threads)
     results = members.map do |member|
       Thread.new do
-        @logger.info "[TeamOrchestrator] Executing member (parallel): #{member.ai_agent_name}"
+        @logger.info "[TeamOrchestrator] Executing member (parallel): #{member.agent_name}"
         execute_member(member, original_input)
       end
     end.map(&:value)
@@ -158,7 +158,7 @@ class Ai::AgentTeamOrchestrator
       task = work_plan[:tasks].find { |t| t[:assigned_to] == worker.id }
       next unless task
 
-      @logger.info "[TeamOrchestrator] Lead delegating to #{worker.ai_agent_name}"
+      @logger.info "[TeamOrchestrator] Lead delegating to #{worker.agent_name}"
 
       # Send command from lead to worker
       command_msg = @communication_hub.send_command(
@@ -188,7 +188,7 @@ class Ai::AgentTeamOrchestrator
       success: true,
       output: final_result,
       execution_type: "hierarchical",
-      lead: lead.ai_agent_name,
+      lead: lead.agent_name,
       workers_executed: worker_results.count
     }
   end
@@ -215,7 +215,7 @@ class Ai::AgentTeamOrchestrator
 
     # Each member contributes to the solution
     members.each do |member|
-      @logger.info "[TeamOrchestrator] Member #{member.ai_agent_name} contributing to mesh"
+      @logger.info "[TeamOrchestrator] Member #{member.agent_name} contributing to mesh"
 
       # Read current blackboard state
       blackboard_state = @communication_hub.read_blackboard(
@@ -333,7 +333,7 @@ class Ai::AgentTeamOrchestrator
     {
       member_id: member.id,
       agent_id: member.ai_agent_id,
-      agent_name: member.ai_agent_name,
+      agent_name: member.agent_name,
       role: member.role,
       output: execution_result,
       should_stop: false
@@ -352,7 +352,7 @@ class Ai::AgentTeamOrchestrator
         {
           id: idx,
           assigned_to: worker.id,
-          agent_name: worker.ai_agent_name,
+          agent_name: worker.agent_name,
           role: worker.role,
           instructions: "Process input based on your #{worker.role} role",
           input: input
@@ -367,7 +367,7 @@ class Ai::AgentTeamOrchestrator
     {
       synthesized: true,
       worker_outputs: worker_results.map { |r| r[:output] },
-      synthesizer: lead.ai_agent_name
+      synthesizer: lead.agent_name
     }
   end
 

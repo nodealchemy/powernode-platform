@@ -94,7 +94,7 @@ module AiOrchestrationTestHelpers
   # @param creator [User] The user creating the workflow
   # @param mode [Symbol] Execution mode (:sequential, :parallel, :conditional)
   # @param structure [Symbol] Workflow structure (:simple_chain, :complex_flow, :with_loop)
-  # @return [AiWorkflow] The created workflow
+  # @return [Ai::Workflow] The created workflow
   def create_workflow_with_structure(account, creator, mode: :sequential, structure: :simple_chain)
     trait = structure == :simple_chain ? :with_simple_chain : structure
     config_trait = mode == :parallel ? :parallel_execution : nil
@@ -108,10 +108,10 @@ module AiOrchestrationTestHelpers
 
   # Creates a workflow run with specific status and execution context
   #
-  # @param workflow [AiWorkflow] The workflow to create a run for
+  # @param workflow [Ai::Workflow] The workflow to create a run for
   # @param status [String] Run status ('initializing', 'running', 'completed', 'failed')
   # @param input [Hash] Input variables for the run
-  # @return [AiWorkflowRun] The created workflow run
+  # @return [Ai::WorkflowRun] The created workflow run
   def create_workflow_run_with_status(workflow, status: 'initializing', input: {})
     trait = case status
     when 'running' then :running
@@ -275,7 +275,7 @@ module AiOrchestrationTestHelpers
 
     attrs = {
       workflow_run: workflow_run,
-      node: node,
+      ai_workflow_node_id: node.id,
       node_id: node.node_id,
       node_type: node.node_type
     }
@@ -289,7 +289,7 @@ module AiOrchestrationTestHelpers
 
   # Assert that a workflow run has expected status
   #
-  # @param workflow_run [AiWorkflowRun] The workflow run to check
+  # @param workflow_run [Ai::WorkflowRun] The workflow run to check
   # @param expected_status [String] Expected status value
   def expect_workflow_status(workflow_run, expected_status)
     workflow_run.reload

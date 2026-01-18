@@ -22,6 +22,7 @@ module Ai
     belongs_to :creator, class_name: "User"
     belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"
     has_many :executions, class_name: "Ai::AgentExecution", foreign_key: "ai_agent_id", dependent: :destroy
+
     has_many :conversations, class_name: "Ai::Conversation", foreign_key: "ai_agent_id", dependent: :destroy
     has_many :messages, class_name: "Ai::Message", foreign_key: "ai_agent_id", dependent: :destroy
 

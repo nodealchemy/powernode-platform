@@ -7,7 +7,7 @@
 # with Redis-based storage for provider state.
 #
 # Example:
-#   provider = AiProvider.find(id)
+#   provider = Ai::Provider.find(id)
 #   breaker = AiProviderCircuitBreakerService.new(provider)
 #   breaker.call { provider.execute_request(prompt) }
 #
@@ -65,14 +65,14 @@ class AiProviderCircuitBreakerService
 
   # Check all providers and return their circuit breaker status
   def self.all_provider_stats
-    AiProvider.active.map do |provider|
+    Ai::Provider.active.map do |provider|
       new(provider).circuit_stats
     end
   end
 
   # Reset all circuit breakers (emergency use)
   def self.reset_all_circuits
-    AiProvider.active.find_each do |provider|
+    Ai::Provider.active.find_each do |provider|
       new(provider).reset_circuit!
     end
   end

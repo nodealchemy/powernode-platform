@@ -10,22 +10,22 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
 
   create_table "account_delegations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "delegated_user_id", null: false
+    t.datetime "created_at", null: false
     t.uuid "delegated_by_id", null: false
-    t.uuid "role_id"
-    t.string "status", default: "active"
+    t.uuid "delegated_user_id", null: false
     t.datetime "expires_at"
+    t.text "notes"
     t.datetime "revoked_at"
     t.uuid "revoked_by_id"
-    t.text "notes"
-    t.datetime "created_at", null: false
+    t.uuid "role_id"
+    t.string "status", default: "active"
     t.datetime "updated_at", null: false
     t.index ["account_id", "delegated_user_id"], name: "index_account_delegations_unique", unique: true
     t.index ["account_id"], name: "index_account_delegations_on_account_id"
@@ -40,24 +40,24 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "account_terminations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "requested_by_id"
-    t.uuid "cancelled_by_id"
-    t.uuid "processed_by_id"
-    t.string "status", default: "pending", null: false
-    t.text "reason"
     t.text "cancellation_reason"
-    t.datetime "requested_at", null: false
-    t.datetime "grace_period_ends_at", null: false
     t.datetime "cancelled_at"
-    t.datetime "processing_started_at"
+    t.uuid "cancelled_by_id"
     t.datetime "completed_at"
-    t.boolean "data_export_requested", default: false
-    t.uuid "data_export_request_id"
-    t.boolean "feedback_submitted", default: false
-    t.text "feedback"
-    t.jsonb "termination_log", default: []
-    t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
+    t.uuid "data_export_request_id"
+    t.boolean "data_export_requested", default: false
+    t.text "feedback"
+    t.boolean "feedback_submitted", default: false
+    t.datetime "grace_period_ends_at", null: false
+    t.jsonb "metadata", default: {}
+    t.uuid "processed_by_id"
+    t.datetime "processing_started_at"
+    t.text "reason"
+    t.datetime "requested_at", null: false
+    t.uuid "requested_by_id"
+    t.string "status", default: "pending", null: false
+    t.jsonb "termination_log", default: []
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_account_terminations_on_account_id"
     t.index ["cancelled_by_id"], name: "index_account_terminations_on_cancelled_by_id"
@@ -69,20 +69,20 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "billing_email"
+    t.datetime "created_at", null: false
     t.string "name", limit: 100, null: false
-    t.string "subdomain", limit: 30
+    t.string "paypal_customer_id", limit: 50
+    t.text "publisher_bio"
+    t.string "publisher_display_name"
+    t.string "publisher_logo_url"
+    t.string "publisher_website"
+    t.jsonb "settings", default: {}
     t.string "status", limit: 20, default: "active", null: false
     t.string "stripe_customer_id", limit: 50
-    t.string "paypal_customer_id", limit: 50
-    t.string "billing_email"
+    t.string "subdomain", limit: 30
     t.string "tax_id"
-    t.jsonb "settings", default: {}
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "publisher_display_name"
-    t.text "publisher_bio"
-    t.string "publisher_website"
-    t.string "publisher_logo_url"
     t.index ["paypal_customer_id"], name: "index_accounts_on_paypal_customer_id", unique: true, where: "(paypal_customer_id IS NOT NULL)"
     t.index ["status"], name: "index_accounts_on_status"
     t.index ["stripe_customer_id"], name: "index_accounts_on_stripe_customer_id", unique: true, where: "(stripe_customer_id IS NOT NULL)"
@@ -91,16 +91,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "admin_settings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "key", limit: 255, null: false
-    t.text "value"
-    t.string "setting_type", limit: 50, default: "string"
-    t.text "description"
-    t.boolean "is_public", default: false
-    t.boolean "is_encrypted", default: false
     t.string "category", limit: 100
-    t.integer "sort_order", default: 0
     t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "is_encrypted", default: false
+    t.boolean "is_public", default: false
+    t.string "key", limit: 255, null: false
+    t.string "setting_type", limit: 50, default: "string"
+    t.integer "sort_order", default: 0
     t.datetime "updated_at", null: false
+    t.text "value"
     t.index ["category"], name: "idx_admin_settings_on_category"
     t.index ["is_public"], name: "idx_admin_settings_on_is_public"
     t.index ["key"], name: "idx_admin_settings_on_key_unique", unique: true
@@ -110,31 +110,31 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_agent_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_agent_id", null: false
     t.uuid "account_id", null: false
-    t.uuid "user_id", null: false
+    t.uuid "ai_agent_id", null: false
     t.uuid "ai_provider_id", null: false
+    t.datetime "completed_at", precision: nil
+    t.decimal "cost_usd", precision: 10, scale: 4, default: "0.0"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.jsonb "error_details", default: {}
+    t.text "error_message"
+    t.jsonb "execution_context", default: {}
     t.string "execution_id", limit: 100, null: false
-    t.string "status", default: "pending", null: false
     t.jsonb "input_parameters", default: {}, null: false
     t.jsonb "output_data", default: {}
-    t.jsonb "execution_context", default: {}
-    t.text "error_message"
-    t.jsonb "error_details", default: {}
-    t.datetime "started_at", precision: nil
-    t.datetime "completed_at", precision: nil
-    t.integer "duration_ms"
-    t.integer "tokens_used", default: 0
-    t.decimal "cost_usd", precision: 10, scale: 4, default: "0.0"
-    t.jsonb "performance_metrics", default: {}
     t.uuid "parent_execution_id"
-    t.string "webhook_url"
-    t.jsonb "webhook_data", default: {}
+    t.jsonb "performance_metrics", default: {}
+    t.datetime "started_at", precision: nil
+    t.string "status", default: "pending", null: false
+    t.integer "tokens_used", default: 0
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
     t.integer "webhook_attempts", default: 0
+    t.jsonb "webhook_data", default: {}
     t.datetime "webhook_last_attempt_at", precision: nil
     t.string "webhook_status"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.string "webhook_url"
     t.index ["account_id", "status"], name: "index_ai_agent_executions_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_agent_executions_on_account_id"
     t.index ["ai_agent_id", "status"], name: "index_ai_agent_executions_on_ai_agent_id_and_status"
@@ -150,20 +150,20 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_agent_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_workflow_run_id", null: false
-    t.string "message_id", null: false
-    t.string "from_agent_id", null: false
-    t.string "to_agent_id"
-    t.string "message_type", default: "direct", null: false
-    t.string "communication_pattern", default: "request_response", null: false
-    t.jsonb "message_content", default: {}, null: false
-    t.jsonb "metadata", default: {}
-    t.string "status", default: "sent", null: false
-    t.string "in_reply_to_message_id"
-    t.integer "sequence_number", null: false
-    t.datetime "delivered_at", precision: nil
     t.datetime "acknowledged_at", precision: nil
+    t.uuid "ai_workflow_run_id", null: false
+    t.string "communication_pattern", default: "request_response", null: false
     t.datetime "created_at", null: false
+    t.datetime "delivered_at", precision: nil
+    t.string "from_agent_id", null: false
+    t.string "in_reply_to_message_id"
+    t.jsonb "message_content", default: {}, null: false
+    t.string "message_id", null: false
+    t.string "message_type", default: "direct", null: false
+    t.jsonb "metadata", default: {}
+    t.integer "sequence_number", null: false
+    t.string "status", default: "sent", null: false
+    t.string "to_agent_id"
     t.datetime "updated_at", null: false
     t.index ["ai_workflow_run_id", "sequence_number"], name: "index_agent_messages_on_run_and_sequence"
     t.index ["ai_workflow_run_id"], name: "index_ai_agent_messages_on_ai_workflow_run_id"
@@ -177,14 +177,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_agent_team_members", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_agent_team_id", null: false, comment: "Team this member belongs to"
     t.uuid "ai_agent_id", null: false, comment: "Agent assigned to this team role"
-    t.string "role", null: false, comment: "Role in team: manager, researcher, writer, reviewer, executor"
+    t.uuid "ai_agent_team_id", null: false, comment: "Team this member belongs to"
     t.jsonb "capabilities", default: [], null: false, comment: "Specific capabilities this member provides to the team"
-    t.integer "priority_order", default: 0, null: false, comment: "Execution priority (0 = highest, for sequential teams)"
+    t.datetime "created_at", null: false
     t.boolean "is_lead", default: false, null: false, comment: "Whether this member leads/coordinates the team"
     t.jsonb "member_config", default: {}, null: false, comment: "Member-specific configuration (retry_count, timeout, etc.)"
-    t.datetime "created_at", null: false
+    t.integer "priority_order", default: 0, null: false, comment: "Execution priority (0 = highest, for sequential teams)"
+    t.string "role", null: false, comment: "Role in team: manager, researcher, writer, reviewer, executor"
     t.datetime "updated_at", null: false
     t.index ["ai_agent_id"], name: "index_ai_agent_team_members_on_ai_agent_id"
     t.index ["ai_agent_team_id", "ai_agent_id"], name: "index_team_members_on_team_and_agent", unique: true
@@ -195,14 +195,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "ai_agent_teams", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false, comment: "Account that owns this team"
-    t.string "name", null: false, comment: "Team name (e.g., \"Content Generation Crew\", \"Research Team\")"
-    t.text "description", comment: "Team purpose and capabilities description"
-    t.string "team_type", default: "hierarchical", null: false, comment: "Team coordination type: hierarchical, mesh, sequential, parallel"
-    t.text "goal_description", comment: "High-level goal the team works toward"
     t.string "coordination_strategy", default: "manager_worker", null: false, comment: "Coordination pattern: manager_worker, peer_to_peer, hybrid"
-    t.jsonb "team_config", default: {}, null: false, comment: "Team-specific configuration (max_iterations, timeout, etc.)"
-    t.string "status", default: "active", null: false, comment: "Team status: active, inactive, archived"
     t.datetime "created_at", null: false
+    t.text "description", comment: "Team purpose and capabilities description"
+    t.text "goal_description", comment: "High-level goal the team works toward"
+    t.string "name", null: false, comment: "Team name (e.g., \"Content Generation Crew\", \"Research Team\")"
+    t.string "status", default: "active", null: false, comment: "Team status: active, inactive, archived"
+    t.jsonb "team_config", default: {}, null: false, comment: "Team-specific configuration (max_iterations, timeout, etc.)"
+    t.string "team_type", default: "hierarchical", null: false, comment: "Team coordination type: hierarchical, mesh, sequential, parallel"
     t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "index_ai_agent_teams_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_agent_teams_on_account_id"
@@ -214,26 +214,26 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "ai_agents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.string "agent_type", limit: 50, null: false
+    t.uuid "ai_provider_id", null: false
+    t.datetime "created_at", null: false
     t.uuid "creator_id", null: false
+    t.text "description"
+    t.jsonb "execution_stats", default: {}
+    t.boolean "is_public", default: false
+    t.datetime "last_executed_at", precision: nil
+    t.jsonb "mcp_capabilities", default: [], null: false, comment: "Array of MCP capabilities supported by this agent"
+    t.jsonb "mcp_input_schema", default: {}, null: false, comment: "JSON Schema for validating agent input parameters"
+    t.jsonb "mcp_metadata", default: {}, null: false, comment: "Additional MCP-specific metadata"
+    t.jsonb "mcp_output_schema", default: {}, null: false, comment: "JSON Schema for validating agent output"
+    t.datetime "mcp_registered_at", precision: nil
+    t.jsonb "mcp_tool_manifest", default: {}, null: false, comment: "Complete MCP tool manifest for agent registration"
+    t.jsonb "metadata", default: {}, null: false
     t.string "name", limit: 255, null: false
     t.string "slug", limit: 150, null: false
-    t.text "description"
-    t.string "agent_type", limit: 50, null: false
     t.string "status", default: "active", null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.boolean "is_public", default: false
-    t.string "version", limit: 20, default: "1.0.0", null: false
-    t.datetime "last_executed_at", precision: nil
-    t.jsonb "execution_stats", default: {}
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.uuid "ai_provider_id", null: false
-    t.jsonb "mcp_tool_manifest", default: {}, null: false, comment: "Complete MCP tool manifest for agent registration"
-    t.jsonb "mcp_input_schema", default: {}, null: false, comment: "JSON Schema for validating agent input parameters"
-    t.jsonb "mcp_output_schema", default: {}, null: false, comment: "JSON Schema for validating agent output"
-    t.jsonb "mcp_capabilities", default: [], null: false, comment: "Array of MCP capabilities supported by this agent"
-    t.jsonb "mcp_metadata", default: {}, null: false, comment: "Additional MCP-specific metadata"
-    t.datetime "mcp_registered_at", precision: nil
+    t.string "version", limit: 20, default: "1.0.0", null: false
     t.index ["account_id", "name"], name: "index_ai_agents_on_account_id_and_name"
     t.index ["account_id", "status"], name: "index_ai_agents_on_account_and_status"
     t.index ["account_id"], name: "index_ai_agents_on_account_id"
@@ -250,24 +250,24 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_context_access_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_persistent_context_id", null: false
-    t.uuid "ai_context_entry_id"
-    t.uuid "account_id", null: false
-    t.uuid "user_id"
-    t.uuid "ai_agent_id"
-    t.string "action", null: false
     t.string "access_type"
-    t.string "request_id"
-    t.string "ip_address"
-    t.string "user_agent"
-    t.jsonb "previous_value"
-    t.jsonb "new_value"
+    t.uuid "account_id", null: false
+    t.string "action", null: false
+    t.uuid "ai_agent_id"
+    t.uuid "ai_context_entry_id"
+    t.uuid "ai_persistent_context_id", null: false
     t.jsonb "changes_summary", default: {}
-    t.jsonb "metadata", default: {}
-    t.boolean "success", default: true
-    t.text "error_message"
     t.datetime "created_at", null: false
+    t.text "error_message"
+    t.string "ip_address"
+    t.jsonb "metadata", default: {}
+    t.jsonb "new_value"
+    t.jsonb "previous_value"
+    t.string "request_id"
+    t.boolean "success", default: true
     t.datetime "updated_at", null: false
+    t.string "user_agent"
+    t.uuid "user_id"
     t.index ["access_type"], name: "index_ai_context_access_logs_on_access_type"
     t.index ["account_id", "created_at"], name: "idx_access_logs_account_created"
     t.index ["account_id"], name: "index_ai_context_access_logs_on_account_id"
@@ -281,27 +281,27 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_context_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_persistent_context_id", null: false
-    t.uuid "created_by_user_id"
+    t.integer "access_count", default: 0
     t.uuid "ai_agent_id"
-    t.string "entry_key", null: false
-    t.string "entry_type"
+    t.uuid "ai_persistent_context_id", null: false
+    t.datetime "archived_at"
     t.jsonb "content", default: {}, null: false
     t.text "content_text"
-    t.jsonb "metadata", default: {}
-    t.decimal "importance_score", precision: 5, scale: 4, default: "0.5"
-    t.decimal "relevance_decay_rate", precision: 5, scale: 4, default: "0.0"
-    t.datetime "last_relevance_update"
-    t.string "source_type"
-    t.string "source_id"
-    t.integer "version", default: 1
-    t.uuid "previous_version_id"
-    t.datetime "expires_at"
-    t.datetime "archived_at"
-    t.integer "access_count", default: 0
-    t.datetime "last_accessed_at"
     t.datetime "created_at", null: false
+    t.uuid "created_by_user_id"
+    t.string "entry_key", null: false
+    t.string "entry_type"
+    t.datetime "expires_at"
+    t.decimal "importance_score", precision: 5, scale: 4, default: "0.5"
+    t.datetime "last_accessed_at"
+    t.datetime "last_relevance_update"
+    t.jsonb "metadata", default: {}
+    t.uuid "previous_version_id"
+    t.decimal "relevance_decay_rate", precision: 5, scale: 4, default: "0.0"
+    t.string "source_id"
+    t.string "source_type"
     t.datetime "updated_at", null: false
+    t.integer "version", default: 1
     t.index ["ai_agent_id"], name: "index_ai_context_entries_on_ai_agent_id"
     t.index ["ai_persistent_context_id", "entry_key"], name: "idx_entries_context_key", unique: true
     t.index ["ai_persistent_context_id"], name: "index_ai_context_entries_on_ai_persistent_context_id"
@@ -316,25 +316,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "ai_conversations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "user_id", null: false
     t.uuid "ai_agent_id"
     t.uuid "ai_provider_id", null: false
-    t.string "conversation_id", limit: 100, null: false
-    t.string "title", limit: 255
-    t.text "summary"
-    t.string "status", default: "active", null: false
     t.jsonb "conversation_context", default: {}
-    t.jsonb "metadata", default: {}
-    t.integer "message_count", default: 0
-    t.integer "total_tokens", default: 0
-    t.decimal "total_cost", precision: 10, scale: 4, default: "0.0"
-    t.datetime "last_activity_at", precision: nil
-    t.uuid "websocket_session_id"
-    t.string "websocket_channel"
-    t.boolean "is_collaborative", default: false
-    t.jsonb "participants", default: []
+    t.string "conversation_id", limit: 100, null: false
     t.datetime "created_at", null: false
+    t.boolean "is_collaborative", default: false
+    t.datetime "last_activity_at", precision: nil
+    t.integer "message_count", default: 0
+    t.jsonb "metadata", default: {}
+    t.jsonb "participants", default: []
+    t.string "status", default: "active", null: false
+    t.text "summary"
+    t.string "title", limit: 255
+    t.decimal "total_cost", precision: 10, scale: 4, default: "0.0"
+    t.integer "total_tokens", default: 0
     t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.string "websocket_channel"
+    t.uuid "websocket_session_id"
     t.index ["account_id", "status"], name: "index_ai_conversations_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_conversations_on_account_id"
     t.index ["ai_agent_id"], name: "index_ai_conversations_on_ai_agent_id"
@@ -350,28 +350,28 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_agent_id", null: false
     t.uuid "ai_conversation_id", null: false
-    t.uuid "user_id"
-    t.string "message_id", limit: 100, null: false
-    t.string "role", limit: 20, null: false
+    t.jsonb "attachments", default: []
     t.text "content", null: false
     t.jsonb "content_metadata", default: {}
-    t.string "message_type", limit: 50, default: "text"
-    t.jsonb "attachments", default: []
-    t.integer "token_count", default: 0
     t.decimal "cost_usd", precision: 8, scale: 4, default: "0.0"
-    t.jsonb "processing_metadata", default: {}
-    t.string "status", limit: 20, default: "sent"
-    t.text "error_message"
-    t.datetime "processed_at", precision: nil
-    t.integer "sequence_number"
-    t.uuid "parent_message_id"
-    t.boolean "is_edited", default: false
-    t.datetime "edited_at", precision: nil
-    t.jsonb "edit_history", default: []
     t.datetime "created_at", null: false
+    t.jsonb "edit_history", default: []
+    t.datetime "edited_at", precision: nil
+    t.text "error_message"
+    t.boolean "is_edited", default: false
+    t.string "message_id", limit: 100, null: false
+    t.string "message_type", limit: 50, default: "text"
+    t.uuid "parent_message_id"
+    t.datetime "processed_at", precision: nil
+    t.jsonb "processing_metadata", default: {}
+    t.string "role", limit: 20, null: false
+    t.integer "sequence_number"
+    t.string "status", limit: 20, default: "sent"
+    t.integer "token_count", default: 0
     t.datetime "updated_at", null: false
-    t.uuid "ai_agent_id", null: false
+    t.uuid "user_id"
     t.index ["ai_agent_id"], name: "index_ai_messages_on_ai_agent_id"
     t.index ["ai_conversation_id", "role"], name: "index_ai_messages_on_ai_conversation_id_and_role"
     t.index ["ai_conversation_id", "sequence_number"], name: "index_ai_messages_on_ai_conversation_id_and_sequence_number"
@@ -389,28 +389,28 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_persistent_contexts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "access_control", default: {}
+    t.integer "access_count", default: 0
     t.uuid "account_id", null: false
     t.uuid "ai_agent_id"
-    t.uuid "created_by_user_id"
-    t.string "context_id", null: false
-    t.string "name", null: false
-    t.text "description"
-    t.string "context_type", null: false
-    t.string "scope", null: false
-    t.jsonb "context_data", default: {}
-    t.jsonb "metadata", default: {}
-    t.jsonb "access_control", default: {}
-    t.jsonb "retention_policy", default: {}
-    t.datetime "expires_at"
     t.datetime "archived_at"
-    t.integer "version", default: 1
-    t.integer "data_size_bytes", default: 0
-    t.integer "entry_count", default: 0
-    t.datetime "last_accessed_at"
-    t.integer "access_count", default: 0
-    t.datetime "last_modified_at"
+    t.jsonb "context_data", default: {}
+    t.string "context_id", null: false
+    t.string "context_type", null: false
     t.datetime "created_at", null: false
+    t.uuid "created_by_user_id"
+    t.integer "data_size_bytes", default: 0
+    t.text "description"
+    t.integer "entry_count", default: 0
+    t.datetime "expires_at"
+    t.datetime "last_accessed_at"
+    t.datetime "last_modified_at"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.jsonb "retention_policy", default: {}
+    t.string "scope", null: false
     t.datetime "updated_at", null: false
+    t.integer "version", default: 1
     t.index ["account_id", "ai_agent_id"], name: "idx_contexts_account_agent"
     t.index ["account_id", "context_type"], name: "idx_contexts_account_type"
     t.index ["account_id"], name: "index_ai_persistent_contexts_on_account_id"
@@ -424,26 +424,26 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_provider_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_provider_id", null: false
-    t.uuid "account_id", null: false
-    t.string "name", limit: 255, null: false
-    t.text "encrypted_credentials", null: false
-    t.string "encryption_key_id", limit: 50
-    t.boolean "is_active", default: true
-    t.boolean "is_default", default: false
-    t.datetime "expires_at", precision: nil
     t.jsonb "access_scopes", default: []
-    t.jsonb "rate_limits", default: {}
-    t.jsonb "usage_stats", default: {}
-    t.datetime "last_used_at", precision: nil
-    t.string "last_error"
+    t.uuid "account_id", null: false
+    t.uuid "ai_provider_id", null: false
     t.integer "consecutive_failures", default: 0
     t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.text "encrypted_credentials", null: false
+    t.string "encryption_key_id", limit: 50
+    t.datetime "expires_at", precision: nil
+    t.integer "failure_count", default: 0, null: false
+    t.boolean "is_active", default: true
+    t.boolean "is_default", default: false
+    t.string "last_error"
     t.datetime "last_test_at"
     t.string "last_test_status"
+    t.datetime "last_used_at", precision: nil
+    t.string "name", limit: 255, null: false
+    t.jsonb "rate_limits", default: {}
     t.integer "success_count", default: 0, null: false
-    t.integer "failure_count", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "usage_stats", default: {}
     t.index ["account_id", "ai_provider_id", "is_default"], name: "index_ai_provider_credentials_unique_default", unique: true, where: "(is_default = true)"
     t.index ["account_id", "ai_provider_id"], name: "index_ai_provider_credentials_on_account_id_and_ai_provider_id"
     t.index ["account_id", "is_default"], name: "index_ai_provider_credentials_on_account_id_and_is_default"
@@ -457,13 +457,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_provider_plugins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "authentication_schema", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "default_configuration", default: {}, null: false
+    t.jsonb "models", default: [], null: false
     t.uuid "plugin_id", null: false
     t.string "provider_type", null: false
     t.jsonb "supported_capabilities", default: [], null: false
-    t.jsonb "models", default: [], null: false
-    t.jsonb "authentication_schema", default: {}, null: false
-    t.jsonb "default_configuration", default: {}, null: false
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["plugin_id"], name: "index_ai_provider_plugins_on_plugin_id"
     t.index ["provider_type"], name: "index_ai_provider_plugins_on_provider_type"
@@ -471,32 +471,32 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_providers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", limit: 100, null: false
-    t.string "slug", limit: 50, null: false
-    t.string "provider_type", limit: 50
-    t.text "description"
-    t.string "api_base_url", limit: 500
-    t.jsonb "capabilities", default: [], null: false
-    t.jsonb "supported_models", default: [], null: false
-    t.jsonb "configuration_schema", default: {}, null: false
-    t.jsonb "default_parameters", default: {}
-    t.jsonb "rate_limits", default: {}
-    t.jsonb "pricing_info", default: {}
-    t.boolean "is_active", default: true
-    t.boolean "requires_auth", default: true
-    t.boolean "supports_streaming", default: false
-    t.boolean "supports_functions", default: false
-    t.boolean "supports_vision", default: false
-    t.boolean "supports_code_execution", default: false
-    t.string "documentation_url", limit: 500
-    t.string "status_url", limit: 500
-    t.integer "priority_order", default: 1000
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
     t.uuid "account_id"
+    t.string "api_base_url", limit: 500
     t.string "api_endpoint", limit: 500
+    t.jsonb "capabilities", default: [], null: false
+    t.jsonb "configuration_schema", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "default_parameters", default: {}
+    t.text "description"
+    t.string "documentation_url", limit: 500
+    t.boolean "is_active", default: true
+    t.jsonb "metadata", default: {}
+    t.string "name", limit: 100, null: false
+    t.jsonb "pricing_info", default: {}
+    t.integer "priority_order", default: 1000
     t.string "provider_identifier", limit: 255
+    t.string "provider_type", limit: 50
+    t.jsonb "rate_limits", default: {}
+    t.boolean "requires_auth", default: true
+    t.string "slug", limit: 50, null: false
+    t.string "status_url", limit: 500
+    t.jsonb "supported_models", default: [], null: false
+    t.boolean "supports_code_execution", default: false
+    t.boolean "supports_functions", default: false
+    t.boolean "supports_streaming", default: false
+    t.boolean "supports_vision", default: false
+    t.datetime "updated_at", null: false
     t.index ["account_id", "provider_identifier"], name: "index_ai_providers_on_account_id_and_provider_identifier", unique: true
     t.index ["account_id"], name: "index_ai_providers_on_account_id"
     t.index ["capabilities"], name: "index_ai_providers_on_capabilities", using: :gin
@@ -510,20 +510,20 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_shared_context_pools", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "access_control", default: {}
     t.uuid "ai_workflow_run_id", null: false
+    t.jsonb "context_data", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.string "created_by_agent_id"
+    t.datetime "expires_at", precision: nil
+    t.datetime "last_accessed_at", precision: nil
+    t.jsonb "metadata", default: {}
+    t.string "owner_agent_id"
     t.string "pool_id", null: false
     t.string "pool_type", default: "shared_memory", null: false
     t.string "scope", default: "workflow", null: false
-    t.jsonb "context_data", default: {}, null: false
-    t.jsonb "access_control", default: {}
-    t.jsonb "metadata", default: {}
-    t.string "created_by_agent_id"
-    t.string "owner_agent_id"
-    t.integer "version", default: 1, null: false
-    t.datetime "last_accessed_at", precision: nil
-    t.datetime "expires_at", precision: nil
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "version", default: 1, null: false
     t.index ["ai_workflow_run_id", "pool_type"], name: "index_context_pools_on_run_and_type"
     t.index ["ai_workflow_run_id", "scope"], name: "index_context_pools_on_run_and_scope"
     t.index ["ai_workflow_run_id"], name: "index_ai_shared_context_pools_on_ai_workflow_run_id"
@@ -535,16 +535,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "ai_workflow_approval_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_node_execution_id", null: false
-    t.uuid "recipient_user_id"
-    t.uuid "responded_by_id"
-    t.string "token_digest", null: false
-    t.string "recipient_email", null: false
-    t.string "status", default: "pending", null: false
-    t.text "response_comment"
-    t.datetime "expires_at", null: false
-    t.datetime "responded_at"
-    t.datetime "email_sent_at"
     t.datetime "created_at", null: false
+    t.datetime "email_sent_at"
+    t.datetime "expires_at", null: false
+    t.string "recipient_email", null: false
+    t.uuid "recipient_user_id"
+    t.datetime "responded_at"
+    t.uuid "responded_by_id"
+    t.text "response_comment"
+    t.string "status", default: "pending", null: false
+    t.string "token_digest", null: false
     t.datetime "updated_at", null: false
     t.index ["ai_workflow_node_execution_id", "status"], name: "idx_ai_workflow_approval_tokens_execution_status"
     t.index ["ai_workflow_node_execution_id"], name: "idx_on_ai_workflow_node_execution_id_0389e52806"
@@ -558,16 +558,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   create_table "ai_workflow_checkpoints", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_run_id", null: false
     t.string "checkpoint_id", null: false
-    t.string "node_id", null: false
     t.string "checkpoint_type", default: "node_completion", null: false
-    t.integer "sequence_number", null: false
-    t.jsonb "workflow_state", default: {}, null: false
-    t.jsonb "execution_context", default: {}, null: false
-    t.jsonb "variable_snapshot", default: {}
-    t.jsonb "metadata", default: {}
-    t.text "description"
     t.datetime "created_at", null: false
+    t.text "description"
+    t.jsonb "execution_context", default: {}, null: false
+    t.jsonb "metadata", default: {}
+    t.string "node_id", null: false
+    t.integer "sequence_number", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "variable_snapshot", default: {}
+    t.jsonb "workflow_state", default: {}, null: false
     t.index ["ai_workflow_run_id", "checkpoint_id"], name: "index_checkpoints_on_run_and_id", unique: true
     t.index ["ai_workflow_run_id", "sequence_number"], name: "index_checkpoints_on_run_and_sequence"
     t.index ["ai_workflow_run_id"], name: "index_ai_workflow_checkpoints_on_ai_workflow_run_id"
@@ -576,22 +576,22 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_workflow_compensations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_workflow_run_id", null: false
-    t.string "compensation_id", null: false
     t.uuid "ai_workflow_node_execution_id", null: false
-    t.string "compensation_type", default: "rollback", null: false
-    t.string "trigger_reason", null: false
-    t.string "status", default: "pending", null: false
-    t.jsonb "original_action", default: {}, null: false
+    t.uuid "ai_workflow_run_id", null: false
     t.jsonb "compensation_action", default: {}, null: false
+    t.string "compensation_id", null: false
     t.jsonb "compensation_result", default: {}
-    t.jsonb "metadata", default: {}
-    t.integer "retry_count", default: 0
-    t.integer "max_retries", default: 3
-    t.datetime "executed_at", precision: nil
+    t.string "compensation_type", default: "rollback", null: false
     t.datetime "completed_at", precision: nil
-    t.datetime "failed_at", precision: nil
     t.datetime "created_at", null: false
+    t.datetime "executed_at", precision: nil
+    t.datetime "failed_at", precision: nil
+    t.integer "max_retries", default: 3
+    t.jsonb "metadata", default: {}
+    t.jsonb "original_action", default: {}, null: false
+    t.integer "retry_count", default: 0
+    t.string "status", default: "pending", null: false
+    t.string "trigger_reason", null: false
     t.datetime "updated_at", null: false
     t.index ["ai_workflow_run_id", "status"], name: "index_compensations_on_run_and_status"
     t.index ["compensation_id"], name: "index_ai_workflow_compensations_on_compensation_id", unique: true
@@ -599,18 +599,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "ai_workflow_edges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_id", null: false
-    t.string "edge_id", limit: 255, null: false
-    t.string "source_node_id", limit: 255, null: false
-    t.string "target_node_id", limit: 255, null: false
-    t.string "source_handle", limit: 50
-    t.string "target_handle", limit: 50
-    t.string "edge_type", default: "default", null: false
     t.jsonb "condition", default: {}, null: false
     t.jsonb "configuration", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.boolean "is_conditional", default: false, null: false
-    t.integer "priority", default: 0, null: false
     t.datetime "created_at", null: false
+    t.string "edge_id", limit: 255, null: false
+    t.string "edge_type", default: "default", null: false
+    t.boolean "is_conditional", default: false, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.integer "priority", default: 0, null: false
+    t.string "source_handle", limit: 50
+    t.string "source_node_id", limit: 255, null: false
+    t.string "target_handle", limit: 50
+    t.string "target_node_id", limit: 255, null: false
     t.datetime "updated_at", null: false
     t.index ["ai_workflow_id", "edge_id"], name: "index_workflow_edges_on_workflow_edge_id", unique: true
     t.index ["ai_workflow_id", "is_conditional"], name: "index_ai_workflow_edges_on_ai_workflow_id_and_is_conditional"
@@ -623,18 +623,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "ai_workflow_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "user_id", null: false
-    t.string "name", limit: 255, null: false
-    t.string "execution_id", limit: 255, null: false
-    t.string "status", limit: 50, default: "initializing", null: false
-    t.json "configuration", default: "{}", null: false
-    t.json "results", default: "[]"
-    t.json "metadata", default: "{}"
-    t.datetime "started_at", precision: nil
     t.datetime "completed_at", precision: nil
-    t.text "error_message"
+    t.json "configuration", default: "{}", null: false
     t.datetime "created_at", null: false
+    t.text "error_message"
+    t.string "execution_id", limit: 255, null: false
+    t.json "metadata", default: "{}"
+    t.string "name", limit: 255, null: false
+    t.json "results", default: "[]"
+    t.datetime "started_at", precision: nil
+    t.string "status", limit: 50, default: "initializing", null: false
     t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
     t.index ["account_id", "created_at"], name: "index_ai_workflow_executions_on_account_id_and_created_at"
     t.index ["account_id", "status"], name: "index_ai_workflow_executions_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_workflow_executions_on_account_id"
@@ -645,26 +645,26 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_workflow_node_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_workflow_run_id", null: false
-    t.uuid "ai_workflow_node_id", null: false
     t.uuid "ai_agent_execution_id"
+    t.uuid "ai_workflow_node_id", null: false
+    t.uuid "ai_workflow_run_id", null: false
+    t.datetime "cancelled_at"
+    t.datetime "completed_at"
+    t.jsonb "configuration_snapshot", default: {}, null: false
+    t.decimal "cost", precision: 10, scale: 6, default: "0.0"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.jsonb "error_details", default: {}, null: false
     t.string "execution_id", limit: 100, null: false
-    t.string "status", default: "pending", null: false
+    t.jsonb "input_data", default: {}, null: false
+    t.integer "max_retries", default: 0, null: false
+    t.jsonb "metadata", default: {}, null: false
     t.string "node_id", limit: 100, null: false
     t.string "node_type", limit: 50, null: false
-    t.jsonb "input_data", default: {}, null: false
     t.jsonb "output_data", default: {}, null: false
-    t.jsonb "configuration_snapshot", default: {}, null: false
-    t.jsonb "error_details", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.datetime "started_at"
-    t.datetime "completed_at"
-    t.datetime "cancelled_at"
-    t.integer "duration_ms"
-    t.decimal "cost", precision: 10, scale: 6, default: "0.0"
     t.integer "retry_count", default: 0, null: false
-    t.integer "max_retries", default: 0, null: false
-    t.datetime "created_at", null: false
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
     t.index ["ai_agent_execution_id"], name: "index_ai_workflow_node_executions_on_ai_agent_execution_id"
     t.index ["ai_workflow_node_id"], name: "index_ai_workflow_node_executions_on_ai_workflow_node_id"
@@ -685,27 +685,27 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "ai_workflow_nodes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_id", null: false
-    t.string "node_id", limit: 255, null: false
-    t.string "node_type", limit: 50, null: false
-    t.string "name", limit: 255, null: false
-    t.text "description"
-    t.jsonb "position", default: {}, null: false
     t.jsonb "configuration", default: {}, null: false
-    t.jsonb "validation_rules", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.boolean "is_start_node", default: false, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "error_node_id", limit: 255
     t.boolean "is_end_node", default: false, null: false
     t.boolean "is_error_handler", default: false, null: false
-    t.string "error_node_id", limit: 255
-    t.integer "timeout_seconds", default: 300
-    t.integer "retry_count", default: 0
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.boolean "is_start_node", default: false, null: false
     t.jsonb "mcp_tool_config", default: {}, null: false, comment: "MCP tool configuration for this node"
     t.string "mcp_tool_id", comment: "ID of the MCP tool used by this node"
     t.string "mcp_tool_version"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 255, null: false
+    t.string "node_id", limit: 255, null: false
+    t.string "node_type", limit: 50, null: false
     t.uuid "plugin_id"
+    t.jsonb "position", default: {}, null: false
+    t.integer "retry_count", default: 0
     t.uuid "shared_prompt_template_id"
+    t.integer "timeout_seconds", default: 300
+    t.datetime "updated_at", null: false
+    t.jsonb "validation_rules", default: {}, null: false
     t.index ["ai_workflow_id", "is_end_node"], name: "index_ai_workflow_nodes_on_ai_workflow_id_and_is_end_node"
     t.index ["ai_workflow_id", "is_start_node"], name: "index_ai_workflow_nodes_on_ai_workflow_id_and_is_start_node"
     t.index ["ai_workflow_id", "node_id"], name: "index_workflow_nodes_on_workflow_node_id", unique: true
@@ -721,17 +721,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_workflow_run_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_workflow_run_id", null: false
     t.uuid "ai_workflow_node_execution_id"
-    t.string "log_level", default: "info", null: false
-    t.string "event_type", null: false
-    t.text "message", null: false
+    t.uuid "ai_workflow_run_id", null: false
     t.jsonb "context_data", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.string "log_level", default: "info", null: false
+    t.datetime "logged_at", null: false
+    t.text "message", null: false
     t.jsonb "metadata", default: {}, null: false
     t.string "node_id", limit: 100
     t.string "source", limit: 100
-    t.datetime "logged_at", null: false
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["ai_workflow_node_execution_id"], name: "index_ai_workflow_run_logs_on_ai_workflow_node_execution_id"
     t.index ["ai_workflow_run_id", "event_type"], name: "idx_on_ai_workflow_run_id_event_type_e8cb27369f"
@@ -746,30 +746,30 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_workflow_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_workflow_id", null: false
     t.uuid "account_id", null: false
-    t.uuid "triggered_by_user_id"
+    t.uuid "ai_workflow_id", null: false
     t.uuid "ai_workflow_trigger_id"
-    t.string "run_id", limit: 100, null: false
-    t.string "status", default: "initializing", null: false
-    t.string "trigger_type", null: false
-    t.jsonb "input_variables", default: {}, null: false
-    t.jsonb "output_variables", default: {}, null: false
-    t.jsonb "runtime_context", default: {}, null: false
-    t.jsonb "error_details", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.datetime "started_at"
-    t.datetime "completed_at"
     t.datetime "cancelled_at"
-    t.integer "total_nodes", default: 0, null: false
+    t.datetime "completed_at"
     t.integer "completed_nodes", default: 0, null: false
-    t.integer "failed_nodes", default: 0, null: false
-    t.integer "duration_ms"
-    t.decimal "total_cost", precision: 10, scale: 6, default: "0.0"
     t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.jsonb "mcp_execution_context", default: {}, null: false, comment: "MCP execution context and state"
     t.string "current_node_id"
+    t.integer "duration_ms"
+    t.jsonb "error_details", default: {}, null: false
+    t.integer "failed_nodes", default: 0, null: false
+    t.jsonb "input_variables", default: {}, null: false
+    t.jsonb "mcp_execution_context", default: {}, null: false, comment: "MCP execution context and state"
+    t.jsonb "metadata", default: {}, null: false
+    t.jsonb "output_variables", default: {}, null: false
+    t.string "run_id", limit: 100, null: false
+    t.jsonb "runtime_context", default: {}, null: false
+    t.datetime "started_at"
+    t.string "status", default: "initializing", null: false
+    t.decimal "total_cost", precision: 10, scale: 6, default: "0.0"
+    t.integer "total_nodes", default: 0, null: false
+    t.string "trigger_type", null: false
+    t.uuid "triggered_by_user_id"
+    t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "index_ai_workflow_runs_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_workflow_runs_on_account_id"
     t.index ["ai_workflow_id", "status"], name: "index_ai_workflow_runs_on_ai_workflow_id_and_status"
@@ -789,23 +789,23 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "ai_workflow_schedules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_id", null: false
-    t.uuid "created_by_id", null: false
-    t.string "name", limit: 255, null: false
-    t.text "description"
-    t.string "cron_expression", null: false
-    t.string "timezone", default: "UTC", null: false
-    t.string "status", default: "active", null: false
-    t.jsonb "input_variables", default: {}, null: false
     t.jsonb "configuration", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.datetime "starts_at"
-    t.datetime "ends_at"
-    t.datetime "next_execution_at"
-    t.datetime "last_execution_at"
-    t.integer "execution_count", default: 0, null: false
-    t.integer "max_executions"
-    t.boolean "is_active", default: true, null: false
     t.datetime "created_at", null: false
+    t.uuid "created_by_id", null: false
+    t.string "cron_expression", null: false
+    t.text "description"
+    t.datetime "ends_at"
+    t.integer "execution_count", default: 0, null: false
+    t.jsonb "input_variables", default: {}, null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_execution_at"
+    t.integer "max_executions"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 255, null: false
+    t.datetime "next_execution_at"
+    t.datetime "starts_at"
+    t.string "status", default: "active", null: false
+    t.string "timezone", default: "UTC", null: false
     t.datetime "updated_at", null: false
     t.index ["ai_workflow_id", "status"], name: "index_ai_workflow_schedules_on_ai_workflow_id_and_status"
     t.index ["ai_workflow_id"], name: "index_ai_workflow_schedules_on_ai_workflow_id"
@@ -821,36 +821,36 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "ai_workflow_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 150, null: false
-    t.text "description", null: false
-    t.text "long_description"
-    t.string "category", limit: 100, null: false
-    t.string "difficulty_level", default: "beginner", null: false
-    t.jsonb "workflow_definition", null: false
-    t.jsonb "default_variables", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.jsonb "tags", default: [], null: false
-    t.string "author_name", limit: 255
-    t.string "author_email", limit: 255
-    t.string "author_url", limit: 500
-    t.string "license", limit: 100, default: "MIT"
-    t.string "version", default: "1.0.0", null: false
-    t.integer "usage_count", default: 0, null: false
-    t.decimal "rating", precision: 3, scale: 2, default: "0.0"
-    t.integer "rating_count", default: 0, null: false
-    t.boolean "is_featured", default: false, null: false
-    t.boolean "is_public", default: false, null: false
-    t.datetime "published_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
     t.uuid "account_id"
+    t.string "author_email", limit: 255
+    t.string "author_name", limit: 255
+    t.string "author_url", limit: 500
+    t.string "category", limit: 100, null: false
+    t.datetime "created_at", null: false
     t.uuid "created_by_user_id"
+    t.jsonb "default_variables", default: {}, null: false
+    t.text "description", null: false
+    t.string "difficulty_level", default: "beginner", null: false
+    t.boolean "is_featured", default: false, null: false
     t.boolean "is_marketplace_published", default: false
-    t.string "marketplace_status"
-    t.datetime "marketplace_submitted_at"
+    t.boolean "is_public", default: false, null: false
+    t.string "license", limit: 100, default: "MIT"
+    t.text "long_description"
     t.datetime "marketplace_approved_at"
     t.text "marketplace_rejection_reason"
+    t.string "marketplace_status"
+    t.datetime "marketplace_submitted_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 255, null: false
+    t.datetime "published_at"
+    t.decimal "rating", precision: 3, scale: 2, default: "0.0"
+    t.integer "rating_count", default: 0, null: false
+    t.string "slug", limit: 150, null: false
+    t.jsonb "tags", default: [], null: false
+    t.datetime "updated_at", null: false
+    t.integer "usage_count", default: 0, null: false
+    t.string "version", default: "1.0.0", null: false
+    t.jsonb "workflow_definition", null: false
     t.index ["account_id", "is_public"], name: "index_ai_workflow_templates_on_account_id_and_is_public"
     t.index ["account_id"], name: "index_ai_workflow_templates_on_account_id"
     t.index ["category", "is_public"], name: "index_ai_workflow_templates_on_category_and_is_public"
@@ -870,21 +870,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "ai_workflow_triggers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_id", null: false
-    t.string "name", limit: 255, null: false
-    t.string "trigger_type", null: false
-    t.string "status", default: "active", null: false
-    t.jsonb "configuration", default: {}, null: false
     t.jsonb "conditions", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.string "webhook_url", limit: 2048
-    t.string "webhook_secret"
-    t.string "schedule_cron"
-    t.datetime "next_execution_at"
-    t.datetime "last_triggered_at"
-    t.integer "trigger_count", default: 0, null: false
-    t.boolean "is_active", default: true, null: false
+    t.jsonb "configuration", default: {}, null: false
     t.datetime "created_at", null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_triggered_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 255, null: false
+    t.datetime "next_execution_at"
+    t.string "schedule_cron"
+    t.string "status", default: "active", null: false
+    t.integer "trigger_count", default: 0, null: false
+    t.string "trigger_type", null: false
     t.datetime "updated_at", null: false
+    t.string "webhook_secret"
+    t.string "webhook_url", limit: 2048
     t.index ["ai_workflow_id", "status"], name: "index_ai_workflow_triggers_on_ai_workflow_id_and_status"
     t.index ["ai_workflow_id", "trigger_type"], name: "index_ai_workflow_triggers_on_ai_workflow_id_and_trigger_type"
     t.index ["ai_workflow_id"], name: "index_ai_workflow_triggers_on_ai_workflow_id"
@@ -900,19 +900,19 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "ai_workflow_variables", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_id", null: false
-    t.string "name", limit: 100, null: false
-    t.string "variable_type", default: "string", null: false
-    t.text "description"
+    t.datetime "created_at", null: false
     t.jsonb "default_value"
-    t.jsonb "validation_rules", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.boolean "is_required", default: false, null: false
+    t.text "description"
     t.boolean "is_input", default: false, null: false
     t.boolean "is_output", default: false, null: false
+    t.boolean "is_required", default: false, null: false
     t.boolean "is_secret", default: false, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 100, null: false
     t.string "scope", default: "workflow", null: false
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "validation_rules", default: {}, null: false
+    t.string "variable_type", default: "string", null: false
     t.index ["ai_workflow_id", "is_input"], name: "index_ai_workflow_variables_on_ai_workflow_id_and_is_input"
     t.index ["ai_workflow_id", "is_output"], name: "index_ai_workflow_variables_on_ai_workflow_id_and_is_output"
     t.index ["ai_workflow_id", "is_required"], name: "index_ai_workflow_variables_on_ai_workflow_id_and_is_required"
@@ -926,30 +926,30 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "ai_workflows", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "creator_id", null: false
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 150, null: false
-    t.text "description"
-    t.string "status", default: "draft", null: false
-    t.string "visibility", default: "private", null: false
-    t.jsonb "configuration", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.boolean "is_template", default: false, null: false
-    t.string "template_category", limit: 100
-    t.string "version", default: "1.0.0", null: false
-    t.datetime "published_at"
-    t.datetime "last_executed_at"
-    t.integer "execution_count", default: 0, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.jsonb "mcp_orchestration_config", default: {}, null: false, comment: "MCP-specific orchestration configuration"
-    t.jsonb "mcp_tool_requirements", default: [], null: false, comment: "Array of required MCP tools for workflow execution"
-    t.jsonb "mcp_input_schema", default: {}, null: false
-    t.jsonb "mcp_output_schema", default: {}, null: false
-    t.uuid "parent_version_id"
-    t.boolean "is_active", default: true, null: false
     t.text "change_summary"
+    t.jsonb "configuration", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.uuid "creator_id", null: false
+    t.text "description"
+    t.integer "execution_count", default: 0, null: false
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_template", default: false, null: false
+    t.datetime "last_executed_at"
+    t.jsonb "mcp_input_schema", default: {}, null: false
+    t.jsonb "mcp_orchestration_config", default: {}, null: false, comment: "MCP-specific orchestration configuration"
+    t.jsonb "mcp_output_schema", default: {}, null: false
+    t.jsonb "mcp_tool_requirements", default: [], null: false, comment: "Array of required MCP tools for workflow execution"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 255, null: false
+    t.uuid "parent_version_id"
+    t.datetime "published_at"
+    t.string "slug", limit: 150, null: false
+    t.string "status", default: "draft", null: false
+    t.string "template_category", limit: 100
+    t.datetime "updated_at", null: false
+    t.string "version", default: "1.0.0", null: false
     t.jsonb "version_metadata", default: {}
+    t.string "visibility", default: "private", null: false
     t.string "workflow_type", limit: 20, default: "ai", null: false
     t.index ["account_id", "name", "version"], name: "index_workflows_on_account_name_version", unique: true
     t.index ["account_id", "slug"], name: "index_ai_workflows_on_account_slug", unique: true
@@ -973,17 +973,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "api_key_usages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "api_key_id", null: false
+    t.datetime "created_at", null: false
     t.string "endpoint", limit: 500, null: false
+    t.string "ip_address", limit: 45
     t.string "method", limit: 10, null: false
+    t.integer "request_count", default: 1, null: false
+    t.jsonb "request_params", default: {}
     t.integer "response_status", null: false
     t.integer "response_time_ms"
-    t.string "ip_address", limit: 45
-    t.string "user_agent", limit: 1000
-    t.jsonb "request_params", default: {}
-    t.integer "request_count", default: 1, null: false
-    t.datetime "used_at", null: false
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "used_at", null: false
+    t.string "user_agent", limit: 1000
     t.index ["api_key_id", "used_at"], name: "idx_api_key_usages_on_api_key_used_at"
     t.index ["api_key_id"], name: "index_api_key_usages_on_api_key_id"
     t.index ["endpoint"], name: "idx_api_key_usages_on_endpoint"
@@ -993,26 +993,26 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "api_keys", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.jsonb "allowed_ips", default: []
+    t.datetime "created_at", null: false
     t.uuid "created_by_id"
-    t.string "name", limit: 255, null: false
+    t.datetime "expires_at"
+    t.boolean "is_active", default: true
     t.string "key_digest", null: false
-    t.string "prefix", limit: 20, null: false
     t.string "key_prefix", limit: 20
     t.string "key_suffix", limit: 20
-    t.jsonb "permissions", default: []
-    t.jsonb "scopes", default: []
-    t.jsonb "allowed_ips", default: []
-    t.jsonb "rate_limits", default: {}
-    t.integer "usage_count", default: 0
-    t.integer "rate_limit_per_hour"
-    t.integer "rate_limit_per_day"
-    t.jsonb "metadata", default: {}
-    t.boolean "is_active", default: true
-    t.datetime "expires_at"
     t.datetime "last_used_at"
     t.string "last_used_ip", limit: 45
-    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}
+    t.string "name", limit: 255, null: false
+    t.jsonb "permissions", default: []
+    t.string "prefix", limit: 20, null: false
+    t.integer "rate_limit_per_day"
+    t.integer "rate_limit_per_hour"
+    t.jsonb "rate_limits", default: {}
+    t.jsonb "scopes", default: []
     t.datetime "updated_at", null: false
+    t.integer "usage_count", default: 0
     t.index ["account_id"], name: "idx_api_keys_on_account_id"
     t.index ["account_id"], name: "index_api_keys_on_account_id"
     t.index ["allowed_ips"], name: "idx_api_keys_on_allowed_ips", using: :gin
@@ -1033,21 +1033,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "app_subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "subscribed_by_user_id"
-    t.string "subscribable_type"
-    t.uuid "subscribable_id"
     t.uuid "app_id"
     t.uuid "app_plan_id"
-    t.string "status", default: "active", null: false
-    t.string "tier"
-    t.datetime "subscribed_at", null: false
-    t.datetime "next_billing_at"
     t.datetime "cancelled_at"
     t.jsonb "configuration", default: {}
-    t.jsonb "usage_metrics", default: {}
-    t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}
+    t.datetime "next_billing_at"
+    t.string "status", default: "active", null: false
+    t.uuid "subscribable_id"
+    t.string "subscribable_type"
+    t.datetime "subscribed_at", null: false
+    t.uuid "subscribed_by_user_id"
+    t.string "tier"
     t.datetime "updated_at", null: false
+    t.jsonb "usage_metrics", default: {}
     t.index ["account_id"], name: "index_app_subscriptions_on_account_id"
     t.index ["app_id"], name: "index_app_subscriptions_on_app_id"
     t.index ["app_plan_id"], name: "index_app_subscriptions_on_app_plan_id"
@@ -1058,25 +1058,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "audit_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "user_id"
     t.string "action", limit: 100, null: false
-    t.string "resource_type", limit: 100, null: false
-    t.string "resource_id", limit: 36
-    t.string "source", limit: 20, default: "web", null: false
-    t.jsonb "old_values", default: {}
-    t.jsonb "new_values", default: {}
-    t.jsonb "metadata", default: {}
-    t.string "ip_address", limit: 45
-    t.string "user_agent", limit: 1000
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "severity", default: "medium", null: false
-    t.string "risk_level", default: "low", null: false
-    t.string "request_id", limit: 50
-    t.string "integrity_hash"
-    t.string "previous_hash"
-    t.bigint "sequence_number"
     t.datetime "chain_verified_at"
+    t.datetime "created_at", null: false
+    t.string "integrity_hash"
+    t.string "ip_address", limit: 45
+    t.jsonb "metadata", default: {}
+    t.jsonb "new_values", default: {}
+    t.jsonb "old_values", default: {}
+    t.string "previous_hash"
+    t.string "request_id", limit: 50
+    t.string "resource_id", limit: 36
+    t.string "resource_type", limit: 100, null: false
+    t.string "risk_level", default: "low", null: false
+    t.bigint "sequence_number"
+    t.string "severity", default: "medium", null: false
+    t.string "source", limit: 20, default: "web", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_agent", limit: 1000
+    t.uuid "user_id"
     t.index ["account_id", "created_at"], name: "idx_audit_logs_on_account_created_at"
     t.index ["account_id"], name: "index_audit_logs_on_account_id"
     t.index ["action"], name: "idx_audit_logs_on_action"
@@ -1093,20 +1093,20 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "background_jobs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "arguments", default: {}
+    t.integer "attempts", default: 0
+    t.text "backtrace"
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.datetime "failed_at"
+    t.datetime "finished_at"
     t.string "job_id", null: false
     t.string "job_type", null: false
-    t.string "status", default: "pending"
-    t.integer "priority", default: 0
-    t.integer "attempts", default: 0
     t.integer "max_attempts", default: 25
-    t.jsonb "arguments", default: {}
-    t.text "error_message"
-    t.text "backtrace"
+    t.integer "priority", default: 0
     t.datetime "scheduled_at"
     t.datetime "started_at"
-    t.datetime "finished_at"
-    t.datetime "failed_at"
-    t.datetime "created_at", null: false
+    t.string "status", default: "pending"
     t.datetime "updated_at", null: false
     t.index ["created_at"], name: "idx_background_jobs_on_created_at"
     t.index ["job_id"], name: "idx_background_jobs_on_job_id_unique", unique: true
@@ -1120,23 +1120,23 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "batch_workflow_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "batch_id", null: false
     t.uuid "account_id", null: false
-    t.uuid "user_id"
-    t.integer "total_workflows", default: 0, null: false
-    t.integer "completed_workflows", default: 0
-    t.integer "successful_workflows", default: 0
-    t.integer "failed_workflows", default: 0
-    t.string "status", default: "pending", null: false
-    t.datetime "started_at"
+    t.string "batch_id", null: false
     t.datetime "completed_at"
-    t.integer "duration_ms"
+    t.integer "completed_workflows", default: 0
     t.jsonb "configuration", default: {}
-    t.jsonb "results", default: []
-    t.jsonb "statistics", default: {}
-    t.jsonb "error_details", default: {}
     t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.jsonb "error_details", default: {}
+    t.integer "failed_workflows", default: 0
+    t.jsonb "results", default: []
+    t.datetime "started_at"
+    t.jsonb "statistics", default: {}
+    t.string "status", default: "pending", null: false
+    t.integer "successful_workflows", default: 0
+    t.integer "total_workflows", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.uuid "user_id"
     t.index ["account_id", "created_at"], name: "index_batch_workflow_runs_on_account_id_and_created_at"
     t.index ["account_id", "status"], name: "index_batch_workflow_runs_on_account_id_and_status"
     t.index ["account_id"], name: "index_batch_workflow_runs_on_account_id"
@@ -1150,11 +1150,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "blacklisted_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "user_id", null: false
-    t.string "token", null: false
-    t.string "reason", default: "logout"
-    t.datetime "expires_at", null: false
     t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "reason", default: "logout"
+    t.string "token", null: false
+    t.uuid "user_id", null: false
     t.index ["expires_at"], name: "index_blacklisted_tokens_on_expires_at"
     t.index ["token"], name: "index_blacklisted_tokens_on_token", unique: true
     t.index ["user_id"], name: "index_blacklisted_tokens_on_user_id"
@@ -1162,13 +1162,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "circuit_breaker_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "circuit_breaker_id", null: false
-    t.string "event_type", null: false
-    t.string "old_state"
-    t.string "new_state"
-    t.integer "failure_count"
-    t.text "error_message"
-    t.integer "duration_ms"
     t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.text "error_message"
+    t.string "event_type", null: false
+    t.integer "failure_count"
+    t.string "new_state"
+    t.string "old_state"
     t.datetime "updated_at", null: false
     t.index ["circuit_breaker_id", "created_at"], name: "idx_on_circuit_breaker_id_created_at_017ec04aab"
     t.index ["circuit_breaker_id"], name: "index_circuit_breaker_events_on_circuit_breaker_id"
@@ -1176,23 +1176,23 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "circuit_breakers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", null: false
-    t.string "service", null: false
-    t.string "provider"
-    t.string "state", default: "closed", null: false
+    t.jsonb "configuration", default: {}
+    t.datetime "created_at", null: false
     t.integer "failure_count", default: 0
     t.integer "failure_threshold", default: 5, null: false
+    t.datetime "half_opened_at"
+    t.datetime "last_failure_at"
+    t.datetime "last_success_at"
+    t.jsonb "metrics", default: {}
+    t.string "name", null: false
+    t.datetime "opened_at"
+    t.string "provider"
+    t.integer "reset_timeout_seconds", default: 60
+    t.string "service", null: false
+    t.string "state", default: "closed", null: false
     t.integer "success_count", default: 0
     t.integer "success_threshold", default: 2, null: false
     t.integer "timeout_seconds", default: 30
-    t.integer "reset_timeout_seconds", default: 60
-    t.jsonb "configuration", default: {}
-    t.jsonb "metrics", default: {}
-    t.datetime "last_failure_at"
-    t.datetime "last_success_at"
-    t.datetime "opened_at"
-    t.datetime "half_opened_at"
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["name", "service"], name: "index_circuit_breakers_on_name_and_service", unique: true
     t.index ["service", "state"], name: "index_circuit_breakers_on_service_and_state"
@@ -1200,45 +1200,45 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "cookie_consents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "analytics", default: false
+    t.datetime "consented_at", null: false
+    t.datetime "created_at", null: false
+    t.boolean "functional", default: false
+    t.string "ip_address"
+    t.boolean "marketing", default: false
+    t.jsonb "metadata", default: {}
+    t.boolean "necessary", default: true, null: false
+    t.datetime "updated_at", null: false
+    t.datetime "updated_at_user"
+    t.string "user_agent"
     t.uuid "user_id"
     t.string "visitor_id"
-    t.boolean "necessary", default: true, null: false
-    t.boolean "functional", default: false
-    t.boolean "analytics", default: false
-    t.boolean "marketing", default: false
-    t.string "ip_address"
-    t.string "user_agent"
-    t.datetime "consented_at", null: false
-    t.datetime "updated_at_user"
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
     t.index ["user_id"], name: "index_cookie_consents_on_user_id", unique: true, where: "(user_id IS NOT NULL)"
     t.index ["visitor_id"], name: "index_cookie_consents_on_visitor_id", unique: true, where: "(visitor_id IS NOT NULL)"
   end
 
   create_table "data_deletion_requests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "user_id", null: false
     t.uuid "account_id", null: false
-    t.uuid "requested_by_id"
-    t.uuid "processed_by_id"
-    t.string "status", default: "pending", null: false
-    t.string "deletion_type", default: "full", null: false
+    t.datetime "approved_at"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
     t.jsonb "data_types_to_delete", default: []
     t.jsonb "data_types_to_retain", default: []
-    t.text "reason"
-    t.text "rejection_reason"
-    t.datetime "approved_at"
-    t.datetime "processing_started_at"
-    t.datetime "completed_at"
+    t.jsonb "deletion_log", default: []
+    t.string "deletion_type", default: "full", null: false
+    t.text "error_message"
     t.datetime "grace_period_ends_at"
     t.boolean "grace_period_extended", default: false
-    t.jsonb "deletion_log", default: []
-    t.jsonb "retention_log", default: []
-    t.text "error_message"
     t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.uuid "processed_by_id"
+    t.datetime "processing_started_at"
+    t.text "reason"
+    t.text "rejection_reason"
+    t.uuid "requested_by_id"
+    t.jsonb "retention_log", default: []
+    t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
     t.index ["account_id"], name: "index_data_deletion_requests_on_account_id"
     t.index ["deletion_type"], name: "index_data_deletion_requests_on_deletion_type"
     t.index ["grace_period_ends_at"], name: "index_data_deletion_requests_on_grace_period_ends_at"
@@ -1249,26 +1249,26 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "data_export_requests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "user_id", null: false
     t.uuid "account_id", null: false
-    t.uuid "requested_by_id"
-    t.string "status", default: "pending", null: false
-    t.string "format", default: "json", null: false
-    t.string "export_type", default: "full"
-    t.jsonb "include_data_types", default: []
-    t.jsonb "exclude_data_types", default: []
-    t.string "file_path"
-    t.integer "file_size_bytes"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
     t.string "download_token"
     t.datetime "download_token_expires_at"
-    t.datetime "processing_started_at"
-    t.datetime "completed_at"
     t.datetime "downloaded_at"
-    t.datetime "expires_at"
     t.text "error_message"
+    t.jsonb "exclude_data_types", default: []
+    t.datetime "expires_at"
+    t.string "export_type", default: "full"
+    t.string "file_path"
+    t.integer "file_size_bytes"
+    t.string "format", default: "json", null: false
+    t.jsonb "include_data_types", default: []
     t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.datetime "processing_started_at"
+    t.uuid "requested_by_id"
+    t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
     t.index ["account_id"], name: "index_data_export_requests_on_account_id"
     t.index ["download_token"], name: "index_data_export_requests_on_download_token", unique: true, where: "(download_token IS NOT NULL)"
     t.index ["expires_at"], name: "index_data_export_requests_on_expires_at"
@@ -1279,16 +1279,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "data_retention_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id"
-    t.string "data_type", null: false
-    t.integer "retention_days", null: false
     t.string "action", default: "delete", null: false
     t.boolean "active", default: true
-    t.string "legal_basis"
+    t.datetime "created_at", null: false
+    t.string "data_type", null: false
     t.text "description"
     t.datetime "last_enforced_at"
-    t.integer "records_processed_count", default: 0
+    t.string "legal_basis"
     t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.integer "records_processed_count", default: 0
+    t.integer "retention_days", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "data_type"], name: "index_data_retention_policies_on_account_id_and_data_type", unique: true
     t.index ["account_id"], name: "index_data_retention_policies_on_account_id"
@@ -1297,18 +1297,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "database_backups", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "created_by_id", null: false
     t.string "backup_type", limit: 50, null: false
-    t.string "status", limit: 50, default: "pending", null: false
-    t.string "file_path", limit: 1000
-    t.integer "file_size_bytes"
-    t.text "description"
-    t.datetime "started_at", null: false
     t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id", null: false
+    t.text "description"
     t.integer "duration_seconds"
     t.text "error_message"
+    t.string "file_path", limit: 1000
+    t.integer "file_size_bytes"
     t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.datetime "started_at", null: false
+    t.string "status", limit: 50, default: "pending", null: false
     t.datetime "updated_at", null: false
     t.index ["backup_type"], name: "idx_database_backups_on_backup_type"
     t.index ["created_by_id"], name: "idx_database_backups_on_created_by_id"
@@ -1320,16 +1320,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "database_restores", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "database_backup_id", null: false
-    t.uuid "initiated_by_id", null: false
-    t.string "status", limit: 50, default: "pending", null: false
-    t.text "description"
-    t.datetime "started_at", null: false
     t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.uuid "database_backup_id", null: false
+    t.text "description"
     t.integer "duration_seconds"
     t.text "error_message"
+    t.uuid "initiated_by_id", null: false
     t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.datetime "started_at", null: false
+    t.string "status", limit: 50, default: "pending", null: false
     t.datetime "updated_at", null: false
     t.index ["database_backup_id"], name: "idx_database_restores_on_database_backup_id"
     t.index ["database_backup_id"], name: "index_database_restores_on_database_backup_id"
@@ -1342,8 +1342,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "delegation_permissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_delegation_id", null: false
-    t.uuid "permission_id", null: false
     t.datetime "created_at", null: false
+    t.uuid "permission_id", null: false
     t.datetime "updated_at", null: false
     t.index ["account_delegation_id", "permission_id"], name: "index_delegation_permissions_unique", unique: true
     t.index ["account_delegation_id"], name: "index_delegation_permissions_on_account_delegation_id"
@@ -1353,26 +1353,26 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "devops_integration_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.integer "consecutive_failures", default: 0
+    t.datetime "created_at", null: false
     t.uuid "created_by_user_id"
-    t.string "name", null: false
     t.string "credential_type", null: false
     t.text "encrypted_credentials", null: false
-    t.string "encryption_key_id", null: false
-    t.datetime "token_expires_at"
     t.text "encrypted_refresh_token"
-    t.jsonb "scopes", default: []
-    t.jsonb "metadata", default: {}
+    t.string "encryption_key_id", null: false
+    t.datetime "expires_at"
     t.boolean "is_active", default: true
+    t.text "last_error"
     t.datetime "last_used_at"
     t.datetime "last_validated_at"
-    t.string "validation_status"
-    t.integer "consecutive_failures", default: 0
-    t.text "last_error"
-    t.datetime "expires_at"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
     t.datetime "rotated_at"
     t.uuid "rotated_from_id"
-    t.datetime "created_at", null: false
+    t.jsonb "scopes", default: []
+    t.datetime "token_expires_at"
     t.datetime "updated_at", null: false
+    t.string "validation_status"
     t.index ["account_id", "credential_type"], name: "idx_credentials_account_type"
     t.index ["account_id", "name"], name: "index_devops_integration_credentials_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_devops_integration_credentials_on_account_id"
@@ -1383,27 +1383,27 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "devops_integration_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "integration_instance_id", null: false
     t.uuid "account_id", null: false
-    t.uuid "triggered_by_user_id"
-    t.string "execution_id", null: false
-    t.string "status", default: "pending", null: false
-    t.jsonb "input_data", default: {}
-    t.jsonb "output_data", default: {}
-    t.jsonb "error_details", default: {}
-    t.datetime "started_at"
-    t.datetime "completed_at"
-    t.integer "duration_ms"
-    t.string "trigger_type"
-    t.string "trigger_source"
-    t.jsonb "trigger_metadata", default: {}
     t.integer "attempt_number", default: 1
+    t.datetime "completed_at"
+    t.decimal "cost_estimate", precision: 10, scale: 6
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.jsonb "error_details", default: {}
+    t.string "execution_id", null: false
+    t.jsonb "input_data", default: {}
+    t.uuid "integration_instance_id", null: false
     t.integer "max_attempts", default: 3
     t.datetime "next_retry_at"
+    t.jsonb "output_data", default: {}
     t.uuid "parent_execution_id"
-    t.decimal "cost_estimate", precision: 10, scale: 6
     t.jsonb "resource_usage", default: {}
-    t.datetime "created_at", null: false
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.jsonb "trigger_metadata", default: {}
+    t.string "trigger_source"
+    t.string "trigger_type"
+    t.uuid "triggered_by_user_id"
     t.datetime "updated_at", null: false
     t.index ["account_id", "created_at"], name: "idx_executions_account_created"
     t.index ["account_id"], name: "index_devops_integration_executions_on_account_id"
@@ -1418,28 +1418,28 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "devops_integration_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "integration_template_id", null: false
-    t.uuid "integration_credential_id"
-    t.uuid "created_by_user_id"
-    t.string "name", null: false
-    t.string "slug", null: false
-    t.text "description"
-    t.string "status", default: "pending"
-    t.jsonb "configuration", default: {}
-    t.jsonb "runtime_state", default: {}
-    t.jsonb "health_metrics", default: {}
-    t.integer "execution_count", default: 0
-    t.integer "success_count", default: 0
-    t.integer "failure_count", default: 0
     t.decimal "average_duration_ms", precision: 10, scale: 2
-    t.datetime "last_executed_at"
-    t.datetime "last_success_at"
-    t.datetime "last_failure_at"
-    t.text "last_error"
-    t.datetime "last_health_check_at"
-    t.string "health_status"
+    t.jsonb "configuration", default: {}
     t.integer "consecutive_failures", default: 0
     t.datetime "created_at", null: false
+    t.uuid "created_by_user_id"
+    t.text "description"
+    t.integer "execution_count", default: 0
+    t.integer "failure_count", default: 0
+    t.jsonb "health_metrics", default: {}
+    t.string "health_status"
+    t.uuid "integration_credential_id"
+    t.uuid "integration_template_id", null: false
+    t.text "last_error"
+    t.datetime "last_executed_at"
+    t.datetime "last_failure_at"
+    t.datetime "last_health_check_at"
+    t.datetime "last_success_at"
+    t.string "name", null: false
+    t.jsonb "runtime_state", default: {}
+    t.string "slug", null: false
+    t.string "status", default: "pending"
+    t.integer "success_count", default: 0
     t.datetime "updated_at", null: false
     t.index ["account_id", "slug"], name: "index_devops_integration_instances_on_account_id_and_slug", unique: true
     t.index ["account_id", "status"], name: "idx_instances_account_status"
@@ -1452,35 +1452,35 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "devops_integration_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", null: false
-    t.string "slug", null: false
-    t.string "integration_type", null: false
-    t.string "category"
-    t.string "version", default: "1.0.0"
-    t.text "description"
-    t.string "icon_url"
-    t.string "documentation_url"
-    t.jsonb "configuration_schema", default: {}
-    t.jsonb "credential_requirements", default: {}
+    t.uuid "account_id"
     t.jsonb "capabilities", default: []
-    t.jsonb "input_schema", default: {}
-    t.jsonb "output_schema", default: {}
-    t.jsonb "default_configuration", default: {}
-    t.jsonb "metadata", default: {}
-    t.jsonb "supported_providers", default: []
-    t.boolean "is_public", default: false
-    t.boolean "is_featured", default: false
-    t.boolean "is_active", default: true
-    t.integer "usage_count", default: 0
-    t.integer "install_count", default: 0
+    t.string "category"
+    t.jsonb "configuration_schema", default: {}
     t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.jsonb "credential_requirements", default: {}
+    t.jsonb "default_configuration", default: {}
+    t.text "description"
+    t.string "documentation_url"
+    t.string "icon_url"
+    t.jsonb "input_schema", default: {}
+    t.integer "install_count", default: 0
+    t.string "integration_type", null: false
+    t.boolean "is_active", default: true
+    t.boolean "is_featured", default: false
     t.boolean "is_marketplace_published", default: false
-    t.string "marketplace_status"
-    t.datetime "marketplace_submitted_at"
+    t.boolean "is_public", default: false
     t.datetime "marketplace_approved_at"
     t.text "marketplace_rejection_reason"
-    t.uuid "account_id"
+    t.string "marketplace_status"
+    t.datetime "marketplace_submitted_at"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.jsonb "output_schema", default: {}
+    t.string "slug", null: false
+    t.jsonb "supported_providers", default: []
+    t.datetime "updated_at", null: false
+    t.integer "usage_count", default: 0
+    t.string "version", default: "1.0.0"
     t.index ["account_id"], name: "index_devops_integration_templates_on_account_id"
     t.index ["category"], name: "index_devops_integration_templates_on_category"
     t.index ["integration_type"], name: "index_devops_integration_templates_on_integration_type"
@@ -1495,8 +1495,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   create_table "devops_pipeline_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ci_cd_pipeline_id", null: false
     t.uuid "ci_cd_repository_id", null: false
-    t.jsonb "overrides", default: {}, null: false
     t.datetime "created_at", null: false
+    t.jsonb "overrides", default: {}, null: false
     t.datetime "updated_at", null: false
     t.index ["ci_cd_pipeline_id", "ci_cd_repository_id"], name: "idx_pipeline_repos_on_pipeline_and_repo", unique: true
     t.index ["ci_cd_pipeline_id"], name: "index_devops_pipeline_repositories_on_ci_cd_pipeline_id"
@@ -1504,21 +1504,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "devops_pipeline_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ci_cd_pipeline_id", null: false
-    t.uuid "triggered_by_id"
-    t.string "run_number", null: false
-    t.string "status", default: "pending", null: false
-    t.string "trigger_type", null: false
-    t.jsonb "trigger_context", default: {}, null: false
-    t.datetime "started_at"
-    t.datetime "completed_at"
-    t.integer "duration_seconds"
-    t.jsonb "outputs", default: {}, null: false
     t.jsonb "artifacts", default: [], null: false
+    t.uuid "ci_cd_pipeline_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "duration_seconds"
     t.text "error_message"
     t.string "external_run_id"
     t.string "external_run_url"
-    t.datetime "created_at", null: false
+    t.jsonb "outputs", default: {}, null: false
+    t.string "run_number", null: false
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.jsonb "trigger_context", default: {}, null: false
+    t.string "trigger_type", null: false
+    t.uuid "triggered_by_id"
     t.datetime "updated_at", null: false
     t.index ["ci_cd_pipeline_id", "run_number"], name: "index_devops_pipeline_runs_on_ci_cd_pipeline_id_and_run_number", unique: true
     t.index ["ci_cd_pipeline_id", "status"], name: "index_devops_pipeline_runs_on_ci_cd_pipeline_id_and_status"
@@ -1528,21 +1528,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "devops_pipeline_steps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ci_cd_pipeline_id", null: false
-    t.string "name", null: false
-    t.string "step_type", null: false
-    t.integer "position", default: 0, null: false
-    t.jsonb "configuration", default: {}, null: false
-    t.jsonb "inputs", default: {}, null: false
-    t.jsonb "outputs", default: [], null: false
-    t.text "condition"
-    t.boolean "continue_on_error", default: false, null: false
-    t.boolean "is_active", default: true, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.uuid "shared_prompt_template_id"
-    t.boolean "requires_approval", default: false, null: false, comment: "When true, step execution pauses and sends notifications for manual approval"
     t.jsonb "approval_settings", default: {}, null: false, comment: "Approval config: {\"timeout_hours\": 24, \"notification_recipients\": [], \"require_comment\": false}"
+    t.uuid "ci_cd_pipeline_id", null: false
+    t.text "condition"
+    t.jsonb "configuration", default: {}, null: false
+    t.boolean "continue_on_error", default: false, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "inputs", default: {}, null: false
+    t.boolean "is_active", default: true, null: false
+    t.string "name", null: false
+    t.jsonb "outputs", default: [], null: false
+    t.integer "position", default: 0, null: false
+    t.boolean "requires_approval", default: false, null: false, comment: "When true, step execution pauses and sends notifications for manual approval"
+    t.uuid "shared_prompt_template_id"
+    t.string "step_type", null: false
+    t.datetime "updated_at", null: false
     t.index ["ci_cd_pipeline_id", "name"], name: "index_devops_pipeline_steps_on_ci_cd_pipeline_id_and_name", unique: true
     t.index ["ci_cd_pipeline_id", "position"], name: "index_devops_pipeline_steps_on_ci_cd_pipeline_id_and_position"
     t.index ["ci_cd_pipeline_id"], name: "index_devops_pipeline_steps_on_ci_cd_pipeline_id"
@@ -1551,37 +1551,37 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "devops_pipeline_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "created_by_user_id"
-    t.uuid "source_pipeline_id"
-    t.string "name", null: false
-    t.string "slug", null: false
-    t.text "description"
-    t.string "icon_url"
     t.string "category"
-    t.string "difficulty_level", default: "intermediate"
-    t.jsonb "tags", default: []
-    t.jsonb "pipeline_definition", default: {}
+    t.datetime "created_at", null: false
+    t.uuid "created_by_user_id"
     t.jsonb "default_variables", default: {}
-    t.jsonb "triggers", default: {}
-    t.integer "timeout_minutes", default: 30
-    t.string "version", default: "1.0.0", null: false
-    t.string "status", default: "draft"
-    t.boolean "is_public", default: false
-    t.boolean "is_featured", default: false
-    t.boolean "is_system", default: false
-    t.datetime "published_at"
-    t.integer "usage_count", default: 0
+    t.text "description"
+    t.string "difficulty_level", default: "intermediate"
+    t.string "icon_url"
     t.integer "install_count", default: 0
-    t.decimal "rating", precision: 3, scale: 2, default: "0.0"
-    t.integer "rating_count", default: 0
+    t.boolean "is_featured", default: false
     t.boolean "is_marketplace_published", default: false
-    t.string "marketplace_status"
-    t.datetime "marketplace_submitted_at"
+    t.boolean "is_public", default: false
+    t.boolean "is_system", default: false
     t.datetime "marketplace_approved_at"
     t.text "marketplace_rejection_reason"
+    t.string "marketplace_status"
+    t.datetime "marketplace_submitted_at"
     t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.jsonb "pipeline_definition", default: {}
+    t.datetime "published_at"
+    t.decimal "rating", precision: 3, scale: 2, default: "0.0"
+    t.integer "rating_count", default: 0
+    t.string "slug", null: false
+    t.uuid "source_pipeline_id"
+    t.string "status", default: "draft"
+    t.jsonb "tags", default: []
+    t.integer "timeout_minutes", default: 30
+    t.jsonb "triggers", default: {}
     t.datetime "updated_at", null: false
+    t.integer "usage_count", default: 0
+    t.string "version", default: "1.0.0", null: false
     t.index ["account_id"], name: "index_devops_pipeline_templates_on_account_id"
     t.index ["category"], name: "index_devops_pipeline_templates_on_category"
     t.index ["created_by_user_id"], name: "index_devops_pipeline_templates_on_created_by_user_id"
@@ -1595,28 +1595,28 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "devops_pipelines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "created_by_id"
-    t.uuid "ci_cd_provider_id"
-    t.string "name", null: false
-    t.string "slug", null: false
-    t.string "pipeline_type", null: false
-    t.text "description"
-    t.jsonb "triggers", default: {}, null: false
-    t.jsonb "steps", default: [], null: false
-    t.jsonb "environment", default: {}, null: false
-    t.jsonb "secret_refs", default: [], null: false
-    t.string "runner_labels", default: ["ubuntu-latest"], array: true
-    t.integer "timeout_minutes", default: 60
+    t.uuid "ai_provider_id"
     t.boolean "allow_concurrent", default: false, null: false
+    t.uuid "ci_cd_provider_id"
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.jsonb "environment", default: {}, null: false
     t.jsonb "features", default: {}, null: false
     t.boolean "is_active", default: true, null: false
     t.boolean "is_system", default: false, null: false
-    t.integer "version", default: 1, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.uuid "ai_provider_id"
+    t.string "name", null: false
     t.jsonb "notification_recipients", default: [], null: false, comment: "Array of notification recipients: [{\"type\": \"email\"|\"user_id\", \"value\": \"...\"}]"
     t.jsonb "notification_settings", default: {}, null: false, comment: "Notification preferences: {\"on_approval_required\": true, \"on_completion\": false, \"on_failure\": true}"
+    t.string "pipeline_type", null: false
+    t.string "runner_labels", default: ["ubuntu-latest"], array: true
+    t.jsonb "secret_refs", default: [], null: false
+    t.string "slug", null: false
+    t.jsonb "steps", default: [], null: false
+    t.integer "timeout_minutes", default: 60
+    t.jsonb "triggers", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.integer "version", default: 1, null: false
     t.index ["account_id", "is_active"], name: "index_devops_pipelines_on_account_id_and_is_active"
     t.index ["account_id", "pipeline_type"], name: "index_devops_pipelines_on_account_id_and_pipeline_type"
     t.index ["account_id", "slug"], name: "index_devops_pipelines_on_account_id_and_slug", unique: true
@@ -1628,19 +1628,19 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "devops_providers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "created_by_id"
-    t.string "name", null: false
-    t.string "provider_type", null: false
-    t.string "base_url", null: false
     t.string "api_version", default: "v1"
-    t.string "credential_key"
-    t.jsonb "configuration", default: {}, null: false
+    t.string "base_url", null: false
     t.jsonb "capabilities", default: [], null: false
+    t.jsonb "configuration", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.string "credential_key"
+    t.string "health_status"
     t.boolean "is_active", default: true, null: false
     t.boolean "is_default", default: false, null: false
     t.datetime "last_health_check_at"
-    t.string "health_status"
-    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.string "provider_type", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "is_default"], name: "index_devops_providers_on_account_id_and_is_default", where: "(is_default = true)"
     t.index ["account_id", "name"], name: "index_devops_providers_on_account_id_and_name", unique: true
@@ -1651,14 +1651,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   create_table "devops_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "ci_cd_provider_id", null: false
-    t.string "name", null: false
-    t.string "full_name", null: false
+    t.datetime "created_at", null: false
     t.string "default_branch", default: "main"
     t.string "external_id"
-    t.jsonb "settings", default: {}, null: false
+    t.string "full_name", null: false
     t.boolean "is_active", default: true, null: false
     t.datetime "last_synced_at"
-    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.jsonb "settings", default: {}, null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "full_name"], name: "index_devops_repositories_on_account_id_and_full_name", unique: true
     t.index ["account_id"], name: "index_devops_repositories_on_account_id"
@@ -1668,15 +1668,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "devops_schedules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ci_cd_pipeline_id", null: false
-    t.uuid "created_by_id"
-    t.string "name", null: false
-    t.string "cron_expression", null: false
-    t.string "timezone", default: "UTC"
-    t.jsonb "inputs", default: {}, null: false
-    t.datetime "next_run_at"
-    t.datetime "last_run_at"
-    t.boolean "is_active", default: true, null: false
     t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.string "cron_expression", null: false
+    t.jsonb "inputs", default: {}, null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_run_at"
+    t.string "name", null: false
+    t.datetime "next_run_at"
+    t.string "timezone", default: "UTC"
     t.datetime "updated_at", null: false
     t.index ["ci_cd_pipeline_id", "is_active"], name: "index_devops_schedules_on_ci_cd_pipeline_id_and_is_active"
     t.index ["ci_cd_pipeline_id"], name: "index_devops_schedules_on_ci_cd_pipeline_id"
@@ -1685,17 +1685,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "devops_step_approval_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "step_execution_id", null: false
-    t.uuid "recipient_user_id"
-    t.uuid "responded_by_id"
-    t.string "token_digest", null: false
-    t.string "recipient_email", null: false
-    t.string "status", default: "pending", null: false
-    t.text "response_comment"
-    t.datetime "expires_at", null: false
-    t.datetime "responded_at"
-    t.datetime "email_sent_at"
     t.datetime "created_at", null: false
+    t.datetime "email_sent_at"
+    t.datetime "expires_at", null: false
+    t.string "recipient_email", null: false
+    t.uuid "recipient_user_id"
+    t.datetime "responded_at"
+    t.uuid "responded_by_id"
+    t.text "response_comment"
+    t.string "status", default: "pending", null: false
+    t.uuid "step_execution_id", null: false
+    t.string "token_digest", null: false
     t.datetime "updated_at", null: false
     t.index ["recipient_user_id"], name: "index_devops_step_approval_tokens_on_recipient_user_id"
     t.index ["responded_by_id"], name: "index_devops_step_approval_tokens_on_responded_by_id"
@@ -1709,14 +1709,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   create_table "devops_step_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ci_cd_pipeline_run_id", null: false
     t.uuid "ci_cd_pipeline_step_id", null: false
-    t.string "status", default: "pending", null: false
-    t.datetime "started_at"
     t.datetime "completed_at"
-    t.integer "duration_seconds"
-    t.jsonb "outputs", default: {}, null: false
-    t.text "logs"
-    t.text "error_message"
     t.datetime "created_at", null: false
+    t.integer "duration_seconds"
+    t.text "error_message"
+    t.text "logs"
+    t.jsonb "outputs", default: {}, null: false
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
     t.index ["ci_cd_pipeline_run_id", "ci_cd_pipeline_step_id"], name: "idx_step_executions_on_run_and_step", unique: true
     t.index ["ci_cd_pipeline_run_id"], name: "index_devops_step_executions_on_ci_cd_pipeline_run_id"
@@ -1725,26 +1725,26 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "email_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "user_id"
-    t.string "recipient_email", null: false
-    t.string "sender_email"
-    t.string "subject", null: false
-    t.text "body_text"
     t.text "body_html"
-    t.string "email_type", null: false
-    t.string "status", default: "pending"
-    t.string "external_id"
-    t.text "error_message"
-    t.datetime "sent_at"
-    t.datetime "delivered_at"
-    t.datetime "opened_at"
-    t.datetime "clicked_at"
-    t.datetime "bounced_at"
+    t.text "body_text"
     t.string "bounce_reason"
-    t.integer "retry_count", default: 0
-    t.jsonb "metadata", default: {}
+    t.datetime "bounced_at"
+    t.datetime "clicked_at"
     t.datetime "created_at", null: false
+    t.datetime "delivered_at"
+    t.string "email_type", null: false
+    t.text "error_message"
+    t.string "external_id"
+    t.jsonb "metadata", default: {}
+    t.datetime "opened_at"
+    t.string "recipient_email", null: false
+    t.integer "retry_count", default: 0
+    t.string "sender_email"
+    t.datetime "sent_at"
+    t.string "status", default: "pending"
+    t.string "subject", null: false
     t.datetime "updated_at", null: false
+    t.uuid "user_id"
     t.index ["email_type"], name: "idx_email_deliveries_on_email_type"
     t.index ["external_id"], name: "idx_email_deliveries_on_external_id_unique", unique: true, where: "(external_id IS NOT NULL)"
     t.index ["recipient_email"], name: "idx_email_deliveries_on_recipient_email"
@@ -1757,10 +1757,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "file_object_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "file_object_id", null: false
-    t.uuid "file_tag_id", null: false
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
+    t.uuid "file_object_id", null: false
+    t.uuid "file_tag_id", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_file_object_tags_on_account_id"
     t.index ["file_object_id", "file_tag_id"], name: "index_file_object_tags_on_file_object_id_and_file_tag_id", unique: true
@@ -1769,36 +1769,36 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "file_objects", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "access_permissions", default: {}
     t.uuid "account_id", null: false
-    t.uuid "file_storage_id", null: false
-    t.uuid "uploaded_by_id", null: false
-    t.string "filename", null: false
-    t.string "storage_key", null: false
-    t.string "content_type", null: false
-    t.bigint "file_size", null: false
+    t.uuid "attachable_id"
+    t.string "attachable_type"
+    t.string "category"
     t.string "checksum_md5"
     t.string "checksum_sha256"
-    t.string "file_type"
-    t.string "category"
-    t.string "visibility", default: "private", null: false
-    t.string "attachable_type"
-    t.uuid "attachable_id"
-    t.integer "version", default: 1, null: false
-    t.boolean "is_latest_version", default: true, null: false
-    t.uuid "parent_file_id"
-    t.jsonb "access_permissions", default: {}
-    t.datetime "expires_at"
-    t.integer "download_count", default: 0, null: false
-    t.datetime "last_accessed_at"
-    t.string "processing_status", default: "pending"
-    t.jsonb "processing_metadata", default: {}
-    t.jsonb "metadata", default: {}, null: false
-    t.jsonb "exif_data", default: {}
-    t.jsonb "dimensions", default: {}
+    t.string "content_type", null: false
+    t.datetime "created_at", null: false
     t.datetime "deleted_at"
     t.uuid "deleted_by_id"
-    t.datetime "created_at", null: false
+    t.jsonb "dimensions", default: {}
+    t.integer "download_count", default: 0, null: false
+    t.jsonb "exif_data", default: {}
+    t.datetime "expires_at"
+    t.bigint "file_size", null: false
+    t.uuid "file_storage_id", null: false
+    t.string "file_type"
+    t.string "filename", null: false
+    t.boolean "is_latest_version", default: true, null: false
+    t.datetime "last_accessed_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "parent_file_id"
+    t.jsonb "processing_metadata", default: {}
+    t.string "processing_status", default: "pending"
+    t.string "storage_key", null: false
     t.datetime "updated_at", null: false
+    t.uuid "uploaded_by_id", null: false
+    t.integer "version", default: 1, null: false
+    t.string "visibility", default: "private", null: false
     t.index ["account_id", "category"], name: "index_file_objects_on_account_id_and_category"
     t.index ["account_id", "created_at"], name: "index_file_objects_on_account_id_and_created_at"
     t.index ["account_id", "file_type"], name: "index_file_objects_on_account_id_and_file_type"
@@ -1824,22 +1824,22 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "file_processing_jobs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "file_object_id", null: false
     t.uuid "account_id", null: false
-    t.string "job_type", null: false
-    t.string "status", default: "pending", null: false
-    t.integer "priority", default: 50, null: false
-    t.jsonb "job_parameters", default: {}
-    t.jsonb "result_data", default: {}
-    t.string "output_storage_key"
-    t.jsonb "error_details", default: {}
-    t.integer "retry_count", default: 0, null: false
-    t.integer "max_retries", default: 3, null: false
-    t.datetime "started_at"
     t.datetime "completed_at"
-    t.integer "duration_ms"
-    t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.jsonb "error_details", default: {}
+    t.uuid "file_object_id", null: false
+    t.jsonb "job_parameters", default: {}
+    t.string "job_type", null: false
+    t.integer "max_retries", default: 3, null: false
+    t.jsonb "metadata", default: {}
+    t.string "output_storage_key"
+    t.integer "priority", default: 50, null: false
+    t.jsonb "result_data", default: {}
+    t.integer "retry_count", default: 0, null: false
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_file_processing_jobs_on_account_id"
     t.index ["created_at"], name: "index_file_processing_jobs_on_created_at"
@@ -1852,22 +1852,22 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "file_shares", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "file_object_id", null: false
-    t.uuid "account_id", null: false
-    t.uuid "created_by_id", null: false
-    t.string "share_token", null: false
-    t.string "share_type", null: false
     t.string "access_level", default: "view", null: false
-    t.jsonb "recipients", default: []
-    t.string "password_digest"
-    t.integer "max_downloads"
+    t.jsonb "access_log", default: []
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id", null: false
     t.integer "download_count", default: 0, null: false
     t.datetime "expires_at"
+    t.uuid "file_object_id", null: false
     t.datetime "last_accessed_at"
-    t.jsonb "access_log", default: []
-    t.string "status", default: "active", null: false
+    t.integer "max_downloads"
     t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.string "password_digest"
+    t.jsonb "recipients", default: []
+    t.string "share_token", null: false
+    t.string "share_type", null: false
+    t.string "status", default: "active", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_file_shares_on_account_id"
     t.index ["created_at"], name: "index_file_shares_on_created_at"
@@ -1883,22 +1883,22 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "file_storages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.string "name", null: false
-    t.string "provider_type", null: false
-    t.string "status", default: "active", null: false
-    t.integer "priority", default: 100, null: false
-    t.jsonb "configuration", default: {}, null: false
     t.jsonb "capabilities", default: {}, null: false
-    t.bigint "files_count", default: 0, null: false
-    t.bigint "total_size_bytes", default: 0, null: false
-    t.bigint "quota_bytes"
-    t.jsonb "metadata", default: {}, null: false
-    t.datetime "last_health_check_at"
-    t.string "health_status"
-    t.jsonb "health_details", default: {}
+    t.jsonb "configuration", default: {}, null: false
     t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.bigint "files_count", default: 0, null: false
+    t.jsonb "health_details", default: {}
+    t.string "health_status"
     t.boolean "is_default"
+    t.datetime "last_health_check_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.integer "priority", default: 100, null: false
+    t.string "provider_type", null: false
+    t.bigint "quota_bytes"
+    t.string "status", default: "active", null: false
+    t.bigint "total_size_bytes", default: 0, null: false
+    t.datetime "updated_at", null: false
     t.index ["account_id", "name"], name: "index_file_storages_on_account_id_and_name", unique: true
     t.index ["account_id", "provider_type"], name: "index_file_storages_on_account_id_and_provider_type"
     t.index ["account_id", "status"], name: "index_file_storages_on_account_id_and_status"
@@ -1912,30 +1912,30 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "file_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.string "name", null: false
     t.string "color"
+    t.datetime "created_at", null: false
     t.text "description"
     t.integer "files_count", default: 0, null: false
-    t.datetime "created_at", null: false
+    t.string "name", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "name"], name: "index_file_tags_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_file_tags_on_account_id"
   end
 
   create_table "file_versions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "file_object_id", null: false
     t.uuid "account_id", null: false
-    t.uuid "created_by_id", null: false
-    t.integer "version_number", null: false
-    t.string "storage_key", null: false
-    t.bigint "file_size", null: false
-    t.string "checksum_sha256"
     t.string "change_description"
     t.jsonb "change_metadata", default: {}
-    t.jsonb "metadata", default: {}
-    t.datetime "deleted_at"
+    t.string "checksum_sha256"
     t.datetime "created_at", null: false
+    t.uuid "created_by_id", null: false
+    t.datetime "deleted_at"
+    t.uuid "file_object_id", null: false
+    t.bigint "file_size", null: false
+    t.jsonb "metadata", default: {}
+    t.string "storage_key", null: false
     t.datetime "updated_at", null: false
+    t.integer "version_number", null: false
     t.index ["account_id", "created_at"], name: "index_file_versions_on_account_id_and_created_at"
     t.index ["account_id"], name: "index_file_versions_on_account_id"
     t.index ["created_by_id"], name: "index_file_versions_on_created_by_id"
@@ -1946,26 +1946,26 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "gateway_configurations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "provider", limit: 50, null: false
-    t.string "key_name", limit: 100, null: false
-    t.text "encrypted_value", null: false
     t.datetime "created_at", null: false
+    t.text "encrypted_value", null: false
+    t.string "key_name", limit: 100, null: false
+    t.string "provider", limit: 50, null: false
     t.datetime "updated_at", null: false
     t.index ["provider", "key_name"], name: "idx_gateway_configurations_on_provider_key_unique", unique: true
     t.index ["provider"], name: "idx_gateway_configurations_on_provider"
   end
 
   create_table "gateway_connection_jobs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "gateway", null: false
-    t.string "operation", null: false
-    t.string "status", default: "pending"
-    t.jsonb "payload", default: {}
-    t.jsonb "response", default: {}
-    t.text "error_message"
-    t.integer "retry_count", default: 0
-    t.datetime "scheduled_at"
     t.datetime "completed_at"
     t.datetime "created_at", null: false
+    t.text "error_message"
+    t.string "gateway", null: false
+    t.string "operation", null: false
+    t.jsonb "payload", default: {}
+    t.jsonb "response", default: {}
+    t.integer "retry_count", default: 0
+    t.datetime "scheduled_at"
+    t.string "status", default: "pending"
     t.datetime "updated_at", null: false
     t.index ["gateway", "operation"], name: "idx_gateway_connection_jobs_on_gateway_operation"
     t.index ["scheduled_at"], name: "idx_gateway_connection_jobs_on_scheduled_at"
@@ -1974,20 +1974,20 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "git_pipeline_approvals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "git_pipeline_id", null: false
     t.uuid "account_id", null: false
-    t.string "gate_name", null: false
-    t.string "environment"
+    t.datetime "created_at", null: false
     t.text "description"
-    t.string "status", default: "pending", null: false
+    t.string "environment"
+    t.datetime "expires_at"
+    t.string "gate_name", null: false
+    t.uuid "git_pipeline_id", null: false
+    t.jsonb "metadata", default: {}, null: false
     t.uuid "requested_by_id"
+    t.jsonb "required_approvers", default: [], null: false
+    t.datetime "responded_at"
     t.uuid "responded_by_id"
     t.text "response_comment"
-    t.datetime "responded_at"
-    t.datetime "expires_at"
-    t.jsonb "metadata", default: {}, null: false
-    t.jsonb "required_approvers", default: [], null: false
-    t.datetime "created_at", null: false
+    t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_git_pipeline_approvals_on_account_id"
     t.index ["expires_at"], name: "index_git_pipeline_approvals_on_expires_at"
@@ -1999,25 +1999,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "git_pipeline_jobs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "git_pipeline_id", null: false
     t.uuid "account_id", null: false
-    t.string "external_id", limit: 255, null: false
-    t.string "name", limit: 255, null: false
-    t.string "status", limit: 30, null: false
-    t.string "conclusion", limit: 30
-    t.integer "step_number"
-    t.string "runner_name", limit: 255
-    t.string "runner_id", limit: 255
-    t.string "runner_os", limit: 50
-    t.text "logs_url"
-    t.text "logs_content"
-    t.integer "duration_seconds"
-    t.jsonb "steps", default: []
-    t.jsonb "outputs", default: {}
-    t.jsonb "metadata", default: {}
-    t.datetime "started_at", precision: nil
     t.datetime "completed_at", precision: nil
+    t.string "conclusion", limit: 30
     t.datetime "created_at", null: false
+    t.integer "duration_seconds"
+    t.string "external_id", limit: 255, null: false
+    t.uuid "git_pipeline_id", null: false
+    t.text "logs_content"
+    t.text "logs_url"
+    t.jsonb "metadata", default: {}
+    t.string "name", limit: 255, null: false
+    t.jsonb "outputs", default: {}
+    t.string "runner_id", limit: 255
+    t.string "runner_name", limit: 255
+    t.string "runner_os", limit: 50
+    t.datetime "started_at", precision: nil
+    t.string "status", limit: 30, null: false
+    t.integer "step_number"
+    t.jsonb "steps", default: []
     t.datetime "updated_at", null: false
     t.index ["account_id", "created_at"], name: "index_git_pipeline_jobs_on_account_id_and_created_at"
     t.index ["account_id"], name: "index_git_pipeline_jobs_on_account_id"
@@ -2029,27 +2029,27 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "git_pipeline_schedules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "git_repository_id", null: false
     t.uuid "account_id", null: false
+    t.integer "consecutive_failures", default: 0, null: false
+    t.datetime "created_at", null: false
     t.uuid "created_by_id"
-    t.string "name", null: false
-    t.string "description"
     t.string "cron_expression", null: false
-    t.string "timezone", default: "UTC", null: false
-    t.string "ref", null: false
-    t.string "workflow_file"
+    t.string "description"
+    t.integer "failure_count", default: 0, null: false
+    t.uuid "git_repository_id", null: false
     t.jsonb "inputs", default: {}, null: false
     t.boolean "is_active", default: true, null: false
-    t.datetime "next_run_at"
+    t.uuid "last_pipeline_id"
     t.datetime "last_run_at"
     t.string "last_run_status"
+    t.string "name", null: false
+    t.datetime "next_run_at"
+    t.string "ref", null: false
     t.integer "run_count", default: 0, null: false
     t.integer "success_count", default: 0, null: false
-    t.integer "failure_count", default: 0, null: false
-    t.integer "consecutive_failures", default: 0, null: false
-    t.uuid "last_pipeline_id"
-    t.datetime "created_at", null: false
+    t.string "timezone", default: "UTC", null: false
     t.datetime "updated_at", null: false
+    t.string "workflow_file"
     t.index ["account_id"], name: "index_git_pipeline_schedules_on_account_id"
     t.index ["created_by_id"], name: "index_git_pipeline_schedules_on_created_by_id"
     t.index ["git_repository_id", "name"], name: "index_git_pipeline_schedules_on_git_repository_id_and_name", unique: true
@@ -2060,32 +2060,32 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "git_pipelines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "git_repository_id", null: false
     t.uuid "account_id", null: false
-    t.string "external_id", limit: 255, null: false
-    t.string "name", limit: 255, null: false
-    t.string "status", limit: 30, null: false
-    t.string "conclusion", limit: 30
-    t.string "trigger_event", limit: 50
-    t.string "ref", limit: 500
-    t.string "sha", limit: 64
-    t.string "head_sha", limit: 64
-    t.string "actor_username", limit: 255
     t.string "actor_id", limit: 255
-    t.string "web_url", limit: 500
-    t.string "logs_url", limit: 500
-    t.integer "run_number"
-    t.integer "run_attempt", default: 1
-    t.integer "total_jobs", default: 0
-    t.integer "completed_jobs", default: 0
-    t.integer "failed_jobs", default: 0
-    t.integer "duration_seconds"
-    t.jsonb "workflow_config", default: {}
-    t.jsonb "metadata", default: {}
-    t.datetime "started_at", precision: nil
+    t.string "actor_username", limit: 255
     t.datetime "completed_at", precision: nil
+    t.integer "completed_jobs", default: 0
+    t.string "conclusion", limit: 30
     t.datetime "created_at", null: false
+    t.integer "duration_seconds"
+    t.string "external_id", limit: 255, null: false
+    t.integer "failed_jobs", default: 0
+    t.uuid "git_repository_id", null: false
+    t.string "head_sha", limit: 64
+    t.string "logs_url", limit: 500
+    t.jsonb "metadata", default: {}
+    t.string "name", limit: 255, null: false
+    t.string "ref", limit: 500
+    t.integer "run_attempt", default: 1
+    t.integer "run_number"
+    t.string "sha", limit: 64
+    t.datetime "started_at", precision: nil
+    t.string "status", limit: 30, null: false
+    t.integer "total_jobs", default: 0
+    t.string "trigger_event", limit: 50
     t.datetime "updated_at", null: false
+    t.string "web_url", limit: 500
+    t.jsonb "workflow_config", default: {}
     t.index ["account_id", "created_at"], name: "index_git_pipelines_on_account_id_and_created_at"
     t.index ["account_id"], name: "index_git_pipelines_on_account_id"
     t.index ["conclusion"], name: "index_git_pipelines_on_conclusion"
@@ -2098,30 +2098,30 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "git_provider_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "git_provider_id", null: false
     t.uuid "account_id", null: false
-    t.uuid "user_id"
-    t.string "name", limit: 255, null: false
     t.string "auth_type", limit: 30, null: false
+    t.integer "consecutive_failures", default: 0
+    t.datetime "created_at", null: false
     t.text "encrypted_credentials", null: false
     t.string "encryption_key_id", limit: 50
-    t.string "external_username", limit: 255
-    t.string "external_user_id", limit: 255
+    t.datetime "expires_at", precision: nil
     t.string "external_avatar_url", limit: 500
-    t.jsonb "scopes", default: []
+    t.string "external_user_id", limit: 255
+    t.string "external_username", limit: 255
+    t.integer "failure_count", default: 0
+    t.uuid "git_provider_id", null: false
     t.boolean "is_active", default: true
     t.boolean "is_default", default: false
-    t.datetime "expires_at", precision: nil
-    t.datetime "last_used_at", precision: nil
+    t.string "last_error", limit: 1000
     t.datetime "last_test_at", precision: nil
     t.string "last_test_status", limit: 30
-    t.string "last_error", limit: 1000
-    t.integer "success_count", default: 0
-    t.integer "failure_count", default: 0
-    t.integer "consecutive_failures", default: 0
+    t.datetime "last_used_at", precision: nil
     t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.string "name", limit: 255, null: false
+    t.jsonb "scopes", default: []
+    t.integer "success_count", default: 0
     t.datetime "updated_at", null: false
+    t.uuid "user_id"
     t.index ["account_id", "git_provider_id", "is_default"], name: "idx_git_creds_unique_default", unique: true, where: "(is_default = true)"
     t.index ["account_id", "git_provider_id"], name: "idx_on_account_id_git_provider_id_d749eaa17b"
     t.index ["account_id", "is_default"], name: "index_git_provider_credentials_on_account_id_and_is_default"
@@ -2134,25 +2134,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "git_providers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", limit: 100, null: false
-    t.string "slug", limit: 50, null: false
-    t.string "provider_type", limit: 30, null: false
-    t.text "description"
     t.string "api_base_url", limit: 500
-    t.string "web_base_url", limit: 500
     t.jsonb "capabilities", default: [], null: false
-    t.jsonb "oauth_config", default: {}
-    t.jsonb "webhook_config", default: {}
     t.jsonb "ci_cd_config", default: {}
+    t.datetime "created_at", null: false
+    t.text "description"
     t.boolean "is_active", default: true
+    t.jsonb "metadata", default: {}
+    t.string "name", limit: 100, null: false
+    t.jsonb "oauth_config", default: {}
+    t.integer "priority_order", default: 1000
+    t.string "provider_type", limit: 30, null: false
+    t.string "slug", limit: 50, null: false
+    t.boolean "supports_ci_cd", default: false
     t.boolean "supports_oauth", default: true
     t.boolean "supports_pat", default: true
     t.boolean "supports_webhooks", default: true
-    t.boolean "supports_ci_cd", default: false
-    t.integer "priority_order", default: 1000
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "web_base_url", limit: 500
+    t.jsonb "webhook_config", default: {}
     t.index ["capabilities"], name: "index_git_providers_on_capabilities", using: :gin
     t.index ["is_active"], name: "index_git_providers_on_is_active"
     t.index ["priority_order"], name: "index_git_providers_on_priority_order"
@@ -2161,40 +2161,40 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "git_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "git_provider_credential_id", null: false
     t.uuid "account_id", null: false
-    t.string "external_id", limit: 255, null: false
-    t.string "name", limit: 255, null: false
-    t.string "full_name", limit: 500, null: false
-    t.string "owner", limit: 255, null: false
-    t.text "description"
-    t.string "default_branch", limit: 255, default: "main"
     t.string "clone_url", limit: 500
-    t.string "ssh_url", limit: 500
-    t.string "web_url", limit: 500
-    t.boolean "is_private", default: false
-    t.boolean "is_fork", default: false
-    t.boolean "is_archived", default: false
+    t.datetime "created_at", null: false
+    t.string "default_branch", limit: 255, default: "main"
+    t.text "description"
+    t.string "external_id", limit: 255, null: false
+    t.integer "forks_count", default: 0
+    t.string "full_name", limit: 500, null: false
+    t.uuid "git_provider_credential_id", null: false
     t.boolean "has_issues", default: true
     t.boolean "has_pull_requests", default: true
     t.boolean "has_wiki", default: false
+    t.boolean "is_archived", default: false
+    t.boolean "is_fork", default: false
+    t.boolean "is_private", default: false
+    t.jsonb "languages", default: {}
+    t.datetime "last_commit_at", precision: nil
+    t.datetime "last_synced_at", precision: nil
+    t.jsonb "metadata", default: {}
+    t.string "name", limit: 255, null: false
+    t.integer "open_issues_count", default: 0
+    t.integer "open_prs_count", default: 0
+    t.string "owner", limit: 255, null: false
+    t.datetime "provider_created_at", precision: nil
+    t.datetime "provider_updated_at", precision: nil
+    t.string "ssh_url", limit: 500
+    t.integer "stars_count", default: 0
+    t.jsonb "sync_settings", default: {}
+    t.jsonb "topics", default: []
+    t.datetime "updated_at", null: false
+    t.string "web_url", limit: 500
     t.boolean "webhook_configured", default: false
     t.string "webhook_id", limit: 255
     t.string "webhook_secret", limit: 255
-    t.jsonb "languages", default: {}
-    t.jsonb "topics", default: []
-    t.jsonb "sync_settings", default: {}
-    t.integer "stars_count", default: 0
-    t.integer "forks_count", default: 0
-    t.integer "open_issues_count", default: 0
-    t.integer "open_prs_count", default: 0
-    t.datetime "last_synced_at", precision: nil
-    t.datetime "last_commit_at", precision: nil
-    t.datetime "provider_created_at", precision: nil
-    t.datetime "provider_updated_at", precision: nil
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
     t.index ["account_id", "full_name"], name: "index_git_repositories_on_account_id_and_full_name", unique: true
     t.index ["account_id"], name: "index_git_repositories_on_account_id"
     t.index ["external_id"], name: "index_git_repositories_on_external_id"
@@ -2207,24 +2207,24 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "git_runners", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "architecture"
+    t.boolean "busy", default: false, null: false
+    t.datetime "created_at", null: false
+    t.string "external_id", null: false
+    t.integer "failed_jobs", default: 0, null: false
     t.uuid "git_provider_credential_id", null: false
     t.uuid "git_repository_id"
-    t.uuid "account_id", null: false
-    t.string "external_id", null: false
+    t.jsonb "labels", default: [], null: false
+    t.datetime "last_seen_at", precision: nil
     t.string "name", null: false
+    t.string "os"
     t.string "runner_scope", default: "repository", null: false
     t.string "status", default: "offline", null: false
-    t.boolean "busy", default: false, null: false
-    t.jsonb "labels", default: [], null: false
-    t.string "os"
-    t.string "architecture"
-    t.string "version"
-    t.integer "total_jobs_run", default: 0, null: false
     t.integer "successful_jobs", default: 0, null: false
-    t.integer "failed_jobs", default: 0, null: false
-    t.datetime "last_seen_at", precision: nil
-    t.datetime "created_at", null: false
+    t.integer "total_jobs_run", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.string "version"
     t.index ["account_id"], name: "index_git_runners_on_account_id"
     t.index ["busy"], name: "index_git_runners_on_busy"
     t.index ["git_provider_credential_id", "external_id"], name: "idx_git_runners_on_credential_and_external_id", unique: true
@@ -2236,25 +2236,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "git_webhook_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "git_repository_id"
-    t.uuid "git_provider_id", null: false
     t.uuid "account_id", null: false
-    t.string "event_type", limit: 100, null: false
     t.string "action", limit: 50
+    t.datetime "created_at", null: false
     t.string "delivery_id", limit: 255
-    t.string "status", limit: 30, default: "pending", null: false
-    t.jsonb "payload", null: false
-    t.jsonb "headers", default: {}
-    t.string "sender_username", limit: 255
-    t.string "sender_id", limit: 255
-    t.string "ref", limit: 500
-    t.string "sha", limit: 64
     t.text "error_message"
-    t.integer "retry_count", default: 0
+    t.string "event_type", limit: 100, null: false
+    t.uuid "git_provider_id", null: false
+    t.uuid "git_repository_id"
+    t.jsonb "headers", default: {}
+    t.jsonb "metadata", default: {}
+    t.jsonb "payload", null: false
     t.datetime "processed_at", precision: nil
     t.jsonb "processing_result", default: {}
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.string "ref", limit: 500
+    t.integer "retry_count", default: 0
+    t.string "sender_id", limit: 255
+    t.string "sender_username", limit: 255
+    t.string "sha", limit: 64
+    t.string "status", limit: 30, default: "pending", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "created_at"], name: "index_git_webhook_events_on_account_id_and_created_at"
     t.index ["account_id"], name: "index_git_webhook_events_on_account_id"
@@ -2270,18 +2270,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "git_workflow_triggers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_trigger_id", null: false
-    t.uuid "git_repository_id"
-    t.string "event_type", null: false
     t.string "branch_pattern", default: "*"
-    t.string "path_pattern"
+    t.datetime "created_at", null: false
     t.jsonb "event_filters", default: {}, null: false
-    t.jsonb "payload_mapping", default: {}, null: false
+    t.string "event_type", null: false
+    t.uuid "git_repository_id"
     t.boolean "is_active", default: true, null: false
-    t.string "status", default: "active", null: false
-    t.integer "trigger_count", default: 0, null: false
     t.datetime "last_triggered_at", precision: nil
     t.jsonb "metadata", default: {}, null: false
-    t.datetime "created_at", null: false
+    t.string "path_pattern"
+    t.jsonb "payload_mapping", default: {}, null: false
+    t.string "status", default: "active", null: false
+    t.integer "trigger_count", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["ai_workflow_trigger_id"], name: "index_git_workflow_triggers_on_ai_workflow_trigger_id"
     t.index ["event_type", "is_active"], name: "index_git_workflow_triggers_on_event_type_active"
@@ -2293,16 +2293,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "impersonation_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "impersonator_id", null: false
-    t.uuid "impersonated_user_id", null: false
-    t.string "session_token", null: false
-    t.string "reason"
-    t.datetime "started_at", null: false
-    t.datetime "ended_at"
-    t.string "ip_address"
-    t.string "user_agent"
     t.datetime "created_at", null: false
+    t.datetime "ended_at"
+    t.uuid "impersonated_user_id", null: false
+    t.uuid "impersonator_id", null: false
+    t.string "ip_address"
+    t.string "reason"
+    t.string "session_token", null: false
+    t.datetime "started_at", null: false
     t.datetime "updated_at", null: false
+    t.string "user_agent"
     t.index ["ended_at"], name: "index_impersonation_sessions_on_ended_at"
     t.index ["impersonated_user_id"], name: "index_impersonation_sessions_on_impersonated_user"
     t.index ["impersonated_user_id"], name: "index_impersonation_sessions_on_impersonated_user_id"
@@ -2313,18 +2313,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "invitations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "accepted_at"
     t.uuid "account_id", null: false
-    t.uuid "inviter_id", null: false
+    t.datetime "created_at", null: false
     t.string "email", null: false
+    t.datetime "expires_at"
     t.string "first_name"
+    t.uuid "inviter_id", null: false
     t.string "last_name"
-    t.string "token", null: false
-    t.string "token_digest", null: false
     t.jsonb "role_names", default: ["member"]
     t.string "status", default: "pending"
-    t.datetime "expires_at"
-    t.datetime "accepted_at"
-    t.datetime "created_at", null: false
+    t.string "token", null: false
+    t.string "token_digest", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_invitations_on_account_id"
     t.index ["email", "account_id"], name: "index_invitations_on_email_account", unique: true
@@ -2337,17 +2337,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "invoice_line_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "invoice_id", null: false
-    t.uuid "plan_id"
-    t.string "description", null: false
-    t.string "line_type", default: "subscription", null: false
-    t.integer "quantity", default: 1, null: false
-    t.integer "unit_amount_cents", null: false
-    t.integer "total_amount_cents", null: false
-    t.datetime "period_start"
-    t.datetime "period_end"
-    t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
+    t.string "description", null: false
+    t.uuid "invoice_id", null: false
+    t.string "line_type", default: "subscription", null: false
+    t.jsonb "metadata", default: {}
+    t.datetime "period_end"
+    t.datetime "period_start"
+    t.uuid "plan_id"
+    t.integer "quantity", default: 1, null: false
+    t.integer "total_amount_cents", null: false
+    t.integer "unit_amount_cents", null: false
     t.datetime "updated_at", null: false
     t.index ["invoice_id"], name: "idx_invoice_line_items_on_invoice_id"
     t.index ["invoice_id"], name: "index_invoice_line_items_on_invoice_id"
@@ -2357,21 +2357,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "invoices", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "subscription_id"
+    t.datetime "created_at", null: false
+    t.string "currency", limit: 3, default: "usd", null: false
+    t.datetime "due_at"
     t.string "invoice_number", null: false
+    t.datetime "issued_at"
+    t.jsonb "metadata", default: {}
+    t.datetime "paid_at"
+    t.string "paypal_invoice_id", limit: 100
     t.string "status", limit: 50, null: false
+    t.string "stripe_invoice_id", limit: 100
+    t.uuid "subscription_id"
     t.integer "subtotal_cents", default: 0, null: false
     t.integer "tax_cents", default: 0, null: false
     t.decimal "tax_rate", precision: 5, scale: 4, default: "0.0"
     t.integer "total_cents", default: 0, null: false
-    t.string "currency", limit: 3, default: "usd", null: false
-    t.datetime "issued_at"
-    t.datetime "due_at"
-    t.datetime "paid_at"
-    t.string "stripe_invoice_id", limit: 100
-    t.string "paypal_invoice_id", limit: 100
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_invoices_on_account_id"
     t.index ["due_at"], name: "idx_invoices_on_due_at"
@@ -2388,14 +2388,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "jwt_blacklists", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "jti", limit: 100, null: false
-    t.datetime "expires_at", null: false
-    t.uuid "user_id"
-    t.string "reason", limit: 100
-    t.boolean "user_blacklist", default: false, null: false
-    t.text "metadata"
     t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "jti", limit: 100, null: false
+    t.text "metadata"
+    t.string "reason", limit: 100
     t.datetime "updated_at", null: false
+    t.boolean "user_blacklist", default: false, null: false
+    t.uuid "user_id"
     t.index ["expires_at"], name: "index_jwt_blacklists_on_expires_at"
     t.index ["jti", "expires_at"], name: "index_jwt_blacklists_on_jti_and_expires_at"
     t.index ["jti"], name: "index_jwt_blacklists_on_jti", unique: true
@@ -2404,8 +2404,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "knowledge_base_article_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "article_id", null: false
-    t.uuid "tag_id", null: false
     t.datetime "created_at", null: false
+    t.uuid "tag_id", null: false
     t.datetime "updated_at", null: false
     t.index ["article_id", "tag_id"], name: "index_kb_article_tags_unique", unique: true
     t.index ["tag_id"], name: "idx_kb_article_tags_on_tag_id"
@@ -2413,17 +2413,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "knowledge_base_article_views", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "article_id", null: false
-    t.uuid "user_id"
-    t.string "session_id", limit: 255
-    t.string "ip_address", limit: 45
-    t.string "user_agent", limit: 1000
-    t.string "referrer", limit: 1000
-    t.integer "reading_time_seconds"
-    t.boolean "read_to_end", default: false
-    t.jsonb "metadata", default: {}
-    t.datetime "viewed_at", null: false
     t.datetime "created_at", null: false
+    t.string "ip_address", limit: 45
+    t.jsonb "metadata", default: {}
+    t.boolean "read_to_end", default: false
+    t.integer "reading_time_seconds"
+    t.string "referrer", limit: 1000
+    t.string "session_id", limit: 255
     t.datetime "updated_at", null: false
+    t.string "user_agent", limit: 1000
+    t.uuid "user_id"
+    t.datetime "viewed_at", null: false
     t.index ["article_id", "viewed_at"], name: "idx_kb_article_views_on_article_viewed_at"
     t.index ["read_to_end"], name: "idx_kb_article_views_on_read_to_end"
     t.index ["session_id"], name: "idx_kb_article_views_on_session_id"
@@ -2434,32 +2434,32 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "knowledge_base_articles", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "category_id", null: false
     t.uuid "author_id", null: false
-    t.uuid "last_edited_by_id"
-    t.string "title", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
+    t.uuid "category_id", null: false
     t.text "content", null: false
+    t.datetime "created_at", null: false
     t.text "excerpt"
-    t.string "status", limit: 50, default: "draft"
+    t.integer "helpful_count", default: 0
+    t.decimal "helpfulness_score", precision: 5, scale: 2, default: "0.0"
     t.boolean "is_featured", default: false
     t.boolean "is_public", default: true
+    t.uuid "last_edited_by_id"
+    t.datetime "last_reviewed_at"
+    t.integer "likes_count", default: 0
+    t.text "meta_description"
+    t.string "meta_title", limit: 255
+    t.jsonb "metadata", default: {}
+    t.integer "not_helpful_count", default: 0
+    t.datetime "published_at"
+    t.integer "reading_time_minutes"
+    t.tsvector "search_vector"
+    t.string "slug", limit: 255, null: false
     t.integer "sort_order", default: 0
+    t.string "status", limit: 50, default: "draft"
+    t.string "title", limit: 255, null: false
+    t.datetime "updated_at", null: false
     t.integer "view_count", default: 0
     t.integer "views_count", default: 0
-    t.integer "likes_count", default: 0
-    t.integer "helpful_count", default: 0
-    t.integer "not_helpful_count", default: 0
-    t.decimal "helpfulness_score", precision: 5, scale: 2, default: "0.0"
-    t.integer "reading_time_minutes"
-    t.string "meta_title", limit: 255
-    t.text "meta_description"
-    t.datetime "published_at"
-    t.datetime "last_reviewed_at"
-    t.jsonb "metadata", default: {}
-    t.tsvector "search_vector"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
     t.index ["author_id"], name: "idx_knowledge_base_articles_on_author_id"
     t.index ["author_id"], name: "index_knowledge_base_articles_on_author_id"
     t.index ["category_id"], name: "idx_knowledge_base_articles_on_category_id"
@@ -2481,15 +2481,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "knowledge_base_attachments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "article_id", null: false
-    t.string "filename", limit: 255, null: false
-    t.string "file_path", limit: 1000
     t.string "content_type", limit: 100
-    t.bigint "file_size"
-    t.uuid "uploaded_by_id", null: false
-    t.integer "download_count", default: 0
-    t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
+    t.integer "download_count", default: 0
+    t.string "file_path", limit: 1000
+    t.bigint "file_size"
+    t.string "filename", limit: 255, null: false
+    t.jsonb "metadata", default: {}
     t.datetime "updated_at", null: false
+    t.uuid "uploaded_by_id", null: false
     t.index ["article_id"], name: "idx_kb_attachments_on_article_id"
     t.index ["download_count"], name: "idx_kb_attachments_on_download_count"
     t.index ["filename"], name: "idx_kb_attachments_on_filename"
@@ -2500,16 +2500,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "knowledge_base_categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
+    t.datetime "created_at", null: false
     t.text "description"
-    t.uuid "parent_id"
     t.string "icon", limit: 100
-    t.integer "sort_order", default: 0
     t.boolean "is_active", default: true
     t.boolean "is_public", default: true
     t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.string "name", limit: 255, null: false
+    t.uuid "parent_id"
+    t.string "slug", limit: 255, null: false
+    t.integer "sort_order", default: 0
     t.datetime "updated_at", null: false
     t.index ["is_active"], name: "idx_knowledge_base_categories_on_is_active"
     t.index ["is_public"], name: "idx_knowledge_base_categories_on_is_public"
@@ -2521,13 +2521,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   create_table "knowledge_base_comments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "article_id", null: false
     t.uuid "author_id", null: false
-    t.uuid "parent_id"
     t.text "content", null: false
-    t.string "status", limit: 50, default: "published"
-    t.boolean "is_helpful_vote", default: false
-    t.integer "helpful_count", default: 0
-    t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
+    t.integer "helpful_count", default: 0
+    t.boolean "is_helpful_vote", default: false
+    t.jsonb "metadata", default: {}
+    t.uuid "parent_id"
+    t.string "status", limit: 50, default: "published"
     t.datetime "updated_at", null: false
     t.index ["article_id", "status"], name: "idx_kb_comments_on_article_status"
     t.index ["author_id"], name: "idx_kb_comments_on_author_id"
@@ -2542,14 +2542,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "knowledge_base_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", limit: 100, null: false
-    t.string "slug", limit: 100, null: false
     t.string "color", limit: 7, default: "#6B7280"
+    t.datetime "created_at", null: false
     t.text "description"
     t.boolean "is_active", default: true
-    t.integer "usage_count", default: 0
-    t.datetime "created_at", null: false
+    t.string "name", limit: 100, null: false
+    t.string "slug", limit: 100, null: false
     t.datetime "updated_at", null: false
+    t.integer "usage_count", default: 0
     t.index ["is_active"], name: "idx_knowledge_base_tags_on_is_active"
     t.index ["name"], name: "idx_knowledge_base_tags_on_name_unique", unique: true
     t.index ["slug"], name: "idx_knowledge_base_tags_on_slug_unique", unique: true
@@ -2559,15 +2559,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "knowledge_base_workflows", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "article_id", null: false
-    t.uuid "user_id", null: false
     t.string "action", limit: 100, null: false
-    t.string "from_status", limit: 50
-    t.string "to_status", limit: 50
+    t.uuid "article_id", null: false
     t.text "comment"
-    t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
+    t.string "from_status", limit: 50
+    t.jsonb "metadata", default: {}
+    t.string "to_status", limit: 50
     t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
     t.index ["action"], name: "idx_kb_workflows_on_action"
     t.index ["article_id", "created_at"], name: "idx_kb_workflows_on_article_created_at"
     t.index ["created_at"], name: "idx_kb_workflows_on_created_at"
@@ -2579,13 +2579,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "marketplace_categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
+    t.datetime "created_at", null: false
     t.text "description"
     t.string "icon", limit: 100
-    t.integer "sort_order", default: 0
     t.boolean "is_active", default: true
-    t.datetime "created_at", null: false
+    t.string "name", limit: 255, null: false
+    t.string "slug", limit: 255, null: false
+    t.integer "sort_order", default: 0
     t.datetime "updated_at", null: false
     t.index ["is_active"], name: "idx_marketplace_categories_on_is_active"
     t.index ["slug"], name: "idx_marketplace_categories_on_slug_unique", unique: true
@@ -2593,20 +2593,20 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "marketplace_listings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "title", limit: 255, null: false
-    t.string "short_description", limit: 500
-    t.text "long_description"
     t.string "category", limit: 100
-    t.jsonb "tags", default: []
-    t.jsonb "screenshots", default: []
-    t.string "documentation_url", limit: 500
-    t.string "support_url", limit: 500
-    t.string "homepage_url", limit: 500
-    t.boolean "featured", default: false
-    t.string "review_status", limit: 50, default: "pending"
-    t.text "review_notes"
-    t.datetime "published_at", precision: nil
     t.datetime "created_at", null: false
+    t.string "documentation_url", limit: 500
+    t.boolean "featured", default: false
+    t.string "homepage_url", limit: 500
+    t.text "long_description"
+    t.datetime "published_at", precision: nil
+    t.text "review_notes"
+    t.string "review_status", limit: 50, default: "pending"
+    t.jsonb "screenshots", default: []
+    t.string "short_description", limit: 500
+    t.string "support_url", limit: 500
+    t.jsonb "tags", default: []
+    t.string "title", limit: 255, null: false
     t.datetime "updated_at", null: false
     t.index ["category"], name: "idx_marketplace_listings_on_category"
     t.index ["featured"], name: "idx_marketplace_listings_on_featured"
@@ -2616,18 +2616,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "marketplace_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "reviewable_type", null: false
-    t.uuid "reviewable_id", null: false
     t.uuid "account_id", null: false
-    t.uuid "user_id", null: false
-    t.integer "rating", null: false
-    t.string "title", limit: 255
     t.text "content"
-    t.boolean "verified_purchase", default: false, null: false
+    t.datetime "created_at", null: false
     t.integer "helpful_count", default: 0, null: false
     t.string "moderation_status", default: "approved", null: false
-    t.datetime "created_at", null: false
+    t.integer "rating", null: false
+    t.uuid "reviewable_id", null: false
+    t.string "reviewable_type", null: false
+    t.string "title", limit: 255
     t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.boolean "verified_purchase", default: false, null: false
     t.index ["account_id", "reviewable_type", "reviewable_id"], name: "idx_marketplace_reviews_unique_per_account", unique: true
     t.index ["account_id"], name: "index_marketplace_reviews_on_account_id"
     t.index ["moderation_status"], name: "index_marketplace_reviews_on_moderation_status"
@@ -2638,32 +2638,32 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "mcp_servers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.string "name", null: false
-    t.text "description"
-    t.string "status", default: "disconnected", null: false
-    t.string "connection_type", null: false
-    t.string "command"
     t.jsonb "args", default: []
-    t.jsonb "env", default: {}
-    t.jsonb "capabilities", default: {}
-    t.datetime "last_health_check"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
     t.string "auth_type", default: "none", null: false
-    t.string "oauth_provider"
+    t.jsonb "capabilities", default: {}
+    t.string "command"
+    t.string "connection_type", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.jsonb "env", default: {}
+    t.datetime "last_health_check"
+    t.string "name", null: false
+    t.text "oauth_access_token_encrypted"
+    t.string "oauth_authorization_url"
     t.string "oauth_client_id"
     t.text "oauth_client_secret_encrypted"
-    t.string "oauth_authorization_url"
-    t.string "oauth_token_url"
-    t.string "oauth_scopes"
-    t.text "oauth_access_token_encrypted"
+    t.text "oauth_error"
+    t.datetime "oauth_last_refreshed_at"
+    t.string "oauth_pkce_code_verifier"
+    t.string "oauth_provider"
     t.text "oauth_refresh_token_encrypted"
+    t.string "oauth_scopes"
+    t.string "oauth_state"
     t.datetime "oauth_token_expires_at"
     t.string "oauth_token_type", default: "Bearer"
-    t.string "oauth_pkce_code_verifier"
-    t.string "oauth_state"
-    t.datetime "oauth_last_refreshed_at"
-    t.text "oauth_error"
+    t.string "oauth_token_url"
+    t.string "status", default: "disconnected", null: false
+    t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "index_mcp_servers_on_account_id_and_status"
     t.index ["account_id"], name: "index_mcp_servers_on_account_id"
     t.index ["auth_type"], name: "index_mcp_servers_on_auth_type"
@@ -2673,18 +2673,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "mcp_tool_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "mcp_tool_id", null: false
-    t.uuid "user_id", null: false
-    t.string "status", null: false
-    t.jsonb "parameters", default: {}
-    t.jsonb "result", default: {}
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
     t.text "error_message"
     t.integer "execution_time_ms"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.uuid "mcp_tool_id", null: false
+    t.jsonb "parameters", default: {}
+    t.jsonb "result", default: {}
     t.datetime "started_at"
-    t.datetime "completed_at"
-    t.integer "duration_ms"
+    t.string "status", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
     t.index ["mcp_tool_id", "created_at"], name: "index_mcp_tool_executions_on_mcp_tool_id_and_created_at"
     t.index ["mcp_tool_id"], name: "index_mcp_tool_executions_on_mcp_tool_id"
     t.index ["user_id", "created_at"], name: "index_mcp_tool_executions_on_user_id_and_created_at"
@@ -2692,16 +2692,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "mcp_tools", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "allowed_scopes", default: {}, null: false, comment: "Allowed operation scopes (file_access, network, data, system, ai)"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.jsonb "input_schema", default: {}, null: false
     t.uuid "mcp_server_id", null: false
     t.string "name", null: false
-    t.text "description"
-    t.jsonb "input_schema", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.boolean "enabled", default: true, null: false
-    t.jsonb "required_permissions", default: [], null: false, comment: "Array of permission strings required to execute this tool"
     t.string "permission_level", default: "public", null: false, comment: "Permission level: public, account, admin"
-    t.jsonb "allowed_scopes", default: {}, null: false, comment: "Allowed operation scopes (file_access, network, data, system, ai)"
+    t.jsonb "required_permissions", default: [], null: false, comment: "Array of permission strings required to execute this tool"
+    t.datetime "updated_at", null: false
     t.index ["mcp_server_id", "name"], name: "index_mcp_tools_on_mcp_server_id_and_name"
     t.index ["mcp_server_id"], name: "index_mcp_tools_on_mcp_server_id"
     t.index ["permission_level"], name: "index_mcp_tools_on_permission_level"
@@ -2710,15 +2710,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "missing_payment_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.string "gateway", null: false
-    t.string "external_payment_id", null: false
     t.integer "amount_cents", null: false
-    t.string "currency", default: "usd", null: false
-    t.datetime "gateway_created_at"
-    t.datetime "detected_at", null: false
-    t.string "status", default: "pending"
-    t.jsonb "gateway_data", default: {}
     t.datetime "created_at", null: false
+    t.string "currency", default: "usd", null: false
+    t.datetime "detected_at", null: false
+    t.string "external_payment_id", null: false
+    t.string "gateway", null: false
+    t.datetime "gateway_created_at"
+    t.jsonb "gateway_data", default: {}
+    t.string "status", default: "pending"
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_missing_payment_logs_on_account_id"
     t.index ["detected_at"], name: "idx_missing_payment_logs_on_detected_at"
@@ -2729,21 +2729,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "notifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "user_id", null: false
-    t.string "notification_type", null: false
-    t.string "title", null: false
-    t.text "message", null: false
-    t.string "severity", default: "info", null: false
-    t.string "action_url"
     t.string "action_label"
-    t.string "icon"
+    t.string "action_url"
     t.string "category", default: "general"
-    t.json "metadata", default: {}
-    t.datetime "read_at"
+    t.datetime "created_at", null: false
     t.datetime "dismissed_at"
     t.datetime "expires_at"
-    t.datetime "created_at", null: false
+    t.string "icon"
+    t.text "message", null: false
+    t.json "metadata", default: {}
+    t.string "notification_type", null: false
+    t.datetime "read_at"
+    t.string "severity", default: "info", null: false
+    t.string "title", null: false
     t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
     t.index ["account_id", "created_at"], name: "index_notifications_on_account_id_and_created_at"
     t.index ["account_id"], name: "index_notifications_on_account_id"
     t.index ["category"], name: "index_notifications_on_category"
@@ -2755,32 +2755,32 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "oauth_access_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "resource_owner_id", null: false
     t.uuid "application_id", null: false
-    t.string "token", null: false
-    t.integer "expires_in", null: false
-    t.text "redirect_uri", null: false
-    t.string "scopes", default: "", null: false
-    t.datetime "created_at", null: false
-    t.datetime "revoked_at"
     t.string "code_challenge"
     t.string "code_challenge_method"
+    t.datetime "created_at", null: false
+    t.integer "expires_in", null: false
+    t.text "redirect_uri", null: false
+    t.uuid "resource_owner_id", null: false
+    t.datetime "revoked_at"
+    t.string "scopes", default: "", null: false
+    t.string "token", null: false
     t.index ["application_id"], name: "index_oauth_access_grants_on_application_id"
     t.index ["resource_owner_id"], name: "index_oauth_access_grants_on_resource_owner_id"
     t.index ["token"], name: "index_oauth_access_grants_on_token", unique: true
   end
 
   create_table "oauth_access_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "resource_owner_id"
     t.uuid "application_id"
-    t.string "token", null: false
-    t.string "refresh_token"
-    t.integer "expires_in"
-    t.string "scopes"
     t.datetime "created_at", null: false
-    t.datetime "revoked_at"
-    t.string "previous_refresh_token", default: "", null: false
     t.inet "created_from_ip"
+    t.integer "expires_in"
+    t.string "previous_refresh_token", default: "", null: false
+    t.string "refresh_token"
+    t.uuid "resource_owner_id"
+    t.datetime "revoked_at"
+    t.string "scopes"
+    t.string "token", null: false
     t.string "user_agent"
     t.index ["application_id", "created_at"], name: "index_oauth_access_tokens_on_application_id_and_created_at"
     t.index ["application_id"], name: "index_oauth_access_tokens_on_application_id"
@@ -2791,21 +2791,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "oauth_applications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "confidential", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "description"
+    t.boolean "machine_client", default: false, null: false
+    t.jsonb "metadata", default: {}
     t.string "name", null: false
-    t.string "uid", null: false
-    t.string "secret", null: false
+    t.uuid "owner_id"
+    t.string "owner_type"
+    t.string "rate_limit_tier", default: "standard"
     t.text "redirect_uri"
     t.string "scopes", default: "", null: false
-    t.boolean "confidential", default: true, null: false
-    t.string "owner_type"
-    t.uuid "owner_id"
-    t.string "description"
-    t.boolean "trusted", default: false, null: false
-    t.boolean "machine_client", default: false, null: false
+    t.string "secret", null: false
     t.string "status", default: "active", null: false
-    t.string "rate_limit_tier", default: "standard"
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.boolean "trusted", default: false, null: false
+    t.string "uid", null: false
     t.datetime "updated_at", null: false
     t.index ["owner_id"], name: "index_oauth_applications_on_owner_id"
     t.index ["owner_type", "owner_id"], name: "index_oauth_applications_on_owner"
@@ -2816,24 +2816,24 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "pages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "author_id"
-    t.string "title", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
     t.text "content"
-    t.text "rendered_content"
-    t.text "excerpt"
-    t.string "status", limit: 50, default: "draft"
-    t.boolean "is_public", default: false
-    t.string "meta_title", limit: 255
-    t.string "seo_title", limit: 255
-    t.text "meta_description"
-    t.text "seo_description"
-    t.text "meta_keywords"
-    t.integer "word_count"
+    t.datetime "created_at", null: false
     t.integer "estimated_read_time"
+    t.text "excerpt"
+    t.boolean "is_public", default: false
+    t.text "meta_description"
+    t.text "meta_keywords"
+    t.string "meta_title", limit: 255
     t.jsonb "metadata", default: {}
     t.datetime "published_at"
-    t.datetime "created_at", null: false
+    t.text "rendered_content"
+    t.text "seo_description"
+    t.string "seo_title", limit: 255
+    t.string "slug", limit: 255, null: false
+    t.string "status", limit: 50, default: "draft"
+    t.string "title", limit: 255, null: false
     t.datetime "updated_at", null: false
+    t.integer "word_count"
     t.index ["author_id"], name: "index_pages_on_author_id"
     t.index ["is_public"], name: "idx_pages_on_is_public"
     t.index ["published_at"], name: "idx_pages_on_published_at"
@@ -2843,27 +2843,27 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "password_histories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "user_id", null: false
-    t.string "password_digest", null: false
     t.datetime "created_at", null: false
+    t.string "password_digest", null: false
+    t.uuid "user_id", null: false
     t.index ["created_at"], name: "index_password_histories_on_created_at"
     t.index ["user_id"], name: "index_password_histories_on_user_id"
   end
 
   create_table "payment_methods", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.string "gateway", limit: 50, null: false
-    t.string "external_id", null: false
-    t.string "payment_type", limit: 50, null: false
-    t.string "last_four", limit: 4
     t.string "brand", limit: 50
+    t.string "cardholder_name"
+    t.datetime "created_at", null: false
     t.integer "exp_month"
     t.integer "exp_year"
-    t.string "cardholder_name"
-    t.boolean "is_default", default: false
+    t.string "external_id", null: false
+    t.string "gateway", limit: 50, null: false
     t.boolean "is_active", default: true
+    t.boolean "is_default", default: false
+    t.string "last_four", limit: 4
     t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.string "payment_type", limit: 50, null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "is_default"], name: "idx_payment_methods_on_account_default_unique", unique: true, where: "(is_default = true)"
     t.index ["account_id"], name: "index_payment_methods_on_account_id"
@@ -2875,22 +2875,22 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "payments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "subscription_id"
-    t.uuid "payment_method_id"
     t.integer "amount_cents", null: false
-    t.string "currency", limit: 3, default: "usd", null: false
-    t.string "status", limit: 50, null: false
-    t.string "gateway", limit: 50, null: false
-    t.string "external_id"
-    t.string "transaction_type", limit: 50
-    t.text "failure_reason"
-    t.datetime "processed_at"
-    t.datetime "failed_at"
-    t.jsonb "gateway_response", default: {}
-    t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.string "currency", limit: 3, default: "usd", null: false
+    t.string "external_id"
+    t.datetime "failed_at"
+    t.text "failure_reason"
+    t.string "gateway", limit: 50, null: false
+    t.jsonb "gateway_response", default: {}
     t.uuid "invoice_id"
+    t.jsonb "metadata", default: {}
+    t.uuid "payment_method_id"
+    t.datetime "processed_at"
+    t.string "status", limit: 50, null: false
+    t.uuid "subscription_id"
+    t.string "transaction_type", limit: 50
+    t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_payments_on_account_id"
     t.index ["gateway", "external_id"], name: "idx_payments_on_gateway_external_id_unique", unique: true, where: "(external_id IS NOT NULL)"
     t.index ["invoice_id"], name: "index_payments_on_invoice_id"
@@ -2905,12 +2905,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "permissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", limit: 100, null: false
-    t.string "resource", limit: 100
     t.string "action", limit: 100
     t.string "category", limit: 50, null: false
-    t.text "description"
     t.datetime "created_at", null: false
+    t.text "description"
+    t.string "name", limit: 100, null: false
+    t.string "resource", limit: 100
     t.datetime "updated_at", null: false
     t.index ["category"], name: "index_permissions_on_category"
     t.index ["name"], name: "index_permissions_on_name", unique: true
@@ -2919,34 +2919,34 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "plans", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", limit: 100, null: false
-    t.string "slug", limit: 100, null: false
-    t.text "description"
-    t.integer "price_cents", default: 0, null: false
-    t.string "billing_interval", limit: 20, default: "monthly", null: false
-    t.string "billing_cycle", limit: 20, default: "monthly", null: false
-    t.string "status", limit: 20, default: "active", null: false
-    t.integer "trial_period_days", default: 0
-    t.integer "trial_days", default: 0
     t.decimal "annual_discount_percent", precision: 5, scale: 2, default: "0.0"
-    t.decimal "promotional_discount_percent", precision: 5, scale: 2, default: "0.0"
-    t.string "promotional_discount_code"
-    t.datetime "promotional_discount_start"
-    t.datetime "promotional_discount_end"
+    t.string "billing_cycle", limit: 20, default: "monthly", null: false
+    t.string "billing_interval", limit: 20, default: "monthly", null: false
+    t.datetime "created_at", null: false
+    t.string "currency", limit: 3, default: "USD"
+    t.jsonb "default_roles", default: []
+    t.text "description"
+    t.jsonb "features", default: {}
+    t.boolean "has_annual_discount", default: false, null: false
+    t.boolean "has_promotional_discount", default: false, null: false
+    t.boolean "has_volume_discount", default: false, null: false
     t.boolean "is_active", default: true, null: false
     t.boolean "is_public", default: true, null: false
-    t.jsonb "features", default: {}
     t.jsonb "limits", default: {}
     t.jsonb "metadata", default: {}
-    t.jsonb "default_roles", default: []
-    t.jsonb "volume_discount_tiers", default: []
-    t.boolean "has_annual_discount", default: false, null: false
-    t.boolean "has_volume_discount", default: false, null: false
-    t.boolean "has_promotional_discount", default: false, null: false
+    t.string "name", limit: 100, null: false
     t.string "paypal_plan_id"
-    t.string "currency", limit: 3, default: "USD"
-    t.datetime "created_at", null: false
+    t.integer "price_cents", default: 0, null: false
+    t.string "promotional_discount_code"
+    t.datetime "promotional_discount_end"
+    t.decimal "promotional_discount_percent", precision: 5, scale: 2, default: "0.0"
+    t.datetime "promotional_discount_start"
+    t.string "slug", limit: 100, null: false
+    t.string "status", limit: 20, default: "active", null: false
+    t.integer "trial_days", default: 0
+    t.integer "trial_period_days", default: 0
     t.datetime "updated_at", null: false
+    t.jsonb "volume_discount_tiers", default: []
     t.index ["billing_interval"], name: "idx_plans_on_billing_interval"
     t.index ["is_active"], name: "idx_plans_on_is_active"
     t.index ["is_public"], name: "idx_plans_on_is_public"
@@ -2957,33 +2957,33 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "plugins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "creator_id", null: false
-    t.uuid "source_marketplace_id"
-    t.string "plugin_id", limit: 255, null: false
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
-    t.text "description"
-    t.string "version", limit: 20, null: false
     t.string "author", limit: 255
-    t.string "homepage", limit: 500
-    t.string "license", limit: 50
-    t.string "plugin_types", default: [], null: false, array: true
-    t.string "source_type", null: false
-    t.string "source_url", limit: 500
-    t.string "source_ref", limit: 255
-    t.string "status", default: "available", null: false
-    t.boolean "is_verified", default: false
-    t.boolean "is_official", default: false
-    t.jsonb "manifest", default: {}, null: false
+    t.decimal "average_rating", precision: 3, scale: 2
     t.jsonb "capabilities", default: [], null: false
     t.jsonb "configuration", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.integer "install_count", default: 0
-    t.integer "download_count", default: 0
-    t.decimal "average_rating", precision: 3, scale: 2
-    t.integer "rating_count", default: 0
     t.datetime "created_at", null: false
+    t.uuid "creator_id", null: false
+    t.text "description"
+    t.integer "download_count", default: 0
+    t.string "homepage", limit: 500
+    t.integer "install_count", default: 0
+    t.boolean "is_official", default: false
+    t.boolean "is_verified", default: false
+    t.string "license", limit: 50
+    t.jsonb "manifest", default: {}, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 255, null: false
+    t.string "plugin_id", limit: 255, null: false
+    t.string "plugin_types", default: [], null: false, array: true
+    t.integer "rating_count", default: 0
+    t.string "slug", limit: 255, null: false
+    t.uuid "source_marketplace_id"
+    t.string "source_ref", limit: 255
+    t.string "source_type", null: false
+    t.string "source_url", limit: 500
+    t.string "status", default: "available", null: false
     t.datetime "updated_at", null: false
+    t.string "version", limit: 20, null: false
     t.index ["account_id", "plugin_id"], name: "index_plugins_on_account_id_and_plugin_id", unique: true
     t.index ["account_id", "slug"], name: "index_plugins_on_account_id_and_slug", unique: true
     t.index ["account_id"], name: "index_plugins_on_account_id"
@@ -2998,18 +2998,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "reconciliation_flags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "reconciliation_report_id", null: false
-    t.string "flag_type", null: false
-    t.string "severity", default: "medium"
-    t.string "transaction_id"
-    t.text "description", null: false
     t.decimal "amount_cents", precision: 15, scale: 2
-    t.string "status", default: "open"
+    t.datetime "created_at", null: false
+    t.text "description", null: false
+    t.string "flag_type", null: false
+    t.jsonb "metadata", default: {}
+    t.uuid "reconciliation_report_id", null: false
+    t.text "resolution_notes"
     t.datetime "resolved_at"
     t.uuid "resolved_by_id"
-    t.text "resolution_notes"
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.string "severity", default: "medium"
+    t.string "status", default: "open"
+    t.string "transaction_id"
     t.datetime "updated_at", null: false
     t.index ["flag_type"], name: "idx_reconciliation_flags_on_flag_type"
     t.index ["reconciliation_report_id"], name: "idx_reconciliation_flags_on_reconciliation_report_id"
@@ -3024,14 +3024,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "reconciliation_investigations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "reconciliation_flag_id", null: false
-    t.uuid "investigator_id", null: false
-    t.string "status", default: "open"
-    t.text "notes"
-    t.datetime "started_at", null: false
     t.datetime "completed_at"
-    t.jsonb "findings", default: {}
     t.datetime "created_at", null: false
+    t.jsonb "findings", default: {}
+    t.uuid "investigator_id", null: false
+    t.text "notes"
+    t.uuid "reconciliation_flag_id", null: false
+    t.datetime "started_at", null: false
+    t.string "status", default: "open"
     t.datetime "updated_at", null: false
     t.index ["investigator_id"], name: "idx_reconciliation_investigations_on_investigator_id"
     t.index ["investigator_id"], name: "index_reconciliation_investigations_on_investigator_id"
@@ -3043,25 +3043,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "reconciliation_reports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "report_type", null: false
-    t.string "reconciliation_type", null: false
-    t.string "gateway", null: false
-    t.date "report_date", null: false
-    t.date "reconciliation_date", null: false
-    t.date "date_range_start", null: false
-    t.date "date_range_end", null: false
-    t.string "status", default: "pending"
-    t.integer "total_transactions", default: 0
-    t.integer "matched_transactions", default: 0
-    t.integer "unmatched_transactions", default: 0
-    t.integer "discrepancies_found", default: 0
-    t.integer "discrepancies_count", default: 0
-    t.integer "high_severity_count", default: 0
-    t.integer "medium_severity_count", default: 0
-    t.decimal "total_amount_cents", precision: 15, scale: 2, default: "0.0"
-    t.text "summary"
-    t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
+    t.date "date_range_end", null: false
+    t.date "date_range_start", null: false
+    t.integer "discrepancies_count", default: 0
+    t.integer "discrepancies_found", default: 0
+    t.string "gateway", null: false
+    t.integer "high_severity_count", default: 0
+    t.integer "matched_transactions", default: 0
+    t.integer "medium_severity_count", default: 0
+    t.jsonb "metadata", default: {}
+    t.date "reconciliation_date", null: false
+    t.string "reconciliation_type", null: false
+    t.date "report_date", null: false
+    t.string "report_type", null: false
+    t.string "status", default: "pending"
+    t.text "summary"
+    t.decimal "total_amount_cents", precision: 15, scale: 2, default: "0.0"
+    t.integer "total_transactions", default: 0
+    t.integer "unmatched_transactions", default: 0
     t.datetime "updated_at", null: false
     t.index ["gateway", "report_date", "report_type"], name: "idx_reconciliation_reports_on_gateway_date_type_unique", unique: true
     t.index ["report_date"], name: "idx_reconciliation_reports_on_report_date"
@@ -3074,17 +3074,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "report_requests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "requested_by_id", null: false
-    t.string "report_type", limit: 100, null: false
-    t.string "status", limit: 50, default: "pending", null: false
-    t.jsonb "parameters", default: {}
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.datetime "expires_at"
     t.string "file_path", limit: 1000
     t.integer "file_size_bytes"
+    t.jsonb "parameters", default: {}
+    t.string "report_type", limit: 100, null: false
     t.datetime "requested_at", null: false
-    t.datetime "completed_at"
-    t.datetime "expires_at"
-    t.text "error_message"
-    t.datetime "created_at", null: false
+    t.uuid "requested_by_id", null: false
+    t.string "status", limit: 50, default: "pending", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "report_type"], name: "idx_report_requests_on_account_report_type"
     t.index ["account_id"], name: "index_report_requests_on_account_id"
@@ -3098,26 +3098,26 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "revenue_snapshots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id"
-    t.date "snapshot_date", null: false
-    t.string "period_type", limit: 20, null: false
-    t.integer "mrr_cents", default: 0
-    t.integer "arr_cents", default: 0
-    t.integer "total_revenue_cents", default: 0
-    t.integer "new_revenue_cents", default: 0
-    t.integer "churned_revenue_cents", default: 0
     t.integer "active_subscriptions", default: 0
-    t.integer "new_subscriptions", default: 0
-    t.integer "churned_subscriptions", default: 0
-    t.integer "total_customers_count", default: 0
-    t.integer "new_customers_count", default: 0
-    t.integer "churned_customers_count", default: 0
     t.integer "arpu_cents", default: 0
-    t.integer "ltv_cents", default: 0
-    t.decimal "growth_rate_percentage", precision: 5, scale: 2, default: "0.0"
-    t.decimal "customer_churn_rate_percentage", precision: 5, scale: 2, default: "0.0"
-    t.decimal "revenue_churn_rate_percentage", precision: 5, scale: 2, default: "0.0"
-    t.jsonb "metadata", default: {}
+    t.integer "arr_cents", default: 0
+    t.integer "churned_customers_count", default: 0
+    t.integer "churned_revenue_cents", default: 0
+    t.integer "churned_subscriptions", default: 0
     t.datetime "created_at", null: false
+    t.decimal "customer_churn_rate_percentage", precision: 5, scale: 2, default: "0.0"
+    t.decimal "growth_rate_percentage", precision: 5, scale: 2, default: "0.0"
+    t.integer "ltv_cents", default: 0
+    t.jsonb "metadata", default: {}
+    t.integer "mrr_cents", default: 0
+    t.integer "new_customers_count", default: 0
+    t.integer "new_revenue_cents", default: 0
+    t.integer "new_subscriptions", default: 0
+    t.string "period_type", limit: 20, null: false
+    t.decimal "revenue_churn_rate_percentage", precision: 5, scale: 2, default: "0.0"
+    t.date "snapshot_date", null: false
+    t.integer "total_customers_count", default: 0
+    t.integer "total_revenue_cents", default: 0
     t.datetime "updated_at", null: false
     t.index ["account_id", "snapshot_date", "period_type"], name: "index_revenue_snapshots_unique", unique: true
     t.index ["account_id"], name: "index_revenue_snapshots_on_account_id"
@@ -3127,25 +3127,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "review_aggregation_cache", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "average_features_rating", precision: 3, scale: 2
+    t.decimal "average_quality_score", precision: 5, scale: 2
     t.decimal "average_rating", precision: 3, scale: 2, default: "0.0"
-    t.integer "total_reviews", default: 0
+    t.decimal "average_support_rating", precision: 3, scale: 2
+    t.decimal "average_usability_rating", precision: 3, scale: 2
+    t.decimal "average_value_rating", precision: 3, scale: 2
+    t.datetime "created_at", null: false
     t.integer "five_star_count", default: 0
     t.integer "four_star_count", default: 0
-    t.integer "three_star_count", default: 0
-    t.integer "two_star_count", default: 0
+    t.datetime "last_calculated_at", null: false
     t.integer "one_star_count", default: 0
-    t.decimal "average_usability_rating", precision: 3, scale: 2
-    t.decimal "average_features_rating", precision: 3, scale: 2
-    t.decimal "average_support_rating", precision: 3, scale: 2
-    t.decimal "average_value_rating", precision: 3, scale: 2
-    t.integer "verified_reviews_count", default: 0
-    t.decimal "average_quality_score", precision: 5, scale: 2
-    t.integer "total_helpful_votes", default: 0
     t.integer "response_count", default: 0
     t.decimal "response_rate", precision: 5, scale: 2, default: "0.0"
-    t.datetime "last_calculated_at", null: false
-    t.datetime "created_at", null: false
+    t.integer "three_star_count", default: 0
+    t.integer "total_helpful_votes", default: 0
+    t.integer "total_reviews", default: 0
+    t.integer "two_star_count", default: 0
     t.datetime "updated_at", null: false
+    t.integer "verified_reviews_count", default: 0
     t.index ["average_rating"], name: "idx_review_aggregation_cache_on_average_rating"
     t.index ["last_calculated_at"], name: "idx_review_aggregation_cache_on_last_calculated_at"
     t.index ["total_reviews"], name: "idx_review_aggregation_cache_on_total_reviews"
@@ -3156,9 +3156,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "role_permissions", id: false, force: :cascade do |t|
-    t.uuid "role_id", null: false
-    t.uuid "permission_id", null: false
     t.datetime "granted_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.uuid "permission_id", null: false
+    t.uuid "role_id", null: false
     t.index ["permission_id"], name: "index_role_permissions_on_permission_id"
     t.index ["permission_id"], name: "index_role_perms_on_permission"
     t.index ["role_id", "permission_id"], name: "index_role_perms_unique", unique: true
@@ -3166,31 +3166,31 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "roles", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", limit: 100, null: false
-    t.string "display_name", limit: 100
-    t.text "description"
-    t.string "role_type", limit: 20
-    t.boolean "is_system", default: false, null: false
-    t.boolean "immutable", default: false, null: false
     t.datetime "created_at", null: false
+    t.text "description"
+    t.string "display_name", limit: 100
+    t.boolean "immutable", default: false, null: false
+    t.boolean "is_system", default: false, null: false
+    t.string "name", limit: 100, null: false
+    t.string "role_type", limit: 20
     t.datetime "updated_at", null: false
     t.index ["name"], name: "index_roles_on_name", unique: true
   end
 
   create_table "scheduled_reports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
     t.uuid "created_by_id", null: false
-    t.string "name", limit: 255, null: false
-    t.string "report_type", limit: 100, null: false
-    t.string "frequency", limit: 50, null: false
     t.string "format", limit: 20, default: "pdf", null: false
-    t.jsonb "parameters", default: {}
-    t.jsonb "recipients", default: []
+    t.string "frequency", limit: 50, null: false
     t.boolean "is_active", default: true
-    t.datetime "next_run_at"
     t.datetime "last_run_at"
     t.string "last_status", limit: 50
-    t.datetime "created_at", null: false
+    t.string "name", limit: 255, null: false
+    t.datetime "next_run_at"
+    t.jsonb "parameters", default: {}
+    t.jsonb "recipients", default: []
+    t.string "report_type", limit: 100, null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "report_type"], name: "idx_scheduled_reports_on_account_report_type"
     t.index ["account_id"], name: "index_scheduled_reports_on_account_id"
@@ -3202,19 +3202,19 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "scheduled_tasks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", limit: 255, null: false
-    t.string "task_type", limit: 100, null: false
+    t.datetime "created_at", null: false
     t.string "cron_expression", limit: 100
+    t.integer "failure_count", default: 0
     t.integer "interval_seconds"
     t.boolean "is_active", default: true
-    t.jsonb "parameters", default: {}
-    t.datetime "next_run_at"
+    t.text "last_error_message"
     t.datetime "last_run_at"
     t.string "last_status", limit: 50
-    t.text "last_error_message"
+    t.string "name", limit: 255, null: false
+    t.datetime "next_run_at"
+    t.jsonb "parameters", default: {}
     t.integer "success_count", default: 0
-    t.integer "failure_count", default: 0
-    t.datetime "created_at", null: false
+    t.string "task_type", limit: 100, null: false
     t.datetime "updated_at", null: false
     t.index ["is_active"], name: "idx_scheduled_tasks_on_is_active"
     t.index ["last_run_at"], name: "idx_scheduled_tasks_on_last_run_at"
@@ -3225,28 +3225,28 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "shared_prompt_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "created_by_id"
-    t.string "name", null: false
-    t.string "slug", null: false
     t.string "category", null: false
-    t.string "domain", default: "general", null: false
-    t.text "description"
     t.text "content", null: false
-    t.jsonb "variables", default: [], null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.integer "version", default: 1, null: false
-    t.uuid "parent_template_id"
-    t.boolean "is_active", default: true, null: false
-    t.boolean "is_system", default: false, null: false
     t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.string "domain", default: "general", null: false
+    t.boolean "is_active", default: true, null: false
     t.boolean "is_marketplace_published", default: false
-    t.string "marketplace_status"
-    t.datetime "marketplace_submitted_at"
+    t.boolean "is_system", default: false, null: false
     t.datetime "marketplace_approved_at"
     t.text "marketplace_rejection_reason"
+    t.string "marketplace_status"
+    t.datetime "marketplace_submitted_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.uuid "parent_template_id"
     t.decimal "rating", precision: 3, scale: 2, default: "0.0"
     t.integer "rating_count", default: 0
+    t.string "slug", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "variables", default: [], null: false
+    t.integer "version", default: 1, null: false
     t.index ["account_id", "category"], name: "index_shared_prompt_templates_on_account_id_and_category"
     t.index ["account_id", "domain"], name: "index_shared_prompt_templates_on_account_id_and_domain"
     t.index ["account_id", "slug"], name: "index_shared_prompt_templates_on_account_id_and_slug", unique: true
@@ -3257,14 +3257,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "site_settings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "key", limit: 255, null: false
-    t.text "value"
-    t.string "setting_type", limit: 50, default: "string"
-    t.text "description"
-    t.boolean "is_public", default: true
     t.string "category", limit: 100
     t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "is_public", default: true
+    t.string "key", limit: 255, null: false
+    t.string "setting_type", limit: 50, default: "string"
     t.datetime "updated_at", null: false
+    t.text "value"
     t.index ["category"], name: "idx_site_settings_on_category"
     t.index ["is_public"], name: "idx_site_settings_on_is_public"
     t.index ["key"], name: "idx_site_settings_on_key_unique", unique: true
@@ -3274,21 +3274,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.datetime "canceled_at"
+    t.datetime "created_at", null: false
+    t.datetime "current_period_end"
+    t.datetime "current_period_start"
+    t.datetime "ended_at"
+    t.jsonb "metadata", default: {}
+    t.string "paypal_agreement_id"
+    t.string "paypal_plan_id"
+    t.string "paypal_subscription_id", limit: 100
     t.uuid "plan_id", null: false
     t.integer "quantity", default: 1, null: false
     t.string "status", limit: 50, null: false
-    t.datetime "current_period_start"
-    t.datetime "current_period_end"
-    t.datetime "trial_start"
-    t.datetime "trial_end"
-    t.datetime "canceled_at"
-    t.datetime "ended_at"
     t.string "stripe_subscription_id", limit: 100
-    t.string "paypal_subscription_id", limit: 100
-    t.string "paypal_agreement_id"
-    t.string "paypal_plan_id"
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.datetime "trial_end"
+    t.datetime "trial_start"
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_subscriptions_on_account_id"
     t.index ["current_period_end"], name: "idx_subscriptions_on_current_period_end"
@@ -3302,12 +3302,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "system_health_checks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "check_name", limit: 100, null: false
-    t.string "status", limit: 50, null: false
-    t.text "message"
-    t.integer "response_time_ms"
-    t.jsonb "details", default: {}
     t.datetime "checked_at", null: false
     t.datetime "created_at", null: false
+    t.jsonb "details", default: {}
+    t.text "message"
+    t.integer "response_time_ms"
+    t.string "status", limit: 50, null: false
     t.datetime "updated_at", null: false
     t.index ["check_name", "checked_at"], name: "idx_system_health_checks_on_name_checked_at"
     t.index ["checked_at"], name: "idx_system_health_checks_on_checked_at"
@@ -3316,17 +3316,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "system_operations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.integer "duration_ms"
+    t.text "error_message"
     t.uuid "initiated_by_id"
     t.string "operation_type", limit: 100, null: false
-    t.string "status", limit: 50, default: "pending", null: false
-    t.text "description"
     t.jsonb "parameters", default: {}
     t.jsonb "result", default: {}
-    t.text "error_message"
     t.datetime "started_at", null: false
-    t.datetime "completed_at"
-    t.integer "duration_ms"
-    t.datetime "created_at", null: false
+    t.string "status", limit: 50, default: "pending", null: false
     t.datetime "updated_at", null: false
     t.index ["completed_at"], name: "idx_system_operations_on_completed_at"
     t.index ["initiated_by_id"], name: "idx_system_operations_on_initiated_by_id"
@@ -3338,15 +3338,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "task_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "scheduled_task_id", null: false
-    t.string "status", limit: 50, null: false
-    t.datetime "started_at", null: false
     t.datetime "completed_at"
+    t.datetime "created_at", null: false
     t.integer "duration_ms"
-    t.jsonb "result", default: {}
     t.text "error_message"
     t.text "log_output"
-    t.datetime "created_at", null: false
+    t.jsonb "result", default: {}
+    t.uuid "scheduled_task_id", null: false
+    t.datetime "started_at", null: false
+    t.string "status", limit: 50, null: false
     t.datetime "updated_at", null: false
     t.index ["scheduled_task_id", "started_at"], name: "idx_task_executions_on_scheduled_task_started_at"
     t.index ["scheduled_task_id"], name: "index_task_executions_on_scheduled_task_id"
@@ -3356,18 +3356,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "terms_acceptances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "user_id", null: false
+    t.datetime "accepted_at", null: false
     t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.string "document_hash"
     t.string "document_type", null: false
     t.string "document_version", null: false
-    t.string "document_hash"
     t.string "ip_address"
-    t.string "user_agent"
-    t.datetime "accepted_at", null: false
-    t.datetime "superseded_at"
     t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.datetime "superseded_at"
     t.datetime "updated_at", null: false
+    t.string "user_agent"
+    t.uuid "user_id", null: false
     t.index ["account_id"], name: "index_terms_acceptances_on_account_id"
     t.index ["document_type"], name: "index_terms_acceptances_on_document_type"
     t.index ["document_version"], name: "index_terms_acceptances_on_document_version"
@@ -3377,21 +3377,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "user_consents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "user_id", null: false
     t.uuid "account_id", null: false
-    t.string "consent_type", null: false
-    t.boolean "granted", default: false, null: false
-    t.string "version"
-    t.text "consent_text"
     t.string "collection_method", null: false
-    t.string "ip_address"
-    t.string "user_agent"
-    t.datetime "granted_at"
-    t.datetime "withdrawn_at"
-    t.datetime "expires_at"
-    t.jsonb "metadata", default: {}
+    t.text "consent_text"
+    t.string "consent_type", null: false
     t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.boolean "granted", default: false, null: false
+    t.datetime "granted_at"
+    t.string "ip_address"
+    t.jsonb "metadata", default: {}
     t.datetime "updated_at", null: false
+    t.string "user_agent"
+    t.uuid "user_id", null: false
+    t.string "version"
+    t.datetime "withdrawn_at"
     t.index ["account_id", "consent_type"], name: "index_user_consents_on_account_id_and_consent_type"
     t.index ["account_id"], name: "index_user_consents_on_account_id"
     t.index ["consent_type"], name: "index_user_consents_on_consent_type"
@@ -3402,10 +3402,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "user_roles", id: false, force: :cascade do |t|
-    t.uuid "user_id", null: false
-    t.uuid "role_id", null: false
-    t.uuid "granted_by_id"
     t.datetime "granted_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.uuid "granted_by_id"
+    t.uuid "role_id", null: false
+    t.uuid "user_id", null: false
     t.index ["granted_by_id"], name: "index_user_roles_on_granted_by"
     t.index ["granted_by_id"], name: "index_user_roles_on_granted_by_id"
     t.index ["role_id"], name: "index_user_roles_on_role"
@@ -3415,22 +3415,22 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "user_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "user_id", null: false
-    t.string "token_digest", limit: 128, null: false
-    t.string "token_type", limit: 20, default: "access", null: false
-    t.string "name", limit: 100
-    t.text "permissions"
-    t.string "scopes", limit: 500
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
     t.datetime "last_used_at"
     t.inet "last_used_ip"
-    t.string "user_agent", limit: 500
-    t.datetime "expires_at"
+    t.jsonb "metadata", default: {}
+    t.string "name", limit: 100
+    t.text "permissions"
     t.boolean "revoked", default: false
     t.datetime "revoked_at"
     t.string "revoked_reason", limit: 100
-    t.jsonb "metadata", default: {}
-    t.datetime "created_at", null: false
+    t.string "scopes", limit: 500
+    t.string "token_digest", limit: 128, null: false
+    t.string "token_type", limit: 20, default: "access", null: false
     t.datetime "updated_at", null: false
+    t.string "user_agent", limit: 500
+    t.uuid "user_id", null: false
     t.index ["created_at"], name: "idx_user_tokens_on_created_at"
     t.index ["expires_at"], name: "idx_user_tokens_on_expires_at"
     t.index ["last_used_at"], name: "idx_user_tokens_on_last_used_at"
@@ -3447,31 +3447,31 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.text "backup_codes"
+    t.datetime "created_at", null: false
     t.string "email", limit: 255, null: false
-    t.string "password_digest", null: false
-    t.string "status", limit: 20, default: "active", null: false
-    t.boolean "email_verified", default: false, null: false
-    t.datetime "email_verified_at"
+    t.datetime "email_verification_sent_at"
     t.string "email_verification_token", limit: 255
     t.datetime "email_verification_token_expires_at"
-    t.datetime "email_verification_sent_at"
+    t.boolean "email_verified", default: false, null: false
+    t.datetime "email_verified_at"
     t.integer "failed_login_attempts", default: 0, null: false
-    t.datetime "locked_until"
-    t.datetime "password_changed_at"
     t.datetime "last_login_at"
     t.string "last_login_ip", limit: 45
+    t.datetime "locked_until"
+    t.string "name", default: "", null: false
+    t.text "notification_preferences"
+    t.datetime "password_changed_at"
+    t.string "password_digest", null: false
+    t.text "preferences"
     t.string "reset_token_digest"
     t.datetime "reset_token_expires_at"
-    t.text "preferences"
-    t.text "notification_preferences"
-    t.boolean "two_factor_enabled", default: false, null: false
-    t.string "two_factor_secret"
-    t.text "backup_codes"
+    t.string "status", limit: 20, default: "active", null: false
     t.datetime "two_factor_backup_codes_generated_at"
+    t.boolean "two_factor_enabled", default: false, null: false
     t.datetime "two_factor_enabled_at"
-    t.datetime "created_at", null: false
+    t.string "two_factor_secret"
     t.datetime "updated_at", null: false
-    t.string "name", default: "", null: false
     t.index ["account_id"], name: "index_users_on_account_id"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["email_verification_token"], name: "index_users_on_email_verification_token", unique: true, where: "(email_verification_token IS NOT NULL)"
@@ -3481,33 +3481,33 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "validation_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "name", null: false
-    t.text "description"
-    t.string "category", null: false
-    t.string "severity", default: "warning", null: false
-    t.boolean "enabled", default: true
     t.boolean "auto_fixable", default: false
+    t.string "category", null: false
     t.jsonb "configuration", default: {}
     t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true
+    t.string "name", null: false
+    t.string "severity", default: "warning", null: false
     t.datetime "updated_at", null: false
     t.index ["category", "enabled"], name: "index_validation_rules_on_category_and_enabled"
     t.index ["severity"], name: "index_validation_rules_on_severity"
   end
 
   create_table "webhook_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "webhook_endpoint_id", null: false
-    t.uuid "webhook_event_id", null: false
-    t.string "status", default: "pending"
     t.integer "attempt_number", default: 1
-    t.integer "response_status"
-    t.text "response_body"
-    t.text "error_message"
     t.datetime "attempted_at"
+    t.datetime "created_at", null: false
+    t.text "error_message"
     t.datetime "next_retry_at"
     t.jsonb "request_headers", default: {}
+    t.text "response_body"
     t.jsonb "response_headers", default: {}
-    t.datetime "created_at", null: false
+    t.integer "response_status"
+    t.string "status", default: "pending"
     t.datetime "updated_at", null: false
+    t.uuid "webhook_endpoint_id", null: false
+    t.uuid "webhook_event_id", null: false
     t.index ["attempted_at"], name: "idx_webhook_deliveries_on_attempted_at"
     t.index ["next_retry_at"], name: "idx_webhook_deliveries_on_next_retry_at"
     t.index ["status"], name: "idx_webhook_deliveries_on_status"
@@ -3521,25 +3521,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "webhook_endpoints", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "created_by_id"
-    t.string "url", limit: 1000, null: false
-    t.string "description", limit: 500
-    t.string "status", limit: 20, default: "active", null: false
-    t.boolean "is_active", default: true
-    t.string "secret_key"
     t.string "content_type", limit: 100, default: "application/json", null: false
-    t.integer "timeout_seconds", default: 30, null: false
-    t.integer "retry_limit", default: 3, null: false
-    t.string "retry_backoff", limit: 20, default: "exponential", null: false
-    t.integer "max_retries", default: 3
-    t.jsonb "event_types", default: []
-    t.jsonb "headers", default: {}
-    t.integer "success_count", default: 0, null: false
-    t.integer "failure_count", default: 0, null: false
-    t.datetime "last_delivery_at", precision: nil
-    t.jsonb "metadata", default: {}
     t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.string "description", limit: 500
+    t.jsonb "event_types", default: []
+    t.integer "failure_count", default: 0, null: false
+    t.jsonb "headers", default: {}
+    t.boolean "is_active", default: true
+    t.datetime "last_delivery_at", precision: nil
+    t.integer "max_retries", default: 3
+    t.jsonb "metadata", default: {}
+    t.string "retry_backoff", limit: 20, default: "exponential", null: false
+    t.integer "retry_limit", default: 3, null: false
+    t.string "secret_key"
+    t.string "status", limit: 20, default: "active", null: false
+    t.integer "success_count", default: 0, null: false
+    t.integer "timeout_seconds", default: 30, null: false
     t.datetime "updated_at", null: false
+    t.string "url", limit: 1000, null: false
     t.index ["account_id"], name: "idx_webhook_endpoints_on_account_id"
     t.index ["account_id"], name: "index_webhook_endpoints_on_account_id"
     t.index ["content_type"], name: "idx_webhook_endpoints_on_content_type"
@@ -3561,19 +3561,19 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "webhook_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id"
-    t.uuid "payment_id"
-    t.string "provider", null: false
-    t.string "event_type", null: false
-    t.string "event_id", null: false
-    t.string "external_id", null: false
-    t.jsonb "payload", default: {}
-    t.datetime "occurred_at", null: false
-    t.string "status", default: "pending"
-    t.integer "retry_count", default: 0, null: false
-    t.text "error_message"
-    t.text "metadata"
-    t.datetime "processed_at"
     t.datetime "created_at", null: false
+    t.text "error_message"
+    t.string "event_id", null: false
+    t.string "event_type", null: false
+    t.string "external_id", null: false
+    t.text "metadata"
+    t.datetime "occurred_at", null: false
+    t.jsonb "payload", default: {}
+    t.uuid "payment_id"
+    t.datetime "processed_at"
+    t.string "provider", null: false
+    t.integer "retry_count", default: 0, null: false
+    t.string "status", default: "pending"
     t.datetime "updated_at", null: false
     t.index ["account_id", "event_type"], name: "idx_webhook_events_on_account_event_type"
     t.index ["account_id"], name: "index_webhook_events_on_account_id"
@@ -3590,13 +3590,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "worker_activities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "worker_id", null: false
     t.string "activity_type", limit: 100, null: false
-    t.string "status", limit: 50
+    t.datetime "created_at", null: false
     t.jsonb "details", default: {}
     t.datetime "occurred_at", null: false
-    t.datetime "created_at", null: false
+    t.string "status", limit: 50
     t.datetime "updated_at", null: false
+    t.uuid "worker_id", null: false
     t.index ["activity_type"], name: "idx_worker_activities_on_activity_type"
     t.index ["occurred_at"], name: "idx_worker_activities_on_occurred_at"
     t.index ["worker_id", "occurred_at"], name: "idx_worker_activities_on_worker_occurred_at"
@@ -3604,9 +3604,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "worker_roles", id: false, force: :cascade do |t|
-    t.uuid "worker_id", null: false
-    t.uuid "role_id", null: false
     t.datetime "granted_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.uuid "role_id", null: false
+    t.uuid "worker_id", null: false
     t.index ["role_id"], name: "index_worker_roles_on_role"
     t.index ["role_id"], name: "index_worker_roles_on_role_id"
     t.index ["worker_id", "role_id"], name: "index_worker_roles_unique", unique: true
@@ -3615,15 +3615,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
 
   create_table "workers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id"
-    t.string "name", null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
     t.text "description"
+    t.datetime "last_seen_at"
+    t.string "name", null: false
+    t.jsonb "permissions", default: []
     t.string "status", default: "active"
     t.string "token_digest"
-    t.jsonb "permissions", default: []
-    t.datetime "last_seen_at"
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.jsonb "config", default: {}, null: false
     t.index ["account_id"], name: "index_workers_on_account_id"
     t.index ["name"], name: "index_workers_on_name", unique: true
     t.index ["permissions"], name: "index_workers_on_permissions", using: :gin
@@ -3631,14 +3631,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "workflow_node_plugins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "plugin_id", null: false
-    t.string "node_type", null: false
-    t.string "node_category", null: false
-    t.jsonb "input_schema", default: {}, null: false
-    t.jsonb "output_schema", default: {}, null: false
     t.jsonb "configuration_schema", default: {}, null: false
-    t.jsonb "ui_configuration", default: {}, null: false
     t.datetime "created_at", null: false
+    t.jsonb "input_schema", default: {}, null: false
+    t.string "node_category", null: false
+    t.string "node_type", null: false
+    t.jsonb "output_schema", default: {}, null: false
+    t.uuid "plugin_id", null: false
+    t.jsonb "ui_configuration", default: {}, null: false
     t.datetime "updated_at", null: false
     t.index ["node_category"], name: "index_workflow_node_plugins_on_node_category"
     t.index ["node_type"], name: "index_workflow_node_plugins_on_node_type"
@@ -3646,15 +3646,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_11_075737) do
   end
 
   create_table "workflow_validations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "workflow_id", null: false
-    t.string "overall_status", null: false
-    t.integer "health_score", null: false
-    t.integer "total_nodes", null: false
-    t.integer "validated_nodes", null: false
-    t.jsonb "issues", default: [], null: false
-    t.integer "validation_duration_ms"
     t.datetime "created_at", null: false
+    t.integer "health_score", null: false
+    t.jsonb "issues", default: [], null: false
+    t.string "overall_status", null: false
+    t.integer "total_nodes", null: false
     t.datetime "updated_at", null: false
+    t.integer "validated_nodes", null: false
+    t.integer "validation_duration_ms"
+    t.uuid "workflow_id", null: false
     t.index ["workflow_id", "created_at"], name: "index_workflow_validations_on_workflow_id_and_created_at"
     t.index ["workflow_id"], name: "index_workflow_validations_on_workflow_id"
   end

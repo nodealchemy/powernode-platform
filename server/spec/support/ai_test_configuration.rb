@@ -167,7 +167,7 @@ RSpec.configure do |config|
     # Clean up any test data that might persist between tests
     if defined?(@test_account)
       Ai::AgentExecution.where(account: @test_account).delete_all
-      AiMessage.where(account: @test_account).delete_all
+      Ai::Message.where(account: @test_account).delete_all
       Ai::Conversation.where(account: @test_account).delete_all
       Ai::Agent.where(account: @test_account).delete_all
       Ai::ProviderCredential.where(account: @test_account).delete_all
@@ -313,7 +313,7 @@ class AiTestDataGenerator
 
         messages_per_day.times do |i|
           messages << {
-            ai_conversation: conversation,
+            conversation: conversation,
             account: conversation.account,
             sender_type: i.even? ? 'user' : 'ai',
             sender_id: i.even? ? conversation.account.users.first&.id : nil,
@@ -323,7 +323,7 @@ class AiTestDataGenerator
         end
       end
 
-      AiMessage.create!(messages)
+      Ai::Message.create!(messages)
     end
 
     def generate_execution_history(agent, days_back: 30, executions_per_day: 3)
