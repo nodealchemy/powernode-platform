@@ -18,11 +18,11 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
       timestamp: Time.current.iso8601
     })
 
-    Rails.logger.info "[AiWorkflowOrchestrationChannel] User #{current_user.id} subscribed to account #{current_user.account_id}"
+    Rails.logger.info "[Ai::WorkflowOrchestrationChannel] User #{current_user.id} subscribed to account #{current_user.account_id}"
   end
 
   def unsubscribed
-    Rails.logger.info "[AiWorkflowOrchestrationChannel] User #{current_user&.id} unsubscribed"
+    Rails.logger.info "[Ai::WorkflowOrchestrationChannel] User #{current_user&.id} unsubscribed"
   end
 
   # Create workflow
@@ -33,7 +33,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
     nodes = data["nodes"] || []
     edges = data["edges"] || []
 
-    workflow = AiWorkflow.create!(
+    workflow = Ai::Workflow.create!(
       account: current_user.account,
       created_by_user: current_user,
       name: workflow_params["name"],
@@ -74,7 +74,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
   def update_workflow(data)
     return transmit_error("Missing workflow_id") unless data["workflow_id"]
 
-    workflow = AiWorkflow.find(data["workflow_id"])
+    workflow = Ai::Workflow.find(data["workflow_id"])
     return transmit_error("Workflow not found") unless workflow
     return transmit_error("Unauthorized") unless workflow.account_id == current_user.account_id
 
@@ -101,7 +101,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
   def execute_workflow(data)
     return transmit_error("Missing workflow_id") unless data["workflow_id"]
 
-    workflow = AiWorkflow.find(data["workflow_id"])
+    workflow = Ai::Workflow.find(data["workflow_id"])
     return transmit_error("Workflow not found") unless workflow
     return transmit_error("Unauthorized") unless workflow.account_id == current_user.account_id
 

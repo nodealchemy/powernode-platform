@@ -201,7 +201,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
     end
 
     context 'when accessing another account\'s provider' do
-      let(:other_provider) { create(:provider) }
+      let(:other_provider) { create(:ai_provider) }
       before { sign_in provider_read_user }
 
       it 'returns not found error' do

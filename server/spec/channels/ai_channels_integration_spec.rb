@@ -349,15 +349,17 @@ RSpec.describe 'AI Channels Integration', type: :integration do
   private
 
   def subscribe_to_channel(channel_class, user, params = {})
-    channel = channel_class.new(
-      ActionCable.server.pubsub,
-      {}
-    )
+    # Create a proper connection stub for ActionCable testing
+    connection = ActionCable::Channel::ConnectionStub.new(identifiers: [:current_user])
 
-    # Stub the connection
-    connection = instance_double(ActionCable::Connection::Base, current_user: user)
-    allow(channel).to receive(:connection).and_return(connection)
-    allow(channel).to receive(:current_user).and_return(user)
+    # Define current_user getter/setter on the connection stub
+    connection.define_singleton_method(:current_user) { @current_user }
+    connection.define_singleton_method(:current_user=) { |u| @current_user = u }
+    connection.current_user = user
+
+    # Create channel with proper connection stub
+    identifier = { channel: channel_class.name }.merge(params).to_json
+    channel = channel_class.new(connection, identifier, params)
 
     # Initialize transmissions tracking
     channel.instance_variable_set(:@transmissions, [])
@@ -369,18 +371,22 @@ RSpec.describe 'AI Channels Integration', type: :integration do
       channel.instance_variable_set(:@transmissions, transmissions)
     end
 
-    # Mock subscription methods
-    allow(channel).to receive(:stream_from)
-    allow(channel).to receive(:stream_for)
-    allow(channel).to receive(:reject)
-    allow(channel).to receive(:confirm)
+    # Track confirmation status
+    channel.instance_variable_set(:@confirmed, false)
+    channel.instance_variable_set(:@rejected, false)
+
+    # Mock subscription rejection
+    allow(channel).to receive(:reject_subscription) do
+      channel.instance_variable_set(:@rejected, true)
+    end
+
+    # Define confirmed? method
+    def channel.confirmed?
+      !@rejected && @subscription_confirmation_sent != false
+    end
 
     # Perform subscription
-    if params.any?
-      channel.subscribed(params)
-    else
-      channel.subscribed
-    end
+    channel.subscribe_to_channel
 
     channel
   end

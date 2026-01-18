@@ -137,7 +137,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # Broadcast workflow run event
     #
     # @param event_type [String] Type of event
-    # @param workflow_run [AiWorkflowRun] Workflow run
+    # @param workflow_run [Ai::WorkflowRun] Workflow run
     # @param payload [Hash] Event payload
     def broadcast_workflow_run_event(event_type, workflow_run, payload = {})
       message = build_message(event_type, "workflow_run", workflow_run.run_id, payload)
@@ -540,7 +540,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
     # Broadcast streaming execution started
     #
-    # @param workflow_run [AiWorkflowRun] Workflow run
+    # @param workflow_run [Ai::WorkflowRun] Workflow run
     # @param account [Account] Account context
     def broadcast_streaming_started(workflow_run, account)
       payload = {
@@ -554,7 +554,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
     # Broadcast streaming message received
     #
-    # @param workflow_run [AiWorkflowRun] Workflow run
+    # @param workflow_run [Ai::WorkflowRun] Workflow run
     # @param message [Hash] Streaming message data
     def broadcast_streaming_message(workflow_run, message)
       payload = {
@@ -567,7 +567,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
     # Broadcast streaming node changed
     #
-    # @param workflow_run [AiWorkflowRun] Workflow run
+    # @param workflow_run [Ai::WorkflowRun] Workflow run
     # @param node [AiWorkflowNode] Current node
     def broadcast_streaming_node_changed(workflow_run, node)
       payload = {
@@ -584,7 +584,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
     # Broadcast streaming execution paused
     #
-    # @param workflow_run [AiWorkflowRun] Workflow run
+    # @param workflow_run [Ai::WorkflowRun] Workflow run
     def broadcast_streaming_paused(workflow_run)
       payload = {
         run_id: workflow_run.run_id
@@ -595,7 +595,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
     # Broadcast streaming execution resumed
     #
-    # @param workflow_run [AiWorkflowRun] Workflow run
+    # @param workflow_run [Ai::WorkflowRun] Workflow run
     def broadcast_streaming_resumed(workflow_run)
       payload = {
         run_id: workflow_run.run_id
@@ -606,7 +606,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
     # Broadcast streaming execution completed
     #
-    # @param workflow_run [AiWorkflowRun] Workflow run
+    # @param workflow_run [Ai::WorkflowRun] Workflow run
     def broadcast_streaming_completed(workflow_run)
       payload = {
         run_id: workflow_run.run_id
@@ -617,7 +617,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
     # Broadcast streaming execution failed
     #
-    # @param workflow_run [AiWorkflowRun] Workflow run
+    # @param workflow_run [Ai::WorkflowRun] Workflow run
     # @param error [String] Error message
     def broadcast_streaming_failed(workflow_run, error)
       payload = {
@@ -630,7 +630,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
     # Broadcast streaming execution cancelled
     #
-    # @param workflow_run [AiWorkflowRun] Workflow run
+    # @param workflow_run [Ai::WorkflowRun] Workflow run
     def broadcast_streaming_cancelled(workflow_run)
       payload = {
         run_id: workflow_run.run_id
@@ -775,7 +775,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
   def send_current_status(subscription_type, resource_id)
     case subscription_type
     when "workflow_run"
-      workflow_run = AiWorkflowRun.find_by(run_id: resource_id)
+      workflow_run = Ai::WorkflowRun.find_by(run_id: resource_id)
       return unless workflow_run
 
       workflow_run_data = {
@@ -824,11 +824,11 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       current_user.account_id.to_s == resource_id.to_s
     when "workflow"
       # User can subscribe to workflows in their account
-      workflow = AiWorkflow.find_by(id: resource_id)
+      workflow = Ai::Workflow.find_by(id: resource_id)
       workflow && workflow.account_id == current_user.account_id
     when "workflow_run"
       # User can subscribe to workflow runs in their account
-      workflow_run = AiWorkflowRun.find_by(run_id: resource_id)
+      workflow_run = Ai::WorkflowRun.find_by(run_id: resource_id)
       workflow_run && workflow_run.account_id == current_user.account_id
     when "agent"
       # User can subscribe to agents in their account

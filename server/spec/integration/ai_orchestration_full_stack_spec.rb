@@ -170,7 +170,7 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
   describe 'Cross-Component Integration' do
     it 'provider credentials accessible from workflow execution' do
       # Ensure credential is available for workflow execution
-      expect(account.ai_ai_provider_credentials.active.count).to be >= 1
+      expect(account.ai_provider_credentials.active.count).to be >= 1
     end
 
     it 'agent can be used in workflow node' do

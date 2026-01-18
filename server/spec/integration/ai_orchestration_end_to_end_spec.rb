@@ -239,7 +239,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
   describe 'Cross-Component Integration' do
     it 'verifies workflow can use provider credentials' do
-      expect(account.ai_ai_provider_credentials.active.count).to be >= 1
+      expect(account.ai_provider_credentials.active.count).to be >= 1
     end
 
     it 'verifies agent is associated with provider' do

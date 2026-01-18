@@ -239,7 +239,7 @@ class AiErrorRecoveryService
   end
 
   def switch_to_alternative_provider(current_provider, options)
-    load_balancer = AiProviderLoadBalancerService.new(@account)
+    load_balancer = Ai::ProviderLoadBalancerService.new(@account)
 
     begin
       # Get available providers excluding the current one
@@ -373,7 +373,7 @@ class AiErrorRecoveryService
 
     providers.map do |provider|
       circuit_breaker = Ai::ProviderCircuitBreakerService.new(provider)
-      load_balancer = AiProviderLoadBalancerService.new(@account)
+      load_balancer = Ai::ProviderLoadBalancerService.new(@account)
 
       {
         id: provider.id,

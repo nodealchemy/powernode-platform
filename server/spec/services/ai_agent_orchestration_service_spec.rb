@@ -321,7 +321,7 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
 
         expect {
           orchestration_service.orchestrate_workflow(invalid_config)
-        }.to raise_error(described_class::OrchestrationError, /Missing required workflow/)
+        }.to raise_error(Ai::AgentOrchestrationService::OrchestrationError, /Missing required workflow/)
       end
 
       it 'requires agents array in configuration' do
@@ -329,7 +329,7 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
 
         expect {
           orchestration_service.orchestrate_workflow(config)
-        }.to raise_error(described_class::OrchestrationError, /Missing required workflow/)
+        }.to raise_error(Ai::AgentOrchestrationService::OrchestrationError, /Missing required workflow/)
       end
     end
   end
