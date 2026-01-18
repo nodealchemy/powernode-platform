@@ -24,7 +24,7 @@ class AiProviderTestService
   # Class methods
   class << self
     def test_all_credentials(account)
-      credentials = account.ai_provider_credentials.includes(:ai_provider)
+      credentials = account.ai_provider_credentials.includes(:provider)
 
       credentials.map do |credential|
         service = new(credential)

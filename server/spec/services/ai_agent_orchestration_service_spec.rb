@@ -92,7 +92,7 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
       }.to change { run.node_executions.count }.by(1)
 
       execution = run.node_executions.last
-      expect(execution.ai_workflow_node).to eq(start_node)
+      expect(execution.node).to eq(start_node)
     end
 
     it 'executes start nodes correctly' do

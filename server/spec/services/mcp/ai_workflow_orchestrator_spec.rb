@@ -738,13 +738,13 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
     describe '#execute_node' do
       let(:mock_executor) do
-        instance_double('Mcp::NodeExecutors::Ai::Agent',
+        instance_double('Mcp::NodeExecutors::AiAgent',
           execute: { success: true, output: { result: 'test_result' }, metadata: { cost: 0.01 } }
         )
       end
 
       before do
-        allow(Mcp::NodeExecutors::Ai::Agent).to receive(:new).and_return(mock_executor)
+        allow(Mcp::NodeExecutors::AiAgent).to receive(:new).and_return(mock_executor)
         allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:start_execution!).and_return(true)
         allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:complete_execution!).and_return(true)
         allow_any_instance_of(Ai::WorkflowNodeExecution).to receive(:update_run_progress).and_return(true)
@@ -790,7 +790,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
       it 'returns correct executor for ai_agent node' do
         executor = orchestrator.send(:get_mcp_node_executor, ai_agent_node, node_execution, node_context)
-        expect(executor).to be_a(Mcp::NodeExecutors::Ai::Agent)
+        expect(executor).to be_a(Mcp::NodeExecutors::AiAgent)
       end
 
       it 'raises error for unknown node type' do

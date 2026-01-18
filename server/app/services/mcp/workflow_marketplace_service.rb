@@ -440,7 +440,7 @@ module Mcp
     def recommend_based_on_execution_patterns(limit:)
       # Analyze workflow execution patterns
       recent_runs = account.ai_workflows
-                          .joins(:ai_workflow_runs)
+                          .joins(:workflow_runs)
                           .where("ai_workflow_runs.created_at >= ?", 30.days.ago)
                           .group("ai_workflows.id")
                           .having("COUNT(ai_workflow_runs.id) > 5")

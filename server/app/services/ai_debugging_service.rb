@@ -154,7 +154,7 @@ class AiDebuggingService
       @account.ai_agent_executions.find_by(id: execution_id)
     when "workflow"
       @account.ai_workflows
-              .joins(:ai_workflow_runs)
+              .joins(:workflow_runs)
               .find_by(ai_workflow_runs: { id: execution_id })
               &.workflow_runs
               &.find_by(id: execution_id)
@@ -173,7 +173,7 @@ class AiDebuggingService
       execution_context: execution.execution_context || {}
     }
 
-    if execution.respond_to?(:ai_agent)
+    if execution.is_a?(Ai::AgentExecution)
       base_info.merge!({
         type: "agent_execution",
         agent_id: execution.ai_agent_id,

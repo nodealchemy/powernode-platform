@@ -327,7 +327,7 @@ module Monitoring
   def get_account_workflows
     return Ai::Workflow.none unless @account
 
-    @account.ai_workflows.includes(:ai_workflow_runs)
+    @account.ai_workflows.includes(:workflow_runs)
   end
 
   def get_account_conversations(time_range)
@@ -631,7 +631,7 @@ module Monitoring
   end
 
   def calculate_cost_by_workflow(time_range)
-    Ai::WorkflowRun.joins(:ai_workflow)
+    Ai::WorkflowRun.joins(:workflow)
                 .where(ai_workflows: { account: @account })
                 .where("ai_workflow_runs.created_at >= ?", time_range.ago)
                 .group("ai_workflows.id", "ai_workflows.name")

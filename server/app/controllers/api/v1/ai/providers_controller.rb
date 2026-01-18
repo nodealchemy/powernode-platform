@@ -129,7 +129,7 @@ module Api
             if credential_params[:credentials].present?
               begin
                 credentials_hash = credential_params[:credentials].to_h.deep_stringify_keys
-                ::Ai::ProviderManagementService.validate_provider_credentials(
+                ::Ai::ProviderManagementService.validate_ai_provider_credentials(
                   @credential.provider,
                   credentials_hash
                 )

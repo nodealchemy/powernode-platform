@@ -68,7 +68,7 @@ module Mcp
       def get_node_executor(node, node_execution)
         executor_class = case node.node_type
         when "ai_agent"
-                          Mcp::NodeExecutors::Ai::Agent
+                          Mcp::NodeExecutors::AiAgent
         when "api_call"
                           Mcp::NodeExecutors::ApiCall
         when "transform"

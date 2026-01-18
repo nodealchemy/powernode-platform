@@ -156,7 +156,7 @@ module Mcp
       def resolve_executor_class(node_type)
         case node_type
         when "ai_agent"
-          Mcp::NodeExecutors::Ai::Agent
+          Mcp::NodeExecutors::AiAgent
         when "api_call"
           Mcp::NodeExecutors::ApiCall
         when "transform"

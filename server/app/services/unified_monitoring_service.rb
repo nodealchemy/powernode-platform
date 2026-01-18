@@ -320,13 +320,13 @@ class UnifiedMonitoringService
   def get_account_agents
     return Ai::Agent.none unless @account
 
-    @account.ai_agents.includes(:ai_provider)
+    @account.ai_agents.includes(:provider)
   end
 
   def get_account_workflows
     return Ai::Workflow.none unless @account
 
-    @account.ai_workflows.includes(:ai_workflow_runs)
+    @account.ai_workflows.includes(:workflow_runs)
   end
 
   def get_account_conversations(time_range)
@@ -583,7 +583,7 @@ class UnifiedMonitoringService
                                 .where("created_at >= ?", time_range.ago)
                                 .sum(:total_cost) || 0.0
 
-    agent_cost = Ai::AgentExecution.joins(:ai_agent)
+    agent_cost = Ai::AgentExecution.joins(:agent)
                                 .where(ai_agents: { account: @account })
                                 .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                 .sum(:cost_usd) || 0.0
@@ -592,7 +592,7 @@ class UnifiedMonitoringService
   end
 
   def calculate_cost_by_provider(time_range)
-    Ai::AgentExecution.joins(ai_agent: :ai_provider)
+    Ai::AgentExecution.joins(agent: :provider)
                    .where(ai_agents: { account: @account })
                    .where("ai_agent_executions.created_at >= ?", time_range.ago)
                    .group("ai_providers.id", "ai_providers.name")
@@ -611,7 +611,7 @@ class UnifiedMonitoringService
   end
 
   def calculate_cost_by_agent(time_range)
-    Ai::AgentExecution.joins(:ai_agent)
+    Ai::AgentExecution.joins(:agent)
                    .where(ai_agents: { account: @account })
                    .where("ai_agent_executions.created_at >= ?", time_range.ago)
                    .group("ai_agents.id", "ai_agents.name")
@@ -630,7 +630,7 @@ class UnifiedMonitoringService
   end
 
   def calculate_cost_by_workflow(time_range)
-    Ai::WorkflowRun.joins(:ai_workflow)
+    Ai::WorkflowRun.joins(:workflow)
                 .where(ai_workflows: { account: @account })
                 .where("ai_workflow_runs.created_at >= ?", time_range.ago)
                 .group("ai_workflows.id", "ai_workflows.name")
@@ -656,7 +656,7 @@ class UnifiedMonitoringService
                                   .select("DATE(created_at) as date",
                                          "SUM(total_cost) as daily_cost")
 
-    agent_costs = Ai::AgentExecution.joins(:ai_agent)
+    agent_costs = Ai::AgentExecution.joins(:agent)
                                  .where(ai_agents: { account: @account })
                                  .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                  .group("DATE(ai_agent_executions.created_at)")
@@ -767,7 +767,7 @@ class UnifiedMonitoringService
                                     .where("created_at >= ?", time_range.ago)
                                     .count
 
-    agent_requests = Ai::AgentExecution.joins(:ai_agent)
+    agent_requests = Ai::AgentExecution.joins(:agent)
                                     .where(ai_agents: { account: @account })
                                     .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                     .count
@@ -805,7 +805,7 @@ class UnifiedMonitoringService
                                    .where(status: "failed")
                                    .count
 
-    failed_agents = Ai::AgentExecution.joins(:ai_agent)
+    failed_agents = Ai::AgentExecution.joins(:agent)
                                    .where(ai_agents: { account: @account })
                                    .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                    .where(status: "failed")
@@ -815,7 +815,7 @@ class UnifiedMonitoringService
                                   .where("created_at >= ?", time_range.ago)
                                   .count
 
-    total_agents = Ai::AgentExecution.joins(:ai_agent)
+    total_agents = Ai::AgentExecution.joins(:agent)
                                   .where(ai_agents: { account: @account })
                                   .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                   .count

@@ -213,7 +213,7 @@ module Mcp
 
     # Multi-workflow analytics (account-level)
     def account_workflow_analytics(time_range: 30.days)
-      workflows = account.ai_workflows.includes(:ai_workflow_runs)
+      workflows = account.ai_workflows.includes(:workflow_runs)
 
       {
         overview: {
@@ -686,25 +686,25 @@ module Mcp
     end
 
     def count_total_executions(workflows, time_range)
-      workflows.joins(:ai_workflow_runs)
+      workflows.joins(:workflow_runs)
               .where("workflow_runs.created_at >= ?", time_range.ago)
               .count
     end
 
     def calculate_total_cost(workflows, time_range)
-      workflows.joins(:ai_workflow_runs)
+      workflows.joins(:workflow_runs)
               .where("workflow_runs.created_at >= ?", time_range.ago)
               .sum("workflow_runs.total_cost")
     end
 
     def calculate_account_success_rate(workflows, time_range)
-      total_runs = workflows.joins(:ai_workflow_runs)
+      total_runs = workflows.joins(:workflow_runs)
                            .where("workflow_runs.created_at >= ?", time_range.ago)
                            .count
 
       return 0.0 if total_runs.zero?
 
-      successful_runs = workflows.joins(:ai_workflow_runs)
+      successful_runs = workflows.joins(:workflow_runs)
                                 .where("workflow_runs.created_at >= ? AND ai_workflow_runs.status = ?", time_range.ago, "completed")
                                 .count
 
@@ -712,7 +712,7 @@ module Mcp
     end
 
     def rank_workflows_by_executions(workflows, time_range)
-      workflows.joins(:ai_workflow_runs)
+      workflows.joins(:workflow_runs)
               .where("workflow_runs.created_at >= ?", time_range.ago)
               .group("workflows.id")
               .order("COUNT(ai_workflow_runs.id) DESC")
@@ -725,7 +725,7 @@ module Mcp
     end
 
     def rank_workflows_by_cost(workflows, time_range)
-      workflows.joins(:ai_workflow_runs)
+      workflows.joins(:workflow_runs)
               .where("workflow_runs.created_at >= ?", time_range.ago)
               .group("workflows.id")
               .order("SUM(ai_workflow_runs.total_cost) DESC")
@@ -733,7 +733,7 @@ module Mcp
     end
 
     def rank_workflows_by_speed(workflows, time_range)
-      workflows.joins(:ai_workflow_runs)
+      workflows.joins(:workflow_runs)
               .where("workflow_runs.created_at >= ? AND ai_workflow_runs.status = ?", time_range.ago, "completed")
               .group("workflows.id")
               .order("AVG(ai_workflow_runs.duration_ms) ASC")
@@ -745,7 +745,7 @@ module Mcp
     end
 
     def analyze_account_cost_distribution(workflows, time_range)
-      workflows.joins(:ai_workflow_runs)
+      workflows.joins(:workflow_runs)
               .where("workflow_runs.created_at >= ?", time_range.ago)
               .group("workflows.name")
               .sum("workflow_runs.total_cost")
