@@ -33,11 +33,23 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
     nodes = data["nodes"] || []
     edges = data["edges"] || []
 
+    # Generate slug from name if not provided
+    name = workflow_params["name"]
+    slug = workflow_params["slug"] || name.to_s.downcase.gsub(/[^a-z0-9\-_]+/, "-").gsub(/-+/, "-").gsub(/^-|-$/, "")
+    slug = "#{slug}-#{SecureRandom.hex(4)}" if slug.blank?
+
     workflow = Ai::Workflow.create!(
       account: current_user.account,
-      created_by_user: current_user,
-      name: workflow_params["name"],
-      description: workflow_params["description"]
+      creator: current_user,
+      name: name,
+      description: workflow_params["description"],
+      slug: slug,
+      status: workflow_params["status"] || "draft",
+      visibility: workflow_params["visibility"] || "private",
+      workflow_type: workflow_params["workflow_type"] || "ai",
+      configuration: workflow_params["configuration"].presence || { "version" => 1 },
+      version: workflow_params["version"] || "1.0.0",
+      is_active: workflow_params["is_active"] != false
     )
 
     # Create nodes
@@ -46,18 +58,21 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
         node_id: node_data["node_id"],
         node_type: node_data["node_type"],
         name: node_data["name"],
-        position_x: node_data["position_x"],
-        position_y: node_data["position_y"],
-        configuration: node_data["configuration"] || {}
+        position: { x: node_data["position_x"] || 0, y: node_data["position_y"] || 0 },
+        configuration: node_data["configuration"].presence || { "type" => node_data["node_type"] }
       )
     end
 
-    # Create edges
+    # Create edges (lookup nodes by their node_id strings)
     edges.each do |edge_data|
+      source_node = workflow.nodes.find_by(node_id: edge_data["source_node_id"])
+      target_node = workflow.nodes.find_by(node_id: edge_data["target_node_id"])
+
       workflow.edges.create!(
         edge_id: edge_data["edge_id"],
-        source_node_id: edge_data["source_node_id"],
-        target_node_id: edge_data["target_node_id"]
+        source_node: source_node,
+        target_node: target_node,
+        edge_type: edge_data["edge_type"] || "default"
       )
     end
 

@@ -393,6 +393,7 @@ RSpec.describe AiWorkflowCircuitBreakerManager do
   describe 'monitoring and alerts' do
     it 'detects when circuit breaker opens' do
       breaker = described_class.get_breaker('monitored_service')
+      breaker.reset_circuit!  # Ensure clean state (clear_breakers! only clears in-memory, not cache)
 
       initial_state = breaker.state
 
@@ -410,6 +411,7 @@ RSpec.describe AiWorkflowCircuitBreakerManager do
 
     it 'tracks state transitions' do
       breaker = described_class.get_breaker('transition_test')
+      breaker.reset_circuit!  # Ensure clean state (clear_breakers! only clears in-memory, not cache)
 
       states = []
       states << breaker.state  # closed
