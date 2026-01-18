@@ -3,9 +3,9 @@
 FactoryBot.define do
   factory :user do
     association :account
-    sequence(:email) { |n| "user#{n}@example.com" }
+    sequence(:email) { |n| "user#{n}@#{TestUsers::DOMAIN}" }
     name { Faker::Name.name }
-    password { 'UncommonStr0ngP@ssw0rd99!' }
+    password { TestUsers::PASSWORD }
     status { 'active' }
     email_verified_at { 1.day.ago }
 

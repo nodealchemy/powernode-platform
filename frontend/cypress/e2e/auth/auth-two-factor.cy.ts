@@ -16,8 +16,8 @@ describe('Two-Factor Authentication Tests', () => {
     it('should allow users to enable 2FA from security settings', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').type(Cypress.env('DEMO_PASSWORD'));
       cy.get('[data-testid="login-submit-btn"]').click();
       cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
 
@@ -65,8 +65,8 @@ describe('Two-Factor Authentication Tests', () => {
     it('should display QR code and backup codes for 2FA setup', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').type(Cypress.env('DEMO_PASSWORD'));
       cy.get('[data-testid="login-submit-btn"]').click();
       cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
 
@@ -242,8 +242,8 @@ describe('Two-Factor Authentication Tests', () => {
     it('should allow users to disable 2FA with password confirmation', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').type(Cypress.env('DEMO_PASSWORD'));
       cy.get('[data-testid="login-submit-btn"]').click();
       cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
 
@@ -273,8 +273,8 @@ describe('Two-Factor Authentication Tests', () => {
     it('should allow regeneration of backup codes', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').type(Cypress.env('DEMO_PASSWORD'));
       cy.get('[data-testid="login-submit-btn"]').click();
       cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
 

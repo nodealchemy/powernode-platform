@@ -36,8 +36,8 @@ admin_user = system_account.users.first ||
              )
 
 # Get or create AI Provider for Claude
-ai_provider = AiProvider.find_by(account: system_account, provider_type: "anthropic") ||
-              AiProvider.create!(
+ai_provider = Ai::Provider.find_by(account: system_account, provider_type: "anthropic") ||
+              Ai::Provider.create!(
                 account: system_account,
                 name: "Claude (Anthropic)",
                 provider_type: "anthropic",

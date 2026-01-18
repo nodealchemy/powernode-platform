@@ -19,7 +19,7 @@ describe('Password Reset Flow Tests', () => {
       // Should show email input
       cy.get('input[name="email"], input[type="email"], [data-testid="email-input"]', { timeout: 5000 })
         .should('be.visible')
-        .type('demo@democompany.com');
+        .type(Cypress.env('DEMO_EMAIL'));
 
       // Submit reset request
       cy.get('button[type="submit"]').click();

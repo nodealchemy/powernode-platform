@@ -83,7 +83,7 @@ describe('DevOps New Integration Page Tests', () => {
     it('should display error message on API failure', () => {
       cy.mockApiError('**/integrations*', 500, 'Server error');
       cy.visit('/app/devops/integrations/new');
-      cy.wait(3000);
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
       cy.assertContainsAny(['Error', 'Failed', 'Integration', 'Add Integration']);
     });

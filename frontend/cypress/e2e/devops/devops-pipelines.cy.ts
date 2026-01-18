@@ -125,7 +125,7 @@ describe('DevOps Pipelines Tests', () => {
     it('should display error message on API failure', () => {
       cy.mockApiError('**/api/**/pipelines*', 500, 'Server error');
       cy.visit('/app/devops/pipelines');
-      cy.wait(3000);
+      cy.waitForPageLoad();
       cy.get('body').should('be.visible');
       cy.assertContainsAny(['Error', 'Failed', 'Pipeline', 'Workflow']);
     });

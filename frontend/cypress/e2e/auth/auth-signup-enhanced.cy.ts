@@ -113,11 +113,11 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.get('[data-testid="login-submit-btn"]').should('be.visible');
 
       // Test form interaction using actual data-testid selectors
-      cy.get('[data-testid="email-input"]').type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]').type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').type(Cypress.env('DEMO_PASSWORD'));
 
       // Verify form state before submission
-      cy.get('[data-testid="email-input"]').should('have.value', 'demo@democompany.com');
+      cy.get('[data-testid="email-input"]').should('have.value', Cypress.env('DEMO_EMAIL'));
 
       // Submit login using actual selector
       cy.get('[data-testid="login-submit-btn"]').click();
@@ -133,7 +133,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible');
 
       // Fill email field
-      cy.get('[data-testid="email-input"]').clear().type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]').clear().type(Cypress.env('DEMO_EMAIL'));
 
       // Fill password field with wrong password
       cy.get('[data-testid="password-input"]').clear().type('wrongpassword123');
@@ -285,8 +285,8 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
     it('should handle session timeout and re-authentication', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').type(Cypress.env('DEMO_PASSWORD'));
       cy.get('[data-testid="login-submit-btn"]').click();
 
       cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
@@ -301,8 +301,8 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.url().should('include', '/login');
 
       // Should be able to log back in
-      cy.get('[data-testid="email-input"]').type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]').type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').type(Cypress.env('DEMO_PASSWORD'));
       cy.get('[data-testid="login-submit-btn"]').click();
 
       cy.url({ timeout: 5000 }).should('match', /\/(app|dashboard)/);
@@ -335,8 +335,8 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
     it('should handle session persistence', () => {
       // Login with demo user
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').type(Cypress.env('DEMO_PASSWORD'));
 
       // Check remember me if available
       cy.get('body').then($body => {

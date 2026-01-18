@@ -32,7 +32,7 @@ provider = account.ai_providers.find_by(provider_type: 'anthropic') ||
 
 unless provider
   puts '⚠️  No AI providers found - creating placeholder provider'
-  provider = AiProvider.find_or_create_by!(
+  provider = Ai::Provider.find_or_create_by!(
     account: account,
     name: 'Claude AI',
     provider_type: 'anthropic'
@@ -56,11 +56,11 @@ puts "✓ Using AI Provider: #{provider.name}"
 # =============================================================================
 
 def create_agent(account:, user:, provider:, name:, type:, description:, prompt:, model:)
-  AiAgent.find_or_create_by!(account: account, name: name) do |agent|
+  Ai::Agent.find_or_create_by!(account: account, name: name) do |agent|
     agent.agent_type = type
     agent.description = description
     agent.creator = user
-    agent.ai_provider = provider
+    agent.provider = provider
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_capabilities = {
@@ -134,7 +134,7 @@ seo_agent = create_agent(
 puts "✓ Created content generation agents"
 
 # Create workflow
-content_workflow = AiWorkflow.find_or_create_by!(
+content_workflow = Ai::Workflow.find_or_create_by!(
   account: account,
   name: 'Content Generation Pipeline'
 ) do |wf|
@@ -155,8 +155,8 @@ content_workflow = AiWorkflow.find_or_create_by!(
 end
 
 # Clear existing nodes/edges for clean recreation
-content_workflow.ai_workflow_edges.destroy_all
-content_workflow.ai_workflow_nodes.destroy_all
+content_workflow.workflow_edges.destroy_all
+content_workflow.workflow_nodes.destroy_all
 
 # Create nodes
 # Layout: Vertical flow with condition branches
@@ -185,7 +185,7 @@ nodes_data = [
 ]
 
 nodes_data.each do |n|
-  content_workflow.ai_workflow_nodes.create!(
+  content_workflow.workflow_nodes.create!(
     node_id: n[:id],
     node_type: n[:type],
     name: n[:name],
@@ -210,7 +210,7 @@ edges_data = [
 ]
 
 edges_data.each_with_index do |e, i|
-  content_workflow.ai_workflow_edges.create!(
+  content_workflow.workflow_edges.create!(
     edge_id: "edge_#{i + 1}",
     source_node_id: e[:source],
     target_node_id: e[:target],
@@ -223,7 +223,7 @@ edges_data.each_with_index do |e, i|
   )
 end
 
-puts "✓ Created Content Generation Pipeline (#{content_workflow.ai_workflow_nodes.count} nodes, #{content_workflow.ai_workflow_edges.count} edges)"
+puts "✓ Created Content Generation Pipeline (#{content_workflow.workflow_nodes.count} nodes, #{content_workflow.workflow_edges.count} edges)"
 
 # =============================================================================
 # WORKFLOW 2: CUSTOMER ONBOARDING FLOW
@@ -234,7 +234,7 @@ puts "\n" + '-' * 60
 puts '2. CUSTOMER ONBOARDING FLOW'
 puts '-' * 60
 
-onboarding_workflow = AiWorkflow.find_or_create_by!(
+onboarding_workflow = Ai::Workflow.find_or_create_by!(
   account: account,
   name: 'Customer Onboarding Flow'
 ) do |wf|
@@ -255,8 +255,8 @@ onboarding_workflow = AiWorkflow.find_or_create_by!(
 end
 
 # Clear existing nodes/edges
-onboarding_workflow.ai_workflow_edges.destroy_all
-onboarding_workflow.ai_workflow_nodes.destroy_all
+onboarding_workflow.workflow_edges.destroy_all
+onboarding_workflow.workflow_nodes.destroy_all
 
 # Create nodes
 # Layout: Vertical flow with condition branches (False=left x=200, True=right x=600)
@@ -287,7 +287,7 @@ onboarding_nodes = [
 ]
 
 onboarding_nodes.each do |n|
-  onboarding_workflow.ai_workflow_nodes.create!(
+  onboarding_workflow.workflow_nodes.create!(
     node_id: n[:id],
     node_type: n[:type],
     name: n[:name],
@@ -315,7 +315,7 @@ onboarding_edges = [
 ]
 
 onboarding_edges.each_with_index do |e, i|
-  onboarding_workflow.ai_workflow_edges.create!(
+  onboarding_workflow.workflow_edges.create!(
     edge_id: "edge_#{i + 1}",
     source_node_id: e[:source],
     target_node_id: e[:target],
@@ -328,7 +328,7 @@ onboarding_edges.each_with_index do |e, i|
   )
 end
 
-puts "✓ Created Customer Onboarding Flow (#{onboarding_workflow.ai_workflow_nodes.count} nodes, #{onboarding_workflow.ai_workflow_edges.count} edges)"
+puts "✓ Created Customer Onboarding Flow (#{onboarding_workflow.workflow_nodes.count} nodes, #{onboarding_workflow.workflow_edges.count} edges)"
 
 # =============================================================================
 # WORKFLOW 3: DATA INTEGRATION PIPELINE
@@ -339,7 +339,7 @@ puts "\n" + '-' * 60
 puts '3. DATA INTEGRATION PIPELINE'
 puts '-' * 60
 
-integration_workflow = AiWorkflow.find_or_create_by!(
+integration_workflow = Ai::Workflow.find_or_create_by!(
   account: account,
   name: 'Data Integration Pipeline'
 ) do |wf|
@@ -365,8 +365,8 @@ integration_workflow = AiWorkflow.find_or_create_by!(
 end
 
 # Clear existing nodes/edges
-integration_workflow.ai_workflow_edges.destroy_all
-integration_workflow.ai_workflow_nodes.destroy_all
+integration_workflow.workflow_edges.destroy_all
+integration_workflow.workflow_nodes.destroy_all
 
 # Create nodes
 # Layout: Vertical flow with loop body offset right (x=600)
@@ -395,7 +395,7 @@ integration_nodes = [
 ]
 
 integration_nodes.each do |n|
-  integration_workflow.ai_workflow_nodes.create!(
+  integration_workflow.workflow_nodes.create!(
     node_id: n[:id],
     node_type: n[:type],
     name: n[:name],
@@ -425,7 +425,7 @@ integration_edges = [
 ]
 
 integration_edges.each_with_index do |e, i|
-  integration_workflow.ai_workflow_edges.create!(
+  integration_workflow.workflow_edges.create!(
     edge_id: "edge_#{i + 1}",
     source_node_id: e[:source],
     target_node_id: e[:target],
@@ -437,7 +437,7 @@ integration_edges.each_with_index do |e, i|
   )
 end
 
-puts "✓ Created Data Integration Pipeline (#{integration_workflow.ai_workflow_nodes.count} nodes, #{integration_workflow.ai_workflow_edges.count} edges)"
+puts "✓ Created Data Integration Pipeline (#{integration_workflow.workflow_nodes.count} nodes, #{integration_workflow.workflow_edges.count} edges)"
 
 # =============================================================================
 # WORKFLOW 4: MCP-POWERED PAGE GENERATOR
@@ -455,7 +455,7 @@ unless content_mcp_server
   puts '   Run MCP server seeds first: load db/seeds/mcp_servers_seeds.rb'
 else
 
-page_generator_workflow = AiWorkflow.find_or_create_by!(
+page_generator_workflow = Ai::Workflow.find_or_create_by!(
   account: account,
   name: 'MCP-Powered Page Generator'
 ) do |wf|
@@ -477,8 +477,8 @@ page_generator_workflow = AiWorkflow.find_or_create_by!(
 end
 
 # Clear existing nodes/edges
-page_generator_workflow.ai_workflow_edges.destroy_all
-page_generator_workflow.ai_workflow_nodes.destroy_all
+page_generator_workflow.workflow_edges.destroy_all
+page_generator_workflow.workflow_nodes.destroy_all
 
 # Create nodes demonstrating consolidated types
 # Layout: Vertical flow with condition branches (False=left x=200, True=right x=600)
@@ -518,7 +518,7 @@ page_gen_nodes = [
 ]
 
 page_gen_nodes.each do |n|
-  page_generator_workflow.ai_workflow_nodes.create!(
+  page_generator_workflow.workflow_nodes.create!(
     node_id: n[:id],
     node_type: n[:type],
     name: n[:name],
@@ -546,7 +546,7 @@ page_gen_edges = [
 ]
 
 page_gen_edges.each_with_index do |e, i|
-  page_generator_workflow.ai_workflow_edges.create!(
+  page_generator_workflow.workflow_edges.create!(
     edge_id: "edge_#{i + 1}",
     source_node_id: e[:source],
     target_node_id: e[:target],
@@ -559,7 +559,7 @@ page_gen_edges.each_with_index do |e, i|
   )
 end
 
-puts "✓ Created MCP-Powered Page Generator (#{page_generator_workflow.ai_workflow_nodes.count} nodes, #{page_generator_workflow.ai_workflow_edges.count} edges)"
+puts "✓ Created MCP-Powered Page Generator (#{page_generator_workflow.workflow_nodes.count} nodes, #{page_generator_workflow.workflow_edges.count} edges)"
 
 end # unless content_mcp_server (workflow 4 guard)
 
@@ -572,29 +572,29 @@ puts 'AI WORKFLOW SHOWCASE - COMPLETE'
 puts '=' * 80
 
 workflow_count = content_mcp_server ? 4 : 3
-page_generator_workflow = AiWorkflow.find_by(account: account, name: 'MCP-Powered Page Generator')
+page_generator_workflow = Ai::Workflow.find_by(account: account, name: 'MCP-Powered Page Generator')
 
 puts "\n📊 Summary:"
 puts "   Total Workflows: #{workflow_count}"
-puts "   Total Agents: #{AiAgent.where(account: account).count}"
+puts "   Total Agents: #{Ai::Agent.where(account: account).count}"
 puts "\n📝 Workflows Created:"
 puts "\n   1. #{content_workflow.name}"
 puts "      Purpose: AI-powered content creation pipeline"
 puts "      Features: Multi-agent orchestration, KB integration, quality gates"
-puts "      Nodes: #{content_workflow.ai_workflow_nodes.count}"
+puts "      Nodes: #{content_workflow.workflow_nodes.count}"
 puts "\n   2. #{onboarding_workflow.name}"
 puts "      Purpose: Customer onboarding with approval workflow"
 puts "      Features: Human approval, email/notifications, conditional branching"
-puts "      Nodes: #{onboarding_workflow.ai_workflow_nodes.count}"
+puts "      Nodes: #{onboarding_workflow.workflow_nodes.count}"
 puts "\n   3. #{integration_workflow.name}"
 puts "      Purpose: External API data synchronization"
 puts "      Features: API calls, data transforms, loops, database operations"
-puts "      Nodes: #{integration_workflow.ai_workflow_nodes.count}"
+puts "      Nodes: #{integration_workflow.workflow_nodes.count}"
 if page_generator_workflow
   puts "\n   4. #{page_generator_workflow.name}"
   puts "      Purpose: MCP-powered page generation and publishing"
   puts "      Features: MCP operations (tool, resource, prompt), page management"
-  puts "      Nodes: #{page_generator_workflow.ai_workflow_nodes.count}"
+  puts "      Nodes: #{page_generator_workflow.workflow_nodes.count}"
 end
 
 puts "\n🎯 Node Types Demonstrated:"

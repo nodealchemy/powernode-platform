@@ -12,6 +12,7 @@
 /cypress/screenshots
 /cypress/videos
 /cypress/downloads
+/cypress/fixtures/test-credentials.json
 
 # production
 /build

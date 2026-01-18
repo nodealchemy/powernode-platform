@@ -398,8 +398,8 @@ cy.get('[data-testid="profile-name"]').should('contain.text', expectedName);
 
 ```typescript
 // BAD - Credentials scattered across files
-cy.get('[data-testid="email-input"]').type('demo@democompany.com');
-cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
+cy.get('[data-testid="email-input"]').type('demo@powernode.org');
+cy.get('[data-testid="password-input"]').type('HardcodedPassword123!');  // NEVER do this!
 ```
 
 **Fix:**
@@ -506,8 +506,8 @@ beforeEach(() => {
   cy.clearAppData();
   cy.setupApiIntercepts();
   cy.visit('/login');
-  cy.get('[data-testid="email-input"]').type('demo@democompany.com');
-  cy.get('[data-testid="password-input"]').type('DemoSecure456!@#$%');
+  cy.get('[data-testid="email-input"]').type(Cypress.env('DEMO_EMAIL'));
+  cy.get('[data-testid="password-input"]').type(Cypress.env('DEMO_PASSWORD'));
   cy.get('[data-testid="login-submit-btn"]').click();
   cy.url().should('match', /\/(app|dashboard)/);
 });

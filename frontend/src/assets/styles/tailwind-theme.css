@@ -46,6 +46,7 @@
   --color-theme-success: var(--color-success);
   --color-theme-warning: var(--color-warning);
   --color-theme-error: var(--color-error);
+  --color-theme-danger: var(--color-error); /* Alias for theme-error */
   --color-theme-info: var(--color-info);
 
   /* Workflow node colors - all 24 node types */
@@ -97,12 +98,14 @@
   --color-border-theme-success: var(--color-success-border);
   --color-border-theme-warning: var(--color-warning-border);
   --color-border-theme-error: var(--color-error-border);
+  --color-border-theme-danger: var(--color-error-border); /* Alias for theme-error */
   --color-border-theme-info: var(--color-info-border);
 
   /* Background semantic colors */
   --color-bg-theme-success: var(--color-success-background);
   --color-bg-theme-warning: var(--color-warning-background);
   --color-bg-theme-error: var(--color-error-background);
+  --color-bg-theme-danger: var(--color-error-background); /* Alias for theme-error */
   --color-bg-theme-info: var(--color-info-background);
 
   /* Font family */
@@ -126,6 +129,7 @@
   .text-theme-success { color: var(--color-success); }
   .text-theme-warning { color: var(--color-warning); }
   .text-theme-error { color: var(--color-error); }
+  .text-theme-danger { color: var(--color-error); } /* Alias for theme-error */
   .text-theme-info { color: var(--color-info); }
 
   /* Theme surface backgrounds */
@@ -136,6 +140,7 @@
   .bg-theme-success { background-color: var(--color-success-background); }
   .bg-theme-warning { background-color: var(--color-warning-background); }
   .bg-theme-error { background-color: var(--color-error-background); }
+  .bg-theme-danger { background-color: var(--color-error-background); } /* Alias for theme-error */
   .bg-theme-info { background-color: var(--color-info-background); }
 
   /* Theme borders */
@@ -146,6 +151,7 @@
   .border-theme-success { border-color: var(--color-success-border); }
   .border-theme-warning { border-color: var(--color-warning-border); }
   .border-theme-error { border-color: var(--color-error-border); }
+  .border-theme-danger { border-color: var(--color-error-border); } /* Alias for theme-error */
   .border-theme-info { border-color: var(--color-info-border); }
   .divide-theme > :not([hidden]) ~ :not([hidden]) { border-color: var(--color-divider); }
 

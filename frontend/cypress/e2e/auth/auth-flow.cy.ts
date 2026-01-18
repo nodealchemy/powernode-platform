@@ -59,8 +59,8 @@ describe('Authentication Flow', () => {
       cy.visit('/login');
 
       // Fill out login form using data-testid selectors
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').should('be.visible').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').should('be.visible').type(Cypress.env('DEMO_PASSWORD'));
 
       // Submit form
       cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
@@ -73,7 +73,7 @@ describe('Authentication Flow', () => {
       cy.visit('/login');
 
       // Fill out login form with wrong password
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type('demo@democompany.com');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type(Cypress.env('DEMO_EMAIL'));
       cy.get('[data-testid="password-input"]').should('be.visible').type('wrongpassword123!');
 
       // Submit form
@@ -86,8 +86,8 @@ describe('Authentication Flow', () => {
     it('should show loading state during login', () => {
       cy.visit('/login');
 
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').should('be.visible').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').should('be.visible').type(Cypress.env('DEMO_PASSWORD'));
       cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
 
       // Should either show loading state or complete login
@@ -105,12 +105,11 @@ describe('Authentication Flow', () => {
       cy.url().should('include', '/forgot-password');
 
       // Enter email - wait for form to be ready
-      cy.wait(500);
       cy.get('input#email, input[type="email"], input[name="email"]')
         .first()
-        .should('exist')
+        .should('be.visible')
         .clear()
-        .type('demo@democompany.com', { force: true });
+        .type(Cypress.env('DEMO_EMAIL'));
       cy.get('button[type="submit"]').click();
 
       // Should show success message or stay on page
@@ -141,8 +140,8 @@ describe('Authentication Flow', () => {
     it('should allow authenticated users to access protected routes', () => {
       // Login first
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').should('be.visible').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').should('be.visible').type(Cypress.env('DEMO_PASSWORD'));
       cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
 
       // Wait for redirect to app
@@ -158,8 +157,8 @@ describe('Authentication Flow', () => {
     it('should maintain session across page refreshes', () => {
       // Login first
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').should('be.visible').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').should('be.visible').type(Cypress.env('DEMO_PASSWORD'));
       cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
 
       // Wait for login
@@ -175,8 +174,8 @@ describe('Authentication Flow', () => {
     it('should handle logout properly', () => {
       // Login first
       cy.visit('/login');
-      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type('demo@democompany.com');
-      cy.get('[data-testid="password-input"]').should('be.visible').type('DemoSecure456!@#$%');
+      cy.get('[data-testid="email-input"]', { timeout: 5000 }).should('be.visible').type(Cypress.env('DEMO_EMAIL'));
+      cy.get('[data-testid="password-input"]').should('be.visible').type(Cypress.env('DEMO_PASSWORD'));
       cy.get('[data-testid="login-submit-btn"]').should('be.visible').click();
 
       // Wait for login
