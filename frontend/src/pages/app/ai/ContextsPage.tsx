@@ -5,6 +5,7 @@ import { ContextBrowser } from '@/features/ai/context/components/ContextBrowser'
 import { SearchResults } from '@/features/ai/context/components/SearchResults';
 import { contextApi } from '@/features/ai/context/services/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { Button } from '@/shared/components/ui/Button';
@@ -23,6 +24,14 @@ export function ContextsPage() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};

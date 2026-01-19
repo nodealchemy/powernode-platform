@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheckIcon, DocumentTextIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { ConsentManager } from '@/features/privacy/components/ConsentManager';
 import { DataExportCard } from '@/features/privacy/components/DataExportCard';
 import { DataDeletionCard } from '@/features/privacy/components/DataDeletionCard';
@@ -11,6 +12,7 @@ import privacyApi, {
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 const PrivacyDashboardPage: React.FC = () => {
+  usePageWebSocket({ pageType: 'privacy' });
   const [dashboard, setDashboard] = useState<PrivacyDashboard | null>(null);
   const [deletionRequest, setDeletionRequest] = useState<DataDeletionRequest | null>(null);
   const [loading, setLoading] = useState(true);

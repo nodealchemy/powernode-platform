@@ -10,12 +10,14 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
 import { useNavigate } from 'react-router-dom';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PlusIcon, BookOpenIcon, TagIcon } from '@heroicons/react/24/outline';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 export default function KnowledgeBasePage() {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const navigate = useNavigate();
+  usePageWebSocket({ pageType: 'content' });
   const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState<KbCategory[]>([]);
   const [articles, setArticles] = useState<KbArticle[]>([]);

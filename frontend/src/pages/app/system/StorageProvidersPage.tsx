@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, RefreshCw, HardDrive } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { StorageProviderCard } from '@/features/system/storage/components/StorageProviderCard';
 import { StorageProviderModal } from '@/features/system/storage/components/StorageProviderModal';
 import { ConnectionTestModal } from '@/features/system/storage/components/ConnectionTestModal';
@@ -14,6 +15,7 @@ import { AppDispatch } from '@/shared/services';
 const StorageProvidersPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { currentUser } = useAuth();
+  usePageWebSocket({ pageType: 'system' });
   const [providers, setProviders] = useState<StorageProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [, setRefreshing] = useState(false);

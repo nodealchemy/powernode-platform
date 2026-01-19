@@ -17,6 +17,7 @@ import { DateRangePicker } from '@/shared/components/ui/DateRangePicker';
 import { workflowsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { WorkflowExecutionStats } from '@/shared/types/workflow';
 
 interface AnalyticsData {
@@ -42,6 +43,14 @@ interface AnalyticsData {
 export const WorkflowAnalyticsPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);

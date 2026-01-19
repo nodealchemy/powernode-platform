@@ -5,6 +5,7 @@ import { startImpersonation } from '@/shared/services/slices/authSlice';
 import { usersApi, User, UserFormData, UserStats } from '@/features/account/users/services/usersApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { UserRolesModal } from '@/features/account/users/components/UserRolesModal';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -28,6 +29,7 @@ const UsersPage: React.FC = () => {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
+  usePageWebSocket({ pageType: 'account' });
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);

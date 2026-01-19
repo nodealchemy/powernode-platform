@@ -2,11 +2,20 @@ import React, { useRef, useState, useCallback } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { EnhancedAIOverview, EnhancedAIOverviewHandle } from '@/features/ai/orchestration/components/EnhancedAIOverview';
 import { RefreshCw, Radio } from 'lucide-react';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 
 export const AIOverviewPage: React.FC = () => {
   const overviewRef = useRef<EnhancedAIOverviewHandle>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLiveUpdates, setIsLiveUpdates] = useState(false);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   const handleRefresh = useCallback(async () => {
     if (overviewRef.current) {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import {
   Plus,
   Activity,
@@ -34,6 +35,14 @@ const WebhookManagementPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'devops',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
+
 
   // Check webhook permissions (matching backend controller)
   const canReadWebhooks = hasPermissions(user, ['webhook.read']) || hasPermissions(user, ['webhook.create', 'webhook.update', 'webhook.delete']);

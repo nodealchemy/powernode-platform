@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { ArrowLeft, Play, Edit, Copy, Download, Trash2, RefreshCw, Settings, Activity, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
@@ -33,11 +34,20 @@ export const PipelineDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
   const { currentUser } = useAuth();
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'devops',
+    subscribeToDevops: true,
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   const [pipeline, setPipeline] = useState<CiCdPipeline | null>(null);
   const [runs, setRuns] = useState<CiCdPipelineRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
+
 
   const canEdit = currentUser?.permissions?.includes('devops.pipelines.write') || false;
 

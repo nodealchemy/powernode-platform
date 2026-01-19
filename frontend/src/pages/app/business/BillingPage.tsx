@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { billingApi, BillingOverview, PaymentMethod } from '@/features/business/billing/services/billingApi';
 import { formatCurrency, formatCardDisplay, formatBankAccountDisplay } from '@/shared/utils/formatters';
 import { getInvoiceStatusColor, getInvoiceStatusText } from '@/shared/utils/statusHelpers';
@@ -36,6 +37,16 @@ export const BillingPage: React.FC = () => {
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1), // 3 months ago
     endDate: new Date()
+  });
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'business',
+    subscribeToSubscriptions: true,
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+      loadBillingData();
+    }
   });
 
   const loadBillingData = useCallback(async () => {

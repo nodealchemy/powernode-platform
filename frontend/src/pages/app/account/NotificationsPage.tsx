@@ -3,6 +3,7 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { notificationApi, Notification } from '@/features/account/notifications/services/notificationApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useNotificationWebSocket, WebSocketNotification } from '@/shared/hooks/useNotificationWebSocket';
 import {
   BellIcon,
   CheckIcon,
@@ -36,6 +37,42 @@ export const NotificationsPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Handle new notification from WebSocket
+  const handleNewNotification = useCallback((wsNotification: WebSocketNotification) => {
+    // Convert WebSocket notification to API format and prepend to list
+    const newNotification: Notification = {
+      id: wsNotification.id,
+      type: wsNotification.notification_type,
+      title: wsNotification.title,
+      message: wsNotification.message,
+      severity: wsNotification.severity,
+      action_url: wsNotification.action_url,
+      action_label: wsNotification.action_label,
+      icon: wsNotification.icon,
+      category: wsNotification.category || 'general',
+      metadata: {},
+      created_at: wsNotification.created_at,
+      read: false
+    };
+
+    setNotifications(prev => [newNotification, ...prev]);
+    setUnreadCount(prev => prev + 1);
+  }, []);
+
+  // Handle notification marked as read from WebSocket
+  const handleNotificationRead = useCallback((notificationId: string) => {
+    setNotifications(prev =>
+      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    );
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  }, []);
+
+  // WebSocket connection for real-time notifications
+  const { isConnected: _wsConnected } = useNotificationWebSocket({
+    onNewNotification: handleNewNotification,
+    onNotificationRead: handleNotificationRead
+  });
 
   const loadNotifications = useCallback(async () => {
     try {

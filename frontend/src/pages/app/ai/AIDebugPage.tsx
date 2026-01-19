@@ -1,8 +1,17 @@
 import React from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { AIPermissionsDebug } from '@/shared/components/ai/AIPermissionsDebug';
 
 export const AIDebugPage: React.FC = () => {
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
+
   return (
     <PageContainer
       title="AI Authentication Debug"

@@ -14,6 +14,7 @@ import {
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 
 // Type guard for API errors
 interface ApiErrorResponse {
@@ -53,6 +54,14 @@ const AgentTeamsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [executingTeamId, setExecutingTeamId] = useState<string | null>(null);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   useEffect(() => {
     loadTeams();

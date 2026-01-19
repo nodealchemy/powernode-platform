@@ -23,6 +23,7 @@ import { WorkflowBuilderProvider } from '@/shared/components/workflow/WorkflowBu
 import { workflowsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { AiWorkflowNode, AiWorkflowEdge } from '@/shared/types/workflow';
 
 interface WorkflowFormData {
@@ -43,6 +44,14 @@ export const CreateWorkflowPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   // Load grid preference from localStorage
   const [showGrid, setShowGrid] = useState(() => {

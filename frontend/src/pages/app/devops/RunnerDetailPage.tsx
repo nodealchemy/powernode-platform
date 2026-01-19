@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { ArrowLeft, Server, Trash2, RefreshCw, Activity, Cpu, Clock, CheckCircle, XCircle, Tag, Copy, Key } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
@@ -40,10 +41,19 @@ export const RunnerDetailPage: React.FC = () => {
   const { showNotification } = useNotifications();
   const { currentUser } = useAuth();
   const { confirm, ConfirmationDialog } = useConfirmation();
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'devops',
+    subscribeToDevops: true,
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   const [runner, setRunner] = useState<GitRunnerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+
 
   const canManageRunners = currentUser?.permissions?.includes('git.runners.manage');
 

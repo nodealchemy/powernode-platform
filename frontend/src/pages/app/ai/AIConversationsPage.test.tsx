@@ -76,6 +76,17 @@ jest.mock('@/shared/hooks/BreadcrumbContext', () => ({
   })
 }));
 
+// Mock usePageWebSocket
+jest.mock('@/shared/hooks/usePageWebSocket', () => ({
+  usePageWebSocket: () => ({
+    isConnected: true,
+    error: null,
+    activeChannels: [],
+    subscribeToChannel: jest.fn(),
+    unsubscribeFromChannel: jest.fn()
+  })
+}));
+
 // Mock modals
 jest.mock('@/features/ai/conversations/components/ConversationCreateModal', () => ({
   ConversationCreateModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>

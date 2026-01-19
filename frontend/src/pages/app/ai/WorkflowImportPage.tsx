@@ -7,6 +7,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Input } from '@/shared/components/ui/Input';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePermissions } from '@/shared/hooks/usePermissions';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { workflowsApi } from '@/shared/services/ai';
 
 interface WorkflowImportData {
@@ -78,6 +79,14 @@ export const WorkflowImportPage: React.FC = () => {
 
   const { addNotification } = useNotifications();
   const { hasPermission } = usePermissions();
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   const canImportWorkflows = hasPermission('ai.workflows.create');
 

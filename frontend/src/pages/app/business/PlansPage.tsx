@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import {
   plansApi,
   Plan,
@@ -22,7 +23,7 @@ export const PlansPage: React.FC = () => {
   const { confirm, ConfirmationDialog } = useConfirmation();
   const notificationRef = useRef(showNotification);
   notificationRef.current = showNotification;
-  
+
   const location = useLocation();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +31,16 @@ export const PlansPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<DetailedPlan | null>(null);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'business',
+    subscribeToSubscriptions: true,
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+      loadPlans();
+    }
+  });
 
   // Check if user has plan management permissions for create/edit/delete actions
   const canManagePlans = hasPermissions(user, ['plans.manage']) || hasPermissions(user, ['admin.billing.read']);

@@ -17,6 +17,7 @@ import { AuditLogMetrics } from '@/features/system/audit-logs/components/AuditLo
 import { AuditLogExport } from '@/features/system/audit-logs/components/AuditLogExport';
 import { auditLogsApi, AuditLog, AuditLogFilters as FilterType } from '@/features/system/audit-logs/services/auditLogsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
@@ -45,6 +46,7 @@ export const AuditLogsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
   const navigate = useNavigate();
+  usePageWebSocket({ pageType: 'system' });
 
   // Determine active tab from URL path
   const getTabFromPath = (): 'table' | 'analytics' => {

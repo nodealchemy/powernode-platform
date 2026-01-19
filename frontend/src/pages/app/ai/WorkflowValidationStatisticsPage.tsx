@@ -3,9 +3,18 @@ import { Activity, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { ValidationStatisticsDashboard } from '@/features/ai/workflows/components/validation/ValidationStatisticsDashboard';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 
 export const WorkflowValidationStatisticsPage: React.FC = () => {
   const { currentUser } = useAuth();
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   // Check permissions
   const canViewWorkflows = currentUser?.permissions?.includes('ai.workflows.read') || false;

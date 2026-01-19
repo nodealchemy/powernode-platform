@@ -12,6 +12,7 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Card } from '@/shared/components/ui/Card';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { marketplaceApi } from '@/features/app/services/marketplaceApi';
 import type { MarketplaceItem, MarketplaceItemType } from '@/features/app/types/marketplace';
 
@@ -19,6 +20,7 @@ export const ItemDetailPage: React.FC = () => {
   const { type, id } = useParams<{ type: MarketplaceItemType; id: string }>();
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
+  usePageWebSocket({ pageType: 'marketplace' });
 
   const [item, setItem] = useState<MarketplaceItem | null>(null);
   const [loading, setLoading] = useState(true);

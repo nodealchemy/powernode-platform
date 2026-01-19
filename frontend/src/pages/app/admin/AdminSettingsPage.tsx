@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { AdminSettingsTabs } from '@/features/admin/components/settings/AdminSettingsTabs';
 
@@ -30,6 +31,14 @@ const settingsTabs = [
 export const AdminSettingsPage: React.FC = () => {
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'admin',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   // Check if user has admin settings permission
   const canAccessAdminSettings = hasPermissions(user, ['admin.settings.read']);

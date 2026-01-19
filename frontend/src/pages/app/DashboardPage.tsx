@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
@@ -6,6 +6,7 @@ import { plansApi } from '@/features/business/plans/services/plansApi';
 import { paymentGatewaysApi } from '@/features/business/payment-gateways/services/paymentGatewaysApi';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { MetricCard } from '@/shared/components/ui/Card';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 
 // Import all dashboard pages
 import { ReportsPage } from './business/ReportsPage';
@@ -117,7 +118,22 @@ const DashboardOverview: React.FC = () => {
   const [hasPlans, setHasPlans] = useState(false);
   const [hasPaymentGateways, setHasPaymentGateways] = useState(false);
   const [loading, setLoading] = useState(true);
-  
+
+  // Handle websocket data updates
+  const handleDataUpdate = useCallback(() => {
+    // Refresh data when receiving real-time updates
+    // Could trigger a re-fetch of metrics here
+  }, []);
+
+  // WebSocket connection for real-time dashboard updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'dashboard',
+    onDataUpdate: handleDataUpdate,
+    onSubscriptionUpdate: handleDataUpdate,
+    onAnalyticsUpdate: handleDataUpdate,
+    onNotification: handleDataUpdate
+  });
+
   useEffect(() => {
     let mounted = true; // Track if component is still mounted
     

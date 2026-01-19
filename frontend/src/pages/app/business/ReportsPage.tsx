@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { RootState } from '@/shared/services';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { reportsService } from '@/features/business/reports/services/reportsService';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { DateRangeFilter } from '@/features/business/analytics/components/DateRangeFilter';
@@ -55,6 +56,14 @@ export const ReportsPage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [builderStep, setBuilderStep] = useState<1 | 2 | 3 | 4>(1);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'business',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
   
   // Report data
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);

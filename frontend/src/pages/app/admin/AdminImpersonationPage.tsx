@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
@@ -20,6 +21,14 @@ export const AdminImpersonationPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const [showImpersonateModal, setShowImpersonateModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'admin',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   // Check permissions
   const canImpersonate = hasPermissions(user, ['admin.users.impersonate', 'admin.access']);

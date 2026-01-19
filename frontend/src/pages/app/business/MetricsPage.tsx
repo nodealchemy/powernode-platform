@@ -1,7 +1,16 @@
 import React from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 
 export const MetricsPage: React.FC = () => {
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'business',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
+
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app', icon: '🏠' },
     { label: 'Metrics', icon: '📈' }

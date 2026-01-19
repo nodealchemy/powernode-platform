@@ -14,6 +14,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { marketplaceApi } from '@/features/app/services/marketplaceApi';
 import type { MarketplaceSubscription, MarketplaceItemType } from '@/features/app/types/marketplace';
 import { ALL_MARKETPLACE_TYPES } from '@/features/app/types/marketplace';
@@ -23,6 +24,7 @@ const ALL_TYPES = ALL_MARKETPLACE_TYPES;
 export const MySubscriptionsPage: React.FC = () => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
+  usePageWebSocket({ pageType: 'marketplace' });
 
   const [subscriptions, setSubscriptions] = useState<MarketplaceSubscription[]>([]);
   const [loading, setLoading] = useState(true);

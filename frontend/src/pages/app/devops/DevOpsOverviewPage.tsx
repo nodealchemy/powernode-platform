@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import {
   GitBranch,
   FolderGit2,
@@ -148,6 +149,13 @@ interface WeeklyActivity {
 
 export function DevOpsOverviewPage() {
   const navigate = useNavigate();
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'devops',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<DevOpsStats>({
@@ -160,6 +168,7 @@ export function DevOpsOverviewPage() {
   });
   const [activityData, setActivityData] = useState<Map<string, number>>(new Map());
   const [loadingActivity, setLoadingActivity] = useState(false);
+
 
   const loadStats = async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);

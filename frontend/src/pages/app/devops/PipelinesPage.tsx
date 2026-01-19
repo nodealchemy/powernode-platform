@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Play, GitBranch } from 'lucide-react';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { SearchInput } from '@/shared/components/ui/SearchInput';
 import { useAuth } from '@/shared/hooks/useAuth';
@@ -12,9 +13,18 @@ export const PipelinesPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { showNotification } = useNotifications();
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'devops',
+    subscribeToDevops: true,
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
 
   // Get filter params based on active filter
   const filterParams = activeFilter === 'all'

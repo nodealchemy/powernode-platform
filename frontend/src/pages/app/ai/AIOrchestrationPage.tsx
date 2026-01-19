@@ -8,6 +8,7 @@ import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer'
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 
 // Import individual AI pages
 import { AIProvidersPage } from './AIProvidersPage';
@@ -26,6 +27,14 @@ export const AIOrchestrationPage: React.FC = () => {
   const { showNotification } = useNotifications();
   const location = useLocation();
   const [loading, setLoading] = useState(true);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   // Check permissions for tab visibility
   const canViewProviders = currentUser?.permissions?.includes('ai.providers.read') || false;

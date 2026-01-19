@@ -30,6 +30,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { marketplaceApi } from '@/features/app/services/marketplaceApi';
 import type {
   MarketplaceItem,
@@ -45,6 +46,14 @@ interface AdminMarketplacePageProps {
 const ALL_TYPES = ALL_MARKETPLACE_TYPES;
 
 export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ className = '' }) => {
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'admin',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
+
   const [activeTab, setActiveTab] = useState<'items' | 'pending' | 'reviews' | 'analytics'>('items');
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [pendingTemplates, setPendingTemplates] = useState<MarketplaceItem[]>([]);

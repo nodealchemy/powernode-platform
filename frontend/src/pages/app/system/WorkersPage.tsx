@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { Navigate, useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { workerApi, Worker } from '@/features/system/workers/services/workerApi';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
@@ -72,6 +73,7 @@ export const WorkersPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
   const { showNotification } = useNotifications();
+  usePageWebSocket({ pageType: 'system' });
   const [state, setState] = useState<WorkersPageState>(initialState);
 
   // Initialize active tab from URL

@@ -3,10 +3,19 @@ import { Plus } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { AiAgentDashboard } from '@/features/ai/agents/components/AiAgentDashboard';
 import { usePermissions } from '@/shared/hooks/usePermissions';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 
 export const AIAgentsPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { hasPermission } = usePermissions();
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   const canCreateAgents = hasPermission('ai.agents.create');
 

@@ -22,6 +22,7 @@ import { agentsApi, conversationsApi, GlobalConversationFilters } from '@/shared
 import { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { AiAgent } from '@/shared/types/ai';
 import { ConversationCreateModal } from '@/features/ai/conversations/components/ConversationCreateModal';
@@ -38,6 +39,14 @@ export const AIConversationsPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   const [conversations, setConversations] = useState<ConversationBase[]>([]);
   const [availableAgents, setAvailableAgents] = useState<AiAgent[]>([]);

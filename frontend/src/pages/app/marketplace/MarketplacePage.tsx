@@ -13,6 +13,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { marketplaceApi } from '@/features/app/services/marketplaceApi';
 import { ItemCard, TypeFilter, SearchInput } from '@/features/app/components';
 import type { MarketplaceItem, MarketplaceItemType, MarketplaceFilters } from '@/features/app/types/marketplace';
@@ -23,6 +24,7 @@ const ALL_TYPES: MarketplaceItemType[] = ALL_MARKETPLACE_TYPES;
 export const MarketplacePage: React.FC = () => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
+  usePageWebSocket({ pageType: 'marketplace' });
 
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(true);

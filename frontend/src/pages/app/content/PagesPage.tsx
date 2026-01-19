@@ -9,12 +9,14 @@ import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { Plus, RefreshCw, Edit2, Eye, EyeOff, Copy, Trash2 } from 'lucide-react';
 
 export const PagesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const { confirm, ConfirmationDialog } = useConfirmation();
+  usePageWebSocket({ pageType: 'content' });
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Upload, Search, Download, Trash2, RefreshCw, HardDrive, Database } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { FileUpload } from '@/features/content/files/components/FileUpload';
 import { FileItem } from '@/features/content/files/components/FileItem';
 import { FileDetails } from '@/features/content/files/components/FileDetails';
@@ -15,6 +16,7 @@ import { AppDispatch } from '@/shared/services';
 const MyFilesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { currentUser } = useAuth();
+  usePageWebSocket({ pageType: 'content' });
   const [files, setFiles] = useState<FileObject[]>([]);
   const [storageProviders, setStorageProviders] = useState<StorageProvider[]>([]);
   const [selectedStorageId, setSelectedStorageId] = useState<string>('');
