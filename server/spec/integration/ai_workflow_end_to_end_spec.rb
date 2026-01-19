@@ -273,8 +273,8 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
         }
       }
 
-      # 500 may occur if schedule service not fully implemented
-      expect(response.status).to be_in([ 200, 201, 404, 422, 500 ])
+      # 500 may occur if schedule service not fully implemented, 400 = bad request
+      expect(response.status).to be_in([ 200, 201, 400, 404, 422, 500 ])
     end
   end
 

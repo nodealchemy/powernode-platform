@@ -51,7 +51,7 @@ class Invoice < ApplicationRecord
 
     event :mark_paid do
       transitions from: [ :open, :uncollectible ], to: :paid
-      after do
+      before do
         self.paid_at = Time.current
       end
     end

@@ -31,7 +31,9 @@ class BackendApiClient
   end
 
   def get_account_subscription(account_id)
-    get("/api/v1/accounts/#{account_id}/subscription")
+    # Get account data which includes subscription info
+    account_data = get("/api/v1/accounts/#{account_id}")
+    account_data['subscription']
   end
 
   # Analytics operations

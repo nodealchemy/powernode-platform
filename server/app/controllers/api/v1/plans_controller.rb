@@ -155,12 +155,12 @@ class Api::V1::PlansController < ApplicationController
 
   # POST /api/v1/plans/:id/duplicate
   def duplicate
-    set_plan
+    return unless set_plan
 
     new_plan = @plan.dup
     new_plan.name = "#{@plan.name} (Copy)"
+    new_plan.slug = nil # Will be auto-generated from name
     new_plan.status = "inactive"
-    new_plan.stripe_price_id = nil
     new_plan.paypal_plan_id = nil
 
     if new_plan.save
@@ -178,9 +178,10 @@ class Api::V1::PlansController < ApplicationController
 
   # PUT /api/v1/plans/:id/toggle_status
   def toggle_status
-    set_plan
+    return unless set_plan
 
-    new_status = @plan.status == "active" ? "inactive" : "active"
+    old_status = @plan.status
+    new_status = old_status == "active" ? "inactive" : "active"
 
     if @plan.update(status: new_status)
       # Log status change
@@ -195,7 +196,7 @@ class Api::V1::PlansController < ApplicationController
         user_agent: request.user_agent,
         metadata: {
           plan_name: @plan.name,
-          old_status: @plan.status_was,
+          old_status: old_status,
           new_status: new_status
         }
       )
@@ -212,18 +213,21 @@ class Api::V1::PlansController < ApplicationController
   private
 
   def set_plan
-    @plan = Plan.find(params[:id])
-  rescue ActiveRecord::RecordNotFound
-    render_error("Plan not found", status: :not_found)
+    @plan = Plan.find_by(id: params[:id])
+    unless @plan
+      render_error("Plan not found", status: :not_found)
+      return false
+    end
+    true
   end
 
   def require_plan_management_permission
-    unless current_user.has_permission?("plans.manage") || current_user.has_permission?("admin.billing.view")
-      render_error(
-        "Permission denied: requires plans.manage or admin.billing.view",
-        :forbidden
-      )
-    end
+    return if current_user.has_permission?("plans.manage") || current_user.has_permission?("admin.billing.view")
+
+    render_error(
+      "Permission denied: requires plans.manage or admin.billing.view",
+      :forbidden
+    )
   end
 
   def plan_params
@@ -236,7 +240,6 @@ class Api::V1::PlansController < ApplicationController
       :status,
       :trial_days,
       :is_public,
-      :stripe_price_id,
       :paypal_plan_id,
       :has_annual_discount,
       :annual_discount_percent,
@@ -251,7 +254,7 @@ class Api::V1::PlansController < ApplicationController
       default_roles: [],
       required_roles: [],
       metadata: {},
-      volume_discount_tiers: []
+      volume_discount_tiers: [:min_quantity, :discount_percent]
     )
   end
 
@@ -283,7 +286,6 @@ class Api::V1::PlansController < ApplicationController
       default_roles: plan.default_roles,
       required_roles: plan.required_roles || [ "account.member" ],
       metadata: plan.metadata || {},
-      stripe_price_id: plan.stripe_price_id,
       paypal_plan_id: plan.paypal_plan_id,
       can_be_deleted: plan.can_be_deleted?,
       # Discount fields

@@ -7,7 +7,7 @@ class Api::V1::InvoicesController < ApplicationController
 
   # GET /api/v1/invoices
   def index
-    invoices = current_account.invoices.includes(:subscription, :payment).order(created_at: :desc)
+    invoices = current_account.invoices.includes(:subscription, :payments).order(created_at: :desc)
 
     # Pagination using Kaminari
     page = params[:page] || 1
@@ -38,7 +38,7 @@ class Api::V1::InvoicesController < ApplicationController
   # POST /api/v1/invoices/:id/send
   def send_invoice
     if @invoice.status == "draft"
-      @invoice.update!(status: "sent", sent_at: Time.current)
+      @invoice.finalize! # Uses AASM state machine to transition from draft to open
 
       # Queue email delivery
       # InvoiceMailer.invoice_notification(@invoice).deliver_later
@@ -56,12 +56,8 @@ class Api::V1::InvoicesController < ApplicationController
 
   # POST /api/v1/invoices/:id/mark_paid
   def mark_paid
-    if @invoice.status.in?(%w[sent overdue])
-      @invoice.update!(
-        status: "paid",
-        paid_at: params[:paid_at] || Time.current,
-        payment_method: params[:payment_method] || "manual"
-      )
+    if @invoice.status.in?(%w[open uncollectible])
+      @invoice.mark_paid! # Uses AASM state machine - paid_at is set in before callback
 
       render_success(
         message: "Invoice marked as paid",
@@ -76,12 +72,8 @@ class Api::V1::InvoicesController < ApplicationController
 
   # POST /api/v1/invoices/:id/void
   def void
-    if @invoice.status.in?(%w[draft sent overdue])
-      @invoice.update!(
-        status: "void",
-        voided_at: Time.current,
-        void_reason: params[:reason]
-      )
+    if @invoice.status.in?(%w[draft open])
+      @invoice.void! # Uses AASM state machine
 
       render_success(
         message: "Invoice voided successfully",
@@ -96,14 +88,10 @@ class Api::V1::InvoicesController < ApplicationController
 
   # POST /api/v1/invoices/:id/retry_payment
   def retry_payment
-    unless @invoice.status.in?(%w[sent overdue payment_failed])
+    # Only open or uncollectible invoices can have payment retried
+    unless @invoice.status.in?(%w[open uncollectible])
       return render_error("Invoice is not eligible for payment retry", status: :unprocessable_content)
     end
-
-    @invoice.update!(
-      last_payment_attempt: Time.current,
-      payment_attempts: (@invoice.payment_attempts || 0) + 1
-    )
 
     # Queue payment retry job via worker service
     begin
@@ -120,8 +108,7 @@ class Api::V1::InvoicesController < ApplicationController
 
     render_success(
       message: job_queued ? "Payment retry initiated" : "Retry recorded but worker unavailable",
-      data: invoice_data(@invoice),
-      job_queued: job_queued
+      data: invoice_data(@invoice)
     )
   rescue StandardError => e
     render_error("Failed to retry payment: #{e.message}", status: :internal_server_error)
@@ -152,15 +139,15 @@ class Api::V1::InvoicesController < ApplicationController
 
     # Time range filter
     if params[:start_date].present?
-      invoices = invoices.where("created_at >= ?", params[:start_date].to_date)
+      invoices = invoices.where("invoices.created_at >= ?", params[:start_date].to_date)
     end
     if params[:end_date].present?
-      invoices = invoices.where("created_at <= ?", params[:end_date].to_date.end_of_day)
+      invoices = invoices.where("invoices.created_at <= ?", params[:end_date].to_date.end_of_day)
     end
 
-    total_amount = invoices.sum(:total_amount)
-    paid_amount = invoices.where(status: "paid").sum(:total_amount)
-    pending_amount = invoices.where(status: %w[sent overdue]).sum(:total_amount)
+    total_amount = invoices.sum(:total_cents)
+    paid_amount = invoices.where(status: "paid").sum(:total_cents)
+    pending_amount = invoices.where(status: "open").sum(:total_cents)
 
     render_success(
       data: {
@@ -169,16 +156,16 @@ class Api::V1::InvoicesController < ApplicationController
           total_amount: total_amount,
           paid_amount: paid_amount,
           pending_amount: pending_amount,
-          overdue_amount: invoices.where(status: "overdue").sum(:total_amount),
+          overdue_amount: invoices.overdue.sum(:total_cents),
           average_invoice_amount: invoices.count > 0 ? (total_amount / invoices.count).round(2) : 0
         },
         by_status: invoices.group(:status).count,
-        by_status_amount: invoices.group(:status).sum(:total_amount),
-        monthly_trend: invoices.group_by_month(:created_at, last: 12).sum(:total_amount),
+        by_status_amount: invoices.group(:status).sum(:total_cents),
+        monthly_trend: invoices.group_by_month(:created_at, last: 12).sum(:total_cents),
         payment_rate: invoices.count > 0 ? (invoices.where(status: "paid").count.to_f / invoices.count * 100).round(2) : 0,
         average_days_to_payment: calculate_average_days_to_payment(invoices),
-        overdue_invoices: invoices.where(status: "overdue").count,
-        currency_breakdown: invoices.group(:currency).sum(:total_amount)
+        overdue_invoices: invoices.overdue.count,
+        currency_breakdown: invoices.group(:currency).sum(:total_cents)
       }
     )
   end
@@ -196,33 +183,33 @@ class Api::V1::InvoicesController < ApplicationController
       id: invoice.id,
       invoice_number: invoice.invoice_number,
       status: invoice.status,
-      subtotal: invoice.subtotal,
-      tax_amount: invoice.tax_amount,
-      total_amount: invoice.total_amount,
+      subtotal: invoice.subtotal.to_f,
+      tax_amount: invoice.tax_amount.to_f,
+      total_amount: invoice.total.to_f,
       currency: invoice.currency,
-      due_date: invoice.due_date,
+      due_date: invoice.due_at,
       paid_at: invoice.paid_at,
       created_at: invoice.created_at,
       updated_at: invoice.updated_at,
       subscription: invoice.subscription ? {
         id: invoice.subscription.id,
-        plan_name: invoice.subscription.plan.name
+        plan_name: invoice.subscription.plan&.name
       } : nil,
-      payment: invoice.payment ? {
-        id: invoice.payment.id,
-        status: invoice.payment.status,
-        amount: invoice.payment.amount
+      payment: invoice.payments.last ? {
+        id: invoice.payments.last.id,
+        status: invoice.payments.last.status,
+        amount: invoice.payments.last.amount_cents
       } : nil
     }
 
     if include_line_items
-      data[:line_items] = invoice.line_items.map do |item|
+      data[:line_items] = invoice.invoice_line_items.map do |item|
         {
           id: item.id,
           description: item.description,
           quantity: item.quantity,
-          unit_price: item.unit_price,
-          amount: item.amount
+          unit_price: item.unit_amount_cents,
+          amount: item.total_amount_cents
         }
       end
     end
@@ -237,9 +224,9 @@ class Api::V1::InvoicesController < ApplicationController
       %PDF-1.4
       Invoice: #{invoice.invoice_number}
       Account: #{current_account.name}
-      Amount: #{invoice.currency} #{invoice.total_amount}
+      Amount: #{invoice.currency} #{invoice.total.to_f}
       Status: #{invoice.status}
-      Due Date: #{invoice.due_date}
+      Due Date: #{invoice.due_at}
       Generated: #{Time.current}
     PDF
     pdf_content

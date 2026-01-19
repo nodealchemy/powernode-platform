@@ -21,7 +21,7 @@ class AuditLog < ApplicationRecord
       api_key_created api_key_revoked api_access_denied
       data_export data_import security_scan compliance_check
       system_maintenance system_backup system_restore
-      account_locked account_unlocked password_changed email_verified
+      account_locked account_unlocked account_switch password_changed email_verified
       two_factor_enabled two_factor_disabled backup_codes_generated
       plan_upgraded plan_downgraded billing_updated
       integration_connected integration_disconnected

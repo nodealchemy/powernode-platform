@@ -2,7 +2,9 @@
 
 class Plan < ApplicationRecord
   # Associations
-  has_many :subscriptions, dependent: :restrict_with_error
+  # Note: We handle deletion restrictions via before_destroy callback
+  # to allow deletion when only inactive subscriptions exist
+  has_many :subscriptions
 
   # Validations
   validates :name, presence: true, uniqueness: { case_sensitive: false }, length: { minimum: 2, maximum: 100 }
@@ -31,8 +33,13 @@ class Plan < ApplicationRecord
   scope :by_billing_cycle, ->(cycle) { where(billing_cycle: cycle) }
   scope :by_currency, ->(currency) { where(currency: currency) }
 
+  # Slug validation - must be unique
+  validates :slug, presence: true, uniqueness: { case_sensitive: false }, length: { maximum: 100 }
+
   # Callbacks
   before_validation :normalize_name
+  before_validation :generate_slug, if: -> { slug.blank? }
+  before_destroy :check_for_active_subscriptions
   after_initialize :set_defaults
 
   # Instance methods
@@ -270,5 +277,27 @@ class Plan < ApplicationRecord
         errors.add(:volume_discount_tiers, "tier #{index + 1} discount_percent must be between 0 and 100")
       end
     end
+  end
+
+  def generate_slug
+    return if name.blank?
+
+    base_slug = name.downcase.gsub(/[^a-z0-9\s-]/, "").gsub(/\s+/, "-").strip
+    candidate_slug = base_slug
+    counter = 1
+
+    while Plan.where(slug: candidate_slug).where.not(id: id).exists?
+      candidate_slug = "#{base_slug}-#{counter}"
+      counter += 1
+    end
+
+    self.slug = candidate_slug
+  end
+
+  def check_for_active_subscriptions
+    return true if can_be_deleted?
+
+    errors.add(:base, "Cannot delete plan with active subscriptions")
+    throw :abort
   end
 end

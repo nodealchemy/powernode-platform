@@ -223,5 +223,21 @@ module ApiResponse
     rescue_from ActiveRecord::RecordNotFound do |exception|
       render_not_found(exception.model.humanize)
     end
+
+    rescue_from Money::Currency::UnknownCurrency do |exception|
+      render_validation_error("Invalid currency: #{exception.message}")
+    end
+
+    rescue_from ActionController::ParameterMissing do |exception|
+      render_error(exception.message, status: :bad_request, code: "PARAMETER_MISSING")
+    end
+
+    rescue_from ActiveRecord::InvalidForeignKey do |exception|
+      render_error(
+        "Cannot delete this record because it is referenced by other records",
+        status: :unprocessable_content,
+        code: "FOREIGN_KEY_VIOLATION"
+      )
+    end
   end
 end

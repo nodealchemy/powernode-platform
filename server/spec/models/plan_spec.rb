@@ -1,10 +1,14 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe Plan, type: :model do
   let(:plan) { build(:plan) }
 
   describe "associations" do
-    it { should have_many(:subscriptions).dependent(:restrict_with_error) }
+    # Note: Plan uses before_destroy callback for custom deletion logic
+    # (allows deletion when only inactive subscriptions exist)
+    it { should have_many(:subscriptions) }
   end
 
   describe "validations" do

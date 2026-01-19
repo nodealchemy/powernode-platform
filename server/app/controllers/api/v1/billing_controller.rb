@@ -17,19 +17,18 @@ class Api::V1::BillingController < ApplicationController
   end
 
   def payment_methods
-    methods = current_account.payment_methods.includes(:user).order(created_at: :desc)
+    methods = current_account.payment_methods.order(created_at: :desc)
 
     render_success(
       data: {
         payment_methods: methods.map do |method|
           {
             id: method.id,
-            provider: method.provider,
-            payment_method_type: method.payment_method_type,
-            card_brand: method.card_brand,
-            card_last_four: method.card_last_four,
-            bank_account_last_four: method.bank_account_last_four,
-            is_default: method.is_default,
+            provider: method.gateway,
+            payment_method_type: method.payment_type,
+            card_brand: method.brand,
+            card_last_four: method.last_four,
+                        is_default: method.is_default,
             created_at: method.created_at
           }
         end
@@ -53,10 +52,10 @@ class Api::V1::BillingController < ApplicationController
         data: {
           payment_method: {
             id: result[:payment_method].id,
-            provider: result[:payment_method].provider,
-            payment_method_type: result[:payment_method].payment_method_type,
-            card_brand: result[:payment_method].card_brand,
-            card_last_four: result[:payment_method].card_last_four
+            provider: result[:payment_method].gateway,
+            payment_method_type: result[:payment_method].payment_type,
+            card_brand: result[:payment_method].brand,
+            card_last_four: result[:payment_method].last_four
           }
         }
       )
@@ -106,11 +105,11 @@ class Api::V1::BillingController < ApplicationController
             id: invoice.id,
             invoice_number: invoice.invoice_number,
             subtotal: invoice.subtotal.to_s,
-            tax_amount: invoice.tax_amount.to_s,
-            total_amount: invoice.total_amount.to_s,
+            tax_amount: invoice.tax.to_s,
+            total_amount: invoice.total.to_s,
             currency: invoice.currency,
             status: invoice.status,
-            due_date: invoice.due_date,
+            due_date: invoice.due_at,
             created_at: invoice.created_at,
             line_items_count: invoice.invoice_line_items.count
           }
@@ -126,7 +125,13 @@ class Api::V1::BillingController < ApplicationController
   end
 
   def create_invoice
-    invoice = current_account.invoices.build(invoice_params)
+    subscription = current_account.subscription
+    unless subscription
+      return render_error("No active subscription", status: :unprocessable_content)
+    end
+
+    invoice = subscription.invoices.build(invoice_params)
+    invoice.account = current_account
     invoice.status = "draft"
 
     if invoice.save
@@ -140,7 +145,8 @@ class Api::V1::BillingController < ApplicationController
           )
         end
 
-        invoice.calculate_totals
+        # Save to recalculate totals via before_save callback
+        invoice.save
       end
 
       render_success(
@@ -148,7 +154,7 @@ class Api::V1::BillingController < ApplicationController
           invoice: {
             id: invoice.id,
             invoice_number: invoice.invoice_number,
-            total_amount: invoice.total_amount.to_s,
+            total_amount: invoice.total.to_s,
             status: invoice.status
           }
         }
@@ -191,7 +197,8 @@ class Api::V1::BillingController < ApplicationController
   private
 
   def outstanding_amount
-    current_account.invoices.where(status: [ "sent", "overdue" ]).sum(:total_cents)
+    # Outstanding = open invoices (including overdue which are open + past due_at)
+    current_account.invoices.where(status: "open").sum(:total_cents)
   end
 
   def this_month_amount
@@ -221,10 +228,10 @@ class Api::V1::BillingController < ApplicationController
         id: invoice.id,
         invoice_number: invoice.invoice_number,
         subtotal: invoice.subtotal.to_s,
-        total_amount: invoice.total_amount.to_s,
+        total_amount: invoice.total.to_s,
         currency: invoice.currency,
         status: invoice.status,
-        due_date: invoice.due_date,
+        due_date: invoice.due_at,
         created_at: invoice.created_at
       }
     end
@@ -234,10 +241,10 @@ class Api::V1::BillingController < ApplicationController
     current_account.payment_methods.where(is_default: true).limit(3).map do |method|
       {
         id: method.id,
-        provider: method.provider,
-        payment_method_type: method.payment_method_type,
-        card_brand: method.card_brand,
-        card_last_four: method.card_last_four,
+        provider: method.gateway,
+        payment_method_type: method.payment_type,
+        card_brand: method.brand,
+        card_last_four: method.last_four,
         is_default: method.is_default
       }
     end
@@ -260,7 +267,7 @@ class Api::V1::BillingController < ApplicationController
       {
         id: invoice.id,
         invoice_number: invoice.invoice_number,
-        amount: invoice.total_amount.to_s,
+        amount: invoice.total.to_s,
         status: invoice.status,
         created_at: invoice.created_at
       }
@@ -268,6 +275,9 @@ class Api::V1::BillingController < ApplicationController
   end
 
   def invoice_params
-    params.require(:invoice).permit(:currency, :due_date, :notes)
+    params.require(:invoice).permit(:currency, :due_at).tap do |p|
+      # Allow due_date as alias for due_at
+      p[:due_at] ||= params.dig(:invoice, :due_date)
+    end
   end
 end
