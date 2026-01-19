@@ -417,15 +417,15 @@ RSpec.describe 'Job Performance and Reliability', type: :performance do
             { success: true }
           end
         end
-        
+
         # Test with 50% error rate
         error_rate = 0.5
         attempts = 100
         successes = 0
         failures = 0
-        
+
         start_time = Time.current
-        
+
         attempts.times do
           begin
             result = error_prone_job.new.execute(error_rate)
@@ -434,15 +434,17 @@ RSpec.describe 'Job Performance and Reliability', type: :performance do
             failures += 1
           end
         end
-        
+
         total_time = Time.current - start_time
-        
+
         # Should complete all attempts quickly even with high error rate
         expect(total_time).to be < 1.0
-        
+
         # Success rate should approximate (1 - error_rate)
+        # With 100 samples and 50% probability, stddev = 5, so use wider tolerance (±20%)
+        # to avoid flaky tests while still validating the general behavior
         success_rate = successes.to_f / attempts
-        expect(success_rate).to be_within(0.1).of(1 - error_rate)
+        expect(success_rate).to be_within(0.2).of(1 - error_rate)
       end
     end
 
