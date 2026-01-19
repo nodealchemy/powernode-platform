@@ -1,7 +1,7 @@
 source "https://rubygems.org"
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
-gem "rails", "~> 8.0.2"
+gem "rails", "~> 8.1.2"
 # Use postgresql as the database for Active Record
 gem "pg", "~> 1.1"
 # Use the Puma web server [https://github.com/puma/puma]
@@ -57,8 +57,9 @@ gem "aws-sdk-s3", "~> 1.156"
 # Google Cloud Storage provider
 gem "google-cloud-storage", "~> 1.51"
 
-# Azure Blob Storage provider
-gem "azure-storage-blob", "~> 2.0"
+# Azure Blob Storage provider (using direct REST API with Faraday)
+gem "faraday", "~> 2.0"
+gem "faraday-multipart", "~> 1.0"
 
 # Image processing for file transformations
 gem "mini_magick", "~> 5.0"
@@ -136,3 +137,11 @@ gem "rotp", "~> 6.3"
 gem "rqrcode", "~> 2.2"
 
 gem "redis", "~> 5.4"
+gem 'pgvector'
+
+# Error tracking and monitoring
+gem "sentry-ruby", "~> 5.17"
+gem "sentry-rails", "~> 5.17"
+
+# Application performance monitoring (optional)
+gem "skylight", "~> 6.0", require: false

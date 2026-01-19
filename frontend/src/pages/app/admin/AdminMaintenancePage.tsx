@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import {
@@ -11,7 +12,7 @@ import {
   CleanupStats,
   MaintenanceSystemMetrics,
   MaintenanceSchedule
-} from '@/shared/services/maintenanceApi';
+} from '@/shared/services/admin/maintenanceApi';
 import { RefreshCw, Plus, Trash2 } from 'lucide-react';
 import {
   MaintenanceOverviewTab,
@@ -30,6 +31,14 @@ export const AdminMaintenancePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { showNotification } = useNotifications();
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'admin',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   // Get active tab from URL path
   const getActiveTabFromPath = (): MaintenanceTab => {

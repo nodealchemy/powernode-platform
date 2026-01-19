@@ -3,21 +3,23 @@ import React from 'react';
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  description?: string;
   fullWidth?: boolean;
 }
 
 export const Input: React.FC<InputProps> = ({
   label,
   error,
+  description,
   fullWidth = true,
   className = '',
   ...props
 }) => {
   const inputId = props.id || `input-${Math.random().toString(36).substr(2, 9)}`;
   const baseClassName = `
-    px-3 py-2 border border-theme rounded-md 
-    bg-theme-surface text-theme-primary 
-    placeholder-theme-tertiary 
+    px-3 py-2 border border-theme rounded-md
+    bg-theme-surface text-theme-primary
+    placeholder-theme-tertiary
     focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent
     disabled:bg-theme-background disabled:text-theme-secondary
     ${fullWidth ? 'w-full' : ''}
@@ -28,7 +30,7 @@ export const Input: React.FC<InputProps> = ({
   return (
     <div className={fullWidth ? 'w-full' : ''}>
       {label && (
-        <label 
+        <label
           htmlFor={inputId}
           className="block text-sm font-medium text-theme-primary mb-1"
         >
@@ -38,9 +40,14 @@ export const Input: React.FC<InputProps> = ({
       <input
         id={inputId}
         className={baseClassName}
-        aria-describedby={error ? `${inputId}-error` : undefined}
+        aria-describedby={error ? `${inputId}-error` : description ? `${inputId}-description` : undefined}
         {...props}
       />
+      {description && !error && (
+        <p id={`${inputId}-description`} className="mt-1 text-xs text-theme-muted">
+          {description}
+        </p>
+      )}
       {error && (
         <p id={`${inputId}-error`} className="mt-1 text-sm text-theme-error" role="alert">
           {error}

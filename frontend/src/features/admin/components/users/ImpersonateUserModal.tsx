@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '@/shared/services';
 import { startImpersonation } from '@/shared/services/slices/authSlice';
-import { impersonationApi, UserSummary } from '@/shared/services/impersonationApi';
+import { impersonationApi, UserSummary } from '@/shared/services/account/impersonationApi';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 

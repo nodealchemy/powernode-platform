@@ -31,9 +31,9 @@ module AiOrchestrationTestHelpers
     account = create(:account)
     user = create(:user, account: account)
     provider = create(:ai_provider, account: account, slug: 'test-provider')
-    credential = create(:ai_provider_credential, ai_provider: provider, is_active: true)
+    credential = create(:ai_provider_credential, provider: provider, is_active: true)
     workflow = create(:ai_workflow, :with_simple_chain, account: account, creator: user)
-    workflow_run = create(:ai_workflow_run, ai_workflow: workflow, account: account)
+    workflow_run = create(:ai_workflow_run, workflow: workflow, account: account)
 
     {
       account: account,
@@ -52,7 +52,7 @@ module AiOrchestrationTestHelpers
     account = create(:account)
     user = create(:user, account: account)
     provider = create(:ai_provider, account: account, slug: 'test-provider')
-    credential = create(:ai_provider_credential, ai_provider: provider, is_active: true)
+    credential = create(:ai_provider_credential, provider: provider, is_active: true)
     workflow = create(:ai_workflow, account: account, creator: user)
 
     {
@@ -68,10 +68,10 @@ module AiOrchestrationTestHelpers
   #
   # @param account [Account] The account to associate the provider with
   # @param slug [String] Optional slug for the provider (default: 'test-provider')
-  # @return [AiProvider] The created provider with active credential
+  # @return [Ai::Provider] The created provider with active credential
   def create_ai_provider_with_credentials(account, slug: 'test-provider')
     provider = create(:ai_provider, account: account, slug: slug)
-    create(:ai_provider_credential, ai_provider: provider, is_active: true)
+    create(:ai_provider_credential, provider: provider, is_active: true)
     provider
   end
 
@@ -79,11 +79,11 @@ module AiOrchestrationTestHelpers
   #
   # @param account [Account] The account to associate providers with
   # @param count [Integer] Number of providers to create (default: 3)
-  # @return [Array<AiProvider>] Array of created providers with credentials
+  # @return [Array<Ai::Provider>] Array of created providers with credentials
   def create_multiple_providers(account, count: 3)
     count.times.map do |i|
       provider = create(:ai_provider, account: account, slug: "provider-#{i}")
-      create(:ai_provider_credential, ai_provider: provider, is_active: true)
+      create(:ai_provider_credential, provider: provider, is_active: true)
       provider
     end
   end
@@ -94,7 +94,7 @@ module AiOrchestrationTestHelpers
   # @param creator [User] The user creating the workflow
   # @param mode [Symbol] Execution mode (:sequential, :parallel, :conditional)
   # @param structure [Symbol] Workflow structure (:simple_chain, :complex_flow, :with_loop)
-  # @return [AiWorkflow] The created workflow
+  # @return [Ai::Workflow] The created workflow
   def create_workflow_with_structure(account, creator, mode: :sequential, structure: :simple_chain)
     trait = structure == :simple_chain ? :with_simple_chain : structure
     config_trait = mode == :parallel ? :parallel_execution : nil
@@ -108,10 +108,10 @@ module AiOrchestrationTestHelpers
 
   # Creates a workflow run with specific status and execution context
   #
-  # @param workflow [AiWorkflow] The workflow to create a run for
+  # @param workflow [Ai::Workflow] The workflow to create a run for
   # @param status [String] Run status ('initializing', 'running', 'completed', 'failed')
   # @param input [Hash] Input variables for the run
-  # @return [AiWorkflowRun] The created workflow run
+  # @return [Ai::WorkflowRun] The created workflow run
   def create_workflow_run_with_status(workflow, status: 'initializing', input: {})
     trait = case status
     when 'running' then :running
@@ -121,9 +121,9 @@ module AiOrchestrationTestHelpers
     end
 
     if trait
-      create(:ai_workflow_run, trait, ai_workflow: workflow, account: workflow.account)
+      create(:ai_workflow_run, trait, workflow: workflow, account: workflow.account)
     else
-      create(:ai_workflow_run, ai_workflow: workflow, account: workflow.account, input_variables: input)
+      create(:ai_workflow_run, workflow: workflow, account: workflow.account, input_variables: input)
     end
   end
 
@@ -144,12 +144,12 @@ module AiOrchestrationTestHelpers
 
   # Stub circuit breaker service for provider availability testing
   #
-  # @param provider [AiProvider] The provider to stub circuit breaker for
+  # @param provider [Ai::Provider] The provider to stub circuit breaker for
   # @param available [Boolean] Whether provider should be available (default: true)
-  # @return [Double] CircuitBreaker mock instance
+  # @return [Double] Monitoring::CircuitBreaker mock instance
   def stub_circuit_breaker(provider, available: true)
-    circuit_breaker = instance_double(AiProviderCircuitBreakerService)
-    allow(AiProviderCircuitBreakerService).to receive(:new).with(provider).and_return(circuit_breaker)
+    circuit_breaker = instance_double(Ai::ProviderCircuitBreakerService)
+    allow(Ai::ProviderCircuitBreakerService).to receive(:new).with(provider).and_return(circuit_breaker)
     allow(circuit_breaker).to receive(:provider_available?).and_return(available)
     allow(circuit_breaker).to receive(:call).and_yield if available
     allow(circuit_breaker).to receive(:circuit_state).and_return(available ? :closed : :open)
@@ -159,11 +159,11 @@ module AiOrchestrationTestHelpers
   # Stub load balancer service for provider selection testing
   #
   # @param account [Account] The account to stub load balancer for
-  # @param providers [Array<AiProvider>] Available providers
+  # @param providers [Array<Ai::Provider>] Available providers
   # @return [Double] LoadBalancer mock instance
   def stub_load_balancer(account, providers: [])
-    load_balancer = instance_double(AiProviderLoadBalancerService)
-    allow(AiProviderLoadBalancerService).to receive(:new).with(account).and_return(load_balancer)
+    load_balancer = instance_double(Ai::ProviderLoadBalancerService)
+    allow(Ai::ProviderLoadBalancerService).to receive(:new).with(account).and_return(load_balancer)
     allow(load_balancer).to receive(:send).with(:get_available_providers).and_return(providers)
 
     providers.each do |provider|
@@ -261,10 +261,10 @@ module AiOrchestrationTestHelpers
 
   # Create node execution record for testing
   #
-  # @param workflow_run [AiWorkflowRun] The workflow run
-  # @param node [AiWorkflowNode] The node being executed
+  # @param workflow_run [Ai::WorkflowRun] The workflow run
+  # @param node [Ai::WorkflowNode] The node being executed
   # @param status [String] Execution status
-  # @return [AiWorkflowNodeExecution] The created node execution
+  # @return [Ai::WorkflowNodeExecution] The created node execution
   def create_node_execution(workflow_run, node, status: 'pending')
     trait = case status
     when 'running' then :running
@@ -273,23 +273,23 @@ module AiOrchestrationTestHelpers
     else nil
     end
 
+    attrs = {
+      workflow_run: workflow_run,
+      ai_workflow_node_id: node.id,
+      node_id: node.node_id,
+      node_type: node.node_type
+    }
+
     if trait
-      create(:ai_workflow_node_execution, trait,
-             ai_workflow_run: workflow_run,
-             ai_workflow_node: node,
-             account: workflow_run.account)
+      create(:ai_workflow_node_execution, trait, **attrs)
     else
-      create(:ai_workflow_node_execution,
-             ai_workflow_run: workflow_run,
-             ai_workflow_node: node,
-             account: workflow_run.account,
-             status: status)
+      create(:ai_workflow_node_execution, **attrs, status: status)
     end
   end
 
   # Assert that a workflow run has expected status
   #
-  # @param workflow_run [AiWorkflowRun] The workflow run to check
+  # @param workflow_run [Ai::WorkflowRun] The workflow run to check
   # @param expected_status [String] Expected status value
   def expect_workflow_status(workflow_run, expected_status)
     workflow_run.reload

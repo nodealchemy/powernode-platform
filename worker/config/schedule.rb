@@ -15,6 +15,16 @@ every 1.hour do
   runner "AiWorkflowCleanupJob.perform_async"
 end
 
+# CI/CD Approval Token Expiry
+every 1.hour do
+  runner "CiCd::ApprovalExpiryJob.perform_async"
+end
+
+# AI Workflow Approval Token Expiry
+every 1.hour do
+  runner "AiWorkflow::ApprovalExpiryJob.perform_async"
+end
+
 # Stuck Workflow Cleanup (more frequent)
 every 5.minutes do
   runner "WorkflowCleanupJob.perform_async"

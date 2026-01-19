@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :circuit_breaker do
+  factory :circuit_breaker, class: "Monitoring::CircuitBreaker" do
     sequence(:name) { |n| "circuit_breaker_#{n}_#{SecureRandom.hex(3)}" }
     service { %w[ai_provider payment_gateway external_api worker_service].sample }
     provider { %w[openai anthropic stripe paypal].sample }

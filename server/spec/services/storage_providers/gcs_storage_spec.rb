@@ -28,7 +28,7 @@ RSpec.describe StorageProviders::GcsStorage, type: :service do
     )
   end
   let(:provider) { described_class.new(storage_config) }
-  let(:file_object) { create(:file_object, account: account, file_storage: storage_config) }
+  let(:file_object) { create(:file_object, account: account, storage: storage_config) }
   let(:gcs_client) { instance_double(Google::Cloud::Storage::Project) }
   let(:bucket) { instance_double(Google::Cloud::Storage::Bucket) }
   let(:gcs_file) { instance_double(Google::Cloud::Storage::File) }

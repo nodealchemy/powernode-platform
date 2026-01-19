@@ -16,8 +16,8 @@ module Mcp
       def validate_workflow_executable!
         log_info "Validating workflow structure"
 
-        nodes = @workflow.ai_workflow_nodes.to_a
-        edges = @workflow.ai_workflow_edges.to_a
+        nodes = @workflow.workflow_nodes.to_a
+        edges = @workflow.workflow_edges.to_a
 
         # Check for start and end nodes
         start_nodes = nodes.select { |n| n.node_type == "start" }
@@ -102,8 +102,8 @@ module Mcp
 
       # Find all nodes reachable from start nodes
       #
-      # @param start_nodes [Array<AiWorkflowNode>] Starting nodes
-      # @param edges [Array<AiWorkflowEdge>] All edges
+      # @param start_nodes [Array<Ai::WorkflowNode>] Starting nodes
+      # @param edges [Array<Ai::WorkflowEdge>] All edges
       # @return [Set<String>] Set of reachable node IDs
       def find_reachable_nodes(start_nodes, edges)
         reachable = Set.new
@@ -127,10 +127,10 @@ module Mcp
 
       # Find nodes that cannot reach any end node
       #
-      # @param nodes [Array<AiWorkflowNode>] All nodes
-      # @param edges [Array<AiWorkflowEdge>] All edges
-      # @param end_nodes [Array<AiWorkflowNode>] End nodes
-      # @return [Array<AiWorkflowNode>] Nodes without path to end
+      # @param nodes [Array<Ai::WorkflowNode>] All nodes
+      # @param edges [Array<Ai::WorkflowEdge>] All edges
+      # @param end_nodes [Array<Ai::WorkflowNode>] End nodes
+      # @return [Array<Ai::WorkflowNode>] Nodes without path to end
       def find_nodes_without_path_to_end(nodes, edges, end_nodes)
         # Build reverse edge map (target -> sources)
         reverse_edges = {}

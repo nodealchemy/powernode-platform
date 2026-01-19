@@ -21,6 +21,7 @@ import '@xyflow/react/dist/style.css';
 import { autoArrangeNodes, getLayoutOptions } from '@/shared/utils/workflowLayout';
 import { useWorkflowHistory } from '@/shared/hooks/useWorkflowHistory';
 import { useWorkflowExecution } from '@/shared/hooks/useWorkflowExecution';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { HistoryControls } from './HistoryControls';
 import { ExecutionStats } from './ExecutionOverlay';
 
@@ -91,6 +92,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
   const [nodes, setNodes, onNodesChangeOriginal] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const { confirm, ConfirmationDialog } = useConfirmation();
 
   // Undo/Redo history
   const {
@@ -521,12 +523,23 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     if (isStartNodeType) {
       const existingStartNodes = nodes.filter(node => node.data?.is_start_node);
       if (existingStartNodes.length > 0) {
-        const confirmAdd = window.confirm(
-          'A start node already exists. Adding another start node will create multiple entry points. Continue?'
-        );
-        if (!confirmAdd) return;
+        confirm({
+          title: 'Multiple Start Nodes',
+          message: 'A start node already exists. Adding another start node will create multiple entry points. Continue?',
+          confirmLabel: 'Add Anyway',
+          variant: 'warning',
+          onConfirm: async () => {
+            addNodeToCanvas(nodeType, position, isStartNodeType);
+          }
+        });
+        return;
       }
     }
+
+    addNodeToCanvas(nodeType, position, isStartNodeType);
+  }, [readOnly, nodes, confirm]);
+
+  const addNodeToCanvas = useCallback((nodeType: string, position: { x: number; y: number }, isStartNodeType: boolean) => {
 
     setNodes((currentNodes) => {
       // Generate unique ID that doesn't conflict with existing nodes
@@ -547,14 +560,14 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           node_type: nodeType,
           configuration: {},
           metadata: {},
-          is_start_node: nodeType === 'trigger' || nodeType === 'start',
+          is_start_node: isStartNodeType,
           is_end_node: nodeType === 'end'
         }
       };
 
       return [...currentNodes, newNode];
     });
-  }, [readOnly, nodes]);
+  }, [setNodes]);
 
   // Handle drag and drop from node palette
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -939,34 +952,25 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
   const handleReset = useCallback(() => {
     if (!hasChanges) return;
 
-    // Show confirmation dialog
-    const confirmed = window.confirm(
-      'Are you sure you want to reset to the last saved state? All unsaved changes will be lost.'
-    );
+    confirm({
+      title: 'Reset Workflow',
+      message: 'Are you sure you want to reset to the last saved state? All unsaved changes will be lost.',
+      confirmLabel: 'Reset',
+      variant: 'warning',
+      onConfirm: async () => {
+        // Restore original nodes and edges
+        setNodes([...originalNodes]);
+        setEdges([...originalEdges]);
 
-    if (confirmed) {
-      // Restore original nodes and edges
-      setNodes([...originalNodes]);
-      setEdges([...originalEdges]);
+        // Clear selection
+        setSelectedNode(null);
+        setIsConfigPanelOpen(false);
 
-      // Clear selection
-      setSelectedNode(null);
-      setIsConfigPanelOpen(false);
-
-      // Reset change tracking
-      setHasChanges(false);
-
-      // Preserve saved positions - don't auto-fit view
-      // setTimeout(() => {
-      //   if (reactFlowInstance.current) {
-      //     reactFlowInstance.current.fitView({
-      //       padding: 0.2,
-      //       duration: 800
-      //     });
-      //   }
-      // }, 100);
-    }
-  }, [hasChanges, originalNodes, originalEdges, setNodes, setEdges]);
+        // Reset change tracking
+        setHasChanges(false);
+      }
+    });
+  }, [hasChanges, originalNodes, originalEdges, setNodes, setEdges, confirm]);
 
   // Chat functionality handlers
   const handleOpenChat = useCallback((nodeId: string) => {
@@ -1283,6 +1287,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           />
         ) : null;
       })()}
+      {ConfirmationDialog}
       </div>
     </WorkflowProvider>
   );

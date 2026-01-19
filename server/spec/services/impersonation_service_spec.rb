@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe ImpersonationService, type: :service do
+RSpec.describe Auth::ImpersonationService, type: :service do
   include ActiveSupport::Testing::TimeHelpers
   let(:account) { create(:account) }
   # Create owner first in account, then admin and member users
@@ -73,7 +73,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(**valid_params)
-        }.to raise_error(ImpersonationService::PermissionDeniedError,
+        }.to raise_error(Auth::ImpersonationService::PermissionDeniedError,
                         'You do not have permission to impersonate other users')
       end
 
@@ -103,14 +103,14 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(target_user_id: other_user.id)
-        }.to raise_error(ImpersonationService::InvalidUserError,
+        }.to raise_error(Auth::ImpersonationService::InvalidUserError,
                         'You can only impersonate users in your own account')
       end
 
       it 'raises SelfImpersonationError when trying to impersonate self' do
         expect {
           service.start_impersonation(target_user_id: admin_user.id)
-        }.to raise_error(ImpersonationService::SelfImpersonationError,
+        }.to raise_error(Auth::ImpersonationService::SelfImpersonationError,
                         'You cannot impersonate yourself')
       end
 
@@ -119,7 +119,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(**valid_params)
-        }.to raise_error(ImpersonationService::InvalidUserError,
+        }.to raise_error(Auth::ImpersonationService::InvalidUserError,
                         'Cannot impersonate inactive user')
       end
 
@@ -128,7 +128,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(target_user_id: owner_user.id)
-        }.to raise_error(ImpersonationService::PermissionDeniedError,
+        }.to raise_error(Auth::ImpersonationService::PermissionDeniedError,
                         'Only owners can impersonate other owners')
       end
 
@@ -194,7 +194,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           other_service.end_impersonation(session.session_token)
-        }.to raise_error(ImpersonationService::PermissionDeniedError,
+        }.to raise_error(Auth::ImpersonationService::PermissionDeniedError,
                         'You can only end your own impersonation sessions')
       end
     end
@@ -285,7 +285,7 @@ RSpec.describe ImpersonationService, type: :service do
         type: 'impersonation',
         exp: (Time.current + ImpersonationSession::MAX_SESSION_DURATION).to_i
       }
-      JwtService.encode(payload)
+      Security::JwtService.encode(payload)
     end
 
     it 'returns session for valid active token' do
@@ -299,7 +299,7 @@ RSpec.describe ImpersonationService, type: :service do
     end
 
     it 'returns nil for non-impersonation token' do
-      regular_token = JwtService.encode({ user_id: target_user.id })
+      regular_token = Security::JwtService.encode({ user_id: target_user.id })
       result = service.validate_impersonation_token(regular_token)
       expect(result).to be_nil
     end
@@ -312,7 +312,7 @@ RSpec.describe ImpersonationService, type: :service do
                                                               started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour,
                   )
 
-      expired_token = JwtService.encode({
+      expired_token = Security::JwtService.encode({
         user_id: target_user.id,
         impersonator_id: admin_user.id,
         session_id: expired_session.id,
@@ -333,7 +333,7 @@ RSpec.describe ImpersonationService, type: :service do
         type: 'impersonation',
         exp: (Time.current + ImpersonationSession::MAX_SESSION_DURATION).to_i
       }
-      invalid_token = JwtService.encode(payload)
+      invalid_token = Security::JwtService.encode(payload)
 
       result = service.validate_impersonation_token(invalid_token)
       expect(result).to be_nil

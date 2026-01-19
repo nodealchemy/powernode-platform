@@ -39,6 +39,7 @@ module.exports = {
         'theme-success': 'var(--color-success)',
         'theme-warning': 'var(--color-warning)',
         'theme-error': 'var(--color-error)',
+        'theme-danger': 'var(--color-error)', // Alias for theme-error
         'theme-info': 'var(--color-info)',
         // Workflow node colors - all node types
         'node-trigger': 'var(--node-trigger-bg)',
@@ -80,6 +81,8 @@ module.exports = {
         'handle-loop-exit': 'var(--handle-loop-exit)',
       },
       backgroundColor: {
+        'theme-primary': 'var(--color-interactive-primary)',
+        'theme-primary-hover': 'var(--color-interactive-primary-hover)',
         'theme-interactive-primary': 'var(--color-interactive-primary)',
         'theme-interactive-primary-hover': 'var(--color-interactive-primary-hover)',
         'theme-interactive-primary-active': 'var(--color-interactive-primary-active)',
@@ -95,6 +98,7 @@ module.exports = {
         'theme-success': 'var(--color-success-background)',
         'theme-warning': 'var(--color-warning-background)',
         'theme-error': 'var(--color-error-background)',
+        'theme-danger': 'var(--color-error-background)', // Alias for theme-error
         'theme-info': 'var(--color-info-background)',
         // Workflow node backgrounds - all node types
         'node-trigger': 'var(--node-trigger-bg)',
@@ -140,6 +144,7 @@ module.exports = {
         'theme-success': 'var(--color-success-border)',
         'theme-warning': 'var(--color-warning-border)',
         'theme-error': 'var(--color-error-border)',
+        'theme-danger': 'var(--color-error-border)', // Alias for theme-error
         'theme-info': 'var(--color-info-border)',
         // Workflow node borders - all node types
         'node-trigger': 'var(--node-trigger-bg)',
@@ -188,6 +193,7 @@ module.exports = {
     'text-theme-success',
     'text-theme-warning',
     'text-theme-error',
+    'text-theme-danger', // Alias for theme-error
     'text-theme-info',
     'text-green-800',
     'dark:text-green-100',
@@ -220,6 +226,7 @@ module.exports = {
     'bg-theme-success',
     'bg-theme-warning',
     'bg-theme-error',
+    'bg-theme-danger', // Alias for theme-error
     'bg-theme-info',
     'bg-green-50',
     'dark:bg-green-800',
@@ -236,6 +243,7 @@ module.exports = {
     'border-theme-success',
     'border-theme-warning',
     'border-theme-error',
+    'border-theme-danger', // Alias for theme-error
     'border-theme-info',
     'border-green-300',
     'dark:border-green-600',

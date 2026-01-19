@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe WorkflowValidation, type: :model do
   describe 'associations' do
-    it { should belong_to(:workflow).class_name('AiWorkflow').optional }
+    it { should belong_to(:workflow).class_name('Ai::Workflow').optional }
   end
 
   describe 'validations' do

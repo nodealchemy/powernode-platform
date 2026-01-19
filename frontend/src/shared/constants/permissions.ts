@@ -30,7 +30,7 @@ export const PLAN_PERMISSIONS = {
 export const PAGE_PERMISSIONS = {
   VIEW: 'page.read',
   CREATE: 'page.create',
-  EDIT: 'page.edit',
+  UPDATE: 'page.update',
   DELETE: 'page.delete',
   PUBLISH: 'page.publish'
 } as const;
@@ -55,7 +55,7 @@ export const API_PERMISSIONS = {
 export const WEBHOOK_PERMISSIONS = {
   VIEW: 'webhook.read',
   CREATE: 'webhook.create',
-  EDIT: 'webhook.edit',
+  UPDATE: 'webhook.update',
   DELETE: 'webhook.delete'
 } as const;
 
@@ -74,7 +74,7 @@ export const AUDIT_PERMISSIONS = {
 export const KB_PERMISSIONS = {
   VIEW: 'kb.read',
   CREATE: 'kb.create',
-  EDIT: 'kb.edit',
+  UPDATE: 'kb.update',
   DELETE: 'kb.delete',
   PUBLISH: 'kb.publish',
   MANAGE: 'kb.manage',
@@ -85,7 +85,7 @@ export const KB_PERMISSIONS = {
 export const APP_PERMISSIONS = {
   VIEW: 'app.read',
   CREATE: 'app.create',
-  EDIT: 'app.edit',
+  UPDATE: 'app.update',
   DELETE: 'app.delete',
   PUBLISH: 'app.publish',
   MANAGE_FEATURES: 'app.manage_features',
@@ -105,7 +105,7 @@ export const SUBSCRIPTION_PERMISSIONS = {
 export const REVIEW_PERMISSIONS = {
   VIEW: 'review.read',
   CREATE: 'review.create',
-  EDIT: 'review.edit',
+  UPDATE: 'review.update',
   DELETE: 'review.delete',
   MODERATE: 'review.moderate'
 } as const;
@@ -113,7 +113,7 @@ export const REVIEW_PERMISSIONS = {
 export const LISTING_PERMISSIONS = {
   VIEW: 'listing.read',
   CREATE: 'listing.create',
-  EDIT: 'listing.edit',
+  UPDATE: 'listing.update',
   DELETE: 'listing.delete'
 } as const;
 
@@ -125,7 +125,7 @@ export const ADMIN_PERMISSIONS = {
 export const ADMIN_USER_PERMISSIONS = {
   VIEW: 'admin.user.read',
   CREATE: 'admin.user.create',
-  EDIT: 'admin.user.edit',
+  UPDATE: 'admin.user.update',
   DELETE: 'admin.user.delete',
   IMPERSONATE: 'admin.user.impersonate',
   SUSPEND: 'admin.user.suspend'
@@ -134,7 +134,7 @@ export const ADMIN_USER_PERMISSIONS = {
 export const ADMIN_ACCOUNT_PERMISSIONS = {
   VIEW: 'admin.account.read',
   CREATE: 'admin.account.create',
-  EDIT: 'admin.account.edit',
+  UPDATE: 'admin.account.update',
   DELETE: 'admin.account.delete',
   SUSPEND: 'admin.account.suspend'
 } as const;
@@ -142,7 +142,7 @@ export const ADMIN_ACCOUNT_PERMISSIONS = {
 export const ADMIN_ROLE_PERMISSIONS = {
   VIEW: 'admin.role.read',
   CREATE: 'admin.role.create',
-  EDIT: 'admin.role.edit',
+  UPDATE: 'admin.role.update',
   DELETE: 'admin.role.delete',
   ASSIGN: 'admin.role.assign'
 } as const;
@@ -157,7 +157,7 @@ export const ADMIN_BILLING_PERMISSIONS = {
 
 export const ADMIN_SETTINGS_PERMISSIONS = {
   VIEW: 'admin.settings.read',
-  EDIT: 'admin.settings.edit',
+  UPDATE: 'admin.settings.update',
   SECURITY: 'admin.settings.security',
   EMAIL: 'admin.settings.email',
   PAYMENT: 'admin.settings.payment'
@@ -190,7 +190,7 @@ export const ADMIN_MAINTENANCE_PERMISSIONS = {
 export const SYSTEM_WORKER_PERMISSIONS = {
   VIEW: 'system.workers.read',
   CREATE: 'system.workers.create',
-  EDIT: 'system.workers.edit',
+  UPDATE: 'system.workers.update',
   DELETE: 'system.workers.delete',
   SUSPEND: 'system.workers.suspend',
   ACTIVATE: 'system.workers.activate',
@@ -311,11 +311,11 @@ export const PERMISSION_GROUPS = {
   CONTENT_MANAGEMENT: [
     KB_PERMISSIONS.VIEW,
     KB_PERMISSIONS.CREATE,
-    KB_PERMISSIONS.EDIT,
+    KB_PERMISSIONS.UPDATE,
     KB_PERMISSIONS.PUBLISH,
     KB_PERMISSIONS.MANAGE,
     PAGE_PERMISSIONS.CREATE,
-    PAGE_PERMISSIONS.EDIT,
+    PAGE_PERMISSIONS.UPDATE,
     PAGE_PERMISSIONS.PUBLISH
   ],
   

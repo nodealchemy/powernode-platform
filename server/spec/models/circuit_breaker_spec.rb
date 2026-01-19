@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe CircuitBreaker, type: :model do
+RSpec.describe Monitoring::CircuitBreaker, type: :model do
   describe 'associations' do
     it { should have_many(:circuit_breaker_events).dependent(:destroy) }
   end
@@ -24,7 +24,7 @@ RSpec.describe CircuitBreaker, type: :model do
     end
 
     it 'sets default state on create' do
-      breaker = CircuitBreaker.new(name: 'test', service: 'test_service')
+      breaker = Monitoring::CircuitBreaker.new(name: 'test', service: 'test_service')
       breaker.valid?
       expect(breaker.state).to eq('closed')
     end
@@ -65,22 +65,22 @@ RSpec.describe CircuitBreaker, type: :model do
 
     describe '.closed' do
       it 'returns only closed circuit breakers' do
-        expect(CircuitBreaker.closed).to include(closed_breaker)
-        expect(CircuitBreaker.closed).not_to include(open_breaker, half_open_breaker)
+        expect(Monitoring::CircuitBreaker.closed).to include(closed_breaker)
+        expect(Monitoring::CircuitBreaker.closed).not_to include(open_breaker, half_open_breaker)
       end
     end
 
     describe '.open' do
       it 'returns only open circuit breakers' do
-        expect(CircuitBreaker.open).to include(open_breaker)
-        expect(CircuitBreaker.open).not_to include(closed_breaker, half_open_breaker)
+        expect(Monitoring::CircuitBreaker.open).to include(open_breaker)
+        expect(Monitoring::CircuitBreaker.open).not_to include(closed_breaker, half_open_breaker)
       end
     end
 
     describe '.half_open' do
       it 'returns only half-open circuit breakers' do
-        expect(CircuitBreaker.half_open).to include(half_open_breaker)
-        expect(CircuitBreaker.half_open).not_to include(closed_breaker, open_breaker)
+        expect(Monitoring::CircuitBreaker.half_open).to include(half_open_breaker)
+        expect(Monitoring::CircuitBreaker.half_open).not_to include(closed_breaker, open_breaker)
       end
     end
 
@@ -89,22 +89,22 @@ RSpec.describe CircuitBreaker, type: :model do
       let!(:payment_breaker) { create(:circuit_breaker, service: 'payment_gateway') }
 
       it 'filters by service name' do
-        expect(CircuitBreaker.for_service('ai_provider')).to include(ai_breaker)
-        expect(CircuitBreaker.for_service('ai_provider')).not_to include(payment_breaker)
+        expect(Monitoring::CircuitBreaker.for_service('ai_provider')).to include(ai_breaker)
+        expect(Monitoring::CircuitBreaker.for_service('ai_provider')).not_to include(payment_breaker)
       end
     end
 
     describe '.healthy' do
       it 'returns closed circuit breakers' do
-        expect(CircuitBreaker.healthy).to include(closed_breaker)
-        expect(CircuitBreaker.healthy).not_to include(open_breaker, half_open_breaker)
+        expect(Monitoring::CircuitBreaker.healthy).to include(closed_breaker)
+        expect(Monitoring::CircuitBreaker.healthy).not_to include(open_breaker, half_open_breaker)
       end
     end
 
     describe '.unhealthy' do
       it 'returns open and half-open circuit breakers' do
-        expect(CircuitBreaker.unhealthy).to include(open_breaker, half_open_breaker)
-        expect(CircuitBreaker.unhealthy).not_to include(closed_breaker)
+        expect(Monitoring::CircuitBreaker.unhealthy).to include(open_breaker, half_open_breaker)
+        expect(Monitoring::CircuitBreaker.unhealthy).not_to include(closed_breaker)
       end
     end
   end
@@ -112,7 +112,7 @@ RSpec.describe CircuitBreaker, type: :model do
   describe 'callbacks' do
     describe 'before_validation' do
       it 'sets default values on create' do
-        breaker = CircuitBreaker.new(name: 'test', service: 'test_service')
+        breaker = Monitoring::CircuitBreaker.new(name: 'test', service: 'test_service')
         breaker.valid?
 
         expect(breaker.state).to eq('closed')

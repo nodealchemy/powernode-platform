@@ -82,6 +82,37 @@
   --color-info-800: #075985;
   --color-info-900: #0c4a6e;
 
+  /* ===== ENTRY TYPE COLORS ===== */
+  /* Colors for AI context entry types with proper contrast */
+
+  /* Violet - for interaction */
+  --color-violet-400: #a78bfa;
+  --color-violet-500: #8b5cf6;
+  --color-violet-600: #7c3aed;
+
+  /* Pink - for relationship */
+  --color-pink-400: #f472b6;
+  --color-pink-500: #ec4899;
+  --color-pink-600: #db2777;
+
+  /* Orange - for constraint */
+  --color-orange-400: #fb923c;
+  --color-orange-500: #f97316;
+  --color-orange-600: #ea580c;
+
+  /* Cyan - for skill */
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  --color-cyan-600: #0891b2;
+
+  /* Rose - for goal */
+  --color-rose-400: #fb7185;
+  --color-rose-500: #f43f5e;
+  --color-rose-600: #e11d48;
+
+  /* Amber - for preference (using warning scale) */
+  /* Emerald - for knowledge (using success scale) */
+
   /* ===== TYPOGRAPHY SCALE ===== */
   --font-size-xs: 0.75rem;    /* 12px */
   --font-size-sm: 0.875rem;   /* 14px */
@@ -452,6 +483,46 @@
 .bg-theme-warning-solid { background-color: var(--color-warning); }
 .bg-theme-error-solid { background-color: var(--color-error); }
 .bg-theme-info-solid { background-color: var(--color-info); }
+
+/* ===== ENTRY TYPE COLOR UTILITIES ===== */
+/* Background and text colors for AI context entry types */
+
+/* Violet - interaction */
+.bg-theme-violet { background-color: rgba(139, 92, 246, 0.15); }
+.text-theme-violet { color: var(--color-violet-400); }
+.bg-theme-violet-solid { background-color: var(--color-violet-500); }
+
+/* Pink - relationship */
+.bg-theme-pink { background-color: rgba(236, 72, 153, 0.15); }
+.text-theme-pink { color: var(--color-pink-400); }
+.bg-theme-pink-solid { background-color: var(--color-pink-500); }
+
+/* Orange - constraint */
+.bg-theme-orange { background-color: rgba(249, 115, 22, 0.15); }
+.text-theme-orange { color: var(--color-orange-400); }
+.bg-theme-orange-solid { background-color: var(--color-orange-500); }
+
+/* Cyan - skill */
+.bg-theme-cyan { background-color: rgba(6, 182, 212, 0.15); }
+.text-theme-cyan { color: var(--color-cyan-400); }
+.bg-theme-cyan-solid { background-color: var(--color-cyan-500); }
+
+/* Rose - goal */
+.bg-theme-rose { background-color: rgba(244, 63, 94, 0.15); }
+.text-theme-rose { color: var(--color-rose-400); }
+.bg-theme-rose-solid { background-color: var(--color-rose-500); }
+
+/* Blue - fact (using info) */
+.bg-theme-blue { background-color: rgba(14, 165, 233, 0.15); }
+.text-theme-blue { color: var(--color-info-400); }
+
+/* Amber - preference (using warning) */
+.bg-theme-amber { background-color: rgba(245, 158, 11, 0.15); }
+.text-theme-amber { color: var(--color-warning-400); }
+
+/* Emerald - knowledge (using success) */
+.bg-theme-emerald { background-color: rgba(34, 197, 94, 0.15); }
+.text-theme-emerald { color: var(--color-success-400); }
 
 /* Interactive primary background (solid blue for buttons) */
 .bg-theme-interactive-primary { background-color: var(--color-interactive-primary); }

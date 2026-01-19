@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Upload, Search, Download, Trash2, RefreshCw, HardDrive, Database } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { FileUpload } from '@/features/files/components/FileUpload';
-import { FileItem } from '@/features/files/components/FileItem';
-import { FileDetails } from '@/features/files/components/FileDetails';
-import { filesApi, FileObject } from '@/features/files/services/filesApi';
-import { storageApi } from '@/features/storage/services/storageApi';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { FileUpload } from '@/features/content/files/components/FileUpload';
+import { FileItem } from '@/features/content/files/components/FileItem';
+import { FileDetails } from '@/features/content/files/components/FileDetails';
+import { filesApi, FileObject } from '@/features/content/files/services/filesApi';
+import { storageApi } from '@/features/system/storage/services/storageApi';
 import { StorageProvider } from '@/shared/types/storage';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
@@ -15,6 +16,7 @@ import { AppDispatch } from '@/shared/services';
 const MyFilesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { currentUser } = useAuth();
+  usePageWebSocket({ pageType: 'content' });
   const [files, setFiles] = useState<FileObject[]>([]);
   const [storageProviders, setStorageProviders] = useState<StorageProvider[]>([]);
   const [selectedStorageId, setSelectedStorageId] = useState<string>('');
@@ -206,11 +208,18 @@ const MyFilesPage: React.FC = () => {
     return Math.round((fileStats.total_size / quotaBytes) * 100);
   };
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Content', href: '/app/content' },
+    { label: 'My Files' }
+  ];
+
   if (!canRead) {
     return (
       <PageContainer
         title="My Files"
         description="Access denied"
+        breadcrumbs={breadcrumbs}
       >
         <div className="text-center py-12">
           <p className="text-theme-secondary">
@@ -225,6 +234,7 @@ const MyFilesPage: React.FC = () => {
     <PageContainer
       title="My Files"
       description="Manage your personal files and documents"
+      breadcrumbs={breadcrumbs}
       actions={
         canUpload
           ? [

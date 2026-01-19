@@ -99,15 +99,22 @@ class APIClient {
     this.client.interceptors.request.use(
       (config) => {
         const state = store.getState();
-        
-        // Use impersonation token if active, otherwise use regular access token
-        let token = state.auth.access_token;
+
+        // IMPORTANT: Prefer localStorage token over Redux state to avoid race conditions
+        // During login, localStorage is updated before React re-renders, so it has the latest token
         const impersonationToken = localStorage.getItem('impersonationToken');
+
+        // Determine which token to use
+        let token: string | null = null;
+
         if (state.auth.impersonation.isImpersonating && impersonationToken) {
+          // Use impersonation token if actively impersonating
           token = impersonationToken;
+        } else {
+          // Prefer localStorage token (most up-to-date), fall back to Redux state
+          token = localStorage.getItem('access_token') || state.auth.access_token;
         }
-        
-        
+
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }

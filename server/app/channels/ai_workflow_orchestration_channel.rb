@@ -18,11 +18,11 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
       timestamp: Time.current.iso8601
     })
 
-    Rails.logger.info "[AiWorkflowOrchestrationChannel] User #{current_user.id} subscribed to account #{current_user.account_id}"
+    Rails.logger.info "[Ai::WorkflowOrchestrationChannel] User #{current_user.id} subscribed to account #{current_user.account_id}"
   end
 
   def unsubscribed
-    Rails.logger.info "[AiWorkflowOrchestrationChannel] User #{current_user&.id} unsubscribed"
+    Rails.logger.info "[Ai::WorkflowOrchestrationChannel] User #{current_user&.id} unsubscribed"
   end
 
   # Create workflow
@@ -33,31 +33,46 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
     nodes = data["nodes"] || []
     edges = data["edges"] || []
 
-    workflow = AiWorkflow.create!(
+    # Generate slug from name if not provided
+    name = workflow_params["name"]
+    slug = workflow_params["slug"] || name.to_s.downcase.gsub(/[^a-z0-9\-_]+/, "-").gsub(/-+/, "-").gsub(/^-|-$/, "")
+    slug = "#{slug}-#{SecureRandom.hex(4)}" if slug.blank?
+
+    workflow = Ai::Workflow.create!(
       account: current_user.account,
-      created_by_user: current_user,
-      name: workflow_params["name"],
-      description: workflow_params["description"]
+      creator: current_user,
+      name: name,
+      description: workflow_params["description"],
+      slug: slug,
+      status: workflow_params["status"] || "draft",
+      visibility: workflow_params["visibility"] || "private",
+      workflow_type: workflow_params["workflow_type"] || "ai",
+      configuration: workflow_params["configuration"].presence || { "version" => 1 },
+      version: workflow_params["version"] || "1.0.0",
+      is_active: workflow_params["is_active"] != false
     )
 
     # Create nodes
     nodes.each do |node_data|
-      workflow.ai_workflow_nodes.create!(
+      workflow.nodes.create!(
         node_id: node_data["node_id"],
         node_type: node_data["node_type"],
         name: node_data["name"],
-        position_x: node_data["position_x"],
-        position_y: node_data["position_y"],
-        configuration: node_data["configuration"] || {}
+        position: { x: node_data["position_x"] || 0, y: node_data["position_y"] || 0 },
+        configuration: node_data["configuration"].presence || { "type" => node_data["node_type"] }
       )
     end
 
-    # Create edges
+    # Create edges (lookup nodes by their node_id strings)
     edges.each do |edge_data|
-      workflow.ai_workflow_edges.create!(
+      source_node = workflow.nodes.find_by(node_id: edge_data["source_node_id"])
+      target_node = workflow.nodes.find_by(node_id: edge_data["target_node_id"])
+
+      workflow.edges.create!(
         edge_id: edge_data["edge_id"],
-        source_node_id: edge_data["source_node_id"],
-        target_node_id: edge_data["target_node_id"]
+        source_node: source_node,
+        target_node: target_node,
+        edge_type: edge_data["edge_type"] || "default"
       )
     end
 
@@ -74,7 +89,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
   def update_workflow(data)
     return transmit_error("Missing workflow_id") unless data["workflow_id"]
 
-    workflow = AiWorkflow.find(data["workflow_id"])
+    workflow = Ai::Workflow.find(data["workflow_id"])
     return transmit_error("Workflow not found") unless workflow
     return transmit_error("Unauthorized") unless workflow.account_id == current_user.account_id
 
@@ -101,7 +116,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
   def execute_workflow(data)
     return transmit_error("Missing workflow_id") unless data["workflow_id"]
 
-    workflow = AiWorkflow.find(data["workflow_id"])
+    workflow = Ai::Workflow.find(data["workflow_id"])
     return transmit_error("Workflow not found") unless workflow
     return transmit_error("Unauthorized") unless workflow.account_id == current_user.account_id
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { maintenanceApi } from '@/shared/services/maintenanceApi';
+import { maintenanceApi } from '@/shared/services/admin/maintenanceApi';
 import { SettingsCard, ToggleSwitch } from '@/features/admin/components/settings/SettingsComponents';
 import { MaintenanceModeTabProps } from './types';
 

@@ -62,13 +62,13 @@ class AiMcpAgentExecutor
   private
 
   def execute_with_provider(provider_client, execution_context)
-    @logger.info "[MCP_AGENT_EXECUTOR] Executing with provider #{@agent.ai_provider.provider_type}"
+    @logger.info "[MCP_AGENT_EXECUTOR] Executing with provider #{@agent.provider.provider_type}"
 
     # Build prompt from context
     prompt = build_prompt_from_context(execution_context)
 
     # Get model configuration
-    model = @agent.mcp_tool_manifest["model"] || @agent.ai_provider.supported_models.first&.dig("id")
+    model = @agent.mcp_tool_manifest["model"] || @agent.provider.supported_models.first&.dig("id")
     max_tokens = execution_context.dig(:context, "max_tokens") || @agent.mcp_tool_manifest["max_tokens"] || 2000
     temperature = execution_context.dig(:context, "temperature") || @agent.mcp_tool_manifest["temperature"] || 0.7
 
@@ -156,7 +156,7 @@ class AiMcpAgentExecutor
         "tokens_used" => response_data.dig("usage", "total_tokens") || response_data[:tokens_used] || result[:tokens_used],
         "processing_time_ms" => ((Time.current - @start_time) * 1000).round,
         "model_used" => model,
-        "provider" => @agent.ai_provider.provider_type
+        "provider" => @agent.provider.provider_type
       }
     }
 
@@ -173,7 +173,7 @@ class AiMcpAgentExecutor
 
     response = client.completions(
       parameters: {
-        model: @agent.ai_provider.model_name || "gpt-3.5-turbo",
+        model: @agent.provider.model_name || "gpt-3.5-turbo",
         messages: [ { role: "user", content: prompt } ],
         temperature: context[:temperature] || 0.7,
         max_tokens: context[:max_tokens] || 1000
@@ -196,7 +196,7 @@ class AiMcpAgentExecutor
 
     response = client.messages(
       parameters: {
-        model: @agent.ai_provider.model_name || "claude-3-sonnet-20240229",
+        model: @agent.provider.model_name || "claude-3-sonnet-20240229",
         messages: [ { role: "user", content: prompt } ],
         temperature: context[:temperature] || 0.7,
         max_tokens: context[:max_tokens] || 1000
@@ -218,7 +218,7 @@ class AiMcpAgentExecutor
     prompt = build_prompt_from_context(context)
 
     response = client.generate(
-      model: @agent.ai_provider.model_name || "llama2",
+      model: @agent.provider.model_name || "llama2",
       prompt: prompt,
       options: {
         temperature: context[:temperature] || 0.7,
@@ -366,14 +366,14 @@ class AiMcpAgentExecutor
   def get_provider_client
     @logger.debug "[MCP_AGENT_EXECUTOR] Getting provider client"
 
-    provider = @agent.ai_provider
+    provider = @agent.provider
 
     unless provider&.is_active?
       raise ProviderError, "AI provider is not active"
     end
 
     # Get active credential for this provider
-    credential = provider.ai_provider_credentials
+    credential = provider.provider_credentials
                         .where(account: @account)
                         .active
                         .first
@@ -412,7 +412,7 @@ class AiMcpAgentExecutor
     mcp_response["telemetry"] = {
       "execution_time_ms" => ((Time.current - @start_time) * 1000).round,
       "tokens_used" => result.dig("metadata", "tokens_used") || 0,
-      "provider_used" => @agent.ai_provider.provider_type
+      "provider_used" => @agent.provider.provider_type
     }
 
     mcp_response

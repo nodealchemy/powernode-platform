@@ -3,11 +3,11 @@ import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import { AdminMaintenancePage } from './AdminMaintenancePage';
-import { maintenanceApi } from '@/shared/services/maintenanceApi';
+import { maintenanceApi } from '@/shared/services/admin/maintenanceApi';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 
 // Mock the maintenance API
-jest.mock('@/shared/services/maintenanceApi', () => ({
+jest.mock('@/shared/services/admin/maintenanceApi', () => ({
   maintenanceApi: {
     getMaintenanceStatus: jest.fn(),
     getSystemHealth: jest.fn(),

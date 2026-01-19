@@ -15,13 +15,18 @@
 
 // Import commands.js using ES2015 syntax:
 import './commands';
+import './wait-utilities';
+import './login-commands';
+import './navigation-commands';
+import './form-commands';
+import './testing-commands';
 
 // Alternatively you can use CommonJS syntax:
 // require('./commands')
 
 // Hide fetch/XHR logs in Cypress command log for cleaner output
 const app = window.top;
-if (!app.document.head.querySelector('[data-hide-command-log-request]')) {
+if (app && !app.document.head.querySelector('[data-hide-command-log-request]')) {
   const style = app.document.createElement('style');
   style.innerHTML = '.command-name-request, .command-name-xhr { display: none }';
   style.setAttribute('data-hide-command-log-request', '');
@@ -29,7 +34,7 @@ if (!app.document.head.querySelector('[data-hide-command-log-request]')) {
 }
 
 // Set up global error handling
-Cypress.on('uncaught:exception', (err, runnable) => {
+Cypress.on('uncaught:exception', (err, _runnable) => {
   // Returning false here prevents Cypress from failing the test
   // for certain expected errors
   if (err.message.includes('ResizeObserver loop limit exceeded')) {

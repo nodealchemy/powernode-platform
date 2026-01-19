@@ -3,16 +3,20 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Navigate } from 'react-router-dom';
 import { RootState, AppDispatch } from '@/shared/services';
 import { addNotification } from '@/shared/services/slices/uiSlice';
-import { pagesApi, Page } from '@/features/pages/services/pagesApi';
-import { PageEditor } from '@/features/pages/components/PageEditor';
+import { pagesApi, Page } from '@/features/content/pages/services/pagesApi';
+import { PageEditor } from '@/features/content/pages/components/PageEditor';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { Plus, RefreshCw, Edit2, Eye, EyeOff, Copy, Trash2 } from 'lucide-react';
 
 export const PagesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { confirm, ConfirmationDialog } = useConfirmation();
+  usePageWebSocket({ pageType: 'content' });
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);
@@ -26,7 +30,7 @@ export const PagesPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   // Check if user has page management permissions
-  const canManagePages = hasPermissions(user, ['page.create', 'page.edit', 'page.delete']);
+  const canManagePages = hasPermissions(user, ['page.create', 'page.update', 'page.delete']);
 
   const loadPages = useCallback(async () => {
     try {
@@ -152,18 +156,22 @@ export const PagesPage: React.FC = () => {
     }
   };
 
-  const handleDeletePage = async (page: Page) => {
-    if (!window.confirm(`Are you sure you want to delete "${page.title}"? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      await pagesApi.deletePage(page.id);
-      showSuccess(`"${page.title}" has been deleted`);
-      loadPages();
-    } catch (_error) {
-      showError('Failed to delete page');
-    }
+  const handleDeletePage = (page: Page) => {
+    confirm({
+      title: 'Delete Page',
+      message: `Are you sure you want to delete "${page.title}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await pagesApi.deletePage(page.id);
+          showSuccess(`"${page.title}" has been deleted`);
+          loadPages();
+        } catch (_error) {
+          showError('Failed to delete page');
+        }
+      }
+    });
   };
 
   const getStatusBadge = (status: string | undefined) => {
@@ -455,6 +463,7 @@ export const PagesPage: React.FC = () => {
           </div>
         </>
       )}
+      {ConfirmationDialog}
     </PageContainer>
   );
 };

@@ -5,7 +5,7 @@ module ProviderTesting
     private
 
     def perform_test
-      provider = credential.ai_provider
+      provider = credential.provider
       decrypted_config = credential.credentials
 
       case provider.provider_type

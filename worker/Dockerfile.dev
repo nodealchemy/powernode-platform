@@ -1,0 +1,25 @@
+# Development Dockerfile for Sidekiq worker
+FROM ruby:3.2.8-slim
+
+# Install system dependencies
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+    build-essential \
+    curl \
+    git \
+    libpq-dev \
+    pkg-config \
+    imagemagick \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install gems
+COPY Gemfile Gemfile.lock ./
+RUN bundle install
+
+# Copy application
+COPY . .
+
+CMD ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]

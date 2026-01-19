@@ -70,7 +70,7 @@ class Api::V1::PaymentMethodsController < ApplicationController
     when "paypal"
       setup_intent_data = create_paypal_setup_token
     else
-      return render_error("Unsupported payment provider: #{provider}", status: :unprocessable_entity)
+      return render_error("Unsupported payment provider: #{provider}", status: :unprocessable_content)
     end
 
     render_success(
@@ -86,7 +86,7 @@ class Api::V1::PaymentMethodsController < ApplicationController
   def confirm
     # Confirm a payment method setup (after client-side confirmation)
     unless params[:setup_intent_id].present? || params[:confirmation_token].present?
-      return render_error("Missing setup_intent_id or confirmation_token", status: :unprocessable_entity)
+      return render_error("Missing setup_intent_id or confirmation_token", status: :unprocessable_content)
     end
 
     # Update payment method with confirmed details

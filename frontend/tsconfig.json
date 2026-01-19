@@ -6,20 +6,17 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
-    /* Module resolution */
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    
-    /* Path mapping */
+
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
@@ -28,8 +25,7 @@
       "@/pages/*": ["./src/pages/*"],
       "@/assets/*": ["./src/assets/*"]
     },
-    
-    /* Compatibility */
+
     "allowJs": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -37,6 +33,5 @@
     "downlevelIteration": true
   },
   "include": ["src"],
-  "exclude": ["node_modules/@types/d3-dispatch/**/*"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

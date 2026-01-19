@@ -65,7 +65,7 @@ describe('AdminSettingsPage', () => {
   const mockUserWithPermissions = {
     id: 'test-user-id',
     email: 'admin@test.com',
-    permissions: ['admin.settings.read', 'admin.settings.write']
+    permissions: ['admin.settings.read', 'admin.settings.update']
   };
 
   const mockUserWithoutPermissions = {

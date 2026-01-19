@@ -157,7 +157,7 @@ class AiErrorRecoveryService
 
   def execute_request(provider, request_type, options, &block)
     # Check circuit breaker
-    circuit_breaker = AiProviderCircuitBreakerService.new(provider)
+    circuit_breaker = Ai::ProviderCircuitBreakerService.new(provider)
     raise StandardError, "Circuit breaker open" unless circuit_breaker.provider_available?
 
     start_time = Time.current
@@ -239,7 +239,7 @@ class AiErrorRecoveryService
   end
 
   def switch_to_alternative_provider(current_provider, options)
-    load_balancer = AiProviderLoadBalancerService.new(@account)
+    load_balancer = Ai::ProviderLoadBalancerService.new(@account)
 
     begin
       # Get available providers excluding the current one
@@ -250,7 +250,7 @@ class AiErrorRecoveryService
 
       # Select best alternative using load balancer logic
       alternative = available_providers.min_by do |provider|
-        circuit_breaker = AiProviderCircuitBreakerService.new(provider)
+        circuit_breaker = Ai::ProviderCircuitBreakerService.new(provider)
         next Float::INFINITY unless circuit_breaker.provider_available?
 
         load_balancer.send(:get_provider_avg_response_time, provider)
@@ -372,8 +372,8 @@ class AiErrorRecoveryService
     providers = @account.ai_providers.active
 
     providers.map do |provider|
-      circuit_breaker = AiProviderCircuitBreakerService.new(provider)
-      load_balancer = AiProviderLoadBalancerService.new(@account)
+      circuit_breaker = Ai::ProviderCircuitBreakerService.new(provider)
+      load_balancer = Ai::ProviderLoadBalancerService.new(@account)
 
       {
         id: provider.id,

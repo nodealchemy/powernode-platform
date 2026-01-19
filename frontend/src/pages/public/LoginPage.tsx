@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 import { useDispatch, useSelector } from 'react-redux';
 
-import { RootState, AppDispatch, store } from '@/shared/services';
+import { RootState, AppDispatch } from '@/shared/services';
 
 import { login, clearError, getCurrentUser } from '@/shared/services/slices/authSlice';
 
@@ -13,9 +13,9 @@ import { addNotification } from '@/shared/services/slices/uiSlice';
 import { EyeIcon, EyeSlashIcon, LockClosedIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 
 import { ErrorHandler } from '@/shared/utils/errorHandling';
-import { settingsApi } from '@/shared/services/settingsApi';
+import { settingsApi } from '@/shared/services/settings/settingsApi';
 
-import { TwoFactorVerification } from '@/features/auth/components/TwoFactorVerification';
+import { TwoFactorVerification } from '@/features/account/auth/components/TwoFactorVerification';
 import { DomainChangeNotice } from '@/shared/components/ui/DomainChangeNotice';
 
 
@@ -84,22 +84,6 @@ export const LoginPage: React.FC = () => {
       // Use Redux login action exclusively - no double dispatch
       const result = await dispatch(login(formData)).unwrap();
 
-      // DEBUG: Check what state exists after login completes
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Login] Login completed, result:', result);
-        const authState = store.getState().auth;
-        console.log('[Login] Redux state after login:', {
-          isAuthenticated: authState.isAuthenticated,
-          hasUser: !!authState.user,
-          hasAccessToken: !!authState.access_token,
-          hasRefreshToken: !!authState.refresh_token
-        });
-        console.log('[Login] localStorage after login:', {
-          hasAccessToken: !!localStorage.getItem('access_token'),
-          hasRefreshToken: !!localStorage.getItem('refresh_token')
-        });
-      }
-
       if (result.requires_2fa) {
         // Handle 2FA requirement
         setRequires2FA(true);
@@ -117,9 +101,6 @@ export const LoginPage: React.FC = () => {
 
         // Small delay to ensure Redux state has propagated before navigation
         setTimeout(() => {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[Login] About to navigate to:', from);
-          }
           navigate(from, { replace: true });
         }, 100);
       }
@@ -236,6 +217,7 @@ export const LoginPage: React.FC = () => {
                       autoComplete="username"
                       required
                       data-form-type="email"
+                      data-testid="email-input"
                       className="input-theme block w-full rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       placeholder="Enter your email address"
                       value={formData.email}
@@ -262,6 +244,7 @@ export const LoginPage: React.FC = () => {
                       autoComplete="current-password"
                       required
                       data-form-type="password"
+                      data-testid="password-input"
                       className="input-theme block w-full pr-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       placeholder="Enter your password"
                       value={formData.password}
@@ -293,6 +276,7 @@ export const LoginPage: React.FC = () => {
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
+                      data-testid="remember-me-checkbox"
                       className="checkbox-theme h-4 w-4 rounded transition-colors duration-200"
                     />
                     <label htmlFor="remember-me" className="ml-3 block text-sm font-medium text-theme-secondary">
@@ -302,6 +286,7 @@ export const LoginPage: React.FC = () => {
 
                   <Link
                     to="/forgot-password"
+                    data-testid="forgot-password-link"
                     className="text-sm font-semibold text-theme-link hover:text-theme-link transition-colors duration-200 hover:underline"
                   >
                     Forgot password?
@@ -312,6 +297,7 @@ export const LoginPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={loginLoading}
+                    data-testid="login-submit-btn"
                     className="btn-theme btn-theme-primary btn-theme-lg w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     {loginLoading ? (
@@ -376,7 +362,7 @@ export const LoginPage: React.FC = () => {
                 <span className="font-medium">256-bit SSL</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 rounded-full flex items-center justify-center bg-purple-600">
+                <div className="w-4 h-4 rounded-full flex items-center justify-center bg-theme-interactive-primary">
                   <span className="text-white text-xs font-bold">2FA</span>
                 </div>
                 <span className="font-medium">Two-Factor Auth</span>

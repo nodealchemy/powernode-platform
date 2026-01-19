@@ -7,7 +7,7 @@ class Api::V1::Internal::ReviewNotificationsController < ApplicationController
 
   # GET /api/v1/internal/review_notifications/:id
   def show
-    notification = ReviewNotification.find(params[:id])
+    notification = Review::Notification.find(params[:id])
     review = notification.review
     app = review.app
 
@@ -39,7 +39,7 @@ class Api::V1::Internal::ReviewNotificationsController < ApplicationController
 
   # PATCH /api/v1/internal/review_notifications/:id
   def update
-    notification = ReviewNotification.find(params[:id])
+    notification = Review::Notification.find(params[:id])
 
     update_params = {}
 

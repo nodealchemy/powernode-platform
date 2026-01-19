@@ -67,7 +67,7 @@ jest.mock('@/shared/components/layout/PageContainer', () => ({
 }));
 
 // Mock child monitoring components
-jest.mock('@/features/ai-monitoring/components/SystemHealthDashboard', () => ({
+jest.mock('@/features/ai/monitoring/components/SystemHealthDashboard', () => ({
   SystemHealthDashboard: ({ healthData, isLoading, onRefresh }: any) => (
     <div data-testid="system-health-dashboard">
       {isLoading ? (
@@ -85,7 +85,7 @@ jest.mock('@/features/ai-monitoring/components/SystemHealthDashboard', () => ({
   )
 }));
 
-jest.mock('@/features/ai-monitoring/components/ProviderMonitoringGrid', () => ({
+jest.mock('@/features/ai/monitoring/components/ProviderMonitoringGrid', () => ({
   ProviderMonitoringGrid: ({ providers, isLoading, onRefresh, onTestProvider }: any) => (
     <div data-testid="provider-monitoring-grid">
       {isLoading ? (
@@ -110,7 +110,7 @@ jest.mock('@/features/ai-monitoring/components/ProviderMonitoringGrid', () => ({
   )
 }));
 
-jest.mock('@/features/ai-monitoring/components/AgentPerformancePanel', () => ({
+jest.mock('@/features/ai/monitoring/components/AgentPerformancePanel', () => ({
   AgentPerformancePanel: ({ agents, isLoading, onRefresh, onTestAgent: _onTestAgent }: any) => (
     <div data-testid="agent-performance-panel">
       {isLoading ? (
@@ -123,7 +123,7 @@ jest.mock('@/features/ai-monitoring/components/AgentPerformancePanel', () => ({
   )
 }));
 
-jest.mock('@/features/ai-monitoring/components/ConversationAnalytics', () => ({
+jest.mock('@/features/ai/monitoring/components/ConversationAnalytics', () => ({
   ConversationAnalytics: ({ conversations, isLoading, onRefresh }: any) => (
     <div data-testid="conversation-analytics">
       {isLoading ? (
@@ -136,7 +136,7 @@ jest.mock('@/features/ai-monitoring/components/ConversationAnalytics', () => ({
   )
 }));
 
-jest.mock('@/features/ai-monitoring/components/AlertManagementCenter', () => ({
+jest.mock('@/features/ai/monitoring/components/AlertManagementCenter', () => ({
   AlertManagementCenter: ({ alerts, isLoading, canManageAlerts, onRefresh, onAcknowledgeAlert, onResolveAlert }: any) => (
     <div data-testid="alert-management-center">
       {isLoading ? (
@@ -167,7 +167,7 @@ jest.mock('@/features/ai-monitoring/components/AlertManagementCenter', () => ({
   )
 }));
 
-jest.mock('@/features/ai-monitoring/components/ResourceUtilizationChart', () => ({
+jest.mock('@/features/ai/monitoring/components/ResourceUtilizationChart', () => ({
   ResourceUtilizationChart: ({ resourceData: _resourceData, isLoading, onRefresh }: any) => (
     <div data-testid="resource-utilization-chart">
       {isLoading ? <span>Loading resources...</span> : <span>Resources loaded</span>}
@@ -176,7 +176,7 @@ jest.mock('@/features/ai-monitoring/components/ResourceUtilizationChart', () => 
   )
 }));
 
-jest.mock('@/features/ai-monitoring/components/WorkflowMonitoringPanel', () => ({
+jest.mock('@/features/ai/monitoring/components/WorkflowMonitoringPanel', () => ({
   WorkflowMonitoringPanel: ({ isLoading, onRefresh }: any) => (
     <div data-testid="workflow-monitoring-panel">
       {isLoading ? <span>Loading workflows...</span> : <span>Workflow Performance</span>}

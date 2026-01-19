@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { maintenanceApi, MaintenanceSchedule } from '@/shared/services/maintenanceApi';
+import { maintenanceApi, MaintenanceSchedule } from '@/shared/services/admin/maintenanceApi';
 import { SettingsCard, ToggleSwitch } from '@/features/admin/components/settings/SettingsComponents';
 import { RefreshCw, Plus } from 'lucide-react';
 import { ScheduledTasksTabProps } from './types';

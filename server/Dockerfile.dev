@@ -1,35 +1,26 @@
-FROM ruby:3.2-slim
+# Development Dockerfile for Rails API backend
+FROM ruby:3.2.8-slim
 
 # Install system dependencies
 RUN apt-get update -qq && \
-    apt-get install -y \
+    apt-get install --no-install-recommends -y \
     build-essential \
-    libpq-dev \
-    postgresql-client \
-    nodejs \
-    npm \
-    git \
     curl \
-    && apt-get clean \
+    git \
+    libpq-dev \
+    pkg-config \
+    imagemagick \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
-# Install bundler
-RUN gem install bundler
-
-# Copy Gemfile and Gemfile.lock
-COPY Gemfile Gemfile.lock ./
-
 # Install gems
+COPY Gemfile Gemfile.lock ./
 RUN bundle install
 
-# Copy the application
+# Copy application
 COPY . .
 
-# Expose port
 EXPOSE 3000
 
-# Start the application
-CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0", "-p", "3000"]
+CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0"]

@@ -103,8 +103,8 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
         <section className="relative overflow-hidden pt-16 pb-12">
           {/* Background Decorations */}
           <div className="absolute inset-0">
-            <div className="absolute top-20 left-10 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl"></div>
-            <div className="absolute top-10 right-20 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl"></div>
+            <div className="absolute top-20 left-10 w-72 h-72 bg-theme-info/5 rounded-full blur-3xl"></div>
+            <div className="absolute top-10 right-20 w-96 h-96 bg-theme-info/5 rounded-full blur-3xl"></div>
           </div>
 
           <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -253,7 +253,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-2 rounded-full">
-                  <div className="w-2 h-2 bg-theme-success rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-theme-success-solid rounded-full animate-pulse"></div>
                   <span className="text-xs text-slate-300 font-medium">All systems operational</span>
                 </div>
                 <div className="flex items-center space-x-2 text-xs text-slate-400">

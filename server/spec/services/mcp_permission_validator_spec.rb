@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe McpPermissionValidator, type: :service do
+RSpec.describe Mcp::PermissionValidator, type: :service do
   let(:account) { create(:account) }
   let(:admin_user) { create(:user, account: account, permissions: [ 'system.admin', 'ai.workflows.read' ]) }
   let(:account_user) { create(:user, account: account, permissions: [ 'ai.workflows.read' ]) }
@@ -186,7 +186,7 @@ RSpec.describe McpPermissionValidator, type: :service do
 
   describe 'TOOL_PERMISSION_SCOPES' do
     it 'defines all required scope categories' do
-      expect(McpPermissionValidator::TOOL_PERMISSION_SCOPES.keys).to include(
+      expect(Mcp::PermissionValidator::TOOL_PERMISSION_SCOPES.keys).to include(
         :file_access,
         :network,
         :data,
@@ -196,23 +196,23 @@ RSpec.describe McpPermissionValidator, type: :service do
     end
 
     it 'defines permissions for each category' do
-      expect(McpPermissionValidator::TOOL_PERMISSION_SCOPES[:file_access]).to include(
+      expect(Mcp::PermissionValidator::TOOL_PERMISSION_SCOPES[:file_access]).to include(
         :read_files, :write_files, :delete_files, :list_directories
       )
 
-      expect(McpPermissionValidator::TOOL_PERMISSION_SCOPES[:network]).to include(
+      expect(Mcp::PermissionValidator::TOOL_PERMISSION_SCOPES[:network]).to include(
         :http_get, :http_post, :external_api, :email_send, :webhook_call
       )
 
-      expect(McpPermissionValidator::TOOL_PERMISSION_SCOPES[:data]).to include(
+      expect(Mcp::PermissionValidator::TOOL_PERMISSION_SCOPES[:data]).to include(
         :read_user_data, :read_account_data, :read_credentials, :read_pii
       )
 
-      expect(McpPermissionValidator::TOOL_PERMISSION_SCOPES[:system]).to include(
+      expect(Mcp::PermissionValidator::TOOL_PERMISSION_SCOPES[:system]).to include(
         :execute_commands, :environment_access, :process_spawn
       )
 
-      expect(McpPermissionValidator::TOOL_PERMISSION_SCOPES[:ai]).to include(
+      expect(Mcp::PermissionValidator::TOOL_PERMISSION_SCOPES[:ai]).to include(
         :call_other_agents, :modify_workflow, :access_conversation_history
       )
     end

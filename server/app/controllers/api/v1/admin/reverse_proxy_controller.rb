@@ -640,7 +640,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
   private
 
   def require_system_admin_permission
-    unless current_user.has_permission?("admin.settings.edit")
+    unless current_user.has_permission?("admin.settings.update")
       render_error("Insufficient permissions to manage reverse proxy settings", status: :forbidden)
     end
   end

@@ -108,7 +108,7 @@ module Mcp
 
     def auto_wire_predecessor_outputs
       # Find nodes that connect to this node
-      incoming_edges = @workflow_run.ai_workflow.ai_workflow_edges.where(
+      incoming_edges = @workflow_run.workflow.workflow_edges.where(
         target_node_id: @node.node_id
       )
 
@@ -202,7 +202,7 @@ module Mcp
       end
 
       # Special context variables
-      variables["_workflow_id"] = @workflow_run.ai_workflow_id
+      variables["_workflow_id"] = @workflow_run.workflow_id
       variables["_run_id"] = @workflow_run.run_id
       variables["_node_id"] = @node.node_id
       variables["_node_name"] = @node.name
@@ -427,7 +427,7 @@ module Mcp
           "node_id" => @node.node_id,
           "node_name" => @node.name,
           "node_type" => @node.node_type,
-          "workflow_id" => @workflow_run.ai_workflow_id,
+          "workflow_id" => @workflow_run.workflow_id,
           "run_id" => @workflow_run.run_id
         },
         "execution_timestamp" => Time.current.iso8601
@@ -491,21 +491,106 @@ module Mcp
     end
 
     # =============================================================================
+    # PERSISTENT CONTEXT ACCESS
+    # =============================================================================
+
+    # Get agent memory entries for a specific agent
+    #
+    # @param agent_id [String] Agent ID
+    # @return [Hash, nil] Agent memory data or nil
+    def get_agent_memory(agent_id)
+      @execution_context.dig(:agent_memories, agent_id)
+    end
+
+    # Get all loaded agent memories
+    #
+    # @return [Hash] All agent memories keyed by agent_id
+    def agent_memories
+      @execution_context[:agent_memories] || {}
+    end
+
+    # Get a specific memory entry for an agent
+    #
+    # @param agent_id [String] Agent ID
+    # @param key [String] Memory entry key
+    # @return [Object, nil] Memory value or nil
+    def recall_agent_memory(agent_id, key)
+      @execution_context.dig(:agent_memories, agent_id, :entries, key)
+    end
+
+    # Get knowledge base by ID
+    #
+    # @param kb_id [String] Knowledge base ID
+    # @return [Hash, nil] Knowledge base data or nil
+    def get_knowledge_base(kb_id)
+      @execution_context.dig(:knowledge_bases, kb_id)
+    end
+
+    # Get all loaded knowledge bases
+    #
+    # @return [Hash] All knowledge bases keyed by ID
+    def knowledge_bases
+      @execution_context[:knowledge_bases] || {}
+    end
+
+    # Get persistent context by ID
+    #
+    # @param context_id [String] Context ID
+    # @return [Ai::PersistentContext, nil] Context object or nil
+    def get_persistent_context(context_id)
+      @execution_context.dig(:persistent_contexts, context_id)
+    end
+
+    # Check if agent memory is available
+    #
+    # @param agent_id [String] Agent ID
+    # @return [Boolean]
+    def has_agent_memory?(agent_id)
+      @execution_context.dig(:agent_memories, agent_id).present?
+    end
+
+    # Get relevant context entries for the current node
+    # Searches across all loaded knowledge bases
+    #
+    # @param query [String] Search query
+    # @param limit [Integer] Maximum results
+    # @return [Array] Matching context entries
+    def search_knowledge(query, limit: 10)
+      return [] unless query.present?
+
+      results = []
+      knowledge_bases.each_value do |kb_data|
+        context = kb_data[:context]
+        next unless context.present?
+
+        entries = context.context_entries
+          .active
+          .where("content_text ILIKE ?", "%#{query}%")
+          .order(importance_score: :desc)
+          .limit(limit)
+
+        results.concat(entries.to_a)
+      end
+
+      results.sort_by { |e| -e.importance_score }.first(limit)
+    end
+
+    # =============================================================================
     # UTILITY METHODS
     # =============================================================================
 
     # Get workflow run
     #
-    # @return [AiWorkflowRun]
+    # @return [Ai::WorkflowRun]
     def workflow_run
       @workflow_run
     end
 
     # Get workflow
     #
-    # @return [AiWorkflow]
+    # @return [Ai::Workflow]
     def workflow
-      @workflow_run.ai_workflow
+      @workflow_run.workflow
     end
 
     # Get account

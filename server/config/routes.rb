@@ -5,8 +5,11 @@ Rails.application.routes.draw do
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
-  # Health check endpoint (global, outside API namespace)
+  # Health check endpoints (global, outside API namespace)
   get :health, to: "health#index"
+  get "health/detailed", to: "health#detailed"
+  get "health/ready", to: "health#ready"
+  get "health/live", to: "health#live"
 
   # API Routes
   namespace :api do
@@ -17,6 +20,10 @@ Rails.application.routes.draw do
       # Worker test endpoints
       post "worker/ping", to: "worker_test#ping"
       post "worker/process_job", to: "worker_test#process_job"
+
+      # E2E test endpoints (development/test only)
+      post "test/reset", to: "test#reset"
+      post "test/seed", to: "test#seed"
 
       # CSRF token endpoint for authenticated users
       get :csrf_token, to: "csrf#token"
@@ -36,6 +43,26 @@ Rails.application.routes.draw do
         get "status/history", to: "status#history"
       end
 
+      # DevOps Step Approvals (public, token-based auth)
+      namespace :devops do
+        resources :step_approvals, only: [:show], param: :token do
+          member do
+            post :approve
+            post :reject
+          end
+        end
+      end
+
+      # AI Workflow Approval Tokens (public, token-based auth)
+      namespace :ai_workflows do
+        resources :approval_tokens, only: [:show], param: :token do
+          member do
+            post :approve
+            post :reject
+          end
+        end
+      end
+
       # Internal API for worker service
       namespace :internal do
         resources :users, only: [ :show ]
@@ -44,13 +71,6 @@ Rails.application.routes.draw do
 
         # Background job tracking
         resources :jobs, only: [ :show, :update ]
-
-        # Template installations (AI workflows)
-        resources :template_installations, only: [] do
-          member do
-            post :update
-          end
-        end
 
         # Webhook deliveries
         resources :webhook_deliveries, only: [ :show, :update ] do
@@ -61,6 +81,13 @@ Rails.application.routes.draw do
 
         # Review notifications
         resources :review_notifications, only: [ :show, :update ]
+
+        # CI/CD Step Approvals (for worker service)
+        resources :step_approvals, only: [:show], param: :step_execution_id do
+          member do
+            post :create_tokens
+          end
+        end
 
         # MCP (Model Context Protocol) internal endpoints
         resources :mcp_servers, only: [ :index, :show, :update ] do
@@ -147,6 +174,76 @@ Rails.application.routes.draw do
           post :validate_services
         end
 
+        # Maintenance internal endpoints (for worker service)
+        namespace :maintenance do
+          # Database backups
+          get "backups/:id", to: "maintenance#show_backup"
+          patch "backups/:id", to: "maintenance#update_backup"
+          post "backups/:id/cleanup", to: "maintenance#cleanup_old_backups"
+
+          # Database restores
+          get "restores/:id", to: "maintenance#show_restore"
+          patch "restores/:id", to: "maintenance#update_restore"
+
+          # Scheduled tasks
+          get :scheduled_tasks, to: "maintenance#list_due_tasks"
+          post "scheduled_tasks/:id/executions", to: "maintenance#create_task_execution"
+          patch "task_executions/:id", to: "maintenance#update_task_execution"
+        end
+
+        # Git provider internal endpoints (for worker service)
+        namespace :git do
+          resources :webhook_events, only: [ :show, :update ] do
+            member do
+              patch :processing
+              patch :processed
+              patch :failed
+              post :trigger_workflows
+            end
+          end
+
+          resources :repositories, only: [ :show, :create, :update ] do
+            member do
+              post :sync_branches
+              post :sync_commits
+              post :sync_pipelines
+            end
+          end
+
+          resources :credentials, only: [ :index, :show ] do
+            member do
+              get :decrypted
+              get :repositories
+            end
+          end
+
+          resources :pipelines, only: [ :show, :update ] do
+            member do
+              post :sync_jobs
+            end
+          end
+
+          # Job logs broadcasting (for WebSocket streaming from worker)
+          resources :job_logs, only: [] do
+            member do
+              post :broadcast
+              post :error
+              post :status
+            end
+          end
+
+          # Runners sync (for worker service)
+          resources :runners, only: [] do
+            collection do
+              post :sync
+            end
+            member do
+              put :status, action: :update_status
+              post :job_completed
+            end
+          end
+        end
+
         # Internal subscriptions for worker dunning
         resources :subscriptions, only: [ :show ] do
           member do
@@ -165,6 +262,30 @@ Rails.application.routes.draw do
           collection do
             post :send
             post :security_alert
+          end
+        end
+
+        # DevOps internal endpoints for worker service
+        namespace :devops do
+          resources :pipeline_runs, only: [ :show, :update ]
+          resources :step_executions, only: [ :show, :create, :update ]
+
+          # Approval token management for worker service
+          resources :approval_tokens, only: [] do
+            collection do
+              post :expire_stale
+              get :pending_count
+            end
+          end
+        end
+
+        # AI Workflow approval management for worker service
+        resources :ai_workflow_approvals, only: [:show], param: :node_execution_id do
+          member do
+            post :create_tokens
+          end
+          collection do
+            post :expire_stale
           end
         end
       end
@@ -787,88 +908,6 @@ Rails.application.routes.draw do
         end
       end
 
-      # Marketplace endpoints
-      resources :apps do
-        collection do
-          get :analytics, to: "apps#analytics"
-        end
-        member do
-          post :publish
-          post :unpublish
-          post :submit_for_review
-          get :analytics
-        end
-
-        # Nested resources for app management
-        resources :app_plans, except: [ :index ] do
-          collection do
-            get :index, to: "app_plans#index"
-            post :reorder
-            get :compare
-            get :analytics
-          end
-          member do
-            post :activate
-            post :deactivate
-          end
-        end
-
-        resources :app_features, except: [ :index ] do
-          collection do
-            get :index, to: "app_features#index"
-            get :types
-            get :dependencies
-            post :validate_dependencies
-            get :usage_report
-          end
-          member do
-            post :enable_by_default
-            post :disable_by_default
-            post :duplicate
-          end
-        end
-
-        resources :app_endpoints, except: [ :index ] do
-          collection do
-            get :index, to: "app_endpoints#index"
-          end
-          member do
-            post :activate
-            post :deactivate
-            post :test
-            get :analytics
-          end
-        end
-
-        resources :app_webhooks, except: [ :index ] do
-          collection do
-            get :index, to: "app_webhooks#index"
-          end
-          member do
-            post :activate
-            post :deactivate
-            post :test
-            post :regenerate_secret
-            get :deliveries
-            get :analytics
-          end
-        end
-
-        resource :marketplace_listing, except: [] do
-          member do
-            post :submit
-            post :approve
-            post :reject
-            post :feature
-            post :unfeature
-            get :analytics
-            post :screenshots
-            delete :screenshots
-            patch :screenshots
-          end
-        end
-      end
-
       # Public marketplace endpoints (no authentication required)
       resources :marketplace_listings, only: [ :index, :show ] do
         collection do
@@ -876,56 +915,59 @@ Rails.application.routes.draw do
         end
       end
 
-      # Unified Marketplace endpoints (apps, plugins, templates in one interface)
+      # Marketplace endpoints (apps, plugins, templates, integrations)
       namespace :marketplace do
-        get "unified", to: "unified#index"
-        get "unified/installations", to: "unified#installations"
-        get "unified/:type/:id", to: "unified#show"
-        post "unified/:type/:id/install", to: "unified#install"
-      end
+        # Browse and discover
+        get "/", to: "items#index"
+        get "featured", to: "items#featured"
+        get "categories", to: "items#categories"
 
-      # App Subscriptions (user subscriptions to apps)
-      resources :app_subscriptions, only: [ :index, :show, :create, :update, :destroy ] do
-        member do
-          post :pause
-          post :resume
-          post :cancel
-          post :upgrade_plan
-          post :downgrade_plan
-          get :usage
-          get :analytics
-        end
-
-        collection do
-          get :active
-          get :cancelled
-          get :expired
-        end
-      end
-
-      # Enhanced App reviews with comprehensive functionality
-      resources :apps, only: [] do
-        resources :app_reviews, path: "reviews", only: [ :index, :create ] do
-          collection do
-            get :summary
+        # Subscriptions
+        resources :subscriptions, only: [ :index, :show, :create, :update, :destroy ] do
+          member do
+            post :pause
+            post :resume
+            patch :configure
+            post :upgrade_tier
+            get :usage
           end
         end
-      end
 
-      resources :app_reviews, path: "reviews", only: [ :show, :update, :destroy ] do
-        member do
-          post :vote
-          post :flag
-          post :moderate
+        # Reviews
+        resources :reviews, only: [ :index, :show, :create, :update, :destroy ] do
+          member do
+            post :helpful
+            post :approve
+            post :reject
+            post :flag
+          end
         end
 
-        resources :review_responses, path: "responses", only: [ :index, :create ]
-      end
+        # Item details and actions
+        get ":type/:id", to: "items#show"
+        post ":type/:id/subscribe", to: "items#subscribe"
+        delete ":type/:id/unsubscribe", to: "items#unsubscribe"
 
-      resources :review_responses, only: [ :show, :update, :destroy ] do
-        member do
-          post :approve
-          post :reject
+        # Feature template management
+        scope :templates do
+          # Create templates from existing features
+          post "from_workflow/:id", to: "templates#create_from_workflow"
+          post "from_pipeline/:id", to: "templates#create_from_pipeline"
+          post "from_integration/:id", to: "templates#create_from_integration"
+          post "from_prompt/:id", to: "templates#create_from_prompt"
+
+          # User's published templates
+          get "my_published", to: "templates#my_published"
+
+          # Admin: Pending review
+          get "pending_review", to: "templates#pending_review"
+
+          # Template actions
+          post ":type/:id/submit", to: "templates#submit"
+          post ":type/:id/withdraw", to: "templates#withdraw"
+          post ":type/:id/approve", to: "templates#approve"
+          post ":type/:id/reject", to: "templates#reject"
+          post ":type/:id/create_instance", to: "templates#create_instance"
         end
       end
 
@@ -1111,6 +1153,141 @@ Rails.application.routes.draw do
       end
 
       # ===================================================================
+      # GIT PROVIDER MANAGEMENT SYSTEM
+      # ===================================================================
+      # Multi-provider Git integration with CI/CD support
+      # Supports GitHub, GitLab, and Gitea (with act runner)
+      # ===================================================================
+
+      namespace :git do
+        # Providers with nested credentials
+        resources :providers, only: [ :index, :show, :create, :update, :destroy ] do
+          member do
+            # OAuth flow
+            post "oauth/authorize", action: :oauth_authorize
+            post "oauth/callback", action: :oauth_callback
+
+            # Credentials management
+            get :credentials
+            post :credentials, action: :create_credential
+          end
+
+          # Collection routes
+          collection do
+            post :sync, action: :sync_all
+            get :available
+          end
+        end
+
+        # Credential actions with credential_id param
+        scope "providers/:id/credentials/:credential_id" do
+          delete "/", to: "providers#destroy_credential"
+          post :test, to: "providers#test_credential"
+          post :make_default, to: "providers#make_default"
+          post :sync_repositories, to: "providers#sync_repositories"
+        end
+
+        # Repositories
+        resources :repositories, only: [ :index, :show, :destroy ] do
+          collection do
+            post :sync
+          end
+
+          member do
+            post :configure_webhook
+            delete :remove_webhook
+            get :branches
+            get :commits
+            get :pull_requests
+            get :issues
+            get :pipelines
+            get :tags
+
+            # Commit detail and diff
+            get "commits/:sha", action: :commit, as: :commit_detail
+            get "commits/:sha/diff", action: :commit_diff, as: :commit_diff
+
+            # Compare commits
+            get "compare/:base...:head", action: :compare, as: :compare_commits
+
+            # File content and tree browsing
+            get "contents/*path", action: :file_content, as: :file_content
+            get "tree(/:sha)", action: :tree, as: :tree
+          end
+        end
+
+        # Pipelines (can be accessed directly or via repository)
+        resources :pipelines, only: [ :index, :show ] do
+          collection do
+            get :stats
+          end
+
+          member do
+            post :cancel
+            post :retry
+            get :jobs
+          end
+        end
+
+        # Pipeline trigger (requires repository context)
+        post "repositories/:repository_id/pipelines/trigger", to: "pipelines#trigger"
+
+        # Job logs
+        get "pipelines/:pipeline_id/jobs/:id/logs", to: "pipelines#job_logs"
+
+        # Webhook events (read-only history)
+        resources :webhook_events, only: [ :index, :show ] do
+          collection do
+            get :stats
+          end
+
+          member do
+            post :retry
+          end
+        end
+
+        # CI/CD Runners (self-hosted runners management)
+        resources :runners, only: [ :index, :show, :destroy ] do
+          collection do
+            post :sync
+          end
+
+          member do
+            post :registration_token
+            post :removal_token
+            put :labels, action: :update_labels
+          end
+        end
+
+        # Pipeline Schedules (scheduled/cron pipelines)
+        resources :pipeline_schedules, only: [ :show, :update, :destroy ] do
+          member do
+            post :trigger
+            post :pause
+            post :resume
+          end
+        end
+
+        # Repository-scoped schedule creation
+        scope "repositories/:repository_id" do
+          resources :schedules, controller: "pipeline_schedules", only: [ :index, :create ]
+        end
+
+        # Pipeline Approvals (approval gates for deployments)
+        resources :pipeline_approvals, only: [ :index, :show ] do
+          collection do
+            get :pending
+          end
+
+          member do
+            post :approve
+            post :reject
+            post :cancel
+          end
+        end
+      end
+
+      # ===================================================================
       # AI ORCHESTRATION SYSTEM - CONSOLIDATED CONTROLLERS
       # ===================================================================
       # 6 RESTful resource controllers replacing 25+ old controllers
@@ -1197,7 +1374,17 @@ Rails.application.routes.draw do
               post :webhook_endpoint, path: "webhook"
               post :event_endpoint, path: "event"
             end
+
+            # Git workflow triggers - maps git events to workflow triggers
+            resources :git_triggers, controller: "workflow_git_triggers" do
+              member do
+                post :test
+              end
+            end
           end
+
+          # All git triggers for a workflow (across all triggers)
+          get "git_triggers", to: "workflow_git_triggers#workflow_index", as: :workflow_git_triggers
 
           # Nested versions
           resources :versions, controller: "workflows" do
@@ -1221,6 +1408,20 @@ Rails.application.routes.draw do
           member do
             post :dry_run, action: :workflows_dry_run
             get "dry_run/validate", action: :workflows_dry_run_validate
+          end
+        end
+
+        # ===================================================================
+        # Git Workflow Triggers - Top-level routes for managing git triggers
+        # Used for CRUD operations when trigger_id is provided as a param
+        # ===================================================================
+        resources :workflow_git_triggers, only: [ :index, :show, :create, :update, :destroy ] do
+          member do
+            post :test
+          end
+
+          collection do
+            get :workflow_index
           end
         end
 
@@ -1459,7 +1660,55 @@ Rails.application.routes.draw do
         post "marketplace/updates/apply", controller: "marketplace", action: :apply_updates
 
         # ===================================================================
-        # 7. AGENT TEAMS CONTROLLER - CrewAI-style team orchestration
+        # 9. PERSISTENT CONTEXT CONTROLLER - Cross-session AI memory
+        # ===================================================================
+        # Knowledge bases, agent memory, and shared context management
+        # ===================================================================
+
+        resources :contexts do
+          member do
+            post :search
+            post :archive
+            post :unarchive
+            get :export
+            post :clone
+          end
+
+          collection do
+            post :import
+            get :stats
+          end
+
+          # Nested entries
+          resources :entries, controller: "context_entries" do
+            member do
+              post :archive
+              post :unarchive
+              post :boost
+              get :history
+            end
+
+            collection do
+              post :bulk, action: :bulk_create
+            end
+          end
+        end
+
+        # Agent Memory - convenient shorthand for agent-specific memory
+        scope "agents/:agent_id" do
+          get "memory", to: "agent_memory#index"
+          post "memory", to: "agent_memory#create"
+          get "memory/stats", to: "agent_memory#stats"
+          post "memory/search", to: "agent_memory#search"
+          post "memory/clear", to: "agent_memory#clear"
+          post "memory/sync", to: "agent_memory#sync"
+          get "memory/:key", to: "agent_memory#show"
+          patch "memory/:key", to: "agent_memory#update"
+          delete "memory/:key", to: "agent_memory#destroy"
+        end
+
+        # ===================================================================
+        # 10. AGENT TEAMS CONTROLLER - CrewAI-style team orchestration
         # ===================================================================
         resources :agent_teams do
           member do
@@ -1474,6 +1723,16 @@ Rails.application.routes.draw do
 
           collection do
             get :statistics
+          end
+        end
+
+        # ===================================================================
+        # 11. PROMPT TEMPLATES CONTROLLER - Reusable AI prompts
+        # ===================================================================
+        resources :prompt_templates do
+          member do
+            post :preview
+            post :duplicate
           end
         end
       end
@@ -1521,38 +1780,118 @@ Rails.application.routes.draw do
       end
 
       # ===================================================================
-      # PLUGIN SYSTEM - Universal plugin architecture
+      # EXTERNAL INTEGRATION FRAMEWORK
       # ===================================================================
-      # Platform-agnostic plugin system supporting AI providers, workflow nodes,
-      # and extensible plugin types with marketplace management
+      # ===================================================================
+      # DEVOPS MANAGEMENT SYSTEM
+      # ===================================================================
+      # AI-powered CI/CD pipelines, integrations, and infrastructure management
+      # Combines pipeline management with third-party integrations
       # ===================================================================
 
-      resources :plugin_marketplaces do
-        member do
-          post :sync
+      namespace :devops do
+        # Git Providers (Gitea, GitHub, GitLab)
+        resources :providers do
+          member do
+            post :test_connection
+            post :sync_repositories
+          end
+        end
+
+        # AI Configuration (Anthropic, Bedrock, Vertex)
+        resources :ai_configs do
+          member do
+            post :set_default
+          end
+        end
+
+        # Prompt Templates with Liquid templating
+        resources :prompt_templates do
+          member do
+            post :preview
+            post :duplicate
+          end
+        end
+
+        # Pipeline Definitions
+        resources :pipelines do
+          member do
+            post :trigger
+            get :export_yaml
+            post :duplicate
+          end
+
+          # Nested runs
+          resources :runs, controller: "pipeline_runs", only: [:index]
+        end
+
+        # Pipeline Runs (top-level for direct access)
+        resources :pipeline_runs, only: [:index, :show] do
+          member do
+            post :cancel
+            post :retry
+            get :logs
+          end
+        end
+
+        # Scheduled Pipeline Runs
+        resources :schedules do
+          member do
+            post :toggle
+          end
+        end
+
+        # Repository Connections
+        resources :repositories do
+          member do
+            post :sync
+            post :attach_pipeline
+            delete :detach_pipeline
+          end
+        end
+
+        # Integration Templates (system-wide, admin-managed)
+        resources :integration_templates do
+          collection do
+            get :search
+            get :categories
+            get :types
+          end
+        end
+
+        # Integration Instances (per-account installations)
+        resources :integration_instances do
+          member do
+            post :activate
+            post :deactivate
+            post :test
+            post :execute
+            get :health
+            get :stats
+          end
+        end
+
+        # Integration Credentials (per-account secrets)
+        resources :integration_credentials do
+          member do
+            post :rotate
+            post :verify
+          end
+        end
+
+        # Integration Executions (history and management)
+        resources :integration_executions, only: [ :index, :show ] do
+          member do
+            post :retry
+            post :cancel
+          end
+
+          collection do
+            get :stats
+          end
         end
       end
 
-      resources :plugins do
-        member do
-          post :install
-          delete :uninstall
-        end
-
-        collection do
-          get :search
-          get :by_capability
-        end
-      end
-
-      resources :plugin_installations do
-        member do
-          post :activate
-          post :deactivate
-          patch :configure
-          post :set_credential
-        end
-      end
     end
   end
 
@@ -1560,6 +1899,7 @@ Rails.application.routes.draw do
   namespace :webhooks do
     post "stripe", to: "stripe#handle"
     post "paypal", to: "paypal#handle"
+    post "git/:provider_type", to: "git#handle"
   end
 
   # ActionCable WebSocket endpoint

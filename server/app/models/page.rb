@@ -5,8 +5,8 @@ class Page < ApplicationRecord
   belongs_to :user, foreign_key: "author_id"
 
   # Polymorphic association to file objects (images attached to this page)
-  has_many :file_objects, as: :attachable, dependent: :nullify
-  has_many :images, -> { where(file_type: "image") }, as: :attachable, class_name: "FileObject"
+  has_many :file_objects, as: :attachable, class_name: "FileManagement::Object", dependent: :nullify
+  has_many :images, -> { where(file_type: "image") }, as: :attachable, class_name: "FileManagement::Object"
 
   # Alias method for better readability
   def author

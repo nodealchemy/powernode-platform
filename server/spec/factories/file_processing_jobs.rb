@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :file_processing_job do
-    file_object
+  factory :file_processing_job, class: "FileManagement::ProcessingJob" do
+    association :object, factory: :file_object
     account
 
     job_type { 'thumbnail' }

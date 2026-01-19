@@ -52,20 +52,14 @@ module Mcp
         start_nodes = find_start_nodes
         execution_queue = start_nodes.to_a
 
-        requeue_counts = Hash.new(0)
-        max_requeues_per_node = 100
-
         while execution_queue.any?
           current_node = execution_queue.shift
 
           next if @node_results.key?(current_node.node_id)
 
           unless prerequisites_complete?(current_node)
-            requeue_counts[current_node.node_id] += 1
-            if requeue_counts[current_node.node_id] > max_requeues_per_node
-              @logger.error "[MCP_ORCHESTRATOR] Deadlock detected: node #{current_node.node_id} requeued #{requeue_counts[current_node.node_id]} times"
-              raise "Workflow execution deadlock: Node '#{current_node.node_id}' prerequisites never satisfied."
-            end
+            # Use loop prevention module for requeue limit checking
+            check_requeue_limit(current_node)
 
             execution_queue << current_node
             next

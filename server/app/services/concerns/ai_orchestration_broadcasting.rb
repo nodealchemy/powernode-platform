@@ -7,7 +7,7 @@
 # during workflow execution.
 #
 # @example Including in a service
-#   class AiAgentOrchestrationService
+#   class Ai::AgentOrchestrationService
 #     include AiOrchestrationBroadcasting
 #   end
 #
@@ -16,7 +16,7 @@ module AiOrchestrationBroadcasting
 
     # Broadcast workflow execution status update to connected clients
     #
-    # @param workflow_execution [AiWorkflowRun] The workflow execution
+    # @param workflow_execution [Ai::WorkflowRun] The workflow execution
     # @param additional_data [Hash] Additional data to include in broadcast
     def broadcast_workflow_update(workflow_execution, additional_data = {})
       return unless workflow_execution&.account_id
@@ -50,7 +50,7 @@ module AiOrchestrationBroadcasting
 
     # Broadcast agent status update to connected clients
     #
-    # @param agent [AiAgent] The agent
+    # @param agent [Ai::Agent] The agent
     # @param status_data [Hash] Status information
     def broadcast_agent_status(agent, status_data)
       return unless @account&.id
@@ -77,7 +77,7 @@ module AiOrchestrationBroadcasting
       return unless @account&.id
 
       begin
-        metrics = AiAnalyticsInsightsService.new.real_time_metrics(@account.id)
+        metrics = Ai::AnalyticsInsightsService.new.real_time_metrics(@account.id)
 
         broadcast_data = {
           type: "system_metrics_update",
@@ -104,11 +104,11 @@ module AiOrchestrationBroadcasting
     def get_agent_status(agent_id, account_id)
       return unless account_id == @account&.id
 
-      agent = AiAgent.joins(:account).where(accounts: { id: account_id }).find(agent_id)
+      agent = Ai::Agent.joins(:account).where(accounts: { id: account_id }).find(agent_id)
       return nil unless agent
 
-      current_executions = agent.ai_agent_executions.where(status: %w[queued processing])
-      recent_executions = agent.ai_agent_executions.where(created_at: 1.hour.ago..Time.current)
+      current_executions = agent.executions.where(status: %w[queued processing])
+      recent_executions = agent.executions.where(created_at: 1.hour.ago..Time.current)
 
       {
         agent_id: agent_id,

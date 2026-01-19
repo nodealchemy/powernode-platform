@@ -26,11 +26,11 @@ require_relative '../app/services/clamav_service'
 require_relative '../app/services/firebase_service'
 require_relative '../app/services/twilio_service'
 
+# Require exceptions first (used by jobs)
+require_relative '../app/exceptions/billing_exceptions'
+
 # Require base job first
 require_relative '../app/jobs/base_job'
-
-# Require FileProcessingWorker before other file processing jobs
-require_relative '../app/jobs/file_processing_worker'
 
 # Load all concerns first (BEFORE job classes that use them)
 services_concerns = Dir[File.expand_path('../app/services/concerns/*.rb', __dir__)].sort
@@ -48,7 +48,6 @@ require_relative '../app/jobs/webhooks'
 job_files = Dir[File.expand_path('../app/jobs/**/*.rb', __dir__)].sort
 excluded_files = [
   File.expand_path('../app/jobs/base_job.rb', __dir__),
-  File.expand_path('../app/jobs/file_processing_worker.rb', __dir__),
   File.expand_path('../app/jobs/analytics.rb', __dir__),
   File.expand_path('../app/jobs/billing.rb', __dir__),
   File.expand_path('../app/jobs/reports.rb', __dir__),

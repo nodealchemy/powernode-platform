@@ -168,7 +168,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     it 'creates a new template' do
       expect {
         post :create, params: valid_template_params
-      }.to change(AiWorkflowTemplate, :count).by(1)
+      }.to change(Ai::WorkflowTemplate, :count).by(1)
 
       expect(response).to have_http_status(:created)
       json = JSON.parse(response.body)
@@ -179,7 +179,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     it 'assigns template to current account and user' do
       post :create, params: valid_template_params
 
-      template = AiWorkflowTemplate.last
+      template = Ai::WorkflowTemplate.last
       expect(template.account_id).to eq(account.id)
       expect(template.created_by_user_id).to eq(workflow_manage_user.id)
     end
@@ -260,7 +260,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
       deletable_template = create(:ai_workflow_template, account: account, created_by_user: workflow_manage_user)
       expect {
         delete :destroy, params: { id: deletable_template.id }
-      }.to change(AiWorkflowTemplate, :count).by(-1)
+      }.to change(Ai::WorkflowTemplate, :count).by(-1)
 
       expect(response).to have_http_status(:success)
       json = JSON.parse(response.body)
@@ -268,7 +268,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     end
 
     it 'prevents deletion of templates with active installations' do
-      allow_any_instance_of(AiWorkflowTemplate).to receive(:can_delete?).and_return(false)
+      allow_any_instance_of(Ai::WorkflowTemplate).to receive(:can_delete?).and_return(false)
 
       delete :destroy, params: { id: template.id }
 
@@ -292,8 +292,8 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     before do
       sign_in workflow_manage_user
       # Create nodes and edges for the workflow
-      create(:ai_workflow_node, ai_workflow: workflow)
-      create(:ai_workflow_edge, ai_workflow: workflow)
+      create(:ai_workflow_node, workflow: workflow)
+      create(:ai_workflow_edge, workflow: workflow)
     end
 
     it 'creates template from existing workflow' do
@@ -303,7 +303,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
           name: 'Template from Workflow',
           category: 'automation'
         }
-      }.to change(AiWorkflowTemplate, :count).by(1)
+      }.to change(Ai::WorkflowTemplate, :count).by(1)
 
       expect(response).to have_http_status(:created)
       json = JSON.parse(response.body)
@@ -317,7 +317,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
         name: 'Template from Workflow'
       }
 
-      template = AiWorkflowTemplate.last
+      template = Ai::WorkflowTemplate.last
       expect(template.workflow_definition).to include('nodes', 'edges')
     end
 
@@ -327,7 +327,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
         name: 'Template from Workflow'
       }
 
-      template = AiWorkflowTemplate.last
+      template = Ai::WorkflowTemplate.last
       expect(template.metadata).to include('node_count', 'edge_count', 'complexity_score')
     end
 
@@ -373,8 +373,9 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
         custom_configuration: { custom_param: 'value' }
       }
 
-      installation = AiWorkflowTemplateInstallation.last
-      expect(installation.customizations).to eq({ 'custom_param' => 'value' })
+      # Subscription stores customizations in the configuration field
+      subscription = Marketplace::Subscription.last
+      expect(subscription.configuration).to eq({ 'custom_param' => 'value' })
     end
 
     it 'requires create permission' do
@@ -392,7 +393,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     it 'publishes the template' do
       # Create an unpublished template owned by the user
       unpublished_template = create(:ai_workflow_template, is_public: false, account: account, created_by_user: workflow_manage_user)
-      allow_any_instance_of(AiWorkflowTemplate).to receive(:publish!).and_return(true)
+      allow_any_instance_of(Ai::WorkflowTemplate).to receive(:publish!).and_return(true)
 
       post :publish, params: { id: unpublished_template.id }
 
@@ -402,7 +403,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     end
 
     it 'prevents unauthorized publishing' do
-      allow_any_instance_of(AiWorkflowTemplate).to receive(:can_publish?).and_return(false)
+      allow_any_instance_of(Ai::WorkflowTemplate).to receive(:can_publish?).and_return(false)
 
       post :publish, params: { id: template.id }
 
@@ -708,8 +709,9 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     context 'with read permission' do
       before do
         sign_in workflow_read_user
-        create(:ai_workflow_template_installation, account: account)
-        create(:ai_workflow_template_installation, account: account)
+        # Create workflow template subscriptions using Marketplace::Subscription
+        create(:workflow_template_subscription, account: account)
+        create(:workflow_template_subscription, account: account)
       end
 
       it 'returns user installations' do
@@ -740,20 +742,20 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
   end
 
   describe 'GET #installation_show' do
-    let(:installation) { create(:ai_workflow_template_installation, account: account) }
+    let(:subscription) { create(:workflow_template_subscription, account: account) }
 
     before { sign_in workflow_read_user }
 
     it 'returns installation details' do
-      get :installation_show, params: { id: installation.id }
+      get :installation_show, params: { id: subscription.id }
 
       expect(response).to have_http_status(:success)
       json = JSON.parse(response.body)
-      expect(json['data']['installation']['id']).to eq(installation.id)
+      expect(json['data']['installation']['id']).to eq(subscription.id)
     end
 
     it 'includes template and workflow information' do
-      get :installation_show, params: { id: installation.id }
+      get :installation_show, params: { id: subscription.id }
 
       json = JSON.parse(response.body)
       installation_data = json['data']['installation']
@@ -768,34 +770,34 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
   end
 
   describe 'DELETE #installation_destroy' do
-    let!(:installation) { create(:ai_workflow_template_installation, account: account) }
+    let!(:subscription) { create(:workflow_template_subscription, account: account) }
 
     before { sign_in workflow_manage_user }
 
     it 'deletes the installation' do
       expect {
-        delete :installation_destroy, params: { id: installation.id }
-      }.to change(AiWorkflowTemplateInstallation, :count).by(-1)
+        delete :installation_destroy, params: { id: subscription.id }
+      }.to change(Marketplace::Subscription, :count).by(-1)
 
       expect(response).to have_http_status(:success)
     end
 
     it 'optionally deletes created workflow' do
       created_workflow = create(:ai_workflow, account: account)
-      installation_with_workflow = create(:ai_workflow_template_installation, account: account, ai_workflow: created_workflow)
+      subscription_with_workflow = create(:workflow_template_subscription, :with_workflow, account: account, workflow: created_workflow)
 
       expect {
         delete :installation_destroy, params: {
-          id: installation_with_workflow.id,
+          id: subscription_with_workflow.id,
           delete_workflow: 'true'
         }
-      }.to change(AiWorkflow, :count).by(-1)
+      }.to change(Ai::Workflow, :count).by(-1)
     end
 
     it 'requires delete permission' do
       sign_in workflow_read_user
 
-      delete :installation_destroy, params: { id: installation.id }
+      delete :installation_destroy, params: { id: subscription.id }
 
       expect(response).to have_http_status(:forbidden)
     end
@@ -803,11 +805,11 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
 
   describe 'GET #check_updates' do
     let!(:outdated_template) { create(:ai_workflow_template, is_public: true, version: '2.0.0') }
-    let!(:outdated_installation) do
-      create(:ai_workflow_template_installation,
+    let!(:outdated_subscription) do
+      create(:workflow_template_subscription,
              account: account,
-             ai_workflow_template: outdated_template,
-             template_version: '1.0.0')
+             subscribable: outdated_template,
+             metadata: { "template_version" => "1.0.0" })
     end
 
     before { sign_in workflow_read_user }
@@ -876,7 +878,16 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
   # =============================================================================
 
   describe 'worker authentication' do
-    before { @request.headers['X-Worker-Token'] = worker.auth_token }
+    before do
+      # Set WORKER_TOKEN environment variable for worker authentication
+      ENV['WORKER_TOKEN'] = worker.auth_token
+      @request.headers['X-Worker-Token'] = worker.auth_token
+    end
+
+    after do
+      # Clean up environment variable
+      ENV.delete('WORKER_TOKEN')
+    end
 
     it 'allows workers to access all endpoints' do
       get :index
@@ -898,5 +909,5 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
   # HELPER METHODS
   # =============================================================================
   # NOTE: This spec uses the global auth_helpers.rb sign_in method
-  # which properly generates JWT tokens using JwtService with correct secret
+  # which properly generates JWT tokens using Security::JwtService with correct secret
 end

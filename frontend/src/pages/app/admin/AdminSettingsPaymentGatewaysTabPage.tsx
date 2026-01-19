@@ -7,9 +7,9 @@ import {
   PaymentGatewayConfig,
   PaymentGatewayStatus,
   GatewayStats
-} from '@/features/payment-gateways/services/paymentGatewaysApi';
+} from '@/features/business/payment-gateways/services/paymentGatewaysApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { GatewayConfigModal } from '@/features/payment-gateways/components/GatewayConfigModal';
+import { GatewayConfigModal } from '@/features/business/payment-gateways/components/GatewayConfigModal';
 import Button from '@/shared/components/ui/Button';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';

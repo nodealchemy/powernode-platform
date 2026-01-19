@@ -251,12 +251,12 @@ data_analyzer_agent = create_or_find_ai_agent(admin_account, admin_user, ollama_
 puts "\n📋 Creating Workflow Templates..."
 
 # Blog Generation Workflow Template
-blog_workflow_template = AiWorkflowTemplate.find_by(name: 'Complete Blog Generation Pipeline')
+blog_workflow_template = Ai::WorkflowTemplate.find_by(name: 'Complete Blog Generation Pipeline')
 
 unless blog_workflow_template
   puts "📝 Creating Blog Generation Workflow Template..."
 
-  blog_workflow_template = AiWorkflowTemplate.create!(
+  blog_workflow_template = Ai::WorkflowTemplate.create!(
     name: 'Complete Blog Generation Pipeline',
     description: 'End-to-end blog post generation with topic research, content creation, SEO optimization, and publishing workflow',
     category: 'content_creation',
@@ -460,12 +460,12 @@ unless blog_workflow_template
 end
 
 # Code Review Workflow Template
-code_review_template = AiWorkflowTemplate.find_by(name: 'Automated Code Review Pipeline')
+code_review_template = Ai::WorkflowTemplate.find_by(name: 'Automated Code Review Pipeline')
 
 unless code_review_template
   puts "🔍 Creating Code Review Workflow Template..."
 
-  code_review_template = AiWorkflowTemplate.create!(
+  code_review_template = Ai::WorkflowTemplate.create!(
     name: 'Automated Code Review Pipeline',
     description: 'Comprehensive code review workflow with security analysis, performance optimization, and documentation checks',
     category: 'development',
@@ -676,7 +676,7 @@ unless blog_workflow
   )
 
   # Create workflow nodes
-  start_node = blog_workflow.ai_workflow_nodes.create!(
+  start_node = blog_workflow.workflow_nodes.create!(
     node_id: 'start_node',
     node_type: 'start',
     name: 'Start Blog Generation',
@@ -691,7 +691,7 @@ unless blog_workflow
     metadata: { 'color' => '#10B981' }
   )
 
-  research_node = blog_workflow.ai_workflow_nodes.create!(
+  research_node = blog_workflow.workflow_nodes.create!(
     node_id: 'topic_research',
     node_type: 'ai_agent',
     name: 'Topic Research & Outline',
@@ -708,7 +708,7 @@ unless blog_workflow
     metadata: { 'color' => '#3B82F6', 'estimated_duration' => '45s' }
   )
 
-  content_node = blog_workflow.ai_workflow_nodes.create!(
+  content_node = blog_workflow.workflow_nodes.create!(
     node_id: 'content_generation',
     node_type: 'ai_agent',
     name: 'Generate Blog Content',
@@ -725,7 +725,7 @@ unless blog_workflow
     metadata: { 'color' => '#8B5CF6', 'estimated_duration' => '90s' }
   )
 
-  seo_node = blog_workflow.ai_workflow_nodes.create!(
+  seo_node = blog_workflow.workflow_nodes.create!(
     node_id: 'seo_optimization',
     node_type: 'ai_agent',
     name: 'SEO Optimization',
@@ -810,7 +810,7 @@ unless data_analysis_workflow
   )
 
   # Create analysis nodes
-  data_analysis_workflow.ai_workflow_nodes.create!(
+  data_analysis_workflow.workflow_nodes.create!(
     node_id: 'data_validation',
     node_type: 'ai_agent',
     name: 'Data Validation',
@@ -823,7 +823,7 @@ unless data_analysis_workflow
     }
   )
 
-  data_analysis_workflow.ai_workflow_nodes.create!(
+  data_analysis_workflow.workflow_nodes.create!(
     node_id: 'trend_analysis',
     node_type: 'ai_agent',
     name: 'Trend Analysis',
@@ -836,7 +836,7 @@ unless data_analysis_workflow
     }
   )
 
-  data_analysis_workflow.ai_workflow_nodes.create!(
+  data_analysis_workflow.workflow_nodes.create!(
     node_id: 'insights_generation',
     node_type: 'ai_agent',
     name: 'Generate Business Insights',
@@ -867,10 +867,10 @@ end
 puts "\n⏰ Creating Workflow Schedules..."
 
 # Daily blog generation schedule
-unless blog_workflow.ai_workflow_schedules.exists?(name: 'Daily Tech Blog Generation')
+unless blog_workflow.workflow_schedules.exists?(name: 'Daily Tech Blog Generation')
   puts "📅 Creating daily blog schedule..."
 
-  blog_workflow.ai_workflow_schedules.create!(
+  blog_workflow.workflow_schedules.create!(
     name: 'Daily Tech Blog Generation',
     description: 'Generate a daily tech blog post automatically',
     cron_expression: '0 9 * * 1-5', # 9 AM weekdays
@@ -899,10 +899,10 @@ unless blog_workflow.ai_workflow_schedules.exists?(name: 'Daily Tech Blog Genera
 end
 
 # Weekly data analysis schedule
-unless data_analysis_workflow.ai_workflow_schedules.exists?(name: 'Weekly Business Analysis')
+unless data_analysis_workflow.workflow_schedules.exists?(name: 'Weekly Business Analysis')
   puts "📈 Creating weekly analysis schedule..."
 
-  data_analysis_workflow.ai_workflow_schedules.create!(
+  data_analysis_workflow.workflow_schedules.create!(
     name: 'Weekly Business Analysis',
     description: 'Analyze weekly business metrics and generate reports',
     cron_expression: '0 8 * * 1', # 8 AM Mondays
@@ -924,10 +924,10 @@ end
 puts "\n🎯 Creating Workflow Triggers..."
 
 # Blog generation webhook trigger
-unless blog_workflow.ai_workflow_triggers.exists?(name: 'Blog Request Webhook')
+unless blog_workflow.workflow_triggers.exists?(name: 'Blog Request Webhook')
   puts "🔗 Creating blog webhook trigger..."
 
-  blog_webhook_trigger = blog_workflow.ai_workflow_triggers.create!(
+  blog_webhook_trigger = blog_workflow.workflow_triggers.create!(
     trigger_type: 'webhook',
     name: 'Blog Request Webhook',
     is_active: true,
@@ -958,10 +958,10 @@ unless blog_workflow.ai_workflow_triggers.exists?(name: 'Blog Request Webhook')
 end
 
 # API-based data analysis trigger
-unless data_analysis_workflow.ai_workflow_triggers.exists?(name: 'Data Analysis API Trigger')
+unless data_analysis_workflow.workflow_triggers.exists?(name: 'Data Analysis API Trigger')
   puts "📡 Creating API trigger for data analysis..."
 
-  data_analysis_workflow.ai_workflow_triggers.create!(
+  data_analysis_workflow.workflow_triggers.create!(
     trigger_type: 'api_call',
     name: 'Data Analysis API Trigger',
     is_active: true,
@@ -981,10 +981,10 @@ end
 puts "\n🔧 Creating Workflow Variables..."
 
 # Blog workflow variables
-unless blog_workflow.ai_workflow_variables.exists?(name: 'default_word_count')
+unless blog_workflow.workflow_variables.exists?(name: 'default_word_count')
   puts "📝 Creating blog workflow variables..."
 
-  blog_workflow.ai_workflow_variables.create!([
+  blog_workflow.workflow_variables.create!([
     {
       name: 'default_word_count',
       variable_type: 'number',
@@ -1036,10 +1036,10 @@ unless blog_workflow.ai_workflow_variables.exists?(name: 'default_word_count')
 end
 
 # Data analysis workflow variables
-unless data_analysis_workflow.ai_workflow_variables.exists?(name: 'chart_type')
+unless data_analysis_workflow.workflow_variables.exists?(name: 'chart_type')
   puts "📊 Creating data analysis workflow variables..."
 
-  data_analysis_workflow.ai_workflow_variables.create!([
+  data_analysis_workflow.workflow_variables.create!([
     {
       name: 'chart_type',
       variable_type: 'string',
@@ -1115,7 +1115,7 @@ unless customer_support_workflow
   )
 
   # Create start node
-  support_trigger = customer_support_workflow.ai_workflow_nodes.create!(
+  support_trigger = customer_support_workflow.workflow_nodes.create!(
     node_id: 'support_trigger',
     node_type: 'start',
     name: 'Support Request Start',
@@ -1131,7 +1131,7 @@ unless customer_support_workflow
   )
 
   # Create sentiment analysis node
-  sentiment_node = customer_support_workflow.ai_workflow_nodes.create!(
+  sentiment_node = customer_support_workflow.workflow_nodes.create!(
     node_id: 'sentiment_analysis',
     node_type: 'ai_agent',
     name: 'Sentiment Analysis',
@@ -1149,7 +1149,7 @@ unless customer_support_workflow
   )
 
   # Create intent classification node (parallel with sentiment)
-  intent_node = customer_support_workflow.ai_workflow_nodes.create!(
+  intent_node = customer_support_workflow.workflow_nodes.create!(
     node_id: 'intent_classification',
     node_type: 'ai_agent',
     name: 'Intent Classification',
@@ -1167,7 +1167,7 @@ unless customer_support_workflow
   )
 
   # Create routing decision node
-  routing_node = customer_support_workflow.ai_workflow_nodes.create!(
+  routing_node = customer_support_workflow.workflow_nodes.create!(
     node_id: 'request_routing',
     node_type: 'condition',
     name: 'Route Request',
@@ -1205,7 +1205,7 @@ unless customer_support_workflow
   )
 
   # Human approval for critical issues
-  human_approval_node = customer_support_workflow.ai_workflow_nodes.create!(
+  human_approval_node = customer_support_workflow.workflow_nodes.create!(
     node_id: 'human_escalation',
     node_type: 'human_approval',
     name: 'Human Escalation',
@@ -1231,7 +1231,7 @@ unless customer_support_workflow
   )
 
   # Auto-response for standard requests
-  auto_response_node = customer_support_workflow.ai_workflow_nodes.create!(
+  auto_response_node = customer_support_workflow.workflow_nodes.create!(
     node_id: 'auto_response',
     node_type: 'ai_agent',
     name: 'Generate Response',
@@ -1249,7 +1249,7 @@ unless customer_support_workflow
   )
 
   # Technical knowledge base lookup
-  kb_lookup_node = customer_support_workflow.ai_workflow_nodes.create!(
+  kb_lookup_node = customer_support_workflow.workflow_nodes.create!(
     node_id: 'kb_lookup',
     node_type: 'api_call',
     name: 'Knowledge Base Search',
@@ -1278,7 +1278,7 @@ unless customer_support_workflow
   )
 
   # Response validation and quality check
-  validation_node = customer_support_workflow.ai_workflow_nodes.create!(
+  validation_node = customer_support_workflow.workflow_nodes.create!(
     node_id: 'response_validation',
     node_type: 'ai_agent',
     name: 'Validate Response',
@@ -1296,7 +1296,7 @@ unless customer_support_workflow
   )
 
   # Final response dispatch
-  dispatch_node = customer_support_workflow.ai_workflow_nodes.create!(
+  dispatch_node = customer_support_workflow.workflow_nodes.create!(
     node_id: 'response_dispatch',
     node_type: 'webhook',
     name: 'Send Response',
@@ -1448,7 +1448,7 @@ unless ecommerce_workflow
   )
 
   # Order received start node
-  order_trigger = ecommerce_workflow.ai_workflow_nodes.create!(
+  order_trigger = ecommerce_workflow.workflow_nodes.create!(
     node_id: 'order_received',
     node_type: 'start',
     name: 'Order Received',
@@ -1464,7 +1464,7 @@ unless ecommerce_workflow
   )
 
   # Parallel processing: Inventory check and Fraud detection
-  inventory_check = ecommerce_workflow.ai_workflow_nodes.create!(
+  inventory_check = ecommerce_workflow.workflow_nodes.create!(
     node_id: 'inventory_check',
     node_type: 'api_call',
     name: 'Check Inventory',
@@ -1494,7 +1494,7 @@ unless ecommerce_workflow
     metadata: { 'color' => '#3B82F6', 'external_service' => 'inventory_system' }
   )
 
-  fraud_detection = ecommerce_workflow.ai_workflow_nodes.create!(
+  fraud_detection = ecommerce_workflow.workflow_nodes.create!(
     node_id: 'fraud_detection',
     node_type: 'ai_agent',
     name: 'Fraud Detection',
@@ -1515,7 +1515,7 @@ unless ecommerce_workflow
   )
 
   # Order validation combining both checks
-  order_validation = ecommerce_workflow.ai_workflow_nodes.create!(
+  order_validation = ecommerce_workflow.workflow_nodes.create!(
     node_id: 'order_validation',
     node_type: 'condition',
     name: 'Validate Order',
@@ -1554,7 +1554,7 @@ unless ecommerce_workflow
   )
 
   # Order decline path
-  decline_order = ecommerce_workflow.ai_workflow_nodes.create!(
+  decline_order = ecommerce_workflow.workflow_nodes.create!(
     node_id: 'decline_order',
     node_type: 'webhook',
     name: 'Decline Order',
@@ -1576,7 +1576,7 @@ unless ecommerce_workflow
   )
 
   # Manual review for medium risk
-  manual_review = ecommerce_workflow.ai_workflow_nodes.create!(
+  manual_review = ecommerce_workflow.workflow_nodes.create!(
     node_id: 'manual_review',
     node_type: 'human_approval',
     name: 'Manual Review',
@@ -1602,7 +1602,7 @@ unless ecommerce_workflow
   )
 
   # Payment processing
-  payment_processing = ecommerce_workflow.ai_workflow_nodes.create!(
+  payment_processing = ecommerce_workflow.workflow_nodes.create!(
     node_id: 'payment_processing',
     node_type: 'api_call',
     name: 'Process Payment',
@@ -1634,7 +1634,7 @@ unless ecommerce_workflow
   )
 
   # Order fulfillment preparation
-  fulfillment_prep = ecommerce_workflow.ai_workflow_nodes.create!(
+  fulfillment_prep = ecommerce_workflow.workflow_nodes.create!(
     node_id: 'fulfillment_prep',
     node_type: 'loop',
     name: 'Prepare Fulfillment',
@@ -1680,7 +1680,7 @@ unless ecommerce_workflow
   )
 
   # Order confirmation
-  order_confirmation = ecommerce_workflow.ai_workflow_nodes.create!(
+  order_confirmation = ecommerce_workflow.workflow_nodes.create!(
     node_id: 'order_confirmation',
     node_type: 'ai_agent',
     name: 'Generate Confirmation',
@@ -1791,7 +1791,7 @@ unless marketing_workflow
   )
 
   # Campaign data ingestion
-  data_ingestion = marketing_workflow.ai_workflow_nodes.create!(
+  data_ingestion = marketing_workflow.workflow_nodes.create!(
     node_id: 'data_ingestion',
     node_type: 'api_call',
     name: 'Collect Campaign Data',
@@ -1815,7 +1815,7 @@ unless marketing_workflow
   )
 
   # Performance analysis
-  performance_analysis = marketing_workflow.ai_workflow_nodes.create!(
+  performance_analysis = marketing_workflow.workflow_nodes.create!(
     node_id: 'performance_analysis',
     node_type: 'ai_agent',
     name: 'Analyze Performance',
@@ -1829,7 +1829,7 @@ unless marketing_workflow
   )
 
   # A/B test analysis
-  ab_test_analysis = marketing_workflow.ai_workflow_nodes.create!(
+  ab_test_analysis = marketing_workflow.workflow_nodes.create!(
     node_id: 'ab_test_analysis',
     node_type: 'ai_agent',
     name: 'A/B Test Analysis',
@@ -1843,7 +1843,7 @@ unless marketing_workflow
   )
 
   # Optimization recommendations
-  optimization_engine = marketing_workflow.ai_workflow_nodes.create!(
+  optimization_engine = marketing_workflow.workflow_nodes.create!(
     node_id: 'optimization_recommendations',
     node_type: 'ai_agent',
     name: 'Generate Optimizations',
@@ -1857,7 +1857,7 @@ unless marketing_workflow
   )
 
   # Auto-implementation for low-risk changes
-  auto_implementation = marketing_workflow.ai_workflow_nodes.create!(
+  auto_implementation = marketing_workflow.workflow_nodes.create!(
     node_id: 'auto_implementation',
     node_type: 'condition',
     name: 'Auto-Implementation Check',
@@ -1879,7 +1879,7 @@ unless marketing_workflow
   )
 
   # Campaign updates
-  campaign_updates = marketing_workflow.ai_workflow_nodes.create!(
+  campaign_updates = marketing_workflow.workflow_nodes.create!(
     node_id: 'campaign_updates',
     node_type: 'loop',
     name: 'Apply Campaign Updates',
@@ -1904,7 +1904,7 @@ unless marketing_workflow
   )
 
   # Manual approval for high-risk changes
-  manual_approval_marketing = marketing_workflow.ai_workflow_nodes.create!(
+  manual_approval_marketing = marketing_workflow.workflow_nodes.create!(
     node_id: 'manual_approval_marketing',
     node_type: 'human_approval',
     name: 'Marketing Manager Approval',
@@ -1922,7 +1922,7 @@ unless marketing_workflow
   )
 
   # Performance report generation
-  report_generation = marketing_workflow.ai_workflow_nodes.create!(
+  report_generation = marketing_workflow.workflow_nodes.create!(
     node_id: 'performance_report',
     node_type: 'ai_agent',
     name: 'Generate Report',
@@ -1995,10 +1995,10 @@ end
 puts "\n🚀 Creating Sample Workflow Runs..."
 
 # Create a completed blog generation run
-unless blog_workflow.ai_workflow_runs.exists?(status: 'completed')
+unless blog_workflow.workflow_runs.exists?(status: 'completed')
   puts "📝 Creating sample blog generation run..."
 
-  blog_run = blog_workflow.ai_workflow_runs.create!(
+  blog_run = blog_workflow.workflow_runs.create!(
     account: admin_account,
     run_id: "run_#{SecureRandom.hex(8)}",
     status: 'completed',
@@ -2031,7 +2031,7 @@ unless blog_workflow.ai_workflow_runs.exists?(status: 'completed')
   )
 
   # Create node executions for the blog run
-  blog_workflow.ai_workflow_nodes.each_with_index do |node, index|
+  blog_workflow.workflow_nodes.each_with_index do |node, index|
     blog_run.ai_workflow_node_executions.create!(
       ai_workflow_node: node,
       execution_id: "exec_#{SecureRandom.hex(6)}",
@@ -2054,10 +2054,10 @@ unless blog_workflow.ai_workflow_runs.exists?(status: 'completed')
 end
 
 # Create a running data analysis run
-unless data_analysis_workflow.ai_workflow_runs.exists?(status: 'running')
+unless data_analysis_workflow.workflow_runs.exists?(status: 'running')
   puts "📊 Creating sample data analysis run..."
 
-  analysis_run = data_analysis_workflow.ai_workflow_runs.create!(
+  analysis_run = data_analysis_workflow.workflow_runs.create!(
     account: admin_account,
     run_id: "run_#{SecureRandom.hex(8)}",
     status: 'running',
@@ -2081,7 +2081,7 @@ unless data_analysis_workflow.ai_workflow_runs.exists?(status: 'running')
   )
 
   # Create some completed and running node executions
-  data_analysis_workflow.ai_workflow_nodes.limit(2).each_with_index do |node, index|
+  data_analysis_workflow.workflow_nodes.limit(2).each_with_index do |node, index|
     status = index == 0 ? 'completed' : 'running'
 
     analysis_run.ai_workflow_node_executions.create!(
@@ -2142,10 +2142,10 @@ puts "\n📊 SEEDING SUMMARY:"
 puts "===================="
 puts "🔧 AI Providers: #{admin_account.ai_providers.count}"
 puts "🤖 AI Agents: #{admin_account.ai_agents.count}"
-puts "📋 Workflow Templates: #{AiWorkflowTemplate.count}"
+puts "📋 Workflow Templates: #{Ai::WorkflowTemplate.count}"
 puts "🔄 Workflows: #{admin_account.ai_workflows.count}"
-puts "⏰ Schedules: #{AiWorkflowSchedule.where(ai_workflow_id: admin_account.ai_workflows.pluck(:id)).count}"
-puts "🎯 Triggers: #{AiWorkflowTrigger.where(ai_workflow_id: admin_account.ai_workflows.pluck(:id)).count}"
+puts "⏰ Schedules: #{Ai::WorkflowSchedule.where(ai_workflow_id: admin_account.ai_workflows.pluck(:id)).count}"
+puts "🎯 Triggers: #{Ai::WorkflowTrigger.where(ai_workflow_id: admin_account.ai_workflows.pluck(:id)).count}"
 puts "📦 Template Installations: #{admin_account.ai_workflow_template_installations.count}"
 
 puts "\n🚀 Ready to test workflows!"

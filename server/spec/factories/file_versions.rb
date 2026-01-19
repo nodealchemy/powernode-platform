@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :file_version do
-    file_object
+  factory :file_version, class: "FileManagement::Version" do
+    association :object, factory: :file_object
     account
     association :created_by, factory: :user
 

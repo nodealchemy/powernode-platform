@@ -22,10 +22,12 @@ import { agentsApi, conversationsApi, GlobalConversationFilters } from '@/shared
 import { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { AiAgent } from '@/shared/types/ai';
-import { ConversationCreateModal } from '@/features/ai-conversations/components/ConversationCreateModal';
-import { ConversationDetailModal } from '@/features/ai-conversations/components/ConversationDetailModal';
-import { ConversationContinueModal } from '@/features/ai-conversations/components/ConversationContinueModal';
+import { ConversationCreateModal } from '@/features/ai/conversations/components/ConversationCreateModal';
+import { ConversationDetailModal } from '@/features/ai/conversations/components/ConversationDetailModal';
+import { ConversationContinueModal } from '@/features/ai/conversations/components/ConversationContinueModal';
 
 // Local filter type for the page
 interface PageFilters {
@@ -36,6 +38,15 @@ interface PageFilters {
 export const AIConversationsPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   const [conversations, setConversations] = useState<ConversationBase[]>([]);
   const [availableAgents, setAvailableAgents] = useState<AiAgent[]>([]);
@@ -231,31 +242,35 @@ export const AIConversationsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteConversation = async (_conversation: ConversationBase) => {
-    if (!window.confirm(`Are you sure you want to delete "${_conversation.title || 'this conversation'}"? This action cannot be undone.`)) {
-      return;
-    }
+  const handleDeleteConversation = (conversation: ConversationBase) => {
+    confirm({
+      title: 'Delete Conversation',
+      message: `Are you sure you want to delete "${conversation.title || 'this conversation'}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await conversationsApi.deleteConversation(conversation.id);
 
-    try {
-      await conversationsApi.deleteConversation(_conversation.id);
+          addNotification({
+            type: 'success',
+            title: 'Conversation Deleted',
+            message: 'Conversation has been permanently deleted'
+          });
 
-      addNotification({
-        type: 'success',
-        title: 'Conversation Deleted',
-        message: 'Conversation has been permanently deleted'
-      });
-
-      loadConversations(pagination.currentPage, pagination.perPage);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to delete conversation:', error);
+          loadConversations(pagination.currentPage, pagination.perPage);
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to delete conversation:', error);
+          }
+          addNotification({
+            type: 'error',
+            title: 'Delete Failed',
+            message: 'Failed to delete conversation'
+          });
+        }
       }
-      addNotification({
-        type: 'error',
-        title: 'Delete Failed',
-        message: 'Failed to delete conversation'
-      });
-    }
+    });
   };
 
   // Handle conversation creation - accepts any conversation type since we just refresh the list
@@ -594,6 +609,7 @@ export const AIConversationsPage: React.FC = () => {
           }}
         />
       )}
+      {ConfirmationDialog}
     </PageContainer>
   );
 };

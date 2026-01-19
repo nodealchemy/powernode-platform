@@ -100,21 +100,26 @@ class JobsController
 
       # Enqueue the job with proper queue handling
       # Separate Sidekiq options (like retry) from job arguments
-      sidekiq_options = options.symbolize_keys
+      sidekiq_options = (options || {}).transform_keys(&:to_sym)
+
+      # Build set options - always include at least an empty hash to avoid argument issues
+      set_options = {}
+      set_options[:queue] = queue if queue.present?
+      set_options.merge!(sidekiq_options) if sidekiq_options.any?
 
       if delay
         # Parse delay (seconds, time string, or duration)
         delay_time = parse_delay(delay)
-        if queue
-          job = klass.set(queue: queue, **sidekiq_options).perform_in(delay_time, *args)
+        if set_options.any?
+          job = klass.set(set_options).perform_in(delay_time, *args)
         else
-          job = klass.set(**sidekiq_options).perform_in(delay_time, *args)
+          job = klass.perform_in(delay_time, *args)
         end
       else
-        if queue
-          job = klass.set(queue: queue, **sidekiq_options).perform_async(*args)
+        if set_options.any?
+          job = klass.set(set_options).perform_async(*args)
         else
-          job = klass.set(**sidekiq_options).perform_async(*args)
+          job = klass.perform_async(*args)
         end
       end
 
@@ -190,7 +195,28 @@ class JobsController
       'Mcp::McpServerHealthCheckJob',
       'Mcp::McpToolDiscoveryJob',
       'Mcp::McpToolExecutionJob',
-      'Mcp::McpToolCacheRefreshJob'
+      'Mcp::McpToolCacheRefreshJob',
+      # Git integration jobs
+      'Git::CredentialSetupJob',
+      'Git::RepositorySyncJob',
+      'Git::PipelineSyncJob',
+      'Git::WebhookProcessingJob',
+      'Git::JobLogsSyncJob',
+      # CI/CD pipeline jobs
+      'CiCd::ApprovalNotificationJob',
+      'CiCd::ApprovalExpiryJob',
+      'CiCd::StepExecutionJob',
+      'CiCd::PipelineExecutionJob',
+      'CiCd::ProviderSyncJob',
+      'CiCd::ScheduleTriggerJob',
+      'CiCd::SecurityScanJob',
+      'CiCd::DeploymentJob',
+      'CiCd::ClaudeInvokeJob',
+      'CiCd::WebhookHandlerJob',
+      # Integration jobs
+      'Integrations::IntegrationExecutionJob',
+      'Integrations::IntegrationHealthCheckJob',
+      'Integrations::CredentialRotationJob'
     ]
 
     allowed_jobs.include?(job_class)

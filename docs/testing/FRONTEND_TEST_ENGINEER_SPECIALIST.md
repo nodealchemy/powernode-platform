@@ -1,3 +1,8 @@
+---
+Last Updated: 2026-01-17
+Platform Version: 1.0.0
+---
+
 # Frontend Test Engineer Specialist
 
 **MCP Connection**: `frontend_test_engineer`

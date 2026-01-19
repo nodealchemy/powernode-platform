@@ -1,0 +1,59 @@
+{
+  "success": true,
+  "data": {
+    "overview": {
+      "total_revenue_cents": 1499880,
+      "revenue_change_percent": 12.5,
+      "mrr_cents": 124990,
+      "mrr_change_percent": 8.3,
+      "active_customers": 45,
+      "customers_change": 5,
+      "churn_rate_percent": 2.1,
+      "churn_change": -0.5,
+      "arpu_cents": 2777,
+      "ltv_cents": 33333
+    },
+    "revenue_by_month": [
+      { "month": "2024-07", "revenue_cents": 98500 },
+      { "month": "2024-08", "revenue_cents": 102300 },
+      { "month": "2024-09", "revenue_cents": 105800 },
+      { "month": "2024-10", "revenue_cents": 112400 },
+      { "month": "2024-11", "revenue_cents": 118900 },
+      { "month": "2024-12", "revenue_cents": 124990 }
+    ],
+    "customers_by_month": [
+      { "month": "2024-07", "new": 8, "churned": 2, "net": 6 },
+      { "month": "2024-08", "new": 10, "churned": 1, "net": 9 },
+      { "month": "2024-09", "new": 7, "churned": 3, "net": 4 },
+      { "month": "2024-10", "new": 12, "churned": 2, "net": 10 },
+      { "month": "2024-11", "new": 9, "churned": 1, "net": 8 },
+      { "month": "2024-12", "new": 11, "churned": 2, "net": 9 }
+    ],
+    "revenue_by_plan": [
+      { "plan": "Starter", "revenue_cents": 14985, "percentage": 12 },
+      { "plan": "Pro", "revenue_cents": 44955, "percentage": 36 },
+      { "plan": "Business", "revenue_cents": 34990, "percentage": 28 },
+      { "plan": "Enterprise", "revenue_cents": 29997, "percentage": 24 }
+    ],
+    "top_customers": [
+      { "id": "cust_006", "name": "Enterprise Corp", "revenue_cents": 239976 },
+      { "id": "cust_002", "name": "Tech Solutions Inc", "revenue_cents": 119988 },
+      { "id": "cust_004", "name": "Digital Agency Co", "revenue_cents": 49990 },
+      { "id": "cust_001", "name": "Acme Corporation", "revenue_cents": 35988 },
+      { "id": "cust_005", "name": "Startup Ventures", "revenue_cents": 17994 }
+    ],
+    "churn_reasons": [
+      { "reason": "Too expensive", "count": 5, "percentage": 35 },
+      { "reason": "Missing features", "count": 4, "percentage": 28 },
+      { "reason": "Switched to competitor", "count": 3, "percentage": 21 },
+      { "reason": "No longer needed", "count": 2, "percentage": 14 },
+      { "reason": "Other", "count": 1, "percentage": 7 }
+    ],
+    "cohort_retention": {
+      "2024-Q1": [100, 92, 88, 85],
+      "2024-Q2": [100, 94, 90, 87],
+      "2024-Q3": [100, 95, 91, null],
+      "2024-Q4": [100, 96, null, null]
+    }
+  }
+}

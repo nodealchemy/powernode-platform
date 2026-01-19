@@ -48,7 +48,7 @@ class Api::V1::InvoicesController < ApplicationController
         data: invoice_data(@invoice)
       )
     else
-      render_error("Invoice has already been sent", status: :unprocessable_entity)
+      render_error("Invoice has already been sent", status: :unprocessable_content)
     end
   rescue StandardError => e
     render_error("Failed to send invoice: #{e.message}", status: :internal_server_error)
@@ -68,7 +68,7 @@ class Api::V1::InvoicesController < ApplicationController
         data: invoice_data(@invoice)
       )
     else
-      render_error("Invoice cannot be marked as paid (current status: #{@invoice.status})", status: :unprocessable_entity)
+      render_error("Invoice cannot be marked as paid (current status: #{@invoice.status})", status: :unprocessable_content)
     end
   rescue StandardError => e
     render_error("Failed to mark invoice as paid: #{e.message}", status: :internal_server_error)
@@ -88,7 +88,7 @@ class Api::V1::InvoicesController < ApplicationController
         data: invoice_data(@invoice)
       )
     else
-      render_error("Invoice cannot be voided (current status: #{@invoice.status})", status: :unprocessable_entity)
+      render_error("Invoice cannot be voided (current status: #{@invoice.status})", status: :unprocessable_content)
     end
   rescue StandardError => e
     render_error("Failed to void invoice: #{e.message}", status: :internal_server_error)
@@ -97,20 +97,31 @@ class Api::V1::InvoicesController < ApplicationController
   # POST /api/v1/invoices/:id/retry_payment
   def retry_payment
     unless @invoice.status.in?(%w[sent overdue payment_failed])
-      return render_error("Invoice is not eligible for payment retry", status: :unprocessable_entity)
+      return render_error("Invoice is not eligible for payment retry", status: :unprocessable_content)
     end
-
-    # Queue payment retry job
-    # PaymentRetryJob.perform_later(@invoice.id)
 
     @invoice.update!(
       last_payment_attempt: Time.current,
       payment_attempts: (@invoice.payment_attempts || 0) + 1
     )
 
+    # Queue payment retry job via worker service
+    begin
+      WorkerJobService.enqueue_job(
+        "Billing::PaymentRetryJob",
+        args: [@invoice.id],
+        queue: "billing_high"
+      )
+      job_queued = true
+    rescue WorkerJobService::WorkerServiceError => e
+      Rails.logger.warn "Worker service unavailable for payment retry: #{e.message}"
+      job_queued = false
+    end
+
     render_success(
-      message: "Payment retry initiated",
-      data: invoice_data(@invoice)
+      message: job_queued ? "Payment retry initiated" : "Retry recorded but worker unavailable",
+      data: invoice_data(@invoice),
+      job_queued: job_queued
     )
   rescue StandardError => e
     render_error("Failed to retry payment: #{e.message}", status: :internal_server_error)

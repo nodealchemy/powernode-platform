@@ -45,13 +45,11 @@ class Api::V1::AppsController < ApplicationController
 
     render_success(
       data: apps.map { |app| app_data(app) },
-      meta: {
-        pagination: {
-          current_page: page,
-          total_pages: total_pages,
-          total_count: total_count,
-          per_page: per_page
-        }
+      pagination: {
+        current_page: page,
+        total_pages: total_pages,
+        total_count: total_count,
+        per_page: per_page
       }
     )
   end

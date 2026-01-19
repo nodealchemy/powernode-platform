@@ -40,7 +40,7 @@ class Api::V1::DelegationsController < ApplicationController
 
   # POST /api/v1/accounts/:account_id/delegations
   def create
-    delegation_service = DelegationService.new(current_user, @account)
+    delegation_service = Accounts::DelegationService.new(current_user, @account)
 
     result = delegation_service.create_delegation(
       delegated_user_email: delegation_params[:delegated_user_email],
@@ -62,7 +62,7 @@ class Api::V1::DelegationsController < ApplicationController
 
   # PATCH/PUT /api/v1/accounts/:account_id/delegations/:id
   def update
-    delegation_service = DelegationService.new(current_user, @account)
+    delegation_service = Accounts::DelegationService.new(current_user, @account)
 
     result = delegation_service.update_delegation(
       delegation: @delegation,
@@ -83,7 +83,7 @@ class Api::V1::DelegationsController < ApplicationController
 
   # DELETE /api/v1/accounts/:account_id/delegations/:id
   def destroy
-    delegation_service = DelegationService.new(current_user, @account)
+    delegation_service = Accounts::DelegationService.new(current_user, @account)
 
     result = delegation_service.revoke_delegation(@delegation)
 
@@ -96,7 +96,7 @@ class Api::V1::DelegationsController < ApplicationController
 
   # PATCH /api/v1/accounts/:account_id/delegations/:id/activate
   def activate
-    delegation_service = DelegationService.new(current_user, @account)
+    delegation_service = Accounts::DelegationService.new(current_user, @account)
 
     result = delegation_service.activate_delegation(@delegation)
 
@@ -111,7 +111,7 @@ class Api::V1::DelegationsController < ApplicationController
 
   # PATCH /api/v1/accounts/:account_id/delegations/:id/deactivate
   def deactivate
-    delegation_service = DelegationService.new(current_user, @account)
+    delegation_service = Accounts::DelegationService.new(current_user, @account)
 
     result = delegation_service.deactivate_delegation(@delegation)
 
@@ -126,7 +126,7 @@ class Api::V1::DelegationsController < ApplicationController
 
   # PATCH /api/v1/accounts/:account_id/delegations/:id/revoke
   def revoke
-    delegation_service = DelegationService.new(current_user, @account)
+    delegation_service = Accounts::DelegationService.new(current_user, @account)
 
     result = delegation_service.revoke_delegation(@delegation)
 
@@ -141,7 +141,7 @@ class Api::V1::DelegationsController < ApplicationController
 
   # GET /api/v1/accounts/:account_id/delegations/available_permissions
   def available_permissions
-    delegation_service = DelegationService.new(current_user, @account)
+    delegation_service = Accounts::DelegationService.new(current_user, @account)
     role_id = params[:role_id]
 
     permissions = delegation_service.list_available_permissions_for_delegation(role_id: role_id)
@@ -156,7 +156,7 @@ class Api::V1::DelegationsController < ApplicationController
 
   # POST /api/v1/accounts/:account_id/delegations/:id/permissions
   def add_permission
-    delegation_service = DelegationService.new(current_user, @account)
+    delegation_service = Accounts::DelegationService.new(current_user, @account)
 
     result = delegation_service.add_permission_to_delegation(
       delegation: @delegation,
@@ -174,7 +174,7 @@ class Api::V1::DelegationsController < ApplicationController
 
   # DELETE /api/v1/accounts/:account_id/delegations/:id/permissions/:permission_id
   def remove_permission
-    delegation_service = DelegationService.new(current_user, @account)
+    delegation_service = Accounts::DelegationService.new(current_user, @account)
 
     result = delegation_service.remove_permission_from_delegation(
       delegation: @delegation,

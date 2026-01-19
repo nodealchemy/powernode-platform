@@ -96,18 +96,18 @@ class MarketplaceCategory < ApplicationRecord
     app_ids = apps.published.pluck(:id)
     return 0.0 if app_ids.empty?
 
-    AppReview.where(app_id: app_ids).average(:rating)&.round(1) || 0.0
+    Marketplace::Review.where(app_id: app_ids).average(:rating)&.round(1) || 0.0
   end
 
   def total_subscribers
-    AppSubscription.joins(:app)
+    Marketplace::Subscription.joins(:app)
                    .where(apps: { category: slug, status: "published" })
                    .where(status: "active")
                    .count
   end
 
   def total_category_revenue
-    AppSubscription.joins(:app, :app_plan)
+    Marketplace::Subscription.joins(:app, :app_plan)
                    .where(apps: { category: slug, status: "published" })
                    .where(status: "active")
                    .sum("app_plans.price_cents") / 100.0

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Info, Server, Monitor, GitBranch, Clock } from 'lucide-react';
-import { versionApi, VersionInfo, FullVersionInfo, HealthInfo } from '@/shared/services/versionApi';
+import { versionApi, VersionInfo, FullVersionInfo, HealthInfo } from '@/shared/services/system/versionApi';
 
 interface VersionDisplayProps {
   show?: 'simple' | 'detailed' | 'badge';
@@ -93,13 +93,13 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
         {showFrontend && (
           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${versionApi.getVersionBadgeColor(frontendVersion)}`}>
             <Monitor className="w-3 h-3 mr-1" />
-            Frontend v{versionApi.formatVersion(frontendVersion)}
+            Frontend {versionApi.formatVersion(frontendVersion)}
           </span>
         )}
         {showBackend && backendVersion && (
           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${versionApi.getVersionBadgeColor(backendVersion.version)}`}>
             <Server className="w-3 h-3 mr-1" />
-            Backend v{versionApi.formatVersion(backendVersion.version)}
+            Backend {versionApi.formatVersion(backendVersion.version)}
           </span>
         )}
       </div>
@@ -110,10 +110,10 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
   if (show === 'simple') {
     const versions = [];
     if (showFrontend) {
-      versions.push(`Frontend v${versionApi.formatVersion(frontendVersion)}`);
+      versions.push(`Frontend ${versionApi.formatVersion(frontendVersion)}`);
     }
     if (showBackend && backendVersion) {
-      versions.push(`Backend v${versionApi.formatVersion(backendVersion.version)}`);
+      versions.push(`Backend ${versionApi.formatVersion(backendVersion.version)}`);
     }
 
     return (

@@ -289,7 +289,7 @@ class AiCredentialEncryptionService
       rotated_count = 0
       failed_count = 0
 
-      AiProviderCredential.where(encryption_key_id: old_key_id).find_each do |credential|
+      Ai::ProviderCredential.where(encryption_key_id: old_key_id).find_each do |credential|
         begin
           rotate_credentials(credential, target_key_id)
           rotated_count += 1

@@ -3,6 +3,7 @@ import { Workflow, Maximize2, X } from 'lucide-react';
 import { Node, Edge } from '@xyflow/react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { WorkflowBuilderProvider } from './WorkflowBuilder';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -66,6 +67,9 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
     setLayoutOrientation(orientation);
     localStorage.setItem('workflowLayoutOrientation', orientation);
   }, []);
+
+  // Confirmation dialog
+  const { confirm, ConfirmationDialog } = useConfirmation();
 
   // Check permissions
   const canUpdateWorkflows = currentUser?.permissions?.includes('ai.workflows.update');
@@ -204,10 +208,16 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
   // Handle close with unsaved changes warning
   const handleClose = () => {
     if (hasChanges) {
-      const confirmClose = window.confirm(
-        'You have unsaved changes. Are you sure you want to close without saving?'
-      );
-      if (!confirmClose) return;
+      confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to close without saving?',
+        confirmLabel: 'Close Without Saving',
+        variant: 'warning',
+        onConfirm: async () => {
+          onClose();
+        }
+      });
+      return;
     }
     onClose();
   };
@@ -222,7 +232,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
       <div className="flex items-center gap-3">
         {hasChanges && (
           <div className="flex items-center gap-2 text-theme-warning text-sm">
-            <div className="w-2 h-2 bg-theme-warning rounded-full animate-pulse" />
+            <div className="w-2 h-2 bg-theme-warning-solid rounded-full animate-pulse" />
             <span>Unsaved changes - Use toolbar Save (Ctrl+S)</span>
           </div>
         )}
@@ -234,7 +244,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
         )}
         {!hasChanges && !saving && saveCount > 0 && (
           <div className="flex items-center gap-2 text-theme-success text-sm">
-            <div className="w-2 h-2 bg-theme-success rounded-full" />
+            <div className="w-2 h-2 bg-theme-success-solid rounded-full" />
             <span>All changes saved</span>
           </div>
         )}
@@ -316,6 +326,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
             className="h-full w-full"
           />
         </div>
+        {ConfirmationDialog}
       </div>
     </Modal>
   );

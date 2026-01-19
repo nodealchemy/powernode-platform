@@ -10,7 +10,7 @@ import { register, clearError } from '@/shared/services/slices/authSlice';
 
 import { addNotification } from '@/shared/services/slices/uiSlice';
 
-import { plansApi, Plan } from '@/features/plans/services/plansApi';
+import { plansApi, Plan } from '@/features/business/plans/services/plansApi';
 
 import { getErrorMessage } from '@/shared/utils/errorHandling';
 
@@ -232,7 +232,7 @@ export const RegisterPage: React.FC = () => {
 
           {/* Selected Plan Summary */}
           {selectedPlan && (
-            <div className="mb-6 p-4 bg-theme-info border border-theme rounded-lg">
+            <div className="mb-6 p-4 bg-theme-info border border-theme rounded-lg" data-testid="selected-plan">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="w-6 h-6 bg-theme-interactive-primary rounded-full flex items-center justify-center">
@@ -274,6 +274,7 @@ export const RegisterPage: React.FC = () => {
                   name="accountName"
                   type="text"
                   required
+                  data-testid="account-name-input"
                   className="input-theme"
                   placeholder="Enter company name"
                   value={formData.accountName}
@@ -294,6 +295,7 @@ export const RegisterPage: React.FC = () => {
                   name="name"
                   type="text"
                   required
+                  data-testid="name-input"
                   className="input-theme"
                   placeholder="Enter your full name"
                   value={formData.name}
@@ -311,6 +313,7 @@ export const RegisterPage: React.FC = () => {
                   type="email"
                   autoComplete="email"
                   required
+                  data-testid="register-email-input"
                   className="input-theme"
                   placeholder="Enter your email"
                   value={formData.email}
@@ -329,6 +332,7 @@ export const RegisterPage: React.FC = () => {
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     required
+                    data-testid="register-password-input"
                     className="input-theme pr-12"
                     placeholder="Create a password"
                     value={formData.password}
@@ -358,6 +362,7 @@ export const RegisterPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading || !validateForm()}
+                data-testid="register-submit-btn"
                 className="btn-theme btn-theme-primary w-full py-3"
                 onClick={(e) => {
                   // Ensure form submission is handled properly

@@ -13,7 +13,7 @@ jest.mock('react-router-dom', () => ({
 }));
 
 // Mock settingsApi
-jest.mock('@/shared/services/settingsApi', () => ({
+jest.mock('@/shared/services/settings/settingsApi', () => ({
   settingsApi: {
     getCopyright: jest.fn().mockResolvedValue('Test Copyright'),
     formatCopyright: jest.fn().mockReturnValue('© 2025 Test Company'),

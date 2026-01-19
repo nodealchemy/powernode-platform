@@ -68,7 +68,7 @@ interface AllTheProvidersProps {
 
 const AllTheProviders: React.FC<AllTheProvidersProps> = ({ children, initialState }) => {
   const store = createTestStore(initialState);
-  
+
   return (
     <Provider store={store}>
       <BrowserRouter>

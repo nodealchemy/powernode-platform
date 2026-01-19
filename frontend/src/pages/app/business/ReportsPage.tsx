@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { RootState } from '@/shared/services';
-import { reportsService } from '@/features/reports/services/reportsService';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { reportsService } from '@/features/business/reports/services/reportsService';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { DateRangeFilter } from '@/features/analytics/components/DateRangeFilter';
+import { DateRangeFilter } from '@/features/business/analytics/components/DateRangeFilter';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { RefreshCw } from 'lucide-react';
@@ -55,6 +56,14 @@ export const ReportsPage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [builderStep, setBuilderStep] = useState<1 | 2 | 3 | 4>(1);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'business',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
   
   // Report data
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
@@ -742,17 +751,17 @@ export const ReportsPage: React.FC = () => {
               <h3 className="text-lg font-semibold text-theme-primary mb-4">Recent Activity</h3>
               <div className="space-y-3">
                 <div className="flex items-center space-x-3 py-2">
-                  <div className="w-2 h-2 bg-theme-success rounded-full"></div>
+                  <div className="w-2 h-2 bg-theme-success-solid rounded-full"></div>
                   <span className="text-theme-primary">Monthly Revenue Report completed</span>
                   <span className="text-sm text-theme-secondary">2 hours ago</span>
                 </div>
                 <div className="flex items-center space-x-3 py-2">
-                  <div className="w-2 h-2 bg-theme-info rounded-full"></div>
+                  <div className="w-2 h-2 bg-theme-info-solid rounded-full"></div>
                   <span className="text-theme-primary">Customer Analytics scheduled</span>
                   <span className="text-sm text-theme-secondary">1 day ago</span>
                 </div>
                 <div className="flex items-center space-x-3 py-2">
-                  <div className="w-2 h-2 bg-theme-warning rounded-full"></div>
+                  <div className="w-2 h-2 bg-theme-warning-solid rounded-full"></div>
                   <span className="text-theme-primary">Subscription Report failed</span>
                   <span className="text-sm text-theme-secondary">2 days ago</span>
                 </div>

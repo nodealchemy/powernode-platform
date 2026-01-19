@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe UsageLimitService, type: :service do
+RSpec.describe Billing::UsageLimitService, type: :service do
   let(:account) { create(:account) }
   let(:subscription) { create(:subscription, account: account) }
   let(:plan) { create(:plan, :with_limits) }
@@ -19,7 +19,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns true' do
-        expect(UsageLimitService.can_add_user?(account)).to be true
+        expect(Billing::UsageLimitService.can_add_user?(account)).to be true
       end
     end
 
@@ -30,7 +30,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns false' do
-        expect(UsageLimitService.can_add_user?(account)).to be false
+        expect(Billing::UsageLimitService.can_add_user?(account)).to be false
       end
     end
 
@@ -41,7 +41,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns false' do
-        expect(UsageLimitService.can_add_user?(account)).to be false
+        expect(Billing::UsageLimitService.can_add_user?(account)).to be false
       end
     end
 
@@ -52,7 +52,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns true' do
-        expect(UsageLimitService.can_add_user?(account)).to be true
+        expect(Billing::UsageLimitService.can_add_user?(account)).to be true
       end
     end
 
@@ -60,7 +60,7 @@ RSpec.describe UsageLimitService, type: :service do
       let(:account_without_subscription) { create(:account) }
 
       it 'returns false' do
-        expect(UsageLimitService.can_add_user?(account_without_subscription)).to be false
+        expect(Billing::UsageLimitService.can_add_user?(account_without_subscription)).to be false
       end
     end
   end
@@ -73,7 +73,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns true' do
-        expect(UsageLimitService.can_create_api_key?(account)).to be true
+        expect(Billing::UsageLimitService.can_create_api_key?(account)).to be true
       end
     end
 
@@ -84,7 +84,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns false' do
-        expect(UsageLimitService.can_create_api_key?(account)).to be false
+        expect(Billing::UsageLimitService.can_create_api_key?(account)).to be false
       end
     end
 
@@ -96,7 +96,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'only counts active API keys' do
-        expect(UsageLimitService.can_create_api_key?(account)).to be true
+        expect(Billing::UsageLimitService.can_create_api_key?(account)).to be true
       end
     end
 
@@ -107,7 +107,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns true' do
-        expect(UsageLimitService.can_create_api_key?(account)).to be true
+        expect(Billing::UsageLimitService.can_create_api_key?(account)).to be true
       end
     end
   end
@@ -122,7 +122,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns true' do
-        expect(UsageLimitService.can_create_webhook?(account)).to be true
+        expect(Billing::UsageLimitService.can_create_webhook?(account)).to be true
       end
     end
 
@@ -133,7 +133,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns false' do
-        expect(UsageLimitService.can_create_webhook?(account)).to be false
+        expect(Billing::UsageLimitService.can_create_webhook?(account)).to be false
       end
     end
 
@@ -145,7 +145,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'only counts active webhooks' do
-        expect(UsageLimitService.can_create_webhook?(account)).to be true
+        expect(Billing::UsageLimitService.can_create_webhook?(account)).to be true
       end
     end
 
@@ -156,7 +156,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns true' do
-        expect(UsageLimitService.can_create_webhook?(account)).to be true
+        expect(Billing::UsageLimitService.can_create_webhook?(account)).to be true
       end
     end
   end
@@ -169,7 +169,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns true' do
-        expect(UsageLimitService.can_create_worker?(account)).to be true
+        expect(Billing::UsageLimitService.can_create_worker?(account)).to be true
       end
     end
 
@@ -180,7 +180,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns false' do
-        expect(UsageLimitService.can_create_worker?(account)).to be false
+        expect(Billing::UsageLimitService.can_create_worker?(account)).to be false
       end
     end
 
@@ -191,7 +191,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns true' do
-        expect(UsageLimitService.can_create_worker?(account)).to be true
+        expect(Billing::UsageLimitService.can_create_worker?(account)).to be true
       end
     end
   end
@@ -207,10 +207,10 @@ RSpec.describe UsageLimitService, type: :service do
     end
 
     it 'returns correct usage counts' do
-      expect(UsageLimitService.current_usage(account, 'max_users')).to eq(4) # 3 + 1 existing
-      expect(UsageLimitService.current_usage(account, 'max_api_keys')).to eq(2)
-      expect(UsageLimitService.current_usage(account, 'max_webhooks')).to eq(4)
-      expect(UsageLimitService.current_usage(account, 'max_workers')).to eq(1)
+      expect(Billing::UsageLimitService.current_usage(account, 'max_users')).to eq(4) # 3 + 1 existing
+      expect(Billing::UsageLimitService.current_usage(account, 'max_api_keys')).to eq(2)
+      expect(Billing::UsageLimitService.current_usage(account, 'max_webhooks')).to eq(4)
+      expect(Billing::UsageLimitService.current_usage(account, 'max_workers')).to eq(1)
     end
   end
 
@@ -232,7 +232,7 @@ RSpec.describe UsageLimitService, type: :service do
     end
 
     it 'returns comprehensive usage summary' do
-      summary = UsageLimitService.usage_summary(account)
+      summary = Billing::UsageLimitService.usage_summary(account)
 
       expect(summary['max_users'][:current]).to eq(3)
       expect(summary['max_users'][:limit]).to eq(10)
@@ -266,7 +266,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns false' do
-        expect(UsageLimitService.has_reached_limits?(account)).to be false
+        expect(Billing::UsageLimitService.has_reached_limits?(account)).to be false
       end
     end
 
@@ -283,7 +283,7 @@ RSpec.describe UsageLimitService, type: :service do
       end
 
       it 'returns true' do
-        expect(UsageLimitService.has_reached_limits?(account)).to be true
+        expect(Billing::UsageLimitService.has_reached_limits?(account)).to be true
       end
     end
   end
@@ -294,11 +294,11 @@ RSpec.describe UsageLimitService, type: :service do
     end
 
     it 'returns the specific limit value' do
-      expect(UsageLimitService.get_limit(account, 'max_users')).to eq(25)
+      expect(Billing::UsageLimitService.get_limit(account, 'max_users')).to eq(25)
     end
 
     it 'returns 0 for missing limit' do
-      expect(UsageLimitService.get_limit(account, 'non_existent')).to eq(0)
+      expect(Billing::UsageLimitService.get_limit(account, 'non_existent')).to eq(0)
     end
   end
 end

@@ -2,7 +2,7 @@
 
 class Api::V1::Kb::CommentsController < ApplicationController
   skip_before_action :authenticate_request, only: [ :index, :show ]
-  before_action :authenticate_user!, only: [ :create ]
+  before_action :authenticate_request, only: [ :create ]
   before_action :set_article, only: [ :index, :create ]
   before_action :set_comment, only: [ :show, :approve, :reject, :spam, :destroy, :moderate ]
   before_action :authorize_kb_moderate, only: [ :approve, :reject, :spam, :destroy, :moderate ]

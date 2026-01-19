@@ -10,9 +10,9 @@ RSpec.describe 'AI Security Integration', type: :request do
 
   # Security-focused AI components
   let!(:provider) { create(:ai_provider, slug: 'openai') }
-  let!(:agent) { create(:ai_agent, account: account, ai_provider: provider) }
-  let!(:conversation) { create(:ai_conversation, account: account, ai_agent: agent) }
-  let!(:credential) { create(:ai_provider_credential, account: account, ai_provider: provider) }
+  let!(:agent) { create(:ai_agent, account: account, provider: provider) }
+  let!(:conversation) { create(:ai_conversation, account: account, agent: agent) }
+  let!(:credential) { create(:ai_provider_credential, account: account, provider: provider) }
 
   before do
     allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(user)
@@ -88,7 +88,7 @@ RSpec.describe 'AI Security Integration', type: :request do
 
       it 'enforces account-level data isolation' do
         other_account = create(:account)
-        other_agent = create(:ai_agent, account: other_account, ai_provider: provider)
+        other_agent = create(:ai_agent, account: other_account, provider: provider)
 
         get "/api/v1/ai/agents/#{other_agent.id}"
 
@@ -98,7 +98,7 @@ RSpec.describe 'AI Security Integration', type: :request do
 
       it 'prevents cross-account conversation access' do
         other_account = create(:account)
-        other_conversation = create(:ai_conversation, account: other_account, ai_agent: agent)
+        other_conversation = create(:ai_conversation, account: other_account, agent: agent)
 
         get "/api/v1/ai/conversations/#{other_conversation.id}"
 
@@ -109,9 +109,9 @@ RSpec.describe 'AI Security Integration', type: :request do
     context 'rate limiting protection' do
       it 'processes AI execution requests' do
         # Mock agent execution capability and execution
-        mock_execution = build_stubbed(:ai_agent_execution, ai_agent: agent, account: account)
-        allow_any_instance_of(AiAgent).to receive(:mcp_available?).and_return(true)
-        allow_any_instance_of(AiAgent).to receive(:execute).and_return(mock_execution)
+        mock_execution = build_stubbed(:ai_agent_execution, agent: agent, account: account)
+        allow_any_instance_of(Ai::Agent).to receive(:mcp_available?).and_return(true)
+        allow_any_instance_of(Ai::Agent).to receive(:execute).and_return(mock_execution)
 
         post "/api/v1/ai/agents/#{agent.id}/execute", params: {
           input_parameters: { prompt: 'Test prompt' }
@@ -123,9 +123,9 @@ RSpec.describe 'AI Security Integration', type: :request do
 
       it 'allows requests within rate limits' do
         # Mock agent execution capability and execution
-        mock_execution = build_stubbed(:ai_agent_execution, ai_agent: agent, account: account)
-        allow_any_instance_of(AiAgent).to receive(:mcp_available?).and_return(true)
-        allow_any_instance_of(AiAgent).to receive(:execute).and_return(mock_execution)
+        mock_execution = build_stubbed(:ai_agent_execution, agent: agent, account: account)
+        allow_any_instance_of(Ai::Agent).to receive(:mcp_available?).and_return(true)
+        allow_any_instance_of(Ai::Agent).to receive(:execute).and_return(mock_execution)
 
         post "/api/v1/ai/agents/#{agent.id}/execute", params: {
           input_parameters: { prompt: 'Test prompt' }
@@ -158,7 +158,7 @@ RSpec.describe 'AI Security Integration', type: :request do
 
       if response.status.in?([ 200, 201 ])
         # Verify credentials are stored (encryption happens at model level)
-        new_credential = AiProviderCredential.last
+        new_credential = Ai::ProviderCredential.last
         expect(new_credential).to be_present
       end
     end
@@ -320,8 +320,8 @@ RSpec.describe 'AI Security Integration', type: :request do
     it 'supports conversation export with security considerations' do
       # Create a message in the conversation
       create(:ai_message,
-             ai_conversation: conversation,
-             ai_agent: agent,
+             conversation: conversation,
+             agent: agent,
              content: 'Test message',
              role: 'user',
              sequence_number: 1)
@@ -337,9 +337,9 @@ RSpec.describe 'AI Security Integration', type: :request do
   describe 'Security Monitoring and Incident Response' do
     it 'logs activity for AI operations' do
       # Mock agent execution capability and execution
-      mock_execution = build_stubbed(:ai_agent_execution, ai_agent: agent, account: account)
-      allow_any_instance_of(AiAgent).to receive(:mcp_available?).and_return(true)
-      allow_any_instance_of(AiAgent).to receive(:execute).and_return(mock_execution)
+      mock_execution = build_stubbed(:ai_agent_execution, agent: agent, account: account)
+      allow_any_instance_of(Ai::Agent).to receive(:mcp_available?).and_return(true)
+      allow_any_instance_of(Ai::Agent).to receive(:execute).and_return(mock_execution)
 
       # Make requests to the agent execute endpoint
       3.times do |i|
@@ -363,9 +363,9 @@ RSpec.describe 'AI Security Integration', type: :request do
 
     it 'tracks requests with unusual headers' do
       # Mock agent execution capability and execution
-      mock_execution = build_stubbed(:ai_agent_execution, ai_agent: agent, account: account)
-      allow_any_instance_of(AiAgent).to receive(:mcp_available?).and_return(true)
-      allow_any_instance_of(AiAgent).to receive(:execute).and_return(mock_execution)
+      mock_execution = build_stubbed(:ai_agent_execution, agent: agent, account: account)
+      allow_any_instance_of(Ai::Agent).to receive(:mcp_available?).and_return(true)
+      allow_any_instance_of(Ai::Agent).to receive(:execute).and_return(mock_execution)
 
       # Make request with unusual headers
       post "/api/v1/ai/agents/#{agent.id}/execute", params: {
@@ -394,9 +394,9 @@ RSpec.describe 'AI Security Integration', type: :request do
   describe 'Compliance and Audit Requirements' do
     it 'maintains audit trails for AI operations' do
       # Mock agent execution capability and execution
-      mock_execution = build_stubbed(:ai_agent_execution, ai_agent: agent, account: account)
-      allow_any_instance_of(AiAgent).to receive(:mcp_available?).and_return(true)
-      allow_any_instance_of(AiAgent).to receive(:execute).and_return(mock_execution)
+      mock_execution = build_stubbed(:ai_agent_execution, agent: agent, account: account)
+      allow_any_instance_of(Ai::Agent).to receive(:mcp_available?).and_return(true)
+      allow_any_instance_of(Ai::Agent).to receive(:execute).and_return(mock_execution)
 
       # Execute AI operation using correct route
       post "/api/v1/ai/agents/#{agent.id}/execute", params: {
@@ -424,12 +424,12 @@ RSpec.describe 'AI Security Integration', type: :request do
       # Create conversation with history
       old_conversation = create(:ai_conversation,
                                account: account,
-                               ai_agent: agent,
+                               agent: agent,
                                created_at: 30.days.ago)
 
       create(:ai_message,
-             ai_conversation: old_conversation,
-             ai_agent: agent,
+             conversation: old_conversation,
+             agent: agent,
              created_at: 30.days.ago,
              content: 'Historical message',
              role: 'user',
@@ -445,7 +445,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       # Create user-associated data
       user_conversation = create(:ai_conversation,
                                  account: account,
-                                 ai_agent: agent,
+                                 agent: agent,
                                  user: user)
 
       # Verify user's conversations can be retrieved
@@ -474,9 +474,9 @@ RSpec.describe 'AI Security Integration', type: :request do
 
     it 'sanitizes AI provider responses' do
       # Mock agent execution capability and execution
-      mock_execution = build_stubbed(:ai_agent_execution, ai_agent: agent, account: account)
-      allow_any_instance_of(AiAgent).to receive(:mcp_available?).and_return(true)
-      allow_any_instance_of(AiAgent).to receive(:execute).and_return(mock_execution)
+      mock_execution = build_stubbed(:ai_agent_execution, agent: agent, account: account)
+      allow_any_instance_of(Ai::Agent).to receive(:mcp_available?).and_return(true)
+      allow_any_instance_of(Ai::Agent).to receive(:execute).and_return(mock_execution)
 
       post "/api/v1/ai/agents/#{agent.id}/execute", params: {
         input_parameters: { prompt: 'Safe request' }

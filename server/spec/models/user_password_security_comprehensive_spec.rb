@@ -6,7 +6,7 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
   let(:account) { create(:account) }
 
   describe 'Password Complexity Enforcement' do
-    it 'enforces all password requirements through PasswordStrengthService' do
+    it 'enforces all password requirements through Security::PasswordStrengthService' do
       # Test minimum length
       expect(build(:user, account: account, password: 'Short1!', password_confirmation: 'Short1!')).not_to be_valid
 
@@ -36,11 +36,11 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
       expect(strength).to be >= 70
     end
 
-    it 'integrates with PasswordStrengthService validation' do
+    it 'integrates with Security::PasswordStrengthService validation' do
       weak_password = 'weak'
       user = build(:user, account: account, password: weak_password, password_confirmation: weak_password)
 
-      expect(PasswordStrengthService).to receive(:validate_password).with(weak_password).and_call_original
+      expect(Security::PasswordStrengthService).to receive(:validate_password).with(weak_password).and_call_original
       user.valid?
     end
   end

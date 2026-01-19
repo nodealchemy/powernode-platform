@@ -17,9 +17,11 @@ module.exports = {
     }]
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(axios|react-router|react-router-dom)/)'
+    'node_modules/(?!(axios|react-router|react-router-dom|@remix-run)/)'
   ],
   moduleNameMapper: {
+    '^@/test-utils$': '<rootDir>/src/test-utils.tsx',
+    '^@/test-utils/(.*)$': '<rootDir>/src/test-utils/$1',
     '^@/shared/(.*)$': '<rootDir>/src/shared/$1',
     '^@/features/(.*)$': '<rootDir>/src/features/$1',
     '^@/pages/(.*)$': '<rootDir>/src/pages/$1',

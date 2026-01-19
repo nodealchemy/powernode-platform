@@ -31,7 +31,7 @@ providers = account.ai_providers.active
 results[:summary][:total_providers] = providers.count
 
 providers.each do |provider|
-  credential_count = provider.ai_provider_credentials.where(account: account).active.count
+  credential_count = provider.provider_credentials.where(account: account).active.count
 
   provider_info = {
     name: provider.name,
@@ -60,7 +60,7 @@ puts '🔑 STEP 2: CREDENTIAL CONNECTION TESTING'
 puts '─────────────────────────────────────────────────────'
 puts ''
 
-credentials = account.ai_provider_credentials.active.includes(:ai_provider)
+credentials = account.provider_credentials.active.includes(:ai_provider)
 results[:summary][:total_credentials] = credentials.count
 
 credentials.each do |credential|
@@ -152,7 +152,7 @@ orchestrator = AiAgent.find_by(slug: 'workflow-orchestrator')
 workflow = AiWorkflow.first
 
 if orchestrator && workflow
-  orchestrator_credential = orchestrator.ai_provider.ai_provider_credentials
+  orchestrator_credential = orchestrator.ai_provider.provider_credentials
                                         .where(account: account)
                                         .active
                                         .first

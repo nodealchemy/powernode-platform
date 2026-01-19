@@ -130,7 +130,7 @@ module Api
         private
 
         def set_file_object
-          @file_object = FileObject.find_by(id: params[:id])
+          @file_object = FileManagement::Object.find_by(id: params[:id])
 
           unless @file_object
             render_error("File not found", status: :not_found)

@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AccountDelegation, type: :model do
+RSpec.describe Account::Delegation, type: :model do
   let(:account) { create(:account) }
   let(:delegator) { create(:user, account: account) }
   let(:delegated_user) { create(:user, account: account) }
@@ -56,7 +56,7 @@ RSpec.describe AccountDelegation, type: :model do
 
       expect {
         create(:account_delegation, account: other_account, delegated_by: other_delegator, delegated_user: other_delegated_user)
-      }.to change(AccountDelegation, :count).by(1)
+      }.to change(Account::Delegation, :count).by(1)
     end
 
     it 'allows multiple delegations for different users in same account' do
@@ -65,7 +65,7 @@ RSpec.describe AccountDelegation, type: :model do
 
       expect {
         create(:account_delegation, account: account, delegated_by: delegator, delegated_user: another_user)
-      }.to change(AccountDelegation, :count).by(1)
+      }.to change(Account::Delegation, :count).by(1)
     end
   end
 
@@ -95,7 +95,7 @@ RSpec.describe AccountDelegation, type: :model do
 
     describe '.active' do
       it 'returns only delegations with active status' do
-        results = AccountDelegation.active
+        results = Account::Delegation.active
         expect(results).to include(active_delegation, expired_delegation)
         expect(results).not_to include(inactive_delegation, revoked_delegation)
       end
@@ -103,19 +103,19 @@ RSpec.describe AccountDelegation, type: :model do
 
     describe '.inactive' do
       it 'returns only inactive delegations' do
-        expect(AccountDelegation.inactive).to contain_exactly(inactive_delegation)
+        expect(Account::Delegation.inactive).to contain_exactly(inactive_delegation)
       end
     end
 
     describe '.revoked' do
       it 'returns only revoked delegations' do
-        expect(AccountDelegation.revoked).to contain_exactly(revoked_delegation)
+        expect(Account::Delegation.revoked).to contain_exactly(revoked_delegation)
       end
     end
 
     describe '.for_account' do
       it 'returns delegations for specific account' do
-        expect(AccountDelegation.for_account(account)).to contain_exactly(
+        expect(Account::Delegation.for_account(account)).to contain_exactly(
           active_delegation, inactive_delegation, revoked_delegation, expired_delegation
         )
       end
@@ -123,13 +123,13 @@ RSpec.describe AccountDelegation, type: :model do
 
     describe '.for_user' do
       it 'returns delegations for specific user' do
-        expect(AccountDelegation.for_user(active_delegation.delegated_user)).to contain_exactly(active_delegation)
+        expect(Account::Delegation.for_user(active_delegation.delegated_user)).to contain_exactly(active_delegation)
       end
     end
 
     describe '.not_expired' do
       it 'returns delegations that have not expired' do
-        results = AccountDelegation.not_expired
+        results = Account::Delegation.not_expired
         expect(results).to include(active_delegation, inactive_delegation, revoked_delegation)
         expect(results).not_to include(expired_delegation)
       end
@@ -137,19 +137,19 @@ RSpec.describe AccountDelegation, type: :model do
       it 'includes delegations with nil expires_at' do
         user = create(:user, account: account)
         no_expiry = create(:account_delegation, :no_expiration, account: account, delegated_by: delegator, delegated_user: user)
-        expect(AccountDelegation.not_expired).to include(no_expiry)
+        expect(Account::Delegation.not_expired).to include(no_expiry)
       end
     end
 
     describe '.expired' do
       it 'returns only expired delegations' do
-        expect(AccountDelegation.expired).to contain_exactly(expired_delegation)
+        expect(Account::Delegation.expired).to contain_exactly(expired_delegation)
       end
 
       it 'excludes delegations with nil expires_at' do
         user = create(:user, account: account)
         no_expiry = create(:account_delegation, :no_expiration, account: account, delegated_by: delegator, delegated_user: user)
-        expect(AccountDelegation.expired).not_to include(no_expiry)
+        expect(Account::Delegation.expired).not_to include(no_expiry)
       end
     end
 
@@ -159,7 +159,7 @@ RSpec.describe AccountDelegation, type: :model do
         user = create(:user, account: account)
         with_role = create(:account_delegation, account: account, delegated_by: delegator, delegated_user: user, role: role)
 
-        expect(AccountDelegation.with_role(role)).to contain_exactly(with_role)
+        expect(Account::Delegation.with_role(role)).to contain_exactly(with_role)
       end
     end
 
@@ -169,7 +169,7 @@ RSpec.describe AccountDelegation, type: :model do
         user = create(:user, account: account)
         with_role = create(:account_delegation, account: account, delegated_by: delegator, delegated_user: user, role: role)
 
-        expect(AccountDelegation.by_role_name('account.manager')).to contain_exactly(with_role)
+        expect(Account::Delegation.by_role_name('account.manager')).to contain_exactly(with_role)
       end
     end
   end
@@ -491,7 +491,7 @@ RSpec.describe AccountDelegation, type: :model do
   describe 'callbacks' do
     describe 'before_create :set_defaults' do
       it 'sets status to active when not provided' do
-        delegation = AccountDelegation.new(
+        delegation = Account::Delegation.new(
           account: account,
           delegated_by: delegator,
           delegated_user: delegated_user
@@ -502,7 +502,7 @@ RSpec.describe AccountDelegation, type: :model do
 
       it 'preserves explicit status when provided' do
         user = create(:user, account: account)
-        delegation = AccountDelegation.new(
+        delegation = Account::Delegation.new(
           account: account,
           delegated_by: delegator,
           delegated_user: user,

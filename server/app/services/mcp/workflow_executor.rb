@@ -48,7 +48,7 @@ module Mcp
       super(account: workflow_run.account, user: workflow_run.triggered_by_user, **options)
 
       @workflow_run = workflow_run
-      @workflow = workflow_run.ai_workflow
+      @workflow = workflow_run.workflow
       @state_manager = state_manager || Mcp::WorkflowStateManager.new(workflow_run: @workflow_run)
       @event_store = event_store || Mcp::WorkflowEventStore.new(workflow_run: @workflow_run)
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import {
   BarChart3,
   FileText,
@@ -38,6 +39,15 @@ export const ReportsOverviewPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<ReportsStats | null>(null);
   const [recentReports, setRecentReports] = useState<RecentReport[]>([]);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'business',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+      loadOverviewData();
+    }
+  });
 
   useEffect(() => {
     loadOverviewData();

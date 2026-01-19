@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { maintenanceApi } from '@/shared/services/maintenanceApi';
+import { maintenanceApi } from '@/shared/services/admin/maintenanceApi';
 import { DataCleanupManager } from '@/features/admin/components/system/MaintenanceComponents';
 import { DataCleanupTabProps } from './types';
 

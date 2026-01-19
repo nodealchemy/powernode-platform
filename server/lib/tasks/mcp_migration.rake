@@ -175,7 +175,7 @@ namespace :mcp do
     # Test basic MCP services
     puts "Testing MCP Protocol Service..."
     begin
-      mcp_protocol = McpProtocolService.new
+      mcp_protocol = Mcp::ProtocolService.new
       init_response = mcp_protocol.initialize_connection({
         "protocolVersion" => "2024-11-05",
         "clientInfo" => { "name" => "rake_test" }
@@ -188,7 +188,7 @@ namespace :mcp do
     # Test MCP Registry
     puts "Testing MCP Registry Service..."
     begin
-      mcp_registry = McpRegistryService.new
+      mcp_registry = Mcp::RegistryService.new
       tools = mcp_registry.list_tools
       puts "✅ MCP Registry Service working (#{tools.size} tools found)"
     rescue StandardError => e

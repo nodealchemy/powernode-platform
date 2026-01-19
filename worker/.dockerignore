@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# Logs
+log/*
+tmp/*
+*.log
+
+# Test files
+spec/
+test/
+coverage/
+
+# Development files
+.rspec
+.env.development
+.env.test
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+*.md
+docs/
+
+# CI/CD
+.github/
+
+# Temp files
+*.swp
+*.swo
+*~

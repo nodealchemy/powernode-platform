@@ -19,7 +19,7 @@ module Orchestration
           completed_at: Time.current
         )
         AiExecutionStatusChannel.broadcast_workflow_status(workflow_execution)
-        raise AiAgentOrchestrationService::OrchestrationError, "Workflow execution failed: #{e.message}"
+        raise Ai::AgentOrchestrationService::OrchestrationError, "Workflow execution failed: #{e.message}"
       end
 
       workflow_execution
@@ -28,7 +28,7 @@ module Orchestration
     def execute_workflow(input_variables: {}, user: nil, trigger_type: "manual")
       @logger.info "Starting workflow execution for workflow #{@workflow.id}"
 
-      run = @workflow.ai_workflow_runs.create!(
+      run = @workflow.runs.create!(
         account: @account,
         triggered_by_user: user || @user,
         trigger_type: trigger_type,
@@ -36,7 +36,7 @@ module Orchestration
         run_id: SecureRandom.uuid,
         status: "initializing",
         started_at: Time.current,
-        total_nodes: @workflow.ai_workflow_nodes.count,
+        total_nodes: @workflow.nodes.count,
         runtime_context: build_workflow_execution_context
       )
 
@@ -58,8 +58,8 @@ module Orchestration
 
     def validate_workflow_structure
       errors = []
-      nodes = @workflow.ai_workflow_nodes.includes(:source_edges, :target_edges)
-      edges = @workflow.ai_workflow_edges
+      nodes = @workflow.nodes.includes(:source_edges, :target_edges)
+      edges = @workflow.edges
 
       start_nodes = nodes.select(&:is_start_node?)
       end_nodes = nodes.select(&:is_end_node?)
@@ -92,8 +92,8 @@ module Orchestration
     end
 
     def calculate_execution_path(context_variables = {})
-      nodes = @workflow.ai_workflow_nodes.includes(:source_edges, :target_edges)
-      edges = @workflow.ai_workflow_edges
+      nodes = @workflow.nodes.includes(:source_edges, :target_edges)
+      edges = @workflow.edges
 
       start_nodes = nodes.select(&:is_start_node?)
       return [] if start_nodes.empty?
@@ -115,16 +115,16 @@ module Orchestration
       missing_keys = required_keys - config.keys.map(&:to_s)
 
       if missing_keys.any?
-        raise AiAgentOrchestrationService::OrchestrationError, "Missing required workflow configuration keys: #{missing_keys.join(', ')}"
+        raise Ai::AgentOrchestrationService::OrchestrationError, "Missing required workflow configuration keys: #{missing_keys.join(', ')}"
       end
 
       unless config["agents"].is_a?(Array) && config["agents"].any?
-        raise AiAgentOrchestrationService::OrchestrationError, "Workflow must specify at least one agent"
+        raise Ai::AgentOrchestrationService::OrchestrationError, "Workflow must specify at least one agent"
       end
     end
 
     def create_workflow_execution(config)
-      raise AiAgentOrchestrationService::OrchestrationError, "Legacy workflow execution creation is deprecated. Use MCP workflows instead."
+      raise Ai::AgentOrchestrationService::OrchestrationError, "Legacy workflow execution creation is deprecated. Use MCP workflows instead."
     end
 
     def execute_workflow_by_order(workflow_execution, config)
@@ -138,7 +138,7 @@ module Orchestration
       when "conditional"
         execute_conditional_workflow(workflow_execution, config)
       else
-        raise AiAgentOrchestrationService::OrchestrationError, "Unknown execution order: #{config['execution_order']}"
+        raise Ai::AgentOrchestrationService::OrchestrationError, "Unknown execution order: #{config['execution_order']}"
       end
 
       final_output = compile_workflow_output(results, config)
@@ -224,7 +224,7 @@ module Orchestration
       results = executions.map do |execution|
         execution.reload
         {
-          agent_id: execution.ai_agent.id,
+          agent_id: execution.agent.id,
           execution_id: execution.id,
           result: execution.output_data
         }

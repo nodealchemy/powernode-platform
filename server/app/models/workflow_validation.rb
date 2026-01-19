@@ -10,7 +10,7 @@ class WorkflowValidation < ApplicationRecord
   # ==========================================
   # Associations
   # ==========================================
-  belongs_to :workflow, class_name: "AiWorkflow", foreign_key: :workflow_id, optional: true
+  belongs_to :workflow, class_name: "Ai::Workflow", foreign_key: :workflow_id, optional: true
 
   # ==========================================
   # Validations

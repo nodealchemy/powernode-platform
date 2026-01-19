@@ -90,6 +90,19 @@ class Plan < ApplicationRecord
     limits[limit_key.to_s]
   end
 
+  # Marketplace publishing methods
+  def marketplace_publish_enabled?
+    has_feature?("marketplace_publish_enabled")
+  end
+
+  def marketplace_publish_limit
+    features["marketplace_publish_limit"]
+  end
+
+  def marketplace_publish_unlimited?
+    marketplace_publish_enabled? && marketplace_publish_limit.nil?
+  end
+
   def assign_default_roles_to_user(user)
     default_roles.each do |role_name|
       role = Role.find_by(name: role_name)

@@ -12,7 +12,17 @@ export { useMcpWebSocket } from './useMcpWebSocket';
 export { useAiOrchestrationWebSocket } from './useAiOrchestrationWebSocket';
 export { useAiMonitoringWebSocket } from './useAiMonitoringWebSocket';
 export { useNotificationWebSocket } from './useNotificationWebSocket';
+export { usePageWebSocket } from './usePageWebSocket';
 export { useTabBreadcrumb } from './useTabBreadcrumb';
+
+// Page WebSocket types
+export type {
+  PageType,
+  ChannelType,
+  WebSocketDataUpdate,
+  PageWebSocketOptions,
+  PageWebSocketReturn
+} from './usePageWebSocket';
 
 // MCP Workflow Builder hooks
 export { useMcpServersForWorkflow, useMcpServerForWorkflow } from './useMcpServersForWorkflow';

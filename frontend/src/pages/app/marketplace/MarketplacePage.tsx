@@ -1,8 +1,8 @@
 /**
- * Unified Marketplace Page
+ * Marketplace Page
  *
- * Clean foundational marketplace implementation showing apps, plugins, and templates
- * in a single unified interface. No backwards compatibility or legacy code.
+ * Feature template marketplace showing workflow, pipeline, integration, and prompt templates.
+ * Users can browse, subscribe to, and create instances from templates.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -13,15 +13,18 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { unifiedMarketplaceApi } from '@/features/marketplace/services/unifiedMarketplaceApi';
-import { ItemCard, TypeFilter, SearchInput } from '@/features/marketplace/components';
-import type { MarketplaceItem, MarketplaceItemType, MarketplaceFilters } from '@/features/marketplace/types/unified';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { marketplaceApi } from '@/features/app/services/marketplaceApi';
+import { ItemCard, TypeFilter, SearchInput } from '@/features/app/components';
+import type { MarketplaceItem, MarketplaceItemType, MarketplaceFilters } from '@/features/app/types/marketplace';
+import { ALL_MARKETPLACE_TYPES } from '@/features/app/types/marketplace';
 
-const ALL_TYPES: MarketplaceItemType[] = ['app', 'plugin', 'template'];
+const ALL_TYPES: MarketplaceItemType[] = ALL_MARKETPLACE_TYPES;
 
 export const MarketplacePage: React.FC = () => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
+  usePageWebSocket({ pageType: 'marketplace' });
 
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +42,7 @@ export const MarketplacePage: React.FC = () => {
           search: searchQuery || undefined
         };
 
-        const response = await unifiedMarketplaceApi.getItems(filters);
+        const response = await marketplaceApi.getItems(filters);
         setItems(response.data || []);
       } catch (error) {
         console.error('Failed to load marketplace items:', error);
@@ -64,36 +67,42 @@ export const MarketplacePage: React.FC = () => {
     }
   }, [items, navigate]);
 
-  const handleInstall = useCallback(async (itemId: string) => {
+  const handleSubscribe = useCallback(async (itemId: string) => {
     const item = items.find((i) => i.id === itemId);
     if (!item) return;
 
     try {
-      await unifiedMarketplaceApi.install(item.type, itemId);
+      await marketplaceApi.subscribe(item.type, itemId);
 
       addNotification({
         type: 'success',
-        title: 'Installation Started',
-        message: `${item.name} is being installed.`
+        title: 'Subscription Started',
+        message: `You are now subscribed to ${item.name}.`
       });
 
       // Refresh items by updating search (triggers useEffect)
       setSearchQuery(prev => prev); // Trigger re-fetch
     } catch (error) {
-      console.error('Failed to install item:', error);
+      console.error('Failed to subscribe to item:', error);
       addNotification({
         type: 'error',
-        title: 'Installation Failed',
-        message: 'Failed to install item. Please try again.'
+        title: 'Subscription Failed',
+        message: 'Failed to subscribe to item. Please try again.'
       });
     }
   }, [items, addNotification]);
+
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Marketplace' }
+  ];
 
   if (loading) {
     return (
       <PageContainer
         title="Marketplace"
-        description="Browse and install apps, plugins, and templates"
+        description="Browse and subscribe to workflow, pipeline, integration, and prompt templates"
+        breadcrumbs={breadcrumbs}
       >
         <LoadingSpinner className="py-12" />
       </PageContainer>
@@ -103,7 +112,8 @@ export const MarketplacePage: React.FC = () => {
   return (
     <PageContainer
       title="Marketplace"
-      description="Browse and install apps, plugins, and templates"
+      description="Browse and subscribe to workflow, pipeline, integration, and prompt templates"
+      breadcrumbs={breadcrumbs}
     >
       {/* Search and Filters */}
       <div className="mb-6 space-y-4">
@@ -139,7 +149,7 @@ export const MarketplacePage: React.FC = () => {
               item={item}
               showInstallButton={true}
               onViewDetails={handleViewDetails}
-              onInstall={handleInstall}
+              onInstall={handleSubscribe}
             />
           ))}
         </div>

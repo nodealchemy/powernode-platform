@@ -1,4 +1,4 @@
 // Marketplace pages exports
-export { MyAppsPage } from './MyAppsPage';
-export { AppDetailPage } from './AppDetailPage';
 export { MarketplacePage } from './MarketplacePage';
+export { ItemDetailPage } from './ItemDetailPage';
+export { MySubscriptionsPage } from './MySubscriptionsPage';

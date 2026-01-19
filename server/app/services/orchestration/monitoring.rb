@@ -8,7 +8,7 @@ module Orchestration
       monitoring_results = {
         total_active: active_executions.count,
         by_status: active_executions.group(:status).count,
-        by_provider: active_executions.joins(:ai_provider).group("ai_providers.name").count,
+        by_provider: active_executions.joins(:provider).group("ai_providers.name").count,
         resource_usage: calculate_resource_usage(active_executions),
         performance_metrics: calculate_performance_metrics(active_executions)
       }
@@ -40,7 +40,7 @@ module Orchestration
         }
       end
 
-      active_workflows = @account.ai_workflow_executions.where(status: ["pending", "running"])
+      active_workflows = @account.ai_workflow_runs.where(status: ["pending", "running"])
 
       {
         account_id: @account.id,
@@ -71,15 +71,15 @@ module Orchestration
     end
 
     def calculate_provider_current_load(provider)
-      provider.ai_agent_executions.where(status: ["pending", "running"]).count
+      provider.agent_executions.where(status: ["pending", "running"]).count
     end
 
     def calculate_provider_avg_response_time(provider)
-      provider.ai_agent_executions.where(created_at: 24.hours.ago..Time.current).average(:duration_ms) || 1000
+      provider.agent_executions.where(created_at: 24.hours.ago..Time.current).average(:duration_ms) || 1000
     end
 
     def calculate_provider_success_rate(provider)
-      executions = provider.ai_agent_executions.where(created_at: 24.hours.ago..Time.current)
+      executions = provider.agent_executions.where(created_at: 24.hours.ago..Time.current)
       return 95 if executions.empty?
       successful = executions.where(status: "completed").count
       (successful.to_f / executions.count * 100).round(2)

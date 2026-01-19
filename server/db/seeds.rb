@@ -91,7 +91,10 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
     'sso_integration' => true,
     'advanced_security' => true,
     'audit_logs' => true,
-    'sla_guarantees' => true
+    'sla_guarantees' => true,
+    # Marketplace Publishing (unlimited for admins)
+    'marketplace_publish_enabled' => true,
+    'marketplace_publish_limit' => nil
   }
   plan.limits = {
     'max_users' => 9999,
@@ -231,7 +234,10 @@ professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
     'sso_integration' => false,
     'advanced_security' => false,
     'audit_logs' => true,
-    'sla_guarantees' => false
+    'sla_guarantees' => false,
+    # Marketplace Publishing
+    'marketplace_publish_enabled' => true,
+    'marketplace_publish_limit' => 5
   }
   plan.limits = {
     'max_users' => 50,
@@ -278,7 +284,10 @@ enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
     'sso_integration' => true,
     'advanced_security' => true,
     'audit_logs' => true,
-    'sla_guarantees' => true
+    'sla_guarantees' => true,
+    # Marketplace Publishing (unlimited)
+    'marketplace_publish_enabled' => true,
+    'marketplace_publish_limit' => nil
   }
   plan.limits = {
     'max_users' => 9999,
@@ -331,124 +340,11 @@ end
 
 # Only create admin account in development/test environments
 if Rails.env.development? || Rails.env.test?
-  puts "\n🏢 Creating development/test accounts..."
+  puts "\n🏢 Creating development/test accounts and users..."
 
-  # Create admin account and user
-  admin_account = Account.find_or_create_by!(
-    name: 'Powernode Admin',
-    subdomain: 'admin'
-  ) do |account|
-    account.status = 'active'
-    account.settings = { timezone: 'UTC', locale: 'en' }
-  end
-
-  # Create subscription for admin account
-  admin_subscription = Subscription.find_or_create_by!(
-    account: admin_account,
-    plan: administrator_plan
-  ) do |subscription|
-    subscription.status = 'active'
-    subscription.current_period_start = Time.current
-    subscription.current_period_end = 100.years.from_now
-    subscription.stripe_subscription_id = nil
-  end
-
-  # Create admin user
-  admin_user = User.find_or_create_by!(
-    email: 'admin@powernode.org'
-  ) do |user|
-    user.account = admin_account
-    user.name = 'System Admin'
-    user.password = 'P0w3rN0d3Admin!@&'
-    user.password_confirmation = 'P0w3rN0d3Admin!@&'
-    user.status = 'active'
-    user.email_verified = true
-    user.email_verified_at = Time.current
-  end
-
-  # Ensure admin user has super_admin role with ALL permissions
-  super_admin_role = Role.find_by(name: 'super_admin')
-  if super_admin_role && !admin_user.roles.include?(super_admin_role)
-    admin_user.roles.clear  # Remove any existing roles
-    admin_user.roles << super_admin_role
-
-    # Enhanced permission feedback
-    has_system_admin = super_admin_role.permissions.exists?(name: 'system.admin')
-    total_system_permissions = Permission.count
-    permission_categories = Permission.pluck(:name).map { |name| name.split('.').first }.uniq.count
-
-    puts "✅ Assigned super_admin role to admin user"
-    puts "   Role Permissions: #{super_admin_role.permissions.count}"
-    if has_system_admin
-      puts "   🔑 Has system.admin permission (grants access to ALL #{total_system_permissions} permissions)"
-      puts "   📊 Permission Coverage: #{permission_categories} categories"
-    else
-      puts "   ⚠️  WARNING: super_admin role missing system.admin permission!"
-    end
-  end
-
-  # Create demo account
-  demo_account = Account.find_or_create_by!(
-    name: 'Demo Company',
-    subdomain: 'demo'
-  ) do |account|
-    account.status = 'active'
-    account.settings = { timezone: 'America/New_York', locale: 'en' }
-  end
-
-  # Create subscription for demo account
-  demo_subscription = Subscription.find_or_create_by!(
-    account: demo_account,
-    plan: professional_plan
-  ) do |subscription|
-    subscription.status = 'active'
-    subscription.current_period_start = Time.current.beginning_of_month
-    subscription.current_period_end = Time.current.end_of_month
-    subscription.stripe_subscription_id = "sub_demo_#{SecureRandom.hex(8)}"
-  end
-
-  # Create demo users
-  demo_manager = User.find_or_create_by!(
-    email: 'manager@powernode.org'
-  ) do |user|
-    user.account = demo_account
-    user.name = 'Demo Manager'
-    user.password = 'D3m0U$er2024!@&'
-    user.password_confirmation = 'D3m0U$er2024!@&'
-    user.status = 'active'
-    user.email_verified = true
-    user.email_verified_at = Time.current
-  end
-
-  # Assign manager role
-  if demo_manager.roles.empty?
-    manager_role = Role.find_by(name: 'manager')
-    demo_manager.roles << manager_role if manager_role
-  end
-
-  demo_member = User.find_or_create_by!(
-    email: 'member@powernode.org'
-  ) do |user|
-    user.account = demo_account
-    user.name = 'Demo Member'
-    user.password = 'D3m0U$er2024!@*'
-    user.password_confirmation = 'D3m0U$er2024!@*'
-    user.status = 'active'
-    user.email_verified = true
-    user.email_verified_at = Time.current
-  end
-
-  # Assign member role
-  if demo_member.roles.empty?
-    member_role = Role.find_by(name: 'member')
-    demo_member.roles << member_role if member_role
-  end
-
-  puts "✅ Created #{Account.count} accounts and #{User.count} users"
-  puts "\n📧 Test login credentials:"
-  puts "   Admin: admin@powernode.org / P0w3rN0d3Admin!@&"
-  puts "   Manager: manager@powernode.org / D3m0U$er2024!@&"
-  puts "   Member: member@powernode.org / D3m0U$er2024!@*"
+  # Load the unified test user seed which handles all user creation
+  # and writes credentials to test-credentials.json
+  load Rails.root.join('db', 'seeds', 'cypress_test_users.rb')
 end
 
 # 📄 Create public pages
@@ -857,11 +753,11 @@ puts "   KB Categories: #{KnowledgeBaseCategory.count}"
 puts "   KB Articles: #{KnowledgeBaseArticle.count}"
 
 if Rails.env.development? || Rails.env.test?
-  puts "   AI Providers: #{AiProvider.count}"
-  puts "   AI Agents: #{AiAgent.count}"
-  puts "   AI Workflows: #{AiWorkflow.count}"
-  puts "   AI Workflow Templates: #{AiWorkflowTemplate.count}"
-  puts "   AI Workflow Runs: #{AiWorkflowRun.count}"
+  puts "   AI Providers: #{Ai::Provider.count}"
+  puts "   AI Agents: #{Ai::Agent.count}"
+  puts "   AI Workflows: #{Ai::Workflow.count}"
+  puts "   AI Workflow Templates: #{Ai::WorkflowTemplate.count}"
+  puts "   AI Workflow Runs: #{Ai::WorkflowRun.count}"
 end
 
 # 🔧 Create default site settings

@@ -14,16 +14,16 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
 
     if workflow_id
       # Subscribe to specific workflow monitoring
-      workflow = AiWorkflow.find_by(id: workflow_id, account_id: current_user.account_id)
+      workflow = Ai::Workflow.find_by(id: workflow_id, account_id: current_user.account_id)
       return reject unless workflow
 
       stream_from "ai_orchestration:workflow:#{workflow_id}"
-      Rails.logger.info "[AiWorkflowMonitoringChannel] User #{current_user.id} subscribed to workflow #{workflow_id}"
+      Rails.logger.info "[Ai::WorkflowMonitoringChannel] User #{current_user.id} subscribed to workflow #{workflow_id}"
     else
       # Subscribe to account-level monitoring
       stream_from "ai_orchestration:monitoring:#{current_user.account_id}"
       stream_from "ai_orchestration:account:#{current_user.account_id}"
-      Rails.logger.info "[AiWorkflowMonitoringChannel] User #{current_user.id} subscribed to account monitoring"
+      Rails.logger.info "[Ai::WorkflowMonitoringChannel] User #{current_user.id} subscribed to account monitoring"
     end
 
     transmit({
@@ -35,23 +35,23 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
   end
 
   def unsubscribed
-    Rails.logger.info "[AiWorkflowMonitoringChannel] User #{current_user&.id} unsubscribed"
+    Rails.logger.info "[Ai::WorkflowMonitoringChannel] User #{current_user&.id} unsubscribed"
   end
 
   # Get dashboard statistics
   def get_dashboard_stats(_data = {})
     stats = {
-      total_workflows: AiWorkflow.where(account_id: current_user.account_id).count,
-      active_executions: AiWorkflowRun.where(
+      total_workflows: Ai::Workflow.where(account_id: current_user.account_id).count,
+      active_executions: Ai::WorkflowRun.where(
         account_id: current_user.account_id,
         status: %w[initializing running paused]
       ).count,
-      completed_today: AiWorkflowRun.where(
+      completed_today: Ai::WorkflowRun.where(
         account_id: current_user.account_id,
         status: "completed",
         completed_at: Time.current.beginning_of_day..Time.current.end_of_day
       ).count,
-      failed_today: AiWorkflowRun.where(
+      failed_today: Ai::WorkflowRun.where(
         account_id: current_user.account_id,
         status: "failed",
         completed_at: Time.current.beginning_of_day..Time.current.end_of_day
@@ -69,7 +69,7 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
 
   # Get active executions
   def get_active_executions(_data = {})
-    executions = AiWorkflowRun.where(
+    executions = Ai::WorkflowRun.where(
       account_id: current_user.account_id,
       status: %w[initializing running paused]
     ).order(started_at: :desc).limit(50)
@@ -121,7 +121,7 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
     end
 
     def broadcast_active_executions_update(account_id)
-      executions = AiWorkflowRun.where(
+      executions = Ai::WorkflowRun.where(
         account_id: account_id,
         status: %w[initializing running paused]
       ).order(started_at: :desc).limit(50)
@@ -166,17 +166,17 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
       today_range = Time.current.beginning_of_day..Time.current.end_of_day
 
       {
-        total_workflows: AiWorkflow.where(account_id: account_id).count,
-        active_executions: AiWorkflowRun.where(
+        total_workflows: Ai::Workflow.where(account_id: account_id).count,
+        active_executions: Ai::WorkflowRun.where(
           account_id: account_id,
           status: %w[initializing running paused]
         ).count,
-        completed_today: AiWorkflowRun.where(
+        completed_today: Ai::WorkflowRun.where(
           account_id: account_id,
           status: "completed",
           completed_at: today_range
         ).count,
-        failed_today: AiWorkflowRun.where(
+        failed_today: Ai::WorkflowRun.where(
           account_id: account_id,
           status: "failed",
           completed_at: today_range
@@ -189,7 +189,7 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
         id: workflow_run.id,
         run_id: workflow_run.run_id,
         workflow_id: workflow_run.ai_workflow_id,
-        workflow_name: workflow_run.ai_workflow&.name,
+        workflow_name: workflow_run.workflow&.name,
         status: workflow_run.status,
         started_at: workflow_run.started_at&.iso8601,
         completed_at: workflow_run.completed_at&.iso8601,
@@ -212,7 +212,7 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
       id: workflow_run.id,
       run_id: workflow_run.run_id,
       workflow_id: workflow_run.ai_workflow_id,
-      workflow_name: workflow_run.ai_workflow&.name,
+      workflow_name: workflow_run.workflow&.name,
       status: workflow_run.status,
       started_at: workflow_run.started_at&.iso8601,
       completed_at: workflow_run.completed_at&.iso8601,

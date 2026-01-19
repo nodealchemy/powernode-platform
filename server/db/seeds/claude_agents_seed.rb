@@ -7,7 +7,7 @@ puts "🧠 Creating Claude-Powered Workflow Agents..."
 
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account.users.find_by(email: "admin@powernode.org")
-claude_provider = AiProvider.find_by(provider_type: 'anthropic')
+claude_provider = Ai::Provider.find_by(provider_type: 'anthropic')
 
 if admin_account && admin_user && claude_provider
   puts "✅ Using admin account: #{admin_account.name} (ID: #{admin_account.id})"
@@ -26,14 +26,14 @@ if admin_account && admin_user && claude_provider
   }
 
   # Claude-Powered Strategic Planning Agent
-  strategic_planner = AiAgent.find_or_create_by(
+  strategic_planner = Ai::Agent.find_or_create_by(
     account: admin_account,
     slug: 'claude-strategic-planner',
     agent_type: 'assistant'
   ) do |agent|
     agent.name = "Claude Strategic Planner"
     agent.description = "Advanced strategic planning and analysis agent powered by Claude's reasoning capabilities"
-    agent.ai_provider = claude_provider
+    agent.provider = claude_provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
@@ -117,14 +117,14 @@ if admin_account && admin_user && claude_provider
   end
 
   # Claude-Powered Research Analyst
-  research_analyst = AiAgent.find_or_create_by(
+  research_analyst = Ai::Agent.find_or_create_by(
     account: admin_account,
     slug: 'claude-research-analyst',
     agent_type: 'data_analyst'
   ) do |agent|
     agent.name = "Claude Research Analyst"
     agent.description = "Comprehensive research and analysis agent leveraging Claude's analytical capabilities"
-    agent.ai_provider = claude_provider
+    agent.provider = claude_provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
@@ -216,14 +216,14 @@ if admin_account && admin_user && claude_provider
   end
 
   # Claude-Powered Creative Content Generator
-  content_creator = AiAgent.find_or_create_by(
+  content_creator = Ai::Agent.find_or_create_by(
     account: admin_account,
     slug: 'claude-content-creator',
     agent_type: 'content_generator'
   ) do |agent|
     agent.name = "Claude Content Creator"
     agent.description = "Advanced content creation agent utilizing Claude's language and creative capabilities"
-    agent.ai_provider = claude_provider
+    agent.provider = claude_provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
@@ -319,7 +319,7 @@ if admin_account && admin_user && claude_provider
   puts "✅ Created Claude Content Creator (ID: #{content_creator.id})"
 
   puts "\n📊 Claude-Powered Agents Summary:"
-  claude_agents = AiAgent.where(ai_provider: claude_provider)
+  claude_agents = Ai::Agent.where(provider: claude_provider)
   puts "   Total Claude Agents: #{claude_agents.count}"
   puts "   Strategic Planning: #{claude_agents.where(agent_type: 'assistant').count}"
   puts "   Research Analysis: #{claude_agents.where(agent_type: 'data_analyst').count}"

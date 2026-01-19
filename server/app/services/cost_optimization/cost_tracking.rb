@@ -30,7 +30,7 @@ module CostOptimization
       estimated_tokens = context[:estimated_tokens] || 1000
       complexity = context[:complexity] || "medium"
 
-      provider = AiProvider.find_by(id: provider_id)
+      provider = Ai::Provider.find_by(id: provider_id)
       cost_per_token = provider ? provider_cost_per_token(provider) : BigDecimal("0.0001")
       estimated_cost = calculate_estimated_cost(cost_per_token, estimated_tokens, complexity)
 

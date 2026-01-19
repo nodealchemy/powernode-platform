@@ -27,7 +27,9 @@ import {
   Play,
   Square,
   BookOpen,
-  Wrench
+  Wrench,
+  PlayCircle,
+  Timer
 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 
@@ -167,6 +169,22 @@ const nodeColorThemes = {
     bg: 'bg-node-mcp-operation',
     indicator: 'bg-node-mcp-operation',
     text: 'text-node-mcp-operation'
+  },
+  // DevOps Orchestration Node Types (for AI workflow integration with DevOps pipelines)
+  'devops_trigger': {
+    bg: 'bg-gradient-to-r from-orange-500 to-orange-600',
+    indicator: 'bg-theme-warning',
+    text: 'text-theme-warning'
+  },
+  'devops_wait_status': {
+    bg: 'bg-gradient-to-r from-amber-500 to-amber-600',
+    indicator: 'bg-theme-warning',
+    text: 'text-theme-warning'
+  },
+  'devops_get_logs': {
+    bg: 'bg-gradient-to-r from-slate-500 to-slate-600',
+    indicator: 'bg-theme-secondary',
+    text: 'text-theme-secondary'
   }
 } as const;
 
@@ -376,10 +394,33 @@ const nodeTypes: NodeTypeDefinition[] = [
     icon: <Wrench className="h-4 w-4" />,
     category: 'MCP',
     color: 'mcp_operation'
+  },
+  // DevOps Orchestration Nodes (for AI workflow integration with DevOps pipelines)
+  {
+    type: 'devops_trigger',
+    label: 'DevOps Trigger',
+    description: 'Trigger a DevOps pipeline for execution',
+    icon: <PlayCircle className="h-4 w-4" />,
+    category: 'DevOps',
+    color: 'devops_trigger'
+  },
+  {
+    type: 'devops_wait_status',
+    label: 'DevOps Wait',
+    description: 'Wait for a DevOps pipeline to complete',
+    icon: <Timer className="h-4 w-4" />,
+    category: 'DevOps',
+    color: 'devops_wait_status'
+  },
+  {
+    type: 'devops_get_logs',
+    label: 'DevOps Logs',
+    description: 'Retrieve logs from a pipeline for AI analysis',
+    icon: <FileText className="h-4 w-4" />,
+    category: 'DevOps',
+    color: 'devops_get_logs'
   }
 ];
-
-const categories = ['All', 'Control', 'AI', 'MCP', 'Integration', 'Data', 'Communication', 'Content'];
 
 export const NodePalette: React.FC<NodePaletteProps> = ({
   onAddNode,
@@ -388,6 +429,9 @@ export const NodePalette: React.FC<NodePaletteProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Get available categories
+  const availableCategories = ['All', ...new Set(nodeTypes.map(n => n.category))];
 
   // Filter nodes based on search and category
   const filteredNodes = nodeTypes.filter(node => {
@@ -398,7 +442,7 @@ export const NodePalette: React.FC<NodePaletteProps> = ({
   });
 
   // Group nodes by category
-  const nodesByCategory = categories.reduce((acc, category) => {
+  const nodesByCategory = availableCategories.reduce((acc, category) => {
     if (category === 'All') return acc;
     acc[category] = filteredNodes.filter(node => node.category === category);
     return acc;
@@ -467,7 +511,7 @@ export const NodePalette: React.FC<NodePaletteProps> = ({
       {/* Category Filter */}
       <div className="p-3 border-b border-theme">
         <div className="flex flex-wrap gap-1">
-          {categories.map(category => (
+          {availableCategories.map(category => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}

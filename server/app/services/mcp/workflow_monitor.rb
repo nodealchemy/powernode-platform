@@ -101,7 +101,7 @@ module Mcp
     private
 
     def calculate_progress_percentage
-      total_nodes = @workflow_run.ai_workflow.node_count
+      total_nodes = @workflow_run.workflow.node_count
       return 0 if total_nodes == 0
 
       completed_nodes = @metrics[:nodes_completed]
@@ -116,11 +116,11 @@ module Mcp
 
     def broadcast_event(event_type, data)
       # Broadcast via ActionCable if available
-      return unless defined?(McpBroadcastService)
+      return unless defined?(Mcp::BroadcastService)
 
-      McpBroadcastService.broadcast_workflow_event(
+      Mcp::BroadcastService.broadcast_workflow_event(
         event_type,
-        @workflow_run.ai_workflow_id,
+        @workflow_run.workflow_id,
         {
           workflow_run_id: @workflow_run.id,
           run_id: @workflow_run.run_id,

@@ -16,7 +16,7 @@ module Api
       # GET /api/v1/files
       def index
         files = current_account.file_objects
-                               .includes(:file_storage, :file_tags, :uploaded_by)
+                               .includes(:storage, :tags, :uploaded_by)
                                .order(created_at: :desc)
 
         # Filter by category
@@ -31,8 +31,8 @@ module Api
         # Filter by tags
         if params[:tags].present?
           tag_names = params[:tags].split(",").map(&:strip)
-          tag_ids = FileTag.where(account: current_account, name: tag_names).pluck(:id)
-          files = files.joins(:file_object_tags).where(file_object_tags: { file_tag_id: tag_ids })
+          tag_ids = FileManagement::Tag.where(account: current_account, name: tag_names).pluck(:id)
+          files = files.joins(:object_tags).where(file_management_object_tags: { file_tag_id: tag_ids })
         end
 
         # Search by filename
@@ -72,7 +72,7 @@ module Api
 
       # GET /api/v1/files/:id
       def show
-        file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
+        file_service = FileStorageService.new(current_account, storage_config: @file_object.storage)
 
         render_success(
           {
@@ -83,7 +83,7 @@ module Api
                 signed: file_service.file_url(@file_object, signed: true, expires_in: 1.hour)
               },
               versions: @file_object.file_versions.map(&:version_summary),
-              tags: @file_object.file_tags.map(&:tag_summary)
+              tags: @file_object.tags.map(&:tag_summary)
             )
           }
         )
@@ -135,7 +135,7 @@ module Api
 
       # GET /api/v1/files/:id/download
       def download
-        file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
+        file_service = FileStorageService.new(current_account, storage_config: @file_object.storage)
 
         if params[:stream] == "true"
           # Stream file for large files
@@ -166,7 +166,7 @@ module Api
       # GET /api/v1/files/:id/public - Public endpoint for serving public files (no auth required)
       # This allows <img src="..."> tags to work without needing authentication
       def download_public
-        file_service = FileStorageService.new(@file_object.account, storage_config: @file_object.file_storage)
+        file_service = FileStorageService.new(@file_object.account, storage_config: @file_object.storage)
         file_content = file_service.download_file(@file_object)
 
         # Set cache headers for public files
@@ -196,7 +196,7 @@ module Api
 
       # DELETE /api/v1/files/:id
       def destroy
-        file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
+        file_service = FileStorageService.new(current_account, storage_config: @file_object.storage)
         permanent = params[:permanent] == "true"
 
         if file_service.delete_file(@file_object, permanent: permanent, deleted_by_user: current_user)
@@ -217,7 +217,7 @@ module Api
 
       # POST /api/v1/files/:id/restore
       def restore
-        file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
+        file_service = FileStorageService.new(current_account, storage_config: @file_object.storage)
 
         if file_service.restore_file(@file_object)
           render_success(
@@ -240,7 +240,7 @@ module Api
           return render_validation_error("File is required", field: "file")
         end
 
-        file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
+        file_service = FileStorageService.new(current_account, storage_config: @file_object.storage)
 
         new_version = file_service.create_version(
           @file_object,
@@ -267,7 +267,7 @@ module Api
           return render_validation_error("Tags are required", field: "tags")
         end
 
-        file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
+        file_service = FileStorageService.new(current_account, storage_config: @file_object.storage)
         tag_names = params[:tags].is_a?(Array) ? params[:tags] : params[:tags].split(",")
 
         tags = file_service.add_tags(@file_object, tag_names)
@@ -290,7 +290,7 @@ module Api
           return render_validation_error("Tags are required", field: "tags")
         end
 
-        file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
+        file_service = FileStorageService.new(current_account, storage_config: @file_object.storage)
         tag_names = params[:tags].is_a?(Array) ? params[:tags] : params[:tags].split(",")
 
         file_service.remove_tags(@file_object, tag_names)
@@ -308,7 +308,7 @@ module Api
 
       # POST /api/v1/files/:id/share
       def share
-        file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
+        file_service = FileStorageService.new(current_account, storage_config: @file_object.storage)
 
         file_share = file_service.create_share(
           @file_object,
@@ -388,7 +388,7 @@ module Api
 
       # Set file object for public endpoint - only allows public visibility files
       def set_public_file_object
-        @file_object = FileObject.where(visibility: "public").find_by(id: params[:id])
+        @file_object = FileManagement::Object.where(visibility: "public").find_by(id: params[:id])
 
         unless @file_object
           render_error("File not found or not public", status: :not_found)

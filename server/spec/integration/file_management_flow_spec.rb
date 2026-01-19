@@ -6,7 +6,7 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, permissions: [ 'files.upload', 'files.read', 'files.delete' ]) }
   let(:storage) do
-    FileStorage.create!(
+    FileManagement::Storage.create!(
       account: account,
       name: 'Test Local Storage',
       provider_type: 'local',
@@ -42,9 +42,9 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       # Step 1: Upload file
       file_data = File.open(test_file_path, 'rb')
 
-      file_object = FileObject.create!(
+      file_object = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'test_upload.txt',
         storage_key: "uploads/#{SecureRandom.uuid}/test_upload.txt",
@@ -89,9 +89,9 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       # Create original file
       file_data = File.open(test_file_path, 'rb')
 
-      original_file = FileObject.create!(
+      original_file = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'versioned_document.txt',
         storage_key: "documents/#{SecureRandom.uuid}/versioned_document.txt",
@@ -108,8 +108,8 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       file_data.close
 
       # Create version record
-      FileVersion.create!(
-        file_object: original_file,
+      FileManagement::Version.create!(
+        object: original_file,
         account: account,
         created_by: user,
         version_number: 1,
@@ -123,9 +123,9 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       updated_file_path = Rails.root.join('tmp', 'test_upload_v2.txt')
       File.write(updated_file_path, updated_content)
 
-      new_version = FileObject.create!(
+      new_version = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'versioned_document.txt',
         storage_key: "documents/#{SecureRandom.uuid}/versioned_document_v2.txt",
@@ -146,8 +146,8 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       original_file.update!(is_latest_version: false)
 
       # Create version record for new version
-      FileVersion.create!(
-        file_object: new_version,
+      FileManagement::Version.create!(
+        object: new_version,
         account: account,
         created_by: user,
         version_number: 2,
@@ -173,9 +173,9 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       # Upload file
       file_data = File.open(test_file_path, 'rb')
 
-      file_object = FileObject.create!(
+      file_object = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'shared_document.txt',
         storage_key: "shared/#{SecureRandom.uuid}/shared_document.txt",
@@ -191,8 +191,8 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       file_data.close
 
       # Create public share
-      share = FileShare.create!(
-        file_object: file_object,
+      share = FileManagement::Share.create!(
+        object: file_object,
         account: account,
         created_by: user,
         share_token: SecureRandom.urlsafe_base64(32),
@@ -235,9 +235,9 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       large_file_path = Rails.root.join('tmp', 'large_file.txt')
       File.write(large_file_path, large_content)
 
-      file_object = FileObject.new(
+      file_object = FileManagement::Object.new(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'large_file.txt',
         storage_key: "uploads/#{SecureRandom.uuid}/large_file.txt",
@@ -267,9 +267,9 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       # Admin uploads file
       file_data = File.open(test_file_path, 'rb')
 
-      file_object = FileObject.create!(
+      file_object = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: admin_user,
         filename: 'protected_document.txt',
         storage_key: "protected/#{SecureRandom.uuid}/protected_document.txt",
@@ -311,9 +311,9 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       # Upload image file
       file_data = File.open(test_file_path, 'rb')
 
-      file_object = FileObject.create!(
+      file_object = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'test_image.jpg',
         storage_key: "images/#{SecureRandom.uuid}/test_image.jpg",
@@ -329,8 +329,8 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       file_data.close
 
       # Create processing job
-      processing_job = FileProcessingJob.create!(
-        file_object: file_object,
+      processing_job = FileManagement::ProcessingJob.create!(
+        object: file_object,
         account: account,
         job_type: 'thumbnail',
         status: 'pending',
@@ -380,9 +380,9 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       file_objects = 3.times.map do |i|
         file_data = File.open(test_file_path, 'rb')
 
-        file_obj = FileObject.create!(
+        file_obj = FileManagement::Object.create!(
           account: account,
-          file_storage: storage,
+          storage: storage,
           uploaded_by: user,
           filename: "test_file_#{i}.txt",
           storage_key: "batch/#{SecureRandom.uuid}/test_file_#{i}.txt",

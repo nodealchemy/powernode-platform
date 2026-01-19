@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "data": {
+    "invoices": [
+      {
+        "id": "inv_001",
+        "invoice_number": "INV-2024-001",
+        "amount_cents": 4900,
+        "status": "paid",
+        "due_date": "2024-01-01",
+        "paid_date": "2024-01-01",
+        "customer_name": "Test Company"
+      },
+      {
+        "id": "inv_002",
+        "invoice_number": "INV-2024-002",
+        "amount_cents": 4900,
+        "status": "pending",
+        "due_date": "2024-02-01",
+        "customer_name": "Test Company"
+      }
+    ],
+    "meta": {
+      "total": 2,
+      "page": 1,
+      "per_page": 20
+    }
+  }
+}

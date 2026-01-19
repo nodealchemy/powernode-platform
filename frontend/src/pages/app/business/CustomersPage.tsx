@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCustomerWebSocket } from '@/shared/hooks/useCustomerWebSocket';
-import { customersApi, CreateCustomerRequest } from '@/shared/services/customersApi';
+import { customersApi, CreateCustomerRequest } from '@/shared/services/business/customersApi';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Users, RefreshCw } from 'lucide-react';
 import { useNotifications } from '@/shared/hooks/useNotifications';

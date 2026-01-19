@@ -10,20 +10,20 @@ module PasswordSecurity
   ].freeze
 
   included do
-    # Validations - Use PasswordStrengthService for all password validation
+    # Validations - Use Security::PasswordStrengthService for all password validation
     validate :validate_password_strength, if: :password_required?
 
     # Callbacks
     before_update :track_password_change, if: :will_save_change_to_password_digest?
   end
 
-  # Password validation using PasswordStrengthService
+  # Password validation using Security::PasswordStrengthService
 
   def validate_password_strength
     return unless password.present?
 
-    # Use the PasswordStrengthService for validation
-    result = PasswordStrengthService.validate_password(password)
+    # Use the Security::PasswordStrengthService for validation
+    result = Security::PasswordStrengthService.validate_password(password)
 
     unless result[:valid]
       result[:errors].each do |error_message|
@@ -94,7 +94,7 @@ module PasswordSecurity
   # Password utility methods
   def password_strength
     return 0 unless password.present?
-    PasswordStrengthService.score_password(password)
+    Security::PasswordStrengthService.score_password(password)
   end
 
   def password_age_days

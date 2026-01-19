@@ -13,7 +13,7 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
   end
   let(:workflow_run) do
     create(:ai_workflow_run,
-      ai_workflow: workflow,
+      workflow: workflow,
       account: account,
       triggered_by_user: user,
       status: 'running',
@@ -31,14 +31,14 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
     # Stub ActionCable broadcasting
     stub_action_cable_broadcasting
 
-    # Create some completed node executions for testing
-    workflow.ai_workflow_nodes.first(2).each do |node|
-      create(:ai_workflow_node_execution, :completed,
-        ai_workflow_run: workflow_run,
-        ai_workflow_node: node,
-        node_id: node.node_id
-      )
-    end
+    # Create some completed node executions for testing (only first node, leave others for individual tests)
+    node = workflow.nodes.first
+    create(:ai_workflow_node_execution, :completed,
+      workflow_run: workflow_run,
+      ai_workflow_node_id: node.id,
+      node_id: node.node_id,
+      node_type: node.node_type
+    )
   end
 
   describe '#initialize' do
@@ -102,7 +102,7 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
       checkpoint_id = manager.create_checkpoint(node_id, checkpoint_data)
 
       stored = manager.load_checkpoint(checkpoint_id)
-      completed_node_id = workflow.ai_workflow_nodes.first.node_id
+      completed_node_id = workflow.nodes.first.node_id
       expect(stored['completed_nodes']).to include(completed_node_id)
     end
 
@@ -253,27 +253,27 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
 
     describe '#mark_nodes_as_completed' do
       # Use the last node to avoid conflicts with the before block
-      let(:node) { workflow.ai_workflow_nodes.last }
+      let(:node) { workflow.nodes.last }
 
       it 'creates execution records for completed nodes' do
         expect {
           manager.send(:mark_nodes_as_completed, [ node.node_id ])
-        }.to change { workflow_run.ai_workflow_node_executions.count }.by(1)
+        }.to change { workflow_run.node_executions.count }.by(1)
       end
 
       it 'skips nodes that already have executions' do
         # First node already has an execution from before block
-        existing_node = workflow.ai_workflow_nodes.first
+        existing_node = workflow.nodes.first
 
         expect {
           manager.send(:mark_nodes_as_completed, [ existing_node.node_id ])
-        }.not_to change { workflow_run.ai_workflow_node_executions.count }
+        }.not_to change { workflow_run.node_executions.count }
       end
 
       it 'marks restored executions with skip flag' do
         manager.send(:mark_nodes_as_completed, [ node.node_id ])
 
-        execution = workflow_run.ai_workflow_node_executions.find_by(node_id: node.node_id)
+        execution = workflow_run.node_executions.find_by(node_id: node.node_id)
         expect(execution.output_data['skipped']).to be true
         expect(execution.output_data['reason']).to eq('restored_from_checkpoint')
       end

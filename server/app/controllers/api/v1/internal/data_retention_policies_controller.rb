@@ -4,7 +4,7 @@
 class Api::V1::Internal::DataRetentionPoliciesController < Api::V1::Internal::InternalBaseController
   # GET /api/v1/internal/data_retention_policies
   def index
-    policies = DataRetentionPolicy.where(active: true).order(:data_type)
+    policies = DataManagement::RetentionPolicy.where(active: true).order(:data_type)
 
     render_success(data: policies.map { |p| policy_data(p) })
   end

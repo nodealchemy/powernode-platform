@@ -50,7 +50,7 @@ RSpec.describe User, 'Password Security Integration', type: :model do
         expect(user).to be_valid
 
         # Test that validation service is called
-        expect(PasswordStrengthService).to receive(:validate_password).with(valid_password).and_call_original
+        expect(Security::PasswordStrengthService).to receive(:validate_password).with(valid_password).and_call_original
         user.valid?
       end
     end

@@ -7,7 +7,11 @@ RSpec.describe Billing::BillingSchedulerJob, type: :job do
 
   it_behaves_like 'a base job', described_class
 
-  before { mock_powernode_worker_config }
+  before do
+    mock_powernode_worker_config
+    # Clear any stale locks from previous tests
+    Sidekiq.redis { |conn| conn.del("lock:billing:scheduler:#{Date.current}") }
+  end
 
   let(:date) { Date.current }
   let(:subscription) { { 'id' => SecureRandom.uuid, 'account_id' => SecureRandom.uuid } }
@@ -15,26 +19,28 @@ RSpec.describe Billing::BillingSchedulerJob, type: :job do
   describe '#execute' do
     context 'with successful scheduling' do
       before do
+        # Stub all subscription queries - the job makes multiple calls with different params
         stub_backend_api_success(:get, '/api/v1/subscriptions', [subscription])
         stub_backend_api_success(:get, '/api/v1/payment_methods', [])
+        # Allow all job scheduling to proceed
+        allow(Billing::BillingAutomationJob).to receive(:perform_in)
+        allow(Billing::SubscriptionLifecycleJob).to receive(:perform_async)
+        allow(Billing::SubscriptionLifecycleJob).to receive(:perform_in)
       end
 
       it 'schedules billing automation' do
-        expect(Billing::BillingAutomationJob).to receive(:perform_in)
-
         described_class.new.execute(date)
+        expect(Billing::BillingAutomationJob).to have_received(:perform_in).at_least(:once)
       end
 
       it 'schedules trial ending reminders' do
-        expect(Billing::SubscriptionLifecycleJob).to receive(:perform_async).at_least(:once)
-
         described_class.new.execute(date)
+        expect(Billing::SubscriptionLifecycleJob).to have_received(:perform_async).at_least(:once)
       end
 
       it 'schedules renewal reminders' do
-        expect(Billing::SubscriptionLifecycleJob).to receive(:perform_async).at_least(:once)
-
         described_class.new.execute(date)
+        expect(Billing::SubscriptionLifecycleJob).to have_received(:perform_async).at_least(:once)
       end
 
       it 'logs completion message' do
@@ -89,6 +95,9 @@ RSpec.describe Billing::BillingSchedulerJob, type: :job do
         stub_backend_api_success(:get, '/api/v1/subscriptions', [subscription])
         stub_backend_api_success(:get, '/api/v1/payment_methods', [payment_method_expiring_today])
         stub_backend_api_success(:patch, "/api/v1/payment_methods/#{payment_method_expiring_today['id']}", {})
+        allow(Billing::BillingAutomationJob).to receive(:perform_in)
+        allow(Billing::SubscriptionLifecycleJob).to receive(:perform_async)
+        allow(Billing::SubscriptionLifecycleJob).to receive(:perform_in)
       end
 
       it 'marks payment methods as expired' do
@@ -125,12 +134,14 @@ RSpec.describe Billing::BillingSchedulerJob, type: :job do
       before do
         stub_backend_api_success(:get, '/api/v1/subscriptions', [subscription])
         stub_backend_api_success(:get, '/api/v1/payment_methods', [])
+        allow(Billing::BillingAutomationJob).to receive(:perform_in)
+        allow(Billing::SubscriptionLifecycleJob).to receive(:perform_async)
+        allow(Billing::SubscriptionLifecycleJob).to receive(:perform_in)
       end
 
       it 'schedules subscription expiration jobs' do
-        expect(Billing::SubscriptionLifecycleJob).to receive(:perform_async).at_least(:once)
-
         described_class.new.execute(date)
+        expect(Billing::SubscriptionLifecycleJob).to have_received(:perform_async).at_least(:once)
       end
     end
 
@@ -138,12 +149,14 @@ RSpec.describe Billing::BillingSchedulerJob, type: :job do
       before do
         stub_backend_api_success(:get, '/api/v1/subscriptions', [subscription])
         stub_backend_api_success(:get, '/api/v1/payment_methods', [])
+        allow(Billing::BillingAutomationJob).to receive(:perform_in)
+        allow(Billing::SubscriptionLifecycleJob).to receive(:perform_async)
+        allow(Billing::SubscriptionLifecycleJob).to receive(:perform_in)
       end
 
       it 'schedules reactivation attempts' do
-        expect(Billing::SubscriptionLifecycleJob).to receive(:perform_in).at_least(:once)
-
         described_class.new.execute(date)
+        expect(Billing::SubscriptionLifecycleJob).to have_received(:perform_in).at_least(:once)
       end
     end
 

@@ -28,6 +28,10 @@ import { NotificationNode } from '../nodes/NotificationNode';
 import { KbArticleNode } from '../nodes/KbArticleNode';
 import { PageNode } from '../nodes/PageNode';
 import { McpOperationNode } from '../nodes/McpOperationNode';
+// DevOps Orchestration Nodes (for AI workflow integration with DevOps pipelines)
+import { DevopsTriggerNode } from '../nodes/DevopsTriggerNode';
+import { DevopsWaitStatusNode } from '../nodes/DevopsWaitStatusNode';
+import { DevopsGetLogsNode } from '../nodes/DevopsGetLogsNode';
 
 // Node types mapping for React Flow
 export const NODE_TYPES = {
@@ -66,6 +70,10 @@ export const NODE_TYPES = {
   page: PageNode,
   // MCP Operation: unified node with operation_type parameter (tool, resource, prompt)
   mcp_operation: McpOperationNode,
+  // DevOps Orchestration Nodes (for AI workflow integration with DevOps pipelines)
+  devops_trigger: DevopsTriggerNode,
+  devops_wait_status: DevopsWaitStatusNode,
+  devops_get_logs: DevopsGetLogsNode,
 } as const;
 
 export type NodeTypeKey = keyof typeof NODE_TYPES;

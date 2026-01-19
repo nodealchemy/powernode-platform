@@ -6,6 +6,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { McpServerCard } from '@/features/ai/components/McpServerCard';
 import { McpToolExplorer } from '@/features/ai/components/McpToolExplorer';
 import { McpServerFormModal } from '@/features/ai/components/McpServerFormModal';
@@ -63,6 +64,14 @@ export const McpBrowserPage: React.FC = () => {
 
   const { addNotification } = useNotifications();
   const { currentUser } = useAuth();
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   // Permission checks - memoized to prevent infinite loops
   const canViewMcpServers = useMemo(() =>

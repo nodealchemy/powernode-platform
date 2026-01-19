@@ -12,13 +12,15 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Card } from '@/shared/components/ui/Card';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { unifiedMarketplaceApi } from '@/features/marketplace/services/unifiedMarketplaceApi';
-import type { MarketplaceItem, MarketplaceItemType } from '@/features/marketplace/types/unified';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { marketplaceApi } from '@/features/app/services/marketplaceApi';
+import type { MarketplaceItem, MarketplaceItemType } from '@/features/app/types/marketplace';
 
 export const ItemDetailPage: React.FC = () => {
   const { type, id } = useParams<{ type: MarketplaceItemType; id: string }>();
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
+  usePageWebSocket({ pageType: 'marketplace' });
 
   const [item, setItem] = useState<MarketplaceItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,7 @@ export const ItemDetailPage: React.FC = () => {
 
       try {
         setLoading(true);
-        const response = await unifiedMarketplaceApi.getItem(type, id);
+        const response = await marketplaceApi.getItem(type, id);
         setItem(response.data);
       } catch (error) {
         console.error('Failed to load item:', error);
@@ -48,27 +50,27 @@ export const ItemDetailPage: React.FC = () => {
     loadItem();
   }, [type, id, addNotification, navigate]);
 
-  const handleInstall = async () => {
+  const handleSubscribe = async () => {
     if (!item || !type || !id) return;
 
     try {
       setInstalling(true);
-      await unifiedMarketplaceApi.install(type, id);
+      await marketplaceApi.subscribe(type, id);
 
       addNotification({
         type: 'success',
-        title: 'Installation Started',
-        message: `${item.name} is being installed.`
+        title: 'Subscription Started',
+        message: `You are now subscribed to ${item.name}.`
       });
 
       // Navigate back to marketplace
       navigate('/app/marketplace');
     } catch (error) {
-      console.error('Failed to install item:', error);
+      console.error('Failed to subscribe to item:', error);
       addNotification({
         type: 'error',
-        title: 'Installation Failed',
-        message: 'Failed to install item. Please try again.'
+        title: 'Subscription Failed',
+        message: 'Failed to subscribe to item. Please try again.'
       });
     } finally {
       setInstalling(false);
@@ -79,9 +81,15 @@ export const ItemDetailPage: React.FC = () => {
     navigate('/app/marketplace');
   };
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Marketplace', href: '/app/marketplace' },
+    { label: item?.name || 'Item Details' }
+  ];
+
   if (loading) {
     return (
-      <PageContainer title="Loading...">
+      <PageContainer title="Loading..." breadcrumbs={breadcrumbs}>
         <LoadingSpinner className="py-12" />
       </PageContainer>
     );
@@ -99,6 +107,7 @@ export const ItemDetailPage: React.FC = () => {
     <PageContainer
       title={item.name}
       description={item.description}
+      breadcrumbs={breadcrumbs}
       actions={[
         {
           label: 'Back to Marketplace',
@@ -107,8 +116,8 @@ export const ItemDetailPage: React.FC = () => {
           icon: ArrowLeft
         },
         {
-          label: installing ? 'Installing...' : 'Install',
-          onClick: handleInstall,
+          label: installing ? 'Subscribing...' : 'Subscribe',
+          onClick: handleSubscribe,
           variant: 'primary' as const,
           disabled: installing
         }
@@ -209,7 +218,7 @@ export const ItemDetailPage: React.FC = () => {
                 {item.tags.map((tag, index) => (
                   <span
                     key={index}
-                    className="px-3 py-1 bg-theme-surface text-theme-tertiary text-sm rounded border border-theme"
+                    className="tag-badge px-3 py-1 bg-theme-surface text-theme-tertiary text-sm rounded border border-theme"
                   >
                     {tag}
                   </span>

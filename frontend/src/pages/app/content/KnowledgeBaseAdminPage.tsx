@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { PageContainer, BreadcrumbItem } from '@/shared/components/layout/PageContainer';
-import { knowledgeBaseAdminApi, KbArticle, KbCategory } from '@/shared/services/knowledgeBaseApi';
+import { knowledgeBaseAdminApi, KbArticle, KbCategory } from '@/shared/services/content/knowledgeBaseApi';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
@@ -50,7 +50,7 @@ export default function KnowledgeBaseAdminPage() {
 
   // Check permissions
   const canManageKb = currentUser?.permissions?.includes('kb.manage');
-  const canEditKb = currentUser?.permissions?.includes('kb.edit') || canManageKb;
+  const canEditKb = currentUser?.permissions?.includes('kb.update') || canManageKb;
 
   // Static breadcrumbs for admin page
   const breadcrumbs: BreadcrumbItem[] = [

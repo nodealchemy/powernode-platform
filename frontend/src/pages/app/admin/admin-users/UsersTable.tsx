@@ -3,7 +3,7 @@ import { Users, UserCheck, Shield, MoreHorizontal, Unlock, Mail, Ban, CheckCircl
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { getUserInitials } from '@/shared/utils/userUtils';
-import { usersApi } from '@/features/users/services/usersApi';
+import { usersApi } from '@/features/account/users/services/usersApi';
 import { UsersTableProps } from './types';
 
 export const UsersTable: React.FC<UsersTableProps> = ({

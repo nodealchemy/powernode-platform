@@ -25,7 +25,7 @@ class Api::V1::AccountsController < ApplicationController
   # GET /api/v1/accounts/accessible
   # Returns all accounts accessible to the current user
   def accessible
-    service = AccountSwitchService.new(current_user)
+    service = Auth::AccountSwitchService.new(current_user)
     accounts = service.accessible_accounts
 
     render_success(
@@ -46,7 +46,7 @@ class Api::V1::AccountsController < ApplicationController
       return render_error("Account ID is required", status: :bad_request)
     end
 
-    service = AccountSwitchService.new(current_user)
+    service = Auth::AccountSwitchService.new(current_user)
 
     metadata = {
       ip: request.remote_ip,
@@ -59,11 +59,11 @@ class Api::V1::AccountsController < ApplicationController
       message: "Successfully switched to #{result[:account][:name]}",
       data: result
     )
-  rescue AccountSwitchService::UnauthorizedAccountError => e
+  rescue Auth::AccountSwitchService::UnauthorizedAccountError => e
     render_error(e.message, status: :forbidden)
-  rescue AccountSwitchService::InactiveAccountError,
-         AccountSwitchService::InactiveDelegationError => e
-    render_error(e.message, status: :unprocessable_entity)
+  rescue Auth::AccountSwitchService::InactiveAccountError,
+         Auth::AccountSwitchService::InactiveDelegationError => e
+    render_error(e.message, status: :unprocessable_content)
   rescue ActiveRecord::RecordNotFound
     render_error("Account not found", status: :not_found)
   end
@@ -71,7 +71,7 @@ class Api::V1::AccountsController < ApplicationController
   # POST /api/v1/accounts/switch_to_primary
   # Switches the current user back to their primary account
   def switch_to_primary
-    service = AccountSwitchService.new(current_user)
+    service = Auth::AccountSwitchService.new(current_user)
 
     metadata = {
       ip: request.remote_ip,

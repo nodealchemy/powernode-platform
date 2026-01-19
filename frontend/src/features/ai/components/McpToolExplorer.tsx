@@ -233,7 +233,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
         <select
           value={value}
           onChange={(e) => handleParameterChange(param.name, e.target.value)}
-          className="w-full px-3 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
+          className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
         >
           <option value="">Select {param.name}...</option>
           {param.enum.map(option => (
@@ -248,7 +248,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
         <select
           value={value.toString()}
           onChange={(e) => handleParameterChange(param.name, e.target.value)}
-          className="w-full px-3 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
+          className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
         >
           <option value="">Select value...</option>
           <option value="true">true</option>
@@ -263,7 +263,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
           value={value}
           onChange={(e) => handleParameterChange(param.name, e.target.value)}
           placeholder={param.type === 'array' ? '["item1", "item2"]' : '{"key": "value"}'}
-          className="w-full px-3 py-2 bg-theme-input border border-theme rounded-lg text-theme-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary resize-none"
+          className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary resize-none"
           rows={3}
         />
       );

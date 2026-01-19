@@ -13,7 +13,7 @@ module Mcp
 
     # Template discovery and search
     def discover_templates(filters = {})
-      scope = AiWorkflowTemplate.public_templates.published
+      scope = Ai::WorkflowTemplate.public_templates.published
 
       # Apply filters
       scope = apply_search_filters(scope, filters)
@@ -32,7 +32,7 @@ module Mcp
 
     # Advanced search with multiple criteria
     def advanced_search(criteria)
-      scope = AiWorkflowTemplate.public_templates.published
+      scope = Ai::WorkflowTemplate.public_templates.published
 
       # Text search
       if criteria[:query].present?
@@ -106,7 +106,7 @@ module Mcp
 
     # Template analytics and insights
     def template_analytics(template_id)
-      template = AiWorkflowTemplate.find(template_id)
+      template = Ai::WorkflowTemplate.find(template_id)
 
       {
         overview: {
@@ -126,7 +126,7 @@ module Mcp
 
     # Template installation with validation
     def install_template(template_id, customizations = {})
-      template = AiWorkflowTemplate.find(template_id)
+      template = Ai::WorkflowTemplate.find(template_id)
 
       # Validate installation eligibility
       validation = validate_installation(template)
@@ -150,7 +150,7 @@ module Mcp
         {
           success: true,
           installation: installation,
-          workflow: installation.ai_workflow,
+          workflow: installation.workflow,
           message: "Template '#{template.name}' successfully installed"
         }
       else
@@ -163,7 +163,7 @@ module Mcp
 
     # Template rating and feedback
     def rate_template(template_id, rating_value, feedback = {})
-      template = AiWorkflowTemplate.find(template_id)
+      template = Ai::WorkflowTemplate.find(template_id)
 
       # Validate user has installed the template
       unless template.installed_by_account?(account)
@@ -198,7 +198,7 @@ module Mcp
     def compare_templates(template_ids)
       return { error: "Provide 2-5 templates to compare" } unless template_ids.size.between?(2, 5)
 
-      templates = AiWorkflowTemplate.where(id: template_ids)
+      templates = Ai::WorkflowTemplate.where(id: template_ids)
 
       {
         templates: templates.map { |t| template_comparison_data(t) },
@@ -209,7 +209,7 @@ module Mcp
 
     # Category and tag exploration
     def explore_categories
-      categories = AiWorkflowTemplate.public_templates.published
+      categories = Ai::WorkflowTemplate.public_templates.published
                                      .group(:category)
                                      .count
                                      .sort_by { |_, count| -count }
@@ -218,7 +218,7 @@ module Mcp
         {
           category: category,
           template_count: count,
-          top_templates: AiWorkflowTemplate.public_templates
+          top_templates: Ai::WorkflowTemplate.public_templates
                                           .published
                                           .by_category(category)
                                           .highly_rated
@@ -229,10 +229,10 @@ module Mcp
     end
 
     def explore_tags
-      all_tags = AiWorkflowTemplate.public_templates.published.pluck(:tags).flatten.uniq
+      all_tags = Ai::WorkflowTemplate.public_templates.published.pluck(:tags).flatten.uniq
 
       all_tags.map do |tag|
-        templates_with_tag = AiWorkflowTemplate.public_templates
+        templates_with_tag = Ai::WorkflowTemplate.public_templates
                                               .published
                                               .with_tags([ tag ])
 
@@ -248,14 +248,14 @@ module Mcp
     # Marketplace statistics
     def marketplace_statistics
       {
-        total_templates: AiWorkflowTemplate.public_templates.published.count,
-        total_installations: AiWorkflowTemplate.sum(:usage_count),
-        total_categories: AiWorkflowTemplate.distinct.pluck(:category).size,
-        featured_templates: AiWorkflowTemplate.featured.count,
-        average_rating: AiWorkflowTemplate.public_templates.average(:rating)&.round(2) || 0.0,
-        most_popular: AiWorkflowTemplate.public_templates.popular.first(5),
-        highest_rated: AiWorkflowTemplate.public_templates.highly_rated.limit(5),
-        recently_published: AiWorkflowTemplate.recently_published.limit(5),
+        total_templates: Ai::WorkflowTemplate.public_templates.published.count,
+        total_installations: Ai::WorkflowTemplate.sum(:usage_count),
+        total_categories: Ai::WorkflowTemplate.distinct.pluck(:category).size,
+        featured_templates: Ai::WorkflowTemplate.featured.count,
+        average_rating: Ai::WorkflowTemplate.public_templates.average(:rating)&.round(2) || 0.0,
+        most_popular: Ai::WorkflowTemplate.public_templates.popular.first(5),
+        highest_rated: Ai::WorkflowTemplate.public_templates.highly_rated.limit(5),
+        recently_published: Ai::WorkflowTemplate.recently_published.limit(5),
         trending_categories: trending_categories,
         marketplace_growth: calculate_marketplace_growth
       }
@@ -263,7 +263,7 @@ module Mcp
 
     # User's installed templates dashboard
     def my_templates_dashboard
-      installations = AiWorkflowTemplateInstallation.where(account: account)
+      installations = Ai::WorkflowTemplateInstallation.where(account: account)
                                                     .includes(:ai_workflow_template, :ai_workflow)
 
       {
@@ -288,7 +288,7 @@ module Mcp
 
     # Template update management
     def check_for_updates
-      installations = AiWorkflowTemplateInstallation.where(account: account).outdated
+      installations = Ai::WorkflowTemplateInstallation.where(account: account).outdated
 
       installations.map do |installation|
         {
@@ -305,7 +305,7 @@ module Mcp
     end
 
     def update_all_templates(options = {})
-      installations = AiWorkflowTemplateInstallation.where(account: account).outdated
+      installations = Ai::WorkflowTemplateInstallation.where(account: account).outdated
 
       results = installations.map do |installation|
         next unless installation.can_update?
@@ -336,7 +336,7 @@ module Mcp
       workflow = account.ai_workflows.find(workflow_id)
 
       # Create template from workflow
-      template = AiWorkflowTemplate.new(
+      template = Ai::WorkflowTemplate.new(
         name: template_metadata[:name] || workflow.name,
         description: template_metadata[:description],
         long_description: template_metadata[:long_description],
@@ -420,16 +420,16 @@ module Mcp
     def recommend_based_on_installed_templates(limit:)
       installed_templates = account.ai_workflows
                                    .joins(:ai_workflow_template_installations)
-                                   .pluck("ai_workflow_template_installations.ai_workflow_template_id")
+                                   .pluck("workflow_template_installations.workflow_template_id")
 
       return [] if installed_templates.empty?
 
       # Find templates in same categories as installed ones
-      installed_categories = AiWorkflowTemplate.where(id: installed_templates)
+      installed_categories = Ai::WorkflowTemplate.where(id: installed_templates)
                                               .pluck(:category)
                                               .uniq
 
-      AiWorkflowTemplate.public_templates
+      Ai::WorkflowTemplate.public_templates
                        .published
                        .where.not(id: installed_templates)
                        .where(category: installed_categories)
@@ -440,7 +440,7 @@ module Mcp
     def recommend_based_on_execution_patterns(limit:)
       # Analyze workflow execution patterns
       recent_runs = account.ai_workflows
-                          .joins(:ai_workflow_runs)
+                          .joins(:workflow_runs)
                           .where("ai_workflow_runs.created_at >= ?", 30.days.ago)
                           .group("ai_workflows.id")
                           .having("COUNT(ai_workflow_runs.id) > 5")
@@ -449,7 +449,7 @@ module Mcp
       return [] if recent_runs.empty?
 
       # Find templates that complement frequently used workflows
-      AiWorkflowTemplate.public_templates
+      Ai::WorkflowTemplate.public_templates
                        .published
                        .highly_rated
                        .limit(limit)
@@ -457,7 +457,7 @@ module Mcp
 
     def recommend_trending_templates(limit:)
       # Find templates with increasing installation rates
-      AiWorkflowTemplate.public_templates
+      Ai::WorkflowTemplate.public_templates
                        .published
                        .where("usage_count >= ?", 10)
                        .order(Arel.sql("usage_count * rating DESC"))
@@ -483,7 +483,7 @@ module Mcp
       installed_categories = account.ai_workflows
                                    .joins(:ai_workflow_template_installations)
                                    .joins(ai_workflow_template_installations: :ai_workflow_template)
-                                   .pluck("ai_workflow_templates.category")
+                                   .pluck("workflow_templates.category")
                                    .uniq
 
       score += 10 if installed_categories.include?(template.category)
@@ -505,7 +505,7 @@ module Mcp
       installed_categories = account.ai_workflows
                                    .joins(:ai_workflow_template_installations)
                                    .joins(ai_workflow_template_installations: :ai_workflow_template)
-                                   .pluck("ai_workflow_templates.category")
+                                   .pluck("workflow_templates.category")
                                    .uniq
 
       if installed_categories.include?(template.category)
@@ -520,7 +520,7 @@ module Mcp
     end
 
     def analyze_installation_trend(template)
-      installations = template.ai_workflow_template_installations
+      installations = template.workflow_template_installations
                              .where("created_at >= ?", 6.months.ago)
                              .group_by_month(:created_at)
                              .count
@@ -644,7 +644,7 @@ module Mcp
     end
 
     def calculate_category_average_rating(category)
-      AiWorkflowTemplate.public_templates
+      Ai::WorkflowTemplate.public_templates
                        .published
                        .by_category(category)
                        .average(:rating)
@@ -652,10 +652,10 @@ module Mcp
     end
 
     def trending_categories
-      recent_installations = AiWorkflowTemplateInstallation
+      recent_installations = Ai::WorkflowTemplateInstallation
                               .where("created_at >= ?", 30.days.ago)
                               .joins(:ai_workflow_template)
-                              .group("ai_workflow_templates.category")
+                              .group("workflow_templates.category")
                               .count
                               .sort_by { |_, count| -count }
                               .first(5)
@@ -664,13 +664,13 @@ module Mcp
         {
           category: category,
           recent_installations: count,
-          total_templates: AiWorkflowTemplate.by_category(category).count
+          total_templates: Ai::WorkflowTemplate.by_category(category).count
         }
       end
     end
 
     def calculate_marketplace_growth
-      total_installations = AiWorkflowTemplateInstallation
+      total_installations = Ai::WorkflowTemplateInstallation
                              .where("created_at >= ?", 12.months.ago)
                              .group_by_month(:created_at)
                              .count
@@ -686,7 +686,7 @@ module Mcp
 
       # Suggest related tags
       if criteria[:tags].present?
-        related_templates = AiWorkflowTemplate.public_templates.with_tags(criteria[:tags])
+        related_templates = Ai::WorkflowTemplate.public_templates.with_tags(criteria[:tags])
         all_tags = related_templates.pluck(:tags).flatten.uniq - criteria[:tags]
         suggestions << { type: "tags", items: all_tags.first(5) } if all_tags.any?
       end
@@ -703,7 +703,7 @@ module Mcp
 
     def build_template_definition(workflow)
       {
-        nodes: workflow.ai_workflow_nodes.map do |node|
+        nodes: workflow.workflow_nodes.map do |node|
           {
             node_id: node.node_id,
             node_type: node.node_type,
@@ -712,7 +712,7 @@ module Mcp
             configuration: node.configuration
           }
         end,
-        edges: workflow.ai_workflow_edges.map do |edge|
+        edges: workflow.workflow_edges.map do |edge|
           {
             edge_id: edge.edge_id,
             source_node_id: edge.source_node_id,
@@ -721,7 +721,7 @@ module Mcp
             condition: edge.condition
           }
         end,
-        variables: workflow.ai_workflow_variables.map do |var|
+        variables: workflow.workflow_variables.map do |var|
           {
             name: var.name,
             variable_type: var.variable_type,
@@ -729,7 +729,7 @@ module Mcp
             is_required: var.is_required
           }
         end,
-        triggers: workflow.ai_workflow_triggers.map do |trigger|
+        triggers: workflow.workflow_triggers.map do |trigger|
           {
             trigger_id: trigger.trigger_id,
             trigger_type: trigger.trigger_type,
@@ -740,7 +740,7 @@ module Mcp
     end
 
     def extract_workflow_variables(workflow)
-      workflow.ai_workflow_variables.each_with_object({}) do |var, hash|
+      workflow.workflow_variables.each_with_object({}) do |var, hash|
         hash[var.name] = {
           type: var.variable_type,
           default_value: var.default_value,

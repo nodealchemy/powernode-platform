@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :account_delegation do
+  factory :account_delegation, class: "Account::Delegation" do
     association :account
     association :delegated_user, factory: :user
     association :delegated_by, factory: :user

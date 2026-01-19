@@ -60,8 +60,8 @@ module Mcp
       record_event(
         event_type: "workflow.execution.started",
         event_data: {
-          workflow_id: @workflow_run.ai_workflow_id,
-          workflow_name: @workflow_run.ai_workflow.name,
+          workflow_id: @workflow_run.workflow_id,
+          workflow_name: @workflow_run.workflow.name,
           run_id: @workflow_run.run_id,
           input_variables: @workflow_run.input_variables,
           triggered_by: @user&.id
@@ -76,7 +76,7 @@ module Mcp
       record_event(
         event_type: "workflow.execution.completed",
         event_data: {
-          workflow_id: @workflow_run.ai_workflow_id,
+          workflow_id: @workflow_run.workflow_id,
           run_id: @workflow_run.run_id,
           status: "completed",
           duration_ms: result[:duration_ms],
@@ -94,7 +94,7 @@ module Mcp
       record_event(
         event_type: "workflow.execution.failed",
         event_data: {
-          workflow_id: @workflow_run.ai_workflow_id,
+          workflow_id: @workflow_run.workflow_id,
           run_id: @workflow_run.run_id,
           status: "failed",
           error_message: error.message,
@@ -112,7 +112,7 @@ module Mcp
       record_event(
         event_type: "workflow.state.transitioned",
         event_data: {
-          workflow_id: @workflow_run.ai_workflow_id,
+          workflow_id: @workflow_run.workflow_id,
           run_id: @workflow_run.run_id,
           from_state: from_state,
           to_state: to_state
@@ -122,13 +122,13 @@ module Mcp
 
     # Record node execution started
     #
-    # @param node [AiWorkflowNode] Node being executed
-    # @param node_execution [AiWorkflowNodeExecution] Execution record
+    # @param node [Ai::WorkflowNode] Node being executed
+    # @param node_execution [Ai::WorkflowNodeExecution] Execution record
     def record_node_started(node, node_execution)
       record_event(
         event_type: "node.execution.started",
         event_data: {
-          workflow_id: @workflow_run.ai_workflow_id,
+          workflow_id: @workflow_run.workflow_id,
           run_id: @workflow_run.run_id,
           node_id: node.node_id,
           node_type: node.node_type,
@@ -141,14 +141,14 @@ module Mcp
 
     # Record node execution completed
     #
-    # @param node [AiWorkflowNode] Executed node
-    # @param node_execution [AiWorkflowNodeExecution] Execution record
+    # @param node [Ai::WorkflowNode] Executed node
+    # @param node_execution [Ai::WorkflowNodeExecution] Execution record
     # @param result [Hash] Execution result
     def record_node_completed(node, node_execution, result)
       record_event(
         event_type: "node.execution.completed",
         event_data: {
-          workflow_id: @workflow_run.ai_workflow_id,
+          workflow_id: @workflow_run.workflow_id,
           run_id: @workflow_run.run_id,
           node_id: node.node_id,
           node_type: node.node_type,
@@ -163,14 +163,14 @@ module Mcp
 
     # Record node execution failed
     #
-    # @param node [AiWorkflowNode] Failed node
-    # @param node_execution [AiWorkflowNodeExecution] Execution record
+    # @param node [Ai::WorkflowNode] Failed node
+    # @param node_execution [Ai::WorkflowNodeExecution] Execution record
     # @param error [StandardError] Error that occurred
     def record_node_failed(node, node_execution, error)
       record_event(
         event_type: "node.execution.failed",
         event_data: {
-          workflow_id: @workflow_run.ai_workflow_id,
+          workflow_id: @workflow_run.workflow_id,
           run_id: @workflow_run.run_id,
           node_id: node.node_id,
           node_type: node.node_type,
@@ -192,7 +192,7 @@ module Mcp
       record_event(
         event_type: "node.retry.attempted",
         event_data: {
-          workflow_id: @workflow_run.ai_workflow_id,
+          workflow_id: @workflow_run.workflow_id,
           run_id: @workflow_run.run_id,
           node_id: node_id,
           attempt: attempt,
@@ -209,7 +209,7 @@ module Mcp
       record_event(
         event_type: "error.occurred",
         event_data: {
-          workflow_id: @workflow_run.ai_workflow_id,
+          workflow_id: @workflow_run.workflow_id,
           run_id: @workflow_run.run_id,
           error_message: error.message,
           error_class: error.class.name,
@@ -227,7 +227,7 @@ module Mcp
       record_event(
         event_type: "compensation.triggered",
         event_data: {
-          workflow_id: @workflow_run.ai_workflow_id,
+          workflow_id: @workflow_run.workflow_id,
           run_id: @workflow_run.run_id,
           node_id: node_id,
           reason: reason
@@ -407,7 +407,7 @@ module Mcp
     # @param event [Hash] Event to persist
     def persist_event(event)
       # Store in workflow run logs
-      @workflow_run.ai_workflow_run_logs.create!(
+      @workflow_run.workflow_run_logs.create!(
         log_level: determine_log_level(event[:event_type]),
         log_type: event[:event_type],
         message: summarize_event(event),

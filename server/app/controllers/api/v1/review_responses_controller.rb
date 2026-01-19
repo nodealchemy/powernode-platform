@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::ReviewResponsesController < ApplicationController
-  before_action :authenticate_user!
+  before_action :authenticate_request
   before_action :set_app_review, only: [ :index, :create ]
   before_action :set_review_response, only: [ :show, :update, :destroy, :approve, :reject ]
   before_action :check_permissions, only: [ :update, :destroy, :approve, :reject ]
@@ -134,7 +134,7 @@ class Api::V1::ReviewResponsesController < ApplicationController
   private
 
   def set_app_review
-    @app_review = AppReview.find(params[:app_review_id])
+    @app_review = Marketplace::Review.find(params[:app_review_id])
   end
 
   def set_review_response

@@ -3,7 +3,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import proxySettingsApi, {
   ProxyUrlConfig,
   ProxyDetectionResult
-} from '@/shared/services/proxySettingsApi';
+} from '@/shared/services/settings/proxySettingsApi';
 import { ProxyHostList } from './ProxyHostList';
 import { ProxyDetectionStatus } from './ProxyDetectionStatus';
 import { ProxyTestConnection } from './ProxyTestConnection';

@@ -7,7 +7,7 @@ puts "📊 Creating Monitoring and Analytics Workflow Agents..."
 
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account.users.find_by(email: "admin@powernode.org")
-provider = AiProvider.first
+provider = Ai::Provider.first
 
 if admin_account && admin_user && provider
   puts "✅ Using admin account: #{admin_account.name} (ID: #{admin_account.id})"
@@ -15,14 +15,14 @@ if admin_account && admin_user && provider
   puts "✅ Using AI provider: #{provider.name} (ID: #{provider.id})"
 
   # Performance Monitoring Specialist (Fixed)
-  performance_monitor = AiAgent.find_or_create_by(
+  performance_monitor = Ai::Agent.find_or_create_by(
     account: admin_account,
     slug: 'workflow-performance-monitor',
     agent_type: 'monitor'
   ) do |agent|
     agent.name = "Workflow Performance Monitor"
     agent.description = "Advanced monitoring specialist tracking workflow performance, resource usage, and execution metrics in real-time"
-    agent.ai_provider = provider
+    agent.provider = provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
@@ -102,14 +102,14 @@ if admin_account && admin_user && provider
   end
 
   # Analytics Intelligence Specialist
-  analytics_specialist = AiAgent.find_or_create_by(
+  analytics_specialist = Ai::Agent.find_or_create_by(
     account: admin_account,
     slug: 'workflow-analytics-intelligence',
     agent_type: 'data_analyst'
   ) do |agent|
     agent.name = "Workflow Analytics Intelligence"
     agent.description = "Advanced analytics specialist providing deep insights, trend analysis, and predictive intelligence for workflow systems"
-    agent.ai_provider = provider
+    agent.provider = provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
@@ -195,14 +195,14 @@ if admin_account && admin_user && provider
   end
 
   # System Health Monitor
-  health_monitor = AiAgent.find_or_create_by(
+  health_monitor = Ai::Agent.find_or_create_by(
     account: admin_account,
     slug: 'system-health-monitor',
     agent_type: 'monitor'
   ) do |agent|
     agent.name = "System Health Monitor"
     agent.description = "Comprehensive system health monitoring specialist ensuring platform reliability and service availability"
-    agent.ai_provider = provider
+    agent.provider = provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
@@ -297,14 +297,14 @@ if admin_account && admin_user && provider
   end
 
   # Quality Assurance Monitor
-  qa_monitor = AiAgent.find_or_create_by(
+  qa_monitor = Ai::Agent.find_or_create_by(
     account: admin_account,
     slug: 'workflow-quality-assurance',
     agent_type: 'monitor'
   ) do |agent|
     agent.name = "Workflow Quality Assurance"
     agent.description = "Quality assurance specialist monitoring workflow execution quality, data integrity, and compliance standards"
-    agent.ai_provider = provider
+    agent.provider = provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
@@ -404,9 +404,9 @@ if admin_account && admin_user && provider
   puts "✅ Created Workflow Quality Assurance (ID: #{qa_monitor.id})"
 
   puts "\n📊 Monitoring and Analytics Agents Summary:"
-  puts "   Monitor Agents: #{AiAgent.where(agent_type: 'monitor').count}"
-  puts "   Data Analyst Agents: #{AiAgent.where(agent_type: 'data_analyst').count}"
-  puts "   Total Analytics Agents: #{AiAgent.where(agent_type: [ 'monitor', 'data_analyst' ]).count}"
+  puts "   Monitor Agents: #{Ai::Agent.where(agent_type: 'monitor').count}"
+  puts "   Data Analyst Agents: #{Ai::Agent.where(agent_type: 'data_analyst').count}"
+  puts "   Total Analytics Agents: #{Ai::Agent.where(agent_type: [ 'monitor', 'data_analyst' ]).count}"
 
 else
   puts "❌ Missing required data (account, user, or provider)"

@@ -1,0 +1,143 @@
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cust_001",
+      "name": "Acme Corporation",
+      "email": "contact@acme.com",
+      "company": "Acme Corporation",
+      "phone": "+1 555-0101",
+      "status": "active",
+      "subscription": {
+        "id": "sub_001",
+        "plan_name": "Pro",
+        "status": "active",
+        "mrr_cents": 2999
+      },
+      "total_revenue_cents": 35988,
+      "lifetime_value_cents": 35988,
+      "created_at": "2024-01-15T10:00:00Z",
+      "last_payment_at": "2025-01-01T10:00:00Z",
+      "metadata": {
+        "industry": "Technology",
+        "company_size": "50-100"
+      }
+    },
+    {
+      "id": "cust_002",
+      "name": "Tech Solutions Inc",
+      "email": "billing@techsolutions.com",
+      "company": "Tech Solutions Inc",
+      "phone": "+1 555-0102",
+      "status": "active",
+      "subscription": {
+        "id": "sub_002",
+        "plan_name": "Enterprise",
+        "status": "active",
+        "mrr_cents": 9999
+      },
+      "total_revenue_cents": 119988,
+      "lifetime_value_cents": 119988,
+      "created_at": "2023-06-20T14:30:00Z",
+      "last_payment_at": "2025-01-05T14:30:00Z",
+      "metadata": {
+        "industry": "Software",
+        "company_size": "100-500"
+      }
+    },
+    {
+      "id": "cust_003",
+      "name": "Small Business LLC",
+      "email": "owner@smallbiz.com",
+      "company": "Small Business LLC",
+      "phone": "+1 555-0103",
+      "status": "active",
+      "subscription": {
+        "id": "sub_003",
+        "plan_name": "Starter",
+        "status": "active",
+        "mrr_cents": 999
+      },
+      "total_revenue_cents": 5994,
+      "lifetime_value_cents": 5994,
+      "created_at": "2024-07-01T09:00:00Z",
+      "last_payment_at": "2025-01-01T09:00:00Z",
+      "metadata": {
+        "industry": "Retail",
+        "company_size": "1-10"
+      }
+    },
+    {
+      "id": "cust_004",
+      "name": "Digital Agency Co",
+      "email": "finance@digitalagency.com",
+      "company": "Digital Agency Co",
+      "phone": "+1 555-0104",
+      "status": "at_risk",
+      "subscription": {
+        "id": "sub_004",
+        "plan_name": "Business",
+        "status": "past_due",
+        "mrr_cents": 4999
+      },
+      "total_revenue_cents": 49990,
+      "lifetime_value_cents": 49990,
+      "created_at": "2024-02-15T11:00:00Z",
+      "last_payment_at": "2024-12-01T11:00:00Z",
+      "metadata": {
+        "industry": "Marketing",
+        "company_size": "10-50"
+      }
+    },
+    {
+      "id": "cust_005",
+      "name": "Startup Ventures",
+      "email": "cfo@startupventures.io",
+      "company": "Startup Ventures",
+      "phone": "+1 555-0105",
+      "status": "churned",
+      "subscription": null,
+      "total_revenue_cents": 17994,
+      "lifetime_value_cents": 17994,
+      "created_at": "2024-03-01T15:00:00Z",
+      "last_payment_at": "2024-11-01T15:00:00Z",
+      "churned_at": "2024-12-01T00:00:00Z",
+      "churn_reason": "Too expensive",
+      "metadata": {
+        "industry": "Finance",
+        "company_size": "10-50"
+      }
+    },
+    {
+      "id": "cust_006",
+      "name": "Enterprise Corp",
+      "email": "accounts@enterprise.com",
+      "company": "Enterprise Corp",
+      "phone": "+1 555-0106",
+      "status": "active",
+      "subscription": {
+        "id": "sub_006",
+        "plan_name": "Enterprise",
+        "status": "active",
+        "mrr_cents": 9999
+      },
+      "total_revenue_cents": 239976,
+      "lifetime_value_cents": 239976,
+      "created_at": "2023-01-10T08:00:00Z",
+      "last_payment_at": "2025-01-10T08:00:00Z",
+      "metadata": {
+        "industry": "Manufacturing",
+        "company_size": "500+"
+      }
+    }
+  ],
+  "meta": {
+    "total_count": 6,
+    "page": 1,
+    "per_page": 20,
+    "active_count": 4,
+    "at_risk_count": 1,
+    "churned_count": 1,
+    "total_mrr_cents": 28995
+  }
+}

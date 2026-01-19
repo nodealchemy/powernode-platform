@@ -70,7 +70,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
       let(:alternative_provider) { create(:ai_provider, account: account) }
 
       before do
-        create(:ai_provider_credential, ai_provider: alternative_provider, is_active: true)
+        create(:ai_provider_credential, provider: alternative_provider, is_active: true)
 
         allow(service).to receive(:execute_request).with(provider, anything, anything)
           .and_raise(StandardError.new('Authentication failed'))
@@ -395,7 +395,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
       let(:alternative_provider) { create(:ai_provider, account: account) }
 
       before do
-        create(:ai_provider_credential, ai_provider: alternative_provider, is_active: true)
+        create(:ai_provider_credential, provider: alternative_provider, is_active: true)
         allow(service).to receive(:switch_to_alternative_provider)
           .and_return(alternative_provider)
       end

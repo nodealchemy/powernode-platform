@@ -163,18 +163,17 @@ RSpec.describe Billing::DunningProcessJob, type: :job do
         })
       end
 
-      it 'returns failure result' do
-        result = described_class.new.execute(subscription_id, reason, dunning_stage)
-
-        expect(result[:success]).to be false
-        expect(result[:error]).to eq('Not found')
+      it 'raises SubscriptionError' do
+        expect { described_class.new.execute(subscription_id, reason, dunning_stage) }
+          .to raise_error(BillingExceptions::SubscriptionError, /Not found/)
       end
 
-      it 'logs error message' do
+      it 'logs error message before raising' do
         job = described_class.new
         capture_logs_for(job)
 
-        job.execute(subscription_id, reason, dunning_stage)
+        expect { job.execute(subscription_id, reason, dunning_stage) }
+          .to raise_error(BillingExceptions::SubscriptionError)
 
         expect_logged(:error, /Failed to fetch/)
       end
@@ -190,11 +189,9 @@ RSpec.describe Billing::DunningProcessJob, type: :job do
         })
       end
 
-      it 'returns error' do
-        result = described_class.new.execute(subscription_id, reason, dunning_stage)
-
-        expect(result[:success]).to be false
-        expect(result[:error]).to eq('Invalid dunning stage')
+      it 'raises ValidationError' do
+        expect { described_class.new.execute(subscription_id, reason, dunning_stage) }
+          .to raise_error(BillingExceptions::ValidationError, /Invalid dunning stage/)
       end
     end
 
@@ -210,17 +207,17 @@ RSpec.describe Billing::DunningProcessJob, type: :job do
         })
       end
 
-      it 'returns failure result' do
-        result = described_class.new.execute(subscription_id, reason, dunning_stage)
-
-        expect(result[:success]).to be false
+      it 'raises DunningError' do
+        expect { described_class.new.execute(subscription_id, reason, dunning_stage) }
+          .to raise_error(BillingExceptions::DunningError, /Action failed/)
       end
 
-      it 'logs error message' do
+      it 'logs error message before raising' do
         job = described_class.new
         capture_logs_for(job)
 
-        job.execute(subscription_id, reason, dunning_stage)
+        expect { job.execute(subscription_id, reason, dunning_stage) }
+          .to raise_error(BillingExceptions::DunningError)
 
         expect_logged(:error, /action failed/)
       end
@@ -231,10 +228,9 @@ RSpec.describe Billing::DunningProcessJob, type: :job do
         stub_backend_api_connection_failure(:get, "/api/v1/internal/subscriptions/#{subscription_id}")
       end
 
-      it 'returns failure result' do
-        result = described_class.new.execute(subscription_id, reason, dunning_stage)
-
-        expect(result[:success]).to be false
+      it 'raises DunningError' do
+        expect { described_class.new.execute(subscription_id, reason, dunning_stage) }
+          .to raise_error(BillingExceptions::DunningError)
       end
     end
   end

@@ -1,71 +1,63 @@
-# Multi-stage build for Sidekiq worker
-# Production-optimized standalone worker service
+# Multi-stage production Dockerfile for Sidekiq worker
+FROM ruby:3.2.8-slim AS base
 
-# Stage 1: Build stage
-FROM ruby:3.2.0-alpine AS builder
+# Install system dependencies
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+    curl \
+    libjemalloc2 \
+    libpq5 \
+    libvips42 \
+    imagemagick \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install build dependencies
-RUN apk add --no-cache \
-    build-base \
-    postgresql-dev \
-    git \
-    tzdata
+# Set environment
+ENV BUNDLE_DEPLOYMENT=1 \
+    BUNDLE_PATH=/usr/local/bundle \
+    BUNDLE_WITHOUT=development:test
 
-# Set working directory
 WORKDIR /app
 
-# Copy Gemfile and install gems
+# Build stage for compiling gems
+FROM base AS build
+
+# Install build dependencies
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+    build-essential \
+    git \
+    libpq-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install gems
 COPY Gemfile Gemfile.lock ./
-RUN bundle config set --local deployment 'true' && \
-    bundle config set --local without 'development test' && \
-    bundle install --jobs 4 --retry 3
+RUN bundle install && \
+    rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
 
 # Copy application code
 COPY . .
 
-# Precompile bootsnap cache
-RUN bundle exec bootsnap precompile app/ lib/ && \
-    rm -rf /usr/local/bundle/cache/*.gem && \
-    find /usr/local/bundle/gems/ -name "*.c" -delete && \
-    find /usr/local/bundle/gems/ -name "*.o" -delete
+# Production stage
+FROM base AS production
 
-# Stage 2: Runtime stage
-FROM ruby:3.2.0-alpine AS runtime
+# Copy built gems and application
+COPY --from=build /usr/local/bundle /usr/local/bundle
+COPY --from=build /app /app
 
-# Install runtime dependencies
-RUN apk add --no-cache \
-    postgresql-client \
-    redis \
-    tzdata \
-    curl \
-    bash
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash sidekiq && \
+    chown -R sidekiq:sidekiq /app
+USER sidekiq
 
-# Create non-root user
-RUN addgroup -g 1000 -S worker && \
-    adduser -u 1000 -S worker -G worker
+# Configure runtime
+ENV MALLOC_CONF="dirty_decay_ms:1000,narenas:2,background_thread:true" \
+    LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
 
-# Set working directory
-WORKDIR /app
+# Health check via Sidekiq process
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD pgrep -f sidekiq || exit 1
 
-# Copy installed gems from builder stage
-COPY --from=builder /usr/local/bundle /usr/local/bundle
-
-# Copy application code and set ownership
-COPY --from=builder --chown=worker:worker /app /app
-
-# Create necessary directories
-RUN mkdir -p tmp/pids tmp/cache log && \
-    chown -R worker:worker tmp log
-
-# Switch to non-root user
-USER worker
-
-# Health check - check if Sidekiq is responding
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:4567/health || exit 1
-
-# Expose Sidekiq web interface port
-EXPOSE 4567
-
-# Default command
+# Start Sidekiq
 CMD ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]

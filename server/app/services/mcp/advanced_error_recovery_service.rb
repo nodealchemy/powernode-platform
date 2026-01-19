@@ -237,7 +237,7 @@ module Mcp
 
       # Trigger saga compensation through coordinator
       result = @saga_coordinator.rollback_saga(
-        workflow_run.ai_workflow_compensations.pending.reverse
+        workflow_run.workflow_compensations.pending.reverse
       )
 
       {
@@ -276,7 +276,7 @@ module Mcp
 
     # Error pattern analysis for self-healing
     def analyze_error_pattern(context)
-      recent_errors = workflow_run.ai_workflow_node_executions
+      recent_errors = workflow_run.node_executions
                                  .where(status: "failed")
                                  .where("created_at >= ?", 1.hour.ago)
                                  .order(created_at: :desc)
@@ -507,18 +507,18 @@ module Mcp
     end
 
     def checkpoint_available?(context)
-      workflow_run.ai_workflow_checkpoints
+      workflow_run.workflow_checkpoints
                  .where("created_at < ?", context[:error_time] || Time.current)
                  .exists?
     end
 
     def compensation_required?(context)
-      workflow_run.ai_workflow_compensations.pending.exists?
+      workflow_run.workflow_compensations.pending.exists?
     end
 
     def retry_node_execution(node_execution_id)
       # Simplified retry logic
-      node_execution = workflow_run.ai_workflow_node_executions.find(node_execution_id)
+      node_execution = workflow_run.node_executions.find(node_execution_id)
 
       # In real implementation, would call orchestrator to retry
       { success: false, error: "Retry not yet implemented" }
@@ -564,7 +564,7 @@ module Mcp
     end
 
     def find_recovery_checkpoint(context)
-      workflow_run.ai_workflow_checkpoints
+      workflow_run.workflow_checkpoints
                  .where("created_at < ?", context[:error_time] || Time.current)
                  .where(checkpoint_type: %w[node_completion workflow_pause])
                  .order(created_at: :desc)

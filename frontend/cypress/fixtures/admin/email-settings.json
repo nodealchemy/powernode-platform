@@ -1,0 +1,39 @@
+{
+  "success": true,
+  "data": {
+    "smtp_host": "smtp.sendgrid.net",
+    "smtp_port": 587,
+    "smtp_username": "apikey",
+    "smtp_password_set": true,
+    "smtp_authentication": "plain",
+    "smtp_enable_starttls": true,
+    "from_email": "noreply@powernode.org",
+    "from_name": "Powernode",
+    "reply_to_email": "support@powernode.org",
+    "email_templates": {
+      "welcome": {
+        "subject": "Welcome to Powernode!",
+        "enabled": true
+      },
+      "password_reset": {
+        "subject": "Reset Your Password",
+        "enabled": true
+      },
+      "invoice": {
+        "subject": "Your Invoice from Powernode",
+        "enabled": true
+      },
+      "subscription_confirmation": {
+        "subject": "Subscription Confirmed",
+        "enabled": true
+      },
+      "subscription_cancelled": {
+        "subject": "Subscription Cancelled",
+        "enabled": true
+      }
+    },
+    "test_email_sent_at": "2025-01-10T15:30:00Z",
+    "last_verified_at": "2025-01-10T15:30:00Z",
+    "is_verified": true
+  }
+}

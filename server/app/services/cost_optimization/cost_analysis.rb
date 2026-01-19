@@ -7,11 +7,11 @@ module CostOptimization
       execution_count = executions.count
       avg_cost_per_execution = execution_count > 0 ? total_cost / execution_count : 0.0
 
-      provider_costs = executions.group_by(&:ai_provider)
+      provider_costs = executions.group_by(&:provider)
                                 .transform_values { |execs| execs.sum(&:cost_usd) }
                                 .sort_by { |_, cost| -cost }
 
-      agent_type_costs = executions.joins(:ai_agent)
+      agent_type_costs = executions.joins(:agent)
                                    .group("ai_agents.agent_type")
                                    .sum(:cost_usd)
 
@@ -91,7 +91,7 @@ module CostOptimization
 
       cost_change_pct = prev_cost > 0 ? (((total_cost - prev_cost) / prev_cost) * 100).round(1) : 0
 
-      top_driver = executions.joins(:ai_provider)
+      top_driver = executions.joins(:provider)
                              .group("ai_providers.name")
                              .sum(:cost_usd)
                              .max_by { |_, cost| cost }

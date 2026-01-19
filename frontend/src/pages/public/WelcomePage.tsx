@@ -6,7 +6,7 @@ import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 
 import { PublicPageContainer } from '@/shared/components/layout/PublicPageContainer';
 
-import { pagesApi, Page } from '@/features/pages/services/pagesApi';
+import { pagesApi, Page } from '@/features/content/pages/services/pagesApi';
 
 import { getErrorMessage } from '@/shared/utils/errorHandling';
 

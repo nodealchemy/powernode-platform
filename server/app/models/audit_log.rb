@@ -71,6 +71,38 @@ class AuditLog < ApplicationRecord
       ai.monitoring.circuit_breaker.open ai.monitoring.circuit_breaker.reset ai.monitoring.circuit_breakers.category_reset
       ai.monitoring.circuit_breakers.reset_all ai.monitoring.dashboard ai.monitoring.health_check
       ai.monitoring.start ai.monitoring.stop
+      ai.workflow_git_triggers.create ai.workflow_git_triggers.update ai.workflow_git_triggers.delete
+      ai.conversations.create ai.conversations.update ai.conversations.delete ai.conversations.archive
+      ai.conversations.complete ai.conversations.duplicate ai.conversations.export ai.conversations.pause
+      ai.conversations.resume ai.conversations.unarchive ai.conversations.message.send
+      ai.messages.rate ai.messages.regenerate
+      ai.validation_statistics.read ai.validation_statistics.health_distribution ai.validation_statistics.common_issues
+      ai.workflows.convert_to_template ai.workflows.convert_to_workflow ai.workflows.create_from_template ai.workflows.import
+      ai.workflows.run.cancel ai.workflows.run.delete ai.workflows.run.download ai.workflows.run.pause
+      ai.workflows.run.resume ai.workflows.run.retry ai.workflows.runs.bulk_delete
+      ai.workflow_validations.auto_fix ai.workflow_validations.create
+      ai.workflow_validations.read ai.workflow_validations.auto_fix_single ai.workflow_validations.preview_fixes
+      ai.providers.setup_defaults ai.providers.test_all
+      app_created app_deleted app_updated app_published app_unpublished app_submitted_for_review
+      app_feature_created app_feature_updated app_feature_deleted app_feature_duplicated
+      app_feature_enabled_by_default app_feature_disabled_by_default
+      app_plan_created app_plan_updated app_plan_deleted app_plan_activated app_plan_deactivated app_plans_reordered
+      ci_cd.pipelines.list ci_cd.pipelines.read ci_cd.pipelines.create ci_cd.pipelines.update ci_cd.pipelines.delete
+      ci_cd.pipelines.trigger ci_cd.pipelines.duplicate ci_cd.pipelines.export_yaml
+      ci_cd.pipeline_runs.list ci_cd.pipeline_runs.read ci_cd.pipeline_runs.cancel ci_cd.pipeline_runs.retry ci_cd.pipeline_runs.logs
+      ci_cd.providers.list ci_cd.providers.read ci_cd.providers.create ci_cd.providers.update ci_cd.providers.delete
+      ci_cd.providers.test_connection ci_cd.providers.sync_repositories
+      ci_cd.repositories.list ci_cd.repositories.read ci_cd.repositories.create ci_cd.repositories.update ci_cd.repositories.delete
+      ci_cd.repositories.sync ci_cd.repositories.attach_pipeline ci_cd.repositories.detach_pipeline
+      ci_cd.schedules.list ci_cd.schedules.read ci_cd.schedules.create ci_cd.schedules.update ci_cd.schedules.delete ci_cd.schedules.toggle
+      ci_cd.prompt_templates.list ci_cd.prompt_templates.read ci_cd.prompt_templates.create ci_cd.prompt_templates.update
+      ci_cd.prompt_templates.delete ci_cd.prompt_templates.duplicate ci_cd.prompt_templates.preview
+      mcp.servers.read mcp.servers.create mcp.servers.update mcp.servers.delete
+      mcp.servers.connect mcp.servers.disconnect mcp.servers.health_check mcp.servers.discover_tools mcp.servers.workflow_builder_read
+      mcp.tools.read mcp.tools.execute
+      mcp.executions.read mcp.executions.cancel
+      mcp.oauth.authorize_initiated mcp.oauth.callback_success mcp.oauth.disconnect mcp.oauth.status_read mcp.oauth.token_refreshed
+      marketplace_listing_resubmitted
       ai_agent_team.created ai_agent_team.updated ai_agent_team.deleted
       ai_agent_team.member_added ai_agent_team.member_removed
       ai_agent_team.execution_started ai_agent_team.execution_completed ai_agent_team.execution_failed
@@ -147,7 +179,7 @@ class AuditLog < ApplicationRecord
 
   # Apply cryptographic integrity hash for immutable audit chain
   def apply_integrity_hash
-    AuditLogIntegrityService.apply_integrity(self)
+    Audit::LogIntegrityService.apply_integrity(self)
   rescue => e
     Rails.logger.error "Failed to apply integrity hash to audit log: #{e.message}"
     # Don't block audit log creation if integrity service fails

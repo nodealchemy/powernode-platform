@@ -19,7 +19,7 @@ module AiMatchers
   # Matcher to verify AI execution status
   RSpec::Matchers.define :have_execution_status do |expected_status|
     match do |execution|
-      execution.is_a?(AiAgentExecution) &&
+      execution.is_a?(Ai::AgentExecution) &&
         execution.status == expected_status.to_s
     end
 
@@ -31,7 +31,7 @@ module AiMatchers
   # Matcher to verify workflow node configuration
   RSpec::Matchers.define :have_valid_node_configuration do
     match do |node|
-      return false unless node.is_a?(AiWorkflowNode)
+      return false unless node.is_a?(Ai::WorkflowNode)
 
       case node.node_type
       when 'ai_agent'
@@ -59,7 +59,7 @@ module AiMatchers
   # Matcher to verify credential encryption
   RSpec::Matchers.define :have_encrypted_credentials do
     match do |credential|
-      credential.is_a?(AiProviderCredential) &&
+      credential.is_a?(Ai::ProviderCredential) &&
         credential.credentials.present? &&
         !credential.credentials.include?('api_key') && # Should not contain plain text
         !credential.credentials.include?('sk-') # Should not contain OpenAI key format
@@ -124,7 +124,7 @@ module AiMatchers
     match do |_|
       # This would need ActionCable testing setup
       # For now, just check the conversation exists
-      conversation.is_a?(AiConversation)
+      conversation.is_a?(Ai::Conversation)
     end
 
     failure_message do |_|
@@ -194,18 +194,18 @@ module AiMatchers
   # Matcher to verify workflow validation
   RSpec::Matchers.define :be_a_valid_workflow do
     match do |workflow|
-      workflow.is_a?(AiWorkflow) &&
+      workflow.is_a?(Ai::Workflow) &&
         workflow.valid? &&
-        workflow.ai_workflow_nodes.count > 0 &&
+        workflow.nodes.count > 0 &&
         has_start_node?(workflow) &&
         has_connected_nodes?(workflow)
     end
 
     failure_message do |workflow|
       errors = []
-      errors << "not a valid AiWorkflow" unless workflow.is_a?(AiWorkflow)
+      errors << "not a valid Ai::Workflow" unless workflow.is_a?(Ai::Workflow)
       errors << "has validation errors: #{workflow.errors.full_messages.join(', ')}" unless workflow.valid?
-      errors << "has no nodes" if workflow.ai_workflow_nodes.count == 0
+      errors << "has no nodes" if workflow.nodes.count == 0
       errors << "missing start node" unless has_start_node?(workflow)
       errors << "has disconnected nodes" unless has_connected_nodes?(workflow)
 
@@ -215,17 +215,17 @@ module AiMatchers
     private
 
     def has_start_node?(workflow)
-      workflow.ai_workflow_nodes.any? { |node| node.node_type == 'start' || node.is_start_node }
+      workflow.nodes.any? { |node| node.node_type == 'start' || node.is_start_node }
     end
 
     def has_connected_nodes?(workflow)
-      return true if workflow.ai_workflow_nodes.count <= 1
+      return true if workflow.nodes.count <= 1
 
       # Simple check - all nodes except start should have incoming edges
-      nodes_with_edges = workflow.ai_workflow_edges.pluck(:target_node_id).uniq
-      start_nodes = workflow.ai_workflow_nodes.select { |n| n.node_type == 'start' || n.is_start_node }
+      nodes_with_edges = workflow.edges.pluck(:target_node_id).uniq
+      start_nodes = workflow.nodes.select { |n| n.node_type == 'start' || n.is_start_node }
 
-      expected_connected = workflow.ai_workflow_nodes.count - start_nodes.count
+      expected_connected = workflow.nodes.count - start_nodes.count
       nodes_with_edges.count >= expected_connected
     end
   end

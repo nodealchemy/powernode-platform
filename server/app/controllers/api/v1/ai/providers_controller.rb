@@ -6,8 +6,8 @@
 # RESTful resource controller following the AI Orchestration Redesign pattern.
 #
 # Consolidates:
-# - AiProvidersController (provider CRUD and operations)
-# - AiProviderCredentialsController (credential management)
+# - ::Ai::ProvidersController (provider CRUD and operations)
+# - ::Ai::ProviderCredentialsController (credential management)
 #
 # Architecture:
 # - Primary resource: Providers
@@ -76,7 +76,7 @@ module Api
                 expires_at: credential_params[:expires_at]
               }.compact # Remove nil values
 
-              @credential = AiProviderManagementService.create_provider_credential(
+              @credential = ::Ai::ProviderManagementService.create_provider_credential(
                 provider,
                 current_user.account,
                 credentials_data,
@@ -93,14 +93,14 @@ module Api
 
             rescue ActiveRecord::RecordNotFound
               render_error("Provider not found", status: :not_found)
-            rescue AiProviderManagementService::ValidationError => e
+            rescue ::Ai::ProviderManagementService::ValidationError => e
               render_error("Validation failed: #{e.message}", status: :unprocessable_content)
-            rescue AiProviderManagementService::CredentialError => e
+            rescue ::Ai::ProviderManagementService::CredentialError => e
               render_error("Credential error: #{e.message}", status: :unprocessable_content)
             end
           else
             # PROVIDER CREATE
-            @provider = AiProvider.new(provider_params)
+            @provider = ::Ai::Provider.new(provider_params)
             @provider.account = current_user.account
 
             if @provider.save
@@ -129,14 +129,14 @@ module Api
             if credential_params[:credentials].present?
               begin
                 credentials_hash = credential_params[:credentials].to_h.deep_stringify_keys
-                AiProviderManagementService.validate_provider_credentials(
-                  @credential.ai_provider,
+                ::Ai::ProviderManagementService.validate_ai_provider_credentials(
+                  @credential.provider,
                   credentials_hash
                 )
 
                 # Update credentials (will trigger re-encryption)
                 @credential.credentials = credentials_hash
-              rescue AiProviderManagementService::ValidationError => e
+              rescue ::Ai::ProviderManagementService::ValidationError => e
                 return render_error("Credential validation failed: #{e.message}", status: :unprocessable_content)
               end
             end
@@ -175,7 +175,7 @@ module Api
           if params[:provider_id].present?
             # CREDENTIAL DESTROY
             credential_name = @credential.name
-            provider_name = @credential.ai_provider.name
+            provider_name = @credential.provider.name
 
             if @credential.destroy
               render_success({ message: "Credential deleted successfully" })
@@ -224,7 +224,7 @@ module Api
 
           return if credential.nil? # Error already rendered
 
-          test_service = AiProviderTestService.new(credential)
+          test_service = ::Ai::ProviderTestService.new(credential)
           # Use test_with_details_simple for flat response format expected by controller
           test_result = test_service.test_with_details_simple
 
@@ -263,7 +263,7 @@ module Api
               reason: availability_result[:reason],
               is_active: @provider.is_active?,
               is_healthy: @provider.healthy?,
-              has_credentials: @provider.ai_provider_credentials.where(is_active: true).exists?,
+              has_credentials: @provider.provider_credentials.where(is_active: true).exists?,
               has_models: @provider.available_models.any?,
               health_status: @provider.health_status
             }
@@ -280,7 +280,7 @@ module Api
             )
           end
 
-          success = AiProviderManagementService.sync_provider_models(@provider)
+          success = ::Ai::ProviderManagementService.sync_provider_models(@provider)
 
           if success
             render_success({
@@ -320,7 +320,7 @@ module Api
           period_days = params[:period]&.to_i || 30
           period = period_days.days
 
-          summary = AiProviderManagementService.provider_usage_summary(
+          summary = ::Ai::ProviderManagementService.provider_usage_summary(
             @provider,
             current_user.account,
             period
@@ -339,7 +339,7 @@ module Api
 
         # GET /api/v1/ai/providers/available
         def available
-          providers = AiProviderManagementService.get_available_providers_for_account(current_user.account)
+          providers = ::Ai::ProviderManagementService.get_available_providers_for_account(current_user.account)
 
           render_success({
             providers: providers.map { |p| serialize_provider(p) },
@@ -355,7 +355,7 @@ module Api
             total_providers: providers.count,
             active_providers: providers.where(is_active: true).count,
             providers_by_type: providers.group(:provider_type).count,
-            total_credentials: AiProviderCredential.joins(:ai_provider)
+            total_credentials: ::Ai::ProviderCredential.joins(:provider)
                                                   .where(ai_providers: { account_id: current_user.account_id })
                                                   .count,
             total_api_calls: calculate_total_api_calls,
@@ -408,7 +408,7 @@ module Api
             result = { id: provider.id, name: provider.name, provider_type: provider.provider_type }
 
             begin
-              test_service = AiProviderTestService.new(provider)
+              test_service = ::Ai::ProviderTestService.new(provider)
               test_result = test_service.test_provider_connection
 
               result[:success] = test_result[:success]
@@ -461,11 +461,11 @@ module Api
             # CREDENTIALS INDEX
             credentials = if current_worker
                            # Worker can access any credentials for background processing
-                           AiProviderCredential.includes(:ai_provider)
+                           ::Ai::ProviderCredential.includes(:provider)
             else
                            # Nested under specific provider
                            provider = current_user.account.ai_providers.find(params[:provider_id])
-                           provider.ai_provider_credentials
+                           provider.provider_credentials
             end
 
             credentials = apply_credential_filters(credentials)
@@ -480,7 +480,7 @@ module Api
           else
             # PROVIDERS INDEX
             providers = current_user.account.ai_providers
-                                   .includes(:ai_provider_credentials)
+                                   .includes(:provider_credentials)
 
             # Admin users can see inactive providers
             providers = providers.active unless current_user.has_permission?("admin.ai.providers.read")
@@ -501,11 +501,11 @@ module Api
 
         # POST /api/v1/ai/providers/:provider_id/credentials/:credential_id/test
         def credential_test
-          test_service = AiProviderTestService.new(@credential)
+          test_service = ::Ai::ProviderTestService.new(@credential)
           # Use test_with_details_simple for flat response format expected by controller
           test_result = test_service.test_with_details_simple
 
-          provider = @credential.ai_provider
+          provider = @credential.provider
 
           # Update credential and provider status
           if test_result[:success]
@@ -529,7 +529,7 @@ module Api
         def credential_make_default
           # Unset other default credentials for this provider
           current_user.account.ai_provider_credentials
-                     .where(ai_provider: @credential.ai_provider, is_default: true)
+                     .where(provider: @credential.provider, is_default: true)
                      .where.not(id: @credential.id)
                      .update_all(is_default: false)
 
@@ -578,11 +578,11 @@ module Api
 
           if current_worker
             # Worker can access any credential
-            @credential = AiProviderCredential.find_by!(id: credential_id)
+            @credential = ::Ai::ProviderCredential.find_by!(id: credential_id)
           else
             # User context - scope to account
             @credential = current_user.account.ai_provider_credentials
-                                     .includes(:ai_provider)
+                                     .includes(:provider)
                                      .find_by!(id: credential_id)
           end
         rescue ActiveRecord::RecordNotFound
@@ -716,7 +716,7 @@ module Api
           when "name"
             credentials.order(:name)
           when "provider"
-            credentials.joins(:ai_provider).order("ai_providers.name")
+            credentials.joins(:provider).order("ai_providers.name")
           when "last_used"
             credentials.order(last_used_at: :desc)
           when "created_at"
@@ -761,11 +761,11 @@ module Api
             updated_at: provider.updated_at.iso8601,
             health_status: calculate_provider_health_status(provider),
             stats: {
-              credentials_count: provider.ai_provider_credentials.count,
+              credentials_count: provider.provider_credentials.count,
               supported_models_count: provider.supported_models&.length || 0
             },
             # Add root-level counts for frontend compatibility
-            credential_count: provider.ai_provider_credentials.count,
+            credential_count: provider.provider_credentials.count,
             model_count: provider.supported_models&.length || 0
           }
         end
@@ -780,7 +780,7 @@ module Api
             rate_limits: provider.rate_limits || {},
             pricing_info: provider.pricing_info || {},
             metadata: provider.metadata,
-            credentials: provider.ai_provider_credentials.map { |c| serialize_credential(c) }
+            credentials: provider.provider_credentials.map { |c| serialize_credential(c) }
           )
         end
 
@@ -796,9 +796,9 @@ module Api
             created_at: credential.created_at.iso8601,
             updated_at: credential.updated_at.iso8601,
             provider: {
-              id: credential.ai_provider.id,
-              name: credential.ai_provider.name,
-              provider_type: credential.ai_provider.provider_type
+              id: credential.provider.id,
+              name: credential.provider.name,
+              provider_type: credential.provider.provider_type
             },
             stats: {
               success_count: credential.success_count,
@@ -827,7 +827,7 @@ module Api
 
         def find_credential_for_test(credential_id)
           credential = current_user.account.ai_provider_credentials
-                                  .includes(:ai_provider)
+                                  .includes(:provider)
                                   .find_by(id: credential_id)
 
           unless credential
@@ -835,7 +835,7 @@ module Api
             return nil
           end
 
-          unless credential.ai_provider == @provider
+          unless credential.provider == @provider
             render_error("Credential does not belong to this provider", status: :bad_request)
             return nil
           end
@@ -845,8 +845,8 @@ module Api
 
         def find_default_credential
           credential = current_user.account.ai_provider_credentials
-                                  .includes(:ai_provider)
-                                  .find_by(ai_provider: @provider, is_default: true, is_active: true)
+                                  .includes(:provider)
+                                  .find_by(provider: @provider, is_default: true, is_active: true)
 
           unless credential
             render_error("No active credentials found for this provider", status: :not_found)
@@ -865,11 +865,11 @@ module Api
 
         def calculate_total_api_calls
           # Calculate across all agent executions and workflow runs
-          agent_calls = AiAgentExecution.joins(ai_agent: :ai_provider)
+          agent_calls = ::Ai::AgentExecution.joins(agent: :provider)
                                        .where(ai_providers: { account_id: current_user.account_id })
                                        .count
 
-          workflow_calls = AiWorkflowNodeExecution.joins(ai_workflow_run: { ai_workflow: :account })
+          workflow_calls = ::Ai::WorkflowNodeExecution.joins(workflow_run: { workflow: :account })
                                                   .where(accounts: { id: current_user.account_id })
                                                   .where(node_type: "ai_agent")
                                                   .count
@@ -878,11 +878,11 @@ module Api
         end
 
         def calculate_total_cost
-          agent_cost = AiAgentExecution.joins(ai_agent: :ai_provider)
+          agent_cost = ::Ai::AgentExecution.joins(agent: :provider)
                                       .where(ai_providers: { account_id: current_user.account_id })
                                       .sum(:cost_usd)
 
-          workflow_cost = AiWorkflowNodeExecution.joins(ai_workflow_run: { ai_workflow: :account })
+          workflow_cost = ::Ai::WorkflowNodeExecution.joins(workflow_run: { workflow: :account })
                                                  .where(accounts: { id: current_user.account_id })
                                                  .sum(:cost)
 
@@ -894,7 +894,7 @@ module Api
           return "degraded" unless provider.is_active
 
           # Check credentials health
-          active_credentials = provider.ai_provider_credentials.where(is_active: true)
+          active_credentials = provider.provider_credentials.where(is_active: true)
 
           # No credentials - degraded
           return "degraded" if active_credentials.empty?

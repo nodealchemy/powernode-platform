@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageContainer, BreadcrumbItem } from '@/shared/components/layout/PageContainer';
-import { KbCategoryList } from '@/features/knowledge-base/components/KbCategoryList';
-import { KbArticleList } from '@/features/knowledge-base/components/KbArticleList';
-import { KbSearchBar } from '@/features/knowledge-base/components/KbSearchBar';
-import { KbFeaturedArticles } from '@/features/knowledge-base/components/KbFeaturedArticles';
-import { knowledgeBaseApi, KbCategory, KbArticle } from '@/shared/services/knowledgeBaseApi';
+import { KbCategoryList } from '@/features/content/knowledge-base/components/KbCategoryList';
+import { KbArticleList } from '@/features/content/knowledge-base/components/KbArticleList';
+import { KbSearchBar } from '@/features/content/knowledge-base/components/KbSearchBar';
+import { KbFeaturedArticles } from '@/features/content/knowledge-base/components/KbFeaturedArticles';
+import { knowledgeBaseApi, KbCategory, KbArticle } from '@/shared/services/content/knowledgeBaseApi';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
 import { useNavigate } from 'react-router-dom';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PlusIcon, BookOpenIcon, TagIcon } from '@heroicons/react/24/outline';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 export default function KnowledgeBasePage() {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const navigate = useNavigate();
+  usePageWebSocket({ pageType: 'content' });
   const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState<KbCategory[]>([]);
   const [articles, setArticles] = useState<KbArticle[]>([]);
@@ -24,7 +26,7 @@ export default function KnowledgeBasePage() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(searchParams.get('category') || null);
 
-  const canManageKb = hasPermissions(currentUser, ['kb.manage']) || hasPermissions(currentUser, ['kb.edit']);
+  const canManageKb = hasPermissions(currentUser, ['kb.manage']) || hasPermissions(currentUser, ['kb.update']);
 
   // Generate dynamic breadcrumbs based on current filters
   const getBreadcrumbs = (): BreadcrumbItem[] => {

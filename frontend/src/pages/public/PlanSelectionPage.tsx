@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { plansApi, Plan } from '@/features/plans/services/plansApi';
+import { plansApi, Plan } from '@/features/business/plans/services/plansApi';
 import {
   CheckIcon,
   ShieldCheckIcon,
@@ -8,8 +8,8 @@ import {
   ScaleIcon,
   ArrowRightIcon
 } from '@heroicons/react/24/outline';
-import { PlanCard } from '@/features/plans/components/PlanCard';
-import { AnnualSavingsCalculator } from '@/features/plans/components/AnnualSavingsCalculator';
+import { PlanCard } from '@/features/business/plans/components/PlanCard';
+import { AnnualSavingsCalculator } from '@/features/business/plans/components/AnnualSavingsCalculator';
 import {
   PlanComparisonModal,
   PublicFooter,
@@ -19,7 +19,7 @@ import {
   isPlanPopular,
   getAllPlanFeatures,
   planHasFeature
-} from '@/features/plans/components/plan-selection';
+} from '@/features/business/plans/components/plan-selection';
 
 
 export const PlanSelectionPage: React.FC = () => {
@@ -126,7 +126,7 @@ export const PlanSelectionPage: React.FC = () => {
               {plansToCompare.length >= 2 && (
                 <button
                   onClick={() => startComparison?.()}
-                  className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  className="inline-flex items-center space-x-2 px-4 py-2.5 bg-theme-success hover:bg-theme-success/90 text-white text-sm font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
                 >
                   <ScaleIcon className="h-4 w-4" />
                   <span>Compare {plansToCompare.length} Plans</span>
@@ -147,9 +147,9 @@ export const PlanSelectionPage: React.FC = () => {
       <section className="relative overflow-hidden pt-20 pb-12">
         {/* Background Decorations */}
         <div className="absolute inset-0">
-          <div className="absolute top-40 left-10 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl"></div>
-          <div className="absolute top-20 right-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 left-1/2 w-80 h-80 bg-indigo-400/10 rounded-full blur-3xl transform -translate-x-1/2"></div>
+          <div className="absolute top-40 left-10 w-72 h-72 bg-theme-info/5 rounded-full blur-3xl"></div>
+          <div className="absolute top-20 right-20 w-96 h-96 bg-theme-interactive-primary/5 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 left-1/2 w-80 h-80 bg-theme-info/5 rounded-full blur-3xl transform -translate-x-1/2"></div>
         </div>
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -173,22 +173,22 @@ export const PlanSelectionPage: React.FC = () => {
           {/* Modern Trust Indicators */}
           <div className="flex flex-wrap items-center justify-center gap-8 max-w-4xl mx-auto">
             <div className="flex items-center space-x-3 surface px-4 py-3 rounded-full">
-              <div className="w-8 h-8 bg-emerald-500/20 rounded-full flex items-center justify-center">
-                <ShieldCheckIcon className="h-4 w-4 text-emerald-400" />
+              <div className="w-8 h-8 bg-theme-success/20 rounded-full flex items-center justify-center">
+                <ShieldCheckIcon className="h-4 w-4 text-theme-success" />
               </div>
               <span className="text-sm font-semibold" style={{color: 'var(--public-text-primary)'}}>30-day money back</span>
             </div>
             
             <div className="flex items-center space-x-3 surface px-4 py-3 rounded-full">
               <div className="w-8 h-8 bg-theme-info/20 rounded-full flex items-center justify-center">
-                <ClockIcon className="h-4 w-4 text-blue-400" />
+                <ClockIcon className="h-4 w-4 text-theme-info" />
               </div>
               <span className="text-sm font-semibold" style={{color: 'var(--public-text-primary)'}}>Free trial included</span>
             </div>
             
             <div className="flex items-center space-x-3 surface px-4 py-3 rounded-full">
               <div className="w-8 h-8 bg-theme-interactive-primary/20 rounded-full flex items-center justify-center">
-                <CheckIcon className="h-4 w-4 text-purple-400" />
+                <CheckIcon className="h-4 w-4 text-theme-interactive-primary" />
               </div>
               <span className="text-sm font-semibold" style={{color: 'var(--public-text-primary)'}}>No setup fees</span>
             </div>
@@ -205,6 +205,7 @@ export const PlanSelectionPage: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setBillingCycle('monthly')}
+                  data-testid="billing-monthly"
                   className={`relative px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                     billingCycle === 'monthly'
                       ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-lg'
@@ -215,6 +216,7 @@ export const PlanSelectionPage: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setBillingCycle('yearly')}
+                  data-testid="billing-yearly"
                   className={`relative px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                     billingCycle === 'yearly'
                       ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-lg'
@@ -235,11 +237,11 @@ export const PlanSelectionPage: React.FC = () => {
           {/* Annual Savings Animation */}
           {billingCycle === 'yearly' && availablePlans.some(p => p.has_annual_discount) && (
             <div className="mb-6 text-center transform transition-all duration-500 ease-out">
-              <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 px-4 py-3 rounded-full border border-emerald-200/50 dark:border-emerald-700/50">
-                <div className="w-6 h-6 bg-gradient-to-r from-emerald-400 to-green-400 rounded-full flex items-center justify-center animate-pulse">
+              <div className="inline-flex items-center space-x-2 bg-theme-success/10 px-4 py-3 rounded-full border border-theme-success/30">
+                <div className="w-6 h-6 bg-theme-success rounded-full flex items-center justify-center animate-pulse">
                   <span className="text-white text-sm">💰</span>
                 </div>
-                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                <p className="text-sm font-semibold text-theme-success">
                   You're saving money with annual billing!
                 </p>
               </div>
@@ -250,7 +252,7 @@ export const PlanSelectionPage: React.FC = () => {
           {plansToCompare.length > 0 && (
             <div className="text-center bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm px-6 py-4 rounded-xl border border-slate-200/50 dark:border-slate-600/50">
               <div className="flex items-center justify-center space-x-3 mb-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-theme-info-solid rounded-full animate-pulse"></div>
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   {plansToCompare.length} plan{plansToCompare.length > 1 ? 's' : ''} selected for comparison
                 </p>
@@ -258,7 +260,7 @@ export const PlanSelectionPage: React.FC = () => {
               {plansToCompare.length >= 2 ? (
                 <button
                   onClick={() => startComparison?.()}
-                  className="inline-flex items-center space-x-2 text-sm font-semibold text-theme-info dark:text-blue-400 hover:text-theme-info dark:hover:text-blue-300 transition-colors duration-200"
+                  className="inline-flex items-center space-x-2 text-sm font-semibold text-theme-info hover:text-theme-info/80 transition-colors duration-200"
                 >
                   <span>Compare now</span>
                   <ArrowRightIcon className="h-4 w-4" />
@@ -378,13 +380,13 @@ export const PlanSelectionPage: React.FC = () => {
           
           <div className="grid md:grid-cols-3 gap-8">
             <button 
-              className="group bg-white/80 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200/50 dark:border-slate-600/50 hover:border-blue-300 dark:hover:border-theme-info transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 transform hover:-translate-y-1"
+              className="group bg-white/80 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200/50 dark:border-slate-600/50 hover:border-theme-info transition-all duration-300 hover:shadow-xl hover:shadow-theme-info/10 transform hover:-translate-y-1"
               disabled
             >
               <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                 <span className="text-white text-xl">📧</span>
               </div>
-              <h4 className="font-semibold text-slate-800 dark:text-white mb-2 group-hover:text-theme-info dark:group-hover:text-blue-400 transition-colors duration-300">
+              <h4 className="font-semibold text-slate-800 dark:text-white mb-2 group-hover:text-theme-info transition-colors duration-300">
                 Contact Support
               </h4>
               <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -400,12 +402,12 @@ export const PlanSelectionPage: React.FC = () => {
                 }
                 setShowComparison(true);
               }}
-              className="group bg-white/80 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200/50 dark:border-slate-600/50 hover:border-purple-300 dark:hover:border-theme-interactive-primary transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10 transform hover:-translate-y-1 text-left"
+              className="group bg-white/80 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200/50 dark:border-slate-600/50 hover:border-theme-interactive-primary transition-all duration-300 hover:shadow-xl hover:shadow-theme-interactive-primary/10 transform hover:-translate-y-1 text-left"
             >
               <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                 <ScaleIcon className="h-6 w-6 text-white" />
               </div>
-              <h4 className="font-semibold text-slate-800 dark:text-white mb-2 group-hover:text-theme-interactive-primary dark:group-hover:text-purple-400 transition-colors duration-300">
+              <h4 className="font-semibold text-slate-800 dark:text-white mb-2 group-hover:text-theme-interactive-primary transition-colors duration-300">
                 Compare Plans
               </h4>
               <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -414,13 +416,13 @@ export const PlanSelectionPage: React.FC = () => {
             </button>
             
             <button 
-              className="group bg-white/80 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200/50 dark:border-slate-600/50 hover:border-emerald-300 dark:hover:border-emerald-500 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 transform hover:-translate-y-1"
+              className="group bg-white/80 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200/50 dark:border-slate-600/50 hover:border-theme-success transition-all duration-300 hover:shadow-xl hover:shadow-theme-success/10 transform hover:-translate-y-1"
               disabled
             >
               <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                 <span className="text-white text-xl">❓</span>
               </div>
-              <h4 className="font-semibold text-slate-800 dark:text-white mb-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300">
+              <h4 className="font-semibold text-slate-800 dark:text-white mb-2 group-hover:text-theme-success transition-colors duration-300">
                 View FAQ
               </h4>
               <p className="text-sm text-slate-600 dark:text-slate-300">

@@ -334,7 +334,7 @@ class ScheduledTaskService
     # Task execution methods
     def execute_database_backup_task(task)
       backup_type = task.command&.include?("schema") ? "schema_only" : "full"
-      DatabaseBackupService.create_backup(backup_type, "Scheduled backup: #{task.name}", task.user)
+      System::DatabaseBackupService.create_backup(backup_type, "Scheduled backup: #{task.name}", task.user)
     end
 
     def execute_data_cleanup_task(task)
@@ -370,7 +370,7 @@ class ScheduledTaskService
     end
 
     def execute_health_check_task(task)
-      SystemHealthService.trigger_comprehensive_check
+      System::HealthService.trigger_comprehensive_check
 
       {
         success: true,

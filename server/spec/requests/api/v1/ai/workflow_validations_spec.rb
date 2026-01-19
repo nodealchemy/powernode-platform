@@ -148,9 +148,9 @@ RSpec.describe 'Api::V1::Ai::WorkflowValidations', type: :request do
       context 'with valid workflow structure' do
         before do
           # Create a valid workflow structure with nodes and edges
-          trigger = create(:ai_workflow_node, :trigger, ai_workflow: workflow)
-          action = create(:ai_workflow_node, :action, ai_workflow: workflow)
-          create(:ai_workflow_edge, ai_workflow: workflow, source_node: trigger, target_node: action)
+          trigger = create(:ai_workflow_node, :trigger, workflow: workflow)
+          action = create(:ai_workflow_node, :action, workflow: workflow)
+          create(:ai_workflow_edge, workflow: workflow, source_node: trigger, target_node: action)
         end
 
         it 'creates a new validation' do
@@ -188,7 +188,7 @@ RSpec.describe 'Api::V1::Ai::WorkflowValidations', type: :request do
 
         it 'detects orphaned nodes' do
           # Create orphaned node
-          create(:ai_workflow_node, :action, ai_workflow: workflow)
+          create(:ai_workflow_node, :action, workflow: workflow)
 
           post "/api/v1/ai/workflows/#{workflow.id}/validations", headers: headers, as: :json
 
@@ -199,7 +199,7 @@ RSpec.describe 'Api::V1::Ai::WorkflowValidations', type: :request do
 
         it 'detects trigger with no output' do
           # Create trigger without outgoing edges
-          create(:ai_workflow_node, :trigger, ai_workflow: workflow)
+          create(:ai_workflow_node, :trigger, workflow: workflow)
 
           post "/api/v1/ai/workflows/#{workflow.id}/validations", headers: headers, as: :json
 

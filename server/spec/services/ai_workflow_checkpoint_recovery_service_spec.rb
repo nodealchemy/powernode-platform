@@ -14,7 +14,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
   let(:workflow) { create(:ai_workflow, account: account) }
   let(:workflow_run) do
     run = create(:ai_workflow_run, :failed,
-           ai_workflow: workflow,
+           workflow: workflow,
            account: account,
            input_variables: { 'input_data' => 'test' },
            output_variables: { 'result' => 'partial' },
@@ -103,7 +103,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
           service.create_checkpoint(type: 'node_completion', node_id: "node-#{i}")
         end
 
-        expect(workflow_run.ai_workflow_checkpoints.count).to eq(10)
+        expect(workflow_run.checkpoints.count).to eq(10)
       end
 
       it 'deletes oldest checkpoints first' do
@@ -111,7 +111,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
           service.create_checkpoint(type: 'node_completion', node_id: "node-#{i}")
         end
 
-        remaining = workflow_run.ai_workflow_checkpoints.order(:sequence_number).pluck(:sequence_number)
+        remaining = workflow_run.checkpoints.order(:sequence_number).pluck(:sequence_number)
         expect(remaining).to eq((6..15).to_a)
       end
     end
@@ -119,7 +119,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
 
   describe '#restore_from_checkpoint' do
     let!(:checkpoint) do
-      workflow_run.ai_workflow_checkpoints.create!(
+      workflow_run.checkpoints.create!(
         checkpoint_type: 'node_completion',
         node_id: 'node-5',
         sequence_number: 1,
@@ -164,20 +164,20 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
 
       it 'marks completed nodes' do
         # Create workflow nodes that match the checkpoint data
-        wf_node1 = create(:ai_workflow_node, ai_workflow: workflow, node_id: 'node-1')
-        wf_node2 = create(:ai_workflow_node, ai_workflow: workflow, node_id: 'node-2')
+        wf_node1 = create(:ai_workflow_node, workflow: workflow, node_id: 'node-1')
+        wf_node2 = create(:ai_workflow_node, workflow: workflow, node_id: 'node-2')
 
         # Create node executions
         node1 = create(:ai_workflow_node_execution,
-                      ai_workflow_run: workflow_run,
-                      ai_workflow_node: wf_node1,
+                      workflow_run: workflow_run,
+                      node: wf_node1,
                       node_id: 'node-1',
                       node_type: wf_node1.node_type,
                       status: 'pending')
 
         node2 = create(:ai_workflow_node_execution,
-                      ai_workflow_run: workflow_run,
-                      ai_workflow_node: wf_node2,
+                      workflow_run: workflow_run,
+                      node: wf_node2,
                       node_id: 'node-2',
                       node_type: wf_node2.node_type,
                       status: 'pending')
@@ -199,11 +199,11 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
 
       it 'adds recovery metadata to node executions' do
         # Create workflow node that matches checkpoint data
-        wf_node = create(:ai_workflow_node, ai_workflow: workflow, node_id: 'node-1')
+        wf_node = create(:ai_workflow_node, workflow: workflow, node_id: 'node-1')
 
         node = create(:ai_workflow_node_execution,
-                     ai_workflow_run: workflow_run,
-                     ai_workflow_node: wf_node,
+                     workflow_run: workflow_run,
+                     node: wf_node,
                      node_id: 'node-1',
                      node_type: wf_node.node_type,
                      status: 'pending')
@@ -282,7 +282,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
 
   describe '.find_recovery_checkpoint' do
     let!(:node_checkpoint) do
-      workflow_run.ai_workflow_checkpoints.create!(
+      workflow_run.checkpoints.create!(
         checkpoint_type: 'node_completion',
         node_id: 'node-5',
         sequence_number: 5,
@@ -293,7 +293,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
     end
 
     let!(:manual_checkpoint) do
-      workflow_run.ai_workflow_checkpoints.create!(
+      workflow_run.checkpoints.create!(
         checkpoint_type: 'manual_checkpoint',
         node_id: 'node-3',
         sequence_number: 3,
@@ -304,7 +304,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
     end
 
     let!(:error_checkpoint) do
-      workflow_run.ai_workflow_checkpoints.create!(
+      workflow_run.checkpoints.create!(
         checkpoint_type: 'error_checkpoint',
         node_id: 'node-4',
         sequence_number: 4,
@@ -327,7 +327,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
     end
 
     it 'ignores checkpoints older than retention period' do
-      old_checkpoint = workflow_run.ai_workflow_checkpoints.create!(
+      old_checkpoint = workflow_run.checkpoints.create!(
         checkpoint_type: 'node_completion',
         node_id: 'node-1',
         sequence_number: 1,
@@ -341,7 +341,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
     end
 
     it 'returns nil when no checkpoints available' do
-      workflow_run.ai_workflow_checkpoints.destroy_all
+      workflow_run.checkpoints.destroy_all
 
       checkpoint = described_class.find_recovery_checkpoint(workflow_run)
       expect(checkpoint).to be_nil
@@ -352,7 +352,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
     context 'when workflow is failed with checkpoints' do
       before do
         workflow_run.update(status: 'failed')
-        workflow_run.ai_workflow_checkpoints.create!(
+        workflow_run.checkpoints.create!(
           checkpoint_type: 'node_completion',
           node_id: 'node-1',
           sequence_number: 1,
@@ -369,7 +369,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
     context 'when workflow is cancelled with checkpoints' do
       before do
         workflow_run.update(status: 'cancelled')
-        workflow_run.ai_workflow_checkpoints.create!(
+        workflow_run.checkpoints.create!(
           checkpoint_type: 'node_completion',
           node_id: 'node-1',
           sequence_number: 1,
@@ -386,7 +386,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
     context 'when workflow is running' do
       before do
         workflow_run.update(status: 'running')
-        workflow_run.ai_workflow_checkpoints.create!(
+        workflow_run.checkpoints.create!(
           checkpoint_type: 'node_completion',
           node_id: 'node-1',
           sequence_number: 1,
@@ -411,7 +411,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
 
   describe '#recovery_stats' do
     let!(:checkpoint) do
-      workflow_run.ai_workflow_checkpoints.create!(
+      workflow_run.checkpoints.create!(
         checkpoint_type: 'node_completion',
         node_id: 'node-5',
         sequence_number: 3,
@@ -428,14 +428,14 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
     let(:service) { described_class.new(workflow_run: workflow_run, checkpoint: checkpoint) }
 
     before do
-      workflow_run.ai_workflow_checkpoints.create!(
+      workflow_run.checkpoints.create!(
         checkpoint_type: 'manual_checkpoint',
         node_id: 'node-1',
         sequence_number: 1,
         workflow_state: { status: 'paused' },
         execution_context: { session: 'test' }
       )
-      workflow_run.ai_workflow_checkpoints.create!(
+      workflow_run.checkpoints.create!(
         checkpoint_type: 'manual_checkpoint',
         node_id: 'node-2',
         sequence_number: 2,
@@ -499,17 +499,17 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
     context 'capturing completed nodes' do
       before do
         create(:ai_workflow_node_execution,
-               ai_workflow_run: workflow_run,
+               workflow_run: workflow_run,
                node_id: 'node-1',
                status: 'completed')
 
         create(:ai_workflow_node_execution,
-               ai_workflow_run: workflow_run,
+               workflow_run: workflow_run,
                node_id: 'node-2',
                status: 'completed')
 
         create(:ai_workflow_node_execution,
-               ai_workflow_run: workflow_run,
+               workflow_run: workflow_run,
                node_id: 'node-3',
                status: 'failed')
       end
@@ -525,19 +525,19 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
     context 'capturing execution path' do
       before do
         create(:ai_workflow_node_execution,
-               ai_workflow_run: workflow_run,
+               workflow_run: workflow_run,
                node_id: 'node-1',
                status: 'completed',
                created_at: 3.minutes.ago)
 
         create(:ai_workflow_node_execution,
-               ai_workflow_run: workflow_run,
+               workflow_run: workflow_run,
                node_id: 'node-2',
                status: 'failed',
                created_at: 2.minutes.ago)
 
         create(:ai_workflow_node_execution,
-               ai_workflow_run: workflow_run,
+               workflow_run: workflow_run,
                node_id: 'node-3',
                status: 'completed',
                created_at: 1.minute.ago)

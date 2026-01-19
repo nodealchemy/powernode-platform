@@ -35,10 +35,11 @@ import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { workflowsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { AiWorkflow } from '@/shared/types/workflow';
 import type { WorkflowFilters } from '@/shared/services/ai/types/workflow-api-types';
-import { WorkflowCreateModal } from '@/features/ai-workflows/components/WorkflowCreateModal';
-import { WorkflowDetailModal } from '@/features/ai-workflows/components/WorkflowDetailModal';
+import { WorkflowCreateModal } from '@/features/ai/workflows/components/WorkflowCreateModal';
+import { WorkflowDetailModal } from '@/features/ai/workflows/components/WorkflowDetailModal';
 import { WorkflowBuilderModal } from '@/shared/components/workflow/WorkflowBuilderModal';
 import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 
@@ -47,6 +48,14 @@ export const WorkflowsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   // Get initial type filter from URL query param
   const getInitialTypeFilter = (): 'all' | 'workflows' | 'templates' => {

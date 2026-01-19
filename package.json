@@ -1,6 +1,6 @@
 {
   "name": "powernode-platform",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Subscription management platform with Rails 8 API and React TypeScript frontend",
   "private": true,
   "scripts": {
@@ -24,7 +24,7 @@
     "setup:frontend": "cd frontend && npm install"
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^9.2.1"
   },
   "engines": {
     "node": ">=18.0.0",

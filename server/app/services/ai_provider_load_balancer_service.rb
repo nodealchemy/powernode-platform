@@ -59,7 +59,7 @@ class AiProviderLoadBalancerService
         attempted_providers << provider.id
 
         # Create client and execute request
-        credential = provider.ai_provider_credentials.active.first
+        credential = provider.provider_credentials.active.first
         raise LoadBalancingError, "No active credentials for provider #{provider.name}" unless credential
 
         client = AiProviderClientService.new(credential)

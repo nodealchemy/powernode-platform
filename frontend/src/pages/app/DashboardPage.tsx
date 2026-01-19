@@ -1,27 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { plansApi } from '@/features/plans/services/plansApi';
-import { paymentGatewaysApi } from '@/features/payment-gateways/services/paymentGatewaysApi';
+import { plansApi } from '@/features/business/plans/services/plansApi';
+import { paymentGatewaysApi } from '@/features/business/payment-gateways/services/paymentGatewaysApi';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { MetricCard } from '@/shared/components/ui/Card';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 
 // Import all dashboard pages
 import { ReportsPage } from './business/ReportsPage';
 import { PlansPage } from './business/PlansPage';
-import { SettingsPage } from './SettingsPage';
+import { ProfilePage } from './account/ProfilePage';
 import { PagesPage } from './content/PagesPage';
 import KnowledgeBasePage from './content/KnowledgeBasePage';
 import KnowledgeBaseArticlePage from './content/KnowledgeBaseArticlePage';
 import KnowledgeBaseAdminPage from './content/KnowledgeBaseAdminPage';
-import { KnowledgeBaseArticleEditor } from '@/features/knowledge-base/components/KnowledgeBaseArticleEditor';
+import { KnowledgeBaseArticleEditor } from '@/features/content/knowledge-base/components/KnowledgeBaseArticleEditor';
 import MyFilesPage from './content/MyFilesPage';
-import { UsersPage } from './UsersPage';
-import { AuditLogsPage } from './AuditLogsPage';
-import { ApiKeysPage } from './ApiKeysPage';
-import { NotificationsPage } from './NotificationsPage';
-import { MetricsPage } from './MetricsPage';
+import { UsersPage } from './account/UsersPage';
+import { AuditLogsPage } from './system/AuditLogsPage';
+import PrivacyDashboardPage from './privacy/PrivacyDashboardPage';
+import { ApiKeysPage } from './devops/ApiKeysPage';
+import { NotificationsPage } from './account/NotificationsPage';
+import { MetricsPage } from './business/MetricsPage';
 import { AnalyticsPage } from './business/AnalyticsPage';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { BarChart3, Users, CreditCard } from 'lucide-react';
@@ -32,11 +34,12 @@ import { CustomersPage } from './business/CustomersPage';
 import { BillingPage } from './business/BillingPage';
 
 // Import system pages
-import WebhookManagementPage from '@/pages/app/WebhookManagementPage';
+import WebhookManagementPage from '@/pages/app/devops/WebhooksPage';
 
 // Import marketplace pages
 import { MarketplacePage } from '@/pages/app/marketplace/MarketplacePage';
 import { ItemDetailPage } from '@/pages/app/marketplace/ItemDetailPage';
+import { MySubscriptionsPage } from '@/pages/app/marketplace/MySubscriptionsPage';
 
 // Import admin pages
 import { AdminSettingsPage } from '@/pages/app/admin/AdminSettingsPage';
@@ -45,15 +48,30 @@ import { AdminRolesPage } from '@/pages/app/admin/AdminRolesPage';
 import { WorkersPage as SystemWorkersPage } from '@/pages/app/system/WorkersPage';
 import { ServicesPage } from '@/pages/app/system/ServicesPage';
 import StorageProvidersPage from '@/pages/app/system/StorageProvidersPage';
+// GitProvidersPage moved to Connections - route redirects to connections/git
+
+// CI/CD Pages (used in System section for runners)
+import {
+  RunnersPage as AiPipelinesRunnersPage,
+} from '@/features/devops/pipelines';
+
+// Provider Pages
+import {
+  AiProvidersPage,
+  GitProvidersPage,
+  RepositoriesPage,
+} from '@/features/devops/connections';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
+// AdminPluginsPage deprecated - now redirects to admin/marketplace
+import { AdminImpersonationPage } from '@/pages/app/admin/AdminImpersonationPage';
 
 // Test page
 import { TestWebSocket } from '@/pages/app/TestWebSocket';
 
 // AI Pages - Standalone navigation (no longer using AIOrchestrationPage wrapper)
 import { AIOverviewPage } from './ai/AIOverviewPage';
-import { AIProvidersPage } from './ai/AIProvidersPage';
+// AIProvidersPage moved to Connections - route redirects to connections/ai
 import { AIAgentsPage } from './ai/AIAgentsPage';
 import { WorkflowsPage } from './ai/WorkflowsPage';
 import { AIConversationsPage } from './ai/AIConversationsPage';
@@ -69,6 +87,30 @@ import { WorkflowMonitoringPage } from './ai/WorkflowMonitoringPage';
 import { WorkflowValidationStatisticsPage } from './ai/WorkflowValidationStatisticsPage';
 import { AIAnalyticsPage } from './ai/AIAnalyticsPage';
 
+// AI Context Pages
+import { AgentMemoryPage } from './ai/AgentMemoryPage';
+import { ContextsPage } from './ai/ContextsPage';
+import { ContextDetailPage } from './ai/ContextDetailPage';
+
+// Prompt Templates
+import { PromptsPage } from '@/features/ai/prompts/pages/PromptsPage';
+
+// Integration Pages
+// IntegrationsMarketplacePage deprecated - now redirects to marketplace?types=integration
+import {
+  IntegrationsPage,
+  IntegrationDetailPage,
+  NewIntegrationPage,
+} from '@/pages/app/devops/integrations';
+
+// DevOps Pages
+import { DevOpsOverviewPage } from '@/pages/app/devops/DevOpsOverviewPage';
+import { PipelinesPage } from '@/pages/app/devops/PipelinesPage';
+import { PipelineCreatePage } from '@/pages/app/devops/PipelineCreatePage';
+import { PipelineDetailPage } from '@/pages/app/devops/PipelineDetailPage';
+import { PipelineEditPage } from '@/pages/app/devops/PipelineEditPage';
+import { RunnerDetailPage } from '@/pages/app/devops/RunnerDetailPage';
+
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
   const navigate = useNavigate();
@@ -76,7 +118,22 @@ const DashboardOverview: React.FC = () => {
   const [hasPlans, setHasPlans] = useState(false);
   const [hasPaymentGateways, setHasPaymentGateways] = useState(false);
   const [loading, setLoading] = useState(true);
-  
+
+  // Handle websocket data updates
+  const handleDataUpdate = useCallback(() => {
+    // Refresh data when receiving real-time updates
+    // Could trigger a re-fetch of metrics here
+  }, []);
+
+  // WebSocket connection for real-time dashboard updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'dashboard',
+    onDataUpdate: handleDataUpdate,
+    onSubscriptionUpdate: handleDataUpdate,
+    onAnalyticsUpdate: handleDataUpdate,
+    onNotification: handleDataUpdate
+  });
+
   useEffect(() => {
     let mounted = true; // Track if component is still mounted
     
@@ -446,7 +503,9 @@ const DashboardPage: React.FC = () => {
         
         {/* AI Pages - Standalone navigation */}
         <Route path="/ai" element={<AIOverviewPage />} />
-        <Route path="/ai/providers" element={<AIProvidersPage />} />
+        <Route path="/ai/providers" element={<AiProvidersPage />} />
+        <Route path="/ai/providers/new" element={<AiProvidersPage />} />
+        <Route path="/ai/providers/:id" element={<AiProvidersPage />} />
         <Route path="/ai/agents" element={<AIAgentsPage />} />
         <Route path="/ai/workflows" element={<WorkflowsPage />} />
         <Route path="/ai/conversations" element={<AIConversationsPage />} />
@@ -463,7 +522,13 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
         <Route path="/ai/agent-teams" element={<AgentTeamsPage />} />
-        
+        <Route path="/ai/contexts" element={<ContextsPage />} />
+        <Route path="/ai/knowledge" element={<Navigate to="/app/ai/contexts" replace />} />
+        <Route path="/ai/contexts/:id" element={<ContextDetailPage />} />
+        <Route path="/ai/agents/:agentId/memory" element={<AgentMemoryPage />} />
+        <Route path="/ai/prompts" element={<PromptsPage />} />
+        <Route path="/ai/plugins" element={<Navigate to="/app/marketplace?types=plugin" replace />} />
+
         {/* Core Pages */}
         <Route path="/content/pages" element={<PagesPage />} />
 
@@ -484,24 +549,51 @@ const DashboardPage: React.FC = () => {
         <Route path="/business/reports/*" element={<ReportsPage />} />
         
         {/* System Pages */}
-        <Route path="/profile/*" element={<SettingsPage />} />
+        <Route path="/profile/*" element={<ProfilePage />} />
+
+        {/* Privacy Page */}
+        <Route path="/privacy" element={<PrivacyDashboardPage />} />
         {/* Workers moved to admin routes */}
         
         {/* System Management Pages */}
         <Route path="/system/services" element={<ServicesPage />} />
         <Route path="/system/storage" element={<StorageProvidersPage />} />
-        <Route path="/system/webhooks" element={<WebhookManagementPage />} />
+
+        {/* DevOps Pages - Git, Repositories, Runners, Webhooks, Integrations, API Keys */}
+        <Route path="/devops" element={<DevOpsOverviewPage />} />
+        <Route path="/devops/git" element={<GitProvidersPage />} />
+        <Route path="/devops/git/new" element={<GitProvidersPage />} />
+        <Route path="/devops/git/:id" element={<GitProvidersPage />} />
+        <Route path="/devops/repositories" element={<RepositoriesPage />} />
+        <Route path="/devops/runners" element={<AiPipelinesRunnersPage />} />
+        <Route path="/devops/runners/:id" element={<RunnerDetailPage />} />
+        <Route path="/devops/webhooks" element={<WebhookManagementPage />} />
+        <Route path="/devops/integrations" element={<IntegrationsPage />} />
+        <Route path="/devops/integrations/new" element={<NewIntegrationPage />} />
+        <Route path="/devops/integrations/new/:templateId" element={<NewIntegrationPage />} />
+        <Route path="/devops/integrations/:id" element={<IntegrationDetailPage />} />
+        <Route path="/devops/api-keys" element={<ApiKeysPage />} />
+
+        {/* System Pages - Infrastructure only */}
         <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />
-        <Route path="/system/api-keys" element={<ApiKeysPage />} />
-        
+
+        {/* DevOps Pipelines */}
+        <Route path="/devops/pipelines" element={<PipelinesPage />} />
+        <Route path="/devops/pipelines/new" element={<PipelineCreatePage />} />
+        <Route path="/devops/pipelines/:id" element={<PipelineDetailPage />} />
+        <Route path="/devops/pipelines/:id/edit" element={<PipelineEditPage />} />
+        <Route path="/devops/pipelines/:id/runs" element={<PipelineDetailPage />} />
+        <Route path="/devops/pipelines/:id/runs/:runId" element={<PipelineDetailPage />} />
+
         {/* Business Analytics Pages */}
         <Route path="/business/analytics/*" element={<AnalyticsPage />} />
         <Route path="/metrics" element={<MetricsPage />} />
         
-        {/* Marketplace Pages - Unified Interface */}
+        {/* Marketplace Pages */}
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/marketplace/:type/:id" element={<ItemDetailPage />} />
-        
+        <Route path="/marketplace/subscriptions" element={<MySubscriptionsPage />} />
+
         {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />
         
@@ -510,6 +602,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/roles" element={<AdminRolesPage />} />
         <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
+        <Route path="/admin/marketplace/apps/:id/edit" element={<Navigate to="/app/admin/marketplace" replace />} />
+        {/* Legacy: redirect to consolidated marketplace admin with plugin filter */}
+        <Route path="/admin/plugins" element={<Navigate to="/app/admin/marketplace?types=plugin" replace />} />
+        <Route path="/admin/impersonation" element={<AdminImpersonationPage />} />
         <Route path="/system/workers/*" element={<SystemWorkersPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
         <Route path="/admin" element={<Navigate to="/app/admin/settings" replace />} />

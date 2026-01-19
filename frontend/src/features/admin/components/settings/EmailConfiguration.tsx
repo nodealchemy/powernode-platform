@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Send, CheckCircle, AlertCircle, Settings, Eye, EyeOff } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { emailSettingsApi, EmailSettings } from '@/shared/services/emailSettingsApi';
+import { emailSettingsApi, EmailSettings } from '@/shared/services/settings/emailSettingsApi';
 
 export const EmailConfiguration: React.FC = () => {
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({

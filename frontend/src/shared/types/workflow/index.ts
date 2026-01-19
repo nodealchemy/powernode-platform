@@ -4,6 +4,7 @@
 // Core workflow types
 export type {
   AiWorkflow,
+  WorkflowType,
   WorkflowNodeType,
   HandlePosition,
   HandlePositions,
@@ -23,6 +24,9 @@ export type {
   DataProcessorNodeData,
   DatabaseNodeData,
   DelayNodeData,
+  DevopsGetLogsNodeData,
+  DevopsTriggerNodeData,
+  DevopsWaitStatusNodeData,
   EmailNodeData,
   EndNodeData,
   FileNodeData,
@@ -50,6 +54,9 @@ export type {
   DataProcessorNode,
   DatabaseNode,
   DelayNode,
+  DevopsGetLogsNode,
+  DevopsTriggerNode,
+  DevopsWaitStatusNode,
   EmailNode,
   EndNode,
   FileNode,

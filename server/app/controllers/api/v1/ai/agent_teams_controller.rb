@@ -19,7 +19,7 @@ module Api
         # GET /api/v1/ai/agent_teams
         def index
           @teams = current_account.ai_agent_teams
-                                  .includes(:ai_agent_team_members)
+                                  .includes(:members)
                                   .order(created_at: :desc)
 
           # Filter by status if provided
@@ -105,7 +105,7 @@ module Api
 
         # DELETE /api/v1/ai/agent_teams/:id/members/:member_id
         def remove_member
-          member = @team.ai_agent_team_members.find(params[:member_id])
+          member = @team.members.find(params[:member_id])
           agent_name = member.ai_agent_name
 
           if member.destroy
@@ -122,7 +122,7 @@ module Api
         # POST /api/v1/ai/agent_teams/:id/execute
         def execute
           # Queue team execution job
-          job = AiAgentTeamExecutionJob.perform_async(
+          job = ::Ai::AgentTeamExecutionJob.perform_async(
             team_id: @team.id,
             user_id: current_user.id,
             input: params[:input] || {},
@@ -198,7 +198,7 @@ module Api
             team_type: team.team_type,
             coordination_strategy: team.coordination_strategy,
             status: team.status,
-            member_count: team.ai_agent_team_members.count,
+            member_count: team.members.count,
             has_lead: team.has_lead?,
             created_at: team.created_at,
             updated_at: team.updated_at
@@ -208,7 +208,7 @@ module Api
         def serialize_team_detail(team)
           serialize_team(team).merge(
             team_config: team.team_config,
-            members: team.ai_agent_team_members.order(:priority_order).map { |m| serialize_member(m) },
+            members: team.members.order(:priority_order).map { |m| serialize_member(m) },
             stats: team.team_stats
           )
         end

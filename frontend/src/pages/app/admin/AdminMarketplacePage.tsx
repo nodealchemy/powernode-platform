@@ -1,7 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Plus, 
-  RefreshCw, 
+/**
+ * Admin Marketplace Page
+ *
+ * Consolidated admin interface for managing all marketplace template types
+ * (workflows, pipelines, integrations, prompts) and reviews.
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  RefreshCw,
   Search,
   Filter,
   Eye,
@@ -11,7 +17,12 @@ import {
   AlertTriangle,
   Star,
   TrendingUp,
-  Download
+  Download,
+  Package,
+  Flag,
+  ThumbsUp,
+  FileCheck,
+  Clock
 } from 'lucide-react';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
@@ -19,27 +30,48 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { appsApi, marketplaceListingsApi } from '@/features/marketplace/services/marketplaceApi';
-import type { App, MarketplaceListing } from '@/features/marketplace/types';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { marketplaceApi } from '@/features/app/services/marketplaceApi';
+import type {
+  MarketplaceItem,
+  MarketplaceItemType,
+  MarketplaceReview
+} from '@/features/app/types/marketplace';
+import { ALL_MARKETPLACE_TYPES } from '@/features/app/types/marketplace';
 
 interface AdminMarketplacePageProps {
   className?: string;
 }
 
+const ALL_TYPES = ALL_MARKETPLACE_TYPES;
+
 export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ className = '' }) => {
-  const [activeTab, setActiveTab] = useState<'apps' | 'listings' | 'reviews' | 'analytics'>('apps');
-  const [apps, setApps] = useState<App[]>([]);
-  const [listings, setListings] = useState<MarketplaceListing[]>([]);
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'admin',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
+
+  const [activeTab, setActiveTab] = useState<'items' | 'pending' | 'reviews' | 'analytics'>('items');
+  const [items, setItems] = useState<MarketplaceItem[]>([]);
+  const [pendingTemplates, setPendingTemplates] = useState<MarketplaceItem[]>([]);
+  const [reviews, setReviews] = useState<MarketplaceReview[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedApp, setSelectedApp] = useState<App | null>(null);
+  const [selectedType, setSelectedType] = useState<MarketplaceItemType | 'all'>('all');
+  const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const { showNotification } = useNotifications();
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [templateToReject, setTemplateToReject] = useState<MarketplaceItem | null>(null);
+  const [reviewStatusFilter, setReviewStatusFilter] = useState<string>('all');
+  const { addNotification } = useNotifications();
 
-  // Prevent duplicate API calls in StrictMode by tracking initial load
+  // Prevent duplicate API calls in StrictMode
   const hasLoadedRef = useRef(false);
-  const currentTabRef = useRef<'apps' | 'listings' | 'reviews' | 'analytics'>('apps');
+  const currentTabRef = useRef<'items' | 'pending' | 'reviews' | 'analytics'>('items');
 
   const getBreadcrumbs = () => [
     { label: 'Dashboard', href: '/app', icon: '🏠' },
@@ -48,14 +80,14 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
   ];
 
   const getPageActions = (): PageAction[] => {
-    const baseActions: PageAction[] = [
-      { 
-        id: 'refresh', 
-        label: 'Refresh', 
-        onClick: loadData, 
-        variant: 'secondary', 
-        icon: RefreshCw, 
-        disabled: loading 
+    return [
+      {
+        id: 'refresh',
+        label: 'Refresh',
+        onClick: loadData,
+        variant: 'secondary',
+        icon: RefreshCw,
+        disabled: loading
       },
       {
         id: 'export',
@@ -66,75 +98,82 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
         permission: 'admin.marketplace.export'
       }
     ];
-
-    if (activeTab === 'apps') {
-      baseActions.unshift({
-        id: 'create-app',
-        label: 'Create App',
-        onClick: () => setShowCreateModal(true),
-        variant: 'primary',
-        icon: Plus,
-        permission: 'admin.marketplace.manage'
-      });
-    }
-
-    return baseActions;
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      if (activeTab === 'apps') {
-        const response = await appsApi.getApps({ page: 1, per_page: 50 });
-        setApps(response.data || []);
-      } else if (activeTab === 'listings') {
-        const response = await marketplaceListingsApi.getMarketplaceListings({ page: 1, per_page: 50 });
-        setListings(response.data || []);
+      if (activeTab === 'items') {
+        const filters = selectedType !== 'all' ? { types: [selectedType] } : undefined;
+        const response = await marketplaceApi.getItems(filters, 1, 100);
+        setItems(response.data || []);
+      } else if (activeTab === 'pending') {
+        const response = await marketplaceApi.getPendingTemplates();
+        setPendingTemplates(response.data || []);
+      } else if (activeTab === 'reviews') {
+        const params: { sort?: 'recent'; verified?: boolean } = { sort: 'recent' };
+        const response = await marketplaceApi.getReviews(params);
+        setReviews(response.data || []);
       }
     } catch (error: unknown) {
-      showNotification(error instanceof Error ? error.message : 'Failed to load data', 'error');
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to load data'
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, selectedType, addNotification]);
 
   const handleExportReport = () => {
     try {
       let data: Record<string, unknown>[];
       let filename: string;
 
-      if (activeTab === 'apps') {
-        data = apps.map(app => ({
-          id: app.id,
-          name: app.name,
-          description: app.description,
-          status: app.status,
-          category: app.category,
-          author: (app.metadata as Record<string, unknown>)?.author || 'Unknown',
-          version: app.version,
-          created_at: app.created_at,
-          updated_at: app.updated_at
+      if (activeTab === 'items') {
+        data = items.map(item => ({
+          id: item.id,
+          name: item.name,
+          type: item.type,
+          description: item.description,
+          status: item.status,
+          category: item.category,
+          version: item.version,
+          rating: item.rating,
+          install_count: item.install_count,
+          is_verified: item.is_verified,
+          is_featured: item.is_featured,
+          created_at: item.created_at
         }));
-        filename = `marketplace-apps-${new Date().toISOString().split('T')[0]}.csv`;
-      } else if (activeTab === 'listings') {
-        data = listings.map(listing => ({
-          id: listing.id,
-          name: listing.title,
-          description: listing.short_description,
-          status: listing.review_status,
-          category: listing.category,
-          featured: listing.featured,
-          created_at: listing.created_at,
-          updated_at: listing.updated_at
+        filename = `marketplace-items-${new Date().toISOString().split('T')[0]}.csv`;
+      } else if (activeTab === 'reviews') {
+        data = reviews.map(review => ({
+          id: review.id,
+          rating: review.rating,
+          title: review.title,
+          author: review.author.name,
+          moderation_status: review.moderation_status,
+          verified_purchase: review.verified_purchase,
+          helpful_count: review.helpful_count,
+          created_at: review.created_at
         }));
-        filename = `marketplace-listings-${new Date().toISOString().split('T')[0]}.csv`;
+        filename = `marketplace-reviews-${new Date().toISOString().split('T')[0]}.csv`;
       } else {
-        showNotification('Export not available for this tab', 'warning');
+        addNotification({
+          type: 'warning',
+          title: 'Export not available',
+          message: 'Export not available for this tab'
+        });
         return;
       }
 
       if (data.length === 0) {
-        showNotification('No data to export', 'warning');
+        addNotification({
+          type: 'warning',
+          title: 'No data',
+          message: 'No data to export'
+        });
         return;
       }
 
@@ -146,7 +185,6 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
           headers.map(header => {
             const value = row[header];
             const stringValue = value === null || value === undefined ? '' : String(value);
-            // Escape quotes and wrap in quotes if contains comma or newline
             if (stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('"')) {
               return `"${stringValue.replace(/"/g, '""')}"`;
             }
@@ -164,71 +202,153 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       link.click();
       URL.revokeObjectURL(link.href);
 
-      showNotification(`Exported ${data.length} records to ${filename}`, 'success');
+      addNotification({
+        type: 'success',
+        title: 'Export Complete',
+        message: `Exported ${data.length} records to ${filename}`
+      });
     } catch (error) {
-      showNotification('Failed to export data', 'error');
+      addNotification({
+        type: 'error',
+        title: 'Export Failed',
+        message: 'Failed to export data'
+      });
     }
   };
 
-  const handleAppAction = async (appId: string, action: 'approve' | 'reject' | 'publish' | 'unpublish' | 'delete') => {
+  const handleApproveTemplate = async (template: MarketplaceItem) => {
     try {
       setLoading(true);
-      
-      switch (action) {
-        case 'publish':
-          await appsApi.publishApp(appId);
-          showNotification('App published successfully', 'success');
-          break;
-        case 'unpublish':
-          await appsApi.unpublishApp(appId);
-          showNotification('App unpublished successfully', 'success');
-          break;
-        case 'delete':
-          await appsApi.deleteApp(appId);
-          showNotification('App deleted successfully', 'success');
-          break;
-        default:
-          showNotification(`${action} functionality coming soon`, 'info');
-          return;
-      }
-      
+      await marketplaceApi.approveTemplate(template.type, template.id);
+      addNotification({
+        type: 'success',
+        title: 'Template Approved',
+        message: `${template.name} has been approved for the marketplace`
+      });
       await loadData();
     } catch (error: unknown) {
-      showNotification(error instanceof Error ? error.message : `Failed to ${action} app`, 'error');
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to approve template'
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleListingAction = async (appId: string, action: 'approve' | 'reject' | 'feature' | 'unfeature') => {
+  const handleRejectTemplate = async () => {
+    if (!templateToReject || !rejectReason.trim()) {
+      addNotification({
+        type: 'warning',
+        title: 'Rejection Reason Required',
+        message: 'Please provide a reason for rejecting this template'
+      });
+      return;
+    }
+
     try {
       setLoading(true);
-      
+      await marketplaceApi.rejectTemplate(templateToReject.type, templateToReject.id, rejectReason);
+      addNotification({
+        type: 'success',
+        title: 'Template Rejected',
+        message: `${templateToReject.name} has been rejected`
+      });
+      setShowRejectModal(false);
+      setRejectReason('');
+      setTemplateToReject(null);
+      await loadData();
+    } catch (error: unknown) {
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to reject template'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openRejectModal = (template: MarketplaceItem) => {
+    setTemplateToReject(template);
+    setRejectReason('');
+    setShowRejectModal(true);
+  };
+
+  const handleReviewAction = async (reviewId: string, action: 'approve' | 'reject' | 'flag') => {
+    try {
+      setLoading(true);
+
       switch (action) {
         case 'approve':
-          await marketplaceListingsApi.approveListing(appId);
-          showNotification('Listing approved successfully', 'success');
+          // Note: This would need a backend endpoint for admin approval
+          addNotification({
+            type: 'info',
+            title: 'Admin Approval',
+            message: 'Admin review approval functionality coming soon'
+          });
           break;
         case 'reject':
-          await marketplaceListingsApi.rejectListing(appId, 'Admin review required');
-          showNotification('Listing rejected successfully', 'success');
+          // Note: This would need a backend endpoint for admin rejection
+          addNotification({
+            type: 'info',
+            title: 'Admin Rejection',
+            message: 'Admin review rejection functionality coming soon'
+          });
           break;
-        case 'feature':
-          await marketplaceListingsApi.featureListing(appId);
-          showNotification('Listing featured successfully', 'success');
-          break;
-        case 'unfeature':
-          await marketplaceListingsApi.unfeatureListing(appId);
-          showNotification('Listing unfeatured successfully', 'success');
+        case 'flag':
+          await marketplaceApi.flagReview(reviewId);
+          addNotification({
+            type: 'success',
+            title: 'Review Flagged',
+            message: 'Review has been flagged for moderation'
+          });
           break;
       }
-      
+
       await loadData();
     } catch (error: unknown) {
-      showNotification(error instanceof Error ? error.message : `Failed to ${action} listing`, 'error');
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: error instanceof Error ? error.message : `Failed to ${action} review`
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  const getTypeBadgeColor = (type: string) => {
+    switch (type) {
+      // Feature-aligned types
+      case 'workflow_template':
+        return 'info';
+      case 'pipeline_template':
+        return 'success';
+      case 'integration_template':
+        return 'warning';
+      case 'prompt_template':
+        return 'default';
+      // Legacy types
+      case 'app':
+        return 'info';
+      case 'plugin':
+        return 'success';
+      case 'template':
+        return 'warning';
+      case 'integration':
+        return 'default';
+      default:
+        return 'default';
+    }
+  };
+
+  const formatTypeName = (type: string): string => {
+    return type
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
   const getStatusBadgeVariant = (status: string) => {
@@ -237,10 +357,10 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       case 'approved':
         return 'success';
       case 'draft':
-      case 'pending_review':
+      case 'pending':
         return 'warning';
       case 'rejected':
-      case 'suspended':
+      case 'flagged':
         return 'danger';
       default:
         return 'default';
@@ -253,42 +373,59 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       case 'approved':
         return <CheckCircle className="w-4 h-4" />;
       case 'rejected':
-      case 'suspended':
+      case 'flagged':
         return <XCircle className="w-4 h-4" />;
-      case 'pending_review':
+      case 'pending':
         return <AlertTriangle className="w-4 h-4" />;
       default:
         return null;
     }
   };
 
-  const filteredApps = apps.filter(app => 
-    app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    app.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredItems = items.filter(item =>
+    (selectedType === 'all' || item.type === selectedType) &&
+    (item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const filteredListings = listings.filter(listing => 
-    listing.app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    listing.short_description?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredReviews = reviews.filter(review =>
+    (reviewStatusFilter === 'all' || review.moderation_status === reviewStatusFilter) &&
+    (review.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      review.content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      review.author.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   useEffect(() => {
-    // Prevent duplicate calls in StrictMode: only load if tab changed or first load
     if (!hasLoadedRef.current || currentTabRef.current !== activeTab) {
       hasLoadedRef.current = true;
       currentTabRef.current = activeTab;
       loadData();
     }
-  }, [activeTab]);
+  }, [activeTab, loadData]);
+
+  // Reload when type filter changes
+  useEffect(() => {
+    if (activeTab === 'items' && hasLoadedRef.current) {
+      loadData();
+    }
+  }, [selectedType, activeTab, loadData]);
 
   const tabs = [
-    { id: 'apps' as const, label: 'Apps', icon: '📱', count: apps.length },
-    { id: 'listings' as const, label: 'Listings', icon: '🏪', count: listings.length },
-    { id: 'reviews' as const, label: 'Reviews', icon: '⭐', count: 0 },
+    { id: 'items' as const, label: 'Items', icon: '📦', count: items.length },
+    { id: 'pending' as const, label: 'Pending Review', icon: '⏳', count: pendingTemplates.length },
+    { id: 'reviews' as const, label: 'Reviews', icon: '⭐', count: reviews.length },
     { id: 'analytics' as const, label: 'Analytics', icon: '📊', count: 0 }
   ];
 
-  const renderAppsTab = () => (
+  const getButtonClass = (isActive: boolean) => {
+    return `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+      isActive
+        ? 'bg-theme-info text-white'
+        : 'bg-theme-surface text-theme-tertiary hover:bg-theme-surface-hover border border-theme'
+    }`;
+  };
+
+  const renderItemsTab = () => (
     <div className="space-y-6">
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
@@ -296,103 +433,130 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-theme-secondary w-4 h-4" />
           <input
             type="text"
-            placeholder="Search apps..."
+            placeholder="Search items..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-theme rounded-lg focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-info focus:border-transparent"
           />
         </div>
-        <Button variant="outline" size="sm" className="flex items-center space-x-2">
-          <Filter className="w-4 h-4" />
-          <span>Filters</span>
-        </Button>
+
+        {/* Type filter */}
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-theme-tertiary" />
+          <button
+            onClick={() => setSelectedType('all')}
+            className={getButtonClass(selectedType === 'all')}
+          >
+            All
+          </button>
+          {ALL_TYPES.map((type) => (
+            <button
+              key={type}
+              onClick={() => setSelectedType(type)}
+              className={getButtonClass(selectedType === type)}
+            >
+              {formatTypeName(type)}s
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Apps List */}
+      {/* Items List */}
       <div className="grid gap-4">
-        {loading && <div className="text-center py-8 text-theme-secondary">Loading apps...</div>}
-        {!loading && filteredApps.length === 0 && (
+        {loading && <div className="text-center py-8 text-theme-secondary">Loading items...</div>}
+        {!loading && filteredItems.length === 0 && (
           <div className="text-center py-8 text-theme-secondary">
-            {searchTerm ? 'No apps match your search.' : 'No apps found.'}
+            {searchTerm ? 'No items match your search.' : 'No items found.'}
           </div>
         )}
-        {filteredApps.map((app) => (
-          <Card key={app.id} className="p-6">
+        {filteredItems.map((item) => (
+          <Card key={item.id} className="p-6">
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-4">
-                {app.icon ? (
-                  <img 
-                    src={app.icon} 
-                    alt={app.name} 
-                    className="w-12 h-12 rounded-lg object-cover"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-theme-interactive-primary/10 flex items-center justify-center">
-                    <span className="text-xl">{app.name.charAt(0)}</span>
-                  </div>
-                )}
+                <div className="w-12 h-12 rounded-lg bg-theme-surface border border-theme flex items-center justify-center">
+                  {item.icon ? (
+                    <img
+                      src={item.icon}
+                      alt={item.name}
+                      className="w-8 h-8 rounded object-cover"
+                    />
+                  ) : (
+                    <Package className="w-6 h-6 text-theme-tertiary" />
+                  )}
+                </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-theme-primary">{app.name}</h3>
-                  <p className="text-sm text-theme-secondary">{app.description}</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-theme-primary">{item.name}</h3>
+                    {item.is_verified && (
+                      <span title="Verified">
+                        <CheckCircle className="w-4 h-4 text-theme-info" />
+                      </span>
+                    )}
+                    {item.is_featured && (
+                      <span title="Featured">
+                        <Star className="w-4 h-4 text-theme-warning fill-current" />
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-theme-secondary line-clamp-1">{item.description}</p>
                   <div className="flex items-center space-x-4 mt-2">
-                    <Badge variant={getStatusBadgeVariant(app.status)} className="flex items-center space-x-1">
-                      {getStatusIcon(app.status)}
-                      <span className="capitalize">{app.status}</span>
+                    <Badge variant={getTypeBadgeColor(item.type) as 'success' | 'warning' | 'danger' | 'info' | 'default'}>
+                      {formatTypeName(item.type)}
+                    </Badge>
+                    <Badge variant={getStatusBadgeVariant(item.status) as 'success' | 'warning' | 'danger' | 'info' | 'default'} className="flex items-center space-x-1">
+                      {getStatusIcon(item.status)}
+                      <span className="capitalize">{item.status}</span>
                     </Badge>
                     <span className="text-sm text-theme-secondary">
-                      Version {app.version || '1.0.0'}
+                      v{item.version}
+                    </span>
+                    <span className="text-sm text-theme-secondary flex items-center gap-1">
+                      <Star className="w-3 h-3 text-theme-warning fill-current" />
+                      {item.rating.toFixed(1)}
                     </span>
                     <span className="text-sm text-theme-secondary">
-                      Created {new Date(app.created_at).toLocaleDateString()}
+                      {item.install_count.toLocaleString()} subscribers
                     </span>
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setSelectedApp(app);
+                    setSelectedItem(item);
                     setShowDetails(true);
                   }}
                   title="View Details"
                 >
                   <Eye className="w-4 h-4" />
                 </Button>
-                
-                {app.status === 'draft' && (
+
+                {item.is_featured ? (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleAppAction(app.id, 'publish')}
-                    disabled={loading}
-                    title="Publish App"
+                    title="Remove Featured"
                   >
-                    <CheckCircle className="w-4 h-4" />
+                    <Star className="w-4 h-4 fill-current text-theme-warning" />
                   </Button>
-                )}
-                
-                {app.status === 'published' && (
+                ) : (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleAppAction(app.id, 'unpublish')}
-                    disabled={loading}
-                    title="Unpublish App"
+                    title="Feature Item"
                   >
-                    <XCircle className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
                   </Button>
                 )}
-                
+
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleAppAction(app.id, 'delete')}
-                  disabled={loading}
-                  title="Delete App"
-                  className="text-theme-error hover:text-theme-error"
+                  title="Delete Item"
+                  className="text-theme-danger hover:text-theme-danger"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -404,89 +568,282 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
     </div>
   );
 
-  const renderListingsTab = () => (
+  const filteredPendingTemplates = pendingTemplates.filter(template =>
+    (selectedType === 'all' || template.type === selectedType) &&
+    (template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      template.description?.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const renderPendingTab = () => (
     <div className="space-y-6">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-theme-secondary w-4 h-4" />
-        <input
-          type="text"
-          placeholder="Search listings..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-theme rounded-lg focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
-        />
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-theme-secondary w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Search pending templates..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-info focus:border-transparent"
+          />
+        </div>
+
+        {/* Type filter */}
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-theme-tertiary" />
+          <button
+            onClick={() => setSelectedType('all')}
+            className={getButtonClass(selectedType === 'all')}
+          >
+            All
+          </button>
+          {ALL_TYPES.map((type) => (
+            <button
+              key={type}
+              onClick={() => setSelectedType(type)}
+              className={getButtonClass(selectedType === type)}
+            >
+              {formatTypeName(type)}s
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Listings */}
+      {/* Pending Templates List */}
       <div className="grid gap-4">
-        {loading && <div className="text-center py-8 text-theme-secondary">Loading listings...</div>}
-        {!loading && filteredListings.length === 0 && (
-          <div className="text-center py-8 text-theme-secondary">
-            {searchTerm ? 'No listings match your search.' : 'No marketplace listings found.'}
+        {loading && <div className="text-center py-8 text-theme-secondary">Loading pending templates...</div>}
+        {!loading && filteredPendingTemplates.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-theme-success bg-opacity-10 flex items-center justify-center">
+              <FileCheck className="w-8 h-8 text-theme-success" />
+            </div>
+            <h3 className="text-lg font-semibold text-theme-primary mb-2">No Pending Templates</h3>
+            <p className="text-theme-secondary">
+              {searchTerm ? 'No templates match your search.' : 'All templates have been reviewed.'}
+            </p>
           </div>
         )}
-        {filteredListings.map((listing) => (
-          <Card key={listing.id} className="p-6">
+        {filteredPendingTemplates.map((template) => (
+          <Card key={template.id} className="p-6">
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 rounded-lg bg-theme-interactive-primary/10 flex items-center justify-center">
-                  <span className="text-xl">{listing.app.name.charAt(0)}</span>
+                <div className="w-12 h-12 rounded-lg bg-theme-warning bg-opacity-10 flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-theme-warning" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-theme-primary">{listing.app.name}</h3>
-                  <p className="text-sm text-theme-secondary">{listing.short_description}</p>
-                  <div className="flex items-center space-x-4 mt-2">
-                    <Badge variant={getStatusBadgeVariant(listing.review_status)} className="flex items-center space-x-1">
-                      {getStatusIcon(listing.review_status)}
-                      <span className="capitalize">{listing.review_status}</span>
-                    </Badge>
-                    {listing.featured && (
-                      <Badge variant="warning" className="flex items-center space-x-1">
-                        <Star className="w-3 h-3" />
-                        <span>Featured</span>
-                      </Badge>
-                    )}
-                    <span className="text-sm text-theme-secondary">
-                      Category: {listing.category}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-theme-primary">{template.name}</h3>
                   </div>
+                  <p className="text-sm text-theme-secondary line-clamp-2">{template.description}</p>
+                  <div className="flex items-center space-x-4 mt-2">
+                    <Badge variant={getTypeBadgeColor(template.type) as 'success' | 'warning' | 'danger' | 'info' | 'default'}>
+                      {formatTypeName(template.type)}
+                    </Badge>
+                    <Badge variant="warning" className="flex items-center space-x-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Pending Review</span>
+                    </Badge>
+                    {template.category && (
+                      <span className="text-sm text-theme-tertiary">
+                        {template.category}
+                      </span>
+                    )}
+                    {template.version && (
+                      <span className="text-sm text-theme-tertiary">
+                        v{template.version}
+                      </span>
+                    )}
+                  </div>
+                  {template.publisher && (
+                    <div className="mt-2 text-sm text-theme-tertiary">
+                      Submitted by: <span className="font-medium text-theme-secondary">{template.publisher.display_name}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-2">
-                {listing.review_status === 'pending' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedItem(template);
+                    setShowDetails(true);
+                  }}
+                  title="View Details"
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleApproveTemplate(template)}
+                  disabled={loading}
+                  title="Approve Template"
+                  className="text-theme-success border-theme-success hover:bg-theme-success hover:text-white"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openRejectModal(template)}
+                  disabled={loading}
+                  title="Reject Template"
+                  className="text-theme-danger border-theme-danger hover:bg-theme-danger hover:text-white"
+                >
+                  <XCircle className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderReviewsTab = () => (
+    <div className="space-y-6">
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-theme-secondary w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Search reviews..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-info focus:border-transparent"
+          />
+        </div>
+
+        {/* Status filter */}
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-theme-tertiary" />
+          <button
+            onClick={() => setReviewStatusFilter('all')}
+            className={getButtonClass(reviewStatusFilter === 'all')}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setReviewStatusFilter('pending')}
+            className={getButtonClass(reviewStatusFilter === 'pending')}
+          >
+            Pending
+          </button>
+          <button
+            onClick={() => setReviewStatusFilter('approved')}
+            className={getButtonClass(reviewStatusFilter === 'approved')}
+          >
+            Approved
+          </button>
+          <button
+            onClick={() => setReviewStatusFilter('flagged')}
+            className={getButtonClass(reviewStatusFilter === 'flagged')}
+          >
+            Flagged
+          </button>
+        </div>
+      </div>
+
+      {/* Reviews List */}
+      <div className="grid gap-4">
+        {loading && <div className="text-center py-8 text-theme-secondary">Loading reviews...</div>}
+        {!loading && filteredReviews.length === 0 && (
+          <div className="text-center py-8 text-theme-secondary">
+            {searchTerm ? 'No reviews match your search.' : 'No reviews found.'}
+          </div>
+        )}
+        {filteredReviews.map((review) => (
+          <Card key={review.id} className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  {/* Rating stars */}
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-4 h-4 ${star <= review.rating ? 'text-theme-warning fill-current' : 'text-theme-tertiary'}`}
+                      />
+                    ))}
+                  </div>
+                  <Badge variant={getStatusBadgeVariant(review.moderation_status) as 'success' | 'warning' | 'danger' | 'info' | 'default'} className="flex items-center space-x-1">
+                    {getStatusIcon(review.moderation_status)}
+                    <span className="capitalize">{review.moderation_status}</span>
+                  </Badge>
+                  {review.verified_purchase && (
+                    <Badge variant="success" className="flex items-center space-x-1">
+                      <CheckCircle className="w-3 h-3" />
+                      <span>Verified</span>
+                    </Badge>
+                  )}
+                </div>
+
+                {review.title && (
+                  <h3 className="text-lg font-semibold text-theme-primary mb-1">
+                    {review.title}
+                  </h3>
+                )}
+
+                {review.content && (
+                  <p className="text-sm text-theme-secondary mb-2 line-clamp-2">
+                    {review.content}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-4 text-sm text-theme-tertiary">
+                  <span>By {review.author.name}</span>
+                  <span>{new Date(review.created_at).toLocaleDateString()}</span>
+                  <span className="flex items-center gap-1">
+                    <ThumbsUp className="w-3 h-3" />
+                    {review.helpful_count} found helpful
+                  </span>
+                  {review.reviewable && (
+                    <span>
+                      For: {review.reviewable.name} ({review.reviewable.type})
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                {review.moderation_status === 'pending' && (
                   <>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleListingAction(listing.id, 'approve')}
+                      onClick={() => handleReviewAction(review.id, 'approve')}
                       disabled={loading}
-                      title="Approve Listing"
+                      title="Approve Review"
                     >
                       <CheckCircle className="w-4 h-4" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleListingAction(listing.id, 'reject')}
+                      onClick={() => handleReviewAction(review.id, 'reject')}
                       disabled={loading}
-                      title="Reject Listing"
+                      title="Reject Review"
                     >
                       <XCircle className="w-4 h-4" />
                     </Button>
                   </>
                 )}
-                
-                {listing.review_status === 'approved' && (
+
+                {review.moderation_status !== 'flagged' && (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    onClick={() => handleListingAction(listing.id, listing.featured ? 'unfeature' : 'feature')}
+                    onClick={() => handleReviewAction(review.id, 'flag')}
                     disabled={loading}
-                    title={listing.featured ? 'Remove Featured' : 'Make Featured'}
+                    title="Flag Review"
                   >
-                    <Star className={`w-4 h-4 ${listing.featured ? 'fill-current' : ''}`} />
+                    <Flag className="w-4 h-4" />
                   </Button>
                 )}
               </div>
@@ -497,14 +854,14 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
     </div>
   );
 
-  const renderComingSoonTab = (tabName: string) => (
+  const renderAnalyticsTab = () => (
     <div className="text-center py-12">
-      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-theme-interactive-primary/10 flex items-center justify-center">
-        <TrendingUp className="w-8 h-8 text-theme-interactive-primary" />
+      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-theme-info bg-opacity-10 flex items-center justify-center">
+        <TrendingUp className="w-8 h-8 text-theme-info" />
       </div>
-      <h3 className="text-lg font-semibold text-theme-primary mb-2">{tabName} Coming Soon</h3>
+      <h3 className="text-lg font-semibold text-theme-primary mb-2">Analytics Coming Soon</h3>
       <p className="text-theme-secondary">
-        This section will provide detailed {tabName.toLowerCase()} management capabilities.
+        This section will provide marketplace analytics and insights.
       </p>
     </div>
   );
@@ -525,7 +882,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === tab.id
-                  ? 'border-theme-link text-theme-link'
+                  ? 'border-theme-info text-theme-info'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
               }`}
             >
@@ -540,96 +897,154 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'apps' && renderAppsTab()}
-      {activeTab === 'listings' && renderListingsTab()}
-      {activeTab === 'reviews' && renderComingSoonTab('Reviews')}
-      {activeTab === 'analytics' && renderComingSoonTab('Analytics')}
+      {activeTab === 'items' && renderItemsTab()}
+      {activeTab === 'pending' && renderPendingTab()}
+      {activeTab === 'reviews' && renderReviewsTab()}
+      {activeTab === 'analytics' && renderAnalyticsTab()}
 
-      {/* App Details Modal */}
-      {showDetails && selectedApp && (
+      {/* Item Details Modal */}
+      {showDetails && selectedItem && (
         <Modal
           isOpen={showDetails}
           onClose={() => setShowDetails(false)}
-          title="App Details"
+          title="Item Details"
           maxWidth="lg"
         >
           <div className="space-y-4">
             <div className="flex items-center space-x-4">
-              {selectedApp.icon ? (
-                <img 
-                  src={selectedApp.icon} 
-                  alt={selectedApp.name} 
-                  className="w-16 h-16 rounded-lg object-cover"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-lg bg-theme-interactive-primary/10 flex items-center justify-center">
-                  <span className="text-2xl">{selectedApp.name.charAt(0)}</span>
-                </div>
-              )}
+              <div className="w-16 h-16 rounded-lg bg-theme-surface border border-theme flex items-center justify-center">
+                {selectedItem.icon ? (
+                  <img
+                    src={selectedItem.icon}
+                    alt={selectedItem.name}
+                    className="w-12 h-12 rounded object-cover"
+                  />
+                ) : (
+                  <Package className="w-8 h-8 text-theme-tertiary" />
+                )}
+              </div>
               <div>
-                <h3 className="text-xl font-semibold text-theme-primary">{selectedApp.name}</h3>
-                <p className="text-theme-secondary">Version {selectedApp.version || '1.0.0'}</p>
+                <h3 className="text-xl font-semibold text-theme-primary">{selectedItem.name}</h3>
+                <p className="text-theme-secondary">
+                  {formatTypeName(selectedItem.type)} v{selectedItem.version}
+                </p>
               </div>
             </div>
-            
+
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-theme-primary">Description</label>
-                <p className="text-theme-secondary">{selectedApp.description || 'No description provided'}</p>
+                <p className="text-theme-secondary">{selectedItem.description || 'No description provided'}</p>
               </div>
-              
-              <div>
-                <label className="text-sm font-medium text-theme-primary">Status</label>
-                <div className="mt-1">
-                  <Badge variant={getStatusBadgeVariant(selectedApp.status)} className="flex items-center space-x-1 w-fit">
-                    {getStatusIcon(selectedApp.status)}
-                    <span className="capitalize">{selectedApp.status}</span>
-                  </Badge>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-theme-primary">Status</label>
+                  <div className="mt-1">
+                    <Badge variant={getStatusBadgeVariant(selectedItem.status) as 'success' | 'warning' | 'danger' | 'info' | 'default'} className="flex items-center space-x-1 w-fit">
+                      {getStatusIcon(selectedItem.status)}
+                      <span className="capitalize">{selectedItem.status}</span>
+                    </Badge>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-theme-primary">Category</label>
+                  <p className="text-theme-secondary">{selectedItem.category}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-theme-primary">Rating</label>
+                  <p className="text-theme-secondary flex items-center gap-1">
+                    <Star className="w-4 h-4 text-theme-warning fill-current" />
+                    {selectedItem.rating.toFixed(1)} ({selectedItem.rating_count} reviews)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-theme-primary">Subscribers</label>
+                  <p className="text-theme-secondary">{selectedItem.install_count.toLocaleString()}</p>
                 </div>
               </div>
-              
+
+              {selectedItem.tags && selectedItem.tags.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-theme-primary">Tags</label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {selectedItem.tags.map((tag, index) => (
+                      <Badge key={index} variant="secondary">{tag}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="text-sm font-medium text-theme-primary">Created</label>
-                <p className="text-theme-secondary">{new Date(selectedApp.created_at).toLocaleDateString()}</p>
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium text-theme-primary">Last Updated</label>
-                <p className="text-theme-secondary">{new Date(selectedApp.updated_at).toLocaleDateString()}</p>
+                <p className="text-theme-secondary">{new Date(selectedItem.created_at).toLocaleDateString()}</p>
               </div>
             </div>
-            
+
             <div className="flex justify-end space-x-3 pt-4 border-t border-theme">
               <Button variant="outline" onClick={() => setShowDetails(false)}>
                 Close
-              </Button>
-              <Button 
-                variant="primary"
-                onClick={() => {
-                  // TODO: Navigate to app edit page
-                  showNotification('App editing coming soon', 'info');
-                }}
-              >
-                Edit App
               </Button>
             </div>
           </div>
         </Modal>
       )}
 
-      {/* Create App Modal Placeholder */}
-      {showCreateModal && (
+      {/* Reject Template Modal */}
+      {showRejectModal && templateToReject && (
         <Modal
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          title="Create New App"
+          isOpen={showRejectModal}
+          onClose={() => {
+            setShowRejectModal(false);
+            setTemplateToReject(null);
+            setRejectReason('');
+          }}
+          title="Reject Template"
           maxWidth="md"
         >
-          <div className="text-center py-8">
-            <p className="text-theme-secondary mb-4">App creation functionality will be implemented soon.</p>
-            <Button variant="outline" onClick={() => setShowCreateModal(false)}>
-              Close
-            </Button>
+          <div className="space-y-4">
+            <p className="text-theme-secondary">
+              You are about to reject <span className="font-semibold text-theme-primary">{templateToReject.name}</span> from the marketplace.
+            </p>
+
+            <div>
+              <label className="block text-sm font-medium text-theme-primary mb-2">
+                Rejection Reason <span className="text-theme-danger">*</span>
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Please provide a reason for rejecting this template..."
+                rows={4}
+                className="w-full px-3 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary placeholder-theme-tertiary focus:ring-2 focus:ring-theme-info focus:border-transparent resize-none"
+              />
+              <p className="text-xs text-theme-tertiary mt-1">
+                This feedback will be sent to the publisher.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t border-theme">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setTemplateToReject(null);
+                  setRejectReason('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleRejectTemplate}
+                disabled={loading || !rejectReason.trim()}
+              >
+                {loading ? 'Rejecting...' : 'Reject Template'}
+              </Button>
+            </div>
           </div>
         </Modal>
       )}

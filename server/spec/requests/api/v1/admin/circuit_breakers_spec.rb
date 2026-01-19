@@ -121,7 +121,7 @@ RSpec.describe 'Api::V1::Admin::CircuitBreakers', type: :request do
       it 'creates a new circuit breaker' do
         expect {
           post '/api/v1/admin/circuit_breakers', params: valid_params, headers: admin_headers, as: :json
-        }.to change(CircuitBreaker, :count).by(1)
+        }.to change(Monitoring::CircuitBreaker, :count).by(1)
 
         expect(response).to have_http_status(:created)
         data = json_response_data
@@ -208,7 +208,7 @@ RSpec.describe 'Api::V1::Admin::CircuitBreakers', type: :request do
       it 'deletes the circuit breaker' do
         expect {
           delete "/api/v1/admin/circuit_breakers/#{breaker.id}", headers: admin_headers, as: :json
-        }.to change(CircuitBreaker, :count).by(-1)
+        }.to change(Monitoring::CircuitBreaker, :count).by(-1)
 
         expect_success_response
         expect(json_response_data['message']).to eq('Circuit breaker deleted successfully')

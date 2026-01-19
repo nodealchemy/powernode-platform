@@ -46,7 +46,7 @@ class StorageProviderFactory
 
   class << self
     # Create a storage provider instance
-    # @param storage_config [FileStorage] storage configuration record
+    # @param storage_config [FileManagement::Storage] storage configuration record
     # @return [StorageProviders::Base] provider instance
     def create(storage_config)
       validate_storage_config!(storage_config)
@@ -179,8 +179,8 @@ class StorageProviderFactory
     private
 
     def validate_storage_config!(storage_config)
-      unless storage_config.is_a?(FileStorage)
-        raise ArgumentError, "Expected FileStorage, got #{storage_config.class}"
+      unless storage_config.is_a?(FileManagement::Storage)
+        raise ArgumentError, "Expected FileManagement::Storage, got #{storage_config.class}"
       end
 
       unless storage_config.provider_type.present?
@@ -226,9 +226,15 @@ class StorageProviderFactory
       missing = []
 
       begin
-        require "azure/storage/blob"
+        require "faraday"
       rescue LoadError
-        missing << "azure-storage-blob gem"
+        missing << "faraday gem"
+      end
+
+      begin
+        require "faraday/multipart"
+      rescue LoadError
+        missing << "faraday-multipart gem"
       end
 
       {

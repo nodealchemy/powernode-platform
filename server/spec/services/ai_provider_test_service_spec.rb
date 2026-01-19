@@ -11,7 +11,7 @@ RSpec.describe AiProviderTestService, type: :service do
   let(:openai_credential) do
     create(:ai_provider_credential,
            account: account,
-           ai_provider: openai_provider,
+           provider: openai_provider,
            credentials: {
              'api_key' => 'sk-1234567890abcdef1234567890abcdef',
              'model' => 'gpt-3.5-turbo'
@@ -21,7 +21,7 @@ RSpec.describe AiProviderTestService, type: :service do
   let(:anthropic_credential) do
     create(:ai_provider_credential,
            account: account,
-           ai_provider: anthropic_provider,
+           provider: anthropic_provider,
            credentials: {
              'api_key' => 'sk-ant-api03-1234567890abcdef',
              'model' => 'claude-3-sonnet-20240229'
@@ -31,7 +31,7 @@ RSpec.describe AiProviderTestService, type: :service do
   let(:ollama_credential) do
     create(:ai_provider_credential,
            account: account,
-           ai_provider: ollama_provider,
+           provider: ollama_provider,
            credentials: {
              'base_url' => 'http://localhost:11434',
              'model' => 'llama2'
@@ -148,7 +148,7 @@ RSpec.describe AiProviderTestService, type: :service do
       it 'tests custom Ollama base URL' do
         custom_credential = create(:ai_provider_credential,
                                  account: account,
-                                 ai_provider: ollama_provider,
+                                 provider: ollama_provider,
                                  credentials: {
                                    'base_url' => 'http://custom-host:11434',
                                    'model' => 'llama2'

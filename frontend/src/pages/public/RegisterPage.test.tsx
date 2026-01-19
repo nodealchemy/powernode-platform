@@ -13,7 +13,7 @@ jest.mock('react-router-dom', () => ({
 
 // Mock plansApi
 const mockGetPublicPlans = jest.fn();
-jest.mock('@/features/plans/services/plansApi', () => ({
+jest.mock('@/features/business/plans/services/plansApi', () => ({
   plansApi: {
     getPublicPlans: () => mockGetPublicPlans(),
   },

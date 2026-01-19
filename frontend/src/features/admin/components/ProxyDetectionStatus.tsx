@@ -1,5 +1,5 @@
 
-import { ProxyDetectionResult } from '@/shared/services/proxySettingsApi';
+import { ProxyDetectionResult } from '@/shared/services/settings/proxySettingsApi';
 
 interface ProxyDetectionStatusProps {
   detection: ProxyDetectionResult | null;

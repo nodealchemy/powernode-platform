@@ -22,9 +22,9 @@ module AuditLogging
       current_account || current_user&.account
     end
 
-    # Use singleton instance of AuditLoggingService
+    # Use singleton instance of Audit::LoggingService
     # Note: Removed request_id and session_id as they're not in the AuditLog model schema
-    AuditLoggingService.instance.log(
+    Audit::LoggingService.instance.log(
       action: action.to_s,
       resource: resource,
       user: current_user,
@@ -74,7 +74,7 @@ module AuditLogging
   def log_authentication_event(action, user = nil, **options)
     user ||= current_user
 
-    AuditLoggingService.instance.log_authentication(
+    Audit::LoggingService.instance.log_authentication(
       action: action.to_s,
       user: user,
       request: request,
@@ -88,7 +88,7 @@ module AuditLogging
   def log_admin_action(action, resource = nil, **options)
     resource ||= extract_resource_for_logging
 
-    AuditLoggingService.instance.log_admin_action(
+    Audit::LoggingService.instance.log_admin_action(
       action: action.to_s,
       resource: resource,
       user: current_user,
@@ -106,7 +106,7 @@ module AuditLogging
   def log_security_event(action, resource = nil, threat_level: "medium", **options)
     resource ||= extract_resource_for_logging
 
-    AuditLoggingService.instance.log_security_event(
+    Audit::LoggingService.instance.log_security_event(
       action: action.to_s,
       resource: resource,
       user: current_user,
@@ -125,7 +125,7 @@ module AuditLogging
   def log_data_access(action, resource = nil, data_classification: "internal", **options)
     resource ||= extract_resource_for_logging
 
-    AuditLoggingService.instance.log_data_access(
+    Audit::LoggingService.instance.log_data_access(
       action: action.to_s,
       resource: resource,
       user: current_user,
@@ -144,7 +144,7 @@ module AuditLogging
   def log_compliance_event(action, resource = nil, regulation:, **options)
     resource ||= extract_resource_for_logging
 
-    AuditLoggingService.instance.log_compliance_event(
+    Audit::LoggingService.instance.log_compliance_event(
       action: action.to_s,
       resource: resource,
       user: current_user,

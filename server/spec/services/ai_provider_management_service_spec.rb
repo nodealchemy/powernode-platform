@@ -10,13 +10,13 @@ RSpec.describe AiProviderManagementService, type: :service do
     it 'creates default AI providers' do
       expect {
         described_class.setup_default_providers
-      }.to change { AiProvider.count }.by_at_least(1)
+      }.to change { Ai::Provider.count }.by_at_least(1)
     end
 
     it 'creates Ollama as priority provider' do
       described_class.setup_default_providers
 
-      ollama = AiProvider.find_by(slug: 'ollama')
+      ollama = Ai::Provider.find_by(slug: 'ollama')
       expect(ollama).to be_present
       expect(ollama.priority_order).to eq(1)
       expect(ollama.name).to eq('Ollama')
@@ -25,7 +25,7 @@ RSpec.describe AiProviderManagementService, type: :service do
     it 'creates OpenAI provider' do
       described_class.setup_default_providers
 
-      openai = AiProvider.find_by(slug: 'openai')
+      openai = Ai::Provider.find_by(slug: 'openai')
       expect(openai).to be_present
       expect(openai.name).to eq('OpenAI')
       expect(openai.capabilities).to include('text_generation')
@@ -34,7 +34,7 @@ RSpec.describe AiProviderManagementService, type: :service do
     it 'creates Anthropic provider' do
       described_class.setup_default_providers
 
-      anthropic = AiProvider.find_by(slug: 'anthropic')
+      anthropic = Ai::Provider.find_by(slug: 'anthropic')
       expect(anthropic).to be_present
       expect(anthropic.name).to eq('Anthropic')
       expect(anthropic.capabilities).to include('text_generation')
@@ -42,10 +42,10 @@ RSpec.describe AiProviderManagementService, type: :service do
 
     it 'does not create duplicates on repeated calls' do
       described_class.setup_default_providers
-      initial_count = AiProvider.count
+      initial_count = Ai::Provider.count
 
       described_class.setup_default_providers
-      expect(AiProvider.count).to eq(initial_count)
+      expect(Ai::Provider.count).to eq(initial_count)
     end
 
     it 'returns count of created providers' do
@@ -78,7 +78,7 @@ RSpec.describe AiProviderManagementService, type: :service do
       expect(credential).to be_persisted
       expect(credential.name).to eq('Test Credential')
       expect(credential.account).to eq(account)
-      expect(credential.ai_provider).to eq(openai_provider)
+      expect(credential.provider).to eq(openai_provider)
       expect(credential).to be_is_active
     end
 
@@ -99,8 +99,7 @@ RSpec.describe AiProviderManagementService, type: :service do
     it 'tests credential after creation' do
       test_service = instance_double(AiProviderTestService)
       allow(AiProviderTestService).to receive(:new).and_return(test_service)
-      # Service now uses test_with_details_simple for flat response format
-      allow(test_service).to receive(:test_with_details_simple).and_return({ success: true })
+      allow(test_service).to receive(:test_with_details).and_return({ success: true })
 
       described_class.create_provider_credential(
         openai_provider,
@@ -108,7 +107,7 @@ RSpec.describe AiProviderManagementService, type: :service do
         credentials_data
       )
 
-      expect(test_service).to have_received(:test_with_details_simple)
+      expect(test_service).to have_received(:test_with_details)
     end
 
     it 'raises ValidationError for empty credentials' do
@@ -132,13 +131,13 @@ RSpec.describe AiProviderManagementService, type: :service do
     end
   end
 
-  describe '.validate_provider_credentials' do
+  describe '.validate_ai_provider_credentials' do
     context 'for OpenAI provider' do
       let(:openai_provider) { create(:ai_provider, :openai) }
 
       it 'validates api_key is required' do
         expect {
-          described_class.validate_provider_credentials(
+          described_class.send(:validate_ai_provider_credentials,
             openai_provider,
             { model: 'gpt-3.5-turbo' }
           )
@@ -147,7 +146,7 @@ RSpec.describe AiProviderManagementService, type: :service do
 
       it 'validates api_key format must start with sk-' do
         expect {
-          described_class.validate_provider_credentials(
+          described_class.send(:validate_ai_provider_credentials,
             openai_provider,
             { api_key: 'invalid', model: 'gpt-3.5-turbo' }
           )
@@ -156,7 +155,7 @@ RSpec.describe AiProviderManagementService, type: :service do
 
       it 'passes validation for valid credentials' do
         expect {
-          described_class.validate_provider_credentials(
+          described_class.send(:validate_ai_provider_credentials,
             openai_provider,
             { api_key: 'sk-1234567890abcdefghijklmnop', model: 'gpt-3.5-turbo' }
           )
@@ -169,7 +168,7 @@ RSpec.describe AiProviderManagementService, type: :service do
 
       it 'validates api_key is required' do
         expect {
-          described_class.validate_provider_credentials(
+          described_class.send(:validate_ai_provider_credentials,
             anthropic_provider,
             { model: 'claude-3-sonnet' }
           )
@@ -178,7 +177,7 @@ RSpec.describe AiProviderManagementService, type: :service do
 
       it 'passes validation for valid Anthropic credentials' do
         expect {
-          described_class.validate_provider_credentials(
+          described_class.send(:validate_ai_provider_credentials,
             anthropic_provider,
             { api_key: 'sk-ant-api-test1234567890', model: 'claude-3-sonnet' }
           )
@@ -192,7 +191,7 @@ RSpec.describe AiProviderManagementService, type: :service do
       it 'allows credentials without api_key' do
         # Ollama is provider_type 'ollama', no api_key validation
         expect {
-          described_class.validate_provider_credentials(
+          described_class.send(:validate_ai_provider_credentials,
             ollama_provider,
             { base_url: 'http://localhost:11434', model: 'llama2' }
           )
@@ -203,8 +202,8 @@ RSpec.describe AiProviderManagementService, type: :service do
 
   describe '.test_all_credentials' do
     let(:provider) { create(:ai_provider) }
-    let!(:credential1) { create(:ai_provider_credential, account: account, ai_provider: provider) }
-    let!(:credential2) { create(:ai_provider_credential, account: account) }
+    let!(:credential1) { create(:ai_provider_credential, account: account, provider: provider) }
+    let!(:credential2) { create(:ai_provider_credential, account: account, provider: provider) }
     let!(:other_account_credential) { create(:ai_provider_credential) }
 
     it 'tests all credentials for the account' do
@@ -236,8 +235,7 @@ RSpec.describe AiProviderManagementService, type: :service do
     end
 
     it 'handles test failures gracefully' do
-      # Service now uses test_with_details_simple for flat response format
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details_simple)
+      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
         .and_return({ success: false, error: 'Connection timeout' })
 
       results = described_class.test_all_credentials(account)
@@ -248,8 +246,7 @@ RSpec.describe AiProviderManagementService, type: :service do
     end
 
     it 'does not test credentials from other accounts' do
-      # Service now uses test_with_details_simple for flat response format
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details_simple)
+      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
         .and_return({ success: true })
 
       results = described_class.test_all_credentials(account)
@@ -262,7 +259,7 @@ RSpec.describe AiProviderManagementService, type: :service do
   describe '.get_available_providers_for_account' do
     let!(:active_provider) { create(:ai_provider, is_active: true) }
     let!(:inactive_provider) { create(:ai_provider, is_active: false) }
-    let!(:credential) { create(:ai_provider_credential, account: account, ai_provider: active_provider) }
+    let!(:credential) { create(:ai_provider_credential, account: account, provider: active_provider) }
 
     it 'returns only active providers' do
       providers = described_class.get_available_providers_for_account(account)
@@ -365,14 +362,14 @@ RSpec.describe AiProviderManagementService, type: :service do
   describe 'error handling' do
     it 'handles invalid provider gracefully' do
       expect {
-        described_class.validate_provider_credentials(nil, {})
+        described_class.send(:validate_ai_provider_credentials,nil, {})
       }.to raise_error(AiProviderManagementService::ValidationError)
     end
 
     it 'handles nil credentials data' do
       provider = create(:ai_provider)
       expect {
-        described_class.validate_provider_credentials(provider, nil)
+        described_class.send(:validate_ai_provider_credentials,provider, nil)
       }.to raise_error(AiProviderManagementService::ValidationError)
     end
 

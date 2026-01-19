@@ -114,7 +114,7 @@ export const canCreateKnowledgeBase = (user: User | null): boolean => {
  * Check if user can manage knowledge base
  */
 export const canManageKnowledgeBase = (user: User | null): boolean => {
-  return hasPermissions(user, ['kb.create', 'kb.edit', 'kb.publish']);
+  return hasPermissions(user, ['kb.create', 'kb.update', 'kb.publish']);
 };
 
 /**
@@ -237,7 +237,7 @@ export const canManageBilling = (user: User | null): boolean => {
  */
 export const canManageInfrastructure = (user: User | null): boolean => {
   return hasPermissions(user, [PERMISSIONS.SYSTEM_WORKERS.CREATE]) ||
-         hasPermissions(user, [PERMISSIONS.SYSTEM_WORKERS.EDIT]);
+         hasPermissions(user, [PERMISSIONS.SYSTEM_WORKERS.UPDATE]);
 };
 
 /**

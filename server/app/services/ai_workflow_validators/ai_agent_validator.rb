@@ -21,7 +21,7 @@ module WorkflowValidators
       agent_id = node.configuration["agent_id"] || node.configuration[:agent_id]
       return if agent_id.blank?
 
-      unless AiAgent.exists?(agent_id)
+      unless Ai::Agent.exists?(agent_id)
         add_issue(
           code: "agent_not_found",
           severity: "error",

@@ -3,14 +3,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
-import { authApi } from '@/features/auth/services/authAPI';
-import { plansApi } from '@/features/plans/services/plansApi';
+import { authApi } from '@/features/account/auth/services/authAPI';
+import { plansApi } from '@/features/business/plans/services/plansApi';
 import { createMockPlan } from '@/shared/utils/test-utils';
 
 // Mock all APIs
-jest.mock('@/features/auth/services/authAPI');
-jest.mock('@/features/plans/services/plansApi');
-jest.mock('@/features/billing/services/billingApi');
+jest.mock('@/features/account/auth/services/authAPI');
+jest.mock('@/features/business/plans/services/plansApi');
+jest.mock('@/features/business/billing/services/billingApi');
 
 // Mock notifications
 const mockShowNotification = jest.fn();

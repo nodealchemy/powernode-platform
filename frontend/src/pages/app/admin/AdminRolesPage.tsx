@@ -3,19 +3,31 @@ import { useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Plus, RefreshCw, Edit2, Trash2, Users, Shield } from 'lucide-react';
-import { rolesApi, Role, Permission } from '@/features/roles/services/rolesApi';
-import { RoleFormModal } from '@/features/roles/components/RoleFormModal';
-import { RoleUsersModal } from '@/features/roles/components/RoleUsersModal';
+import { rolesApi, Role, Permission } from '@/features/admin/roles/services/rolesApi';
+import { RoleFormModal } from '@/features/admin/roles/components/RoleFormModal';
+import { RoleUsersModal } from '@/features/admin/roles/components/RoleUsersModal';
 
 export const AdminRolesPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'admin',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
+
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +63,7 @@ export const AdminRolesPage: React.FC = () => {
   }, [loadRoles]);
 
   // Check if user has role management permissions
-  const canManageRoles = hasPermissions(user, ['admin.role.create', 'admin.role.edit', 'admin.role.delete']);
+  const canManageRoles = hasPermissions(user, ['admin.role.create', 'admin.role.update', 'admin.role.delete']);
   const canReadRoles = hasPermissions(user, ['admin.role.read']);
 
   // Redirect if user doesn't have permission to view roles
@@ -95,17 +107,21 @@ export const AdminRolesPage: React.FC = () => {
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete the role "${role.name}"?`)) {
-      return;
-    }
-
-    try {
-      await rolesApi.deleteRole(role.id);
-      showNotification('Role deleted successfully', 'success');
-      loadRoles();
-    } catch (error: unknown) {
-      showNotification(error instanceof Error ? error.message : 'Failed to delete role', 'error');
-    }
+    confirm({
+      title: 'Delete Role',
+      message: `Are you sure you want to delete the role "${role.name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await rolesApi.deleteRole(role.id);
+          showNotification('Role deleted successfully', 'success');
+          loadRoles();
+        } catch (error: unknown) {
+          showNotification(error instanceof Error ? error.message : 'Failed to delete role', 'error');
+        }
+      }
+    });
   };
 
   const handleViewUsers = (role: Role) => {
@@ -403,6 +419,7 @@ export const AdminRolesPage: React.FC = () => {
           onClose={() => setShowUsersModal(false)}
         />
       )}
+      {ConfirmationDialog}
     </PageContainer>
   );
 };

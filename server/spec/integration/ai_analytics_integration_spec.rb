@@ -10,10 +10,10 @@ RSpec.describe 'AI Analytics Integration', type: :request do
   # Core AI components
   let!(:provider1) { create(:ai_provider, slug: 'openai', name: 'OpenAI') }
   let!(:provider2) { create(:ai_provider, slug: 'anthropic', name: 'Anthropic') }
-  let!(:agent1) { create(:ai_agent, account: account, ai_provider: provider1, name: 'Code Assistant') }
-  let!(:agent2) { create(:ai_agent, account: account, ai_provider: provider2, name: 'Research Agent') }
-  let!(:conversation1) { create(:ai_conversation, account: account, ai_agent: agent1) }
-  let!(:conversation2) { create(:ai_conversation, account: account, ai_agent: agent2) }
+  let!(:agent1) { create(:ai_agent, account: account, provider: provider1, name: 'Code Assistant') }
+  let!(:agent2) { create(:ai_agent, account: account, provider: provider2, name: 'Research Agent') }
+  let!(:conversation1) { create(:ai_conversation, account: account, agent: agent1) }
+  let!(:conversation2) { create(:ai_conversation, account: account, agent: agent2) }
 
   before do
     allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(user)
@@ -88,7 +88,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
 
       # Create new workflow run (what the analytics actually track)
       workflow = create(:ai_workflow, account: account)
-      create(:ai_workflow_run, :completed, ai_workflow: workflow, account: account)
+      create(:ai_workflow_run, :completed, workflow: workflow, account: account)
 
       # Get updated state
       get '/api/v1/ai/analytics/dashboard', params: { period: 1 }
@@ -128,7 +128,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
       # Create workflow with failures to track
       workflow = create(:ai_workflow, account: account)
       5.times do
-        create(:ai_workflow_run, :failed, ai_workflow: workflow, account: account)
+        create(:ai_workflow_run, :failed, workflow: workflow, account: account)
       end
 
       get '/api/v1/ai/analytics/recommendations'
@@ -285,7 +285,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
     # Create executions across different time periods
     3.times do |i|
       create(:ai_agent_execution, :completed,
-             ai_agent: agent1,
+             agent: agent1,
              account: account,
              created_at: i.days.ago,
              cost_usd: 0.05 + (i * 0.02))
@@ -293,7 +293,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
 
     2.times do |i|
       create(:ai_agent_execution, :completed,
-             ai_agent: agent2,
+             agent: agent2,
              account: account,
              created_at: i.days.ago,
              cost_usd: 0.08 + (i * 0.03))
@@ -301,7 +301,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
 
     # Add some failures
     create(:ai_agent_execution, :failed,
-           ai_agent: agent1,
+           agent: agent1,
            account: account,
            created_at: 1.day.ago)
   end
@@ -310,8 +310,8 @@ RSpec.describe 'AI Analytics Integration', type: :request do
     # Create messages in conversations (account inherited from ai_conversation)
     10.times do |i|
       create(:ai_message,
-             ai_conversation: conversation1,
-             ai_agent: agent1,
+             conversation: conversation1,
+             agent: agent1,
              created_at: i.hours.ago,
              role: i.even? ? 'user' : 'assistant',
              sequence_number: i + 1)
@@ -319,8 +319,8 @@ RSpec.describe 'AI Analytics Integration', type: :request do
 
     8.times do |i|
       create(:ai_message,
-             ai_conversation: conversation2,
-             ai_agent: agent2,
+             conversation: conversation2,
+             agent: agent2,
              created_at: i.hours.ago,
              role: i.even? ? 'user' : 'assistant',
              sequence_number: i + 1)
@@ -337,7 +337,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
         account: account,
         user: user,
         action: 'ai_execution_cost',
-        resource_type: 'AiAgentExecution',
+        resource_type: 'Ai::AgentExecution',
         resource_id: SecureRandom.uuid,
         metadata: {
           provider: 'openai',
@@ -352,7 +352,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
         account: account,
         user: user,
         action: 'ai_execution_cost',
-        resource_type: 'AiAgentExecution',
+        resource_type: 'Ai::AgentExecution',
         resource_id: SecureRandom.uuid,
         metadata: {
           provider: 'anthropic',
@@ -367,13 +367,13 @@ RSpec.describe 'AI Analytics Integration', type: :request do
   def create_provider_performance_data
     # Create performance tracking data
     %w[openai anthropic].each do |provider_slug|
-      provider = AiProvider.find_by(slug: provider_slug)
+      provider = Ai::Provider.find_by(slug: provider_slug)
       agent = provider_slug == 'openai' ? agent1 : agent2
 
       # Successful executions
       10.times do |i|
         create(:ai_agent_execution, :completed,
-               ai_agent: agent,
+               agent: agent,
                account: account,
                created_at: i.hours.ago,
                duration_ms: 1000 + rand(500),
@@ -383,7 +383,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
       # Some failures
       2.times do |i|
         create(:ai_agent_execution, :failed,
-               ai_agent: agent,
+               agent: agent,
                account: account,
                created_at: i.hours.ago)
       end
@@ -403,7 +403,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
           account: account,
           user: user,
           action: 'ai_daily_cost_summary',
-          resource_type: 'AiProvider',
+          resource_type: 'Ai::Provider',
           resource_id: SecureRandom.uuid,
           metadata: {
             provider: provider,
@@ -430,7 +430,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
 
         execution_count.times do
           create(:ai_agent_execution, :completed,
-                 ai_agent: [ agent1, agent2 ].sample,
+                 agent: [ agent1, agent2 ].sample,
                  account: account,
                  created_at: day.days.ago + hour.hours)
         end

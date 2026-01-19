@@ -723,3 +723,6 @@ class McpApiService extends BaseApiService {
 }
 
 export const mcpApi = new McpApiService();
+
+// Re-export types for convenience
+export type { McpServerOAuthStatus } from './types/mcp-api-types';

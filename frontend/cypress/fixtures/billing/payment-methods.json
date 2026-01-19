@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "data": {
+    "payment_methods": [
+      {
+        "id": "pm_001",
+        "type": "card",
+        "brand": "visa",
+        "last4": "4242",
+        "exp_month": 12,
+        "exp_year": 2025,
+        "is_default": true
+      }
+    ]
+  }
+}

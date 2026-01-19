@@ -21,7 +21,8 @@ module ApiResponse
     # Support message-only responses: render_success(message: "Done")
     if actual_data.nil? && message.present?
       response[:data] = { message: message }
-    elsif actual_data.present?
+    elsif actual_data.is_a?(Array) || actual_data.present?
+      # Always include arrays in response, even if empty (e.g., [] for empty lists)
       response[:data] = sanitize_for_json(actual_data)
     end
 
@@ -139,7 +140,7 @@ module ApiResponse
     # Log the actual error for debugging
     if exception
       Rails.logger.error "Internal Server Error: #{exception.class} - #{exception.message}"
-      Rails.logger.error exception.backtrace.join("\n") if Rails.env.development?
+      Rails.logger.error exception.backtrace.join("\n") if Rails.env.development? || Rails.env.test?
     end
 
     # Return generic error message in production for security

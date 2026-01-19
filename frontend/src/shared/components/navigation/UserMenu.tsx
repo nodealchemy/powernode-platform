@@ -128,6 +128,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
                 to={item.href}
                 onClick={() => setShowUserMenu(false)}
                 className="flex items-center px-4 py-2.5 text-sm text-theme-primary hover:bg-theme-surface-hover transition-colors duration-150"
+                data-testid={`nav-${item.id}`}
               >
                 <div className="mr-3 h-4 w-4 text-theme-secondary">
                   {typeof item.icon === 'string' ? (

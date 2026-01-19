@@ -185,11 +185,11 @@ Cypress.Commands.add('logoutEnhanced', () => {
 // Check authentication state
 Cypress.Commands.add('checkAuthState', (expectedState: 'authenticated' | 'unauthenticated') => {
   if (expectedState === 'authenticated') {
-    cy.visit('/dashboard');
-    cy.url().should('include', '/dashboard');
+    cy.visit('/app');
+    cy.url().should('match', /\/(app|dashboard)/);
     cy.get('[data-testid="user-menu"]').should('be.visible');
   } else {
-    cy.visit('/dashboard');
+    cy.visit('/app');
     cy.url().should('include', '/login');
     cy.get('input[type="email"]').should('be.visible');
   }
@@ -423,7 +423,7 @@ export const fillLoginForm = (email: string, password: string) => {
 };
 
 export const verifyAuthenticationSuccess = (firstName: string) => {
-  cy.url().should('include', '/dashboard');
+  cy.url().should('match', /\/(app|dashboard)/);
   cy.get(AUTH_TEST_UTILS.SELECTORS.DASHBOARD.USER_MENU).should('be.visible');
   cy.contains(firstName).should('be.visible');
 };

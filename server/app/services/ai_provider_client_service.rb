@@ -27,7 +27,7 @@ class AiProviderClientService
 
   def initialize(ai_provider_credential)
     @credential = ai_provider_credential
-    @provider = credential.ai_provider
+    @provider = credential.provider
     @credentials_data = credential.credentials
     @circuit_breaker = AiProviderCircuitBreakerService.new(@provider)
     @rate_limit_tracker = {}

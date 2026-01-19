@@ -1,14 +1,17 @@
-/* All @import statements must come first */
+/* Tailwind CSS 4 import */
+@import "tailwindcss";
+
+/* Theme CSS variables and utility classes */
 @import './assets/styles/themes.css';
+
+/* Tailwind theme configuration */
+@import './assets/styles/tailwind-theme.css';
+
+/* Additional style imports */
 @import './assets/styles/global-enhancements.css';
 @import './assets/styles/ms-high-contrast-fix.css';
 @import 'highlight.js/styles/github.css';
 @import './assets/styles/markdown-preview.css';
-
-/* Tailwind directives come after imports */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 body {
   margin: 0;

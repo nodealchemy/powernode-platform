@@ -157,7 +157,7 @@ RSpec.describe McpChannel, type: :channel do
       end
 
       it 'handles agent execution requests' do
-        allow_any_instance_of(AiAgent).to receive(:execute_via_mcp).and_return({
+        allow_any_instance_of(Ai::Agent).to receive(:execute_via_mcp).and_return({
           'execution_id' => 'test_exec_123',
           'status' => 'completed',
           'result' => 'test output'

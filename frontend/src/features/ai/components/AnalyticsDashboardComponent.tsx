@@ -211,6 +211,12 @@ export const AnalyticsDashboardComponent: React.FC = () => {
     }
   }, [timeRange, selectedProvider]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'AI', href: '/app/ai' },
+    { label: 'Analytics' }
+  ];
+
   const pageActions = [
     {
       id: 'realtime-toggle',
@@ -242,6 +248,7 @@ export const AnalyticsDashboardComponent: React.FC = () => {
       <PageContainer
         title="AI Analytics"
         description="Monitor AI system performance and usage metrics"
+        breadcrumbs={breadcrumbs}
       >
         <LoadingSpinner className="py-12" />
       </PageContainer>
@@ -253,6 +260,7 @@ export const AnalyticsDashboardComponent: React.FC = () => {
       <PageContainer
         title="AI Analytics"
         description="Monitor AI system performance and usage metrics"
+        breadcrumbs={breadcrumbs}
       >
         <div className="text-center py-12">
           <AlertTriangle className="h-12 w-12 text-theme-warning mx-auto mb-4" />
@@ -267,6 +275,7 @@ export const AnalyticsDashboardComponent: React.FC = () => {
     <PageContainer
       title="AI Analytics"
       description="Monitor AI system performance and usage metrics"
+      breadcrumbs={breadcrumbs}
       actions={pageActions}
     >
       {/* Controls */}

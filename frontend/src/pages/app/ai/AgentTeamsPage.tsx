@@ -2,18 +2,19 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Users, Filter } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { TeamCard } from '@/features/ai-agent-teams/components/TeamCard';
-import { TeamBuilderModal } from '@/features/ai-agent-teams/components/TeamBuilderModal';
-import { TeamExecutionMonitor } from '@/features/ai-agent-teams/components/TeamExecutionMonitor';
+import { TeamCard } from '@/features/ai/agent-teams/components/TeamCard';
+import { TeamBuilderModal } from '@/features/ai/agent-teams/components/TeamBuilderModal';
+import { TeamExecutionMonitor } from '@/features/ai/agent-teams/components/TeamExecutionMonitor';
 import {
   agentTeamsApi,
   AgentTeam,
   CreateTeamParams,
   UpdateTeamParams
-} from '@/features/ai-agent-teams/services/agentTeamsApi';
+} from '@/features/ai/agent-teams/services/agentTeamsApi';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 
 // Type guard for API errors
 interface ApiErrorResponse {
@@ -53,6 +54,14 @@ const AgentTeamsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [executingTeamId, setExecutingTeamId] = useState<string | null>(null);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+    }
+  });
 
   useEffect(() => {
     loadTeams();
@@ -180,10 +189,17 @@ const AgentTeamsPage: React.FC = () => {
     }
   };
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'AI', href: '/app/ai' },
+    { label: 'Agent Teams' }
+  ];
+
   return (
     <PageContainer
       title="Agent Teams"
       description="Manage CrewAI-style multi-agent teams for collaborative AI orchestration"
+      breadcrumbs={breadcrumbs}
       actions={[
         {
           label: 'Create Team',

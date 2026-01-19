@@ -24,8 +24,8 @@ class PluginProviderRegistryService
 
     @logger.info "[PLUGIN_PROVIDER] Registering provider plugin: #{plugin.name}"
 
-    # Create or update AiProvider record
-    provider = AiProvider.find_or_initialize_by(
+    # Create or update Ai::Provider record
+    provider = Ai::Provider.find_or_initialize_by(
       account: account,
       provider_identifier: plugin.plugin_id
     )
@@ -47,7 +47,7 @@ class PluginProviderRegistryService
     provider.save!
 
     # Store provider credentials from installation
-    sync_provider_credentials(provider, installation)
+    sync_ai_provider_credentials(provider, installation)
 
     @providers[plugin.plugin_id] = provider
 
@@ -61,7 +61,7 @@ class PluginProviderRegistryService
 
     @logger.info "[PLUGIN_PROVIDER] Unregistering provider plugin: #{plugin.name}"
 
-    provider = AiProvider.find_by(
+    provider = Ai::Provider.find_by(
       account: account,
       provider_identifier: plugin.plugin_id
     )
@@ -87,7 +87,7 @@ class PluginProviderRegistryService
 
   # Get provider by plugin ID
   def get_provider_by_plugin_id(plugin_id)
-    AiProvider.find_by(account: account, provider_identifier: plugin_id)
+    Ai::Provider.find_by(account: account, provider_identifier: plugin_id)
   end
 
   private
@@ -100,7 +100,7 @@ class PluginProviderRegistryService
     @logger.info "[PLUGIN_PROVIDER] Loaded #{@providers.size} provider plugins"
   end
 
-  def sync_provider_credentials(provider, installation)
+  def sync_ai_provider_credentials(provider, installation)
     # Sync authentication credentials from plugin installation to provider
     auth_schema = installation.plugin.ai_provider_plugin.authentication_schema
 
@@ -111,7 +111,7 @@ class PluginProviderRegistryService
       next if credential_value.blank?
 
       # Create or update provider credential
-      credential = provider.ai_provider_credentials.find_or_initialize_by(
+      credential = provider.provider_credentials.find_or_initialize_by(
         credential_type: field_name
       )
 

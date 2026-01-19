@@ -38,7 +38,7 @@ class AiWorkflowAutoFixService
   #   - fixed_count [Integer]
   #   - fixes_applied [Array<Hash>]
   #   - remaining_issues [Array<Hash>]
-  #   - workflow [AiWorkflow]
+  #   - workflow [Ai::Workflow]
   #   - errors [Array<String>]
   def fix_all
     # Run validation to get current issues
@@ -162,7 +162,7 @@ class AiWorkflowAutoFixService
   end
 
   def fix_missing_start_node
-    nodes = workflow.ai_workflow_nodes.includes(:target_edges)
+    nodes = workflow.workflow_nodes.includes(:target_edges)
 
     # Find nodes with no incoming edges (potential start nodes)
     candidate_nodes = nodes.select { |n| n.target_edges.empty? && !n.is_start_node }
@@ -183,7 +183,7 @@ class AiWorkflowAutoFixService
   def fix_missing_timeout(issue)
     return false unless issue[:node_id]
 
-    node = workflow.ai_workflow_nodes.find_by(id: issue[:node_id])
+    node = workflow.workflow_nodes.find_by(id: issue[:node_id])
     return log_error("Node not found: #{issue[:node_id]}") unless node
 
     # Determine appropriate timeout based on node type
@@ -217,7 +217,7 @@ class AiWorkflowAutoFixService
   def fix_missing_max_iterations(issue)
     return false unless issue[:node_id]
 
-    node = workflow.ai_workflow_nodes.find_by(id: issue[:node_id])
+    node = workflow.workflow_nodes.find_by(id: issue[:node_id])
     return log_error("Node not found: #{issue[:node_id]}") unless node
 
     recommended_max = issue.dig(:metadata, :recommended_max_iterations) || 1000
@@ -236,18 +236,18 @@ class AiWorkflowAutoFixService
   def fix_orphaned_node(issue)
     return false unless issue[:node_id]
 
-    orphaned_node = workflow.ai_workflow_nodes.find_by(id: issue[:node_id])
+    orphaned_node = workflow.workflow_nodes.find_by(id: issue[:node_id])
     return log_error("Node not found: #{issue[:node_id]}") unless orphaned_node
 
     # Find start node or first node
-    start_node = workflow.ai_workflow_nodes.find_by(is_start_node: true) ||
-                 workflow.ai_workflow_nodes.where(node_type: "trigger").first ||
-                 workflow.ai_workflow_nodes.order(:created_at).first
+    start_node = workflow.workflow_nodes.find_by(is_start_node: true) ||
+                 workflow.workflow_nodes.where(node_type: "trigger").first ||
+                 workflow.workflow_nodes.order(:created_at).first
 
     return log_error("No start node found to connect to") if start_node.nil? || start_node.id == orphaned_node.id
 
     # Create edge from start node to orphaned node
-    edge = workflow.ai_workflow_edges.create!(
+    edge = workflow.workflow_edges.create!(
       edge_id: SecureRandom.uuid,
       source_node_id: start_node.id,
       target_node_id: orphaned_node.id,
@@ -265,7 +265,7 @@ class AiWorkflowAutoFixService
   def fix_missing_configuration(issue)
     return false unless issue[:node_id]
 
-    node = workflow.ai_workflow_nodes.find_by(id: issue[:node_id])
+    node = workflow.workflow_nodes.find_by(id: issue[:node_id])
     return log_error("Node not found: #{issue[:node_id]}") unless node
 
     # Apply default configuration based on node type

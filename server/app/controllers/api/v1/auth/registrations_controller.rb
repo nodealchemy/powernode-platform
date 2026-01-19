@@ -32,7 +32,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       # First user in account gets owner role (this is handled by User model callback)
 
       # Handle email verification based on system settings
-      if SystemSettingsService.email_verification_required?
+      if System::SettingsService.email_verification_required?
         # Generate verification token for production/development
         @user.generate_email_verification_token
       else
@@ -64,7 +64,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
         end
       end
 
-      tokens = JwtService.generate_user_tokens(@user)
+      tokens = Security::JwtService.generate_user_tokens(@user)
       @user.record_login!
 
       # Send verification email if not auto-verified
@@ -77,7 +77,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
               email: @user.email,
               verification_token: @user.email_verification_token,
               user_name: @user.full_name,
-              smtp_settings: SystemSettingsService.get_setting("smtp_settings")
+              smtp_settings: System::SettingsService.get_setting("smtp_settings")
             }
           )
         rescue StandardError => e

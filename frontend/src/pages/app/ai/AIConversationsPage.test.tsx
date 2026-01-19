@@ -76,18 +76,29 @@ jest.mock('@/shared/hooks/BreadcrumbContext', () => ({
   })
 }));
 
+// Mock usePageWebSocket
+jest.mock('@/shared/hooks/usePageWebSocket', () => ({
+  usePageWebSocket: () => ({
+    isConnected: true,
+    error: null,
+    activeChannels: [],
+    subscribeToChannel: jest.fn(),
+    unsubscribeFromChannel: jest.fn()
+  })
+}));
+
 // Mock modals
-jest.mock('@/features/ai-conversations/components/ConversationCreateModal', () => ({
+jest.mock('@/features/ai/conversations/components/ConversationCreateModal', () => ({
   ConversationCreateModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
     isOpen ? <div data-testid="create-modal"><button onClick={onClose}>Close</button></div> : null
 }));
 
-jest.mock('@/features/ai-conversations/components/ConversationDetailModal', () => ({
+jest.mock('@/features/ai/conversations/components/ConversationDetailModal', () => ({
   ConversationDetailModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
     isOpen ? <div data-testid="detail-modal"><button onClick={onClose}>Close</button></div> : null
 }));
 
-jest.mock('@/features/ai-conversations/components/ConversationContinueModal', () => ({
+jest.mock('@/features/ai/conversations/components/ConversationContinueModal', () => ({
   ConversationContinueModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
     isOpen ? <div data-testid="continue-modal"><button onClick={onClose}>Close</button></div> : null
 }));

@@ -27,7 +27,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
             ip: request.remote_ip,
             user_agent: request.user_agent
           }
-          two_fa_result = JwtService.generate_2fa_token(user, metadata: metadata)
+          two_fa_result = Security::JwtService.generate_2fa_token(user, metadata: metadata)
 
           # Create partial audit log entry
           AuditLog.create!(
@@ -57,7 +57,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
           user_agent: request.user_agent
         }
 
-        token_result = JwtService.generate_user_tokens(user, metadata: metadata)
+        token_result = Security::JwtService.generate_user_tokens(user, metadata: metadata)
         user.record_login!
 
         # Create audit log entry
@@ -128,7 +128,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
 
     begin
       # Use JWT service to refresh the token
-      token_result = JwtService.refresh_access_token(refresh_token)
+      token_result = Security::JwtService.refresh_access_token(refresh_token)
 
       render_success({
         access_token: token_result[:access_token],
@@ -156,12 +156,12 @@ class Api::V1::Auth::SessionsController < ApplicationController
       # Get current token from authorization header
       if request.headers["Authorization"]
         current_token = request.headers["Authorization"].split(" ").last
-        JwtService.blacklist_token(current_token, reason: "logout", user_id: current_user.id)
+        Security::JwtService.blacklist_token(current_token, reason: "logout", user_id: current_user.id)
       end
 
       # Also blacklist refresh token if provided
       if params[:refresh_token].present?
-        JwtService.blacklist_token(params[:refresh_token], reason: "logout", user_id: current_user.id)
+        Security::JwtService.blacklist_token(params[:refresh_token], reason: "logout", user_id: current_user.id)
       end
     rescue => e
       Rails.logger.error "Error blacklisting tokens: #{e.message}"
@@ -212,10 +212,10 @@ class Api::V1::Auth::SessionsController < ApplicationController
 
     begin
       # Use JWT service to verify 2FA and get full tokens
-      token_result = JwtService.verify_2fa_token(verification_token, two_factor_code)
+      token_result = Security::JwtService.verify_2fa_token(verification_token, two_factor_code)
 
       # Get user from the token result (user info should be in the JWT)
-      payload = JwtService.decode(token_result[:access_token])
+      payload = Security::JwtService.decode(token_result[:access_token])
       user = User.find(payload[:sub])
       user.record_login!
 

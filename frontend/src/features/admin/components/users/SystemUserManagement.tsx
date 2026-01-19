@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { usersApi, User, AdminAccount } from '@/features/users/services/usersApi';
+import { usersApi, User, AdminAccount } from '@/features/account/users/services/usersApi';
 import { hasAdminAccess } from '@/shared/utils/permissionUtils';
 import { getUserInitials } from '@/shared/utils/userUtils';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { ImpersonateUserModal } from './ImpersonateUserModal';
 import { CreateUserModal } from './CreateUserModal';
 
 export const SystemUserManagement: React.FC = () => {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [users, setUsers] = useState<User[]>([]);
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,13 +58,19 @@ export const SystemUserManagement: React.FC = () => {
   };
 
   const handleSuspendUser = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to suspend this user?')) return;
-
-    try {
-      await usersApi.suspendUser(userId);
-      loadSystemData();
-    } catch (error) {
-    }
+    confirm({
+      title: 'Suspend User',
+      message: 'Are you sure you want to suspend this user?',
+      confirmLabel: 'Suspend',
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          await usersApi.suspendUser(userId);
+          loadSystemData();
+        } catch (error) {
+        }
+      }
+    });
   };
 
   const handleActivateUser = async (userId: string) => {
@@ -74,13 +82,19 @@ export const SystemUserManagement: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to permanently delete this user? This action cannot be undone.')) return;
-
-    try {
-      await usersApi.deleteUser(userId);
-      loadSystemData();
-    } catch (error) {
-    }
+    confirm({
+      title: 'Delete User',
+      message: 'Are you sure you want to permanently delete this user? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await usersApi.deleteUser(userId);
+          loadSystemData();
+        } catch (error) {
+        }
+      }
+    });
   };
 
   const handleImpersonateUser = (userId: string) => {
@@ -507,6 +521,7 @@ export const SystemUserManagement: React.FC = () => {
         }}
         accounts={accounts}
       />
+      {ConfirmationDialog}
     </div>
   );
 };

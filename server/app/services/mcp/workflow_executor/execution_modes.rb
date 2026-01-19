@@ -100,7 +100,7 @@ module Mcp
 
       # Execute conditional branch
       #
-      # @param node [AiWorkflowNode] Starting node
+      # @param node [Ai::WorkflowNode] Starting node
       # @param visited [Set] Set of visited node IDs
       def execute_conditional_branch(node, visited = Set.new)
         return if visited.include?(node.node_id)

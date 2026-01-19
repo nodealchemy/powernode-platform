@@ -178,7 +178,7 @@ module BaseAiService
   # =============================================================================
 
   def initialize_telemetry
-    McpTelemetryService.new(
+    Mcp::TelemetryService.new(
       service_name: self.class.name,
       account: @account
     )
@@ -290,6 +290,6 @@ module BaseAiService
   end
 
   def alerting_service
-    @alerting_service ||= AlertingService.new
+    @alerting_service ||= Monitoring::AlertingService.new
   end
 end

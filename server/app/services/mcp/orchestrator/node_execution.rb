@@ -6,6 +6,9 @@ module Mcp
       def execute_node(node)
         @logger.info "[MCP_ORCHESTRATOR] Executing node: #{node.node_id} (#{node.name})"
 
+        # Check loop prevention limits before executing
+        check_loop_prevention_before_execute(node)
+
         node_context = Mcp::NodeExecutionContext.new(
           node: node,
           workflow_run: @workflow_run,
@@ -31,10 +34,18 @@ module Mcp
           executor = get_mcp_node_executor(node, node_execution, node_context)
           result = executor.execute
 
+          # Update loop prevention state after execution
+          update_loop_prevention_after_execute(node, result)
+
           handle_node_success(node, node_execution, result, node_context)
 
           result
 
+        rescue Orchestrator::LoopPrevention::LoopLimitExceededError => e
+          # Re-raise loop prevention errors without wrapping
+          handle_node_failure(node, node_execution, e, node_context)
+          raise Mcp::AiWorkflowOrchestrator::WorkflowExecutionError,
+                "Loop prevention triggered: #{e.message}"
         rescue StandardError => e
           handle_node_failure(node, node_execution, e, node_context)
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "Node #{node.node_id} failed: #{e.message}"
@@ -194,14 +205,57 @@ module Mcp
           Mcp::NodeExecutors::McpResource
         when "mcp_prompt"
           Mcp::NodeExecutors::McpPrompt
+        # CI/CD node types
+        when "ci_trigger"
+          Mcp::NodeExecutors::CiTrigger
+        when "ci_wait_status"
+          Mcp::NodeExecutors::CiWaitStatus
+        when "ci_get_logs"
+          Mcp::NodeExecutors::CiGetLogs
+        when "ci_cancel"
+          Mcp::NodeExecutors::CiCancel
+        when "git_commit_status"
+          Mcp::NodeExecutors::GitCommitStatus
+        when "git_create_check"
+          Mcp::NodeExecutors::GitCreateCheck
+        when "integration_execute"
+          Mcp::NodeExecutors::IntegrationExecute
+        # New CI/CD node types (from pipeline migration)
+        when "git_checkout"
+          Mcp::NodeExecutors::GitCheckout
+        when "git_branch"
+          Mcp::NodeExecutors::GitBranch
+        when "git_pull_request"
+          Mcp::NodeExecutors::GitPullRequest
+        when "git_comment"
+          Mcp::NodeExecutors::GitComment
+        when "deploy"
+          Mcp::NodeExecutors::Deploy
+        when "run_tests"
+          Mcp::NodeExecutors::RunTests
+        when "shell_command"
+          Mcp::NodeExecutors::ShellCommand
+        # Core utility node types
+        when "database"
+          Mcp::NodeExecutors::Database
+        when "email"
+          Mcp::NodeExecutors::Email
+        when "notification"
+          Mcp::NodeExecutors::Notification
+        when "validator"
+          Mcp::NodeExecutors::Validator
+        when "scheduler"
+          Mcp::NodeExecutors::Scheduler
+        when "file"
+          Mcp::NodeExecutors::File
         else
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "Unknown node type: #{node_type}"
         end
       end
 
       def create_node_execution_record(node, node_context)
-        @workflow_run.ai_workflow_node_executions.create!(
-          ai_workflow_node_id: node.id,
+        @workflow_run.node_executions.create!(
+          node: node,
           node_id: node.node_id,
           node_type: node.node_type,
           status: "pending",

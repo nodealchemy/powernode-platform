@@ -39,7 +39,7 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
     end
 
     it 'raises error for unknown provider type' do
-      invalid_storage = FileStorage.new(
+      invalid_storage = FileManagement::Storage.new(
         account: account,
         name: 'Invalid',
         provider_type: 'unknown',
@@ -89,9 +89,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
   describe 'File Upload Operations' do
     let(:test_content) { 'This is test file content for upload testing.' }
     let(:file_object) do
-      FileObject.create!(
+      FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'test_upload.txt',
         storage_key: "uploads/#{SecureRandom.uuid}/test_upload.txt",
@@ -130,9 +130,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
     end
 
     it 'creates nested directories automatically' do
-      nested_file = FileObject.create!(
+      nested_file = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'nested.txt',
         storage_key: 'deep/nested/path/structure/nested.txt',
@@ -165,9 +165,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
 
       # File size validation happens at model level
       expect {
-        FileObject.create!(
+        FileManagement::Object.create!(
           account: account,
-          file_storage: storage,
+          storage: storage,
           uploaded_by: user,
           filename: 'large.txt',
           storage_key: 'large/file.txt',
@@ -183,9 +183,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
   describe 'File Read Operations' do
     let(:test_content) { 'Content to read' }
     let(:file_object) do
-      obj = FileObject.create!(
+      obj = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'read_test.txt',
         storage_key: "reads/#{SecureRandom.uuid}/read_test.txt",
@@ -215,9 +215,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
     end
 
     it 'raises error when reading non-existent file' do
-      non_existent = FileObject.create!(
+      non_existent = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'missing.txt',
         storage_key: 'missing/file.txt',
@@ -243,9 +243,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
 
   describe 'File URL Generation' do
     let(:file_object) do
-      FileObject.create!(
+      FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'url_test.txt',
         storage_key: 'urls/test.txt',
@@ -286,9 +286,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
     let(:destination_key) { "destination/#{SecureRandom.uuid}/copied.txt" }
 
     let(:source_file) do
-      obj = FileObject.create!(
+      obj = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'original.txt',
         storage_key: source_key,
@@ -341,9 +341,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
   describe 'File Deletion Operations' do
     let(:test_content) { 'File to delete' }
     let(:file_object) do
-      obj = FileObject.create!(
+      obj = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'delete_test.txt',
         storage_key: "deletes/#{SecureRandom.uuid}/delete_test.txt",
@@ -367,9 +367,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
     end
 
     it 'handles deletion of non-existent file gracefully' do
-      non_existent = FileObject.create!(
+      non_existent = FileManagement::Object.create!(
         account: account,
-        file_storage: storage,
+        storage: storage,
         uploaded_by: user,
         filename: 'never_uploaded.txt',
         storage_key: 'missing/never_uploaded.txt',
@@ -389,9 +389,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
     let(:test_content) { 'Batch test content' }
     let(:file_objects) do
       5.times.map do |i|
-        obj = FileObject.create!(
+        obj = FileManagement::Object.create!(
           account: account,
-          file_storage: storage,
+          storage: storage,
           uploaded_by: user,
           filename: "batch_#{i}.txt",
           storage_key: "batch/#{SecureRandom.uuid}/file_#{i}.txt",
@@ -433,9 +433,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
     before do
       # Create test files in different directories
       [ 'docs/file1.txt', 'docs/file2.txt', 'images/photo.jpg', 'data/export.csv' ].each do |key|
-        obj = FileObject.create!(
+        obj = FileManagement::Object.create!(
           account: account,
-          file_storage: storage,
+          storage: storage,
           uploaded_by: user,
           filename: File.basename(key),
           storage_key: key,
@@ -508,9 +508,9 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
     it 'handles concurrent file uploads' do
       # Create all file objects in main thread before threading
       file_objects = 10.times.map do |i|
-        FileObject.create!(
+        FileManagement::Object.create!(
           account: account,
-          file_storage: storage,
+          storage: storage,
           uploaded_by: user,
           filename: "concurrent_#{i}.txt",
           storage_key: "concurrent/#{SecureRandom.uuid}/file_#{i}.txt",

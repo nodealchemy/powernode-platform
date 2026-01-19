@@ -417,7 +417,7 @@ describe('McpOperationNode', () => {
 
       const { container } = render(<McpOperationNode {...props} />);
 
-      expect(container.querySelector('.bg-theme-danger')).toBeInTheDocument();
+      expect(container.querySelector('.bg-theme-danger-solid')).toBeInTheDocument();
     });
 
     it('renders dynamic node handles', () => {

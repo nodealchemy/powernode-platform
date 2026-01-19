@@ -18,9 +18,9 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
   let(:user) { create(:user, account: account) }
   let(:workflow) do
     wf = create(:ai_workflow, account: account)
-    start_node = create(:ai_workflow_node, :start_node, ai_workflow: wf)
-    end_node = create(:ai_workflow_node, :end_node, ai_workflow: wf)
-    create(:ai_workflow_edge, ai_workflow: wf, source_node_id: start_node.node_id, target_node_id: end_node.node_id)
+    start_node = create(:ai_workflow_node, :start_node, workflow: wf)
+    end_node = create(:ai_workflow_node, :end_node, workflow: wf)
+    create(:ai_workflow_edge, workflow: wf, source_node_id: start_node.node_id, target_node_id: end_node.node_id)
     wf
   end
   let(:ai_provider) { create(:ai_provider, account: account) }
@@ -63,9 +63,9 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
     it 'creates a new workflow run' do
       expect {
         service.execute_workflow(input_variables: input_variables)
-      }.to change { workflow.ai_workflow_runs.count }.by(1)
+      }.to change { workflow.workflow_runs.count }.by(1)
 
-      run = workflow.ai_workflow_runs.last
+      run = workflow.workflow_runs.last
       expect(run.input_variables).to eq(input_variables.stringify_keys)
       expect(run.status).to be_in([ 'initializing', 'running', 'completed' ])
     end
@@ -82,17 +82,17 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
   end
 
   describe '#execute_node' do
-    let(:run) { create(:ai_workflow_run, ai_workflow: workflow, account: account) }
-    let(:start_node) { workflow.ai_workflow_nodes.find_by(node_type: 'start') }
-    let(:end_node) { workflow.ai_workflow_nodes.find_by(node_type: 'end') }
+    let(:run) { create(:ai_workflow_run, workflow: workflow, account: account) }
+    let(:start_node) { workflow.workflow_nodes.find_by(node_type: 'start') }
+    let(:end_node) { workflow.workflow_nodes.find_by(node_type: 'end') }
 
     it 'creates node execution record for start node' do
       expect {
         service.execute_node(start_node, run, { input: 'test data' })
-      }.to change { run.ai_workflow_node_executions.count }.by(1)
+      }.to change { run.node_executions.count }.by(1)
 
-      execution = run.ai_workflow_node_executions.last
-      expect(execution.ai_workflow_node).to eq(start_node)
+      execution = run.node_executions.last
+      expect(execution.node).to eq(start_node)
     end
 
     it 'executes start nodes correctly' do
@@ -136,12 +136,12 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
 
     it 'detects circular dependencies' do
       circular_workflow = create(:ai_workflow, account: account)
-      node1 = create(:ai_workflow_node, :ai_agent, ai_workflow: circular_workflow)
-      node2 = create(:ai_workflow_node, :transform, ai_workflow: circular_workflow)
+      node1 = create(:ai_workflow_node, :ai_agent, workflow: circular_workflow)
+      node2 = create(:ai_workflow_node, :transform, workflow: circular_workflow)
 
-      create(:ai_workflow_edge, ai_workflow: circular_workflow,
+      create(:ai_workflow_edge, workflow: circular_workflow,
              source_node_id: node1.node_id, target_node_id: node2.node_id)
-      create(:ai_workflow_edge, ai_workflow: circular_workflow,
+      create(:ai_workflow_edge, workflow: circular_workflow,
              source_node_id: node2.node_id, target_node_id: node1.node_id)
 
       circular_service = described_class.new(circular_workflow)
@@ -163,10 +163,10 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
   end
 
   describe '#pause_execution' do
-    let(:run) { create(:ai_workflow_run, :running, ai_workflow: workflow, account: account) }
+    let(:run) { create(:ai_workflow_run, :running, workflow: workflow, account: account) }
 
     it 'cannot pause completed workflows' do
-      completed_run = create(:ai_workflow_run, :completed, ai_workflow: workflow, account: account)
+      completed_run = create(:ai_workflow_run, :completed, workflow: workflow, account: account)
 
       expect {
         service.pause_execution(completed_run)
@@ -176,7 +176,7 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
 
   describe '#resume_execution' do
     it 'cannot resume non-paused workflows' do
-      running_run = create(:ai_workflow_run, :running, ai_workflow: workflow, account: account)
+      running_run = create(:ai_workflow_run, :running, workflow: workflow, account: account)
 
       expect {
         service.resume_execution(running_run)
@@ -185,7 +185,7 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
   end
 
   describe '#cancel_execution' do
-    let(:run) { create(:ai_workflow_run, :running, ai_workflow: workflow, account: account) }
+    let(:run) { create(:ai_workflow_run, :running, workflow: workflow, account: account) }
 
     it 'cancels running workflow execution' do
       service.cancel_execution(run)
@@ -197,29 +197,29 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
     it 'stops all active node executions' do
       # Create separate nodes for each execution to avoid unique constraint violation
       3.times do
-        node = create(:ai_workflow_node, :ai_agent, ai_workflow: workflow)
-        create(:ai_workflow_node_execution, :running, ai_workflow_run: run, ai_workflow_node: node)
+        node = create(:ai_workflow_node, :ai_agent, workflow: workflow)
+        create(:ai_workflow_node_execution, :running, workflow_run: run, node: node)
       end
 
       service.cancel_execution(run)
 
-      run.ai_workflow_node_executions.each do |execution|
+      run.node_executions.each do |execution|
         expect(execution.reload.status).to eq('cancelled')
       end
     end
   end
 
   describe '#execution_statistics' do
-    let(:run) { create(:ai_workflow_run, :completed, ai_workflow: workflow, account: account) }
+    let(:run) { create(:ai_workflow_run, :completed, workflow: workflow, account: account) }
 
     before do
       # Create separate nodes for each execution to avoid unique constraint violation
       3.times do
-        node = create(:ai_workflow_node, :ai_agent, ai_workflow: workflow)
-        create(:ai_workflow_node_execution, :completed, ai_workflow_run: run, ai_workflow_node: node, cost: 0.25)
+        node = create(:ai_workflow_node, :ai_agent, workflow: workflow)
+        create(:ai_workflow_node_execution, :completed, workflow_run: run, node: node, cost: 0.25)
       end
-      failed_node = create(:ai_workflow_node, :api_call, ai_workflow: workflow)
-      create(:ai_workflow_node_execution, :failed, ai_workflow_run: run, ai_workflow_node: failed_node, cost: 0.05)
+      failed_node = create(:ai_workflow_node, :api_call, workflow: workflow)
+      create(:ai_workflow_node_execution, :failed, workflow_run: run, node: failed_node, cost: 0.05)
     end
 
     it 'calculates comprehensive execution statistics' do
@@ -321,7 +321,7 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
 
         expect {
           orchestration_service.orchestrate_workflow(invalid_config)
-        }.to raise_error(described_class::OrchestrationError, /Missing required workflow/)
+        }.to raise_error(Ai::AgentOrchestrationService::OrchestrationError, /Missing required workflow/)
       end
 
       it 'requires agents array in configuration' do
@@ -329,7 +329,7 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
 
         expect {
           orchestration_service.orchestrate_workflow(config)
-        }.to raise_error(described_class::OrchestrationError, /Missing required workflow/)
+        }.to raise_error(Ai::AgentOrchestrationService::OrchestrationError, /Missing required workflow/)
       end
     end
   end

@@ -15,7 +15,7 @@ class Api::V1::McpOauthController < ApplicationController
     end
 
     redirect_uri = params[:redirect_uri] || default_redirect_uri
-    oauth_service = McpOauthService.new(@mcp_server)
+    oauth_service = Mcp::OauthService.new(@mcp_server)
 
     begin
       authorization_url = oauth_service.generate_authorization_url(redirect_uri: redirect_uri)
@@ -27,7 +27,7 @@ class Api::V1::McpOauthController < ApplicationController
       })
 
       log_audit_event("mcp.oauth.authorize_initiated", @mcp_server)
-    rescue McpOauthService::ConfigurationError => e
+    rescue Mcp::OauthService::ConfigurationError => e
       Rails.logger.error "OAuth configuration error for MCP server #{@mcp_server.id}: #{e.message}"
       render_error("OAuth configuration error: #{e.message}", status: :unprocessable_content)
     rescue StandardError => e
@@ -61,7 +61,7 @@ class Api::V1::McpOauthController < ApplicationController
       return render_error("Invalid or expired OAuth state", status: :bad_request)
     end
 
-    oauth_service = McpOauthService.new(mcp_server)
+    oauth_service = Mcp::OauthService.new(mcp_server)
     redirect_uri = params[:redirect_uri] || default_redirect_uri
 
     begin
@@ -80,10 +80,10 @@ class Api::V1::McpOauthController < ApplicationController
       })
 
       log_audit_event("mcp.oauth.callback_success", mcp_server)
-    rescue McpOauthService::AuthorizationError => e
+    rescue Mcp::OauthService::AuthorizationError => e
       Rails.logger.error "OAuth authorization error for MCP server #{mcp_server.id}: #{e.message}"
       render_error("OAuth authorization failed: #{e.message}", status: :unprocessable_content)
-    rescue McpOauthService::OAuthError => e
+    rescue Mcp::OauthService::OAuthError => e
       Rails.logger.error "OAuth token exchange error for MCP server #{mcp_server.id}: #{e.message}"
       render_error("OAuth token exchange failed: #{e.message}", status: :unprocessable_content)
     rescue StandardError => e
@@ -114,7 +114,7 @@ class Api::V1::McpOauthController < ApplicationController
       return render_error("Server does not have OAuth configured", status: :unprocessable_content)
     end
 
-    oauth_service = McpOauthService.new(@mcp_server)
+    oauth_service = Mcp::OauthService.new(@mcp_server)
 
     begin
       oauth_service.revoke_tokens!
@@ -143,7 +143,7 @@ class Api::V1::McpOauthController < ApplicationController
       return render_error("No refresh token available", status: :unprocessable_content)
     end
 
-    oauth_service = McpOauthService.new(@mcp_server)
+    oauth_service = Mcp::OauthService.new(@mcp_server)
 
     begin
       oauth_service.refresh_token!
@@ -156,7 +156,7 @@ class Api::V1::McpOauthController < ApplicationController
       })
 
       log_audit_event("mcp.oauth.token_refreshed", @mcp_server)
-    rescue McpOauthService::TokenRefreshError => e
+    rescue Mcp::OauthService::TokenRefreshError => e
       Rails.logger.error "OAuth token refresh failed for MCP server #{@mcp_server.id}: #{e.message}"
       render_error("Token refresh failed: #{e.message}", status: :unprocessable_content)
     rescue StandardError => e

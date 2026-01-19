@@ -44,26 +44,26 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   # System Health endpoints
   def system_health
-    health_data = SystemHealthService.check_basic_health
+    health_data = System::HealthService.check_basic_health
 
     render_success(health_data)
   end
 
   def detailed_health
-    detailed_data = SystemHealthService.check_detailed_health
+    detailed_data = System::HealthService.check_detailed_health
 
     render_success(detailed_data)
   end
 
   def trigger_health_check
-    SystemHealthService.trigger_comprehensive_check
+    System::HealthService.trigger_comprehensive_check
 
     render_success(message: "Comprehensive health check triggered")
   end
 
   # Database Backup endpoints
   def list_backups
-    backups = DatabaseBackupService.list_backups
+    backups = System::DatabaseBackupService.list_backups
 
     render_success(backups)
   end
@@ -72,7 +72,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     backup_type = params[:type] || "full"
     description = params[:description]
 
-    backup_job = DatabaseBackupService.create_backup(backup_type, description, current_user)
+    backup_job = System::DatabaseBackupService.create_backup(backup_type, description, current_user)
 
     render_success(
       data: backup_job,
@@ -82,7 +82,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def delete_backup
     backup_id = params[:id]
-    result = DatabaseBackupService.delete_backup(backup_id)
+    result = System::DatabaseBackupService.delete_backup(backup_id)
 
     if result[:success]
       render_success(message: "Backup deleted successfully")
@@ -93,7 +93,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def restore_backup
     backup_id = params[:id]
-    result = DatabaseBackupService.restore_backup(backup_id, current_user)
+    result = System::DatabaseBackupService.restore_backup(backup_id, current_user)
 
     if result[:success]
       render_success(message: "Database restore initiated")
@@ -148,14 +148,14 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   # System Operations endpoints
   def system_operations
-    operations = SystemOperationsService.get_available_operations
+    operations = System::OperationsService.get_available_operations
 
     render_success(operations)
   end
 
   def restart_services
     services = params[:services] || [ "all" ]
-    result = SystemOperationsService.restart_services(services)
+    result = System::OperationsService.restart_services(services)
 
     render_success(
       data: result,
@@ -164,7 +164,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def reindex_database
-    result = SystemOperationsService.reindex_database
+    result = System::OperationsService.reindex_database
 
     render_success(
       data: result,
@@ -173,7 +173,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def optimize_database
-    result = SystemOperationsService.optimize_database
+    result = System::OperationsService.optimize_database
 
     render_success(
       data: result,
@@ -317,7 +317,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   # Backups endpoint
   def backups
-    backups = DatabaseBackup.order(created_at: :desc).limit(20)
+    backups = Database::Backup.order(created_at: :desc).limit(20)
 
     render_success(
       data: backups.map { |backup|
@@ -333,7 +333,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       }
     )
   rescue => e
-    # If DatabaseBackup model doesn't exist, return empty array
+    # If Database::Backup model doesn't exist, return empty array
     render_success([])
   end
 
@@ -498,7 +498,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def get_last_backup_info
-    backup = DatabaseBackup.order(created_at: :desc).first
+    backup = Database::Backup.order(created_at: :desc).first
     backup ? { created_at: backup.created_at, size: backup.size } : nil
   rescue
     nil

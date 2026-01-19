@@ -15,6 +15,7 @@ export { WebhookNodeConfig } from './WebhookNodeConfig';
 export { DatabaseNodeConfig } from './DatabaseNodeConfig';
 export { EmailNodeConfig } from './EmailNodeConfig';
 export { FileNodeConfig } from './FileNodeConfig';
+export { FileTransformNodeConfig } from './FileTransformNodeConfig';
 export { ValidatorNodeConfig } from './ValidatorNodeConfig';
 export { PromptTemplateNodeConfig } from './PromptTemplateNodeConfig';
 export { DataProcessorNodeConfig } from './DataProcessorNodeConfig';
@@ -64,6 +65,7 @@ import { WebhookNodeConfig } from './WebhookNodeConfig';
 import { DatabaseNodeConfig } from './DatabaseNodeConfig';
 import { EmailNodeConfig } from './EmailNodeConfig';
 import { FileNodeConfig } from './FileNodeConfig';
+import { FileTransformNodeConfig } from './FileTransformNodeConfig';
 import { ValidatorNodeConfig } from './ValidatorNodeConfig';
 import { PromptTemplateNodeConfig } from './PromptTemplateNodeConfig';
 import { DataProcessorNodeConfig } from './DataProcessorNodeConfig';
@@ -109,6 +111,7 @@ export const nodeTypeConfigRegistry: Record<string, NodeTypeConfigComponent> = {
   database: DatabaseNodeConfig,
   email: EmailNodeConfig,
   file: FileNodeConfig,
+  file_transform: FileTransformNodeConfig,
   notification: NotificationNodeConfig,
 
   // Workflow control nodes

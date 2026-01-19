@@ -20,9 +20,12 @@
 :queues:
   - [critical, 3]          # Critical system operations
   - [high, 3]              # High priority tasks
+  - [ci_cd_high, 3]        # High priority CI/CD operations (pipeline execution, deployment)
   - [ai_workflows, 2]      # AI workflow execution (uses 600s circuit breaker)
   - [ai_agents, 2]         # AI agent operations (uses 600s circuit breaker)
   - [ai_conversations, 2]  # AI conversation processing
+  - [ci_cd_default, 2]     # Default CI/CD queue (step execution, sync)
+  - [ci_cd_webhooks, 2]    # CI/CD webhook processing
   - [file_processing, 2]   # File uploads/processing
   - [services, 2]          # Service health checks
   - [billing, 2]           # Billing operations (uses distributed locking)
@@ -30,6 +33,7 @@
   - [email, 2]             # Email delivery
   - [reports, 2]           # Report generation
   - [webhooks, 1]          # Webhook delivery
+  - [maintenance, 1]       # Maintenance tasks (backups, cleanup)
   - [default, 1]           # Default queue for misc tasks
 
 # Redis configuration
@@ -60,3 +64,49 @@
 :max_retries: 5
 :dead_max_jobs: 10000
 <% end %>
+
+# Scheduled jobs configuration (sidekiq-scheduler)
+:scheduler:
+  :enabled: true
+  :dynamic: false
+  :listened_queues_only: false
+
+:schedule:
+  # Expire stale CI/CD approval tokens hourly
+  ci_cd_approval_expiry:
+    cron: '0 * * * *'  # Every hour at minute 0
+    class: CiCd::ApprovalExpiryJob
+    queue: default
+    description: 'Expire stale CI/CD pipeline step approval tokens'
+
+  # Expire stale AI workflow approval tokens hourly
+  ai_workflow_approval_expiry:
+    cron: '15 * * * *'  # Every hour at minute 15 (offset from CI/CD)
+    class: AiWorkflow::ApprovalExpiryJob
+    queue: default
+    description: 'Expire stale AI workflow approval tokens'
+
+  # Database backup - daily full backup at 2 AM UTC
+  daily_database_backup:
+    cron: '0 2 * * *'  # Every day at 2:00 AM UTC
+    class: Maintenance::ScheduledBackupJob
+    queue: maintenance
+    args:
+      backup_type: full
+    description: 'Automated daily full database backup'
+
+  # Database backup - weekly schema backup on Sundays at 3 AM UTC
+  weekly_schema_backup:
+    cron: '0 3 * * 0'  # Every Sunday at 3:00 AM UTC
+    class: Maintenance::ScheduledBackupJob
+    queue: maintenance
+    args:
+      backup_type: schema_only
+    description: 'Automated weekly schema-only backup'
+
+  # Backup cleanup - remove backups older than retention period
+  backup_cleanup:
+    cron: '0 4 * * *'  # Every day at 4:00 AM UTC
+    class: Maintenance::BackupCleanupJob
+    queue: maintenance
+    description: 'Remove expired backups beyond retention period'

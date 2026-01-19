@@ -32,7 +32,7 @@ class AiWorkflowCircuitBreakerManager
     # Get or create circuit breaker for a service
     def get_or_create_breaker(service_name, config = {})
       @breakers ||= {}
-      @breakers[service_name] ||= AiWorkflowCircuitBreakerService.new(
+      @breakers[service_name] ||= Ai::WorkflowCircuitBreakerService.new(
         service_name: service_name,
         config: config
       )
@@ -142,7 +142,7 @@ class AiWorkflowCircuitBreakerManager
       protect(service_name: service_name, config: config) do
         block.call
       end
-    rescue AiWorkflowCircuitBreakerService::CircuitOpenError => e
+    rescue Ai::WorkflowCircuitBreakerService::CircuitOpenError => e
       handle_circuit_open_error(node_execution, service_name, e)
     rescue StandardError => e
       Rails.logger.error "[CircuitBreakerManager] Error executing node with protection: #{e.message}"
@@ -176,8 +176,8 @@ class AiWorkflowCircuitBreakerManager
       when "ai_agent"
         # Use AI provider as service name
         agent_id = node.configuration["agent_id"]
-        agent = AiAgent.find_by(id: agent_id)
-        provider = agent&.ai_provider&.provider_type || "unknown_ai_provider"
+        agent = Ai::Agent.find_by(id: agent_id)
+        provider = agent&.provider&.provider_type || "unknown_ai_provider"
         "ai_provider:#{provider}"
 
       when "api_call"
@@ -205,7 +205,7 @@ class AiWorkflowCircuitBreakerManager
 
     def extract_circuit_breaker_config(node_execution)
       node = node_execution.ai_workflow_node
-      workflow = node_execution.ai_workflow_run.ai_workflow
+      workflow = node_execution.ai_workflow_run.workflow
 
       # Node-level configuration overrides workflow-level
       node_config = node.configuration["circuit_breaker"] || {}
@@ -241,7 +241,7 @@ class AiWorkflowCircuitBreakerManager
 
     def should_pause_workflow?(workflow_run, service_name)
       # Check workflow configuration for circuit breaker pause policy
-      config = workflow_run.ai_workflow.configuration["circuit_breaker"] || {}
+      config = workflow_run.workflow.configuration["circuit_breaker"] || {}
       pause_on_open = config["pause_on_open"] != false # Default true
 
       pause_on_open

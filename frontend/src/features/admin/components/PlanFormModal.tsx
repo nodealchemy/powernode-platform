@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { plansApi, DetailedPlan, PlanFormData } from '@/features/plans/services/plansApi';
+import { plansApi, DetailedPlan, PlanFormData } from '@/features/business/plans/services/plansApi';
 import { PlanDiscountConfig } from './PlanDiscountConfig';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';

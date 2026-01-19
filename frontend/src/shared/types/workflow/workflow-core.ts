@@ -1,9 +1,14 @@
 // ===== CORE WORKFLOW TYPES =====
 
+// Workflow type for unified AI/CI-CD system
+export type WorkflowType = 'ai' | 'cicd';
+
 export interface AiWorkflow {
   id: string;
   name: string;
   description: string;
+  /** Type of workflow: 'ai' for AI automation workflows, 'cicd' for CI/CD pipelines */
+  workflow_type?: WorkflowType;
   status: 'draft' | 'active' | 'inactive' | 'paused' | 'archived';
   visibility: 'private' | 'account' | 'public';
   version: number;

@@ -32,7 +32,7 @@ provider = account.ai_providers.find_by(provider_type: 'anthropic') ||
 
 unless provider
   puts '⚠️  No AI providers found - creating placeholder provider'
-  provider = AiProvider.find_or_create_by!(
+  provider = Ai::Provider.find_or_create_by!(
     account: account,
     name: 'Claude AI',
     provider_type: 'anthropic'
@@ -56,11 +56,11 @@ puts "✓ Using AI Provider: #{provider.name}"
 # =============================================================================
 
 def create_agent(account:, user:, provider:, name:, type:, description:, prompt:, model:)
-  AiAgent.find_or_create_by!(account: account, name: name) do |agent|
+  Ai::Agent.find_or_create_by!(account: account, name: name) do |agent|
     agent.agent_type = type
     agent.description = description
     agent.creator = user
-    agent.ai_provider = provider
+    agent.provider = provider
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_capabilities = {
@@ -134,7 +134,7 @@ seo_agent = create_agent(
 puts "✓ Created content generation agents"
 
 # Create workflow
-content_workflow = AiWorkflow.find_or_create_by!(
+content_workflow = Ai::Workflow.find_or_create_by!(
   account: account,
   name: 'Content Generation Pipeline'
 ) do |wf|
@@ -155,8 +155,8 @@ content_workflow = AiWorkflow.find_or_create_by!(
 end
 
 # Clear existing nodes/edges for clean recreation
-content_workflow.ai_workflow_edges.destroy_all
-content_workflow.ai_workflow_nodes.destroy_all
+content_workflow.workflow_edges.destroy_all
+content_workflow.workflow_nodes.destroy_all
 
 # Create nodes
 # Layout: Vertical flow with condition branches
@@ -174,18 +174,18 @@ nodes_data = [
   { id: 'edit', type: 'ai_agent', name: 'Edit & Refine', x: 400, y: 500,
     config: { 'agent_id' => editor_agent.id, 'prompt_template' => 'Edit: {{writer_output}}' } },
   { id: 'seo', type: 'ai_agent', name: 'SEO Optimization', x: 400, y: 650,
-    config: { 'agent_id' => seo_agent.id, 'prompt_template' => 'Optimize for SEO: {{editor_output}}' } },
+    config: { 'agent_id' => seo_agent.id, 'prompt_template' => 'Optimize for SEO: {{editor_output}}. Output JSON with seo_title, meta_description, keywords, and quality_score (0-100).' } },
   { id: 'quality_check', type: 'condition', name: 'Quality Check', x: 400, y: 800,
-    config: { 'conditions' => [ { 'field' => 'quality_score', 'operator' => '>=', 'value' => 80 } ] } },
+    config: { 'conditions' => [ { 'field' => 'seo.quality_score', 'operator' => '>=', 'value' => 80 } ] } },
   # True path offset right (x=550) to align with condition's True handle (bottom-right)
   { id: 'kb_create', type: 'kb_article', name: 'Create KB Article', x: 550, y: 950,
-    config: { 'action' => 'create', 'title' => '{{seo_title}}', 'content' => '{{final_content}}', 'status' => 'published' } },
+    config: { 'action' => 'create', 'title' => '{{seo.seo_title}}', 'content' => '{{edit.output}}', 'status' => 'published' } },
   { id: 'end', type: 'end', name: 'Complete', x: 550, y: 1100, is_end: true,
-    config: { 'output_mapping' => { 'content' => '{{final_content}}', 'seo_data' => '{{seo_output}}' } } }
+    config: { 'output_mapping' => { 'content' => '{{edit.output}}', 'seo_data' => '{{seo}}', 'article_id' => '{{kb_create.id}}' } } }
 ]
 
 nodes_data.each do |n|
-  content_workflow.ai_workflow_nodes.create!(
+  content_workflow.workflow_nodes.create!(
     node_id: n[:id],
     node_type: n[:type],
     name: n[:name],
@@ -210,7 +210,7 @@ edges_data = [
 ]
 
 edges_data.each_with_index do |e, i|
-  content_workflow.ai_workflow_edges.create!(
+  content_workflow.workflow_edges.create!(
     edge_id: "edge_#{i + 1}",
     source_node_id: e[:source],
     target_node_id: e[:target],
@@ -223,7 +223,7 @@ edges_data.each_with_index do |e, i|
   )
 end
 
-puts "✓ Created Content Generation Pipeline (#{content_workflow.ai_workflow_nodes.count} nodes, #{content_workflow.ai_workflow_edges.count} edges)"
+puts "✓ Created Content Generation Pipeline (#{content_workflow.workflow_nodes.count} nodes, #{content_workflow.workflow_edges.count} edges)"
 
 # =============================================================================
 # WORKFLOW 2: CUSTOMER ONBOARDING FLOW
@@ -234,7 +234,7 @@ puts "\n" + '-' * 60
 puts '2. CUSTOMER ONBOARDING FLOW'
 puts '-' * 60
 
-onboarding_workflow = AiWorkflow.find_or_create_by!(
+onboarding_workflow = Ai::Workflow.find_or_create_by!(
   account: account,
   name: 'Customer Onboarding Flow'
 ) do |wf|
@@ -255,8 +255,8 @@ onboarding_workflow = AiWorkflow.find_or_create_by!(
 end
 
 # Clear existing nodes/edges
-onboarding_workflow.ai_workflow_edges.destroy_all
-onboarding_workflow.ai_workflow_nodes.destroy_all
+onboarding_workflow.workflow_edges.destroy_all
+onboarding_workflow.workflow_nodes.destroy_all
 
 # Create nodes
 # Layout: Vertical flow with condition branches (False=left x=200, True=right x=600)
@@ -287,7 +287,7 @@ onboarding_nodes = [
 ]
 
 onboarding_nodes.each do |n|
-  onboarding_workflow.ai_workflow_nodes.create!(
+  onboarding_workflow.workflow_nodes.create!(
     node_id: n[:id],
     node_type: n[:type],
     name: n[:name],
@@ -315,7 +315,7 @@ onboarding_edges = [
 ]
 
 onboarding_edges.each_with_index do |e, i|
-  onboarding_workflow.ai_workflow_edges.create!(
+  onboarding_workflow.workflow_edges.create!(
     edge_id: "edge_#{i + 1}",
     source_node_id: e[:source],
     target_node_id: e[:target],
@@ -328,7 +328,7 @@ onboarding_edges.each_with_index do |e, i|
   )
 end
 
-puts "✓ Created Customer Onboarding Flow (#{onboarding_workflow.ai_workflow_nodes.count} nodes, #{onboarding_workflow.ai_workflow_edges.count} edges)"
+puts "✓ Created Customer Onboarding Flow (#{onboarding_workflow.workflow_nodes.count} nodes, #{onboarding_workflow.workflow_edges.count} edges)"
 
 # =============================================================================
 # WORKFLOW 3: DATA INTEGRATION PIPELINE
@@ -339,7 +339,7 @@ puts "\n" + '-' * 60
 puts '3. DATA INTEGRATION PIPELINE'
 puts '-' * 60
 
-integration_workflow = AiWorkflow.find_or_create_by!(
+integration_workflow = Ai::Workflow.find_or_create_by!(
   account: account,
   name: 'Data Integration Pipeline'
 ) do |wf|
@@ -355,13 +355,18 @@ integration_workflow = AiWorkflow.find_or_create_by!(
   wf.metadata = {
     'category' => 'Data Integration',
     'complexity' => 'advanced',
-    'estimated_duration' => '5-15 minutes'
+    'estimated_duration' => '5-15 minutes',
+    'example_inputs' => {
+      'api_endpoint' => 'https://api.example.com/v1',
+      'api_key' => 'sk_live_xxxx (set via secrets)',
+      'callback_url' => 'https://hooks.example.com/webhook/sync-complete'
+    }
   }
 end
 
 # Clear existing nodes/edges
-integration_workflow.ai_workflow_edges.destroy_all
-integration_workflow.ai_workflow_nodes.destroy_all
+integration_workflow.workflow_edges.destroy_all
+integration_workflow.workflow_nodes.destroy_all
 
 # Create nodes
 # Layout: Vertical flow with loop body offset right (x=600)
@@ -390,7 +395,7 @@ integration_nodes = [
 ]
 
 integration_nodes.each do |n|
-  integration_workflow.ai_workflow_nodes.create!(
+  integration_workflow.workflow_nodes.create!(
     node_id: n[:id],
     node_type: n[:type],
     name: n[:name],
@@ -420,7 +425,7 @@ integration_edges = [
 ]
 
 integration_edges.each_with_index do |e, i|
-  integration_workflow.ai_workflow_edges.create!(
+  integration_workflow.workflow_edges.create!(
     edge_id: "edge_#{i + 1}",
     source_node_id: e[:source],
     target_node_id: e[:target],
@@ -432,7 +437,7 @@ integration_edges.each_with_index do |e, i|
   )
 end
 
-puts "✓ Created Data Integration Pipeline (#{integration_workflow.ai_workflow_nodes.count} nodes, #{integration_workflow.ai_workflow_edges.count} edges)"
+puts "✓ Created Data Integration Pipeline (#{integration_workflow.workflow_nodes.count} nodes, #{integration_workflow.workflow_edges.count} edges)"
 
 # =============================================================================
 # WORKFLOW 4: MCP-POWERED PAGE GENERATOR
@@ -450,7 +455,7 @@ unless content_mcp_server
   puts '   Run MCP server seeds first: load db/seeds/mcp_servers_seeds.rb'
 else
 
-page_generator_workflow = AiWorkflow.find_or_create_by!(
+page_generator_workflow = Ai::Workflow.find_or_create_by!(
   account: account,
   name: 'MCP-Powered Page Generator'
 ) do |wf|
@@ -472,8 +477,8 @@ page_generator_workflow = AiWorkflow.find_or_create_by!(
 end
 
 # Clear existing nodes/edges
-page_generator_workflow.ai_workflow_edges.destroy_all
-page_generator_workflow.ai_workflow_nodes.destroy_all
+page_generator_workflow.workflow_edges.destroy_all
+page_generator_workflow.workflow_nodes.destroy_all
 
 # Create nodes demonstrating consolidated types
 # Layout: Vertical flow with condition branches (False=left x=200, True=right x=600)
@@ -484,36 +489,36 @@ page_gen_nodes = [
   # MCP Operation: Use prompt template from MCP server
   { id: 'mcp_prompt', type: 'mcp_operation', name: 'Get Prompt Template', x: 400, y: 170,
     config: { 'operation_type' => 'prompt', 'mcp_server_id' => content_mcp_server.id, 'execution_mode' => 'sync', 'prompt_name' => 'page_generator', 'arguments' => { 'topic' => '{{topic}}' } } },
-  # AI Agent to generate content
+  # AI Agent to generate content using prompt from MCP
   { id: 'generate', type: 'ai_agent', name: 'Generate Content', x: 400, y: 290,
-    config: { 'agent_id' => writer_agent.id, 'prompt_template' => '{{mcp_prompt_output}}' } },
-  # MCP Operation: Use tool to enhance content
+    config: { 'agent_id' => writer_agent.id, 'prompt_template' => '{{mcp_prompt.output}}' } },
+  # MCP Operation: Use tool to enhance content and score quality
   { id: 'mcp_tool', type: 'mcp_operation', name: 'Enhance with MCP Tool', x: 400, y: 410,
-    config: { 'operation_type' => 'tool', 'mcp_server_id' => content_mcp_server.id, 'execution_mode' => 'sync', 'mcp_tool_name' => 'content_enhancer', 'parameters' => { 'content' => '{{generated_content}}' } } },
+    config: { 'operation_type' => 'tool', 'mcp_server_id' => content_mcp_server.id, 'execution_mode' => 'sync', 'mcp_tool_name' => 'content_enhancer', 'parameters' => { 'content' => '{{generate.output}}', 'return_score' => true } } },
   # MCP Operation: Read resource for metadata
   { id: 'mcp_resource', type: 'mcp_operation', name: 'Get Page Template', x: 400, y: 530,
     config: { 'operation_type' => 'resource', 'mcp_server_id' => content_mcp_server.id, 'execution_mode' => 'sync', 'resource_uri' => 'templates://page/default' } },
-  # Page: Create the page
+  # Page: Create the page with enhanced content from MCP tool
   { id: 'page_create', type: 'page', name: 'Create Page', x: 400, y: 650,
-    config: { 'action' => 'create', 'title' => '{{topic}}', 'content' => '{{enhanced_content}}', 'slug' => '{{slug}}', 'status' => 'draft' } },
-  # Page: Update with SEO metadata
+    config: { 'action' => 'create', 'title' => '{{topic}}', 'content' => '{{mcp_tool.enhanced_content}}', 'slug' => '{{topic | slugify}}', 'status' => 'draft' } },
+  # Page: Update with SEO metadata from enhanced content
   { id: 'page_update', type: 'page', name: 'Add SEO Metadata', x: 400, y: 770,
-    config: { 'action' => 'update', 'page_id' => '{{created_page.id}}', 'meta_description' => '{{seo_description}}', 'meta_keywords' => '{{keywords}}' } },
-  # Condition: Check content quality
+    config: { 'action' => 'update', 'page_id' => '{{page_create.id}}', 'meta_description' => '{{mcp_tool.meta_description}}', 'meta_keywords' => '{{mcp_tool.keywords}}' } },
+  # Condition: Check content quality from MCP enhancement tool output
   { id: 'quality_gate', type: 'condition', name: 'Quality Gate', x: 400, y: 890,
-    config: { 'conditions' => [ { 'field' => 'content_score', 'operator' => '>=', 'value' => 75 } ] } },
+    config: { 'conditions' => [ { 'field' => 'mcp_tool.content_score', 'operator' => '>=', 'value' => 75 } ] } },
   # Condition branches: False=left, True=right
   { id: 'notify_review', type: 'notification', name: 'Request Review', x: 200, y: 1010,
-    config: { 'channel' => 'email', 'message' => 'Page {{created_page.title}} needs review' } },
+    config: { 'channel' => 'email', 'message' => 'Page {{page_create.title}} needs review' } },
   { id: 'page_publish', type: 'page', name: 'Publish Page', x: 600, y: 1010,
-    config: { 'action' => 'publish', 'page_id' => '{{created_page.id}}' } },
+    config: { 'action' => 'publish', 'page_id' => '{{page_create.id}}' } },
   # End node (centered, both branches converge)
   { id: 'end', type: 'end', name: 'Complete', x: 400, y: 1130, is_end: true,
-    config: { 'output_mapping' => { 'page_id' => '{{created_page.id}}', 'status' => '{{final_status}}' } } }
+    config: { 'output_mapping' => { 'page_id' => '{{page_create.id}}', 'published' => '{{page_publish.success}}', 'content_score' => '{{mcp_tool.content_score}}' } } }
 ]
 
 page_gen_nodes.each do |n|
-  page_generator_workflow.ai_workflow_nodes.create!(
+  page_generator_workflow.workflow_nodes.create!(
     node_id: n[:id],
     node_type: n[:type],
     name: n[:name],
@@ -541,7 +546,7 @@ page_gen_edges = [
 ]
 
 page_gen_edges.each_with_index do |e, i|
-  page_generator_workflow.ai_workflow_edges.create!(
+  page_generator_workflow.workflow_edges.create!(
     edge_id: "edge_#{i + 1}",
     source_node_id: e[:source],
     target_node_id: e[:target],
@@ -554,7 +559,7 @@ page_gen_edges.each_with_index do |e, i|
   )
 end
 
-puts "✓ Created MCP-Powered Page Generator (#{page_generator_workflow.ai_workflow_nodes.count} nodes, #{page_generator_workflow.ai_workflow_edges.count} edges)"
+puts "✓ Created MCP-Powered Page Generator (#{page_generator_workflow.workflow_nodes.count} nodes, #{page_generator_workflow.workflow_edges.count} edges)"
 
 end # unless content_mcp_server (workflow 4 guard)
 
@@ -567,29 +572,29 @@ puts 'AI WORKFLOW SHOWCASE - COMPLETE'
 puts '=' * 80
 
 workflow_count = content_mcp_server ? 4 : 3
-page_generator_workflow = AiWorkflow.find_by(account: account, name: 'MCP-Powered Page Generator')
+page_generator_workflow = Ai::Workflow.find_by(account: account, name: 'MCP-Powered Page Generator')
 
 puts "\n📊 Summary:"
 puts "   Total Workflows: #{workflow_count}"
-puts "   Total Agents: #{AiAgent.where(account: account).count}"
+puts "   Total Agents: #{Ai::Agent.where(account: account).count}"
 puts "\n📝 Workflows Created:"
 puts "\n   1. #{content_workflow.name}"
 puts "      Purpose: AI-powered content creation pipeline"
 puts "      Features: Multi-agent orchestration, KB integration, quality gates"
-puts "      Nodes: #{content_workflow.ai_workflow_nodes.count}"
+puts "      Nodes: #{content_workflow.workflow_nodes.count}"
 puts "\n   2. #{onboarding_workflow.name}"
 puts "      Purpose: Customer onboarding with approval workflow"
 puts "      Features: Human approval, email/notifications, conditional branching"
-puts "      Nodes: #{onboarding_workflow.ai_workflow_nodes.count}"
+puts "      Nodes: #{onboarding_workflow.workflow_nodes.count}"
 puts "\n   3. #{integration_workflow.name}"
 puts "      Purpose: External API data synchronization"
 puts "      Features: API calls, data transforms, loops, database operations"
-puts "      Nodes: #{integration_workflow.ai_workflow_nodes.count}"
+puts "      Nodes: #{integration_workflow.workflow_nodes.count}"
 if page_generator_workflow
   puts "\n   4. #{page_generator_workflow.name}"
   puts "      Purpose: MCP-powered page generation and publishing"
   puts "      Features: MCP operations (tool, resource, prompt), page management"
-  puts "      Nodes: #{page_generator_workflow.ai_workflow_nodes.count}"
+  puts "      Nodes: #{page_generator_workflow.workflow_nodes.count}"
 end
 
 puts "\n🎯 Node Types Demonstrated:"

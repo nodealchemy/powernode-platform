@@ -22,7 +22,7 @@ RSpec.describe Api::V1::FilesController, type: :controller do
              file_type: 'image',
              content_type: 'image/png',
              category: 'page_content',
-             file_storage: file_storage)
+             storage: file_storage)
     end
 
     let!(:document_file) do
@@ -31,7 +31,7 @@ RSpec.describe Api::V1::FilesController, type: :controller do
              file_type: 'document',
              content_type: 'application/pdf',
              category: 'user_upload',
-             file_storage: file_storage)
+             storage: file_storage)
     end
 
     context 'filtering by file_type' do
@@ -81,7 +81,7 @@ RSpec.describe Api::V1::FilesController, type: :controller do
                file_type: 'image',
                category: 'page_content',
                attachable: page,
-               file_storage: file_storage)
+               storage: file_storage)
       end
 
       it 'returns only files attached to specific page' do
@@ -135,7 +135,7 @@ RSpec.describe Api::V1::FilesController, type: :controller do
                file_type: 'image',
                category: 'page_content',
                attachable: page,
-               file_storage: file_storage)
+               storage: file_storage)
       end
       let!(:attached_document) do
         create(:file_object,
@@ -143,7 +143,7 @@ RSpec.describe Api::V1::FilesController, type: :controller do
                file_type: 'document',
                category: 'page_content',
                attachable: page,
-               file_storage: file_storage)
+               storage: file_storage)
       end
 
       it 'filters by both file_type and attachable' do
@@ -167,7 +167,7 @@ RSpec.describe Api::V1::FilesController, type: :controller do
                account: account,
                filename: 'hero-banner.png',
                file_type: 'image',
-               file_storage: file_storage)
+               storage: file_storage)
       end
 
       it 'searches files by filename' do
@@ -193,7 +193,7 @@ RSpec.describe Api::V1::FilesController, type: :controller do
                       account: account,
                       category: 'page_content',
                       attachable: page,
-                      file_storage: file_storage)
+                      storage: file_storage)
 
         expect(file.attachable).to eq(page)
         expect(file.attachable_type).to eq('Page')
@@ -207,7 +207,7 @@ RSpec.describe Api::V1::FilesController, type: :controller do
                       account: account,
                       category: 'page_content',
                       attachable: nil,
-                      file_storage: file_storage)
+                      storage: file_storage)
 
         expect(file.attachable).to be_nil
         expect(file.category).to eq('page_content')
@@ -219,7 +219,7 @@ RSpec.describe Api::V1::FilesController, type: :controller do
         file = create(:file_object,
                       account: account,
                       category: 'page_content',
-                      file_storage: file_storage)
+                      storage: file_storage)
 
         expect(file.category).to eq('page_content')
         expect(file).to be_persisted

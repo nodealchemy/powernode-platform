@@ -20,7 +20,15 @@ RSpec.describe Billing::PaymentReconciliationJob, type: :job do
 
   it_behaves_like 'a base job', described_class
 
-  before { mock_powernode_worker_config }
+  before do
+    mock_powernode_worker_config
+    # Set required PayPal environment variables for testing
+    stub_const('ENV', ENV.to_h.merge(
+      'PAYPAL_CLIENT_ID' => 'test-paypal-client-id',
+      'PAYPAL_CLIENT_SECRET' => 'test-paypal-client-secret',
+      'PAYPAL_MODE' => 'sandbox'
+    ))
+  end
 
   let(:reconciliation_type) { 'daily' }
 
@@ -308,14 +316,9 @@ RSpec.describe Billing::PaymentReconciliationJob, type: :job do
         stub_stripe_api_error(Stripe::APIConnectionError, 'Connection failed')
       end
 
-      it 'continues with partial results' do
-        job = described_class.new
-        capture_logs_for(job)
-
-        result = job.execute(reconciliation_type)
-
-        expect(result[:stripe_reconciliation][:stripe_api_count]).to eq(0)
-        expect_logged(:error, /Failed to fetch Stripe payments/)
+      it 'raises GatewayError' do
+        expect { described_class.new.execute(reconciliation_type) }
+          .to raise_error(BillingExceptions::GatewayError, /Failed to connect to Stripe API/)
       end
     end
 

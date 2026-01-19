@@ -6,10 +6,10 @@ puts "🔧 Updating AI Agent Configurations..."
 updated_count = 0
 failed_count = 0
 
-AiAgent.find_each do |agent|
+Ai::Agent.find_each do |agent|
   begin
     # Determine appropriate model based on provider
-    model = if agent.ai_provider&.provider_type == 'anthropic'
+    model = if agent.provider&.provider_type == 'anthropic'
       'claude-sonnet-4-5-20250929'
     else
       'gpt-4-turbo-preview'
@@ -44,7 +44,7 @@ AiAgent.find_each do |agent|
 
     agent.update!(configuration: updated_config)
     puts "✅ Updated #{agent.name}"
-    puts "   Provider: #{agent.ai_provider&.name || 'None'}"
+    puts "   Provider: #{agent.provider&.name || 'None'}"
     puts "   Model: #{model}"
     puts "   Temperature: #{temperature}"
     updated_count += 1

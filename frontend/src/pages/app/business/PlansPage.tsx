@@ -2,25 +2,28 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import {
   plansApi,
   Plan,
   DetailedPlan
-} from '@/features/plans/services/plansApi';
+} from '@/features/business/plans/services/plansApi';
 import { PlanFormModal } from '@/features/admin/components/PlanFormModal';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Plus, RefreshCw } from 'lucide-react';
 
 export const PlansPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const notificationRef = useRef(showNotification);
   notificationRef.current = showNotification;
-  
+
   const location = useLocation();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +31,16 @@ export const PlansPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<DetailedPlan | null>(null);
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'business',
+    subscribeToSubscriptions: true,
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+      loadPlans();
+    }
+  });
 
   // Check if user has plan management permissions for create/edit/delete actions
   const canManagePlans = hasPermissions(user, ['plans.manage']) || hasPermissions(user, ['admin.billing.read']);
@@ -157,18 +170,22 @@ export const PlansPage: React.FC = () => {
     }
   };
 
-  const handleDeletePlan = async (planId: string) => {
-    if (!window.confirm('Are you sure you want to delete this plan? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      await plansApi.deletePlan(planId);
-      showSuccess('Plan deleted successfully');
-      loadPlans();
-    } catch (_error) {
-      showError('Failed to delete plan');
-    }
+  const handleDeletePlan = (planId: string) => {
+    confirm({
+      title: 'Delete Plan',
+      message: 'Are you sure you want to delete this plan? This action cannot be undone. Active subscribers will be affected.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await plansApi.deletePlan(planId);
+          showSuccess('Plan deleted successfully');
+          loadPlans();
+        } catch (_error) {
+          showError('Failed to delete plan');
+        }
+      }
+    });
   };
 
   const handlePlanSaved = () => {
@@ -352,17 +369,17 @@ export const PlansPage: React.FC = () => {
               <h3 className="text-lg font-semibold text-theme-primary mb-4">Recent Activity</h3>
               <div className="space-y-3">
                 <div className="flex items-center space-x-3 py-2">
-                  <div className="w-2 h-2 bg-theme-success rounded-full"></div>
+                  <div className="w-2 h-2 bg-theme-success-solid rounded-full"></div>
                   <span className="text-theme-primary">Pro Plan activated</span>
                   <span className="text-sm text-theme-secondary">2 hours ago</span>
                 </div>
                 <div className="flex items-center space-x-3 py-2">
-                  <div className="w-2 h-2 bg-theme-info rounded-full"></div>
+                  <div className="w-2 h-2 bg-theme-info-solid rounded-full"></div>
                   <span className="text-theme-primary">Basic Plan pricing updated</span>
                   <span className="text-sm text-theme-secondary">1 day ago</span>
                 </div>
                 <div className="flex items-center space-x-3 py-2">
-                  <div className="w-2 h-2 bg-theme-warning rounded-full"></div>
+                  <div className="w-2 h-2 bg-theme-warning-solid rounded-full"></div>
                   <span className="text-theme-primary">Enterprise Plan created</span>
                   <span className="text-sm text-theme-secondary">3 days ago</span>
                 </div>
@@ -631,6 +648,7 @@ export const PlansPage: React.FC = () => {
         showSuccess={showSuccess}
         showError={showError}
       />
+      {ConfirmationDialog}
         </>
       )}
     </PageContainer>

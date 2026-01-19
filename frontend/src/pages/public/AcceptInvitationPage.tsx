@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 import { useParams, useNavigate, Link } from 'react-router-dom';
 
-import { invitationsApi, Invitation } from '@/shared/services/invitationsApi';
+import { invitationsApi, Invitation } from '@/shared/services/account/invitationsApi';
 
 import { FormField } from '@/shared/components/ui/FormField';
 

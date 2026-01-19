@@ -1,0 +1,394 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+
+RSpec.describe Ai::Agent, type: :model do
+  describe 'associations' do
+    it { should belong_to(:account) }
+    it { should belong_to(:provider) }
+    it { should have_many(:executions).dependent(:destroy) }
+    it { should have_many(:conversations).dependent(:destroy) }
+    it { should have_many(:messages).dependent(:destroy) }
+  end
+
+  describe 'validations' do
+    subject { build(:ai_agent) }
+
+    it { should validate_presence_of(:name) }
+    it { should validate_presence_of(:agent_type) }
+    it { should validate_presence_of(:mcp_capabilities) }
+    it { should validate_length_of(:name).is_at_most(255) }
+    it { should validate_length_of(:description).is_at_most(1000) }
+    it { should validate_inclusion_of(:agent_type).in_array(%w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor]) }
+    it { should validate_inclusion_of(:status).in_array(%w[active inactive paused error archived]) }
+
+    context 'name uniqueness' do
+      let!(:existing_agent) { create(:ai_agent) }
+
+      it 'validates uniqueness of name within account scope' do
+        duplicate_agent = build(:ai_agent,
+                                name: existing_agent.name,
+                                account: existing_agent.account)
+
+        expect(duplicate_agent).not_to be_valid
+        expect(duplicate_agent.errors[:name]).to include('has already been taken')
+      end
+
+      it 'allows same name in different accounts' do
+        different_account = create(:account)
+        agent_with_same_name = build(:ai_agent,
+                                    name: existing_agent.name,
+                                    account: different_account)
+
+        expect(agent_with_same_name).to be_valid
+      end
+    end
+
+    context 'MCP validation' do
+      it 'validates mcp_capabilities is present' do
+        agent = build(:ai_agent, mcp_capabilities: nil)
+        agent.valid?
+        expect(agent.errors[:mcp_capabilities]).to include("can't be blank")
+      end
+
+      it 'validates mcp_capabilities as array' do
+        agent = build(:ai_agent, mcp_capabilities: [ 'text_generation' ])
+        expect(agent).to be_valid
+      end
+
+      it 'validates version format' do
+        agent = build(:ai_agent, version: 'invalid')
+        expect(agent).not_to be_valid
+        expect(agent.errors[:version]).to include('must be in semantic version format (x.y.z)')
+      end
+
+      it 'accepts valid semantic version' do
+        agent = build(:ai_agent, version: '1.2.3')
+        expect(agent).to be_valid
+      end
+    end
+  end
+
+  describe 'scopes' do
+    let!(:active_agent) { create(:ai_agent, status: 'active') }
+    let!(:inactive_agent) { create(:ai_agent, status: 'inactive') }
+    let!(:archived_agent) { create(:ai_agent, status: 'archived') }
+    let!(:error_agent) { create(:ai_agent, status: 'error') }
+
+    describe '.active' do
+      it 'returns only active agents' do
+        expect(Ai::Agent.active).to include(active_agent)
+        expect(Ai::Agent.active).not_to include(inactive_agent)
+      end
+    end
+
+    describe '.by_type' do
+      let!(:assistant) { create(:ai_agent, agent_type: 'assistant') }
+      let!(:code_assistant) { create(:ai_agent, :code_assistant) }
+
+      it 'returns agents of specified type' do
+        expect(Ai::Agent.by_type('assistant')).to include(assistant)
+        expect(Ai::Agent.by_type('assistant')).not_to include(code_assistant)
+      end
+    end
+
+    describe '.healthy' do
+      it 'returns agents with active status' do
+        expect(Ai::Agent.healthy).to include(active_agent)
+        expect(Ai::Agent.healthy).not_to include(error_agent)
+      end
+    end
+  end
+
+  describe 'callbacks' do
+    describe 'before_validation' do
+      it 'normalizes agent_type' do
+        agent = build(:ai_agent, agent_type: '  ASSISTANT  ')
+        agent.valid?
+        expect(agent.agent_type).to eq('assistant')
+      end
+
+      it 'generates slug from name' do
+        agent = build(:ai_agent, name: 'My Test Agent', slug: nil)
+        agent.valid?
+        expect(agent.slug).to be_present
+        expect(agent.slug).to match(/^[a-z0-9\-_]+$/)
+      end
+    end
+
+    describe 'after_create' do
+      it 'includes Auditable concern for audit logging' do
+        # Auditable concern skips audit logging in test environment to avoid deadlocks
+        # Verify the concern is included and would create audit logs in production
+        expect(Ai::Agent.ancestors).to include(Auditable)
+
+        agent = create(:ai_agent)
+        # auditable_attributes is a private method from the Auditable concern
+        expect(agent.respond_to?(:auditable_attributes, true)).to be true
+      end
+    end
+  end
+
+  describe 'instance methods' do
+    let(:agent) { create(:ai_agent, :with_executions) }
+
+    describe '#mcp_available?' do
+      it 'returns true for active agents with MCP configuration' do
+        expect(agent.mcp_available?).to be true
+      end
+
+      it 'returns false for inactive agents' do
+        agent.update!(status: 'inactive')
+        expect(agent.mcp_available?).to be false
+      end
+
+      it 'returns false when provider is inactive' do
+        agent.provider.update!(is_active: false)
+        expect(agent.mcp_available?).to be false
+      end
+
+      it 'returns false when mcp_capabilities is empty' do
+        # Bypass validation to test edge case behavior
+        agent.update_column(:mcp_capabilities, [])
+        agent.reload
+        expect(agent.mcp_available?).to be false
+      end
+    end
+
+    describe '#mcp_tool_id' do
+      it 'generates consistent tool ID' do
+        tool_id = agent.mcp_tool_id
+        expect(tool_id).to start_with('agent_')
+        expect(tool_id).to include(agent.id)
+      end
+    end
+
+    describe '#execution_stats' do
+      it 'returns execution statistics' do
+        stats = agent.execution_stats
+
+        expect(stats).to include(:total_executions)
+        expect(stats).to include(:successful_executions)
+        expect(stats).to include(:failed_executions)
+        expect(stats).to include(:success_rate)
+        expect(stats).to include(:average_duration)
+        expect(stats[:total_executions]).to eq(3)
+      end
+
+      it 'calculates success rate correctly' do
+        create(:ai_agent_execution, :completed, agent: agent, account: agent.account)
+        create(:ai_agent_execution, :failed, agent: agent, account: agent.account)
+
+        stats = agent.execution_stats
+        expect(stats[:success_rate]).to be_a(Numeric)
+        expect(stats[:success_rate]).to be >= 0
+        expect(stats[:success_rate]).to be <= 100
+      end
+    end
+
+    describe '#recent_executions' do
+      it 'returns executions from last 24 hours by default' do
+        old_execution = create(:ai_agent_execution,
+                             agent: agent,
+                             account: agent.account,
+                             created_at: 2.days.ago)
+
+        recent_executions = agent.recent_executions
+        expect(recent_executions).not_to include(old_execution)
+      end
+
+      it 'accepts custom time period' do
+        old_execution = create(:ai_agent_execution,
+                             agent: agent,
+                             account: agent.account,
+                             created_at: 2.days.ago)
+
+        recent_executions = agent.recent_executions(3.days)
+        expect(recent_executions).to include(old_execution)
+      end
+    end
+
+    describe '#average_response_time' do
+      it 'calculates average response time from completed executions' do
+        create(:ai_agent_execution, :completed, agent: agent, account: agent.account)
+
+        avg_time = agent.average_response_time
+        expect(avg_time).to be_a(Numeric)
+        expect(avg_time).to be >= 0
+      end
+
+      it 'returns 0 when no completed executions exist' do
+        agent.executions.destroy_all
+        expect(agent.average_response_time).to eq(0)
+      end
+    end
+
+    describe '#total_tokens_used' do
+      it 'sums tokens from all completed executions' do
+        create(:ai_agent_execution, :completed,
+               agent: agent,
+               account: agent.account,
+               output_data: { metrics: { tokens_used: 100 } })
+
+        create(:ai_agent_execution, :completed,
+               agent: agent,
+               account: agent.account,
+               output_data: { metrics: { tokens_used: 200 } })
+
+        expect(agent.total_tokens_used).to eq(300)
+      end
+
+      it 'returns 0 when no token data available' do
+        agent.executions.destroy_all
+        expect(agent.total_tokens_used).to eq(0)
+      end
+    end
+
+    describe '#estimated_total_cost' do
+      it 'sums cost estimates from all completed executions' do
+        create(:ai_agent_execution, :completed,
+               agent: agent,
+               account: agent.account,
+               output_data: { metrics: { cost_estimate: 0.005 } })
+
+        create(:ai_agent_execution, :completed,
+               agent: agent,
+               account: agent.account,
+               output_data: { metrics: { cost_estimate: 0.012 } })
+
+        expect(agent.estimated_total_cost).to eq(0.017)
+      end
+    end
+
+    describe '#deactivate!' do
+      it 'sets agent as inactive and updates status' do
+        agent.deactivate!('Testing deactivation')
+
+        expect(agent.reload.status).to eq('inactive')
+        expect(agent.mcp_metadata['deactivated_reason']).to eq('Testing deactivation')
+      end
+
+      it 'creates audit log entry' do
+        agent.deactivate!('Testing')
+
+        deactivation_log = AuditLog.where(
+          resource_type: 'Ai::Agent',
+          resource_id: agent.id.to_s,
+          action: 'updated'
+        ).last
+
+        expect(deactivation_log).to be_present
+        expect(deactivation_log.metadata['deactivation_reason']).to eq('Testing')
+      end
+    end
+
+    describe '#activate!' do
+      it 'sets agent as active and updates status' do
+        agent.update!(status: 'inactive')
+        agent.activate!
+
+        expect(agent.reload.status).to eq('active')
+      end
+    end
+  end
+
+  describe 'class methods' do
+    describe '.create_from_template' do
+      let(:account) { create(:account) }
+      let(:user) { create(:user, account: account) }
+      let(:provider) { create(:ai_provider) }
+      let(:template_data) do
+        {
+          name: 'Code Assistant',
+          agent_type: 'code_assistant',
+          description: 'Helps with coding tasks',
+          mcp_capabilities: [ 'code_generation', 'code_review' ],
+          mcp_tool_manifest: {
+            'name' => 'code_assistant_tool',
+            'description' => 'Code assistance tool',
+            'type' => 'code_assistant',
+            'version' => '1.0.0'
+          }
+        }
+      end
+
+      it 'creates agent from template data' do
+        agent = Ai::Agent.create_from_template(account, provider, template_data, user)
+
+        expect(agent).to be_persisted
+        expect(agent.name).to eq('Code Assistant')
+        expect(agent.agent_type).to eq('code_assistant')
+        expect(agent.provider).to eq(provider)
+        expect(agent.account).to eq(account)
+      end
+
+      it 'returns errors for invalid template data' do
+        invalid_template = template_data.merge(agent_type: 'invalid_type')
+        agent = Ai::Agent.create_from_template(account, provider, invalid_template, user)
+
+        expect(agent).not_to be_persisted
+        expect(agent.errors).not_to be_empty
+      end
+    end
+
+    describe '.search' do
+      let!(:code_agent) { create(:ai_agent, :code_assistant, name: 'Python Helper') }
+      let!(:data_agent) { create(:ai_agent, :data_analyst, name: 'Data Analyzer') }
+
+      it 'searches by name' do
+        results = Ai::Agent.search('Python')
+        expect(results).to include(code_agent)
+        expect(results).not_to include(data_agent)
+      end
+
+      it 'searches by description' do
+        data_agent.update!(description: 'Analyzes customer data trends')
+        results = Ai::Agent.search('customer')
+        expect(results).to include(data_agent)
+      end
+
+      it 'returns all agents for empty query' do
+        results = Ai::Agent.search('')
+        expect(results).to include(code_agent, data_agent)
+      end
+    end
+
+    describe '.popular' do
+      it 'returns agents ordered by execution count' do
+        agent1 = create(:ai_agent)
+        agent2 = create(:ai_agent)
+
+        # Create more executions for agent2
+        create_list(:ai_agent_execution, 3, agent: agent1, account: agent1.account)
+        create_list(:ai_agent_execution, 5, agent: agent2, account: agent2.account)
+
+        popular_agents = Ai::Agent.popular(limit: 2)
+        expect(popular_agents.first).to eq(agent2)
+        expect(popular_agents.second).to eq(agent1)
+      end
+    end
+  end
+
+  describe 'edge cases and error handling' do
+    it 'handles missing mcp_capabilities gracefully' do
+      agent = build(:ai_agent, mcp_capabilities: nil)
+      agent.valid?
+      expect(agent.errors[:mcp_capabilities]).to be_present
+    end
+
+    it 'handles malformed JSON in metadata' do
+      agent = create(:ai_agent)
+      # Directly update database to simulate corrupted data
+      Ai::Agent.where(id: agent.id).update_all(metadata: 'invalid json')
+
+      expect { agent.reload.metadata }.not_to raise_error
+    end
+
+    it 'validates mcp_capabilities changes' do
+      agent = create(:ai_agent)
+
+      agent.update(mcp_capabilities: [])
+      expect(agent.errors[:mcp_capabilities]).to be_present
+    end
+  end
+end

@@ -159,7 +159,7 @@ class McpChannel < ApplicationCable::Channel
       )
 
       # Execute via MCP workflow service
-      McpWorkflowExecutionService.new(
+      Mcp::AiWorkflowOrchestrator.new(
         workflow_run: workflow_run,
         account: current_user.account,
         user: current_user
@@ -276,13 +276,13 @@ class McpChannel < ApplicationCable::Channel
     @connection_id = SecureRandom.uuid
 
     # Initialize MCP services
-    @mcp_protocol = McpProtocolService.new(
+    @mcp_protocol = Mcp::ProtocolService.new(
       account: current_user.account,
       connection_id: @connection_id
     )
 
-    @mcp_transport = McpTransportService.new(connection_id: @connection_id)
-    @mcp_registry = McpRegistryService.new(account: current_user.account)
+    @mcp_transport = Mcp::TransportService.new(connection_id: @connection_id)
+    @mcp_registry = Mcp::RegistryService.new(account: current_user.account)
 
     # Register connection
     @mcp_transport.register_connection(@connection_id, {
@@ -472,7 +472,7 @@ class McpChannel < ApplicationCable::Channel
   def self.broadcast_to_connection(connection_id, message)
     # This would need to be implemented based on connection tracking
     # For now, we'll use the transport service
-    transport = McpTransportService.new(connection_id: connection_id)
+    transport = Mcp::TransportService.new(connection_id: connection_id)
     transport.send_message(connection_id, message)
   end
 

@@ -12,9 +12,9 @@ RSpec.describe AiCostOptimizationService, type: :service do
   let(:ollama_provider) { create(:ai_provider, :ollama, priority_order: 3) }
 
   # Credentials for each provider
-  let(:openai_credential) { create(:ai_provider_credential, account: account, ai_provider: openai_provider) }
-  let(:anthropic_credential) { create(:ai_provider_credential, account: account, ai_provider: anthropic_provider) }
-  let(:ollama_credential) { create(:ai_provider_credential, account: account, ai_provider: ollama_provider) }
+  let(:openai_credential) { create(:ai_provider_credential, account: account, provider: openai_provider) }
+  let(:anthropic_credential) { create(:ai_provider_credential, account: account, provider: anthropic_provider) }
+  let(:ollama_credential) { create(:ai_provider_credential, account: account, provider: ollama_provider) }
 
   # Historical usage data
   let!(:expensive_execution) do

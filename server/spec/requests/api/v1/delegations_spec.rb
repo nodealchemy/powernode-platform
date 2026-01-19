@@ -140,7 +140,7 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
     it 'creates a new delegation' do
       expect {
         post "/api/v1/accounts/#{account.id}/delegations", params: delegation_params, headers: headers, as: :json
-      }.to change(AccountDelegation, :count).by(1)
+      }.to change(Account::Delegation, :count).by(1)
 
       expect(response).to have_http_status(:created)
       json = JSON.parse(response.body)
@@ -154,7 +154,7 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
       # When role is specified, delegation inherits role permissions
       expect {
         post "/api/v1/accounts/#{account.id}/delegations", params: delegation_params, headers: headers, as: :json
-      }.to change(AccountDelegation, :count).by(1)
+      }.to change(Account::Delegation, :count).by(1)
 
       expect(response).to have_http_status(:created)
       json = JSON.parse(response.body)

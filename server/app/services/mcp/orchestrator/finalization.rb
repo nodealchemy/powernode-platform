@@ -6,7 +6,7 @@ module Mcp
       def finalize_execution
         @logger.info "[MCP_ORCHESTRATOR] Finalizing workflow execution"
 
-        failed_nodes = @workflow_run.ai_workflow_node_executions.where(status: "failed")
+        failed_nodes = @workflow_run.node_executions.where(status: "failed")
         final_status = failed_nodes.any? ? "failed" : "completed"
 
         transition_state!(:running, final_status.to_sym)
@@ -60,7 +60,7 @@ module Mcp
       end
 
       def generate_final_output
-        end_node = @workflow.ai_workflow_nodes.find_by(node_type: "end")
+        end_node = @workflow.workflow_nodes.find_by(node_type: "end")
         end_node_result = end_node ? @node_results[end_node.node_id] : nil
 
         if end_node_result.present?
@@ -81,7 +81,7 @@ module Mcp
             variables: @execution_context[:variables],
             node_results: @node_results,
             mcp_metadata: {
-              protocol_version: McpProtocolService::MCP_VERSION,
+              protocol_version: Mcp::ProtocolService::MCP_VERSION,
               orchestrator_version: "2.0.0",
               execution_mode: @workflow.mcp_orchestration_config&.dig("execution_mode") || "sequential"
             }
@@ -123,7 +123,7 @@ module Mcp
       end
 
       def cleanup_active_nodes(error)
-        active_nodes = @workflow_run.ai_workflow_node_executions.active
+        active_nodes = @workflow_run.node_executions.active
 
         if active_nodes.any?
           @logger.warn "[MCP_ORCHESTRATOR] Cleaning up #{active_nodes.count} active node(s) due to workflow failure"
@@ -131,7 +131,7 @@ module Mcp
           active_nodes.each do |node_execution|
             begin
               node_execution.cancel_execution!("Workflow failed: #{error.message}")
-              @logger.info "[MCP_ORCHESTRATOR] Cancelled node: #{node_execution.node_id} (#{node_execution.ai_workflow_node.name})"
+              @logger.info "[MCP_ORCHESTRATOR] Cancelled node: #{node_execution.node_id} (#{node_execution.workflow_node.name})"
             rescue StandardError => cleanup_error
               @logger.error "[MCP_ORCHESTRATOR] Failed to cancel node #{node_execution.node_id}: #{cleanup_error.message}"
             end
@@ -154,11 +154,11 @@ module Mcp
       end
 
       def calculate_total_cost
-        @workflow_run.ai_workflow_node_executions.sum(:cost) || 0.0
+        @workflow_run.node_executions.sum(:cost) || 0.0
       end
 
       def broadcast_completion(status, output)
-        McpBroadcastService.broadcast_workflow_event(
+        Mcp::BroadcastService.broadcast_workflow_event(
           "workflow_execution_completed",
           @workflow.id,
           {
@@ -173,7 +173,7 @@ module Mcp
       end
 
       def broadcast_failure(error)
-        McpBroadcastService.broadcast_workflow_event(
+        Mcp::BroadcastService.broadcast_workflow_event(
           "workflow_execution_failed",
           @workflow.id,
           {

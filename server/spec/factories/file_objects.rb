@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :file_object do
+  factory :file_object, class: "FileManagement::Object" do
     account
-    file_storage
+    association :storage, factory: :file_storage
     association :uploaded_by, factory: :user
 
     filename { "test_file_#{SecureRandom.hex(4)}.pdf" }
@@ -69,7 +69,7 @@ FactoryBot.define do
 
     trait :with_versions do
       after(:create) do |file_object|
-        create_list(:file_version, 3, file_object: file_object, account: file_object.account)
+        create_list(:file_version, 3, object: file_object, account: file_object.account)
       end
     end
 

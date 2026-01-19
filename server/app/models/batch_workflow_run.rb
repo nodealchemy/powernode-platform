@@ -16,7 +16,7 @@ class BatchWorkflowRun < ApplicationRecord
            foreign_key: :batch_id,
            primary_key: :batch_id,
            dependent: :nullify,
-           class_name: "AiWorkflowRun"
+           class_name: "Ai::WorkflowRun"
 
   # ==========================================
   # Validations

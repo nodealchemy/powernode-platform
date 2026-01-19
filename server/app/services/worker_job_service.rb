@@ -184,13 +184,23 @@ class WorkerJobService
     end
 
     # Generic enqueue job method
-    def enqueue_job(job_class, args = {})
-      queue = args.delete(:queue) || "default"
-      delay = args.delete(:delay) || 0
+    # @param job_class [String] The job class name
+    # @param options [Hash] Job options:
+    #   - args: [Array] Arguments to pass to the job
+    #   - queue: [String] Queue name (default: "default")
+    #   - delay: [Integer] Delay in seconds before running (default: 0)
+    def enqueue_job(job_class, options = {})
+      options = options.with_indifferent_access
+      job_args = options.delete(:args) || []
+      queue = options.delete(:queue) || "default"
+      delay = options.delete(:delay) || 0
+
+      # Ensure args is always an array
+      job_args = [job_args] unless job_args.is_a?(Array)
 
       payload = {
         "job_class" => job_class,
-        "args" => args.is_a?(Hash) ? [ args ] : [ args ].flatten,
+        "args" => job_args,
         "queue" => queue
       }
       payload["at"] = (Time.current + delay).to_i if delay.positive?
@@ -247,6 +257,60 @@ class WorkerJobService
         "queue" => "mcp"
       })
     end
+
+    # ==========================================
+    # DevOps Jobs (CI/CD Pipelines, Integrations)
+    # ==========================================
+
+    # Enqueue DevOps step execution job
+    def enqueue_devops_step_execution(step_execution_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Devops::StepExecutionJob",
+        "args" => [step_execution_id],
+        "queue" => "devops_default"
+      })
+    end
+
+    # Enqueue DevOps pipeline execution job
+    def enqueue_devops_pipeline_execution(pipeline_run_id, options = {})
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Devops::PipelineExecutionJob",
+        "args" => [pipeline_run_id, options],
+        "queue" => "devops_high"
+      })
+    end
+
+    # Enqueue DevOps approval notification job
+    def enqueue_devops_approval_notification(step_execution_id, recipients)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Devops::ApprovalNotificationJob",
+        "args" => [step_execution_id, recipients],
+        "queue" => "email"
+      })
+    end
+
+    # Enqueue DevOps provider sync job
+    def enqueue_devops_provider_sync(provider_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Devops::ProviderSyncJob",
+        "args" => [provider_id],
+        "queue" => "devops_default"
+      })
+    end
+
+    # Enqueue DevOps integration execution job
+    def enqueue_devops_integration_execution(execution_id, input = {}, context = {})
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Devops::IntegrationExecutionJob",
+        "args" => [{ execution_id: execution_id, input: input, context: context }],
+        "queue" => "integrations"
+      })
+    end
+
+    # Legacy aliases for backwards compatibility
+    alias_method :enqueue_ci_cd_step_execution, :enqueue_devops_step_execution
+    alias_method :enqueue_ci_cd_pipeline_execution, :enqueue_devops_pipeline_execution
+    alias_method :enqueue_ci_cd_approval_notification, :enqueue_devops_approval_notification
   end
 
   # Instance methods for compatibility

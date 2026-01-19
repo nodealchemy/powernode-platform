@@ -24,7 +24,7 @@ module Mcp
         log_debug "MCP Prompt arguments: #{arguments.inspect}"
 
         # Execute the prompt
-        service = McpPromptService.new(
+        service = Mcp::PromptService.new(
           server: server,
           account: @orchestrator.account
         )

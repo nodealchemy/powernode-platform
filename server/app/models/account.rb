@@ -7,30 +7,31 @@ class Account < ApplicationRecord
   has_many :users, dependent: :destroy
   has_one :subscription, dependent: :destroy
   has_many :invitations, dependent: :destroy
-  has_many :account_delegations, dependent: :destroy
+  has_many :account_delegations, class_name: "Account::Delegation", dependent: :destroy
   has_many :audit_logs, dependent: :destroy
   has_many :payment_methods, dependent: :destroy
   has_many :webhook_events, dependent: :destroy
   has_many :revenue_snapshots, dependent: :destroy
   has_many :workers, dependent: :destroy
-  has_many :apps, dependent: :destroy
-  has_many :app_subscriptions, dependent: :destroy
   has_many :api_keys, dependent: :destroy
   has_many :webhook_endpoints, dependent: :destroy
 
   # AI-related associations
-  has_many :ai_providers, dependent: :destroy
-  has_many :ai_provider_credentials, dependent: :destroy
-  has_many :ai_agents, dependent: :destroy
-  has_many :ai_conversations, dependent: :destroy
-  has_many :ai_messages, dependent: :destroy
-  has_many :ai_agent_executions, dependent: :destroy
-  has_many :ai_agent_teams, dependent: :destroy
+  has_many :ai_providers, class_name: "Ai::Provider", dependent: :destroy
+  has_many :ai_provider_credentials, class_name: "Ai::ProviderCredential", dependent: :destroy
+  has_many :ai_agents, class_name: "Ai::Agent", dependent: :destroy
+  has_many :ai_conversations, class_name: "Ai::Conversation", dependent: :destroy
+  has_many :ai_messages, through: :ai_conversations, source: :messages
+  has_many :ai_agent_executions, class_name: "Ai::AgentExecution", dependent: :destroy
+  has_many :ai_agent_teams, class_name: "Ai::AgentTeam", dependent: :destroy
 
   # AI Workflow associations
-  has_many :ai_workflows, dependent: :destroy
-  has_many :ai_workflow_runs, dependent: :destroy
-  has_many :ai_workflow_template_installations, dependent: :destroy
+  has_many :ai_workflows, class_name: "Ai::Workflow", dependent: :destroy
+  has_many :ai_workflow_runs, class_name: "Ai::WorkflowRun", dependent: :destroy
+
+  # Marketplace subscriptions (replaces deprecated ai_workflow_template_installations)
+  has_many :marketplace_subscriptions, class_name: "Marketplace::Subscription", dependent: :destroy
+  has_many :workflow_template_subscriptions, -> { for_workflow_templates }, class_name: "Marketplace::Subscription"
 
   # Analytics & Reporting associations
   has_many :report_requests, dependent: :destroy
@@ -38,10 +39,31 @@ class Account < ApplicationRecord
   # MCP (Model Context Protocol) associations
   has_many :mcp_servers, dependent: :destroy
 
+  # Git Provider associations
+  has_many :git_provider_credentials, class_name: "Devops::GitProviderCredential", dependent: :destroy
+  has_many :git_repositories, class_name: "Devops::GitRepository", dependent: :destroy
+  has_many :git_webhook_events, class_name: "Devops::GitWebhookEvent", dependent: :destroy
+  has_many :git_pipelines, class_name: "Devops::GitPipeline", dependent: :destroy
+  has_many :git_pipeline_jobs, class_name: "Devops::GitPipelineJob", dependent: :destroy
+  has_many :git_pipeline_approvals, class_name: "Devops::GitPipelineApproval", dependent: :destroy
+  has_many :git_pipeline_schedules, class_name: "Devops::GitPipelineSchedule", dependent: :destroy
+  has_many :git_runners, class_name: "Devops::GitRunner", dependent: :destroy
+
+  # DevOps Pipeline Management associations
+  has_many :devops_providers, class_name: "Devops::Provider", dependent: :destroy
+  has_many :devops_pipelines, class_name: "Devops::Pipeline", dependent: :destroy
+  has_many :devops_repositories, class_name: "Devops::Repository", dependent: :destroy
+  has_many :devops_integration_templates, class_name: "Devops::IntegrationTemplate", dependent: :destroy
+  has_many :devops_integration_instances, class_name: "Devops::IntegrationInstance", dependent: :destroy
+  has_many :devops_integration_credentials, class_name: "Devops::IntegrationCredential", dependent: :destroy
+
+  # Shared infrastructure associations
+  has_many :shared_prompt_templates, class_name: "Shared::PromptTemplate", dependent: :destroy
+
   # File Storage associations
-  has_many :file_storages, dependent: :destroy
-  has_many :file_objects, dependent: :destroy
-  has_many :file_tags, dependent: :destroy
+  has_many :file_storages, class_name: "FileManagement::Storage", dependent: :destroy
+  has_many :file_objects, class_name: "FileManagement::Object", dependent: :destroy
+  has_many :file_tags, class_name: "FileManagement::Tag", dependent: :destroy
 
   # Subscription-related associations
   has_many :invoices, through: :subscription

@@ -232,7 +232,7 @@ class AiAnalyticsInsightsService
   def base_executions_query
     @account.ai_agent_executions
             .where(created_at: @start_date..@end_date)
-            .includes(:ai_agent, :ai_provider, :user)
+            .includes(:agent, :provider, :user)
   end
 
   def calculate_daily_performance_metrics(executions)
@@ -296,7 +296,7 @@ class AiAnalyticsInsightsService
 
   def identify_top_performing_agents
     agent_performance = base_executions_query
-                       .joins(:ai_agent)
+                       .joins(:agent)
                        .group("ai_agents.id", "ai_agents.name")
                        .having("COUNT(*) >= 5")  # Minimum executions for statistical significance
                        .group("ai_agents.id", "ai_agents.name")
@@ -361,14 +361,14 @@ class AiAnalyticsInsightsService
   end
 
   def analyze_cost_by_agent_type(executions)
-    executions.joins(:ai_agent)
+    executions.joins(:agent)
              .group("ai_agents.agent_type")
              .group("ai_agents.id")
              .calculate("SUM(cost_usd) as total_cost")
   end
 
   def identify_most_expensive_agents(executions)
-    executions.joins(:ai_agent)
+    executions.joins(:agent)
              .group("ai_agents.id", "ai_agents.name")
              .having("COUNT(*) >= 3")
              .order("SUM(cost_usd) DESC")
@@ -507,7 +507,7 @@ class AiAnalyticsInsightsService
   end
 
   def analyze_agent_type_usage(executions)
-    executions.joins(:ai_agent)
+    executions.joins(:agent)
              .group("ai_agents.agent_type")
              .group("ai_agents.name")
              .count
@@ -725,7 +725,7 @@ class AiAnalyticsInsightsService
     @logger.info "Generating real-time metrics for account #{account_id}"
 
     # Get recent data (last hour)
-    recent_executions = AiAgentExecution.joins(:account)
+    recent_executions = Ai::AgentExecution.joins(:account)
                                        .where(accounts: { id: account_id })
                                        .where(created_at: 1.hour.ago..Time.current)
 
@@ -739,7 +739,7 @@ class AiAnalyticsInsightsService
 
     # Get current cost information
     recent_cost = recent_executions.sum(&:cost_usd) || 0.0
-    daily_cost = AiAgentExecution.joins(:account)
+    daily_cost = Ai::AgentExecution.joins(:account)
                                  .where(accounts: { id: account_id })
                                  .where(created_at: Time.current.beginning_of_day..Time.current)
                                  .sum(&:cost_usd) || 0.0
@@ -750,7 +750,7 @@ class AiAnalyticsInsightsService
                                            .count
 
     # Agent activity
-    agent_activity = recent_executions.joins(:ai_agent)
+    agent_activity = recent_executions.joins(:agent)
                                     .group("ai_agents.name", "ai_agents.id")
                                     .count
                                     .map do |key, count|
@@ -842,7 +842,7 @@ class AiAnalyticsInsightsService
     end
 
     # High cost alert (if daily cost exceeds threshold)
-    daily_cost = AiAgentExecution.joins(:account)
+    daily_cost = Ai::AgentExecution.joins(:account)
                                 .where(accounts: { id: @account.id })
                                 .where(created_at: Time.current.beginning_of_day..Time.current)
                                 .sum(&:cost_usd) || 0.0

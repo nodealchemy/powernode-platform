@@ -1,5 +1,5 @@
 import React from 'react';
-import { maintenanceApi } from '@/shared/services/maintenanceApi';
+import { maintenanceApi } from '@/shared/services/admin/maintenanceApi';
 import { SettingsCard } from '@/features/admin/components/settings/SettingsComponents';
 import { MaintenanceOverviewTabProps, MaintenanceTab } from './types';
 

@@ -5,8 +5,8 @@ require 'rails_helper'
 RSpec.describe AiWorkflowRetryStrategyService do
   let(:account) { create(:account) }
   let(:workflow) { create(:ai_workflow, account: account) }
-  let(:workflow_run) { create(:ai_workflow_run, ai_workflow: workflow, account: account) }
-  let(:node) { create(:ai_workflow_node, ai_workflow: workflow, configuration: default_node_config) }
+  let(:workflow_run) { create(:ai_workflow_run, workflow: workflow, account: account) }
+  let(:node) { create(:ai_workflow_node, workflow: workflow, configuration: default_node_config) }
   let(:default_node_config) do
     {
       'retry' => {
@@ -23,8 +23,8 @@ RSpec.describe AiWorkflowRetryStrategyService do
   end
   let(:node_execution) do
     create(:ai_workflow_node_execution,
-           ai_workflow_run: workflow_run,
-           ai_workflow_node: node,
+           workflow_run: workflow_run,
+           node: node,
            status: 'failed',
            retry_count: 0,
            metadata: {})
@@ -317,7 +317,7 @@ RSpec.describe AiWorkflowRetryStrategyService do
 
   describe 'configuration inheritance' do
     context 'with workflow-level configuration' do
-      let(:node) { create(:ai_workflow_node, ai_workflow: workflow, configuration: {}) }
+      let(:node) { create(:ai_workflow_node, workflow: workflow, configuration: {}) }
 
       before do
         workflow.update(configuration: {
@@ -340,7 +340,7 @@ RSpec.describe AiWorkflowRetryStrategyService do
 
     context 'with node-level override' do
       let(:node) do
-        create(:ai_workflow_node, ai_workflow: workflow, configuration: {
+        create(:ai_workflow_node, workflow: workflow, configuration: {
           'retry' => {
             'enabled' => true,
             'max_retries' => 10,

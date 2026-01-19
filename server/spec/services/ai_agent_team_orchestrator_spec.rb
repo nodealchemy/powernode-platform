@@ -30,7 +30,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
 
     # Create agents for the team
     agents = member_count.times.map do |i|
-      create(:ai_agent, account: account, ai_provider: provider, name: "Agent #{i}")
+      create(:ai_agent, account: account, provider: provider, name: "Agent #{i}")
     end
 
     # Add members
@@ -39,8 +39,8 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       role = is_lead ? 'manager' : 'executor'
 
       create(:ai_agent_team_member,
-             ai_agent_team: team,
-             ai_agent: agent,
+             team: team,
+             agent: agent,
              role: role,
              is_lead: is_lead,
              capabilities: [ 'processing', 'analysis' ])
@@ -86,7 +86,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
 
       it 'executes members in priority order' do
         # Mock member execution to avoid actual agent calls
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute).and_return(
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute).and_return(
           { success: true, output: 'processed' }
         )
 
@@ -100,7 +100,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       it 'passes output from one member to the next' do
         execution_order = []
 
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute) do |member, args|
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute) do |member, args|
           execution_order << member.priority_order
           { success: true, output: "output_#{member.priority_order}" }
         end
@@ -117,7 +117,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       let(:orchestrator) { described_class.new(team: team, user: user) }
 
       it 'executes all members concurrently' do
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute).and_return(
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute).and_return(
           { success: true, output: 'parallel result' }
         )
 
@@ -130,7 +130,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       end
 
       it 'aggregates results from all members' do
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute).and_return(
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute).and_return(
           { success: true, output: 'result' }
         )
 
@@ -155,7 +155,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       end
 
       it 'lead delegates to workers' do
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute).and_return(
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute).and_return(
           { success: true, output: 'worker output' }
         )
 
@@ -168,7 +168,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       end
 
       it 'synthesizes worker results' do
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute).and_return(
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute).and_return(
           { success: true, output: 'output' }
         )
 
@@ -184,7 +184,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       let(:orchestrator) { described_class.new(team: team, user: user) }
 
       it 'uses blackboard pattern for collaboration' do
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute).and_return(
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute).and_return(
           { success: true, output: 'contribution' }
         )
 
@@ -199,7 +199,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       it 'aggregates all member contributions' do
         contribution_count = 0
 
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute) do
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute) do
           contribution_count += 1
           { success: true, output: "contribution_#{contribution_count}" }
         end
@@ -216,21 +216,21 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       let(:orchestrator) { described_class.new(team: team, user: user) }
 
       it 'creates workflow run for tracking' do
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute).and_return(
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute).and_return(
           { success: true, output: 'result' }
         )
 
         expect {
           orchestrator.execute(input: { task: 'test' })
-        }.to change { AiWorkflowRun.count }.by(1)
+        }.to change { Ai::WorkflowRun.count }.by(1)
 
-        run = AiWorkflowRun.last
+        run = Ai::WorkflowRun.last
         expect(run.status).to eq('completed')
         expect(run.input_variables['team_id']).to eq(team.id)
       end
 
       it 'updates execution status' do
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute).and_return(
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute).and_return(
           { success: true, output: 'result' }
         )
 
@@ -251,7 +251,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       it 'handles member execution failures' do
         # First member succeeds, second member fails
         call_count = 0
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute) do
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute) do
           call_count += 1
           if call_count == 1
             { success: true, output: 'first output' }
@@ -265,7 +265,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
         }.to raise_error(StandardError, 'Execution failed')
 
         # Verify workflow run marked as failed
-        run = AiWorkflowRun.last
+        run = Ai::WorkflowRun.last
         expect(run.status).to eq('failed')
         expect(run.error_details).to eq('Execution failed')
       end
@@ -276,7 +276,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       let(:orchestrator) { described_class.new(team: team, user: user) }
 
       it 'initializes communication hub' do
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute).and_return(
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute).and_return(
           { success: true, output: 'result' }
         )
 
@@ -287,16 +287,16 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
       end
 
       it 'creates team context pool' do
-        allow_any_instance_of(AiAgentTeamMember).to receive(:execute).and_return(
+        allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute).and_return(
           { success: true, output: 'result' }
         )
 
         expect {
           orchestrator.execute(input: { task: 'test' })
-        }.to change { AiSharedContextPool.count }.by_at_least(1)
+        }.to change { Ai::SharedContextPool.count }.by_at_least(1)
 
         # Find the team context pool (shared_memory type, not blackboard)
-        pool = AiSharedContextPool.where(pool_type: 'shared_memory').last
+        pool = Ai::SharedContextPool.where(pool_type: 'shared_memory').last
         expect(pool.scope).to eq('agent_group')
         expect(pool.context_data['team_id']).to eq(team.id)
       end
@@ -313,7 +313,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
     end
 
     it 'returns execution details after execution' do
-      allow_any_instance_of(AiAgentTeamMember).to receive(:execute).and_return(
+      allow_any_instance_of(Ai::AgentTeamMember).to receive(:execute).and_return(
         { success: true, output: 'result' }
       )
 

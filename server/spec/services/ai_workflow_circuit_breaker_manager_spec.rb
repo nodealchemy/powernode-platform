@@ -11,7 +11,7 @@ RSpec.describe AiWorkflowCircuitBreakerManager do
   describe '.get_breaker' do
     it 'returns circuit breaker for service' do
       breaker = described_class.get_breaker('test_service')
-      expect(breaker).to be_a(AiWorkflowCircuitBreakerService)
+      expect(breaker).to be_a(Ai::WorkflowCircuitBreakerService)
     end
 
     it 'returns same instance for same service' do
@@ -85,7 +85,7 @@ RSpec.describe AiWorkflowCircuitBreakerManager do
 
       expect {
         described_class.execute_with_breaker('test_service') { 'should not execute' }
-      }.to raise_error(AiWorkflowCircuitBreakerService::CircuitOpenError)
+      }.to raise_error(Ai::WorkflowCircuitBreakerService::CircuitOpenError)
     end
   end
 
@@ -393,6 +393,7 @@ RSpec.describe AiWorkflowCircuitBreakerManager do
   describe 'monitoring and alerts' do
     it 'detects when circuit breaker opens' do
       breaker = described_class.get_breaker('monitored_service')
+      breaker.reset_circuit!  # Ensure clean state (clear_breakers! only clears in-memory, not cache)
 
       initial_state = breaker.state
 
@@ -410,6 +411,7 @@ RSpec.describe AiWorkflowCircuitBreakerManager do
 
     it 'tracks state transitions' do
       breaker = described_class.get_breaker('transition_test')
+      breaker.reset_circuit!  # Ensure clean state (clear_breakers! only clears in-memory, not cache)
 
       states = []
       states << breaker.state  # closed

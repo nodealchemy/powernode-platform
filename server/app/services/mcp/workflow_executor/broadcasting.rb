@@ -5,12 +5,12 @@ module Mcp
     module Broadcasting
       # Broadcast node execution update
       #
-      # @param node [AiWorkflowNode] Node
+      # @param node [Ai::WorkflowNode] Node
       # @param status [String] Execution status
       # @param data [Hash] Additional data
       def broadcast_node_execution(node, status, data = {})
         # Get the node execution record to use the channel's proper broadcast method
-        node_execution = @workflow_run.ai_workflow_node_executions
+        node_execution = @workflow_run.node_executions
                                       .find_by(node_id: node.node_id)
 
         if node_execution

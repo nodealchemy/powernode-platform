@@ -12,7 +12,7 @@ module CostOptimization
       total_tokens = executions.sum(:tokens_used) || 0
 
       provider_costs = {}
-      executions.joins(:ai_provider).group("ai_providers.name").sum(:cost_usd).each do |name, cost|
+      executions.joins(:provider).group("ai_providers.name").sum(:cost_usd).each do |name, cost|
         provider_costs[name] = BigDecimal(cost.to_s)
       end
 
@@ -117,7 +117,7 @@ module CostOptimization
     def analyze_agent_cost_efficiency(executions)
       agent_analysis = {}
 
-      executions.joins(:ai_agent).group_by(&:ai_agent).each do |agent, agent_executions|
+      executions.joins(:agent).group_by(&:agent).each do |agent, agent_executions|
         costs = agent_executions.map(&:cost_usd).compact
         next if costs.empty?
 

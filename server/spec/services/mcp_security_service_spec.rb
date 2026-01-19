@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe McpSecurityService do
+RSpec.describe Mcp::SecurityService do
   describe '.validate_command!' do
     context 'with allowed commands' do
       it 'allows npx command' do
@@ -59,7 +59,7 @@ RSpec.describe McpSecurityService do
     context 'with extended commands' do
       it 'blocks uvx by default' do
         expect { described_class.validate_command!('uvx mcp-server-git') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError, /not in the allowed list/)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /not in the allowed list/)
       end
 
       it 'allows uvx with allow_extended flag' do
@@ -81,69 +81,69 @@ RSpec.describe McpSecurityService do
     context 'with blocked commands' do
       it 'blocks bash' do
         expect { described_class.validate_command!('bash -c "rm -rf /"') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError)
       end
 
       it 'blocks sh' do
         expect { described_class.validate_command!('sh script.sh') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError)
       end
 
       it 'blocks curl' do
         expect { described_class.validate_command!('curl https://evil.com') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError)
       end
 
       it 'blocks wget' do
         expect { described_class.validate_command!('wget https://evil.com') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError)
       end
 
       it 'blocks arbitrary executables' do
         expect { described_class.validate_command!('/tmp/malware') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError)
       end
     end
 
     context 'with dangerous argument patterns' do
       it 'blocks semicolon command chaining' do
         expect { described_class.validate_command!('node server.js; rm -rf /') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError, /dangerous pattern/)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /dangerous pattern/)
       end
 
       it 'blocks pipe command chaining' do
         expect { described_class.validate_command!('node server.js | bash') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError, /dangerous pattern/)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /dangerous pattern/)
       end
 
       it 'blocks ampersand command chaining' do
         expect { described_class.validate_command!('node server.js && rm -rf /') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError, /dangerous pattern/)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /dangerous pattern/)
       end
 
       it 'blocks backtick command substitution' do
         expect { described_class.validate_command!('node `whoami`') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError, /dangerous pattern/)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /dangerous pattern/)
       end
 
       it 'blocks $() command substitution' do
         expect { described_class.validate_command!('node $(cat /etc/passwd)') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError, /dangerous pattern/)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /dangerous pattern/)
       end
 
       it 'blocks ${} variable expansion' do
         expect { described_class.validate_command!('node ${PATH}') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError, /dangerous pattern/)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /dangerous pattern/)
       end
 
       it 'blocks output redirection' do
         expect { described_class.validate_command!('node server.js > /etc/passwd') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError, /dangerous pattern/)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /dangerous pattern/)
       end
 
       it 'blocks eval' do
         expect { described_class.validate_command!('node -e "eval(process.argv[1])"') }
-          .to raise_error(McpSecurityService::CommandNotAllowedError, /dangerous pattern/)
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /dangerous pattern/)
       end
     end
   end
@@ -320,14 +320,14 @@ RSpec.describe McpSecurityService do
       env = { 'LD_PRELOAD' => '/tmp/evil.so' }
 
       expect { described_class.validate_environment!(env) }
-        .to raise_error(McpSecurityService::EnvironmentViolationError, /Forbidden environment variables/)
+        .to raise_error(Mcp::SecurityService::EnvironmentViolationError, /Forbidden environment variables/)
     end
 
     it 'lists all forbidden variables in error' do
       env = { 'LD_PRELOAD' => 'x', 'NODE_OPTIONS' => 'y' }
 
       expect { described_class.validate_environment!(env) }
-        .to raise_error(McpSecurityService::EnvironmentViolationError, /LD_PRELOAD.*NODE_OPTIONS|NODE_OPTIONS.*LD_PRELOAD/)
+        .to raise_error(Mcp::SecurityService::EnvironmentViolationError, /LD_PRELOAD.*NODE_OPTIONS|NODE_OPTIONS.*LD_PRELOAD/)
     end
 
     it 'handles blank environment' do
@@ -356,7 +356,7 @@ RSpec.describe McpSecurityService do
           command: 'node server.js',
           env: { 'PATH' => '/usr/bin', 'LD_PRELOAD' => '/tmp/evil.so' }
         )
-      end.to raise_error(McpSecurityService::EnvironmentViolationError)
+      end.to raise_error(Mcp::SecurityService::EnvironmentViolationError)
     end
 
     it 'returns sanitized env without unknown vars' do
@@ -377,7 +377,7 @@ RSpec.describe McpSecurityService do
           command: 'bash -c "evil"',
           env: {}
         )
-      end.to raise_error(McpSecurityService::CommandNotAllowedError)
+      end.to raise_error(Mcp::SecurityService::CommandNotAllowedError)
     end
 
     it 'raises EnvironmentViolationError for forbidden env vars' do
@@ -386,7 +386,7 @@ RSpec.describe McpSecurityService do
           command: 'node server.js',
           env: { 'LD_PRELOAD' => '/tmp/evil.so' }
         )
-      end.to raise_error(McpSecurityService::EnvironmentViolationError)
+      end.to raise_error(Mcp::SecurityService::EnvironmentViolationError)
     end
 
     it 'respects allow_extended flag' do
@@ -413,15 +413,15 @@ RSpec.describe McpSecurityService do
 
   describe 'error classes' do
     it 'defines SecurityError as base class' do
-      expect(McpSecurityService::SecurityError).to be < StandardError
+      expect(Mcp::SecurityService::SecurityError).to be < StandardError
     end
 
     it 'defines CommandNotAllowedError' do
-      expect(McpSecurityService::CommandNotAllowedError).to be < McpSecurityService::SecurityError
+      expect(Mcp::SecurityService::CommandNotAllowedError).to be < Mcp::SecurityService::SecurityError
     end
 
     it 'defines EnvironmentViolationError' do
-      expect(McpSecurityService::EnvironmentViolationError).to be < McpSecurityService::SecurityError
+      expect(Mcp::SecurityService::EnvironmentViolationError).to be < Mcp::SecurityService::SecurityError
     end
   end
 end

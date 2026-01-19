@@ -28,6 +28,12 @@ declare global {
        * @example cy.setupVisualTesting()
        */
       setupVisualTesting(): Chainable<void>;
+
+      /**
+       * Wait for CSS animations and transitions to complete
+       * @example cy.waitForAnimations()
+       */
+      waitForAnimations(): Chainable<void>;
     }
   }
 }
@@ -82,6 +88,14 @@ Cypress.Commands.add('setupVisualTesting', () => {
   });
 });
 
+// Wait for animations and transitions to complete
+Cypress.Commands.add('waitForAnimations', () => {
+  // Wait for any CSS animations to complete
+  cy.get('body').should('be.visible');
+  // Small delay to allow transitions to settle
+  cy.wait(100);
+});
+
 // Take a consistent screenshot
 Cypress.Commands.add('screenshotConsistent', (name: string, options = {}) => {
   const screenshotOptions = {
@@ -90,7 +104,7 @@ Cypress.Commands.add('screenshotConsistent', (name: string, options = {}) => {
   };
   
   // Wait for any pending animations or transitions
-  cy.wait(500);
+  cy.waitForAnimations();
   
   // Blackout dynamic elements
   if (screenshotOptions.blackout && screenshotOptions.blackout.length > 0) {

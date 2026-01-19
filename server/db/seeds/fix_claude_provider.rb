@@ -5,7 +5,7 @@
 
 puts "🔧 Fixing Claude Provider Models Configuration..."
 
-provider = AiProvider.find_by(provider_type: 'anthropic')
+provider = Ai::Provider.find_by(provider_type: 'anthropic')
 unless provider
   puts "❌ Claude provider not found"
   exit 1

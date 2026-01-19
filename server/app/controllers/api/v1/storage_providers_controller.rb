@@ -273,7 +273,7 @@ module Api
         when "create"
           require_any_permission("admin.storage.create", "admin.storage.manage")
         when "update", "set_default", "initialize_storage", "test_connection"
-          require_any_permission("admin.storage.edit", "admin.storage.manage")
+          require_any_permission("admin.storage.update", "admin.storage.manage")
         when "destroy"
           require_any_permission("admin.storage.delete", "admin.storage.manage")
         end
@@ -321,7 +321,7 @@ module Api
           next if encrypted[key].to_s.start_with?("encrypted:")
 
           # Encrypt sensitive value
-          encryptor = AiCredentialEncryptionService.new
+          encryptor = Ai::CredentialEncryptionService.new
           encrypted_value = encryptor.encrypt(encrypted[key])
           encrypted[key] = "encrypted:#{encrypted_value}"
         end

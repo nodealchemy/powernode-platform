@@ -136,11 +136,11 @@ module Api
 
         # POST /api/v1/ai/workflows/:workflow_id/validations/auto_fix
         def auto_fix
-          service = AiWorkflowAutoFixService.new(@workflow)
+          service = ::Ai::WorkflowAutoFixService.new(@workflow)
           result = service.fix_all
 
           # Create new validation after fixes
-          validation_service = AiWorkflowValidationService.new(@workflow.reload)
+          validation_service = ::Ai::WorkflowValidationService.new(@workflow.reload)
           validation_result = validation_service.validate
           validation = @workflow.workflow_validations.create!(validation_result)
 
@@ -171,12 +171,12 @@ module Api
           issue_code = params[:issue_code]
           node_id = params[:node_id]
 
-          service = AiWorkflowAutoFixService.new(@workflow)
+          service = ::Ai::WorkflowAutoFixService.new(@workflow)
           result = service.fix_issue(issue_code, node_id: node_id)
 
           if result[:success]
             # Create new validation after fix
-            validation_service = AiWorkflowValidationService.new(@workflow.reload)
+            validation_service = ::Ai::WorkflowValidationService.new(@workflow.reload)
             validation_result = validation_service.validate
             validation = @workflow.workflow_validations.create!(validation_result)
 
@@ -204,7 +204,7 @@ module Api
 
         # GET /api/v1/ai/workflows/:workflow_id/validations/preview_fixes
         def preview_fixes
-          service = AiWorkflowAutoFixService.new(@workflow)
+          service = ::Ai::WorkflowAutoFixService.new(@workflow)
           preview = service.preview_fixes
 
           render_success({
@@ -250,8 +250,8 @@ module Api
         end
 
         def perform_workflow_validation(workflow)
-          # Use comprehensive AiWorkflowValidationService
-          service = AiWorkflowValidationService.new(workflow)
+          # Use comprehensive ::Ai::WorkflowValidationService
+          service = ::Ai::WorkflowValidationService.new(workflow)
           service.validate
         end
 

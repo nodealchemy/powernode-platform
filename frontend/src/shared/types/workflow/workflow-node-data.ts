@@ -307,6 +307,43 @@ export interface WebhookNodeData extends BaseWorkflowNodeData {
   };
 }
 
+// ===== DEVOPS ORCHESTRATION NODE DATA TYPES =====
+
+/** DevOps Trigger node data - triggers DevOps pipelines from AI workflows */
+export interface DevopsTriggerNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    provider?: 'github' | 'gitlab' | 'jenkins' | 'circleci';
+    workflow_name?: string;
+    workflow_id?: string;
+    branch?: string;
+    inputs?: Record<string, unknown>;
+    wait_for_completion?: boolean;
+  };
+}
+
+/** DevOps Wait Status node data - waits for DevOps pipeline status */
+export interface DevopsWaitStatusNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    provider?: 'github' | 'gitlab' | 'jenkins' | 'circleci';
+    job_id?: string;
+    run_id?: string;
+    expected_status?: 'success' | 'failure' | 'any' | 'completed';
+    timeout_seconds?: number;
+    poll_interval_seconds?: number;
+  };
+}
+
+/** DevOps Get Logs node data - retrieves DevOps pipeline logs */
+export interface DevopsGetLogsNodeData extends BaseWorkflowNodeData {
+  configuration?: {
+    provider?: 'github' | 'gitlab' | 'jenkins' | 'circleci';
+    job_id?: string;
+    run_id?: string;
+    step_name?: string;
+    tail_lines?: number;
+  };
+}
+
 /** Union type for all node data types */
 export type WorkflowNodeData =
   | AiAgentNodeData
@@ -315,6 +352,9 @@ export type WorkflowNodeData =
   | DataProcessorNodeData
   | DatabaseNodeData
   | DelayNodeData
+  | DevopsGetLogsNodeData
+  | DevopsTriggerNodeData
+  | DevopsWaitStatusNodeData
   | EmailNodeData
   | EndNodeData
   | FileNodeData
@@ -388,6 +428,12 @@ export type TriggerNode = Node<TriggerNodeData, 'trigger'>;
 export type ValidatorNode = Node<ValidatorNodeData, 'validator'>;
 /** Webhook workflow node type */
 export type WebhookNode = Node<WebhookNodeData, 'webhook'>;
+/** DevOps Trigger workflow node type */
+export type DevopsTriggerNode = Node<DevopsTriggerNodeData, 'devops_trigger'>;
+/** DevOps Wait Status workflow node type */
+export type DevopsWaitStatusNode = Node<DevopsWaitStatusNodeData, 'devops_wait_status'>;
+/** DevOps Get Logs workflow node type */
+export type DevopsGetLogsNode = Node<DevopsGetLogsNodeData, 'devops_get_logs'>;
 
 /** Union of all workflow node types */
 export type WorkflowNode =
@@ -397,6 +443,9 @@ export type WorkflowNode =
   | DataProcessorNode
   | DatabaseNode
   | DelayNode
+  | DevopsGetLogsNode
+  | DevopsTriggerNode
+  | DevopsWaitStatusNode
   | EmailNode
   | EndNode
   | FileNode

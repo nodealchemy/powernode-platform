@@ -11,7 +11,7 @@ import authReducer, {
   clearResendVerificationSuccess,
   decrementResendCooldown,
 } from './authSlice';
-import { authApi } from '@/features/auth/services/authAPI';
+import { authApi } from '@/features/account/auth/services/authAPI';
 import uiReducer from './uiSlice';
 import subscriptionReducer from './subscriptionSlice';
 
@@ -34,7 +34,7 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 // Mock the auth API
-jest.mock('@/features/auth/services/authAPI');
+jest.mock('@/features/account/auth/services/authAPI');
 
 const mockedAuthAPI = authApi as jest.Mocked<typeof authApi>;
 

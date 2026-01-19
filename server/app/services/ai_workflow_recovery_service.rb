@@ -266,15 +266,15 @@ class AiWorkflowRecoveryService
 
     node_ids.each do |node_id|
       # Find existing execution or create with required fields
-      node_execution = @workflow_run.ai_workflow_node_executions.find_by(node_id: node_id)
+      node_execution = @workflow_run.node_executions.find_by(node_id: node_id)
 
       unless node_execution
         # Need to get the workflow node to create a valid execution
-        workflow_node = @workflow_run.ai_workflow.ai_workflow_nodes.find_by(node_id: node_id)
+        workflow_node = @workflow_run.workflow.workflow_nodes.find_by(node_id: node_id)
         next unless workflow_node # Skip if node doesn't exist
 
-        node_execution = @workflow_run.ai_workflow_node_executions.create!(
-          ai_workflow_node: workflow_node,
+        node_execution = @workflow_run.node_executions.create!(
+          node: workflow_node,
           node_id: node_id,
           node_type: workflow_node.node_type,
           execution_id: SecureRandom.uuid,
@@ -296,8 +296,8 @@ class AiWorkflowRecoveryService
     current_node_id = checkpoint[:node_id] || checkpoint["node_id"]
 
     # Find the node that follows the checkpoint node
-    workflow = @workflow_run.ai_workflow
-    workflow_edges = workflow.ai_workflow_edges
+    workflow = @workflow_run.workflow
+    workflow_edges = workflow.workflow_edges
 
     # Find outgoing edges from current node
     next_edge = workflow_edges.find_by(source_node_id: current_node_id)
@@ -305,7 +305,7 @@ class AiWorkflowRecoveryService
     return nil unless next_edge
 
     # Find the target node
-    workflow.ai_workflow_nodes.find_by(node_id: next_edge.target_node_id)
+    workflow.workflow_nodes.find_by(node_id: next_edge.target_node_id)
   end
 
   # Execute workflow from specific node
@@ -362,7 +362,7 @@ class AiWorkflowRecoveryService
 
   def capture_workflow_state
     # Get node execution status counts
-    node_statuses = @workflow_run.ai_workflow_node_executions
+    node_statuses = @workflow_run.node_executions
                                  .group(:status)
                                  .count
 
@@ -374,7 +374,7 @@ class AiWorkflowRecoveryService
       failed_nodes: @workflow_run.failed_nodes,
       runtime_context: @workflow_run.runtime_context,
       output_variables: @workflow_run.output_variables,
-      node_executions: @workflow_run.ai_workflow_node_executions.map do |ne|
+      node_executions: @workflow_run.node_executions.map do |ne|
         {
           node_id: ne.node_id,
           status: ne.status,
@@ -419,7 +419,7 @@ class AiWorkflowRecoveryService
     # Restore node execution states if present
     if state && state["node_executions"]
       state["node_executions"].each do |ne_state|
-        node_execution = @workflow_run.ai_workflow_node_executions
+        node_execution = @workflow_run.node_executions
           .find_or_create_by(node_id: ne_state["node_id"])
 
         node_execution.update!(
@@ -556,7 +556,7 @@ class AiWorkflowRecoveryService
 
   def find_stuck_nodes
     # Find nodes that have been running for too long
-    @workflow_run.ai_workflow_node_executions
+    @workflow_run.node_executions
       .where(status: "running")
       .where("started_at < ?", 10.minutes.ago)
   end
@@ -573,7 +573,7 @@ class AiWorkflowRecoveryService
 
   def find_orphaned_executions
     # Find executions without proper workflow run association
-    @workflow_run.ai_workflow_node_executions
+    @workflow_run.node_executions
       .where(status: %w[pending initializing])
       .where("created_at < ?", 30.minutes.ago)
   end

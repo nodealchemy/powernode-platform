@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
-import { billingApi, BillingOverview, PaymentMethod } from '@/features/billing/services/billingApi';
+import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { billingApi, BillingOverview, PaymentMethod } from '@/features/business/billing/services/billingApi';
 import { formatCurrency, formatCardDisplay, formatBankAccountDisplay } from '@/shared/utils/formatters';
 import { getInvoiceStatusColor, getInvoiceStatusText } from '@/shared/utils/statusHelpers';
 import { DateRangePicker } from '@/shared/components/ui/DateRangePicker';
-import { CreateInvoiceModal, InvoiceFormData } from '@/features/billing/components/CreateInvoiceModal';
+import { CreateInvoiceModal, InvoiceFormData } from '@/features/business/billing/components/CreateInvoiceModal';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
@@ -36,6 +37,16 @@ export const BillingPage: React.FC = () => {
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1), // 3 months ago
     endDate: new Date()
+  });
+
+  // WebSocket for real-time updates
+  const { isConnected: _wsConnected } = usePageWebSocket({
+    pageType: 'business',
+    subscribeToSubscriptions: true,
+    onDataUpdate: () => {
+      // Trigger data refresh if needed
+      loadBillingData();
+    }
   });
 
   const loadBillingData = useCallback(async () => {
@@ -231,12 +242,12 @@ export const BillingPage: React.FC = () => {
               <h3 className="text-lg font-semibold text-theme-primary mb-4">Recent Activity</h3>
               <div className="space-y-3">
                 <div className="flex items-center space-x-3 py-2">
-                  <div className="w-2 h-2 bg-theme-success rounded-full"></div>
+                  <div className="w-2 h-2 bg-theme-success-solid rounded-full"></div>
                   <span className="text-theme-primary">Invoice #INV-001 paid</span>
                   <span className="text-sm text-theme-secondary">2 hours ago</span>
                 </div>
                 <div className="flex items-center space-x-3 py-2">
-                  <div className="w-2 h-2 bg-theme-warning rounded-full"></div>
+                  <div className="w-2 h-2 bg-theme-warning-solid rounded-full"></div>
                   <span className="text-theme-primary">Invoice #INV-002 overdue</span>
                   <span className="text-sm text-theme-secondary">3 days ago</span>
                 </div>

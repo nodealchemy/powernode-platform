@@ -5,7 +5,7 @@
 class Api::V1::WorkersController < ApplicationController
   before_action -> { require_permission("system.workers.read") }, only: [ :index, :show, :test_worker, :health_check, :stats, :show_config ]
   before_action -> { require_permission("system.workers.create") }, only: [ :create ]
-  before_action -> { require_permission("system.workers.edit") }, only: [ :update, :regenerate_token, :suspend, :activate, :revoke, :update_config, :reset_config ]
+  before_action -> { require_permission("system.workers.update") }, only: [ :update, :regenerate_token, :suspend, :activate, :revoke, :update_config, :reset_config ]
   before_action -> { require_permission("system.workers.delete") }, only: [ :destroy ]
   before_action :set_worker, only: [ :show, :update, :destroy, :regenerate_token, :suspend, :activate, :revoke, :test_worker, :health_check, :show_config, :update_config, :reset_config ]
 

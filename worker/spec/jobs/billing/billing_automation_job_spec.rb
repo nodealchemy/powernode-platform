@@ -8,7 +8,13 @@ RSpec.describe Billing::BillingAutomationJob, type: :job do
   it_behaves_like 'a base job', described_class
   it_behaves_like 'a job with retry logic'
 
-  before { mock_powernode_worker_config }
+  before do
+    mock_powernode_worker_config
+    # Stub alerts endpoint for error handling
+    stub_backend_api_success(:post, '/api/v1/alerts', { 'success' => true })
+    stub_backend_api_success(:post, '/api/v1/internal/alerts', { 'success' => true })
+    stub_backend_api_success(:post, '/api/v1/notifications', { 'success' => true })
+  end
 
   let(:subscription_id) { SecureRandom.uuid }
   let(:account_id) { SecureRandom.uuid }

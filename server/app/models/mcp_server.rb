@@ -319,15 +319,15 @@ class McpServer < ApplicationRecord
   def encrypt_oauth_token(value)
     return nil if value.blank?
 
-    CredentialEncryptionService.encrypt_value(value, namespace: "mcp")
+    Security::CredentialEncryptionService.encrypt_value(value, namespace: "mcp")
   end
 
   # Decrypt OAuth token
   def decrypt_oauth_token(encrypted_value)
     return nil if encrypted_value.blank?
 
-    CredentialEncryptionService.decrypt_value(encrypted_value, namespace: "mcp")
-  rescue CredentialEncryptionService::DecryptionError => e
+    Security::CredentialEncryptionService.decrypt_value(encrypted_value, namespace: "mcp")
+  rescue Security::CredentialEncryptionService::DecryptionError => e
     Rails.logger.error "Failed to decrypt OAuth token for MCP server #{id}: #{e.message}"
     nil
   end
