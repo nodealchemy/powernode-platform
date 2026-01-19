@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -57,11 +57,11 @@
     "ws": "^8.18.3"
   },
   "scripts": {
-    "start": "vite",
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
-    "build:full": "tsc && vite build",
-    "build:verbose": "vite build --debug",
+    "start": "VITE_APP_VERSION=$(cat VERSION) vite",
+    "dev": "VITE_APP_VERSION=$(cat VERSION) vite --host 0.0.0.0",
+    "build": "VITE_APP_VERSION=$(cat VERSION) vite build",
+    "build:full": "VITE_APP_VERSION=$(cat VERSION) tsc && VITE_APP_VERSION=$(cat VERSION) vite build",
+    "build:verbose": "VITE_APP_VERSION=$(cat VERSION) vite build --debug",
     "refresh-proxy": "node scripts/refresh-proxy-cache.js",
     "test": "NODE_OPTIONS='--no-deprecation --experimental-vm-modules' jest",
     "test:watch": "NODE_OPTIONS='--no-deprecation --experimental-vm-modules' jest --watch",

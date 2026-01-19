@@ -92,10 +92,10 @@ export const versionApi = {
     }
   },
 
-  // Get frontend version from package.json
+  // Get frontend version from VERSION file (via environment variable)
   getFrontendVersion(): string {
-    // Try environment variable first, then fall back to package.json version
-    return process.env.REACT_APP_VERSION || process.env.npm_package_version || '0.0.1-dev';
+    // Try Vite environment variable first (set from VERSION file), then fall back
+    return import.meta.env.VITE_APP_VERSION || import.meta.env.npm_package_version || '0.0.1-dev';
   },
 
   // Format version for display
