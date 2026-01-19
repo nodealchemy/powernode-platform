@@ -7,6 +7,10 @@ require 'rack/session'
 # Initialize the Powernode Worker application
 PowernodeWorker.application
 
+# Read version from VERSION file
+VERSION_FILE = File.expand_path('VERSION', __dir__)
+WORKER_VERSION = File.exist?(VERSION_FILE) ? File.read(VERSION_FILE).strip : '0.0.1-dev'
+
 # Jobs API endpoint
 map '/api/v1/jobs' do
   run JobsController
@@ -58,7 +62,7 @@ map '/' do
     [200, {'content-type' => 'application/json'}, [
       {
         service: 'Powernode Worker',
-        version: '0.0.2',
+        version: WORKER_VERSION,
         environment: PowernodeWorker.application.env,
         timestamp: Time.current.iso8601,
         endpoints: {

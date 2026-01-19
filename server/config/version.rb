@@ -2,7 +2,7 @@
 
 module Powernode
   class Version
-    VERSION_FILE = File.expand_path("../../VERSION", __dir__)
+    VERSION_FILE = File.expand_path("../VERSION", __dir__)
 
     def self.current
       @current ||= File.exist?(VERSION_FILE) ? File.read(VERSION_FILE).strip : "0.0.1-dev"
