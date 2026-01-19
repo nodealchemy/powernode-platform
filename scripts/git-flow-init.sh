@@ -147,15 +147,15 @@ create_initial_tag() {
         echo -e "${BLUE}Creating initial version tag...${NC}"
         
         # Create initial tag
-        git tag -a v0.0.1-dev -m "Initial development version
+        git tag -a 0.0.1-dev -m "Initial development version
 
 Features:
 - Project foundation established
 - Git-flow workflow configured
 - Semantic versioning enforced
 - Development environment ready"
-        
-        echo -e "${GREEN}✓ Initial tag v0.0.1-dev created${NC}"
+
+        echo -e "${GREEN}✓ Initial tag 0.0.1-dev created${NC}"
         echo -e "${YELLOW}Push the tag with: git push --tags${NC}"
     else
         echo -e "${YELLOW}⚠ Version tags already exist${NC}"

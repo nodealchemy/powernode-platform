@@ -192,12 +192,12 @@ The repository includes `.github/dependabot.yml` for automated dependency update
 
 1. **Create Release Branch**:
    ```bash
-   git flow release start v0.1.0
+   git flow release start 0.1.0
    ```
 
 2. **Complete Release**:
    ```bash
-   git flow release finish v0.1.0
+   git flow release finish 0.1.0
    ```
 
 3. **Push to GitHub**:
@@ -208,8 +208,8 @@ The repository includes `.github/dependabot.yml` for automated dependency update
 
 4. **Create GitHub Release**:
    - Go to **Releases > Create a new release**
-   - Tag: `v0.1.0`
-   - Title: `Release v0.1.0`
+   - Tag: `0.1.0`
+   - Title: `Release 0.1.0`
    - Description: Copy from CHANGELOG.md
    - Attach binaries if applicable
 
@@ -218,7 +218,7 @@ The repository includes `.github/dependabot.yml` for automated dependency update
 ### Branch Naming Convention
 - Feature branches: `feature/description-of-feature`
 - Hotfix branches: `hotfix/description-of-fix`
-- Release branches: `release/v0.1.0`
+- Release branches: `release/0.1.0`
 
 ### Commit Message Convention
 Following Conventional Commits:

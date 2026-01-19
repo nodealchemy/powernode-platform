@@ -68,7 +68,9 @@ User → Roles, Permissions, Invitations
 ### Git Rules
 - **NEVER** commit unless explicitly requested
 - **NEVER** include Claude attribution in commits
-- Branch strategy: `develop` → `feature/*` → `release/*` → `main`
+- Branch strategy: `develop` → `feature/*` → `release/*` → `master`
+- Tag naming: **NO "v" prefix** - use `0.2.0` not `v0.2.0`
+- Release branches: `release/0.2.0` (no "v" prefix)
 
 ### Permission-Based Access Control (CRITICAL)
 **Frontend MUST use permissions ONLY - NEVER roles for access control**

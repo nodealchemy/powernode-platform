@@ -902,9 +902,9 @@ feat!: redesign authentication API       # MAJOR bump
 - [ ] Performance benchmarks met
 - [ ] Documentation updated
 
-**Release Tagging**:
+**Release Tagging** (no "v" prefix):
 ```bash
-git tag -a v1.2.0 -m "Release v1.2.0
+git tag -a 1.2.0 -m "Release 1.2.0
 
 Features:
 - New payment gateway integration

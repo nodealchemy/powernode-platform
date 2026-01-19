@@ -208,7 +208,7 @@ bump_version() {
     echo -e "${YELLOW}Next steps:${NC}"
     echo "1. Edit docs/CHANGELOG.md to add release notes"
     echo "2. Commit changes: git commit -m \"chore: bump version to $new_version\""
-    echo "3. Create git tag: git tag -a v$new_version -m \"Release $new_version\""
+    echo "3. Create git tag: git tag -a $new_version -m \"Release $new_version\""
     echo "4. Push changes: git push && git push --tags"
 }
 
