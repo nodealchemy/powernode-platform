@@ -42,7 +42,7 @@ RSpec.describe 'Authentication Security', type: :request do
     it 'accepts strong passwords' do
       post '/api/v1/auth/register', params: {
         email: 'test@example.com',
-        password: 'UncommonStr0ngP@ssw0rd99!',
+        password: TestUsers::PASSWORD,
         firstName: 'Test',
         lastName: 'User',
         accountName: 'Test Company'
@@ -85,7 +85,7 @@ RSpec.describe 'Authentication Security', type: :request do
     it 'generates secure access tokens' do
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
       expect(response).to have_http_status(200)
@@ -156,7 +156,7 @@ RSpec.describe 'Authentication Security', type: :request do
 
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
       expect(response).to have_http_status(401)
@@ -168,7 +168,7 @@ RSpec.describe 'Authentication Security', type: :request do
 
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
       expect(response).to have_http_status(200)
@@ -222,7 +222,7 @@ RSpec.describe 'Authentication Security', type: :request do
     it 'does not expose sensitive data in session' do
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
       expect(response).to have_http_status(200)
@@ -237,7 +237,7 @@ RSpec.describe 'Authentication Security', type: :request do
       # Login to get tokens
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
       refresh_token = json_response_data['refresh_token']
@@ -313,7 +313,7 @@ RSpec.describe 'Authentication Security', type: :request do
     it 'sanitizes email input' do
       post '/api/v1/auth/register', params: {
         email: '<script>alert("xss")</script>@example.com',
-        password: 'UncommonStr0ngP@ssw0rd99!',
+        password: TestUsers::PASSWORD,
         firstName: 'Test',
         lastName: 'User',
         accountName: 'Test Company'
@@ -328,7 +328,7 @@ RSpec.describe 'Authentication Security', type: :request do
     it 'validates email format strictly' do
       post '/api/v1/auth/register', params: {
         email: 'not_an_email',
-        password: 'UncommonStr0ngP@ssw0rd99!',
+        password: TestUsers::PASSWORD,
         firstName: 'Test',
         lastName: 'User',
         accountName: 'Test Company'
@@ -361,7 +361,7 @@ RSpec.describe 'Authentication Security', type: :request do
 
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
       # Check Set-Cookie header for secure flags if cookies are used
