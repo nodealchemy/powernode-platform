@@ -134,9 +134,19 @@ export function IntegrationDetailPage() {
     [showNotification]
   );
 
+  const baseBreadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'DevOps', href: '/app/devops' },
+    { label: 'Integrations', href: '/app/devops/integrations' }
+  ];
+
   if (isLoading) {
     return (
-      <PageContainer title="Loading..." description="">
+      <PageContainer
+        title="Loading..."
+        description=""
+        breadcrumbs={[...baseBreadcrumbs, { label: 'Loading...' }]}
+      >
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-theme-primary border-t-transparent" />
         </div>
@@ -146,7 +156,11 @@ export function IntegrationDetailPage() {
 
   if (!instance) {
     return (
-      <PageContainer title="Integration Not Found" description="">
+      <PageContainer
+        title="Integration Not Found"
+        description=""
+        breadcrumbs={[...baseBreadcrumbs, { label: 'Not Found' }]}
+      >
         <div className="text-center py-12">
           <p className="text-theme-secondary">The integration you're looking for doesn't exist.</p>
           <a
@@ -167,6 +181,7 @@ export function IntegrationDetailPage() {
     <PageContainer
       title={instance.name}
       description={template?.name || 'Integration'}
+      breadcrumbs={[...baseBreadcrumbs, { label: instance.name }]}
       actions={[
         {
           label: instance.status === 'active' ? 'Pause' : 'Activate',
@@ -367,7 +382,7 @@ export function IntegrationDetailPage() {
               </p>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 bg-theme-error text-white rounded-lg hover:bg-opacity-90 transition-colors"
+                className="btn-theme btn-theme-danger"
               >
                 Delete Integration
               </button>

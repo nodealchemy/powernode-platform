@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, RefreshCw, X } from 'lucide-react';
+import { Plus, RefreshCw, X, LayoutGrid, Globe, Bot, GitBranch, Search, Code, Shield, Rocket, FileText, Puzzle } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
+import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { Button } from '@/shared/components/ui/Button';
 import { usePromptTemplates } from '../hooks/usePromptTemplates';
 import type {
@@ -412,32 +413,26 @@ const PromptsPageContent: React.FC = () => {
         {/* Category Filter */}
         {!showEditor && !editingTemplate && (
           <>
-            <div className="flex items-center gap-2 border-b border-theme overflow-x-auto">
-              {[
-                { value: 'all', label: 'All' },
-                { value: 'general', label: 'General' },
-                { value: 'agent', label: 'Agent' },
-                { value: 'workflow', label: 'Workflow' },
-                { value: 'review', label: 'Review' },
-                { value: 'implement', label: 'Implement' },
-                { value: 'security', label: 'Security' },
-                { value: 'deploy', label: 'Deploy' },
-                { value: 'docs', label: 'Docs' },
-                { value: 'custom', label: 'Custom' },
-              ].map((tab) => (
-                <button
-                  key={tab.value}
-                  onClick={() => setCategoryFilter(tab.value as PromptCategory | 'all')}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
-                    categoryFilter === tab.value
-                      ? 'border-theme-primary text-theme-primary'
-                      : 'border-transparent text-theme-secondary hover:text-theme-primary'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <TabContainer
+              tabs={[
+                { id: 'all', label: 'All', icon: <LayoutGrid className="w-4 h-4" /> },
+                { id: 'general', label: 'General', icon: <Globe className="w-4 h-4" /> },
+                { id: 'agent', label: 'Agent', icon: <Bot className="w-4 h-4" /> },
+                { id: 'workflow', label: 'Workflow', icon: <GitBranch className="w-4 h-4" /> },
+                { id: 'review', label: 'Review', icon: <Search className="w-4 h-4" /> },
+                { id: 'implement', label: 'Implement', icon: <Code className="w-4 h-4" /> },
+                { id: 'security', label: 'Security', icon: <Shield className="w-4 h-4" /> },
+                { id: 'deploy', label: 'Deploy', icon: <Rocket className="w-4 h-4" /> },
+                { id: 'docs', label: 'Docs', icon: <FileText className="w-4 h-4" /> },
+                { id: 'custom', label: 'Custom', icon: <Puzzle className="w-4 h-4" /> },
+              ]}
+              activeTab={categoryFilter}
+              onTabChange={(tabId) => setCategoryFilter(tabId as PromptCategory | 'all')}
+              variant="underline"
+              size="sm"
+              compact
+              className="mb-6"
+            />
 
             {/* Template List */}
             {loading ? (

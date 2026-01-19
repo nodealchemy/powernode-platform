@@ -226,18 +226,17 @@ export const AuditLogsPage: React.FC = () => {
 
   // Get breadcrumbs with dynamic tab support
   const getBreadcrumbs = () => {
-    const baseBreadcrumbs = [
-      { label: 'Dashboard', href: '/app', icon: '🏠' },
-      { label: 'System', icon: '⚙️' },
-      { label: 'Audit Logs', icon: '🛡️' }
+    const baseBreadcrumbs: { label: string; href?: string }[] = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'System' },
+      { label: 'Audit Logs' }
     ];
-    
+
     // Add active tab to breadcrumbs if not the default table view
     const activeTabInfo = tabs.find(tab => tab.id === activeTab);
     if (activeTabInfo && activeTab !== 'table') {
       baseBreadcrumbs.push({
-        label: activeTabInfo.label,
-        icon: activeTabInfo.icon
+        label: activeTabInfo.label
       });
     }
     

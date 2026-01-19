@@ -430,7 +430,7 @@ const MyFilesPage: React.FC = () => {
             {canUpload && !searchQuery && !filterCategory && !filterVisibility && (
               <button
                 onClick={() => setShowUploadModal(true)}
-                className="mt-4 px-4 py-2 bg-theme-info text-white rounded-lg hover:opacity-90 transition-colors flex items-center gap-2 mx-auto"
+                className="btn-theme btn-theme-primary mt-4 mx-auto flex items-center gap-2"
               >
                 <Upload className="h-4 w-4" />
                 Upload your first file

@@ -237,7 +237,7 @@ const StorageProvidersPage: React.FC = () => {
               {canManage && (
                 <button
                   onClick={handleAddProvider}
-                  className="px-4 py-2 bg-theme-info text-white rounded-lg hover:opacity-90 transition-colors inline-flex items-center gap-2"
+                  className="btn-theme btn-theme-primary inline-flex items-center gap-2"
                 >
                   <Plus className="h-4 w-4" />
                   Add Storage Provider

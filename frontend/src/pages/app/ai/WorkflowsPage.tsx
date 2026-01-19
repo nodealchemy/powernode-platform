@@ -636,7 +636,7 @@ export const WorkflowsPage: React.FC = () => {
                 onClick={() => setTypeFilter('all')}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   typeFilter === 'all'
-                    ? 'bg-theme-interactive-primary text-white'
+                    ? 'bg-theme-interactive-primary text-theme-on-primary'
                     : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
                 }`}
               >
@@ -646,7 +646,7 @@ export const WorkflowsPage: React.FC = () => {
                 onClick={() => setTypeFilter('workflows')}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
                   typeFilter === 'workflows'
-                    ? 'bg-theme-interactive-primary text-white'
+                    ? 'bg-theme-interactive-primary text-theme-on-primary'
                     : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
                 }`}
               >
@@ -657,7 +657,7 @@ export const WorkflowsPage: React.FC = () => {
                 onClick={() => setTypeFilter('templates')}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
                   typeFilter === 'templates'
-                    ? 'bg-theme-interactive-primary text-white'
+                    ? 'bg-theme-interactive-primary text-theme-on-primary'
                     : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
                 }`}
               >

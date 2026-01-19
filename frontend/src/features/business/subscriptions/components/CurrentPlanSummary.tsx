@@ -64,43 +64,13 @@ export const CurrentPlanSummary: React.FC<CurrentPlanSummaryProps> = ({
   };
 
   if (loading) {
-    return (
-      <div className={`card-theme shadow p-6 ${className}`}>
-        <div className="animate-pulse">
-          <div className="flex items-center justify-between mb-4">
-            <div className="h-6 bg-theme-secondary rounded w-32"></div>
-            <div className="h-8 bg-theme-secondary rounded w-24"></div>
-          </div>
-          <div className="space-y-3">
-            <div className="h-4 bg-theme-secondary rounded w-48"></div>
-            <div className="h-4 bg-theme-secondary rounded w-36"></div>
-            <div className="h-4 bg-theme-secondary rounded w-42"></div>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (!subscription) {
     return (
-      <div className={`card-theme shadow p-6 ${className}`}>
-        <div className="text-center">
-          <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-theme-secondary">
-            <CreditCard className="h-8 w-8 text-theme-primary" />
-          </div>
-          <h3 className="text-lg font-medium text-theme-primary mb-2">No Active Subscription</h3>
-          <p className="text-sm text-theme-secondary mb-4">
-            Choose a plan below to get started with premium features.
-          </p>
-          {onManage && (
-            <button
-              onClick={onManage}
-              className="btn-theme btn-theme-primary"
-            >
-              Browse Plans
-            </button>
-          )}
-        </div>
+      <div className={`text-sm text-theme-secondary ${className}`}>
+        No active subscription.
       </div>
     );
   }

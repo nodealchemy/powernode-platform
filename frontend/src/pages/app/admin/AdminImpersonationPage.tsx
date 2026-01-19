@@ -60,9 +60,9 @@ export const AdminImpersonationPage: React.FC = () => {
   ];
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Admin', href: '/app/admin', icon: '⚙️' },
-    { label: 'Impersonation', icon: '👤' },
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Admin', href: '/app/admin' },
+    { label: 'Impersonation' }
   ];
 
   return (

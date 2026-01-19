@@ -26,6 +26,7 @@ export interface TabContainerProps {
   variant?: 'default' | 'pills' | 'underline';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
+  compact?: boolean;
 }
 
 export const TabContainer: React.FC<TabContainerProps> = ({
@@ -38,7 +39,8 @@ export const TabContainer: React.FC<TabContainerProps> = ({
   children,
   variant = 'underline',
   size = 'md',
-  fullWidth = false
+  fullWidth = false,
+  compact = false
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -116,13 +118,14 @@ export const TabContainer: React.FC<TabContainerProps> = ({
 
   // Container classes based on variant
   const getContainerClass = () => {
+    const compactSpacing = compact ? 'space-x-1 sm:space-x-2' : 'space-x-4 sm:space-x-6 lg:space-x-8';
     switch (variant) {
       case 'pills':
-        return 'flex space-x-2 p-1 bg-theme-surface rounded-lg';
+        return `flex ${compact ? 'space-x-1' : 'space-x-2'} p-1 bg-theme-surface rounded-lg`;
       case 'underline':
-        return 'flex space-x-4 sm:space-x-6 lg:space-x-8 border-b border-theme';
+        return `flex ${compactSpacing} border-b border-theme`;
       default:
-        return 'flex space-x-1 bg-theme-surface-hover p-1 rounded-lg';
+        return `flex ${compact ? 'space-x-0.5' : 'space-x-1'} bg-theme-surface-hover p-1 rounded-lg`;
     }
   };
 

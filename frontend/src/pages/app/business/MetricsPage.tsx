@@ -12,8 +12,8 @@ export const MetricsPage: React.FC = () => {
   });
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Metrics', icon: '📈' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Metrics' }
   ];
 
   return (

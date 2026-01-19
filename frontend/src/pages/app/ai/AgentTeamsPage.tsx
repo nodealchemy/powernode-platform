@@ -1,4 +1,4 @@
-// Agent Teams Page - Main page for managing CrewAI-style agent teams
+// Agent Teams Page - Main page for managing multi-agent teams
 import React, { useState, useEffect } from 'react';
 import { Plus, Users, Filter } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
@@ -198,7 +198,7 @@ const AgentTeamsPage: React.FC = () => {
   return (
     <PageContainer
       title="Agent Teams"
-      description="Manage CrewAI-style multi-agent teams for collaborative AI orchestration"
+      description="Manage multi-agent teams for collaborative AI orchestration"
       breadcrumbs={breadcrumbs}
       actions={[
         {
@@ -271,7 +271,7 @@ const AgentTeamsPage: React.FC = () => {
           </p>
           <button
             onClick={() => setIsBuilderOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-theme-primary rounded-md hover:opacity-90 transition-opacity"
+            className="btn-theme btn-theme-primary btn-theme-md inline-flex items-center gap-2 cursor-pointer"
           >
             <Plus size={16} />
             Create Team

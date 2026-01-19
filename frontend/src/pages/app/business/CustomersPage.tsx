@@ -281,9 +281,9 @@ export const CustomersPage: React.FC = () => {
   ];
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Business', href: '/app/business', icon: '💼' },
-    { label: 'Customers', icon: '👥' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Business', href: '/app/business' },
+    { label: 'Customers' }
   ];
 
   return (

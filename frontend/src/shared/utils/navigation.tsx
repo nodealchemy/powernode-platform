@@ -46,8 +46,8 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 1
         },
         {
-          id: 'team-members',
-          name: 'Team Members',
+          id: 'users',
+          name: 'Users',
           href: '/app/users',
           icon: Users,
           description: 'Manage your team members',
@@ -57,7 +57,7 @@ export const defaultNavigationConfig: NavigationConfig = {
         {
           id: 'billing',
           name: 'Billing',
-          href: '/app/business/billing',
+          href: '/app/account/billing',
           icon: CreditCard,
           description: 'Invoices and payment processing',
           permissions: ['admin.billing.read'],
@@ -273,7 +273,7 @@ export const defaultNavigationConfig: NavigationConfig = {
     {
       id: 'billing-center',
       name: 'Billing Center',
-      href: '/app/business/billing',
+      href: '/app/account/billing',
       icon: CreditCard,
       description: 'Subscription and payment details'
     },

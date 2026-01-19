@@ -1708,7 +1708,108 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
-        # 10. AGENT TEAMS CONTROLLER - CrewAI-style team orchestration
+        # 10. RAG CONTROLLER - Knowledge-Augmented Agents
+        # ===================================================================
+        # Revenue: Storage fees + query pricing + embedding fees
+        # - Storage: $0.10-0.25/GB/month
+        # - Embeddings: $0.0001-0.0004/1K tokens
+        # - Queries: $0.001-0.01/query based on complexity
+        # ===================================================================
+        scope :rag, controller: "rag" do
+          # Knowledge bases
+          get "knowledge_bases", action: :index
+          get "knowledge_bases/:id", action: :show_knowledge_base
+          post "knowledge_bases", action: :create_knowledge_base
+          patch "knowledge_bases/:id", action: :update_knowledge_base
+          delete "knowledge_bases/:id", action: :delete_knowledge_base
+
+          # Documents
+          get "knowledge_bases/:knowledge_base_id/documents", action: :list_documents
+          post "knowledge_bases/:knowledge_base_id/documents", action: :create_document
+          get "knowledge_bases/:knowledge_base_id/documents/:id", action: :show_document
+          delete "knowledge_bases/:knowledge_base_id/documents/:id", action: :delete_document
+          post "knowledge_bases/:knowledge_base_id/documents/:id/process", action: :process_document
+
+          # Embeddings
+          post "knowledge_bases/:knowledge_base_id/embed", action: :embed_chunks
+
+          # Queries
+          post "knowledge_bases/:knowledge_base_id/query", action: :query
+          get "knowledge_bases/:knowledge_base_id/query_history", action: :query_history
+
+          # Data connectors
+          get "knowledge_bases/:knowledge_base_id/connectors", action: :list_connectors
+          post "knowledge_bases/:knowledge_base_id/connectors", action: :create_connector
+          post "knowledge_bases/:knowledge_base_id/connectors/:id/sync", action: :sync_connector
+
+          # Analytics
+          get "knowledge_bases/:knowledge_base_id/analytics", action: :analytics
+        end
+
+        # ===================================================================
+        # 11. TEAMS CONTROLLER - Multi-Agent Team Orchestration
+        # ===================================================================
+        # Revenue: Tiered subscriptions + agent seat pricing
+        # - Starter: 3 agents, 1 team ($49/mo)
+        # - Pro: 10 agents, 5 teams, advanced patterns ($199/mo)
+        # - Enterprise: Unlimited + custom topologies ($999/mo)
+        # ===================================================================
+        scope :teams, controller: "teams" do
+          # Teams
+          get "/", action: :index
+          get "/:id", action: :show
+          post "/", action: :create
+          patch "/:id", action: :update
+          delete "/:id", action: :destroy
+
+          # Roles
+          get "/:team_id/roles", action: :list_roles
+          post "/:team_id/roles", action: :create_role
+          patch "/:team_id/roles/:id", action: :update_role
+          delete "/:team_id/roles/:id", action: :delete_role
+          post "/:team_id/roles/:id/assign_agent", action: :assign_agent_to_role
+
+          # Channels
+          get "/:team_id/channels", action: :list_channels
+          post "/:team_id/channels", action: :create_channel
+
+          # Executions
+          get "/:team_id/executions", action: :list_executions
+          post "/:team_id/executions", action: :start_execution
+          get "/executions/:id", action: :show_execution
+          post "/executions/:id/pause", action: :pause_execution
+          post "/executions/:id/resume", action: :resume_execution
+          post "/executions/:id/cancel", action: :cancel_execution
+          post "/executions/:id/complete", action: :complete_execution
+          get "/executions/:id/details", action: :execution_details
+
+          # Tasks
+          get "/executions/:execution_id/tasks", action: :list_tasks
+          post "/executions/:execution_id/tasks", action: :create_task
+          get "/executions/:execution_id/tasks/:id", action: :show_task
+          post "/executions/:execution_id/tasks/:id/assign", action: :assign_task
+          post "/executions/:execution_id/tasks/:id/start", action: :start_task
+          post "/executions/:execution_id/tasks/:id/complete", action: :complete_task
+          post "/executions/:execution_id/tasks/:id/fail", action: :fail_task
+          post "/executions/:execution_id/tasks/:id/delegate", action: :delegate_task
+
+          # Messages
+          get "/executions/:execution_id/messages", action: :list_messages
+          post "/executions/:execution_id/messages", action: :send_message
+          post "/executions/:execution_id/messages/:id/reply", action: :reply_to_message
+
+          # Templates
+          get "/templates", action: :list_templates
+          get "/templates/:id", action: :show_template
+          post "/templates", action: :create_template
+          post "/templates/:id/publish", action: :publish_template
+
+          # Analytics
+          get "/:team_id/analytics", action: :analytics
+        end
+
+        # ===================================================================
+        # 12. AGENT TEAMS CONTROLLER - CrewAI-style team orchestration (Legacy)
         # ===================================================================
         resources :agent_teams do
           member do
@@ -1734,6 +1835,394 @@ Rails.application.routes.draw do
             post :preview
             post :duplicate
           end
+        end
+
+        # ===================================================================
+        # 12. MODEL ROUTER CONTROLLER - Intelligent AI Request Routing
+        # ===================================================================
+        # Routes AI requests to optimal providers based on cost, latency, quality
+        # Revenue: Usage-based + optimization savings share
+        # ===================================================================
+        scope :model_router, controller: "model_router" do
+          # Routing rules management
+          get "rules", action: :rules_index
+          post "rules", action: :create_rule
+          get "rules/:id", action: :show_rule
+          patch "rules/:id", action: :update_rule
+          delete "rules/:id", action: :destroy_rule
+          post "rules/:id/toggle", action: :toggle_rule
+
+          # Routing operations
+          post "route", action: :route
+
+          # Routing decisions history
+          get "decisions", action: :decisions
+          get "decisions/:id", action: :show_decision
+
+          # Statistics and analytics
+          get "statistics", action: :statistics
+          get "cost_analysis", action: :cost_analysis
+          get "provider_rankings", action: :provider_rankings
+          get "recommendations", action: :recommendations
+
+          # Cost optimization management
+          get "optimizations", action: :optimizations_index
+          post "optimizations/identify", action: :identify_optimizations
+          post "optimizations/:id/apply", action: :apply_optimization
+        end
+
+        # ===================================================================
+        # 13. AIOPS CONTROLLER - Real-Time AI Operations Dashboard
+        # ===================================================================
+        # Comprehensive observability for AI workflows: latency, costs, errors
+        # Revenue: Monitoring tiers + alerting add-ons
+        # ===================================================================
+        scope :aiops, controller: "ai_ops" do
+          # Dashboard and health
+          get "dashboard", action: :dashboard
+          get "health", action: :health
+          get "overview", action: :overview
+
+          # Provider metrics
+          get "providers", action: :providers
+          get "providers/:id/metrics", action: :provider_metrics
+          get "providers/comparison", action: :provider_comparison
+
+          # Workflow and agent metrics
+          get "workflows", action: :workflows
+          get "agents", action: :agents
+
+          # Cost analysis
+          get "cost_analysis", action: :cost_analysis
+
+          # Alerts and circuit breakers
+          get "alerts", action: :alerts
+          get "circuit_breakers", action: :circuit_breakers
+
+          # Real-time metrics
+          get "real_time", action: :real_time
+          post "record_metrics", action: :record_metrics
+        end
+
+        # ===================================================================
+        # 14. ROI CONTROLLER - Workflow Revenue Analytics & ROI Tracking
+        # ===================================================================
+        # Tracks business value and ROI of AI workflows with cost attribution
+        # Revenue: Premium analytics tiers
+        # ===================================================================
+        scope :roi, controller: "roi" do
+          # Dashboard and summary
+          get "dashboard", action: :dashboard
+          get "summary", action: :summary
+
+          # Trends and daily metrics
+          get "trends", action: :trends
+          get "daily_metrics", action: :daily_metrics
+
+          # Breakdown analysis
+          get "by_workflow", action: :by_workflow
+          get "by_agent", action: :by_agent
+          get "by_provider", action: :by_provider
+          get "cost_breakdown", action: :cost_breakdown
+
+          # Cost attributions
+          get "attributions", action: :attributions
+
+          # ROI metrics
+          get "metrics", action: :metrics
+          get "metrics/:id", action: :show_metric
+
+          # Projections and recommendations
+          get "projections", action: :projections
+          get "recommendations", action: :recommendations
+
+          # Period comparison
+          get "compare", action: :compare
+
+          # Metric calculation (admin/system)
+          post "calculate", action: :calculate
+          post "aggregate", action: :aggregate
+        end
+
+        # ===================================================================
+        # 15. CREDITS CONTROLLER - Prepaid AI Credit System
+        # ===================================================================
+        # Revenue: Prepaid credits + reseller margins
+        # - Credit packs: 1K ($99), 10K ($899), 100K ($7,999)
+        # - Reseller margin: 15-30% based on volume
+        # - Credit marketplace for B2B trading
+        # ===================================================================
+        scope :credits, controller: "credits" do
+          # Balance and transactions
+          get "balance", action: :balance
+          get "transactions", action: :transactions
+
+          # Credit packs
+          get "packs", action: :packs
+
+          # Purchases
+          post "purchases", action: :create_purchase
+          post "purchases/:id/complete", action: :complete_purchase
+
+          # Transfers (B2B)
+          post "transfers", action: :create_transfer
+          post "transfers/:id/approve", action: :approve_transfer
+          post "transfers/:id/complete", action: :complete_transfer
+          post "transfers/:id/cancel", action: :cancel_transfer
+
+          # Usage
+          post "deduct", action: :deduct
+          post "calculate_cost", action: :calculate_cost
+
+          # Analytics
+          get "usage_analytics", action: :usage_analytics
+
+          # Reseller
+          post "enable_reseller", action: :enable_reseller
+          get "reseller_stats", action: :reseller_stats
+        end
+
+        # ===================================================================
+        # 16. OUTCOME BILLING CONTROLLER - Success-Based AI Billing
+        # ===================================================================
+        # Revenue: Success fees + SLA premiums
+        # - Per-successful-outcome pricing ($0.01-$5.00 based on complexity)
+        # - SLA tiers: 99% ($X), 99.9% ($2X), 99.99% ($5X)
+        # - Refund credits for SLA breaches
+        # ===================================================================
+        scope :outcome_billing, controller: "outcome_billing" do
+          # Outcome definitions
+          get "definitions", action: :definitions
+          get "definitions/:id", action: :show_definition
+          post "definitions", action: :create_definition
+          patch "definitions/:id", action: :update_definition
+
+          # SLA contracts
+          get "contracts", action: :contracts
+          get "contracts/:id", action: :show_contract
+          post "contracts", action: :create_contract
+          post "contracts/:id/activate", action: :activate_contract
+          post "contracts/:id/suspend", action: :suspend_contract
+          post "contracts/:id/cancel", action: :cancel_contract
+
+          # Billing records
+          get "records", action: :records
+          post "records", action: :create_record
+          patch "records/:id/complete", action: :complete_record
+          post "records/mark_billed", action: :mark_billed
+
+          # SLA violations
+          get "violations", action: :violations
+          post "violations/:id/approve", action: :approve_violation
+          post "violations/:id/apply", action: :apply_violation
+          post "violations/:id/reject", action: :reject_violation
+
+          # Analytics
+          get "summary", action: :summary
+          get "sla_performance", action: :sla_performance
+        end
+
+        # ===================================================================
+        # 17. AGENT MARKETPLACE CONTROLLER - Pre-Built Vertical AI Agents
+        # ===================================================================
+        # Revenue: Commission (15-30%) + listing fees
+        # - Free tier: 3 community agents
+        # - Pro: Unlimited community + 5 premium ($149/mo)
+        # - Enterprise: Private marketplace + custom agents ($999+/mo)
+        # - Publisher revenue share: 70-85% to creators
+        # ===================================================================
+        scope :agent_marketplace, controller: "agent_marketplace" do
+          # Templates
+          get "templates", action: :templates
+          get "templates/featured", action: :featured
+          get "templates/:id", action: :show_template
+          get "categories", action: :categories
+
+          # Installations
+          get "installations", action: :installations
+          post "templates/:template_id/install", action: :install
+          delete "installations/:id", action: :uninstall
+
+          # Reviews
+          get "templates/:template_id/reviews", action: :reviews
+          post "templates/:template_id/reviews", action: :create_review
+
+          # Publisher
+          get "publisher", action: :publisher
+          post "publisher", action: :create_publisher
+          get "publisher/analytics", action: :publisher_analytics
+        end
+
+        # ===================================================================
+        # 18. GOVERNANCE CONTROLLER - AI Workflow Governance & Compliance
+        # ===================================================================
+        # Revenue: Enterprise licensing + compliance certifications
+        # - Compliance add-on: $299-999/mo based on tier
+        # - SOC 2 certification support: $5,000 one-time
+        # - Dedicated compliance officer support: $2,000/mo
+        # ===================================================================
+        scope :governance, controller: "governance" do
+          # Policies
+          get "policies", action: :policies
+          post "policies", action: :create_policy
+          put "policies/:id/activate", action: :activate_policy
+          post "policies/evaluate", action: :evaluate_policies
+
+          # Violations
+          get "violations", action: :violations
+          put "violations/:id/acknowledge", action: :acknowledge_violation
+          put "violations/:id/resolve", action: :resolve_violation
+
+          # Approval chains
+          get "approval_chains", action: :approval_chains
+          post "approval_chains", action: :create_approval_chain
+
+          # Approval requests
+          get "approval_requests", action: :approval_requests
+          get "approval_requests/pending", action: :pending_approvals
+          post "approval_requests/:id/decide", action: :decide_approval
+
+          # Data classifications
+          get "classifications", action: :classifications
+          post "classifications", action: :create_classification
+
+          # Data scanning
+          post "scan", action: :scan_data
+          post "mask", action: :mask_data
+
+          # Reports
+          get "reports", action: :reports
+          post "reports", action: :generate_report
+
+          # Summary and audit
+          get "summary", action: :summary
+          get "audit_log", action: :audit_log
+        end
+
+        # ===================================================================
+        # 19. DEVOPS CONTROLLER - AI Pipeline Templates for DevOps
+        # ===================================================================
+        # Revenue: Template marketplace + enterprise customization
+        # - Community templates: free
+        # - Premium templates: $29-99 one-time
+        # - Custom template development: $2,000-10,000
+        # - Enterprise template library: $199/mo
+        # ===================================================================
+        scope :devops, controller: "devops" do
+          # Templates
+          get "templates", action: :templates
+          get "templates/:id", action: :show_template
+          post "templates", action: :create_template
+
+          # Installations
+          get "installations", action: :installations
+          post "templates/:template_id/install", action: :install
+
+          # Executions
+          get "executions", action: :executions
+          post "executions", action: :create_execution
+          get "executions/:id", action: :show_execution
+
+          # Deployment risks
+          get "risks", action: :risks
+          post "risks/assess", action: :assess_risk
+          put "risks/:id/approve", action: :approve_risk
+          put "risks/:id/reject", action: :reject_risk
+
+          # Code reviews
+          get "reviews", action: :reviews
+          post "reviews", action: :create_review
+          get "reviews/:id", action: :show_review
+
+          # Analytics
+          get "analytics", action: :analytics
+        end
+
+        # ===================================================================
+        # 20. SANDBOXES CONTROLLER - Enterprise AI Agent Testing
+        # ===================================================================
+        # Revenue: Sandbox environments + testing infrastructure
+        # - Basic sandbox: included
+        # - Advanced testing: $99/mo (recording, playback)
+        # - Performance profiling: $199/mo
+        # - Enterprise (dedicated environments): $499/mo
+        # ===================================================================
+        resources :sandboxes, controller: "sandboxes" do
+          member do
+            put :activate
+            put :deactivate
+            get :analytics
+          end
+
+          # Scenarios
+          get "scenarios", to: "sandboxes#scenarios"
+          post "scenarios", to: "sandboxes#create_scenario"
+
+          # Mocks
+          get "mocks", to: "sandboxes#mocks"
+          post "mocks", to: "sandboxes#create_mock"
+
+          # Test runs
+          get "runs", to: "sandboxes#runs"
+          post "runs", to: "sandboxes#create_run"
+          get "runs/:run_id", to: "sandboxes#show_run"
+          post "runs/:run_id/execute", to: "sandboxes#execute_run"
+
+          # Benchmarks
+          get "benchmarks", to: "sandboxes#benchmarks"
+          post "benchmarks", to: "sandboxes#create_benchmark"
+          post "benchmarks/:benchmark_id/run", to: "sandboxes#run_benchmark"
+        end
+
+        # A/B Tests (account-level, not sandbox-specific)
+        scope :ab_tests, controller: "sandboxes" do
+          get "/", action: :ab_tests
+          post "/", action: :create_ab_test
+          put "/:id/start", action: :start_ab_test
+          get "/:id/results", action: :ab_test_results
+        end
+      end
+
+      # ===================================================================
+      # MCP HOSTING - Managed MCP Server Operations
+      # ===================================================================
+      # Revenue: Hosting fees + marketplace commission
+      # - Free tier: 1 server, limited requests
+      # - Pro: 5 servers, 10K requests/mo ($79/mo)
+      # - Enterprise: Unlimited + private registry ($299/mo)
+      # - Marketplace commission: 20% on paid tools
+      # ===================================================================
+      namespace :mcp do
+        scope :hosting, controller: "hosting" do
+          # Server management
+          get "servers", action: :index
+          get "servers/:id", action: :show
+          post "servers", action: :create
+          patch "servers/:id", action: :update
+          delete "servers/:id", action: :destroy
+
+          # Deployment operations
+          post "servers/:id/deploy", action: :deploy
+          post "servers/:id/rollback", action: :rollback
+          get "servers/:id/deployments", action: :deployments
+
+          # Lifecycle operations
+          post "servers/:id/start", action: :start
+          post "servers/:id/stop", action: :stop
+          post "servers/:id/restart", action: :restart
+
+          # Monitoring
+          get "servers/:id/metrics", action: :metrics
+          get "servers/:id/health", action: :health
+
+          # Marketplace operations
+          post "servers/:id/publish", action: :publish
+          post "servers/:id/unpublish", action: :unpublish
+          get "marketplace", action: :marketplace
+          post "marketplace/:server_id/subscribe", action: :subscribe
+
+          # Subscriptions
+          get "subscriptions", action: :subscriptions
         end
       end
 

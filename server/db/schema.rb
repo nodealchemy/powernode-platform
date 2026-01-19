@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_19_000011) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -109,6 +109,59 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
     t.check_constraint "setting_type::text = ANY (ARRAY['string'::character varying::text, 'text'::character varying::text, 'integer'::character varying::text, 'boolean'::character varying::text, 'json'::character varying::text, 'array'::character varying::text])", name: "valid_admin_setting_type"
   end
 
+  create_table "ai_ab_tests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.datetime "ended_at"
+    t.string "name", null: false
+    t.jsonb "results", default: {}
+    t.datetime "started_at"
+    t.float "statistical_significance"
+    t.string "status", default: "draft", null: false
+    t.jsonb "success_metrics", default: []
+    t.uuid "target_id", null: false
+    t.string "target_type", null: false
+    t.string "test_id", null: false
+    t.integer "total_conversions", default: 0
+    t.integer "total_impressions", default: 0
+    t.jsonb "traffic_allocation", default: {}
+    t.datetime "updated_at", null: false
+    t.jsonb "variants", default: []
+    t.string "winning_variant"
+    t.index ["account_id", "status"], name: "index_ai_ab_tests_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_ab_tests_on_account_id"
+    t.index ["created_by_id"], name: "index_ai_ab_tests_on_created_by_id"
+    t.index ["target_type", "target_id"], name: "index_ai_ab_tests_on_target_type_and_target_id"
+    t.index ["test_id"], name: "index_ai_ab_tests_on_test_id", unique: true
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'running'::character varying, 'paused'::character varying, 'completed'::character varying, 'cancelled'::character varying]::text[])", name: "check_ab_test_status"
+    t.check_constraint "target_type::text = ANY (ARRAY['workflow'::character varying, 'agent'::character varying, 'prompt'::character varying, 'model'::character varying, 'provider'::character varying]::text[])", name: "check_ab_target_type"
+  end
+
+  create_table "ai_account_credits", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "allow_negative_balance", default: false, null: false
+    t.decimal "balance", precision: 15, scale: 4, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.decimal "credit_limit", precision: 15, scale: 4
+    t.boolean "is_reseller", default: false, null: false
+    t.datetime "last_purchase_at"
+    t.datetime "last_usage_at"
+    t.decimal "lifetime_credits_expired", precision: 15, scale: 4, default: "0.0"
+    t.decimal "lifetime_credits_purchased", precision: 15, scale: 4, default: "0.0"
+    t.decimal "lifetime_credits_transferred_in", precision: 15, scale: 4, default: "0.0"
+    t.decimal "lifetime_credits_transferred_out", precision: 15, scale: 4, default: "0.0"
+    t.decimal "lifetime_credits_used", precision: 15, scale: 4, default: "0.0"
+    t.decimal "reseller_discount_percentage", precision: 5, scale: 2, default: "0.0"
+    t.decimal "reserved_balance", precision: 15, scale: 4, default: "0.0", null: false
+    t.jsonb "settings", default: {}
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_account_credits_on_account_id", unique: true
+    t.index ["balance"], name: "index_ai_account_credits_on_balance"
+    t.index ["is_reseller"], name: "index_ai_account_credits_on_is_reseller"
+  end
+
   create_table "ai_agent_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "ai_agent_id", null: false
@@ -149,6 +202,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
     t.index ["webhook_status"], name: "index_ai_agent_executions_on_webhook_status"
   end
 
+  create_table "ai_agent_installations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_template_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "custom_config", default: {}
+    t.integer "executions_count", default: 0
+    t.uuid "installed_agent_id"
+    t.uuid "installed_by_id"
+    t.string "installed_version"
+    t.datetime "last_updated_at"
+    t.datetime "last_used_at"
+    t.datetime "license_expires_at"
+    t.string "license_type", default: "standard", null: false
+    t.string "status", default: "active", null: false
+    t.decimal "total_cost_usd", precision: 10, scale: 4, default: "0.0"
+    t.datetime "updated_at", null: false
+    t.jsonb "usage_stats", default: {}
+    t.index ["account_id", "agent_template_id"], name: "idx_agent_installations_account_template", unique: true
+    t.index ["account_id"], name: "index_ai_agent_installations_on_account_id"
+    t.index ["agent_template_id"], name: "index_ai_agent_installations_on_agent_template_id"
+    t.index ["installed_agent_id"], name: "index_ai_agent_installations_on_installed_agent_id"
+    t.index ["installed_by_id"], name: "index_ai_agent_installations_on_installed_by_id"
+    t.index ["license_expires_at"], name: "index_ai_agent_installations_on_license_expires_at"
+    t.index ["status"], name: "index_ai_agent_installations_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'expired'::character varying, 'cancelled'::character varying, 'pending_update'::character varying]::text[])", name: "check_installation_status"
+  end
+
   create_table "ai_agent_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "acknowledged_at", precision: nil
     t.uuid "ai_workflow_run_id", null: false
@@ -176,6 +256,35 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
     t.index ["to_agent_id"], name: "index_ai_agent_messages_on_to_agent_id"
   end
 
+  create_table "ai_agent_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_template_id", null: false
+    t.jsonb "cons", default: []
+    t.text "content"
+    t.datetime "created_at", null: false
+    t.integer "helpful_count", default: 0
+    t.uuid "installation_id"
+    t.boolean "is_verified_purchase", default: false, null: false
+    t.jsonb "metadata", default: {}
+    t.jsonb "pros", default: []
+    t.integer "rating", null: false
+    t.integer "report_count", default: 0
+    t.string "status", default: "published", null: false
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.datetime "verified_at"
+    t.index ["account_id"], name: "index_ai_agent_reviews_on_account_id"
+    t.index ["agent_template_id", "account_id"], name: "index_ai_agent_reviews_on_agent_template_id_and_account_id", unique: true
+    t.index ["agent_template_id", "status", "rating"], name: "idx_on_agent_template_id_status_rating_a158179e68"
+    t.index ["agent_template_id"], name: "index_ai_agent_reviews_on_agent_template_id"
+    t.index ["installation_id"], name: "index_ai_agent_reviews_on_installation_id"
+    t.index ["status"], name: "index_ai_agent_reviews_on_status"
+    t.index ["user_id"], name: "index_ai_agent_reviews_on_user_id"
+    t.check_constraint "rating >= 1 AND rating <= 5", name: "check_review_rating"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'published'::character varying, 'hidden'::character varying, 'flagged'::character varying, 'removed'::character varying]::text[])", name: "check_review_status"
+  end
+
   create_table "ai_agent_team_members", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_agent_id", null: false, comment: "Agent assigned to this team role"
     t.uuid "ai_agent_team_id", null: false, comment: "Team this member belongs to"
@@ -195,21 +304,86 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
 
   create_table "ai_agent_teams", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false, comment: "Account that owns this team"
+    t.string "communication_pattern", default: "hub_spoke"
     t.string "coordination_strategy", default: "manager_worker", null: false, comment: "Coordination pattern: manager_worker, peer_to_peer, hybrid"
     t.datetime "created_at", null: false
     t.text "description", comment: "Team purpose and capabilities description"
+    t.jsonb "escalation_policy", default: {}
     t.text "goal_description", comment: "High-level goal the team works toward"
+    t.jsonb "human_checkpoint_config", default: {}
+    t.integer "max_parallel_tasks", default: 3
     t.string "name", null: false, comment: "Team name (e.g., \"Content Generation Crew\", \"Research Team\")"
+    t.jsonb "shared_memory_config", default: {}
     t.string "status", default: "active", null: false, comment: "Team status: active, inactive, archived"
+    t.integer "task_timeout_seconds", default: 300
     t.jsonb "team_config", default: {}, null: false, comment: "Team-specific configuration (max_iterations, timeout, etc.)"
+    t.string "team_topology", default: "hierarchical"
     t.string "team_type", default: "hierarchical", null: false, comment: "Team coordination type: hierarchical, mesh, sequential, parallel"
+    t.uuid "template_id"
     t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "index_ai_agent_teams_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_agent_teams_on_account_id"
+    t.index ["team_topology"], name: "index_ai_agent_teams_on_team_topology"
     t.index ["team_type"], name: "index_ai_agent_teams_on_team_type"
+    t.index ["template_id"], name: "index_ai_agent_teams_on_template_id"
+    t.check_constraint "communication_pattern::text = ANY (ARRAY['hub_spoke'::character varying, 'peer_to_peer'::character varying, 'broadcast'::character varying, 'sequential'::character varying, 'event_driven'::character varying]::text[])", name: "check_communication_pattern"
+    t.check_constraint "coordination_strategy::text = ANY (ARRAY['manager_led'::character varying, 'consensus'::character varying, 'auction'::character varying, 'round_robin'::character varying, 'priority_based'::character varying]::text[])", name: "check_coordination_strategy"
     t.check_constraint "coordination_strategy::text = ANY (ARRAY['manager_worker'::character varying::text, 'peer_to_peer'::character varying::text, 'hybrid'::character varying::text])", name: "ai_agent_teams_coordination_strategy_check"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'archived'::character varying::text])", name: "ai_agent_teams_status_check"
+    t.check_constraint "team_topology::text = ANY (ARRAY['hierarchical'::character varying, 'flat'::character varying, 'mesh'::character varying, 'pipeline'::character varying, 'hybrid'::character varying]::text[])", name: "check_team_topology_enum"
     t.check_constraint "team_type::text = ANY (ARRAY['hierarchical'::character varying::text, 'mesh'::character varying::text, 'sequential'::character varying::text, 'parallel'::character varying::text])", name: "ai_agent_teams_team_type_check"
+  end
+
+  create_table "ai_agent_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.integer "active_installations", default: 0
+    t.jsonb "agent_config", default: {}
+    t.float "average_rating"
+    t.string "category"
+    t.text "changelog"
+    t.datetime "created_at", null: false
+    t.jsonb "default_settings", default: {}
+    t.text "description"
+    t.datetime "featured_at"
+    t.jsonb "features", default: []
+    t.integer "installation_count", default: 0
+    t.boolean "is_featured", default: false, null: false
+    t.boolean "is_verified", default: false, null: false
+    t.datetime "last_updated_at"
+    t.jsonb "limitations", default: []
+    t.text "long_description"
+    t.decimal "monthly_price_usd", precision: 10, scale: 2
+    t.string "name", null: false
+    t.decimal "price_usd", precision: 10, scale: 2
+    t.string "pricing_type", default: "free", null: false
+    t.datetime "published_at"
+    t.uuid "publisher_id", null: false
+    t.jsonb "required_credentials", default: []
+    t.jsonb "required_tools", default: []
+    t.integer "review_count", default: 0
+    t.jsonb "sample_prompts", default: []
+    t.jsonb "screenshots", default: []
+    t.text "setup_instructions"
+    t.string "slug", null: false
+    t.uuid "source_agent_id"
+    t.string "status", default: "draft", null: false
+    t.jsonb "supported_providers", default: []
+    t.jsonb "tags", default: []
+    t.datetime "updated_at", null: false
+    t.string "version", default: "1.0.0", null: false
+    t.string "vertical"
+    t.string "visibility", default: "private", null: false
+    t.index ["average_rating", "installation_count"], name: "idx_on_average_rating_installation_count_b612451228"
+    t.index ["category"], name: "index_ai_agent_templates_on_category"
+    t.index ["is_featured"], name: "index_ai_agent_templates_on_is_featured"
+    t.index ["pricing_type"], name: "index_ai_agent_templates_on_pricing_type"
+    t.index ["publisher_id"], name: "index_ai_agent_templates_on_publisher_id"
+    t.index ["slug"], name: "index_ai_agent_templates_on_slug", unique: true
+    t.index ["source_agent_id"], name: "index_ai_agent_templates_on_source_agent_id"
+    t.index ["status", "visibility"], name: "index_ai_agent_templates_on_status_and_visibility"
+    t.index ["vertical"], name: "index_ai_agent_templates_on_vertical"
+    t.check_constraint "pricing_type::text = ANY (ARRAY['free'::character varying, 'one_time'::character varying, 'subscription'::character varying, 'usage_based'::character varying, 'freemium'::character varying]::text[])", name: "check_pricing_type"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'pending_review'::character varying, 'published'::character varying, 'rejected'::character varying, 'archived'::character varying, 'suspended'::character varying]::text[])", name: "check_template_status"
+    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'unlisted'::character varying, 'public'::character varying, 'enterprise'::character varying]::text[])", name: "check_template_visibility"
   end
 
   create_table "ai_agents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -247,6 +421,196 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
     t.index ["mcp_tool_manifest"], name: "index_ai_agents_on_mcp_tool_manifest", using: :gin
     t.index ["slug"], name: "index_ai_agents_on_slug", unique: true
     t.index ["status"], name: "index_ai_agents_on_status"
+  end
+
+  create_table "ai_approval_chains", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.boolean "is_sequential", default: true, null: false
+    t.string "name", null: false
+    t.string "status", default: "active", null: false
+    t.jsonb "steps", default: []
+    t.string "timeout_action", default: "reject"
+    t.integer "timeout_hours"
+    t.jsonb "trigger_conditions", default: {}
+    t.string "trigger_type", null: false
+    t.datetime "updated_at", null: false
+    t.integer "usage_count", default: 0
+    t.index ["account_id", "name"], name: "index_ai_approval_chains_on_account_id_and_name", unique: true
+    t.index ["account_id", "status"], name: "index_ai_approval_chains_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_approval_chains_on_account_id"
+    t.index ["created_by_id"], name: "index_ai_approval_chains_on_created_by_id"
+    t.index ["trigger_type"], name: "index_ai_approval_chains_on_trigger_type"
+    t.check_constraint "trigger_type::text = ANY (ARRAY['workflow_deploy'::character varying, 'agent_deploy'::character varying, 'high_cost'::character varying, 'sensitive_data'::character varying, 'model_change'::character varying, 'policy_override'::character varying, 'manual'::character varying]::text[])", name: "check_chain_trigger_type"
+  end
+
+  create_table "ai_approval_decisions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "approval_request_id", null: false
+    t.uuid "approver_id", null: false
+    t.text "comments"
+    t.jsonb "conditions", default: {}
+    t.datetime "created_at", null: false
+    t.string "decision", null: false
+    t.integer "step_number", null: false
+    t.datetime "updated_at", null: false
+    t.index ["approval_request_id", "step_number"], name: "idx_on_approval_request_id_step_number_4d54accc2f"
+    t.index ["approval_request_id"], name: "index_ai_approval_decisions_on_approval_request_id"
+    t.index ["approver_id", "created_at"], name: "index_ai_approval_decisions_on_approver_id_and_created_at"
+    t.index ["approver_id"], name: "index_ai_approval_decisions_on_approver_id"
+    t.check_constraint "decision::text = ANY (ARRAY['approved'::character varying, 'rejected'::character varying, 'delegated'::character varying, 'abstained'::character varying]::text[])", name: "check_decision_type"
+  end
+
+  create_table "ai_approval_requests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "approval_chain_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "current_step", default: 0
+    t.text "description"
+    t.datetime "expires_at"
+    t.jsonb "request_data", default: {}
+    t.string "request_id", null: false
+    t.uuid "requested_by_id"
+    t.uuid "source_id"
+    t.string "source_type"
+    t.string "status", default: "pending", null: false
+    t.jsonb "step_statuses", default: []
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_ai_approval_requests_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_approval_requests_on_account_id"
+    t.index ["approval_chain_id", "created_at"], name: "index_ai_approval_requests_on_approval_chain_id_and_created_at"
+    t.index ["approval_chain_id"], name: "index_ai_approval_requests_on_approval_chain_id"
+    t.index ["expires_at"], name: "index_ai_approval_requests_on_expires_at"
+    t.index ["request_id"], name: "index_ai_approval_requests_on_request_id", unique: true
+    t.index ["requested_by_id"], name: "index_ai_approval_requests_on_requested_by_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying, 'expired'::character varying, 'cancelled'::character varying]::text[])", name: "check_request_status"
+  end
+
+  create_table "ai_code_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "base_branch"
+    t.string "commit_sha"
+    t.datetime "completed_at"
+    t.decimal "cost_usd", precision: 10, scale: 4, default: "0.0"
+    t.datetime "created_at", null: false
+    t.integer "critical_issues", default: 0
+    t.jsonb "file_analyses", default: []
+    t.integer "files_reviewed", default: 0
+    t.string "head_branch"
+    t.jsonb "issues", default: []
+    t.integer "issues_found", default: 0
+    t.integer "lines_added", default: 0
+    t.integer "lines_removed", default: 0
+    t.string "overall_rating"
+    t.uuid "pipeline_execution_id"
+    t.string "pull_request_number"
+    t.jsonb "quality_metrics", default: {}
+    t.uuid "repository_id"
+    t.string "review_id", null: false
+    t.jsonb "security_findings", default: []
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.jsonb "suggestions", default: []
+    t.integer "suggestions_count", default: 0
+    t.text "summary"
+    t.integer "tokens_used", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_ai_code_reviews_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_code_reviews_on_account_id"
+    t.index ["pipeline_execution_id"], name: "index_ai_code_reviews_on_pipeline_execution_id"
+    t.index ["repository_id", "pull_request_number"], name: "index_ai_code_reviews_on_repository_id_and_pull_request_number"
+    t.index ["review_id"], name: "index_ai_code_reviews_on_review_id", unique: true
+    t.index ["status"], name: "index_ai_code_reviews_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'analyzing'::character varying, 'completed'::character varying, 'failed'::character varying, 'partial'::character varying]::text[])", name: "check_review_status"
+  end
+
+  create_table "ai_compliance_audit_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action_type", null: false
+    t.jsonb "after_state", default: {}
+    t.jsonb "before_state", default: {}
+    t.jsonb "context", default: {}
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "entry_id", null: false
+    t.string "ip_address"
+    t.datetime "occurred_at", null: false
+    t.string "outcome", null: false
+    t.uuid "resource_id"
+    t.string "resource_type", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_agent"
+    t.uuid "user_id"
+    t.index ["account_id", "occurred_at"], name: "idx_on_account_id_occurred_at_34fa669db4"
+    t.index ["account_id"], name: "index_ai_compliance_audit_entries_on_account_id"
+    t.index ["action_type"], name: "index_ai_compliance_audit_entries_on_action_type"
+    t.index ["entry_id"], name: "index_ai_compliance_audit_entries_on_entry_id", unique: true
+    t.index ["outcome"], name: "index_ai_compliance_audit_entries_on_outcome"
+    t.index ["resource_type", "resource_id"], name: "idx_on_resource_type_resource_id_58a603956a"
+    t.index ["user_id"], name: "index_ai_compliance_audit_entries_on_user_id"
+    t.check_constraint "outcome::text = ANY (ARRAY['success'::character varying, 'failure'::character varying, 'blocked'::character varying, 'warning'::character varying]::text[])", name: "check_audit_outcome"
+  end
+
+  create_table "ai_compliance_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "actions", default: {}
+    t.datetime "activated_at"
+    t.jsonb "applies_to", default: {}
+    t.string "category"
+    t.jsonb "conditions", default: {}
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.string "enforcement_level", default: "warn", null: false
+    t.jsonb "exceptions", default: []
+    t.boolean "is_required", default: false, null: false
+    t.boolean "is_system", default: false, null: false
+    t.datetime "last_triggered_at"
+    t.string "name", null: false
+    t.string "policy_type", null: false
+    t.integer "priority", default: 0
+    t.string "status", default: "draft", null: false
+    t.datetime "updated_at", null: false
+    t.integer "violation_count", default: 0
+    t.index ["account_id", "name"], name: "index_ai_compliance_policies_on_account_id_and_name", unique: true
+    t.index ["account_id", "status"], name: "index_ai_compliance_policies_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_compliance_policies_on_account_id"
+    t.index ["created_by_id"], name: "index_ai_compliance_policies_on_created_by_id"
+    t.index ["enforcement_level"], name: "index_ai_compliance_policies_on_enforcement_level"
+    t.index ["is_system"], name: "index_ai_compliance_policies_on_is_system"
+    t.index ["policy_type"], name: "index_ai_compliance_policies_on_policy_type"
+    t.check_constraint "enforcement_level::text = ANY (ARRAY['log'::character varying, 'warn'::character varying, 'block'::character varying, 'require_approval'::character varying]::text[])", name: "check_enforcement_level"
+    t.check_constraint "policy_type::text = ANY (ARRAY['data_access'::character varying, 'model_usage'::character varying, 'output_filter'::character varying, 'rate_limit'::character varying, 'cost_limit'::character varying, 'approval_required'::character varying, 'retention'::character varying, 'audit'::character varying, 'custom'::character varying]::text[])", name: "check_policy_type"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'active'::character varying, 'disabled'::character varying, 'archived'::character varying]::text[])", name: "check_policy_status"
+  end
+
+  create_table "ai_compliance_reports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.string "file_path"
+    t.bigint "file_size_bytes"
+    t.string "format", default: "pdf", null: false
+    t.datetime "generated_at"
+    t.uuid "generated_by_id"
+    t.datetime "period_end"
+    t.datetime "period_start"
+    t.jsonb "report_config", default: {}
+    t.string "report_id", null: false
+    t.string "report_type", null: false
+    t.string "status", default: "generating", null: false
+    t.jsonb "summary_data", default: {}
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "report_type"], name: "index_ai_compliance_reports_on_account_id_and_report_type"
+    t.index ["account_id"], name: "index_ai_compliance_reports_on_account_id"
+    t.index ["generated_at"], name: "index_ai_compliance_reports_on_generated_at"
+    t.index ["generated_by_id"], name: "index_ai_compliance_reports_on_generated_by_id"
+    t.index ["report_id"], name: "index_ai_compliance_reports_on_report_id", unique: true
+    t.index ["status"], name: "index_ai_compliance_reports_on_status"
+    t.check_constraint "report_type::text = ANY (ARRAY['soc2'::character varying, 'hipaa'::character varying, 'gdpr'::character varying, 'pci_dss'::character varying, 'iso27001'::character varying, 'custom'::character varying, 'audit_summary'::character varying, 'violation_summary'::character varying, 'data_inventory'::character varying]::text[])", name: "check_report_type"
+    t.check_constraint "status::text = ANY (ARRAY['generating'::character varying, 'completed'::character varying, 'failed'::character varying, 'expired'::character varying]::text[])", name: "check_report_status"
   end
 
   create_table "ai_context_access_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -349,6 +713,518 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
     t.index ["websocket_session_id"], name: "index_ai_conversations_on_websocket_session_id"
   end
 
+  create_table "ai_cost_attributions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "amount_usd", precision: 12, scale: 6, null: false
+    t.integer "api_calls"
+    t.date "attribution_date", null: false
+    t.integer "compute_minutes"
+    t.string "cost_category", null: false
+    t.decimal "cost_per_token", precision: 12, scale: 10
+    t.datetime "created_at", null: false
+    t.string "currency", default: "USD", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "model_name"
+    t.uuid "provider_id"
+    t.uuid "roi_metric_id"
+    t.uuid "source_id"
+    t.string "source_name"
+    t.string "source_type", null: false
+    t.decimal "storage_gb", precision: 10, scale: 4
+    t.integer "tokens_used"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "attribution_date"], name: "idx_cost_attributions_account_date"
+    t.index ["account_id"], name: "index_ai_cost_attributions_on_account_id"
+    t.index ["attribution_date"], name: "index_ai_cost_attributions_on_attribution_date"
+    t.index ["cost_category", "attribution_date"], name: "idx_on_cost_category_attribution_date_66ad966491"
+    t.index ["provider_id"], name: "index_ai_cost_attributions_on_provider_id"
+    t.index ["roi_metric_id"], name: "index_ai_cost_attributions_on_roi_metric_id"
+    t.index ["source_type", "source_id"], name: "idx_cost_attributions_source"
+    t.check_constraint "cost_category::text = ANY (ARRAY['ai_inference'::character varying, 'ai_training'::character varying, 'embedding'::character varying, 'storage'::character varying, 'compute'::character varying, 'api_calls'::character varying, 'bandwidth'::character varying, 'other'::character varying]::text[])", name: "check_cost_category"
+  end
+
+  create_table "ai_cost_optimization_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "actual_savings_usd", precision: 12, scale: 4
+    t.jsonb "after_state", default: {}, null: false
+    t.date "analysis_period_end"
+    t.date "analysis_period_start"
+    t.datetime "applied_at"
+    t.jsonb "before_state", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.decimal "current_cost_usd", precision: 12, scale: 4
+    t.text "description"
+    t.datetime "identified_at"
+    t.string "optimization_type", null: false
+    t.decimal "optimized_cost_usd", precision: 12, scale: 4
+    t.decimal "potential_savings_usd", precision: 12, scale: 4
+    t.jsonb "recommendation", default: {}, null: false
+    t.uuid "resource_id"
+    t.string "resource_type"
+    t.decimal "savings_percentage", precision: 5, scale: 2
+    t.string "status", default: "identified", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "validated_at"
+    t.index ["account_id", "optimization_type"], name: "idx_on_account_id_optimization_type_6c8d08f8d9"
+    t.index ["account_id", "status"], name: "index_ai_cost_optimization_logs_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_cost_optimization_logs_on_account_id"
+    t.index ["created_at"], name: "index_ai_cost_optimization_logs_on_created_at"
+    t.index ["resource_type", "resource_id"], name: "idx_on_resource_type_resource_id_d5df61df92"
+    t.check_constraint "optimization_type::text = ANY (ARRAY['provider_switch'::character varying, 'model_downgrade'::character varying, 'caching'::character varying, 'batching'::character varying, 'rate_optimization'::character varying, 'usage_reduction'::character varying]::text[])", name: "check_optimization_type"
+    t.check_constraint "status::text = ANY (ARRAY['identified'::character varying, 'analyzing'::character varying, 'recommended'::character varying, 'applied'::character varying, 'validated'::character varying, 'rejected'::character varying, 'expired'::character varying]::text[])", name: "check_optimization_status"
+  end
+
+  create_table "ai_credit_packs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "bonus_credits", precision: 10, scale: 2, default: "0.0"
+    t.datetime "created_at", null: false
+    t.integer "credits", null: false
+    t.string "description"
+    t.decimal "effective_price_per_credit", precision: 10, scale: 6
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_featured", default: false, null: false
+    t.integer "max_purchase_quantity"
+    t.jsonb "metadata", default: {}
+    t.integer "min_purchase_quantity", default: 1
+    t.string "name", null: false
+    t.string "pack_type", default: "standard", null: false
+    t.decimal "price_usd", precision: 10, scale: 2, null: false
+    t.integer "sort_order", default: 0
+    t.datetime "updated_at", null: false
+    t.datetime "valid_from"
+    t.datetime "valid_until"
+    t.index ["is_active", "sort_order"], name: "index_ai_credit_packs_on_is_active_and_sort_order"
+    t.index ["is_active"], name: "index_ai_credit_packs_on_is_active"
+    t.index ["pack_type"], name: "index_ai_credit_packs_on_pack_type"
+    t.check_constraint "pack_type::text = ANY (ARRAY['standard'::character varying, 'bulk'::character varying, 'enterprise'::character varying, 'promotional'::character varying, 'reseller'::character varying]::text[])", name: "check_credit_pack_type"
+  end
+
+  create_table "ai_credit_purchases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "bonus_credits", precision: 15, scale: 4, default: "0.0"
+    t.datetime "created_at", null: false
+    t.uuid "credit_pack_id", null: false
+    t.datetime "credits_applied_at"
+    t.decimal "credits_purchased", precision: 15, scale: 4, null: false
+    t.decimal "discount_amount_usd", precision: 10, scale: 2, default: "0.0"
+    t.decimal "discount_percentage", precision: 5, scale: 2, default: "0.0"
+    t.datetime "expires_at"
+    t.decimal "final_price_usd", precision: 10, scale: 2, null: false
+    t.jsonb "metadata", default: {}
+    t.datetime "paid_at"
+    t.string "payment_method"
+    t.string "payment_reference"
+    t.integer "quantity", default: 1, null: false
+    t.string "status", default: "pending", null: false
+    t.decimal "total_credits", precision: 15, scale: 4, null: false
+    t.decimal "total_price_usd", precision: 10, scale: 2, null: false
+    t.decimal "unit_price_usd", precision: 10, scale: 2, null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id"
+    t.index ["account_id", "created_at"], name: "index_ai_credit_purchases_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_credit_purchases_on_account_id"
+    t.index ["credit_pack_id"], name: "index_ai_credit_purchases_on_credit_pack_id"
+    t.index ["payment_reference"], name: "index_ai_credit_purchases_on_payment_reference"
+    t.index ["status"], name: "index_ai_credit_purchases_on_status"
+    t.index ["user_id"], name: "index_ai_credit_purchases_on_user_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying, 'refunded'::character varying, 'partially_refunded'::character varying]::text[])", name: "check_credit_purchase_status"
+  end
+
+  create_table "ai_credit_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_credit_id", null: false
+    t.uuid "account_id", null: false
+    t.decimal "amount", precision: 15, scale: 4, null: false
+    t.decimal "balance_after", precision: 15, scale: 4, null: false
+    t.decimal "balance_before", precision: 15, scale: 4, null: false
+    t.datetime "created_at", null: false
+    t.uuid "credit_pack_id"
+    t.string "description"
+    t.datetime "expires_at"
+    t.string "external_reference"
+    t.uuid "initiated_by_id"
+    t.jsonb "metadata", default: {}
+    t.datetime "processed_at"
+    t.uuid "reference_id"
+    t.string "reference_type"
+    t.uuid "related_transaction_id"
+    t.string "status", default: "completed", null: false
+    t.string "transaction_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_credit_id"], name: "index_ai_credit_transactions_on_account_credit_id"
+    t.index ["account_id", "created_at"], name: "index_ai_credit_transactions_on_account_id_and_created_at"
+    t.index ["account_id", "transaction_type"], name: "idx_on_account_id_transaction_type_95c2c5d3e7"
+    t.index ["account_id"], name: "index_ai_credit_transactions_on_account_id"
+    t.index ["created_at"], name: "index_ai_credit_transactions_on_created_at"
+    t.index ["credit_pack_id"], name: "index_ai_credit_transactions_on_credit_pack_id"
+    t.index ["expires_at"], name: "index_ai_credit_transactions_on_expires_at"
+    t.index ["initiated_by_id"], name: "index_ai_credit_transactions_on_initiated_by_id"
+    t.index ["reference_type", "reference_id"], name: "idx_on_reference_type_reference_id_860e01290c"
+    t.index ["related_transaction_id"], name: "index_ai_credit_transactions_on_related_transaction_id"
+    t.index ["status"], name: "index_ai_credit_transactions_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'completed'::character varying, 'failed'::character varying, 'reversed'::character varying, 'expired'::character varying]::text[])", name: "check_credit_transaction_status"
+    t.check_constraint "transaction_type::text = ANY (ARRAY['purchase'::character varying, 'usage'::character varying, 'refund'::character varying, 'transfer_in'::character varying, 'transfer_out'::character varying, 'bonus'::character varying, 'adjustment'::character varying, 'expiration'::character varying, 'reservation'::character varying, 'release'::character varying]::text[])", name: "check_credit_transaction_type"
+  end
+
+  create_table "ai_credit_transfers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "amount", precision: 15, scale: 4, null: false
+    t.datetime "approved_at"
+    t.uuid "approved_by_id"
+    t.string "cancellation_reason"
+    t.datetime "cancelled_at"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.string "description"
+    t.decimal "fee_amount", precision: 15, scale: 4, default: "0.0"
+    t.decimal "fee_percentage", precision: 5, scale: 2, default: "0.0"
+    t.uuid "from_account_id", null: false
+    t.uuid "from_transaction_id"
+    t.uuid "initiated_by_id", null: false
+    t.jsonb "metadata", default: {}
+    t.decimal "net_amount", precision: 15, scale: 4, null: false
+    t.string "reference_code", null: false
+    t.string "status", default: "pending", null: false
+    t.uuid "to_account_id", null: false
+    t.uuid "to_transaction_id"
+    t.datetime "updated_at", null: false
+    t.index ["approved_by_id"], name: "index_ai_credit_transfers_on_approved_by_id"
+    t.index ["from_account_id", "created_at"], name: "index_ai_credit_transfers_on_from_account_id_and_created_at"
+    t.index ["from_account_id"], name: "index_ai_credit_transfers_on_from_account_id"
+    t.index ["initiated_by_id"], name: "index_ai_credit_transfers_on_initiated_by_id"
+    t.index ["reference_code"], name: "index_ai_credit_transfers_on_reference_code", unique: true
+    t.index ["status"], name: "index_ai_credit_transfers_on_status"
+    t.index ["to_account_id", "created_at"], name: "index_ai_credit_transfers_on_to_account_id_and_created_at"
+    t.index ["to_account_id"], name: "index_ai_credit_transfers_on_to_account_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'completed'::character varying, 'rejected'::character varying, 'cancelled'::character varying, 'failed'::character varying]::text[])", name: "check_credit_transfer_status"
+  end
+
+  create_table "ai_credit_usage_rates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "base_credits", precision: 10, scale: 6, default: "0.0"
+    t.datetime "created_at", null: false
+    t.decimal "credits_per_1k_input_tokens", precision: 10, scale: 6
+    t.decimal "credits_per_1k_output_tokens", precision: 10, scale: 6
+    t.decimal "credits_per_gb_storage", precision: 10, scale: 6
+    t.decimal "credits_per_minute", precision: 10, scale: 6
+    t.decimal "credits_per_request", precision: 10, scale: 6
+    t.datetime "effective_from", null: false
+    t.datetime "effective_until"
+    t.boolean "is_active", default: true, null: false
+    t.jsonb "metadata", default: {}
+    t.string "model_name"
+    t.string "operation_type", null: false
+    t.string "provider_type"
+    t.datetime "updated_at", null: false
+    t.index ["is_active", "effective_from"], name: "index_ai_credit_usage_rates_on_is_active_and_effective_from"
+    t.index ["operation_type", "provider_type", "model_name"], name: "idx_credit_rates_operation_provider_model"
+  end
+
+  create_table "ai_data_classifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "classification_level", null: false
+    t.uuid "classified_by_id"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.integer "detection_count", default: 0
+    t.jsonb "detection_patterns", default: []
+    t.jsonb "handling_requirements", default: {}
+    t.boolean "is_system", default: false, null: false
+    t.string "name", null: false
+    t.boolean "requires_audit", default: true, null: false
+    t.boolean "requires_encryption", default: false, null: false
+    t.boolean "requires_masking", default: false, null: false
+    t.jsonb "retention_policy", default: {}
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_ai_data_classifications_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_ai_data_classifications_on_account_id"
+    t.index ["classification_level"], name: "index_ai_data_classifications_on_classification_level"
+    t.index ["classified_by_id"], name: "index_ai_data_classifications_on_classified_by_id"
+    t.index ["is_system"], name: "index_ai_data_classifications_on_is_system"
+    t.check_constraint "classification_level::text = ANY (ARRAY['public'::character varying, 'internal'::character varying, 'confidential'::character varying, 'restricted'::character varying, 'pii'::character varying, 'phi'::character varying, 'pci'::character varying]::text[])", name: "check_classification_level"
+  end
+
+  create_table "ai_data_connectors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "connection_config", default: {}
+    t.string "connector_type", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.integer "documents_synced", default: 0
+    t.uuid "knowledge_base_id", null: false
+    t.datetime "last_sync_at"
+    t.jsonb "last_sync_result", default: {}
+    t.string "name", null: false
+    t.datetime "next_sync_at"
+    t.string "status", default: "active", null: false
+    t.jsonb "sync_config", default: {}
+    t.integer "sync_errors", default: 0
+    t.string "sync_frequency"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "connector_type"], name: "index_ai_data_connectors_on_account_id_and_connector_type"
+    t.index ["account_id"], name: "index_ai_data_connectors_on_account_id"
+    t.index ["created_by_id"], name: "index_ai_data_connectors_on_created_by_id"
+    t.index ["knowledge_base_id", "status"], name: "index_ai_data_connectors_on_knowledge_base_id_and_status"
+    t.index ["knowledge_base_id"], name: "index_ai_data_connectors_on_knowledge_base_id"
+    t.index ["next_sync_at"], name: "index_ai_data_connectors_on_next_sync_at"
+    t.check_constraint "connector_type::text = ANY (ARRAY['notion'::character varying, 'confluence'::character varying, 'google_drive'::character varying, 'dropbox'::character varying, 'github'::character varying, 's3'::character varying, 'database'::character varying, 'api'::character varying, 'web_scraper'::character varying]::text[])", name: "check_connector_type"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'error'::character varying, 'disconnected'::character varying]::text[])", name: "check_connector_status"
+  end
+
+  create_table "ai_data_detections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action_taken", default: "logged", null: false
+    t.uuid "classification_id", null: false
+    t.float "confidence_score"
+    t.datetime "created_at", null: false
+    t.string "detection_id", null: false
+    t.jsonb "detection_metadata", default: {}
+    t.string "field_path"
+    t.text "masked_snippet"
+    t.text "original_snippet"
+    t.uuid "source_id", null: false
+    t.string "source_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_ai_data_detections_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_data_detections_on_account_id"
+    t.index ["action_taken"], name: "index_ai_data_detections_on_action_taken"
+    t.index ["classification_id", "created_at"], name: "index_ai_data_detections_on_classification_id_and_created_at"
+    t.index ["classification_id"], name: "index_ai_data_detections_on_classification_id"
+    t.index ["detection_id"], name: "index_ai_data_detections_on_detection_id", unique: true
+    t.index ["source_type"], name: "index_ai_data_detections_on_source_type"
+    t.check_constraint "action_taken::text = ANY (ARRAY['logged'::character varying, 'masked'::character varying, 'blocked'::character varying, 'encrypted'::character varying, 'flagged'::character varying]::text[])", name: "check_detection_action"
+  end
+
+  create_table "ai_deployment_risks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "approval_request_id"
+    t.datetime "assessed_at"
+    t.uuid "assessed_by_id"
+    t.string "assessment_id", null: false
+    t.jsonb "change_analysis", default: {}
+    t.datetime "created_at", null: false
+    t.string "decision"
+    t.datetime "decision_at"
+    t.text "decision_rationale"
+    t.string "deployment_type", null: false
+    t.jsonb "impact_analysis", default: {}
+    t.jsonb "mitigations", default: []
+    t.uuid "pipeline_execution_id"
+    t.jsonb "recommendations", default: []
+    t.boolean "requires_approval", default: false, null: false
+    t.jsonb "risk_factors", default: []
+    t.string "risk_level", null: false
+    t.integer "risk_score"
+    t.string "status", default: "pending", null: false
+    t.text "summary"
+    t.string "target_environment", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_ai_deployment_risks_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_deployment_risks_on_account_id"
+    t.index ["assessed_by_id"], name: "index_ai_deployment_risks_on_assessed_by_id"
+    t.index ["assessment_id"], name: "index_ai_deployment_risks_on_assessment_id", unique: true
+    t.index ["pipeline_execution_id"], name: "index_ai_deployment_risks_on_pipeline_execution_id"
+    t.index ["risk_level"], name: "index_ai_deployment_risks_on_risk_level"
+    t.index ["status"], name: "index_ai_deployment_risks_on_status"
+    t.index ["target_environment"], name: "index_ai_deployment_risks_on_target_environment"
+    t.check_constraint "decision IS NULL OR (decision::text = ANY (ARRAY['proceed'::character varying, 'proceed_with_caution'::character varying, 'delay'::character varying, 'abort'::character varying]::text[]))", name: "check_risk_decision"
+    t.check_constraint "risk_level::text = ANY (ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying, 'critical'::character varying]::text[])", name: "check_risk_level"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'assessed'::character varying, 'approved'::character varying, 'rejected'::character varying, 'overridden'::character varying]::text[])", name: "check_risk_status"
+  end
+
+  create_table "ai_devops_template_installations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_workflow_id"
+    t.jsonb "custom_config", default: {}
+    t.uuid "devops_template_id", null: false
+    t.integer "execution_count", default: 0
+    t.integer "failure_count", default: 0
+    t.uuid "installed_by_id"
+    t.string "installed_version"
+    t.datetime "last_executed_at"
+    t.string "status", default: "active", null: false
+    t.integer "success_count", default: 0
+    t.datetime "updated_at", null: false
+    t.jsonb "variable_values", default: {}
+    t.index ["account_id", "devops_template_id"], name: "idx_devops_installations_account_template", unique: true
+    t.index ["account_id"], name: "index_ai_devops_template_installations_on_account_id"
+    t.index ["created_workflow_id"], name: "index_ai_devops_template_installations_on_created_workflow_id"
+    t.index ["devops_template_id"], name: "index_ai_devops_template_installations_on_devops_template_id"
+    t.index ["installed_by_id"], name: "index_ai_devops_template_installations_on_installed_by_id"
+    t.index ["status"], name: "index_ai_devops_template_installations_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'disabled'::character varying, 'pending_update'::character varying]::text[])", name: "check_devops_installation_status"
+  end
+
+  create_table "ai_devops_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.float "average_rating"
+    t.string "category", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.jsonb "input_schema", default: {}
+    t.integer "installation_count", default: 0
+    t.jsonb "integrations_required", default: []
+    t.boolean "is_featured", default: false, null: false
+    t.boolean "is_system", default: false, null: false
+    t.string "name", null: false
+    t.jsonb "output_schema", default: {}
+    t.decimal "price_usd", precision: 10, scale: 2
+    t.datetime "published_at"
+    t.integer "review_count", default: 0
+    t.jsonb "secrets_required", default: []
+    t.string "slug", null: false
+    t.string "status", default: "draft", null: false
+    t.jsonb "tags", default: []
+    t.string "template_type", null: false
+    t.jsonb "trigger_config", default: {}
+    t.datetime "updated_at", null: false
+    t.text "usage_guide"
+    t.jsonb "variables", default: []
+    t.string "version", default: "1.0.0", null: false
+    t.string "visibility", default: "private", null: false
+    t.jsonb "workflow_definition", default: {}
+    t.index ["account_id"], name: "index_ai_devops_templates_on_account_id"
+    t.index ["category"], name: "index_ai_devops_templates_on_category"
+    t.index ["created_by_id"], name: "index_ai_devops_templates_on_created_by_id"
+    t.index ["is_featured"], name: "index_ai_devops_templates_on_is_featured"
+    t.index ["is_system"], name: "index_ai_devops_templates_on_is_system"
+    t.index ["slug"], name: "index_ai_devops_templates_on_slug", unique: true
+    t.index ["status", "visibility"], name: "index_ai_devops_templates_on_status_and_visibility"
+    t.index ["template_type"], name: "index_ai_devops_templates_on_template_type"
+    t.check_constraint "category::text = ANY (ARRAY['code_quality'::character varying, 'deployment'::character varying, 'documentation'::character varying, 'testing'::character varying, 'security'::character varying, 'monitoring'::character varying, 'release'::character varying, 'custom'::character varying]::text[])", name: "check_devops_category"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'pending_review'::character varying, 'published'::character varying, 'archived'::character varying, 'deprecated'::character varying]::text[])", name: "check_devops_status"
+    t.check_constraint "template_type::text = ANY (ARRAY['code_review'::character varying, 'security_scan'::character varying, 'test_generation'::character varying, 'deployment_validation'::character varying, 'release_notes'::character varying, 'changelog'::character varying, 'api_docs'::character varying, 'coverage_analysis'::character varying, 'performance_check'::character varying, 'custom'::character varying]::text[])", name: "check_devops_template_type"
+    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'team'::character varying, 'public'::character varying, 'marketplace'::character varying]::text[])", name: "check_devops_visibility"
+  end
+
+  create_table "ai_document_chunks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.uuid "document_id", null: false
+    t.datetime "embedded_at"
+    t.jsonb "embedding", default: []
+    t.string "embedding_model"
+    t.integer "end_offset"
+    t.uuid "knowledge_base_id", null: false
+    t.jsonb "metadata", default: {}
+    t.float "relevance_score"
+    t.integer "sequence_number", null: false
+    t.integer "start_offset"
+    t.integer "token_count"
+    t.datetime "updated_at", null: false
+    t.index ["document_id", "sequence_number"], name: "index_ai_document_chunks_on_document_id_and_sequence_number", unique: true
+    t.index ["document_id"], name: "index_ai_document_chunks_on_document_id"
+    t.index ["knowledge_base_id", "created_at"], name: "index_ai_document_chunks_on_knowledge_base_id_and_created_at"
+    t.index ["knowledge_base_id"], name: "index_ai_document_chunks_on_knowledge_base_id"
+  end
+
+  create_table "ai_documents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "checksum"
+    t.integer "chunk_count", default: 0
+    t.text "content"
+    t.bigint "content_size_bytes"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.jsonb "extraction_config", default: {}
+    t.uuid "knowledge_base_id", null: false
+    t.datetime "last_refreshed_at"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.datetime "processed_at"
+    t.jsonb "processing_errors", default: []
+    t.string "source_type", null: false
+    t.string "source_url"
+    t.string "status", default: "pending", null: false
+    t.bigint "token_count", default: 0
+    t.datetime "updated_at", null: false
+    t.uuid "uploaded_by_id"
+    t.index ["checksum"], name: "index_ai_documents_on_checksum"
+    t.index ["knowledge_base_id", "name"], name: "index_ai_documents_on_knowledge_base_id_and_name"
+    t.index ["knowledge_base_id", "status"], name: "index_ai_documents_on_knowledge_base_id_and_status"
+    t.index ["knowledge_base_id"], name: "index_ai_documents_on_knowledge_base_id"
+    t.index ["source_type"], name: "index_ai_documents_on_source_type"
+    t.index ["uploaded_by_id"], name: "index_ai_documents_on_uploaded_by_id"
+    t.check_constraint "source_type::text = ANY (ARRAY['upload'::character varying, 'url'::character varying, 'api'::character varying, 'database'::character varying, 'cloud_storage'::character varying, 'git'::character varying]::text[])", name: "check_document_source_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'indexed'::character varying, 'failed'::character varying, 'archived'::character varying]::text[])", name: "check_document_status"
+  end
+
+  create_table "ai_knowledge_bases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.integer "chunk_count", default: 0
+    t.integer "chunk_overlap", default: 200
+    t.integer "chunk_size", default: 1000
+    t.string "chunking_strategy", default: "recursive", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.string "description"
+    t.integer "document_count", default: 0
+    t.integer "embedding_dimensions", default: 1536
+    t.string "embedding_model", default: "text-embedding-3-small", null: false
+    t.string "embedding_provider", default: "openai", null: false
+    t.boolean "is_public", default: false, null: false
+    t.datetime "last_indexed_at"
+    t.datetime "last_queried_at"
+    t.jsonb "metadata_schema", default: {}
+    t.string "name", null: false
+    t.jsonb "settings", default: {}
+    t.string "status", default: "active", null: false
+    t.bigint "storage_bytes", default: 0
+    t.bigint "total_tokens", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_ai_knowledge_bases_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_ai_knowledge_bases_on_account_id"
+    t.index ["created_by_id"], name: "index_ai_knowledge_bases_on_created_by_id"
+    t.index ["is_public"], name: "index_ai_knowledge_bases_on_is_public"
+    t.index ["status"], name: "index_ai_knowledge_bases_on_status"
+    t.check_constraint "chunking_strategy::text = ANY (ARRAY['recursive'::character varying, 'semantic'::character varying, 'fixed'::character varying, 'sentence'::character varying, 'paragraph'::character varying, 'custom'::character varying]::text[])", name: "check_kb_chunking_strategy"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'indexing'::character varying, 'paused'::character varying, 'archived'::character varying, 'error'::character varying]::text[])", name: "check_kb_status"
+  end
+
+  create_table "ai_marketplace_categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.integer "display_order", default: 0
+    t.string "icon"
+    t.boolean "is_active", default: true, null: false
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.uuid "parent_id"
+    t.string "slug", null: false
+    t.integer "template_count", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["is_active"], name: "index_ai_marketplace_categories_on_is_active"
+    t.index ["parent_id", "display_order"], name: "index_ai_marketplace_categories_on_parent_id_and_display_order"
+    t.index ["parent_id"], name: "index_ai_marketplace_categories_on_parent_id"
+    t.index ["slug"], name: "index_ai_marketplace_categories_on_slug", unique: true
+  end
+
+  create_table "ai_marketplace_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_template_id", null: false
+    t.decimal "commission_amount_usd", precision: 10, scale: 2, null: false
+    t.integer "commission_percentage", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.decimal "gross_amount_usd", precision: 10, scale: 2, null: false
+    t.uuid "installation_id"
+    t.jsonb "metadata", default: {}
+    t.string "payment_reference"
+    t.decimal "publisher_amount_usd", precision: 10, scale: 2, null: false
+    t.uuid "publisher_id", null: false
+    t.string "status", default: "pending", null: false
+    t.string "transaction_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_ai_marketplace_transactions_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_marketplace_transactions_on_account_id"
+    t.index ["agent_template_id"], name: "index_ai_marketplace_transactions_on_agent_template_id"
+    t.index ["installation_id"], name: "index_ai_marketplace_transactions_on_installation_id"
+    t.index ["publisher_id", "status"], name: "index_ai_marketplace_transactions_on_publisher_id_and_status"
+    t.index ["publisher_id"], name: "index_ai_marketplace_transactions_on_publisher_id"
+    t.index ["status"], name: "index_ai_marketplace_transactions_on_status"
+    t.index ["transaction_type"], name: "index_ai_marketplace_transactions_on_transaction_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'completed'::character varying, 'failed'::character varying, 'refunded'::character varying, 'disputed'::character varying]::text[])", name: "check_transaction_status"
+    t.check_constraint "transaction_type::text = ANY (ARRAY['purchase'::character varying, 'subscription'::character varying, 'renewal'::character varying, 'refund'::character varying, 'payout'::character varying]::text[])", name: "check_transaction_type"
+  end
+
   create_table "ai_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_agent_id", null: false
     t.uuid "ai_conversation_id", null: false
@@ -388,6 +1264,174 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
     t.index ["user_id"], name: "index_ai_messages_on_user_id"
   end
 
+  create_table "ai_mock_responses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.string "endpoint"
+    t.string "error_message"
+    t.float "error_rate", default: 0.0
+    t.string "error_type"
+    t.integer "hit_count", default: 0
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_hit_at"
+    t.integer "latency_ms", default: 100
+    t.jsonb "match_criteria", default: {}
+    t.string "match_type", default: "exact", null: false
+    t.string "model_name"
+    t.string "name", null: false
+    t.integer "priority", default: 0
+    t.string "provider_type", null: false
+    t.jsonb "response_data", default: {}
+    t.uuid "sandbox_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_mock_responses_on_account_id"
+    t.index ["created_by_id"], name: "index_ai_mock_responses_on_created_by_id"
+    t.index ["match_type"], name: "index_ai_mock_responses_on_match_type"
+    t.index ["sandbox_id", "is_active", "priority"], name: "idx_on_sandbox_id_is_active_priority_2b0c78d45f"
+    t.index ["sandbox_id", "provider_type"], name: "index_ai_mock_responses_on_sandbox_id_and_provider_type"
+    t.index ["sandbox_id"], name: "index_ai_mock_responses_on_sandbox_id"
+    t.check_constraint "match_type::text = ANY (ARRAY['exact'::character varying, 'contains'::character varying, 'regex'::character varying, 'semantic'::character varying, 'always'::character varying]::text[])", name: "check_mock_match_type"
+  end
+
+  create_table "ai_model_routing_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "conditions", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_matched_at"
+    t.decimal "max_cost_per_1k_tokens", precision: 10, scale: 6
+    t.decimal "max_latency_ms", precision: 10, scale: 2
+    t.decimal "min_quality_score", precision: 5, scale: 4
+    t.string "name", null: false
+    t.integer "priority", default: 100, null: false
+    t.string "rule_type", default: "capability_based", null: false
+    t.jsonb "target", default: {}, null: false
+    t.integer "times_failed", default: 0, null: false
+    t.integer "times_matched", default: 0, null: false
+    t.integer "times_succeeded", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "is_active", "priority"], name: "idx_routing_rules_account_active_priority"
+    t.index ["account_id", "rule_type"], name: "index_ai_model_routing_rules_on_account_id_and_rule_type"
+    t.index ["account_id"], name: "index_ai_model_routing_rules_on_account_id"
+    t.index ["conditions"], name: "index_ai_model_routing_rules_on_conditions", using: :gin
+    t.check_constraint "rule_type::text = ANY (ARRAY['capability_based'::character varying, 'cost_based'::character varying, 'latency_based'::character varying, 'quality_based'::character varying, 'custom'::character varying, 'ml_optimized'::character varying]::text[])", name: "check_routing_rule_type"
+  end
+
+  create_table "ai_outcome_billing_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "base_charge_usd", precision: 10, scale: 4
+    t.datetime "billed_at"
+    t.datetime "completed_at"
+    t.boolean "counted_for_sla", default: true, null: false
+    t.datetime "created_at", null: false
+    t.decimal "discount_usd", precision: 10, scale: 4, default: "0.0"
+    t.integer "duration_ms"
+    t.text "failure_reason"
+    t.decimal "final_charge_usd", precision: 10, scale: 4
+    t.uuid "invoice_line_item_id"
+    t.boolean "is_billable", default: true, null: false
+    t.boolean "is_billed", default: false, null: false
+    t.boolean "is_successful"
+    t.boolean "met_sla_criteria"
+    t.jsonb "metadata", default: {}
+    t.uuid "outcome_definition_id", null: false
+    t.decimal "quality_score", precision: 5, scale: 4
+    t.integer "retry_count", default: 0
+    t.uuid "sla_contract_id"
+    t.uuid "source_id", null: false
+    t.string "source_name"
+    t.string "source_type", null: false
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.decimal "time_charge_usd", precision: 10, scale: 4
+    t.decimal "token_charge_usd", precision: 10, scale: 4
+    t.integer "tokens_used"
+    t.datetime "updated_at", null: false
+    t.datetime "validated_at"
+    t.uuid "validated_by_id"
+    t.index ["account_id", "created_at"], name: "index_ai_outcome_billing_records_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_outcome_billing_records_on_account_id"
+    t.index ["created_at"], name: "index_ai_outcome_billing_records_on_created_at"
+    t.index ["is_billable", "is_billed"], name: "index_ai_outcome_billing_records_on_is_billable_and_is_billed"
+    t.index ["outcome_definition_id", "created_at"], name: "idx_on_outcome_definition_id_created_at_7e6df8dcb9"
+    t.index ["outcome_definition_id"], name: "index_ai_outcome_billing_records_on_outcome_definition_id"
+    t.index ["sla_contract_id"], name: "index_ai_outcome_billing_records_on_sla_contract_id"
+    t.index ["source_type", "source_id"], name: "index_ai_outcome_billing_records_on_source_type_and_source_id"
+    t.index ["status"], name: "index_ai_outcome_billing_records_on_status"
+    t.index ["validated_by_id"], name: "index_ai_outcome_billing_records_on_validated_by_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'successful'::character varying, 'failed'::character varying, 'timeout'::character varying, 'cancelled'::character varying, 'refunded'::character varying]::text[])", name: "check_outcome_billing_status"
+  end
+
+  create_table "ai_outcome_definitions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "base_price_usd", precision: 10, scale: 4, null: false
+    t.string "category"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.datetime "effective_from"
+    t.datetime "effective_until"
+    t.integer "free_tier_count", default: 0
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_system", default: false, null: false
+    t.decimal "max_charge_usd", precision: 10, scale: 4
+    t.jsonb "metadata", default: {}
+    t.decimal "min_charge_usd", precision: 10, scale: 4
+    t.string "name", null: false
+    t.string "outcome_type", null: false
+    t.decimal "price_per_minute", precision: 10, scale: 4
+    t.decimal "price_per_token", precision: 15, scale: 10
+    t.decimal "quality_threshold", precision: 5, scale: 4
+    t.decimal "sla_credit_percentage", precision: 5, scale: 2
+    t.boolean "sla_enabled", default: false, null: false
+    t.integer "sla_measurement_window_hours", default: 720
+    t.decimal "sla_target_percentage", precision: 6, scale: 4
+    t.jsonb "success_criteria", default: {}, null: false
+    t.integer "timeout_seconds", default: 300
+    t.datetime "updated_at", null: false
+    t.string "validation_method", default: "automatic", null: false
+    t.jsonb "volume_tiers", default: []
+    t.index ["account_id", "is_active"], name: "index_ai_outcome_definitions_on_account_id_and_is_active"
+    t.index ["account_id", "outcome_type"], name: "index_ai_outcome_definitions_on_account_id_and_outcome_type"
+    t.index ["account_id"], name: "index_ai_outcome_definitions_on_account_id"
+    t.index ["is_system"], name: "index_ai_outcome_definitions_on_is_system"
+    t.index ["outcome_type"], name: "index_ai_outcome_definitions_on_outcome_type"
+    t.check_constraint "outcome_type::text = ANY (ARRAY['task_completion'::character varying, 'quality_threshold'::character varying, 'classification'::character varying, 'extraction'::character varying, 'generation'::character varying, 'conversation'::character varying, 'workflow'::character varying, 'custom'::character varying]::text[])", name: "check_outcome_type"
+    t.check_constraint "validation_method::text = ANY (ARRAY['automatic'::character varying, 'human_review'::character varying, 'hybrid'::character varying, 'api_callback'::character varying]::text[])", name: "check_validation_method"
+  end
+
+  create_table "ai_performance_benchmarks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "baseline_metrics", default: {}
+    t.string "benchmark_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.datetime "last_run_at"
+    t.jsonb "latest_results", default: {}
+    t.float "latest_score"
+    t.string "name", null: false
+    t.integer "run_count", default: 0
+    t.integer "sample_size", default: 100
+    t.uuid "sandbox_id"
+    t.string "status", default: "active", null: false
+    t.uuid "target_agent_id"
+    t.uuid "target_workflow_id"
+    t.jsonb "test_config", default: {}
+    t.jsonb "thresholds", default: {}
+    t.string "trend"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_ai_performance_benchmarks_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_performance_benchmarks_on_account_id"
+    t.index ["benchmark_id"], name: "index_ai_performance_benchmarks_on_benchmark_id", unique: true
+    t.index ["created_by_id"], name: "index_ai_performance_benchmarks_on_created_by_id"
+    t.index ["sandbox_id"], name: "index_ai_performance_benchmarks_on_sandbox_id"
+    t.index ["target_agent_id"], name: "index_ai_performance_benchmarks_on_target_agent_id"
+    t.index ["target_workflow_id"], name: "index_ai_performance_benchmarks_on_target_workflow_id"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'archived'::character varying]::text[])", name: "check_benchmark_status"
+  end
+
   create_table "ai_persistent_contexts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.jsonb "access_control", default: {}
     t.integer "access_count", default: 0
@@ -423,6 +1467,77 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
     t.index ["scope"], name: "index_ai_persistent_contexts_on_scope"
   end
 
+  create_table "ai_pipeline_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "ai_analysis", default: {}
+    t.string "branch"
+    t.string "commit_sha"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.uuid "devops_installation_id"
+    t.integer "duration_ms"
+    t.string "execution_id", null: false
+    t.jsonb "input_data", default: {}
+    t.jsonb "metrics", default: {}
+    t.jsonb "output_data", default: {}
+    t.string "pipeline_type", null: false
+    t.string "pull_request_number"
+    t.uuid "repository_id"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.string "trigger_event"
+    t.string "trigger_source"
+    t.uuid "triggered_by_id"
+    t.datetime "updated_at", null: false
+    t.uuid "workflow_run_id"
+    t.index ["account_id", "status"], name: "index_ai_pipeline_executions_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_pipeline_executions_on_account_id"
+    t.index ["devops_installation_id"], name: "index_ai_pipeline_executions_on_devops_installation_id"
+    t.index ["execution_id"], name: "index_ai_pipeline_executions_on_execution_id", unique: true
+    t.index ["pipeline_type"], name: "index_ai_pipeline_executions_on_pipeline_type"
+    t.index ["repository_id", "created_at"], name: "index_ai_pipeline_executions_on_repository_id_and_created_at"
+    t.index ["trigger_source"], name: "index_ai_pipeline_executions_on_trigger_source"
+    t.index ["triggered_by_id"], name: "index_ai_pipeline_executions_on_triggered_by_id"
+    t.index ["workflow_run_id"], name: "index_ai_pipeline_executions_on_workflow_run_id"
+    t.check_constraint "pipeline_type::text = ANY (ARRAY['pr_review'::character varying, 'commit_analysis'::character varying, 'deployment'::character varying, 'release'::character varying, 'scheduled'::character varying, 'manual'::character varying]::text[])", name: "check_pipeline_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'timeout'::character varying]::text[])", name: "check_pipeline_status"
+  end
+
+  create_table "ai_policy_violations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "acknowledged_at"
+    t.text "context"
+    t.datetime "created_at", null: false
+    t.text "description", null: false
+    t.datetime "detected_at", null: false
+    t.uuid "detected_by_id"
+    t.datetime "escalated_at"
+    t.uuid "policy_id", null: false
+    t.jsonb "remediation_steps", default: []
+    t.string "resolution_action"
+    t.text "resolution_notes"
+    t.datetime "resolved_at"
+    t.uuid "resolved_by_id"
+    t.string "severity", null: false
+    t.uuid "source_id"
+    t.string "source_type"
+    t.string "status", default: "open", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "violation_data", default: {}
+    t.string "violation_id", null: false
+    t.index ["account_id", "status"], name: "index_ai_policy_violations_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_policy_violations_on_account_id"
+    t.index ["detected_by_id"], name: "index_ai_policy_violations_on_detected_by_id"
+    t.index ["policy_id", "created_at"], name: "index_ai_policy_violations_on_policy_id_and_created_at"
+    t.index ["policy_id"], name: "index_ai_policy_violations_on_policy_id"
+    t.index ["resolved_by_id"], name: "index_ai_policy_violations_on_resolved_by_id"
+    t.index ["severity"], name: "index_ai_policy_violations_on_severity"
+    t.index ["source_type"], name: "index_ai_policy_violations_on_source_type"
+    t.index ["violation_id"], name: "index_ai_policy_violations_on_violation_id", unique: true
+    t.check_constraint "severity::text = ANY (ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying, 'critical'::character varying]::text[])", name: "check_violation_severity"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'acknowledged'::character varying, 'investigating'::character varying, 'resolved'::character varying, 'dismissed'::character varying, 'escalated'::character varying]::text[])", name: "check_violation_status"
+  end
+
   create_table "ai_provider_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.jsonb "access_scopes", default: []
     t.uuid "account_id", null: false
@@ -454,6 +1569,45 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
     t.index ["is_active"], name: "index_ai_provider_credentials_on_is_active"
     t.index ["last_test_status"], name: "index_ai_provider_credentials_on_last_test_status"
     t.index ["last_used_at"], name: "index_ai_provider_credentials_on_last_used_at"
+  end
+
+  create_table "ai_provider_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "avg_cost_per_request", precision: 12, scale: 8
+    t.decimal "avg_latency_ms", precision: 10, scale: 2
+    t.string "circuit_state"
+    t.integer "consecutive_failures", default: 0, null: false
+    t.decimal "cost_per_1k_tokens", precision: 12, scale: 8
+    t.datetime "created_at", null: false
+    t.jsonb "error_breakdown", default: {}, null: false
+    t.decimal "error_rate", precision: 5, scale: 4
+    t.integer "failure_count", default: 0, null: false
+    t.string "granularity", default: "minute", null: false
+    t.decimal "max_latency_ms", precision: 10, scale: 2
+    t.decimal "min_latency_ms", precision: 10, scale: 2
+    t.jsonb "model_breakdown", default: {}, null: false
+    t.decimal "p50_latency_ms", precision: 10, scale: 2
+    t.decimal "p95_latency_ms", precision: 10, scale: 2
+    t.decimal "p99_latency_ms", precision: 10, scale: 2
+    t.uuid "provider_id", null: false
+    t.integer "rate_limit_count", default: 0, null: false
+    t.datetime "recorded_at", null: false
+    t.integer "request_count", default: 0, null: false
+    t.integer "success_count", default: 0, null: false
+    t.decimal "success_rate", precision: 5, scale: 4
+    t.integer "timeout_count", default: 0, null: false
+    t.decimal "total_cost_usd", precision: 12, scale: 6, default: "0.0", null: false
+    t.bigint "total_input_tokens", default: 0, null: false
+    t.bigint "total_output_tokens", default: 0, null: false
+    t.bigint "total_tokens", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "recorded_at"], name: "idx_provider_metrics_account_time"
+    t.index ["account_id"], name: "index_ai_provider_metrics_on_account_id"
+    t.index ["granularity", "recorded_at"], name: "index_ai_provider_metrics_on_granularity_and_recorded_at"
+    t.index ["provider_id", "recorded_at"], name: "idx_provider_metrics_provider_time"
+    t.index ["provider_id"], name: "index_ai_provider_metrics_on_provider_id"
+    t.index ["recorded_at"], name: "index_ai_provider_metrics_on_recorded_at"
+    t.check_constraint "granularity::text = ANY (ARRAY['minute'::character varying, 'hour'::character varying, 'day'::character varying, 'week'::character varying, 'month'::character varying]::text[])", name: "check_metric_granularity"
   end
 
   create_table "ai_provider_plugins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -509,6 +1663,199 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
     t.index ["supported_models"], name: "index_ai_providers_on_supported_models", using: :gin
   end
 
+  create_table "ai_publisher_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.float "average_rating"
+    t.jsonb "branding", default: {}
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.datetime "last_payout_at"
+    t.decimal "lifetime_earnings_usd", precision: 12, scale: 2, default: "0.0"
+    t.jsonb "payout_settings", default: {}
+    t.decimal "pending_payout_usd", precision: 12, scale: 2, default: "0.0"
+    t.uuid "primary_user_id"
+    t.string "publisher_name", null: false
+    t.string "publisher_slug", null: false
+    t.integer "revenue_share_percentage", default: 70
+    t.string "status", default: "pending", null: false
+    t.string "support_email"
+    t.integer "total_installations", default: 0
+    t.integer "total_templates", default: 0
+    t.datetime "updated_at", null: false
+    t.string "verification_status", default: "unverified", null: false
+    t.datetime "verified_at"
+    t.string "website_url"
+    t.index ["account_id"], name: "index_ai_publisher_accounts_on_account_id", unique: true
+    t.index ["primary_user_id"], name: "index_ai_publisher_accounts_on_primary_user_id"
+    t.index ["publisher_slug"], name: "index_ai_publisher_accounts_on_publisher_slug", unique: true
+    t.index ["status"], name: "index_ai_publisher_accounts_on_status"
+    t.index ["verification_status"], name: "index_ai_publisher_accounts_on_verification_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'active'::character varying, 'suspended'::character varying, 'terminated'::character varying]::text[])", name: "check_publisher_status"
+    t.check_constraint "verification_status::text = ANY (ARRAY['unverified'::character varying, 'pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "check_verification_status"
+  end
+
+  create_table "ai_rag_queries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_execution_id"
+    t.float "avg_similarity_score"
+    t.integer "chunks_retrieved", default: 0
+    t.datetime "created_at", null: false
+    t.jsonb "filters", default: {}
+    t.uuid "knowledge_base_id", null: false
+    t.jsonb "metadata", default: {}
+    t.jsonb "query_embedding", default: []
+    t.float "query_latency_ms"
+    t.text "query_text", null: false
+    t.string "retrieval_strategy", default: "similarity"
+    t.jsonb "retrieved_chunks", default: []
+    t.float "similarity_threshold", default: 0.7
+    t.string "status", default: "completed", null: false
+    t.integer "tokens_used", default: 0
+    t.integer "top_k", default: 5
+    t.datetime "updated_at", null: false
+    t.uuid "user_id"
+    t.uuid "workflow_run_id"
+    t.index ["account_id", "created_at"], name: "index_ai_rag_queries_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_rag_queries_on_account_id"
+    t.index ["knowledge_base_id", "created_at"], name: "index_ai_rag_queries_on_knowledge_base_id_and_created_at"
+    t.index ["knowledge_base_id"], name: "index_ai_rag_queries_on_knowledge_base_id"
+    t.index ["status"], name: "index_ai_rag_queries_on_status"
+    t.index ["user_id"], name: "index_ai_rag_queries_on_user_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "check_rag_query_status"
+  end
+
+  create_table "ai_recorded_interactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "cost_usd", precision: 10, scale: 4, default: "0.0"
+    t.datetime "created_at", null: false
+    t.string "interaction_type", null: false
+    t.integer "latency_ms"
+    t.jsonb "metadata", default: {}
+    t.string "model_name"
+    t.string "provider_type"
+    t.datetime "recorded_at"
+    t.string "recording_id", null: false
+    t.jsonb "request_data", default: {}
+    t.jsonb "response_data", default: {}
+    t.uuid "sandbox_id", null: false
+    t.integer "sequence_number"
+    t.uuid "source_workflow_run_id"
+    t.integer "tokens_input", default: 0
+    t.integer "tokens_output", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_recorded_interactions_on_account_id"
+    t.index ["interaction_type"], name: "index_ai_recorded_interactions_on_interaction_type"
+    t.index ["recording_id"], name: "index_ai_recorded_interactions_on_recording_id", unique: true
+    t.index ["sandbox_id", "recorded_at"], name: "index_ai_recorded_interactions_on_sandbox_id_and_recorded_at"
+    t.index ["sandbox_id"], name: "index_ai_recorded_interactions_on_sandbox_id"
+    t.index ["source_workflow_run_id"], name: "index_ai_recorded_interactions_on_source_workflow_run_id"
+    t.check_constraint "interaction_type::text = ANY (ARRAY['llm_request'::character varying, 'tool_call'::character varying, 'api_call'::character varying, 'workflow_step'::character varying, 'agent_action'::character varying]::text[])", name: "check_interaction_type"
+  end
+
+  create_table "ai_roi_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "accuracy_rate", precision: 5, scale: 4
+    t.decimal "ai_cost_usd", precision: 12, scale: 4, default: "0.0", null: false
+    t.uuid "attributable_id"
+    t.string "attributable_type"
+    t.decimal "baseline_cost_usd", precision: 12, scale: 4
+    t.decimal "baseline_time_hours", precision: 10, scale: 2
+    t.decimal "cost_per_task_usd", precision: 12, scale: 6
+    t.datetime "created_at", null: false
+    t.decimal "customer_satisfaction_score", precision: 3, scale: 2
+    t.decimal "efficiency_gain_percentage", precision: 10, scale: 2
+    t.decimal "error_reduction_value_usd", precision: 12, scale: 4, default: "0.0", null: false
+    t.integer "errors_prevented", default: 0, null: false
+    t.decimal "infrastructure_cost_usd", precision: 12, scale: 4, default: "0.0", null: false
+    t.integer "manual_interventions", default: 0, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "metric_type", null: false
+    t.decimal "net_benefit_usd", precision: 12, scale: 4
+    t.date "period_date", null: false
+    t.string "period_type", default: "daily", null: false
+    t.decimal "roi_percentage", precision: 10, scale: 2
+    t.integer "tasks_automated", default: 0, null: false
+    t.integer "tasks_completed", default: 0, null: false
+    t.decimal "throughput_value_usd", precision: 12, scale: 4, default: "0.0", null: false
+    t.decimal "time_saved_hours", precision: 10, scale: 2, default: "0.0", null: false
+    t.decimal "time_saved_value_usd", precision: 12, scale: 4, default: "0.0", null: false
+    t.decimal "total_cost_usd", precision: 12, scale: 4, default: "0.0", null: false
+    t.decimal "total_value_usd", precision: 12, scale: 4, default: "0.0", null: false
+    t.datetime "updated_at", null: false
+    t.decimal "value_per_task_usd", precision: 12, scale: 6
+    t.index ["account_id", "metric_type", "period_date"], name: "idx_roi_metrics_account_type_date"
+    t.index ["account_id", "period_type", "period_date"], name: "idx_roi_metrics_account_period"
+    t.index ["account_id"], name: "index_ai_roi_metrics_on_account_id"
+    t.index ["attributable_type", "attributable_id"], name: "idx_roi_metrics_attributable"
+    t.index ["period_date"], name: "index_ai_roi_metrics_on_period_date"
+    t.check_constraint "metric_type::text = ANY (ARRAY['workflow'::character varying, 'agent'::character varying, 'provider'::character varying, 'team'::character varying, 'account_total'::character varying, 'department'::character varying]::text[])", name: "check_roi_metric_type"
+    t.check_constraint "period_type::text = ANY (ARRAY['daily'::character varying, 'weekly'::character varying, 'monthly'::character varying, 'quarterly'::character varying, 'yearly'::character varying]::text[])", name: "check_roi_period_type"
+  end
+
+  create_table "ai_routing_decisions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "actual_cost_usd", precision: 12, scale: 8
+    t.integer "actual_latency_ms"
+    t.integer "actual_tokens_used"
+    t.uuid "agent_execution_id"
+    t.decimal "alternative_cost_usd", precision: 12, scale: 8
+    t.jsonb "candidates_evaluated", default: [], null: false
+    t.datetime "created_at", null: false
+    t.string "decision_reason"
+    t.decimal "estimated_cost_usd", precision: 12, scale: 8
+    t.integer "estimated_tokens"
+    t.string "outcome"
+    t.decimal "quality_score", precision: 5, scale: 4
+    t.jsonb "request_metadata", default: {}, null: false
+    t.string "request_type", null: false
+    t.uuid "routing_rule_id"
+    t.decimal "savings_usd", precision: 12, scale: 8
+    t.jsonb "scoring_breakdown", default: {}, null: false
+    t.uuid "selected_provider_id"
+    t.string "strategy_used", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "workflow_run_id"
+    t.index ["account_id", "created_at"], name: "index_ai_routing_decisions_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_routing_decisions_on_account_id"
+    t.index ["agent_execution_id"], name: "index_ai_routing_decisions_on_agent_execution_id"
+    t.index ["created_at"], name: "index_ai_routing_decisions_on_created_at"
+    t.index ["outcome"], name: "index_ai_routing_decisions_on_outcome"
+    t.index ["routing_rule_id"], name: "index_ai_routing_decisions_on_routing_rule_id"
+    t.index ["selected_provider_id", "created_at"], name: "idx_on_selected_provider_id_created_at_483c9515ad"
+    t.index ["selected_provider_id"], name: "index_ai_routing_decisions_on_selected_provider_id"
+    t.index ["strategy_used", "outcome"], name: "index_ai_routing_decisions_on_strategy_used_and_outcome"
+    t.index ["workflow_run_id"], name: "index_ai_routing_decisions_on_workflow_run_id"
+  end
+
+  create_table "ai_sandboxes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "configuration", default: {}
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.jsonb "environment_variables", default: {}
+    t.datetime "expires_at"
+    t.boolean "is_isolated", default: true, null: false
+    t.datetime "last_used_at"
+    t.jsonb "mock_providers", default: {}
+    t.string "name", null: false
+    t.boolean "recording_enabled", default: false, null: false
+    t.jsonb "resource_limits", default: {}
+    t.string "sandbox_type", default: "standard", null: false
+    t.string "status", default: "inactive", null: false
+    t.integer "test_runs_count", default: 0
+    t.integer "total_executions", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_ai_sandboxes_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_ai_sandboxes_on_account_id"
+    t.index ["created_by_id"], name: "index_ai_sandboxes_on_created_by_id"
+    t.index ["expires_at"], name: "index_ai_sandboxes_on_expires_at"
+    t.index ["sandbox_type"], name: "index_ai_sandboxes_on_sandbox_type"
+    t.index ["status"], name: "index_ai_sandboxes_on_status"
+    t.check_constraint "sandbox_type::text = ANY (ARRAY['standard'::character varying, 'isolated'::character varying, 'production_mirror'::character varying, 'performance'::character varying, 'security'::character varying]::text[])", name: "check_sandbox_type"
+    t.check_constraint "status::text = ANY (ARRAY['inactive'::character varying, 'active'::character varying, 'paused'::character varying, 'expired'::character varying, 'deleted'::character varying]::text[])", name: "check_sandbox_status"
+  end
+
   create_table "ai_shared_context_pools", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.jsonb "access_control", default: {}
     t.uuid "ai_workflow_run_id", null: false
@@ -531,6 +1878,351 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
     t.index ["pool_id"], name: "index_ai_shared_context_pools_on_pool_id", unique: true
     t.index ["pool_type"], name: "index_ai_shared_context_pools_on_pool_type"
     t.index ["scope"], name: "index_ai_shared_context_pools_on_scope"
+  end
+
+  create_table "ai_sla_contracts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "activated_at"
+    t.decimal "availability_target", precision: 6, scale: 4
+    t.decimal "breach_credit_percentage", precision: 5, scale: 2, null: false
+    t.datetime "cancelled_at"
+    t.string "contract_type", default: "standard", null: false
+    t.datetime "created_at", null: false
+    t.boolean "current_period_breached", default: false
+    t.datetime "current_period_end"
+    t.datetime "current_period_start"
+    t.integer "current_period_successful", default: 0
+    t.integer "current_period_total", default: 0
+    t.decimal "current_success_rate", precision: 6, scale: 4
+    t.datetime "expires_at"
+    t.decimal "latency_p95_target_ms", precision: 10, scale: 2
+    t.decimal "max_monthly_credit_percentage", precision: 5, scale: 2, default: "100.0"
+    t.integer "measurement_window_hours", default: 720, null: false
+    t.jsonb "metadata", default: {}
+    t.decimal "monthly_commitment_usd", precision: 10, scale: 2
+    t.string "name", null: false
+    t.uuid "outcome_definition_id"
+    t.decimal "price_multiplier", precision: 5, scale: 2, default: "1.0"
+    t.string "status", default: "active", null: false
+    t.decimal "success_rate_target", precision: 6, scale: 4, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_ai_sla_contracts_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_sla_contracts_on_account_id"
+    t.index ["current_period_end"], name: "index_ai_sla_contracts_on_current_period_end"
+    t.index ["outcome_definition_id"], name: "index_ai_sla_contracts_on_outcome_definition_id"
+    t.index ["status"], name: "index_ai_sla_contracts_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'pending_approval'::character varying, 'active'::character varying, 'suspended'::character varying, 'expired'::character varying, 'cancelled'::character varying]::text[])", name: "check_sla_contract_status"
+  end
+
+  create_table "ai_sla_violations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "actual_value", precision: 10, scale: 4, null: false
+    t.integer "affected_outcomes_count"
+    t.datetime "created_at", null: false
+    t.decimal "credit_amount_usd", precision: 10, scale: 2, null: false
+    t.datetime "credit_applied_at"
+    t.decimal "credit_percentage", precision: 5, scale: 2, null: false
+    t.string "credit_status", default: "pending", null: false
+    t.uuid "credit_transaction_id"
+    t.text "description"
+    t.decimal "deviation_percentage", precision: 10, scale: 4
+    t.jsonb "metadata", default: {}
+    t.datetime "period_end", null: false
+    t.datetime "period_start", null: false
+    t.string "severity", default: "minor", null: false
+    t.uuid "sla_contract_id", null: false
+    t.decimal "target_value", precision: 10, scale: 4, null: false
+    t.datetime "updated_at", null: false
+    t.string "violation_type", null: false
+    t.index ["account_id", "created_at"], name: "index_ai_sla_violations_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_ai_sla_violations_on_account_id"
+    t.index ["credit_status"], name: "index_ai_sla_violations_on_credit_status"
+    t.index ["sla_contract_id", "period_start"], name: "index_ai_sla_violations_on_sla_contract_id_and_period_start"
+    t.index ["sla_contract_id"], name: "index_ai_sla_violations_on_sla_contract_id"
+    t.index ["violation_type"], name: "index_ai_sla_violations_on_violation_type"
+    t.check_constraint "credit_status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'applied'::character varying, 'rejected'::character varying, 'waived'::character varying]::text[])", name: "check_sla_credit_status"
+    t.check_constraint "violation_type::text = ANY (ARRAY['success_rate'::character varying, 'latency'::character varying, 'availability'::character varying, 'quality'::character varying]::text[])", name: "check_sla_violation_type"
+  end
+
+  create_table "ai_team_channels", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "agent_team_id", null: false
+    t.string "channel_type", default: "broadcast", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "is_persistent", default: true, null: false
+    t.integer "message_retention_hours"
+    t.jsonb "message_schema", default: {}
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.jsonb "participant_roles", default: []
+    t.jsonb "routing_rules", default: {}
+    t.datetime "updated_at", null: false
+    t.index ["agent_team_id", "name"], name: "index_ai_team_channels_on_agent_team_id_and_name", unique: true
+    t.index ["agent_team_id"], name: "index_ai_team_channels_on_agent_team_id"
+    t.index ["channel_type"], name: "index_ai_team_channels_on_channel_type"
+    t.check_constraint "channel_type::text = ANY (ARRAY['broadcast'::character varying, 'direct'::character varying, 'topic'::character varying, 'task'::character varying, 'escalation'::character varying]::text[])", name: "check_channel_type"
+  end
+
+  create_table "ai_team_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_team_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.string "execution_id", null: false
+    t.jsonb "input_context", default: {}
+    t.integer "messages_exchanged", default: 0
+    t.jsonb "metadata", default: {}
+    t.text "objective"
+    t.jsonb "output_result", default: {}
+    t.jsonb "performance_metrics", default: {}
+    t.jsonb "shared_memory", default: {}
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.integer "tasks_completed", default: 0
+    t.integer "tasks_failed", default: 0
+    t.integer "tasks_total", default: 0
+    t.string "termination_reason"
+    t.decimal "total_cost_usd", precision: 10, scale: 4, default: "0.0"
+    t.integer "total_tokens_used", default: 0
+    t.uuid "triggered_by_id"
+    t.datetime "updated_at", null: false
+    t.uuid "workflow_run_id"
+    t.index ["account_id", "status"], name: "index_ai_team_executions_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_team_executions_on_account_id"
+    t.index ["agent_team_id", "created_at"], name: "index_ai_team_executions_on_agent_team_id_and_created_at"
+    t.index ["agent_team_id"], name: "index_ai_team_executions_on_agent_team_id"
+    t.index ["execution_id"], name: "index_ai_team_executions_on_execution_id", unique: true
+    t.index ["started_at"], name: "index_ai_team_executions_on_started_at"
+    t.index ["triggered_by_id"], name: "index_ai_team_executions_on_triggered_by_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'paused'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'timeout'::character varying]::text[])", name: "check_team_execution_status"
+  end
+
+  create_table "ai_team_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "attachments", default: []
+    t.uuid "channel_id"
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.uuid "from_role_id"
+    t.uuid "in_reply_to_id"
+    t.string "message_type", default: "task_update", null: false
+    t.jsonb "metadata", default: {}
+    t.string "priority", default: "normal"
+    t.datetime "read_at"
+    t.boolean "requires_response", default: false, null: false
+    t.datetime "responded_at"
+    t.integer "sequence_number"
+    t.jsonb "structured_content", default: {}
+    t.uuid "task_id"
+    t.uuid "team_execution_id", null: false
+    t.uuid "to_role_id"
+    t.datetime "updated_at", null: false
+    t.index ["channel_id", "created_at"], name: "index_ai_team_messages_on_channel_id_and_created_at"
+    t.index ["channel_id"], name: "index_ai_team_messages_on_channel_id"
+    t.index ["from_role_id", "created_at"], name: "index_ai_team_messages_on_from_role_id_and_created_at"
+    t.index ["from_role_id"], name: "index_ai_team_messages_on_from_role_id"
+    t.index ["in_reply_to_id"], name: "index_ai_team_messages_on_in_reply_to_id"
+    t.index ["message_type"], name: "index_ai_team_messages_on_message_type"
+    t.index ["team_execution_id", "sequence_number"], name: "idx_on_team_execution_id_sequence_number_beb97b4ae3"
+    t.index ["team_execution_id"], name: "index_ai_team_messages_on_team_execution_id"
+    t.index ["to_role_id"], name: "index_ai_team_messages_on_to_role_id"
+    t.check_constraint "message_type::text = ANY (ARRAY['task_assignment'::character varying, 'task_update'::character varying, 'task_result'::character varying, 'question'::character varying, 'answer'::character varying, 'escalation'::character varying, 'coordination'::character varying, 'broadcast'::character varying, 'human_input'::character varying]::text[])", name: "check_team_message_type"
+  end
+
+  create_table "ai_team_roles", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_team_id", null: false
+    t.uuid "ai_agent_id"
+    t.boolean "can_delegate", default: false, null: false
+    t.boolean "can_escalate", default: true, null: false
+    t.jsonb "capabilities", default: []
+    t.jsonb "constraints", default: []
+    t.jsonb "context_access", default: {}
+    t.datetime "created_at", null: false
+    t.text "goals"
+    t.integer "max_concurrent_tasks", default: 1
+    t.jsonb "metadata", default: {}
+    t.integer "priority_order", default: 0
+    t.text "responsibilities"
+    t.text "role_description"
+    t.string "role_name", null: false
+    t.string "role_type", default: "worker", null: false
+    t.jsonb "tools_allowed", default: []
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_team_roles_on_account_id"
+    t.index ["agent_team_id", "priority_order"], name: "index_ai_team_roles_on_agent_team_id_and_priority_order"
+    t.index ["agent_team_id", "role_name"], name: "index_ai_team_roles_on_agent_team_id_and_role_name", unique: true
+    t.index ["agent_team_id"], name: "index_ai_team_roles_on_agent_team_id"
+    t.index ["ai_agent_id"], name: "index_ai_team_roles_on_ai_agent_id"
+    t.index ["role_type"], name: "index_ai_team_roles_on_role_type"
+    t.check_constraint "role_type::text = ANY (ARRAY['manager'::character varying, 'coordinator'::character varying, 'worker'::character varying, 'specialist'::character varying, 'reviewer'::character varying, 'validator'::character varying]::text[])", name: "check_team_role_type"
+  end
+
+  create_table "ai_team_tasks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "assigned_agent_id"
+    t.datetime "assigned_at"
+    t.uuid "assigned_role_id"
+    t.datetime "completed_at"
+    t.decimal "cost_usd", precision: 10, scale: 4, default: "0.0"
+    t.datetime "created_at", null: false
+    t.uuid "delegated_from_task_id"
+    t.text "description", null: false
+    t.integer "duration_ms"
+    t.text "expected_output"
+    t.string "failure_reason"
+    t.jsonb "input_data", default: {}
+    t.integer "max_retries", default: 3
+    t.jsonb "metadata", default: {}
+    t.jsonb "output_data", default: {}
+    t.uuid "parent_task_id"
+    t.integer "priority", default: 5
+    t.integer "retry_count", default: 0
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.string "task_id", null: false
+    t.string "task_type", default: "execution", null: false
+    t.uuid "team_execution_id", null: false
+    t.integer "tokens_used", default: 0
+    t.jsonb "tools_used", default: []
+    t.datetime "updated_at", null: false
+    t.index ["assigned_agent_id"], name: "index_ai_team_tasks_on_assigned_agent_id"
+    t.index ["assigned_role_id", "status"], name: "index_ai_team_tasks_on_assigned_role_id_and_status"
+    t.index ["assigned_role_id"], name: "index_ai_team_tasks_on_assigned_role_id"
+    t.index ["parent_task_id"], name: "index_ai_team_tasks_on_parent_task_id"
+    t.index ["priority"], name: "index_ai_team_tasks_on_priority"
+    t.index ["task_id"], name: "index_ai_team_tasks_on_task_id", unique: true
+    t.index ["team_execution_id", "status"], name: "index_ai_team_tasks_on_team_execution_id_and_status"
+    t.index ["team_execution_id"], name: "index_ai_team_tasks_on_team_execution_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'assigned'::character varying, 'in_progress'::character varying, 'waiting'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'delegated'::character varying]::text[])", name: "check_team_task_status"
+    t.check_constraint "task_type::text = ANY (ARRAY['execution'::character varying, 'review'::character varying, 'validation'::character varying, 'coordination'::character varying, 'escalation'::character varying, 'human_input'::character varying]::text[])", name: "check_team_task_type"
+  end
+
+  create_table "ai_team_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.float "average_rating"
+    t.string "category"
+    t.jsonb "channel_definitions", default: []
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.jsonb "default_config", default: {}
+    t.text "description"
+    t.boolean "is_public", default: false, null: false
+    t.boolean "is_system", default: false, null: false
+    t.string "name", null: false
+    t.datetime "published_at"
+    t.jsonb "role_definitions", default: []
+    t.string "slug", null: false
+    t.jsonb "tags", default: []
+    t.string "team_topology", default: "hierarchical", null: false
+    t.datetime "updated_at", null: false
+    t.integer "usage_count", default: 0
+    t.jsonb "workflow_pattern", default: {}
+    t.index ["account_id"], name: "index_ai_team_templates_on_account_id"
+    t.index ["created_by_id"], name: "index_ai_team_templates_on_created_by_id"
+    t.index ["is_public", "category"], name: "index_ai_team_templates_on_is_public_and_category"
+    t.index ["is_system"], name: "index_ai_team_templates_on_is_system"
+    t.index ["slug"], name: "index_ai_team_templates_on_slug", unique: true
+    t.index ["team_topology"], name: "index_ai_team_templates_on_team_topology"
+    t.check_constraint "team_topology::text = ANY (ARRAY['hierarchical'::character varying, 'flat'::character varying, 'mesh'::character varying, 'pipeline'::character varying, 'hybrid'::character varying]::text[])", name: "check_team_topology"
+  end
+
+  create_table "ai_test_results", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "actual_output", default: {}
+    t.jsonb "assertion_results", default: []
+    t.datetime "completed_at"
+    t.decimal "cost_usd", precision: 10, scale: 4, default: "0.0"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.jsonb "error_details", default: {}
+    t.jsonb "input_used", default: {}
+    t.jsonb "logs", default: []
+    t.jsonb "metrics", default: {}
+    t.string "result_id", null: false
+    t.integer "retry_attempt", default: 0
+    t.uuid "scenario_id", null: false
+    t.datetime "started_at"
+    t.string "status", null: false
+    t.uuid "test_run_id", null: false
+    t.integer "tokens_used", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["result_id"], name: "index_ai_test_results_on_result_id", unique: true
+    t.index ["scenario_id", "created_at"], name: "index_ai_test_results_on_scenario_id_and_created_at"
+    t.index ["scenario_id"], name: "index_ai_test_results_on_scenario_id"
+    t.index ["test_run_id", "status"], name: "index_ai_test_results_on_test_run_id_and_status"
+    t.index ["test_run_id"], name: "index_ai_test_results_on_test_run_id"
+    t.check_constraint "status::text = ANY (ARRAY['passed'::character varying, 'failed'::character varying, 'skipped'::character varying, 'error'::character varying, 'timeout'::character varying]::text[])", name: "check_test_result_status"
+  end
+
+  create_table "ai_test_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.jsonb "environment", default: {}
+    t.integer "failed_assertions", default: 0
+    t.integer "failed_scenarios", default: 0
+    t.integer "passed_assertions", default: 0
+    t.integer "passed_scenarios", default: 0
+    t.string "run_id", null: false
+    t.string "run_type", default: "manual", null: false
+    t.uuid "sandbox_id", null: false
+    t.jsonb "scenario_ids", default: []
+    t.integer "skipped_scenarios", default: 0
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.jsonb "summary", default: {}
+    t.integer "total_assertions", default: 0
+    t.integer "total_scenarios", default: 0
+    t.uuid "triggered_by_id"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_ai_test_runs_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_test_runs_on_account_id"
+    t.index ["run_id"], name: "index_ai_test_runs_on_run_id", unique: true
+    t.index ["run_type"], name: "index_ai_test_runs_on_run_type"
+    t.index ["sandbox_id", "created_at"], name: "index_ai_test_runs_on_sandbox_id_and_created_at"
+    t.index ["sandbox_id"], name: "index_ai_test_runs_on_sandbox_id"
+    t.index ["triggered_by_id"], name: "index_ai_test_runs_on_triggered_by_id"
+    t.check_constraint "run_type::text = ANY (ARRAY['manual'::character varying, 'scheduled'::character varying, 'ci_triggered'::character varying, 'regression'::character varying, 'smoke'::character varying]::text[])", name: "check_test_run_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'timeout'::character varying]::text[])", name: "check_test_run_status"
+  end
+
+  create_table "ai_test_scenarios", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "assertions", default: []
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.jsonb "expected_output", default: {}
+    t.integer "fail_count", default: 0
+    t.jsonb "input_data", default: {}
+    t.datetime "last_run_at"
+    t.integer "max_retries", default: 3
+    t.jsonb "mock_responses", default: []
+    t.string "name", null: false
+    t.integer "pass_count", default: 0
+    t.float "pass_rate"
+    t.integer "retry_count", default: 0
+    t.integer "run_count", default: 0
+    t.uuid "sandbox_id", null: false
+    t.string "scenario_type", null: false
+    t.jsonb "setup_steps", default: []
+    t.string "status", default: "draft", null: false
+    t.jsonb "tags", default: []
+    t.uuid "target_agent_id"
+    t.uuid "target_workflow_id"
+    t.jsonb "teardown_steps", default: []
+    t.integer "timeout_seconds", default: 300
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_ai_test_scenarios_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_test_scenarios_on_account_id"
+    t.index ["created_by_id"], name: "index_ai_test_scenarios_on_created_by_id"
+    t.index ["sandbox_id", "name"], name: "index_ai_test_scenarios_on_sandbox_id_and_name", unique: true
+    t.index ["sandbox_id"], name: "index_ai_test_scenarios_on_sandbox_id"
+    t.index ["scenario_type"], name: "index_ai_test_scenarios_on_scenario_type"
+    t.index ["target_agent_id"], name: "index_ai_test_scenarios_on_target_agent_id"
+    t.index ["target_workflow_id"], name: "index_ai_test_scenarios_on_target_workflow_id"
+    t.check_constraint "scenario_type::text = ANY (ARRAY['unit'::character varying, 'integration'::character varying, 'regression'::character varying, 'performance'::character varying, 'security'::character varying, 'chaos'::character varying, 'custom'::character varying]::text[])", name: "check_scenario_type"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'active'::character varying, 'disabled'::character varying, 'archived'::character varying]::text[])", name: "check_scenario_status"
   end
 
   create_table "ai_workflow_approval_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2636,6 +4328,146 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
     t.index ["user_id"], name: "index_marketplace_reviews_on_user_id"
   end
 
+  create_table "mcp_hosted_servers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "avg_latency_ms", precision: 10, scale: 2
+    t.jsonb "build_config", default: {}
+    t.jsonb "capabilities", default: []
+    t.integer "cpu_millicores", default: 500
+    t.datetime "created_at", null: false
+    t.integer "current_instances", default: 0
+    t.string "current_version"
+    t.uuid "deployed_by_id"
+    t.string "deployment_region", default: "us-east-1"
+    t.text "description"
+    t.string "entry_point"
+    t.jsonb "environment_variables", default: {}
+    t.string "health_status", default: "unknown"
+    t.boolean "is_published", default: false, null: false
+    t.datetime "last_deployed_at"
+    t.datetime "last_health_check_at"
+    t.integer "marketplace_installs", default: 0
+    t.decimal "marketplace_rating", precision: 3, scale: 2
+    t.integer "marketplace_reviews_count", default: 0
+    t.integer "max_instances", default: 3
+    t.uuid "mcp_server_id"
+    t.integer "memory_mb", default: 512
+    t.jsonb "metadata", default: {}
+    t.integer "min_instances", default: 0
+    t.decimal "monthly_subscription_price", precision: 10, scale: 2
+    t.string "name", null: false
+    t.decimal "price_per_request", precision: 10, scale: 6
+    t.string "runtime", default: "node", null: false
+    t.string "runtime_version"
+    t.string "server_type", default: "custom", null: false
+    t.string "source_branch"
+    t.text "source_code"
+    t.string "source_commit"
+    t.string "source_type", null: false
+    t.string "source_url"
+    t.string "status", default: "pending", null: false
+    t.integer "timeout_seconds", default: 30
+    t.jsonb "tools_manifest", default: []
+    t.decimal "total_cost_usd", precision: 10, scale: 4, default: "0.0"
+    t.bigint "total_errors", default: 0
+    t.bigint "total_requests", default: 0
+    t.datetime "updated_at", null: false
+    t.integer "version_count", default: 1
+    t.string "visibility", default: "private", null: false
+    t.index ["account_id", "name"], name: "index_mcp_hosted_servers_on_account_id_and_name", unique: true
+    t.index ["account_id", "status"], name: "index_mcp_hosted_servers_on_account_id_and_status"
+    t.index ["account_id"], name: "index_mcp_hosted_servers_on_account_id"
+    t.index ["deployed_by_id"], name: "index_mcp_hosted_servers_on_deployed_by_id"
+    t.index ["health_status"], name: "index_mcp_hosted_servers_on_health_status"
+    t.index ["is_published"], name: "index_mcp_hosted_servers_on_is_published"
+    t.index ["mcp_server_id"], name: "index_mcp_hosted_servers_on_mcp_server_id"
+    t.index ["server_type"], name: "index_mcp_hosted_servers_on_server_type"
+    t.index ["status"], name: "index_mcp_hosted_servers_on_status"
+    t.index ["visibility"], name: "index_mcp_hosted_servers_on_visibility"
+    t.check_constraint "source_type::text = ANY (ARRAY['git'::character varying, 'upload'::character varying, 'inline'::character varying, 'registry'::character varying]::text[])", name: "check_mcp_source_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'building'::character varying, 'deploying'::character varying, 'running'::character varying, 'stopped'::character varying, 'failed'::character varying, 'deleted'::character varying]::text[])", name: "check_mcp_server_status"
+    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'team'::character varying, 'public'::character varying, 'marketplace'::character varying]::text[])", name: "check_mcp_server_visibility"
+  end
+
+  create_table "mcp_server_deployments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "build_completed_at"
+    t.integer "build_duration_seconds"
+    t.text "build_logs"
+    t.datetime "build_started_at"
+    t.datetime "created_at", null: false
+    t.uuid "deployed_by_id"
+    t.datetime "deployment_completed_at"
+    t.integer "deployment_duration_seconds"
+    t.text "deployment_logs"
+    t.datetime "deployment_started_at"
+    t.string "deployment_type", default: "manual", null: false
+    t.string "error_message"
+    t.uuid "hosted_server_id", null: false
+    t.boolean "is_rollback", default: false, null: false
+    t.jsonb "metadata", default: {}
+    t.uuid "rollback_from_deployment_id"
+    t.string "source_commit"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.string "version", null: false
+    t.index ["deployed_by_id"], name: "index_mcp_server_deployments_on_deployed_by_id"
+    t.index ["hosted_server_id", "created_at"], name: "idx_on_hosted_server_id_created_at_139f51691d"
+    t.index ["hosted_server_id"], name: "index_mcp_server_deployments_on_hosted_server_id"
+    t.index ["status"], name: "index_mcp_server_deployments_on_status"
+    t.index ["version"], name: "index_mcp_server_deployments_on_version"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'building'::character varying, 'deploying'::character varying, 'running'::character varying, 'failed'::character varying, 'rolled_back'::character varying, 'superseded'::character varying]::text[])", name: "check_deployment_status"
+  end
+
+  create_table "mcp_server_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.integer "active_instances"
+    t.decimal "avg_latency_ms", precision: 10, scale: 2
+    t.decimal "bandwidth_cost_usd", precision: 10, scale: 6
+    t.decimal "compute_cost_usd", precision: 10, scale: 6
+    t.decimal "cpu_usage_percent", precision: 5, scale: 2
+    t.datetime "created_at", null: false
+    t.integer "failed_requests", default: 0
+    t.string "granularity", default: "minute", null: false
+    t.uuid "hosted_server_id", null: false
+    t.decimal "memory_usage_percent", precision: 5, scale: 2
+    t.bigint "memory_used_bytes"
+    t.decimal "p50_latency_ms", precision: 10, scale: 2
+    t.decimal "p95_latency_ms", precision: 10, scale: 2
+    t.decimal "p99_latency_ms", precision: 10, scale: 2
+    t.datetime "recorded_at", null: false
+    t.integer "successful_requests", default: 0
+    t.integer "timeout_requests", default: 0
+    t.decimal "total_cost_usd", precision: 10, scale: 6
+    t.integer "total_requests", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["granularity", "recorded_at"], name: "index_mcp_server_metrics_on_granularity_and_recorded_at"
+    t.index ["hosted_server_id", "recorded_at"], name: "index_mcp_server_metrics_on_hosted_server_id_and_recorded_at"
+    t.index ["hosted_server_id"], name: "index_mcp_server_metrics_on_hosted_server_id"
+    t.index ["recorded_at"], name: "index_mcp_server_metrics_on_recorded_at"
+  end
+
+  create_table "mcp_server_subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "cancelled_at"
+    t.datetime "created_at", null: false
+    t.datetime "current_period_end"
+    t.datetime "current_period_start"
+    t.datetime "expires_at"
+    t.uuid "hosted_server_id", null: false
+    t.jsonb "metadata", default: {}
+    t.decimal "monthly_price_usd", precision: 10, scale: 2, default: "0.0"
+    t.integer "monthly_request_limit"
+    t.integer "requests_used_this_month", default: 0
+    t.string "status", default: "active", null: false
+    t.datetime "subscribed_at", null: false
+    t.string "subscription_type", default: "free", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "hosted_server_id"], name: "idx_mcp_subscriptions_account_server", unique: true
+    t.index ["account_id"], name: "index_mcp_server_subscriptions_on_account_id"
+    t.index ["hosted_server_id"], name: "index_mcp_server_subscriptions_on_hosted_server_id"
+    t.index ["status"], name: "index_mcp_server_subscriptions_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'cancelled'::character varying, 'expired'::character varying]::text[])", name: "check_mcp_subscription_status"
+  end
+
   create_table "mcp_servers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.jsonb "args", default: []
@@ -3669,18 +5501,46 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
   add_foreign_key "account_terminations", "users", column: "cancelled_by_id"
   add_foreign_key "account_terminations", "users", column: "processed_by_id"
   add_foreign_key "account_terminations", "users", column: "requested_by_id"
+  add_foreign_key "ai_ab_tests", "accounts"
+  add_foreign_key "ai_ab_tests", "users", column: "created_by_id"
+  add_foreign_key "ai_account_credits", "accounts"
   add_foreign_key "ai_agent_executions", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_executions", "ai_agent_executions", column: "parent_execution_id", on_delete: :nullify
   add_foreign_key "ai_agent_executions", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_executions", "ai_providers", on_delete: :restrict
   add_foreign_key "ai_agent_executions", "users", on_delete: :restrict
+  add_foreign_key "ai_agent_installations", "accounts"
+  add_foreign_key "ai_agent_installations", "ai_agent_templates", column: "agent_template_id"
+  add_foreign_key "ai_agent_installations", "ai_agents", column: "installed_agent_id"
+  add_foreign_key "ai_agent_installations", "users", column: "installed_by_id"
   add_foreign_key "ai_agent_messages", "ai_workflow_runs", on_delete: :cascade
+  add_foreign_key "ai_agent_reviews", "accounts"
+  add_foreign_key "ai_agent_reviews", "ai_agent_installations", column: "installation_id"
+  add_foreign_key "ai_agent_reviews", "ai_agent_templates", column: "agent_template_id"
+  add_foreign_key "ai_agent_reviews", "users"
   add_foreign_key "ai_agent_team_members", "ai_agent_teams"
   add_foreign_key "ai_agent_team_members", "ai_agents"
   add_foreign_key "ai_agent_teams", "accounts"
+  add_foreign_key "ai_agent_templates", "ai_agents", column: "source_agent_id"
+  add_foreign_key "ai_agent_templates", "ai_publisher_accounts", column: "publisher_id"
   add_foreign_key "ai_agents", "accounts", on_delete: :cascade
   add_foreign_key "ai_agents", "ai_providers"
   add_foreign_key "ai_agents", "users", column: "creator_id", on_delete: :restrict
+  add_foreign_key "ai_approval_chains", "accounts"
+  add_foreign_key "ai_approval_chains", "users", column: "created_by_id"
+  add_foreign_key "ai_approval_decisions", "ai_approval_requests", column: "approval_request_id"
+  add_foreign_key "ai_approval_decisions", "users", column: "approver_id"
+  add_foreign_key "ai_approval_requests", "accounts"
+  add_foreign_key "ai_approval_requests", "ai_approval_chains", column: "approval_chain_id"
+  add_foreign_key "ai_approval_requests", "users", column: "requested_by_id"
+  add_foreign_key "ai_code_reviews", "accounts"
+  add_foreign_key "ai_code_reviews", "ai_pipeline_executions", column: "pipeline_execution_id"
+  add_foreign_key "ai_compliance_audit_entries", "accounts"
+  add_foreign_key "ai_compliance_audit_entries", "users"
+  add_foreign_key "ai_compliance_policies", "accounts"
+  add_foreign_key "ai_compliance_policies", "users", column: "created_by_id"
+  add_foreign_key "ai_compliance_reports", "accounts"
+  add_foreign_key "ai_compliance_reports", "users", column: "generated_by_id"
   add_foreign_key "ai_context_access_logs", "accounts"
   add_foreign_key "ai_context_access_logs", "ai_agents"
   add_foreign_key "ai_context_access_logs", "ai_context_entries"
@@ -3693,18 +5553,130 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
   add_foreign_key "ai_conversations", "ai_agents", on_delete: :nullify
   add_foreign_key "ai_conversations", "ai_providers", on_delete: :restrict
   add_foreign_key "ai_conversations", "users", on_delete: :restrict
+  add_foreign_key "ai_cost_attributions", "accounts"
+  add_foreign_key "ai_cost_attributions", "ai_providers", column: "provider_id"
+  add_foreign_key "ai_cost_attributions", "ai_roi_metrics", column: "roi_metric_id"
+  add_foreign_key "ai_cost_optimization_logs", "accounts"
+  add_foreign_key "ai_credit_purchases", "accounts"
+  add_foreign_key "ai_credit_purchases", "ai_credit_packs", column: "credit_pack_id"
+  add_foreign_key "ai_credit_purchases", "users"
+  add_foreign_key "ai_credit_transactions", "accounts"
+  add_foreign_key "ai_credit_transactions", "ai_account_credits", column: "account_credit_id"
+  add_foreign_key "ai_credit_transactions", "ai_credit_packs", column: "credit_pack_id"
+  add_foreign_key "ai_credit_transactions", "users", column: "initiated_by_id"
+  add_foreign_key "ai_credit_transfers", "accounts", column: "from_account_id"
+  add_foreign_key "ai_credit_transfers", "accounts", column: "to_account_id"
+  add_foreign_key "ai_credit_transfers", "users", column: "approved_by_id"
+  add_foreign_key "ai_credit_transfers", "users", column: "initiated_by_id"
+  add_foreign_key "ai_data_classifications", "accounts"
+  add_foreign_key "ai_data_classifications", "users", column: "classified_by_id"
+  add_foreign_key "ai_data_connectors", "accounts"
+  add_foreign_key "ai_data_connectors", "ai_knowledge_bases", column: "knowledge_base_id"
+  add_foreign_key "ai_data_connectors", "users", column: "created_by_id"
+  add_foreign_key "ai_data_detections", "accounts"
+  add_foreign_key "ai_data_detections", "ai_data_classifications", column: "classification_id"
+  add_foreign_key "ai_deployment_risks", "accounts"
+  add_foreign_key "ai_deployment_risks", "ai_pipeline_executions", column: "pipeline_execution_id"
+  add_foreign_key "ai_deployment_risks", "users", column: "assessed_by_id"
+  add_foreign_key "ai_devops_template_installations", "accounts"
+  add_foreign_key "ai_devops_template_installations", "ai_devops_templates", column: "devops_template_id"
+  add_foreign_key "ai_devops_template_installations", "ai_workflows", column: "created_workflow_id"
+  add_foreign_key "ai_devops_template_installations", "users", column: "installed_by_id"
+  add_foreign_key "ai_devops_templates", "accounts"
+  add_foreign_key "ai_devops_templates", "users", column: "created_by_id"
+  add_foreign_key "ai_document_chunks", "ai_documents", column: "document_id"
+  add_foreign_key "ai_document_chunks", "ai_knowledge_bases", column: "knowledge_base_id"
+  add_foreign_key "ai_documents", "ai_knowledge_bases", column: "knowledge_base_id"
+  add_foreign_key "ai_documents", "users", column: "uploaded_by_id"
+  add_foreign_key "ai_knowledge_bases", "accounts"
+  add_foreign_key "ai_knowledge_bases", "users", column: "created_by_id"
+  add_foreign_key "ai_marketplace_categories", "ai_marketplace_categories", column: "parent_id"
+  add_foreign_key "ai_marketplace_transactions", "accounts"
+  add_foreign_key "ai_marketplace_transactions", "ai_agent_installations", column: "installation_id"
+  add_foreign_key "ai_marketplace_transactions", "ai_agent_templates", column: "agent_template_id"
+  add_foreign_key "ai_marketplace_transactions", "ai_publisher_accounts", column: "publisher_id"
   add_foreign_key "ai_messages", "ai_agents"
   add_foreign_key "ai_messages", "ai_conversations", on_delete: :cascade
   add_foreign_key "ai_messages", "ai_messages", column: "parent_message_id", on_delete: :nullify
   add_foreign_key "ai_messages", "users", on_delete: :nullify
+  add_foreign_key "ai_mock_responses", "accounts"
+  add_foreign_key "ai_mock_responses", "ai_sandboxes", column: "sandbox_id"
+  add_foreign_key "ai_mock_responses", "users", column: "created_by_id"
+  add_foreign_key "ai_model_routing_rules", "accounts"
+  add_foreign_key "ai_outcome_billing_records", "accounts"
+  add_foreign_key "ai_outcome_billing_records", "ai_outcome_definitions", column: "outcome_definition_id"
+  add_foreign_key "ai_outcome_billing_records", "ai_sla_contracts", column: "sla_contract_id"
+  add_foreign_key "ai_outcome_billing_records", "users", column: "validated_by_id"
+  add_foreign_key "ai_outcome_definitions", "accounts"
+  add_foreign_key "ai_performance_benchmarks", "accounts"
+  add_foreign_key "ai_performance_benchmarks", "ai_agents", column: "target_agent_id"
+  add_foreign_key "ai_performance_benchmarks", "ai_sandboxes", column: "sandbox_id"
+  add_foreign_key "ai_performance_benchmarks", "ai_workflows", column: "target_workflow_id"
+  add_foreign_key "ai_performance_benchmarks", "users", column: "created_by_id"
   add_foreign_key "ai_persistent_contexts", "accounts"
   add_foreign_key "ai_persistent_contexts", "ai_agents"
   add_foreign_key "ai_persistent_contexts", "users", column: "created_by_user_id"
+  add_foreign_key "ai_pipeline_executions", "accounts"
+  add_foreign_key "ai_pipeline_executions", "ai_devops_template_installations", column: "devops_installation_id"
+  add_foreign_key "ai_pipeline_executions", "ai_workflow_runs", column: "workflow_run_id"
+  add_foreign_key "ai_pipeline_executions", "users", column: "triggered_by_id"
+  add_foreign_key "ai_policy_violations", "accounts"
+  add_foreign_key "ai_policy_violations", "ai_compliance_policies", column: "policy_id"
+  add_foreign_key "ai_policy_violations", "users", column: "detected_by_id"
+  add_foreign_key "ai_policy_violations", "users", column: "resolved_by_id"
   add_foreign_key "ai_provider_credentials", "accounts", on_delete: :cascade
   add_foreign_key "ai_provider_credentials", "ai_providers", on_delete: :cascade
+  add_foreign_key "ai_provider_metrics", "accounts"
+  add_foreign_key "ai_provider_metrics", "ai_providers", column: "provider_id"
   add_foreign_key "ai_provider_plugins", "plugins"
   add_foreign_key "ai_providers", "accounts"
+  add_foreign_key "ai_publisher_accounts", "accounts"
+  add_foreign_key "ai_publisher_accounts", "users", column: "primary_user_id"
+  add_foreign_key "ai_rag_queries", "accounts"
+  add_foreign_key "ai_rag_queries", "ai_knowledge_bases", column: "knowledge_base_id"
+  add_foreign_key "ai_rag_queries", "users"
+  add_foreign_key "ai_recorded_interactions", "accounts"
+  add_foreign_key "ai_recorded_interactions", "ai_sandboxes", column: "sandbox_id"
+  add_foreign_key "ai_recorded_interactions", "ai_workflow_runs", column: "source_workflow_run_id"
+  add_foreign_key "ai_roi_metrics", "accounts"
+  add_foreign_key "ai_routing_decisions", "accounts"
+  add_foreign_key "ai_routing_decisions", "ai_agent_executions", column: "agent_execution_id"
+  add_foreign_key "ai_routing_decisions", "ai_model_routing_rules", column: "routing_rule_id"
+  add_foreign_key "ai_routing_decisions", "ai_providers", column: "selected_provider_id"
+  add_foreign_key "ai_routing_decisions", "ai_workflow_runs", column: "workflow_run_id"
+  add_foreign_key "ai_sandboxes", "accounts"
+  add_foreign_key "ai_sandboxes", "users", column: "created_by_id"
   add_foreign_key "ai_shared_context_pools", "ai_workflow_runs", on_delete: :cascade
+  add_foreign_key "ai_sla_contracts", "accounts"
+  add_foreign_key "ai_sla_contracts", "ai_outcome_definitions", column: "outcome_definition_id"
+  add_foreign_key "ai_sla_violations", "accounts"
+  add_foreign_key "ai_sla_violations", "ai_sla_contracts", column: "sla_contract_id"
+  add_foreign_key "ai_team_channels", "ai_agent_teams", column: "agent_team_id"
+  add_foreign_key "ai_team_executions", "accounts"
+  add_foreign_key "ai_team_executions", "ai_agent_teams", column: "agent_team_id"
+  add_foreign_key "ai_team_executions", "users", column: "triggered_by_id"
+  add_foreign_key "ai_team_messages", "ai_team_channels", column: "channel_id"
+  add_foreign_key "ai_team_messages", "ai_team_executions", column: "team_execution_id"
+  add_foreign_key "ai_team_messages", "ai_team_roles", column: "from_role_id"
+  add_foreign_key "ai_team_messages", "ai_team_roles", column: "to_role_id"
+  add_foreign_key "ai_team_roles", "accounts"
+  add_foreign_key "ai_team_roles", "ai_agent_teams", column: "agent_team_id"
+  add_foreign_key "ai_team_roles", "ai_agents"
+  add_foreign_key "ai_team_tasks", "ai_agents", column: "assigned_agent_id"
+  add_foreign_key "ai_team_tasks", "ai_team_executions", column: "team_execution_id"
+  add_foreign_key "ai_team_tasks", "ai_team_roles", column: "assigned_role_id"
+  add_foreign_key "ai_team_templates", "accounts"
+  add_foreign_key "ai_team_templates", "users", column: "created_by_id"
+  add_foreign_key "ai_test_results", "ai_test_runs", column: "test_run_id"
+  add_foreign_key "ai_test_results", "ai_test_scenarios", column: "scenario_id"
+  add_foreign_key "ai_test_runs", "accounts"
+  add_foreign_key "ai_test_runs", "ai_sandboxes", column: "sandbox_id"
+  add_foreign_key "ai_test_runs", "users", column: "triggered_by_id"
+  add_foreign_key "ai_test_scenarios", "accounts"
+  add_foreign_key "ai_test_scenarios", "ai_agents", column: "target_agent_id"
+  add_foreign_key "ai_test_scenarios", "ai_sandboxes", column: "sandbox_id"
+  add_foreign_key "ai_test_scenarios", "ai_workflows", column: "target_workflow_id"
+  add_foreign_key "ai_test_scenarios", "users", column: "created_by_id"
   add_foreign_key "ai_workflow_approval_tokens", "ai_workflow_node_executions"
   add_foreign_key "ai_workflow_approval_tokens", "users", column: "recipient_user_id"
   add_foreign_key "ai_workflow_approval_tokens", "users", column: "responded_by_id"
@@ -3852,6 +5824,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_11_075737) do
   add_foreign_key "knowledge_base_workflows", "users"
   add_foreign_key "marketplace_reviews", "accounts"
   add_foreign_key "marketplace_reviews", "users"
+  add_foreign_key "mcp_hosted_servers", "accounts"
+  add_foreign_key "mcp_hosted_servers", "mcp_servers"
+  add_foreign_key "mcp_hosted_servers", "users", column: "deployed_by_id"
+  add_foreign_key "mcp_server_deployments", "mcp_hosted_servers", column: "hosted_server_id"
+  add_foreign_key "mcp_server_deployments", "users", column: "deployed_by_id"
+  add_foreign_key "mcp_server_metrics", "mcp_hosted_servers", column: "hosted_server_id"
+  add_foreign_key "mcp_server_subscriptions", "accounts"
+  add_foreign_key "mcp_server_subscriptions", "mcp_hosted_servers", column: "hosted_server_id"
   add_foreign_key "mcp_servers", "accounts"
   add_foreign_key "mcp_tool_executions", "mcp_tools"
   add_foreign_key "mcp_tool_executions", "users"

@@ -238,21 +238,20 @@ export const PlansPage: React.FC = () => {
   ];
 
   const getBreadcrumbs = () => {
-    const baseBreadcrumbs = [
-      { label: 'Dashboard', href: '/app', icon: '🏠' },
-      { label: 'Business', href: '/app/business', icon: '💼' },
-      { label: 'Plans', icon: '📋' }
+    const baseBreadcrumbs: Array<{ label: string; href?: string }> = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'Business', href: '/app/business' },
+      { label: 'Plans' }
     ];
-    
+
     // Add active tab to breadcrumbs if not the default overview tab
     const activeTabInfo = tabs.find(tab => tab.id === activeTab);
     if (activeTabInfo && activeTab !== 'overview') {
       baseBreadcrumbs.push({
-        label: activeTabInfo.label,
-        icon: activeTabInfo.icon
+        label: activeTabInfo.label
       });
     }
-    
+
     return baseBreadcrumbs;
   };
 

@@ -622,7 +622,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
             onClick={() => toggleSection('authentication')}
             className={`p-3 rounded-lg border text-center transition-colors ${
               expandedSections.authentication 
-                ? 'bg-theme-interactive-primary text-white border-theme-interactive-primary' 
+                ? 'bg-theme-interactive-primary text-theme-on-primary border-theme-interactive-primary' 
                 : 'bg-theme-background border-theme hover:bg-theme-surface-hover'
             }`}
           >
@@ -633,7 +633,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
             onClick={() => toggleSection('access')}
             className={`p-3 rounded-lg border text-center transition-colors ${
               expandedSections.access 
-                ? 'bg-theme-interactive-primary text-white border-theme-interactive-primary' 
+                ? 'bg-theme-interactive-primary text-theme-on-primary border-theme-interactive-primary' 
                 : 'bg-theme-background border-theme hover:bg-theme-surface-hover'
             }`}
           >
@@ -644,7 +644,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
             onClick={() => toggleSection('rateLimiting')}
             className={`p-3 rounded-lg border text-center transition-colors ${
               expandedSections.rateLimiting 
-                ? 'bg-theme-interactive-primary text-white border-theme-interactive-primary' 
+                ? 'bg-theme-interactive-primary text-theme-on-primary border-theme-interactive-primary' 
                 : 'bg-theme-background border-theme hover:bg-theme-surface-hover'
             }`}
           >
@@ -655,7 +655,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
             onClick={() => toggleSection('advanced')}
             className={`p-3 rounded-lg border text-center transition-colors ${
               expandedSections.advanced 
-                ? 'bg-theme-interactive-primary text-white border-theme-interactive-primary' 
+                ? 'bg-theme-interactive-primary text-theme-on-primary border-theme-interactive-primary' 
                 : 'bg-theme-background border-theme hover:bg-theme-surface-hover'
             }`}
           >

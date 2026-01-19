@@ -515,9 +515,9 @@ const UsersPage: React.FC = () => {
   ], [loading, filteredUsers.length, showFilters, isFiltersDefault, filters.sortOrder, loadData]);
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Administration', icon: '⚙️' },
-    { label: 'User Management', icon: '👥' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Account' },
+    { label: 'User Management' }
   ];
 
   const getPageDescription = () => {

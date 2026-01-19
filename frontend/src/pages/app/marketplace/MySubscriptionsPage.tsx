@@ -169,7 +169,7 @@ export const MySubscriptionsPage: React.FC = () => {
   const getButtonClass = (isActive: boolean) => {
     return `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
       isActive
-        ? 'bg-theme-info text-white'
+        ? 'bg-theme-interactive-primary text-theme-on-primary'
         : 'bg-theme-surface text-theme-tertiary hover:bg-theme-surface-hover border border-theme'
     }`;
   };

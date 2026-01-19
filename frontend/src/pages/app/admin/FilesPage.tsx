@@ -21,11 +21,18 @@ const FilesPage: React.FC = () => {
   const canUpload = currentUser?.permissions?.includes('files.create');
   const canRead = currentUser?.permissions?.includes('files.read');
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Admin', href: '/app/admin' },
+    { label: 'Files' }
+  ];
+
   if (!canRead) {
     return (
       <PageContainer
         title="Files"
         description="File management and storage"
+        breadcrumbs={breadcrumbs}
       >
         <div className="text-center py-12">
           <p className="text-theme-secondary">
@@ -40,6 +47,7 @@ const FilesPage: React.FC = () => {
     <PageContainer
       title="Files"
       description="Manage files and uploads across your organization"
+      breadcrumbs={breadcrumbs}
       actions={
         canUpload ? [
           {

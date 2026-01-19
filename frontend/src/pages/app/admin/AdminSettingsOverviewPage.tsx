@@ -76,7 +76,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
         </div>
         <button
           onClick={loadOverviewData}
-          className="bg-theme-error text-white px-4 py-2 rounded-lg hover:bg-theme-error transition-colors"
+          className="btn-theme btn-theme-danger"
         >
           Retry Loading
         </button>
@@ -518,7 +518,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
               <h3 className="font-semibold text-theme-primary flex items-center gap-2">
                 <span>👥</span>
                 <span>Recent Users</span>
-                <span className="bg-theme-interactive-primary text-white text-xs px-2 py-1 rounded-full">
+                <span className="bg-theme-interactive-primary text-theme-on-primary text-xs px-2 py-1 rounded-full">
                   {recent_users.length}
                 </span>
               </h3>
@@ -535,7 +535,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                     <div key={user.id} className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-theme-interactive-primary rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white font-medium text-sm">
+                          <span className="text-theme-on-primary font-medium text-sm">
                             {user.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??'}
                           </span>
                         </div>
@@ -565,7 +565,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
               <h3 className="font-semibold text-theme-primary flex items-center gap-2">
                 <span>🏢</span>
                 <span>Recent Accounts</span>
-                <span className="bg-theme-interactive-primary text-white text-xs px-2 py-1 rounded-full">
+                <span className="bg-theme-interactive-primary text-theme-on-primary text-xs px-2 py-1 rounded-full">
                   {recent_accounts.length}
                 </span>
               </h3>
@@ -611,7 +611,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
               <h3 className="font-semibold text-theme-primary flex items-center gap-2">
                 <span>📝</span>
                 <span>System Logs</span>
-                <span className="bg-theme-interactive-primary text-white text-xs px-2 py-1 rounded-full">
+                <span className="bg-theme-interactive-primary text-theme-on-primary text-xs px-2 py-1 rounded-full">
                   {recent_logs.length}
                 </span>
               </h3>

@@ -20,9 +20,9 @@ export const ServicesPage: React.FC = () => {
   }
 
   const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'System', icon: '⚙️' },
-    { label: 'Services', icon: '🌐' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'System' },
+    { label: 'Services' }
   ];
 
   return (

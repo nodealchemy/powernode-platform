@@ -55,18 +55,17 @@ export const VALID_TAB_IDS = MONITORING_TABS.map(tab => tab.id);
  * Get breadcrumbs based on active tab
  */
 export const getMonitoringBreadcrumbs = (activeTab: string) => {
-  const baseBreadcrumbs = [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'AI', href: '/app/ai', icon: '🤖' },
-    { label: 'Monitoring', icon: '📊' }
+  const baseBreadcrumbs: Array<{ label: string; href?: string }> = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'AI', href: '/app/ai' },
+    { label: 'Monitoring' }
   ];
 
   // Add active tab to breadcrumbs if not the default overview tab
   const activeTabInfo = MONITORING_TABS.find(tab => tab.id === activeTab);
   if (activeTabInfo && activeTab !== 'overview') {
     baseBreadcrumbs.push({
-      label: activeTabInfo.label,
-      icon: activeTabInfo.icon
+      label: activeTabInfo.label
     });
   }
 

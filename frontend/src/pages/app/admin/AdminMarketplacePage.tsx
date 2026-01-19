@@ -74,9 +74,9 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
   const currentTabRef = useRef<'items' | 'pending' | 'reviews' | 'analytics'>('items');
 
   const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Administration', href: '/app/admin', icon: '⚙️' },
-    { label: 'Marketplace', icon: '🏪' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Administration', href: '/app/admin' },
+    { label: 'Marketplace' }
   ];
 
   const getPageActions = (): PageAction[] => {
@@ -420,7 +420,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
   const getButtonClass = (isActive: boolean) => {
     return `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
       isActive
-        ? 'bg-theme-info text-white'
+        ? 'bg-theme-interactive-primary text-theme-on-primary'
         : 'bg-theme-surface text-theme-tertiary hover:bg-theme-surface-hover border border-theme'
     }`;
   };

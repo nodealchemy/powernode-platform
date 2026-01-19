@@ -338,9 +338,9 @@ export const WorkersPage: React.FC = () => {
         title="Worker Management"
         description="Manage authentication workers, monitor activity, and control access permissions"
         breadcrumbs={[
-          { label: 'Dashboard', href: '/app', icon: '🏠' },
-          { label: 'System', icon: '⚙️' },
-          { label: 'Workers', href: '/app/system/workers/overview', icon: '🤖' }
+          { label: 'Dashboard', href: '/app' },
+          { label: 'System' },
+          { label: 'Workers' }
         ]}
       >
         <FlexItemsCenter justify="center" className="py-12">
@@ -356,9 +356,9 @@ export const WorkersPage: React.FC = () => {
       title="Worker Management"
       description="Manage authentication workers, monitor activity, and control access permissions"
       breadcrumbs={[
-        { label: 'Dashboard', href: '/app', icon: '🏠' },
-        { label: 'System', icon: '⚙️' },
-        { label: 'Workers', href: '/app/system/workers/overview', icon: '🤖' }
+        { label: 'Dashboard', href: '/app' },
+        { label: 'System' },
+        { label: 'Workers' }
       ]}
     >
       <div className="space-y-6">

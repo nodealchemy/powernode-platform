@@ -70,7 +70,7 @@ export const WorkerManagementTab: React.FC<WorkerManagementTabProps> = ({
                 onClick={() => setState(prev => ({ ...prev, viewMode: 'grid' }))}
                 className={`px-3 py-2 text-sm transition-colors ${
                   state.viewMode === 'grid'
-                    ? 'bg-theme-interactive-primary text-white'
+                    ? 'bg-theme-interactive-primary text-theme-on-primary'
                     : 'bg-theme-background text-theme-primary hover:bg-theme-surface'
                 }`}
               >
@@ -80,7 +80,7 @@ export const WorkerManagementTab: React.FC<WorkerManagementTabProps> = ({
                 onClick={() => setState(prev => ({ ...prev, viewMode: 'table' }))}
                 className={`px-3 py-2 text-sm transition-colors border-l border-theme ${
                   state.viewMode === 'table'
-                    ? 'bg-theme-interactive-primary text-white'
+                    ? 'bg-theme-interactive-primary text-theme-on-primary'
                     : 'bg-theme-background text-theme-primary hover:bg-theme-surface'
                 }`}
               >

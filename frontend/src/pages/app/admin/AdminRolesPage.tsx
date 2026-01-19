@@ -162,9 +162,9 @@ export const AdminRolesPage: React.FC = () => {
   };
 
   const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Admin', icon: '🔧' },
-    { label: 'Roles & Permissions', icon: '🔐' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Admin', href: '/app/admin' },
+    { label: 'Roles & Permissions' }
   ];
 
   const groupPermissionsByResource = (permissions: Permission[]) => {

@@ -182,7 +182,7 @@ export const PipelinesPage: React.FC = () => {
               onClick={() => setActiveFilter('all')}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 activeFilter === 'all'
-                  ? 'bg-theme-primary text-white'
+                  ? 'bg-theme-interactive-primary text-theme-on-primary'
                   : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >
@@ -192,7 +192,7 @@ export const PipelinesPage: React.FC = () => {
               onClick={() => setActiveFilter('active')}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 activeFilter === 'active'
-                  ? 'bg-theme-primary text-white'
+                  ? 'bg-theme-interactive-primary text-theme-on-primary'
                   : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >
@@ -202,7 +202,7 @@ export const PipelinesPage: React.FC = () => {
               onClick={() => setActiveFilter('inactive')}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 activeFilter === 'inactive'
-                  ? 'bg-theme-primary text-white'
+                  ? 'bg-theme-interactive-primary text-theme-on-primary'
                   : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >

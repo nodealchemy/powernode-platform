@@ -105,6 +105,7 @@ user.role === 'manager'
 | Worker Jobs | Inherit BaseJob, use `execute()` method, API-only |
 | Ruby Files | `# frozen_string_literal: true` pragma required |
 | Logging | `Rails.logger` - no `puts`/`print` |
+| Migrations | **NEVER** create separate indexes for `t.references` columns - configure index in the references declaration itself: `t.references :account, index: { unique: true }` |
 
 ---
 

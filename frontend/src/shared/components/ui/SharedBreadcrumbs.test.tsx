@@ -26,7 +26,8 @@ describe('SharedBreadcrumbs', () => {
     it('renders all breadcrumb items', () => {
       renderWithRouter(<SharedBreadcrumbs items={customItems} />);
 
-      expect(screen.getByText('Home')).toBeInTheDocument();
+      // Home icon (first item with Home icon hides label, uses title="Dashboard" for accessibility)
+      expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
       expect(screen.getByText('Settings')).toBeInTheDocument();
       expect(screen.getByText('Security')).toBeInTheDocument();
     });
@@ -34,7 +35,8 @@ describe('SharedBreadcrumbs', () => {
     it('renders links for items with href', () => {
       renderWithRouter(<SharedBreadcrumbs items={customItems} />);
 
-      expect(screen.getByRole('link', { name: /Home/i })).toHaveAttribute('href', '/app');
+      // First item with Home icon uses title="Dashboard" for accessibility
+      expect(screen.getByRole('link', { name: /dashboard/i })).toHaveAttribute('href', '/app');
       expect(screen.getByRole('link', { name: /Settings/i })).toHaveAttribute('href', '/app/settings');
     });
 
@@ -58,21 +60,25 @@ describe('SharedBreadcrumbs', () => {
     it('generates breadcrumbs from path', () => {
       renderWithRouter(<SharedBreadcrumbs />, '/app/settings/security');
 
-      expect(screen.getByText('Dashboard')).toBeInTheDocument();
+      // Home icon link (with title="Dashboard" for accessibility)
+      expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
       expect(screen.getByText('Settings')).toBeInTheDocument();
       expect(screen.getByText('Security')).toBeInTheDocument();
     });
 
-    it('shows home/dashboard when showHome is true', () => {
+    it('shows home icon when showHome is true', () => {
       renderWithRouter(<SharedBreadcrumbs showHome={true} />, '/app/settings');
 
-      expect(screen.getByText('Dashboard')).toBeInTheDocument();
+      // Home icon link has title="Dashboard" for accessibility
+      const homeLink = screen.getByRole('link', { name: /dashboard/i });
+      expect(homeLink).toHaveAttribute('href', '/app');
     });
 
-    it('hides home/dashboard when showHome is false', () => {
+    it('hides home icon when showHome is false', () => {
       renderWithRouter(<SharedBreadcrumbs showHome={false} />, '/app/settings');
 
-      expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+      // No link to /app should exist (home link removed)
+      expect(screen.queryByRole('link', { name: /dashboard/i })).not.toBeInTheDocument();
     });
 
     it('formats segment names nicely', () => {

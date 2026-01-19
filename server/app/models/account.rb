@@ -25,6 +25,74 @@ class Account < ApplicationRecord
   has_many :ai_agent_executions, class_name: "Ai::AgentExecution", dependent: :destroy
   has_many :ai_agent_teams, class_name: "Ai::AgentTeam", dependent: :destroy
 
+  # AI Model Router associations (Phase 1 - Intelligent Routing)
+  has_many :ai_model_routing_rules, class_name: "Ai::ModelRoutingRule", dependent: :destroy
+  has_many :ai_routing_decisions, class_name: "Ai::RoutingDecision", dependent: :destroy
+  has_many :ai_cost_optimization_logs, class_name: "Ai::CostOptimizationLog", dependent: :destroy
+
+  # AI ROI & Analytics associations (Phase 1 - ROI Tracking)
+  has_many :ai_roi_metrics, class_name: "Ai::RoiMetric", dependent: :destroy
+  has_many :ai_cost_attributions, class_name: "Ai::CostAttribution", dependent: :destroy
+  has_many :ai_provider_metrics, class_name: "Ai::ProviderMetric", dependent: :destroy
+
+  # AI Credit System associations (Phase 2 - Credit System)
+  has_one :ai_account_credits, class_name: "Ai::AccountCredit", dependent: :destroy
+  has_many :ai_credit_transactions, class_name: "Ai::CreditTransaction", dependent: :destroy
+  has_many :ai_credit_purchases, class_name: "Ai::CreditPurchase", dependent: :destroy
+  has_many :ai_credit_transfers_sent, class_name: "Ai::CreditTransfer", foreign_key: :from_account_id, dependent: :destroy
+  has_many :ai_credit_transfers_received, class_name: "Ai::CreditTransfer", foreign_key: :to_account_id, dependent: :destroy
+
+  # AI Outcome Billing associations (Phase 2 - Outcome Billing)
+  has_many :ai_outcome_definitions, class_name: "Ai::OutcomeDefinition", dependent: :destroy
+  has_many :ai_sla_contracts, class_name: "Ai::SlaContract", dependent: :destroy
+  has_many :ai_outcome_billing_records, class_name: "Ai::OutcomeBillingRecord", dependent: :destroy
+  has_many :ai_sla_violations, class_name: "Ai::SlaViolation", dependent: :destroy
+
+  # MCP Hosting associations (Phase 2 - MCP Hosting)
+  has_many :mcp_hosted_servers, class_name: "Mcp::HostedServer", dependent: :destroy
+  has_many :mcp_server_subscriptions, class_name: "Mcp::ServerSubscription", dependent: :destroy
+
+  # AI RAG System associations (Phase 3 - Knowledge-Augmented Agents)
+  has_many :ai_knowledge_bases, class_name: "Ai::KnowledgeBase", dependent: :destroy
+  has_many :ai_rag_queries, class_name: "Ai::RagQuery", dependent: :destroy
+  has_many :ai_data_connectors, class_name: "Ai::DataConnector", dependent: :destroy
+
+  # AI Multi-Agent Team associations (Phase 3 - Team Orchestration)
+  has_many :ai_team_roles, class_name: "Ai::TeamRole", dependent: :destroy
+  has_many :ai_team_executions, class_name: "Ai::TeamExecution", dependent: :destroy
+  has_many :ai_team_templates, class_name: "Ai::TeamTemplate", dependent: :destroy
+
+  # AI Agent Marketplace associations (Phase 4 - Agent Marketplace)
+  has_one :ai_publisher_account, class_name: "Ai::PublisherAccount", dependent: :destroy
+  has_many :ai_agent_installations, class_name: "Ai::AgentInstallation", dependent: :destroy
+  has_many :ai_agent_reviews, class_name: "Ai::AgentReview", dependent: :destroy
+  has_many :ai_marketplace_transactions, class_name: "Ai::MarketplaceTransaction", dependent: :destroy
+
+  # AI Governance Suite associations (Phase 4 - Governance & Compliance)
+  has_many :ai_compliance_policies, class_name: "Ai::CompliancePolicy", dependent: :destroy
+  has_many :ai_policy_violations, class_name: "Ai::PolicyViolation", dependent: :destroy
+  has_many :ai_approval_chains, class_name: "Ai::ApprovalChain", dependent: :destroy
+  has_many :ai_approval_requests, class_name: "Ai::ApprovalRequest", dependent: :destroy
+  has_many :ai_data_classifications, class_name: "Ai::DataClassification", dependent: :destroy
+  has_many :ai_data_detections, class_name: "Ai::DataDetection", dependent: :destroy
+  has_many :ai_compliance_reports, class_name: "Ai::ComplianceReport", dependent: :destroy
+  has_many :ai_compliance_audit_entries, class_name: "Ai::ComplianceAuditEntry", dependent: :destroy
+
+  # AI DevOps Templates associations (Phase 4 - CI/CD Templates)
+  has_many :ai_devops_templates, class_name: "Ai::DevopsTemplate", dependent: :destroy
+  has_many :ai_devops_template_installations, class_name: "Ai::DevopsTemplateInstallation", dependent: :destroy
+  has_many :ai_pipeline_executions, class_name: "Ai::PipelineExecution", dependent: :destroy
+  has_many :ai_deployment_risks, class_name: "Ai::DeploymentRisk", dependent: :destroy
+  has_many :ai_code_reviews, class_name: "Ai::CodeReview", dependent: :destroy
+
+  # AI Sandbox Testing associations (Phase 4 - Sandbox & Testing)
+  has_many :ai_sandboxes, class_name: "Ai::Sandbox", dependent: :destroy
+  has_many :ai_test_scenarios, class_name: "Ai::TestScenario", dependent: :destroy
+  has_many :ai_mock_responses, class_name: "Ai::MockResponse", dependent: :destroy
+  has_many :ai_test_runs, class_name: "Ai::TestRun", dependent: :destroy
+  has_many :ai_performance_benchmarks, class_name: "Ai::PerformanceBenchmark", dependent: :destroy
+  has_many :ai_ab_tests, class_name: "Ai::AbTest", dependent: :destroy
+
   # AI Workflow associations
   has_many :ai_workflows, class_name: "Ai::Workflow", dependent: :destroy
   has_many :ai_workflow_runs, class_name: "Ai::WorkflowRun", dependent: :destroy

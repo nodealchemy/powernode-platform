@@ -400,9 +400,9 @@ const WebhookManagementPage: React.FC = () => {
 
   // Get breadcrumbs
   const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'DevOps', href: '/app/devops', icon: '🔧' },
-    { label: 'Webhooks', icon: '🔗' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'DevOps', href: '/app/devops' },
+    { label: 'Webhooks' }
   ];
 
   // Get page description

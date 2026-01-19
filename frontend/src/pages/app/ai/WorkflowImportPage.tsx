@@ -281,10 +281,9 @@ export const WorkflowImportPage: React.FC = () => {
   }, [importData, workflowName, canImportWorkflows, addNotification, navigate]);
 
   const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '<�' },
-    { label: 'AI Orchestration', href: '/app/ai', icon: '>' },
-    { label: 'Workflows', href: '/app/ai', icon: '�' },
-    { label: 'Import', icon: '=�' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'AI Orchestration', href: '/app/ai' },
+    { label: 'Import' }
   ];
 
   const getPageActions = () => [

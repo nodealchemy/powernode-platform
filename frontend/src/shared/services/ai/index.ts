@@ -41,6 +41,18 @@ import { marketplaceApi } from './MarketplaceApiService';
 import { pluginsApi } from './PluginsApiService';
 import { validationApi } from './ValidationApiService';
 import { conversationsApi } from './ConversationsApiService';
+import { modelRouterApi } from './ModelRouterApiService';
+import { aiOpsApi } from './AiOpsApiService';
+import { roiApi } from './RoiApiService';
+import { creditsApi } from './CreditsApiService';
+import { mcpHostingApi } from './McpHostingApiService';
+import { outcomeBillingApi } from './OutcomeBillingApiService';
+import { ragApi } from './RagApiService';
+import { teamsApi } from './TeamsApiService';
+import { agentMarketplaceApi } from './AgentMarketplaceApiService';
+import { governanceApi } from './GovernanceApiService';
+import { devopsApi } from './DevopsApiService';
+import { sandboxApi } from './SandboxApiService';
 
 export { BaseApiService } from './BaseApiService';
 export type {
@@ -166,6 +178,178 @@ export type {
   ValidationRule,
 } from '@/shared/types/workflow';
 
+// Re-export Model Router service (Phase 1 - Intelligent Routing)
+export { modelRouterApi };
+export type {
+  RoutingRuleFilters,
+  DecisionFilters,
+  RoutingRule,
+  CreateRoutingRuleRequest,
+  RouteRequest,
+  RoutingResult,
+  RoutingDecision,
+  RoutingStatistics,
+  CostAnalysis as RouterCostAnalysis,
+  ProviderRanking,
+  OptimizationRecommendation,
+  CostOptimizationLog,
+  OptimizationStats,
+} from './ModelRouterApiService';
+
+// Re-export AIOps service (Phase 1 - Real-Time Operations)
+export { aiOpsApi };
+export type {
+  AiOpsFilters,
+  AiOpsDashboard,
+  SystemHealth,
+  ComponentHealth,
+  SystemOverview,
+  ProviderMetrics,
+  ProviderDetailMetrics,
+  ProviderComparison,
+  WorkflowMetrics,
+  AgentMetrics,
+  CostAnalysisData,
+  Alert as AiOpsAlert,
+  CircuitBreakerStatus,
+  RealTimeMetrics,
+  RecordMetricsRequest,
+} from './AiOpsApiService';
+
+// Re-export ROI service (Phase 1 - ROI Tracking)
+export { roiApi };
+export type {
+  RoiFilters,
+  AttributionFilters,
+  MetricFilters,
+  RoiDashboard,
+  RoiSummary,
+  RoiTrends,
+  DailyMetrics,
+  WorkflowRoi,
+  AgentRoi,
+  ProviderCost,
+  CostBreakdown,
+  CostAttribution,
+  RoiMetric,
+  RoiProjections,
+  RoiRecommendation,
+  PeriodComparison,
+} from './RoiApiService';
+
+// Re-export Credits service (Phase 2 - Credit System)
+export { creditsApi };
+export type {
+  CreditBalance,
+  CreditTransaction,
+  CreditPack,
+  CreditPurchase,
+  CreditTransfer,
+  UsageAnalytics,
+  OperationCost,
+  ResellerStats,
+} from './CreditsApiService';
+
+// Re-export MCP Hosting service (Phase 2 - MCP Hosting)
+export { mcpHostingApi };
+export type {
+  McpHostedServer,
+  McpServerDetailed,
+  McpServerDeployment,
+  McpServerMetric,
+  McpServerSubscription,
+  McpMarketplaceListing,
+  ServerCreateParams,
+} from './McpHostingApiService';
+
+// Re-export Outcome Billing service (Phase 2 - Outcome Billing)
+export { outcomeBillingApi };
+export type {
+  OutcomeDefinition,
+  SlaContract,
+  OutcomeBillingRecord,
+  SlaViolation,
+  BillingSummary,
+  SlaPerformance,
+} from './OutcomeBillingApiService';
+
+// Re-export RAG service (Phase 3 - Knowledge-Augmented Agents)
+export { ragApi };
+export type {
+  KnowledgeBase,
+  Document,
+  RagQuery,
+  QueryResult,
+  RetrievedChunk,
+  DataConnector,
+  RagAnalytics,
+} from './RagApiService';
+
+// Re-export Teams service (Phase 3 - Multi-Agent Team Orchestration)
+export { teamsApi };
+export type {
+  Team,
+  TeamRole,
+  TeamChannel,
+  TeamExecution,
+  TeamTask,
+  TeamMessage,
+  TeamTemplate,
+  TeamAnalytics,
+} from './TeamsApiService';
+
+// Re-export Agent Marketplace service (Phase 4 - Pre-Built Vertical AI Agents)
+export { agentMarketplaceApi };
+export type {
+  AgentTemplate,
+  AgentInstallation,
+  AgentReview,
+  MarketplaceCategory,
+  Publisher,
+  PublisherAnalytics,
+  TemplateFilters as AgentTemplateFilters,
+} from './AgentMarketplaceApiService';
+
+// Re-export Governance service (Phase 4 - AI Workflow Governance & Compliance)
+export { governanceApi };
+export type {
+  CompliancePolicy,
+  PolicyViolation,
+  ApprovalChain,
+  ApprovalRequest,
+  DataClassification,
+  DataDetection,
+  ComplianceReport,
+  AuditEntry,
+  ComplianceSummary,
+  PolicyEvaluationResult,
+} from './GovernanceApiService';
+
+// Re-export DevOps service (Phase 4 - AI Pipeline Templates for CI/CD)
+export { devopsApi };
+export type {
+  DevopsTemplate,
+  DevopsInstallation,
+  PipelineExecution,
+  DeploymentRisk,
+  CodeReview,
+  DevopsAnalytics,
+} from './DevopsApiService';
+
+// Re-export Sandbox service (Phase 4 - Enterprise AI Agent Sandbox & Testing)
+export { sandboxApi };
+export type {
+  Sandbox,
+  TestScenario,
+  MockResponse,
+  TestRun,
+  TestResult,
+  PerformanceBenchmark,
+  AbTest,
+  AbTestResults,
+  SandboxAnalytics,
+} from './SandboxApiService';
+
 /**
  * Convenience object for accessing all API services
  */
@@ -179,6 +363,22 @@ export const aiApi = {
   marketplace: marketplaceApi,
   plugins: pluginsApi,
   validation: validationApi,
+  // Phase 1 - New services
+  modelRouter: modelRouterApi,
+  aiOps: aiOpsApi,
+  roi: roiApi,
+  // Phase 2 - New services
+  credits: creditsApi,
+  mcpHosting: mcpHostingApi,
+  outcomeBilling: outcomeBillingApi,
+  // Phase 3 - New services
+  rag: ragApi,
+  teams: teamsApi,
+  // Phase 4 - New services
+  agentMarketplace: agentMarketplaceApi,
+  governance: governanceApi,
+  devops: devopsApi,
+  sandbox: sandboxApi,
 } as const;
 
 export default aiApi;

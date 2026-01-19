@@ -133,9 +133,9 @@ export const ApiKeysPage: React.FC = () => {
   ];
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'DevOps', href: '/app/devops', icon: '🔧' },
-    { label: 'API Keys', icon: '🔑' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'DevOps', href: '/app/devops' },
+    { label: 'API Keys' }
   ];
 
   const getPageDescription = () => {

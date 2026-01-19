@@ -58,15 +58,15 @@ export const AdminSettingsPage: React.FC = () => {
 
   const getBreadcrumbs = () => {
     const activeTab = getActiveTab();
-    const breadcrumbs: { label: string; href?: string; icon: string }[] = [
-      { label: 'Dashboard', href: '/app', icon: '🏠' },
-      { label: 'Admin', href: '/app/admin', icon: '🔧' },
-      { label: 'Settings', href: '/app/admin/settings', icon: '⚙️' }
+    const breadcrumbs: { label: string; href?: string }[] = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'Admin', href: '/app/admin' },
+      { label: 'Settings', href: '/app/admin/settings' }
     ];
 
     // Add active tab if not on overview
     if (activeTab && activeTab.id !== 'overview') {
-      breadcrumbs.push({ label: activeTab.label, icon: activeTab.icon });
+      breadcrumbs.push({ label: activeTab.label });
     }
 
     return breadcrumbs;

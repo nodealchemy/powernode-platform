@@ -524,9 +524,9 @@ const AdminUsersPage: React.FC = () => {
   ];
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Admin', href: '/admin', icon: '⚙️' },
-    { label: 'Users', icon: '👥' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Admin', href: '/app/admin' },
+    { label: 'Users' }
   ];
 
   const getPageDescription = () => {

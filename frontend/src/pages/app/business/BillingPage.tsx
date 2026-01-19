@@ -93,7 +93,7 @@ export const BillingPage: React.FC = () => {
   // Get active tab from URL
   const getActiveTab = () => {
     const path = location.pathname;
-    if (path === '/app/business/billing') return 'overview';
+    if (path === '/app/account/billing') return 'overview';
     if (path.includes('/invoices')) return 'invoices';
     if (path.includes('/analytics')) return 'analytics';
     return 'overview';
@@ -121,17 +121,16 @@ export const BillingPage: React.FC = () => {
 
   const getBreadcrumbs = () => {
     const baseBreadcrumbs = [
-      { label: 'Dashboard', href: '/app', icon: '🏠' },
-      { label: 'Business', href: '/app/business', icon: '💼' },
-      { label: 'Billing', icon: '💳' }
+      { label: 'Dashboard', href: '/app' },
+      { label: 'Account' },
+      { label: 'Billing' }
     ];
     
     // Add active tab to breadcrumbs if not the default overview tab
     const activeTabInfo = tabs.find(tab => tab.id === activeTab);
     if (activeTabInfo && activeTab !== 'overview') {
       baseBreadcrumbs.push({
-        label: activeTabInfo.label,
-        icon: activeTabInfo.icon
+        label: activeTabInfo.label
       });
     }
     
@@ -184,7 +183,7 @@ export const BillingPage: React.FC = () => {
             tabs={tabs}
             activeTab={activeTab}
             onTabChange={setActiveTab}
-            basePath="/app/business/billing"
+            basePath="/app/account/billing"
             variant="underline"
             className="mb-6"
           >

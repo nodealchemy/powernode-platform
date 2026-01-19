@@ -81,8 +81,8 @@ export const PagesPage: React.FC = () => {
   ];
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Pages', icon: '📄' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Pages' }
   ];
 
   useEffect(() => {

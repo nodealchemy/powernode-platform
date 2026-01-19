@@ -181,7 +181,7 @@ export const NotificationsPage: React.FC = () => {
                   onClick={() => { setFilter('all'); setPage(1); }}
                   className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                     filter === 'all'
-                      ? 'bg-theme-interactive-primary text-white'
+                      ? 'bg-theme-interactive-primary text-theme-on-primary'
                       : 'bg-theme-surface text-theme-primary border border-theme hover:bg-theme-surface-hover'
                   }`}
                 >
@@ -191,7 +191,7 @@ export const NotificationsPage: React.FC = () => {
                   onClick={() => { setFilter('unread'); setPage(1); }}
                   className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
                     filter === 'unread'
-                      ? 'bg-theme-interactive-primary text-white'
+                      ? 'bg-theme-interactive-primary text-theme-on-primary'
                       : 'bg-theme-surface text-theme-primary border border-theme hover:bg-theme-surface-hover'
                   }`}
                 >
@@ -199,8 +199,8 @@ export const NotificationsPage: React.FC = () => {
                   {unreadCount > 0 && (
                     <span className={`px-1.5 py-0.5 text-xs rounded-full font-semibold ${
                       filter === 'unread'
-                        ? 'bg-white/20 text-white'
-                        : 'bg-theme-danger text-white'
+                        ? 'bg-theme-on-primary/20 text-theme-on-primary'
+                        : 'bg-theme-danger text-theme-on-primary'
                     }`}>
                       {unreadCount}
                     </span>

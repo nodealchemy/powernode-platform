@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Home } from 'lucide-react';
 import { SharedBreadcrumbs } from '../ui/SharedBreadcrumbs';
 import { useBreadcrumb } from '@/shared/hooks/BreadcrumbContext';
 
@@ -23,6 +24,7 @@ export interface PageContainerProps {
   title: string;
   description?: string;
   breadcrumbs?: BreadcrumbItem[];
+  breadcrumbVariant?: 'default' | 'contained';
   actions?: PageAction[];
   className?: string;
   children: React.ReactNode;
@@ -34,6 +36,7 @@ export const PageContainer: React.FC<PageContainerProps> = ({
   title,
   description,
   breadcrumbs,
+  breadcrumbVariant = 'contained',
   actions,
   className = '',
   children,
@@ -94,12 +97,20 @@ export const PageContainer: React.FC<PageContainerProps> = ({
     <div className={`space-y-6 ${className}`}>
       {/* Breadcrumbs */}
       {displayBreadcrumbs && displayBreadcrumbs.length > 0 && (
-        <SharedBreadcrumbs 
-          items={displayBreadcrumbs.map(item => ({
-            label: item.label,
-            href: item.href,
-            icon: typeof item.icon === 'string' ? undefined : item.icon
-          }))}
+        <SharedBreadcrumbs
+          items={displayBreadcrumbs.map((item, index) => {
+            // Transform first "Dashboard" item to use Home icon without label
+            const isDashboardFirst = index === 0 &&
+              (item.label === 'Dashboard' || item.label === 'Home') &&
+              (item.href === '/app' || item.href === '/app/');
+
+            return {
+              label: isDashboardFirst ? '' : item.label,
+              href: item.href,
+              icon: isDashboardFirst ? Home : (typeof item.icon === 'string' ? undefined : item.icon)
+            };
+          })}
+          variant={breadcrumbVariant}
           className="mb-4"
         />
       )}

@@ -391,20 +391,19 @@ export const ProfilePage: React.FC = () => {
   }, [user?.permissions]);
 
   const breadcrumbs = useMemo(() => {
-    const baseBreadcrumbs = [
-      { label: 'Dashboard', href: '/app', icon: '🏠' },
-      { label: 'Profile', icon: '👤' }
+    const baseBreadcrumbs: Array<{ label: string; href?: string }> = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'Profile' }
     ];
-    
+
     // Add active tab to breadcrumbs
     const activeTabInfo = tabs.find(tab => tab.id === activeTab);
     if (activeTabInfo && activeTab !== 'profile') {
       baseBreadcrumbs.push({
-        label: activeTabInfo.label,
-        icon: activeTabInfo.icon
+        label: activeTabInfo.label
       });
     }
-    
+
     return baseBreadcrumbs;
   }, [activeTab, tabs]);
 

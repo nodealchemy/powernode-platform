@@ -1,7 +1,6 @@
 // Git Providers Feature - Main exports
 
 // Components
-export { GitProvidersPage } from './components/GitProvidersPage';
 export { GitProviderCard } from './components/GitProviderCard';
 export { CredentialModal } from './components/CredentialModal';
 export { RepositoryList } from './components/RepositoryList';

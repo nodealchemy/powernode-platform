@@ -56,11 +56,9 @@ import {
 } from '@/features/devops/pipelines';
 
 // Provider Pages
-import {
-  AiProvidersPage,
-  GitProvidersPage,
-  RepositoriesPage,
-} from '@/features/devops/connections';
+import { AIProvidersPage } from './ai/AIProvidersPage';
+import { GitProvidersPage } from './devops/GitProvidersPage';
+import { RepositoriesPage } from './devops/RepositoriesPage';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
 // AdminPluginsPage deprecated - now redirects to admin/marketplace
@@ -81,6 +79,10 @@ import { McpBrowserPage } from './ai/McpBrowserPage';
 // AI Sub-pages
 import { CreateWorkflowPage, AIDebugPage } from './ai';
 import AgentTeamsPage from './ai/AgentTeamsPage';
+import AgentMarketplacePage from './ai/AgentMarketplacePage';
+import GovernancePage from './ai/GovernancePage';
+import SandboxPage from './ai/SandboxPage';
+import DevOpsTemplatesPage from './ai/DevOpsTemplatesPage';
 import { WorkflowDetailPage } from './ai/WorkflowDetailPage';
 import { WorkflowImportPage } from './ai/WorkflowImportPage';
 import { WorkflowMonitoringPage } from './ai/WorkflowMonitoringPage';
@@ -232,7 +234,8 @@ const DashboardOverview: React.FC = () => {
   ];
 
   const breadcrumbs = [
-    { label: 'Dashboard', icon: '🏠' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Dashboard' }
   ];
   
   return (
@@ -499,13 +502,13 @@ const DashboardPage: React.FC = () => {
         
         {/* Business Pages */}
         <Route path="/business/customers" element={<CustomersPage />} />
-        <Route path="/business/billing/*" element={<BillingPage />} />
+        <Route path="/account/billing/*" element={<BillingPage />} />
         
         {/* AI Pages - Standalone navigation */}
         <Route path="/ai" element={<AIOverviewPage />} />
-        <Route path="/ai/providers" element={<AiProvidersPage />} />
-        <Route path="/ai/providers/new" element={<AiProvidersPage />} />
-        <Route path="/ai/providers/:id" element={<AiProvidersPage />} />
+        <Route path="/ai/providers" element={<AIProvidersPage />} />
+        <Route path="/ai/providers/new" element={<AIProvidersPage />} />
+        <Route path="/ai/providers/:id" element={<AIProvidersPage />} />
         <Route path="/ai/agents" element={<AIAgentsPage />} />
         <Route path="/ai/workflows" element={<WorkflowsPage />} />
         <Route path="/ai/conversations" element={<AIConversationsPage />} />
@@ -527,6 +530,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/contexts/:id" element={<ContextDetailPage />} />
         <Route path="/ai/agents/:agentId/memory" element={<AgentMemoryPage />} />
         <Route path="/ai/prompts" element={<PromptsPage />} />
+        <Route path="/ai/agent-marketplace" element={<AgentMarketplacePage />} />
+        <Route path="/ai/governance" element={<GovernancePage />} />
+        <Route path="/ai/sandbox" element={<SandboxPage />} />
+        <Route path="/ai/devops-templates" element={<DevOpsTemplatesPage />} />
         <Route path="/ai/plugins" element={<Navigate to="/app/marketplace?types=plugin" replace />} />
 
         {/* Core Pages */}
