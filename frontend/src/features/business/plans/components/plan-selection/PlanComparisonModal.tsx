@@ -31,8 +31,11 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-slate-200/50 dark:border-slate-600/50 animate-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-0 animate-in fade-in duration-300" onClick={onClose} />
+      {/* Modal */}
+      <div className="relative z-10 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-slate-200/50 dark:border-slate-600/50 animate-in slide-in-from-bottom-4 duration-300">
         {/* Modal Header */}
         <div className="px-8 py-6 border-b border-slate-200/50 dark:border-slate-600/50 bg-gradient-to-r from-slate-50 to-blue-50/30 dark:from-slate-700/50 dark:to-slate-600/50">
           <div className="flex items-center justify-between">

@@ -160,7 +160,7 @@ export const Modal: React.FC<ModalProps> = ({
         {/* Enhanced background overlay with blur */}
         <div
           className={`
-            fixed inset-0 transition-all duration-300
+            fixed inset-0 transition-all duration-300 z-0
             ${blur ? 'backdrop-blur-sm' : ''}
             ${animate ? 'animate-fade-in' : ''}
             bg-black/60 dark:bg-black/80
@@ -178,6 +178,7 @@ export const Modal: React.FC<ModalProps> = ({
         <div
           ref={modalRef}
           className={`
+            relative z-10
             ${selectedModalStyles}
             ${selectedVariantClasses}
             ${variant !== 'fullscreen' && variant !== 'drawer' ? 'w-full' : ''}

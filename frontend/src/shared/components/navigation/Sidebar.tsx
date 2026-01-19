@@ -150,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       {isOpen && (
         <div className="fixed inset-0 flex z-40 md:hidden">
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75"
+            className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 z-0"
             onClick={onToggle}
           />
         </div>

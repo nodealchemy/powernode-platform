@@ -778,7 +778,7 @@ export const ReportsPage: React.FC = () => {
         <>
           <div className="fixed inset-0 bg-theme-overlay z-40" onClick={() => setShowRequestModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="card-theme w-full max-w-lg max-h-screen overflow-y-auto">
+            <div className="card-theme w-full max-w-lg max-h-screen overflow-y-auto relative z-10">
               <div className="flex items-center justify-between p-6 border-b border-theme">
                 <h2 className="text-lg font-semibold text-theme-primary">
                   Generate {selectedTemplate.name}

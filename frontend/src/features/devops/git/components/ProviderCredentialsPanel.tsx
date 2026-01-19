@@ -152,10 +152,10 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 z-0" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative bg-theme-surface rounded-lg shadow-xl w-full max-w-lg mx-4 border border-theme max-h-[80vh] flex flex-col">
+      <div className="relative z-10 bg-theme-surface rounded-lg shadow-xl w-full max-w-lg mx-4 border border-theme max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-theme">
           <div>
