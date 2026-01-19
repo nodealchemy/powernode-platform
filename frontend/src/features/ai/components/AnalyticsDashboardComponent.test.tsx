@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { AnalyticsDashboardComponent } from './AnalyticsDashboardComponent';
 import { analyticsApi } from '@/shared/services/ai';
 
@@ -69,6 +69,17 @@ jest.mock('@/shared/components/ui/Select', () => ({
 jest.mock('@/shared/components/ui/LoadingSpinner', () => ({
   LoadingSpinner: ({ className }: any) => <div data-testid="loading-spinner" className={className}>Loading...</div>
 }));
+
+// Helper to wait for all async state updates to complete
+const waitForLoadingComplete = async () => {
+  await waitFor(() => {
+    expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument();
+  });
+  // Flush any remaining microtasks
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+};
 
 describe('AnalyticsDashboardComponent', () => {
   const mockDashboardData = {
@@ -141,16 +152,22 @@ describe('AnalyticsDashboardComponent', () => {
   });
 
   describe('loading state', () => {
-    it('shows loading spinner initially', () => {
+    it('shows loading spinner initially', async () => {
       render(<AnalyticsDashboardComponent />);
 
       expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
+
+      // Wait for all async operations to complete to avoid act() warnings
+      await waitForLoadingComplete();
     });
 
-    it('shows page title while loading', () => {
+    it('shows page title while loading', async () => {
       render(<AnalyticsDashboardComponent />);
 
       expect(screen.getByText('AI Analytics')).toBeInTheDocument();
+
+      // Wait for all async operations to complete to avoid act() warnings
+      await waitForLoadingComplete();
     });
   });
 
@@ -394,9 +411,9 @@ describe('AnalyticsDashboardComponent', () => {
     it('shows Healthy badge for low error rate', async () => {
       render(<AnalyticsDashboardComponent />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Provider Performance')).toBeInTheDocument();
-      });
+      await waitForLoadingComplete();
+
+      expect(screen.getByText('Provider Performance')).toBeInTheDocument();
 
       // Check for badge with success variant for healthy status
       const badges = screen.getAllByTestId('badge');
@@ -412,9 +429,9 @@ describe('AnalyticsDashboardComponent', () => {
 
       render(<AnalyticsDashboardComponent />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Provider Performance')).toBeInTheDocument();
-      });
+      await waitForLoadingComplete();
+
+      expect(screen.getByText('Provider Performance')).toBeInTheDocument();
 
       // Check for badge with warning variant for degraded status
       const badges = screen.getAllByTestId('badge');
@@ -430,9 +447,9 @@ describe('AnalyticsDashboardComponent', () => {
 
       render(<AnalyticsDashboardComponent />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Provider Performance')).toBeInTheDocument();
-      });
+      await waitForLoadingComplete();
+
+      expect(screen.getByText('Provider Performance')).toBeInTheDocument();
 
       // Check for badge with danger variant for unhealthy status
       const badges = screen.getAllByTestId('badge');
@@ -562,10 +579,9 @@ describe('AnalyticsDashboardComponent', () => {
 
       render(<AnalyticsDashboardComponent />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Provider Performance')).toBeInTheDocument();
-      });
+      await waitForLoadingComplete();
 
+      expect(screen.getByText('Provider Performance')).toBeInTheDocument();
       expect(screen.queryByText('Insights')).not.toBeInTheDocument();
     });
 
@@ -574,10 +590,9 @@ describe('AnalyticsDashboardComponent', () => {
 
       render(<AnalyticsDashboardComponent />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Provider Performance')).toBeInTheDocument();
-      });
+      await waitForLoadingComplete();
 
+      expect(screen.getByText('Provider Performance')).toBeInTheDocument();
       expect(screen.queryByText('Recommendations')).not.toBeInTheDocument();
     });
   });

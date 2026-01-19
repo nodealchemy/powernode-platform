@@ -510,7 +510,7 @@ export function GitProvidersPage() {
                 setSelectedProviderType(option.type);
                 setIsModalOpen(true);
               }}
-              className="flex items-center gap-3 p-4 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors group text-left"
+              className="flex items-center gap-3 p-4 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors group text-left cursor-pointer"
             >
               {getProviderLogo(option.type)}
               <div className="flex-1">

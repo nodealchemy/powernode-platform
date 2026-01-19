@@ -115,7 +115,7 @@ export function ImportExportModal({
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() => setMode('export')}
-                  className="p-6 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors text-left"
+                  className="p-6 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors text-left cursor-pointer"
                 >
                   <div className="text-2xl mb-2">📤</div>
                   <h3 className="font-medium text-theme-primary">Export</h3>
@@ -126,7 +126,7 @@ export function ImportExportModal({
 
                 <button
                   onClick={() => setMode('import')}
-                  className="p-6 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors text-left"
+                  className="p-6 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors text-left cursor-pointer"
                 >
                   <div className="text-2xl mb-2">📥</div>
                   <h3 className="font-medium text-theme-primary">Import</h3>

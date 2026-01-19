@@ -142,7 +142,7 @@ export function TemplateSelectionStep({ onSelect, onCancel }: TemplateSelectionS
               key={template.id}
               onClick={() => handleSelectTemplate(template.id)}
               disabled={loadingTemplate === template.id}
-              className="flex items-start gap-3 p-4 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors text-left disabled:opacity-50"
+              className="flex items-start gap-3 p-4 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors text-left disabled:opacity-50 cursor-pointer"
             >
               {template.icon_url ? (
                 <img

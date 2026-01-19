@@ -372,7 +372,7 @@ export function AiProvidersPage() {
             <button
               key={option.type}
               onClick={() => navigate(`/app/ai/providers/new?type=${option.type}`)}
-              className="flex items-center gap-3 p-4 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors group text-left"
+              className="flex items-center gap-3 p-4 bg-theme-surface border border-theme rounded-lg hover:border-theme-primary transition-colors group text-left cursor-pointer"
             >
               {getProviderLogo(option.type)}
               <div className="flex-1">
