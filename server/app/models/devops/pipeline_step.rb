@@ -98,12 +98,31 @@ module Devops
     end
 
     def output_definitions
-      outputs.map do |output|
-        {
-          name: output['name'],
-          description: output['description'],
-          type: output['type'] || 'string'
-        }
+      return [] if outputs.blank?
+
+      # Handle both array format [{name: ..., type: ...}] and hash format {name: type}
+      if outputs.is_a?(Array)
+        outputs.map do |output|
+          if output.is_a?(Hash) && output['name']
+            {
+              name: output['name'],
+              description: output['description'],
+              type: output['type'] || 'string'
+            }
+          else
+            { name: output.to_s, type: 'string' }
+          end
+        end
+      elsif outputs.is_a?(Hash)
+        outputs.map do |name, type|
+          {
+            name: name.to_s,
+            description: nil,
+            type: type.to_s
+          }
+        end
+      else
+        []
       end
     end
 
@@ -149,7 +168,7 @@ module Devops
     def set_default_position
       return if position.present?
 
-      max_position = pipeline.steps.maximum(:position) || -1
+      max_position = pipeline.pipeline_steps.maximum(:position) || -1
       self.position = max_position + 1
     end
 

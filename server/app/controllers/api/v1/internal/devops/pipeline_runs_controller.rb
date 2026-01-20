@@ -59,7 +59,7 @@ module Api
             result[:pipeline_id] = run.ci_cd_pipeline_id
             result[:pipeline_name] = run.pipeline.name
             result[:trigger_type] = run.trigger_type
-            result[:steps] = run.pipeline.steps.where(is_active: true).order(:position).map do |step|
+            result[:steps] = run.pipeline.pipeline_steps.where(is_active: true).order(:position).map do |step|
               {
                 id: step.id,
                 name: step.name,

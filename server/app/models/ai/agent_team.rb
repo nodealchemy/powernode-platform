@@ -8,7 +8,7 @@ module Ai
     # Constants
     # ==========================================
     TEAM_TYPES = %w[hierarchical mesh sequential parallel].freeze
-    COORDINATION_STRATEGIES = %w[manager_worker peer_to_peer hybrid].freeze
+    COORDINATION_STRATEGIES = %w[manager_led consensus auction round_robin priority_based].freeze
     STATUSES = %w[active inactive archived].freeze
 
     # ==========================================
@@ -140,7 +140,7 @@ module Ai
       self.team_config ||= {}
       self.status ||= "active"
       self.team_type ||= "hierarchical"
-      self.coordination_strategy ||= "manager_worker"
+      self.coordination_strategy ||= "manager_led"
     end
 
     def validate_team_config_structure
@@ -152,19 +152,19 @@ module Ai
     end
 
     def validate_coordination_compatibility
-      # Hierarchical teams should use manager_worker coordination
-      if team_type == "hierarchical" && coordination_strategy == "peer_to_peer"
-        errors.add(:coordination_strategy, "hierarchical teams should use manager_worker or hybrid coordination")
+      # Hierarchical teams should use manager_led coordination
+      if team_type == "hierarchical" && coordination_strategy == "consensus"
+        errors.add(:coordination_strategy, "hierarchical teams should use manager_led or priority_based coordination")
       end
 
-      # Sequential teams work best with manager_worker
-      if team_type == "sequential" && coordination_strategy == "peer_to_peer"
-        errors.add(:coordination_strategy, "sequential teams work best with manager_worker coordination")
+      # Sequential teams work best with priority_based or round_robin
+      if team_type == "sequential" && coordination_strategy == "consensus"
+        errors.add(:coordination_strategy, "sequential teams work best with priority_based or round_robin coordination")
       end
 
-      # Mesh teams should use peer_to_peer or hybrid
-      if team_type == "mesh" && coordination_strategy == "manager_worker"
-        errors.add(:coordination_strategy, "mesh teams should use peer_to_peer or hybrid coordination")
+      # Mesh teams should use consensus or auction
+      if team_type == "mesh" && coordination_strategy == "manager_led"
+        errors.add(:coordination_strategy, "mesh teams should use consensus or auction coordination")
       end
     end
 

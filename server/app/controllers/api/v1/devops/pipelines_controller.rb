@@ -14,7 +14,7 @@ module Api
         # GET /api/v1/devops/pipelines
         def index
           pipelines = current_user.account.devops_pipelines
-                                  .includes(:steps, :ai_provider)
+                                  .includes(:pipeline_steps, :ai_provider)
                                   .order(created_at: :desc)
 
           # Filter by active status if provided
@@ -198,7 +198,7 @@ module Api
             new_pipeline.save!
 
             # Duplicate steps
-            @pipeline.steps.each do |step|
+            @pipeline.pipeline_steps.each do |step|
               new_step = step.dup
               new_step.pipeline = new_pipeline
               new_step.save!
@@ -249,7 +249,7 @@ module Api
 
         def create_steps(pipeline, steps_params)
           steps_params.each_with_index do |step_params, index|
-            pipeline.steps.create!(
+            pipeline.pipeline_steps.create!(
               name: step_params[:name],
               step_type: step_params[:step_type],
               position: step_params[:position] || (index + 1),
@@ -268,7 +268,7 @@ module Api
 
         def update_steps(pipeline, steps_params)
           # Simple strategy: replace all steps
-          pipeline.steps.destroy_all
+          pipeline.pipeline_steps.destroy_all
           create_steps(pipeline, steps_params)
         end
 
@@ -281,7 +281,7 @@ module Api
           result[:id] = pipeline.id
 
           if include_steps
-            result[:steps] = pipeline.steps.order(:position).map do |step|
+            result[:steps] = pipeline.pipeline_steps.order(:position).map do |step|
               ::Devops::PipelineStepSerializer.new(step).serializable_hash[:data][:attributes].merge(id: step.id)
             end
           end

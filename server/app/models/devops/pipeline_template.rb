@@ -111,7 +111,7 @@ module Devops
       def extract_definition(pipeline)
         {
           "pipeline_type" => pipeline.pipeline_type,
-          "steps" => pipeline.steps.order(:position).map do |step|
+          "steps" => pipeline.pipeline_steps.order(:position).map do |step|
             {
               "name" => step.name,
               "step_type" => step.step_type,

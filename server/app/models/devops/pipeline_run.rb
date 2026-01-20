@@ -105,10 +105,10 @@ module Devops
     end
 
     def progress_percentage
-      return 0 if pipeline.steps.empty?
+      return 0 if pipeline.pipeline_steps.empty?
 
       completed_steps = step_executions.where(status: %w[success failure skipped]).count
-      total_steps = pipeline.steps.active.count
+      total_steps = pipeline.pipeline_steps.active.count
       ((completed_steps.to_f / total_steps) * 100).round
     end
 

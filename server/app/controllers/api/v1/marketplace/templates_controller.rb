@@ -25,7 +25,7 @@ module Api
         # POST /api/v1/marketplace/templates/from_pipeline/:id
         # Create a template from an existing pipeline
         def create_from_pipeline
-          pipeline = current_account.ci_cd_pipelines.find(params[:id])
+          pipeline = current_account.devops_pipelines.find(params[:id])
 
           creator = ::Marketplace::TemplateCreator.new(current_user)
           template = creator.create_from_pipeline(pipeline, template_params)

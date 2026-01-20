@@ -24,7 +24,7 @@ module Devops
         is_active: @pipeline.is_active,
         is_system: @pipeline.is_system,
         version: @pipeline.version,
-        step_count: @pipeline.steps.size,
+        step_count: @pipeline.pipeline_steps.size,
         run_count: @pipeline.runs.count,
         last_run: serialize_last_run,
         success_rate: calculate_success_rate,

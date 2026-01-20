@@ -12,7 +12,7 @@ module Devops
     belongs_to :provider, class_name: "Devops::Provider", foreign_key: :ci_cd_provider_id, optional: true
     belongs_to :ai_provider, class_name: "Ai::Provider", optional: true
 
-    has_many :steps, class_name: "Devops::PipelineStep", foreign_key: :ci_cd_pipeline_id, dependent: :destroy
+    has_many :pipeline_steps, class_name: "Devops::PipelineStep", foreign_key: :ci_cd_pipeline_id, dependent: :destroy
     has_many :runs, class_name: "Devops::PipelineRun", foreign_key: :ci_cd_pipeline_id, dependent: :destroy
     has_many :schedules, class_name: "Devops::Schedule", foreign_key: :ci_cd_pipeline_id, dependent: :destroy
     has_many :pipeline_repositories, class_name: "Devops::PipelineRepository", foreign_key: :ci_cd_pipeline_id, dependent: :destroy
@@ -95,7 +95,7 @@ module Devops
     end
 
     def ordered_steps
-      steps.order(position: :asc)
+      pipeline_steps.order(position: :asc)
     end
 
     def feature_enabled?(feature_name)

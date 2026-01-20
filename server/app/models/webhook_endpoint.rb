@@ -6,6 +6,7 @@ class WebhookEndpoint < ApplicationRecord
   belongs_to :created_by, class_name: "User", optional: true
   has_many :webhook_deliveries, dependent: :destroy
   has_many :webhook_events, dependent: :destroy
+  has_many :delivery_stats, class_name: "WebhookDeliveryStat", dependent: :destroy
 
   # Validations
   validates :url, presence: true, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]) }
@@ -176,6 +177,92 @@ class WebhookEndpoint < ApplicationRecord
     else
       base_delay
     end.clamp(1, 300) # Max 5 minutes
+  end
+
+  # Tier-related methods
+  TIER_LIMITS = {
+    "free" => 100,
+    "pro" => 10_000,
+    "enterprise" => Float::INFINITY
+  }.freeze
+
+  def tier
+    self[:tier] || "free"
+  end
+
+  def tier_daily_limit
+    TIER_LIMITS[tier] || 100
+  end
+
+  def rate_limited?
+    return false if tier == "enterprise"
+
+    daily_count >= tier_daily_limit
+  end
+
+  def can_deliver?
+    active? && !rate_limited?
+  end
+
+  def increment_daily_count!
+    reset_daily_count_if_needed!
+    increment!(:daily_count)
+  end
+
+  def reset_daily_count_if_needed!
+    return if daily_count_reset_at && daily_count_reset_at > Time.current.beginning_of_day
+
+    update_columns(
+      daily_count: 0,
+      daily_count_reset_at: Time.current.beginning_of_day
+    )
+  end
+
+  def remaining_daily_deliveries
+    return Float::INFINITY if tier == "enterprise"
+
+    [tier_daily_limit - daily_count, 0].max
+  end
+
+  def generate_signature(payload)
+    return nil unless signature_secret.present?
+
+    timestamp = Time.current.to_i
+    payload_string = "#{timestamp}.#{payload}"
+    signature = OpenSSL::HMAC.hexdigest("SHA256", signature_secret, payload_string)
+
+    "t=#{timestamp},v1=#{signature}"
+  end
+
+  def verify_signature(payload, signature_header)
+    return false unless signature_secret.present? && signature_header.present?
+
+    parts = signature_header.split(",").each_with_object({}) do |part, hash|
+      key, value = part.split("=", 2)
+      hash[key] = value
+    end
+
+    timestamp = parts["t"]&.to_i
+    signature = parts["v1"]
+
+    return false unless timestamp && signature
+
+    # Verify timestamp is within 5 minutes
+    return false if (Time.current.to_i - timestamp).abs > 300
+
+    expected_payload = "#{timestamp}.#{payload}"
+    expected_signature = OpenSSL::HMAC.hexdigest("SHA256", signature_secret, expected_payload)
+
+    ActiveSupport::SecurityUtils.secure_compare(signature, expected_signature)
+  end
+
+  def regenerate_signature_secret!
+    self.signature_secret = "whsig_#{SecureRandom.base64(32).tr('+/', '-_')}"
+    save!
+  end
+
+  def analytics_summary(days: 30)
+    WebhookDeliveryStat.aggregate_for_endpoint(self, days: days)
   end
 
   private

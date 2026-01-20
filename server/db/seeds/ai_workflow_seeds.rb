@@ -54,10 +54,10 @@ def create_or_find_ai_agent(account, user, provider, agent_data)
     name: agent_data[:name],
     description: agent_data[:description],
     agent_type: agent_data[:agent_type],
-    ai_provider: provider,
+    provider: provider,
     creator: user,
-    capabilities: [ 'chat', 'text_generation' ],
-    configuration: agent_data[:configuration],
+    mcp_capabilities: { 'chat' => true, 'text_generation' => true },
+    mcp_metadata: agent_data[:configuration],
     metadata: agent_data[:metadata],
     status: 'active'
   )
@@ -346,7 +346,7 @@ unless blog_workflow_template
           'node_type' => 'webhook',
           'name' => 'Publish Content',
           'description' => 'Send content to publishing platform',
-          'position' => { 'x' => 1100, 'y' => 100 },
+          'position' => { 'x' => 1100, 'y' => 50 },
           'configuration' => {
             'url' => '{{publishing_webhook_url}}',
             'method' => 'POST',
@@ -368,11 +368,26 @@ unless blog_workflow_template
           'node_type' => 'ai_agent',
           'name' => 'Request Revision',
           'description' => 'Generate revision suggestions',
-          'position' => { 'x' => 900, 'y' => 300 },
+          'position' => { 'x' => 1100, 'y' => 200 },
           'configuration' => {
             'agent_id' => '{{blog_generator_agent_id}}',
             'prompt_template' => 'The blog post needs revision. Current content: {{blog_content}}\n\nProvide specific suggestions to improve:\n1) Content length (target: {{word_count}} words)\n2) Structure and flow\n3) SEO optimization\n4) Engagement factors',
             'output_variables' => [ 'revision_suggestions' ]
+          }
+        },
+        {
+          'node_id' => 'end',
+          'node_type' => 'end',
+          'name' => 'Complete',
+          'description' => 'Workflow completion',
+          'position' => { 'x' => 1300, 'y' => 100 },
+          'configuration' => {
+            'output_mapping' => {
+              'published' => '{{publish_webhook.success}}',
+              'revision_needed' => '{{revision_suggestions}}',
+              'seo_title' => '{{seo_title}}',
+              'meta_description' => '{{meta_description}}'
+            }
           }
         }
       ],
@@ -410,6 +425,16 @@ unless blog_workflow_template
           'target_node_id' => 'revision_needed',
           'condition_type' => 'path',
           'condition_value' => 'false'
+        },
+        {
+          'edge_id' => 'publish_to_end',
+          'source_node_id' => 'publish_webhook',
+          'target_node_id' => 'end'
+        },
+        {
+          'edge_id' => 'revision_to_end',
+          'source_node_id' => 'revision_needed',
+          'target_node_id' => 'end'
         }
       ],
       'variables' => [
@@ -482,6 +507,14 @@ unless code_review_template
         'cost_limit' => 3.0
       },
       'nodes' => [
+        {
+          'node_id' => 'start',
+          'node_type' => 'start',
+          'name' => 'Start Review',
+          'description' => 'Begin code review process',
+          'position' => { 'x' => 50, 'y' => 300 },
+          'configuration' => {}
+        },
         {
           'node_id' => 'code_analysis',
           'node_type' => 'ai_agent',
@@ -586,6 +619,20 @@ unless code_review_template
               'reviewer' => 'AI Code Review System'
             }
           }
+        },
+        {
+          'node_id' => 'end',
+          'node_type' => 'end',
+          'name' => 'Review Complete',
+          'description' => 'Code review workflow complete',
+          'position' => { 'x' => 1100, 'y' => 300 },
+          'configuration' => {
+            'output_mapping' => {
+              'status' => '{{approval_check.result}}',
+              'overall_rating' => '{{overall_rating}}',
+              'review_report' => '{{review_report}}'
+            }
+          }
         }
       ],
       'edges' => [
@@ -637,6 +684,16 @@ unless code_review_template
           'target_node_id' => 'request_changes_webhook',
           'condition_type' => 'path',
           'condition_value' => 'false'
+        },
+        {
+          'edge_id' => 'approve_to_end',
+          'source_node_id' => 'approve_webhook',
+          'target_node_id' => 'end'
+        },
+        {
+          'edge_id' => 'changes_to_end',
+          'source_node_id' => 'request_changes_webhook',
+          'target_node_id' => 'end'
         }
       ]
     }
@@ -742,6 +799,22 @@ unless blog_workflow
     metadata: { 'color' => '#EF4444', 'estimated_duration' => '30s' }
   )
 
+  end_node = blog_workflow.workflow_nodes.create!(
+    node_id: 'end_node',
+    node_type: 'end',
+    name: 'Blog Complete',
+    description: 'Blog generation workflow complete',
+    position: { 'x' => 1100, 'y' => 150 },
+    configuration: {
+      'output_mapping' => {
+        'seo_title' => '{{seo_title}}',
+        'meta_description' => '{{meta_description}}',
+        'optimized_content' => '{{optimized_content}}'
+      }
+    },
+    metadata: { 'color' => '#10B981' }
+  )
+
   # Create workflow edges
   blog_workflow.edges.create!(
     edge_id: 'start_to_research',
@@ -761,6 +834,13 @@ unless blog_workflow
     edge_id: 'content_to_seo',
     source_node_id: 'content_generation',
     target_node_id: 'seo_optimization',
+    metadata: { 'transition_type' => 'automatic' }
+  )
+
+  blog_workflow.edges.create!(
+    edge_id: 'seo_to_end',
+    source_node_id: 'seo_optimization',
+    target_node_id: 'end_node',
     metadata: { 'transition_type' => 'automatic' }
   )
 
@@ -809,6 +889,17 @@ unless data_analysis_workflow
     creator: admin_user
   )
 
+  # Create start node
+  data_analysis_workflow.workflow_nodes.create!(
+    node_id: 'start_node',
+    node_type: 'start',
+    name: 'Start Analysis',
+    description: 'Begin data analysis process',
+    position: { 'x' => 50, 'y' => 150 },
+    configuration: {},
+    metadata: { 'color' => '#10B981' }
+  )
+
   # Create analysis nodes
   data_analysis_workflow.workflow_nodes.create!(
     node_id: 'data_validation',
@@ -849,7 +940,30 @@ unless data_analysis_workflow
     }
   )
 
+  # Create end node
+  data_analysis_workflow.workflow_nodes.create!(
+    node_id: 'end_node',
+    node_type: 'end',
+    name: 'Analysis Complete',
+    description: 'Data analysis workflow complete',
+    position: { 'x' => 950, 'y' => 150 },
+    configuration: {
+      'output_mapping' => {
+        'insights' => '{{insights}}',
+        'recommendations' => '{{recommendations}}',
+        'executive_summary' => '{{executive_summary}}'
+      }
+    },
+    metadata: { 'color' => '#10B981' }
+  )
+
   # Create edges
+  data_analysis_workflow.edges.create!(
+    edge_id: 'start_to_validation',
+    source_node_id: 'start_node',
+    target_node_id: 'data_validation'
+  )
+
   data_analysis_workflow.edges.create!(
     edge_id: 'validation_to_trends',
     source_node_id: 'data_validation',
@@ -860,6 +974,12 @@ unless data_analysis_workflow
     edge_id: 'trends_to_insights',
     source_node_id: 'trend_analysis',
     target_node_id: 'insights_generation'
+  )
+
+  data_analysis_workflow.edges.create!(
+    edge_id: 'insights_to_end',
+    source_node_id: 'insights_generation',
+    target_node_id: 'end_node'
   )
 end
 

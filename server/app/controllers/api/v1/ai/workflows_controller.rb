@@ -802,7 +802,7 @@ module Api
         def run_process
           # Workflow orchestration endpoint called by worker service
           begin
-            orchestrator = Mcp::AiWorkflowOrchestrator.new(
+            orchestrator = ::Mcp::AiWorkflowOrchestrator.new(
               workflow_run: @workflow_run,
               account: @workflow_run.account,
               user: @workflow_run.triggered_by_user

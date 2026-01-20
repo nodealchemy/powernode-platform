@@ -169,7 +169,7 @@ class User < ApplicationRecord
 
     # Assign permissions to the role (even if empty array)
     @pending_permissions.each do |permission_name|
-      permission = Permission.find_or_create_by!(name: permission_name)
+      permission = Permission.find_or_create_from_name!(permission_name)
       role.permissions << permission unless role.permissions.include?(permission)
     end
 

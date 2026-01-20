@@ -202,7 +202,7 @@ module Api
           end
 
           # Always include pipeline step definitions for execution
-          result[:steps] = run.pipeline.steps.active.order(:position).map do |step|
+          result[:steps] = run.pipeline.pipeline_steps.active.order(:position).map do |step|
             {
               id: step.id,
               name: step.name,

@@ -133,6 +133,24 @@ class Account < ApplicationRecord
   has_many :file_objects, class_name: "FileManagement::Object", dependent: :destroy
   has_many :file_tags, class_name: "FileManagement::Tag", dependent: :destroy
 
+  # Reseller Program associations
+  has_one :reseller, dependent: :destroy
+  has_one :reseller_referral, class_name: "ResellerReferral", foreign_key: :referred_account_id, dependent: :destroy
+
+  # Usage Tracking associations
+  has_many :usage_events, dependent: :destroy
+  has_many :usage_summaries, dependent: :destroy
+  has_many :usage_quotas, dependent: :destroy
+
+  # BaaS (Billing-as-a-Service) associations
+  has_many :baas_tenants, class_name: "BaaS::Tenant", dependent: :destroy
+
+  # Revenue Intelligence associations
+  has_many :customer_health_scores, dependent: :destroy
+  has_many :churn_predictions, dependent: :destroy
+  has_many :revenue_forecasts, dependent: :destroy
+  has_many :analytics_alerts, dependent: :destroy
+
   # Subscription-related associations
   has_many :invoices, through: :subscription
   has_many :payments, through: :invoices

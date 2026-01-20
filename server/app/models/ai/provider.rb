@@ -13,7 +13,7 @@ module Ai
     include Ai::Provider::ModelManagement
     include Ai::Provider::Configurable
     include Ai::Provider::ProviderSetup
-    include Ai::Provider::CicdIntegration
+    include Ai::Provider::DevopsIntegration
 
     # Associations
     belongs_to :account
@@ -172,7 +172,7 @@ module Ai
         document_analysis image_generation image_analysis vision code_execution
         text_embedding code_embedding audio_generation audio_transcription
         video_generation video_analysis translation summarization
-        search retrieval fine_tuning model_training cicd_execution
+        search retrieval fine_tuning model_training devops_execution
       ]
 
       unknown_capabilities = capabilities - known_capabilities
