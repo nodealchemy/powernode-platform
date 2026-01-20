@@ -61,12 +61,13 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
     end
 
     context 'when user has no account association' do
-      let(:orphan_user) { create(:user, account: nil) }
-
       it 'returns unauthorized error' do
-        # This test requires special handling since user factory requires account
-        # Skip or mock this scenario as appropriate
-        skip 'User factory requires account association'
+        # Mock current_account to return nil to simulate user without account
+        allow_any_instance_of(Api::V1::SubscriptionsController).to receive(:current_account).and_return(nil)
+
+        get '/api/v1/subscriptions', headers: headers, as: :json
+
+        expect_error_response('No account associated with user', 401)
       end
     end
   end

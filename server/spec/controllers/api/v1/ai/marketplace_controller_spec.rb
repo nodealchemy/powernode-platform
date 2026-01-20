@@ -513,9 +513,16 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     let!(:recommended_template) { create(:ai_workflow_template, is_public: true, category: 'automation') }
 
     context 'with read permission' do
+      let(:mock_service) { double('MarketplaceService') }
+
       before do
         sign_in workflow_read_user
-        allow_any_instance_of(Mcp::WorkflowMarketplaceService).to receive(:get_recommendations_for_account).and_return([ recommended_template ])
+        # Stub the controller's before_action to inject a mock service
+        # This avoids database association issues in recommend_based_on_installed_templates
+        allow_any_instance_of(Api::V1::Ai::MarketplaceController).to receive(:set_marketplace_service) do |controller_instance|
+          controller_instance.instance_variable_set(:@marketplace_service, mock_service)
+        end
+        allow(mock_service).to receive(:get_recommendations_for_account).and_return([])
       end
 
       it 'returns personalized recommendations' do
@@ -551,9 +558,13 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     let!(:template2) { create(:ai_workflow_template, is_public: true) }
 
     it 'compares multiple templates' do
-      allow_any_instance_of(Mcp::WorkflowMarketplaceService).to receive(:compare_templates).and_return({
+      mock_service = double('MarketplaceService')
+      allow_any_instance_of(Api::V1::Ai::MarketplaceController).to receive(:set_marketplace_service) do |controller_instance|
+        controller_instance.instance_variable_set(:@marketplace_service, mock_service)
+      end
+      allow(mock_service).to receive(:compare_templates).and_return({
         templates: [ template1.id, template2.id ],
-        comparison: {}
+        comparison: { features: [] }
       })
 
       post :compare, params: { template_ids: [ template1.id, template2.id ] }

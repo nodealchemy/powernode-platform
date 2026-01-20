@@ -7,31 +7,31 @@ FactoryBot.define do
     description { 'A team of AI agents working together' }
     team_type { 'hierarchical' }
     goal_description { 'Complete complex multi-step tasks through collaboration' }
-    coordination_strategy { 'manager_worker' }
+    coordination_strategy { 'manager_led' }
     team_config { { max_iterations: 10, timeout_seconds: 300 } }
     status { 'active' }
 
     trait :hierarchical do
       team_type { 'hierarchical' }
-      coordination_strategy { 'manager_worker' }
-      description { 'Hierarchical team with manager-worker coordination' }
+      coordination_strategy { 'manager_led' }
+      description { 'Hierarchical team with manager-led coordination' }
     end
 
     trait :mesh do
       team_type { 'mesh' }
-      coordination_strategy { 'peer_to_peer' }
-      description { 'Mesh team with peer-to-peer coordination' }
+      coordination_strategy { 'consensus' }
+      description { 'Mesh team with consensus coordination' }
     end
 
     trait :sequential do
       team_type { 'sequential' }
-      coordination_strategy { 'manager_worker' }
+      coordination_strategy { 'priority_based' }
       description { 'Sequential team executing tasks in order' }
     end
 
     trait :parallel do
       team_type { 'parallel' }
-      coordination_strategy { 'hybrid' }
+      coordination_strategy { 'round_robin' }
       description { 'Parallel team executing tasks concurrently' }
     end
 

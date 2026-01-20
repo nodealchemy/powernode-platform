@@ -12,15 +12,15 @@ RSpec.describe Ai::AgentTeamOrchestrator, type: :service do
     # Set appropriate coordination strategy based on team type
     coordination_strategy = case team_type
     when 'hierarchical'
-                             'manager_worker'
+                             'manager_led'
     when 'sequential'
-                             'manager_worker'
+                             'priority_based'
     when 'mesh'
-                             'peer_to_peer'
+                             'consensus'
     when 'parallel'
-                             'hybrid'
+                             'round_robin'
     else
-                             'manager_worker'
+                             'manager_led'
     end
 
     team = create(:ai_agent_team,

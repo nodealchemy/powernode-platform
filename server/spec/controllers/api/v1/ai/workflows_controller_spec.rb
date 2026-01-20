@@ -586,8 +586,13 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
 
     describe 'POST #run_process' do
       it 'processes workflow run via orchestrator' do
-        allow_any_instance_of(Mcp::AiWorkflowOrchestrator).to receive(:execute).and_return(workflow_run)
-        workflow_run.update!(status: 'completed', completed_at: Time.current)
+        # Create a completed workflow_run to be returned by the mock orchestrator
+        workflow_run.update!(status: 'completed', completed_at: Time.current, output_variables: { result: 'test' })
+
+        # Mock the orchestrator class to return a mock that returns the completed workflow_run
+        mock_orchestrator = double('AiWorkflowOrchestrator')
+        allow(Mcp::AiWorkflowOrchestrator).to receive(:new).and_return(mock_orchestrator)
+        allow(mock_orchestrator).to receive(:execute).and_return(workflow_run)
 
         post :run_process, params: { workflow_id: workflow.id, run_id: workflow_run.run_id }
 

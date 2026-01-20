@@ -198,7 +198,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
         name: 'New Team',
         description: 'A new test team',
         team_type: 'sequential',
-        coordination_strategy: 'manager_worker',
+        coordination_strategy: 'priority_based',
         status: 'active',
         team_config: { 'max_iterations' => 10 }
       }
@@ -261,7 +261,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       it 'returns validation errors for incompatible coordination strategy' do
         invalid_params = valid_params.deep_dup
         invalid_params[:team_type] = 'mesh'
-        invalid_params[:coordination_strategy] = 'manager_worker'
+        invalid_params[:coordination_strategy] = 'manager_led'
 
         post '/api/v1/ai/agent_teams', params: invalid_params, headers: headers, as: :json
 

@@ -46,25 +46,25 @@ RSpec.describe Ai::AgentTeam, type: :model do
     end
 
     describe 'coordination compatibility' do
-      it 'warns when hierarchical team uses peer_to_peer coordination' do
-        team = build(:ai_agent_team, team_type: 'hierarchical', coordination_strategy: 'peer_to_peer')
+      it 'warns when hierarchical team uses consensus coordination' do
+        team = build(:ai_agent_team, team_type: 'hierarchical', coordination_strategy: 'consensus')
         expect(team).not_to be_valid
         expect(team.errors[:coordination_strategy]).to be_present
       end
 
-      it 'warns when mesh team uses manager_worker coordination' do
-        team = build(:ai_agent_team, team_type: 'mesh', coordination_strategy: 'manager_worker')
+      it 'warns when mesh team uses manager_led coordination' do
+        team = build(:ai_agent_team, team_type: 'mesh', coordination_strategy: 'manager_led')
         expect(team).not_to be_valid
         expect(team.errors[:coordination_strategy]).to be_present
       end
 
-      it 'allows hierarchical team with manager_worker coordination' do
-        team = build(:ai_agent_team, team_type: 'hierarchical', coordination_strategy: 'manager_worker')
+      it 'allows hierarchical team with manager_led coordination' do
+        team = build(:ai_agent_team, team_type: 'hierarchical', coordination_strategy: 'manager_led')
         expect(team).to be_valid
       end
 
-      it 'allows mesh team with peer_to_peer coordination' do
-        team = build(:ai_agent_team, team_type: 'mesh', coordination_strategy: 'peer_to_peer')
+      it 'allows mesh team with consensus coordination' do
+        team = build(:ai_agent_team, team_type: 'mesh', coordination_strategy: 'consensus')
         expect(team).to be_valid
       end
     end
@@ -244,13 +244,13 @@ RSpec.describe Ai::AgentTeam, type: :model do
     it 'creates hierarchical teams' do
       team = create(:ai_agent_team, :hierarchical)
       expect(team.team_type).to eq('hierarchical')
-      expect(team.coordination_strategy).to eq('manager_worker')
+      expect(team.coordination_strategy).to eq('manager_led')
     end
 
     it 'creates mesh teams' do
       team = create(:ai_agent_team, :mesh)
       expect(team.team_type).to eq('mesh')
-      expect(team.coordination_strategy).to eq('peer_to_peer')
+      expect(team.coordination_strategy).to eq('consensus')
     end
 
     it 'creates content generation crew' do
