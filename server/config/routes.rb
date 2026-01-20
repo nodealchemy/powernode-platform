@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 Rails.application.routes.draw do
+  # OpenAPI/Swagger documentation
+  mount Rswag::Ui::Engine => "/api-docs"
+  mount Rswag::Api::Engine => "/api-docs"
+
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
@@ -13,6 +17,64 @@ Rails.application.routes.draw do
 
   # API Routes
   namespace :api do
+    # =========================================================================
+    # BaaS API - Billing-as-a-Service for external customers
+    # =========================================================================
+    namespace :baas do
+      namespace :v1 do
+        # Tenant management
+        resource :tenant, only: [:show, :create, :update], controller: "tenants" do
+          get :dashboard
+          get :limits
+          get :billing_configuration
+          patch :billing_configuration, action: :update_billing_configuration
+        end
+
+        # API Keys
+        resources :api_keys, only: [:index, :show, :create, :update, :destroy] do
+          member do
+            post :roll
+          end
+        end
+
+        # Customers
+        resources :customers, only: [:index, :show, :create, :update, :destroy], param: :id
+
+        # Subscriptions
+        resources :subscriptions, only: [:index, :show, :create, :update], param: :id do
+          member do
+            post :cancel
+            post :pause
+            post :resume
+          end
+        end
+
+        # Invoices
+        resources :invoices, only: [:index, :show, :create, :update, :destroy], param: :id do
+          member do
+            post :finalize
+            post :pay
+            post :void
+            post :line_items, action: :add_line_item
+            delete "line_items/:item_id", action: :remove_line_item
+          end
+        end
+
+        # Usage events/metering
+        resources :usage_events, only: [:create], controller: "usage" do
+          collection do
+            post :batch
+          end
+        end
+
+        # Usage queries
+        get "usage", to: "usage#index"
+        get "usage/summary", to: "usage#summary"
+        get "usage/aggregate", to: "usage#aggregate"
+        get "usage/analytics", to: "usage#analytics"
+      end
+    end
+
     namespace :v1 do
       # Health check endpoint for load balancers
       get :health, to: proc { [ 200, {}, [ { status: "ok" }.to_json ] ] }
@@ -795,7 +857,88 @@ Rails.application.routes.draw do
         post :recalculate
         post :update_revenue_snapshots
         post :update_metrics
+
+        # Analytics tiers
+        resources :tiers, only: [:index, :show], controller: "analytics_tiers", param: :slug do
+          collection do
+            get :current
+            get :comparison
+            get :feature_gates
+            post :upgrade
+          end
+        end
       end
+
+      # Usage tracking endpoints
+      resources :usage, only: [] do
+        collection do
+          get :dashboard
+          get :meters
+          get :history
+          get :billing_summary
+          get :quotas
+          get :export
+          post :quotas, to: "usage#set_quota"
+          post "quotas/reset", to: "usage#reset_quotas"
+        end
+      end
+      get "usage/meters/:slug", to: "usage#meter"
+      resources :usage_events, only: [:create], path: "usage_events", controller: "usage" do
+        collection do
+          post :batch, to: "usage#track_events_batch"
+        end
+      end
+      post "usage_events", to: "usage#track_event"
+
+      # Predictive Analytics & Revenue Intelligence
+      namespace :predictive_analytics, path: "predictive-analytics" do
+        # Health scores
+        get :health_scores
+        get "health_scores/:id", action: :health_score
+        post "health_scores/calculate", action: :calculate_health_score
+
+        # Churn predictions
+        get :churn_predictions
+        get "churn_predictions/:id", action: :churn_prediction
+        post "churn_predictions/predict", action: :predict_churn
+
+        # Revenue forecasts
+        get :revenue_forecasts
+        post "revenue_forecasts/generate", action: :generate_forecast
+
+        # Alerts
+        get :alerts
+        post :alerts, action: :create_alert
+        get "alerts/:id", action: :alert
+        patch "alerts/:id", action: :update_alert
+        delete "alerts/:id", action: :delete_alert
+        get "alerts/:id/events", action: :alert_events
+        post "alerts/:id/acknowledge", action: :acknowledge_alert
+
+        # Summary and recommendations
+        get :summary
+        get :recommendations
+      end
+
+      # Reseller program endpoints
+      resources :resellers do
+        collection do
+          get :me
+          get :tiers
+          post :track_referral
+        end
+        member do
+          get :dashboard
+          get :commissions
+          get :referrals
+          get :payouts
+          post :request_payout
+          post :approve
+          post :activate
+          post :suspend
+        end
+      end
+      post "resellers/payouts/:payout_id/process", to: "resellers#process_payout"
 
       # Payment reconciliation endpoints (service-to-service)
       namespace :reconciliation do
@@ -1658,6 +1801,24 @@ Rails.application.routes.draw do
         # Updates
         get "marketplace/updates", controller: "marketplace", action: :check_updates
         post "marketplace/updates/apply", controller: "marketplace", action: :apply_updates
+
+        # ===================================================================
+        # 8b. PUBLISHER CONTROLLER - Publisher dashboard and earnings
+        # ===================================================================
+        # Publisher-specific routes for marketplace publishers
+        get "publisher/me", controller: "publisher", action: :me, as: :publisher_me
+        resources :publisher, only: [:index, :show, :create], controller: "publisher" do
+          member do
+            get :dashboard
+            get :analytics
+            get :earnings
+            get :templates
+            get :payouts
+            post :request_payout
+            post :stripe_setup
+            get :stripe_status
+          end
+        end
 
         # ===================================================================
         # 9. PERSISTENT CONTEXT CONTROLLER - Cross-session AI memory

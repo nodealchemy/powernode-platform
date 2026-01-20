@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# CI/CD Pipeline System - Default Seed Data
-# Creates default prompt templates for common AI-powered CI/CD operations
+# DevOps Pipeline System - Default Seed Data
+# Creates default prompt templates for common AI-powered DevOps operations
 
-puts "Seeding CI/CD default data..."
+puts "Seeding DevOps default data..."
 
 # Get or create a system account for default templates
 system_account = Account.find_by(name: "System") ||
@@ -268,11 +268,11 @@ default_templates.each do |template_attrs|
     slug: template_attrs[:slug]
   )
 
-  template.assign_attributes(template_attrs.except(:slug).merge(domain: "cicd"))
+  template.assign_attributes(template_attrs.except(:slug).merge(domain: "devops"))
   template.save!
 
   puts "  Created/Updated prompt template: #{template.name}"
 end
 
-puts "CI/CD seed data complete!"
+puts "DevOps seed data complete!"
 puts "  - Created #{default_templates.count} prompt templates"

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# CI/CD Comprehensive Workflow Seeds
-# Creates example pipelines demonstrating ALL CI/CD capabilities including:
+# DevOps Comprehensive Workflow Seeds
+# Creates example pipelines demonstrating ALL DevOps capabilities including:
 # - All 11 step types (checkout, claude_execute, post_comment, create_pr, create_branch,
 #   upload_artifact, download_artifact, run_tests, deploy, notify, custom)
 # - All trigger types (manual, push, PR, schedule, webhook, issue_comment)
@@ -11,7 +11,7 @@
 # - AI-powered automation with prompt templates
 
 puts "=" * 60
-puts "Seeding Comprehensive CI/CD Workflows..."
+puts "Seeding Comprehensive DevOps Workflows..."
 puts "=" * 60
 
 # ============================================
@@ -59,7 +59,7 @@ puts "  Using AI provider: #{ai_provider.name}"
 
 puts "\n  Creating Git Provider..."
 
-git_provider = CiCd::Provider.find_or_create_by!(
+git_provider = Devops::Provider.find_or_create_by!(
   account: system_account,
   name: "GitHub Enterprise"
 ) do |p|
@@ -81,7 +81,7 @@ puts "    ✓ Git Provider: #{git_provider.name}"
 
 puts "\n  Creating Repository..."
 
-repository = CiCd::Repository.find_or_create_by!(
+repository = Devops::Repository.find_or_create_by!(
   account: system_account,
   full_name: "powernode/example-app"
 ) do |r|
@@ -120,7 +120,7 @@ prompt_templates[:pr_review] = Shared::PromptTemplate.find_or_create_by!(
   t.name = "Comprehensive PR Review"
   t.description = "Full AI-powered PR review with security, quality, and performance analysis"
   t.category = "review"
-  t.domain = "cicd"
+  t.domain = "devops"
   t.content = <<~'PROMPT'
     You are an expert code reviewer. Analyze this pull request thoroughly.
 
@@ -174,7 +174,7 @@ prompt_templates[:security_scan] = Shared::PromptTemplate.find_or_create_by!(
   t.name = "Deep Security Analysis"
   t.description = "AI-powered security vulnerability scanning with CVSS scoring"
   t.category = "security"
-  t.domain = "cicd"
+  t.domain = "devops"
   t.content = <<~'PROMPT'
     Perform a comprehensive security analysis of the codebase.
 
@@ -221,7 +221,7 @@ prompt_templates[:issue_implementation] = Shared::PromptTemplate.find_or_create_
   t.name = "Issue to Implementation"
   t.description = "Automatically implement features or fix bugs from GitHub issues"
   t.category = "implement"
-  t.domain = "cicd"
+  t.domain = "devops"
   t.content = <<~'PROMPT'
     You are implementing a solution for the following issue:
 
@@ -260,7 +260,7 @@ prompt_templates[:deployment_validation] = Shared::PromptTemplate.find_or_create
   t.name = "Post-Deployment Validation"
   t.description = "Validates deployment health and functionality"
   t.category = "deploy"
-  t.domain = "cicd"
+  t.domain = "devops"
   t.content = <<~'PROMPT'
     Perform post-deployment validation for {{ environment }} environment.
 
@@ -301,17 +301,17 @@ prompt_templates.each do |key, template|
 end
 
 # ============================================
-# Pipeline 1: Full CI/CD with AI Review
+# Pipeline 1: Full DevOps with AI Review
 # Demonstrates: checkout, claude_execute, run_tests, post_comment, notify, deploy
 # ============================================
 
-puts "\n  Creating Pipeline 1: Full CI/CD with AI Review..."
+puts "\n  Creating Pipeline 1: Full DevOps with AI Review..."
 
-pipeline1 = CiCd::Pipeline.find_or_create_by!(
+pipeline1 = Devops::Pipeline.find_or_create_by!(
   account: system_account,
-  slug: "full-cicd-ai-review"
+  slug: "full-devops-ai-review"
 ) do |p|
-  p.name = "Full CI/CD Pipeline with AI Review"
+  p.name = "Full DevOps Pipeline with AI Review"
   p.description = "Comprehensive pipeline with AI code review, security scanning, human approval, and multi-stage deployment"
   p.pipeline_type = "deploy"
   p.provider = git_provider
@@ -338,10 +338,10 @@ pipeline1 = CiCd::Pipeline.find_or_create_by!(
   p.created_by = admin_user
 end
 
-pipeline1.steps.destroy_all
+pipeline1.pipeline_steps.destroy_all
 
 # Step 1: Checkout
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline1,
   name: "Checkout Repository",
   step_type: "checkout",
@@ -359,7 +359,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 2: AI Code Review
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline1,
   name: "AI Code Review",
   step_type: "claude_execute",
@@ -389,7 +389,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 3: Security Analysis
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline1,
   name: "Security Analysis",
   step_type: "claude_execute",
@@ -411,7 +411,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 4: Run Tests
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline1,
   name: "Run Test Suite",
   step_type: "run_tests",
@@ -435,7 +435,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 5: Post Review Comment
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline1,
   name: "Post Review Results",
   step_type: "post_comment",
@@ -467,7 +467,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 6: Human Approval Gate
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline1,
   name: "Request Human Approval",
   step_type: "notify",
@@ -498,7 +498,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 7: Deploy to Staging
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline1,
   name: "Deploy to Staging",
   step_type: "deploy",
@@ -521,7 +521,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 8: Validate Staging
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline1,
   name: "Validate Staging Deployment",
   step_type: "claude_execute",
@@ -547,7 +547,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 9: Deploy to Production
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline1,
   name: "Deploy to Production",
   step_type: "deploy",
@@ -572,7 +572,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 10: Completion Notification
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline1,
   name: "Send Completion Notification",
   step_type: "notify",
@@ -591,9 +591,9 @@ CiCd::PipelineStep.create!(
   outputs: []
 )
 
-puts "    ✓ Pipeline: #{pipeline1.name} (#{pipeline1.steps.count} steps)"
+puts "    ✓ Pipeline: #{pipeline1.name} (#{pipeline1.pipeline_steps.count} steps)"
 
-CiCd::PipelineRepository.find_or_create_by!(pipeline: pipeline1, repository: repository)
+Devops::PipelineRepository.find_or_create_by!(pipeline: pipeline1, repository: repository)
 
 # ============================================
 # Pipeline 2: AI Issue Auto-Implementation
@@ -602,7 +602,7 @@ CiCd::PipelineRepository.find_or_create_by!(pipeline: pipeline1, repository: rep
 
 puts "\n  Creating Pipeline 2: AI Issue Auto-Implementation..."
 
-pipeline2 = CiCd::Pipeline.find_or_create_by!(
+pipeline2 = Devops::Pipeline.find_or_create_by!(
   account: system_account,
   slug: "issue-auto-implementation"
 ) do |p|
@@ -626,10 +626,10 @@ pipeline2 = CiCd::Pipeline.find_or_create_by!(
   p.created_by = admin_user
 end
 
-pipeline2.steps.destroy_all
+pipeline2.pipeline_steps.destroy_all
 
 # Step 1: Checkout
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline2,
   name: "Checkout Repository",
   step_type: "checkout",
@@ -641,7 +641,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 2: Create Feature Branch
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline2,
   name: "Create Feature Branch",
   step_type: "create_branch",
@@ -656,7 +656,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 3: AI Implementation
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline2,
   name: "AI Implementation",
   step_type: "claude_execute",
@@ -681,7 +681,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 4: Verify Changes
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline2,
   name: "Verify Changes",
   step_type: "run_tests",
@@ -698,7 +698,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 5: Create Pull Request
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline2,
   name: "Create Pull Request",
   step_type: "create_pr",
@@ -737,7 +737,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 6: Update Issue
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline2,
   name: "Update Issue",
   step_type: "post_comment",
@@ -761,9 +761,9 @@ CiCd::PipelineStep.create!(
   outputs: []
 )
 
-puts "    ✓ Pipeline: #{pipeline2.name} (#{pipeline2.steps.count} steps)"
+puts "    ✓ Pipeline: #{pipeline2.name} (#{pipeline2.pipeline_steps.count} steps)"
 
-CiCd::PipelineRepository.find_or_create_by!(pipeline: pipeline2, repository: repository)
+Devops::PipelineRepository.find_or_create_by!(pipeline: pipeline2, repository: repository)
 
 # ============================================
 # Pipeline 3: Nightly Security Scan
@@ -772,7 +772,7 @@ CiCd::PipelineRepository.find_or_create_by!(pipeline: pipeline2, repository: rep
 
 puts "\n  Creating Pipeline 3: Nightly Security Scan..."
 
-pipeline3 = CiCd::Pipeline.find_or_create_by!(
+pipeline3 = Devops::Pipeline.find_or_create_by!(
   account: system_account,
   slug: "scheduled-security-scan"
 ) do |p|
@@ -790,10 +790,10 @@ pipeline3 = CiCd::Pipeline.find_or_create_by!(
   p.created_by = admin_user
 end
 
-pipeline3.steps.destroy_all
+pipeline3.pipeline_steps.destroy_all
 
 # Step 1: Checkout
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline3,
   name: "Checkout Repository",
   step_type: "checkout",
@@ -805,7 +805,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 2: Deep Security Analysis
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline3,
   name: "Deep Security Analysis",
   step_type: "claude_execute",
@@ -827,7 +827,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 3: Create Security Report (custom step)
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline3,
   name: "Create Security Report Issue",
   step_type: "custom",
@@ -861,7 +861,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 4: Alert on Critical
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline3,
   name: "Alert on Critical Findings",
   step_type: "notify",
@@ -880,12 +880,12 @@ CiCd::PipelineStep.create!(
   condition: "steps.deep_security_analysis.outputs.severity_summary.critical > 0"
 )
 
-puts "    ✓ Pipeline: #{pipeline3.name} (#{pipeline3.steps.count} steps)"
+puts "    ✓ Pipeline: #{pipeline3.name} (#{pipeline3.pipeline_steps.count} steps)"
 
-CiCd::PipelineRepository.find_or_create_by!(pipeline: pipeline3, repository: repository)
+Devops::PipelineRepository.find_or_create_by!(pipeline: pipeline3, repository: repository)
 
 # Create schedule for Pipeline 3
-CiCd::Schedule.find_or_create_by!(pipeline: pipeline3, name: "Nightly Run") do |s|
+Devops::Schedule.find_or_create_by!(pipeline: pipeline3, name: "Nightly Run") do |s|
   s.cron_expression = "0 2 * * *"
   s.timezone = "UTC"
   s.is_active = true
@@ -900,7 +900,7 @@ end
 
 puts "\n  Creating Pipeline 4: Build & Release..."
 
-pipeline4 = CiCd::Pipeline.find_or_create_by!(
+pipeline4 = Devops::Pipeline.find_or_create_by!(
   account: system_account,
   slug: "build-and-release"
 ) do |p|
@@ -924,10 +924,10 @@ pipeline4 = CiCd::Pipeline.find_or_create_by!(
   p.created_by = admin_user
 end
 
-pipeline4.steps.destroy_all
+pipeline4.pipeline_steps.destroy_all
 
 # Step 1: Checkout
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline4,
   name: "Checkout Repository",
   step_type: "checkout",
@@ -942,7 +942,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 2: Run Tests
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline4,
   name: "Run Full Test Suite",
   step_type: "run_tests",
@@ -963,7 +963,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 3: Build Application (custom)
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline4,
   name: "Build Application",
   step_type: "custom",
@@ -991,7 +991,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 4: Upload Artifact
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline4,
   name: "Upload Build Artifact",
   step_type: "upload_artifact",
@@ -1012,7 +1012,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 5: Download Artifact (for deploy step)
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline4,
   name: "Download Build Artifact",
   step_type: "download_artifact",
@@ -1030,7 +1030,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 6: Deploy to CDN
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline4,
   name: "Deploy to CDN",
   step_type: "deploy",
@@ -1052,9 +1052,9 @@ CiCd::PipelineStep.create!(
   ]
 )
 
-puts "    ✓ Pipeline: #{pipeline4.name} (#{pipeline4.steps.count} steps)"
+puts "    ✓ Pipeline: #{pipeline4.name} (#{pipeline4.pipeline_steps.count} steps)"
 
-CiCd::PipelineRepository.find_or_create_by!(pipeline: pipeline4, repository: repository)
+Devops::PipelineRepository.find_or_create_by!(pipeline: pipeline4, repository: repository)
 
 # ============================================
 # Pipeline 5: Multi-Environment Deploy (NEW)
@@ -1063,7 +1063,7 @@ CiCd::PipelineRepository.find_or_create_by!(pipeline: pipeline4, repository: rep
 
 puts "\n  Creating Pipeline 5: Multi-Environment Deploy..."
 
-pipeline5 = CiCd::Pipeline.find_or_create_by!(
+pipeline5 = Devops::Pipeline.find_or_create_by!(
   account: system_account,
   slug: "multi-environment-deploy"
 ) do |p|
@@ -1090,10 +1090,10 @@ pipeline5 = CiCd::Pipeline.find_or_create_by!(
   p.created_by = admin_user
 end
 
-pipeline5.steps.destroy_all
+pipeline5.pipeline_steps.destroy_all
 
 # Step 1: Checkout
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline5,
   name: "Checkout Repository",
   step_type: "checkout",
@@ -1108,7 +1108,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 2: Download Artifact
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline5,
   name: "Download Pre-built Artifact",
   step_type: "download_artifact",
@@ -1126,7 +1126,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 3: Deploy to Development
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline5,
   name: "Deploy to Development",
   step_type: "deploy",
@@ -1149,7 +1149,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 4: Run Smoke Tests (custom)
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline5,
   name: "Run Smoke Tests",
   step_type: "custom",
@@ -1172,7 +1172,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 5: Deploy to Staging
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline5,
   name: "Deploy to Staging",
   step_type: "deploy",
@@ -1196,7 +1196,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 6: Request Production Approval
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline5,
   name: "Request Production Approval",
   step_type: "notify",
@@ -1221,7 +1221,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 7: Deploy to Production
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline5,
   name: "Deploy to Production",
   step_type: "deploy",
@@ -1247,7 +1247,7 @@ CiCd::PipelineStep.create!(
 )
 
 # Step 8: Send Completion Notification
-CiCd::PipelineStep.create!(
+Devops::PipelineStep.create!(
   pipeline: pipeline5,
   name: "Send Deployment Notification",
   step_type: "notify",
@@ -1268,9 +1268,9 @@ CiCd::PipelineStep.create!(
   outputs: []
 )
 
-puts "    ✓ Pipeline: #{pipeline5.name} (#{pipeline5.steps.count} steps)"
+puts "    ✓ Pipeline: #{pipeline5.name} (#{pipeline5.pipeline_steps.count} steps)"
 
-CiCd::PipelineRepository.find_or_create_by!(pipeline: pipeline5, repository: repository)
+Devops::PipelineRepository.find_or_create_by!(pipeline: pipeline5, repository: repository)
 
 # ============================================
 # Create Example Pipeline Runs
@@ -1279,9 +1279,9 @@ CiCd::PipelineRepository.find_or_create_by!(pipeline: pipeline5, repository: rep
 puts "\n  Creating Example Pipeline Runs..."
 
 # Run 1: Successful PR Review
-run1 = CiCd::PipelineRun.find_or_create_by!(
+run1 = Devops::PipelineRun.find_or_create_by!(
   pipeline: pipeline1,
-  run_number: "full-cicd-ai-review-1"
+  run_number: "full-devops-ai-review-1"
 ) do |r|
   r.status = "success"
   r.trigger_type = "pull_request"
@@ -1306,9 +1306,9 @@ end
 puts "    ✓ Run: #{run1.run_number} (#{run1.status})"
 
 # Run 2: Running Deploy
-run2 = CiCd::PipelineRun.find_or_create_by!(
+run2 = Devops::PipelineRun.find_or_create_by!(
   pipeline: pipeline1,
-  run_number: "full-cicd-ai-review-2"
+  run_number: "full-devops-ai-review-2"
 ) do |r|
   r.status = "running"
   r.trigger_type = "push"
@@ -1322,7 +1322,7 @@ end
 puts "    ✓ Run: #{run2.run_number} (#{run2.status})"
 
 # Run 3: Failed Tests
-run3 = CiCd::PipelineRun.find_or_create_by!(
+run3 = Devops::PipelineRun.find_or_create_by!(
   pipeline: pipeline2,
   run_number: "issue-auto-implementation-1"
 ) do |r|
@@ -1347,7 +1347,7 @@ end
 puts "    ✓ Run: #{run3.run_number} (#{run3.status})"
 
 # Run 4: Pending Approval
-run4 = CiCd::PipelineRun.find_or_create_by!(
+run4 = Devops::PipelineRun.find_or_create_by!(
   pipeline: pipeline5,
   run_number: "multi-environment-deploy-1"
 ) do |r|
@@ -1366,7 +1366,7 @@ end
 puts "    ✓ Run: #{run4.run_number} (#{run4.status})"
 
 # Run 5: Cancelled
-run5 = CiCd::PipelineRun.find_or_create_by!(
+run5 = Devops::PipelineRun.find_or_create_by!(
   pipeline: pipeline4,
   run_number: "build-and-release-1"
 ) do |r|
@@ -1385,8 +1385,8 @@ puts "    ✓ Run: #{run5.run_number} (#{run5.status})"
 # Create step executions for successful run
 puts "\n  Creating Step Executions..."
 
-pipeline1.steps.ordered.each_with_index do |step, index|
-  CiCd::StepExecution.find_or_create_by!(
+pipeline1.pipeline_steps.ordered.each_with_index do |step, index|
+  Devops::StepExecution.find_or_create_by!(
     pipeline_run: run1,
     pipeline_step: step
   ) do |e|
@@ -1418,27 +1418,27 @@ puts "    ✓ Created #{run1.step_executions.count} step executions for successf
 # ============================================
 
 puts "\n" + "=" * 60
-puts "CI/CD Comprehensive Workflow Seeding Complete!"
+puts "DevOps Comprehensive Workflow Seeding Complete!"
 puts "=" * 60
 puts "\nCreated:"
 puts "  • 1 Git Provider (#{git_provider.name})"
 puts "  • 1 Repository (#{repository.full_name})"
 puts "  • #{prompt_templates.count} Prompt Templates"
 puts "  • 5 Pipelines:"
-puts "    - #{pipeline1.name} (#{pipeline1.steps.count} steps)"
-puts "    - #{pipeline2.name} (#{pipeline2.steps.count} steps)"
-puts "    - #{pipeline3.name} (#{pipeline3.steps.count} steps)"
-puts "    - #{pipeline4.name} (#{pipeline4.steps.count} steps)"
-puts "    - #{pipeline5.name} (#{pipeline5.steps.count} steps)"
+puts "    - #{pipeline1.name} (#{pipeline1.pipeline_steps.count} steps)"
+puts "    - #{pipeline2.name} (#{pipeline2.pipeline_steps.count} steps)"
+puts "    - #{pipeline3.name} (#{pipeline3.pipeline_steps.count} steps)"
+puts "    - #{pipeline4.name} (#{pipeline4.pipeline_steps.count} steps)"
+puts "    - #{pipeline5.name} (#{pipeline5.pipeline_steps.count} steps)"
 puts "  • 5 Example Pipeline Runs (success, running, failure, pending, cancelled)"
-puts "  • #{CiCd::Schedule.count} Schedule(s)"
+puts "  • #{Devops::Schedule.count} Schedule(s)"
 
-total_steps = pipeline1.steps.count + pipeline2.steps.count + pipeline3.steps.count +
-              pipeline4.steps.count + pipeline5.steps.count
+total_steps = pipeline1.pipeline_steps.count + pipeline2.pipeline_steps.count + pipeline3.pipeline_steps.count +
+              pipeline4.pipeline_steps.count + pipeline5.pipeline_steps.count
 puts "\nTotal Steps: #{total_steps}"
 
 puts "\nStep Types Demonstrated:"
-all_steps = CiCd::PipelineStep.where(pipeline: [pipeline1, pipeline2, pipeline3, pipeline4, pipeline5])
+all_steps = Devops::PipelineStep.where(pipeline: [pipeline1, pipeline2, pipeline3, pipeline4, pipeline5])
 step_types = all_steps.pluck(:step_type).uniq.sort
 step_types.each do |st|
   count = all_steps.where(step_type: st).count
