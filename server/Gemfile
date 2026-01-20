@@ -145,3 +145,11 @@ gem "sentry-rails", "~> 5.17"
 
 # Application performance monitoring (optional)
 gem "skylight", "~> 6.0", require: false
+
+# OpenAPI/Swagger documentation
+gem "rswag-api", "~> 2.13"
+gem "rswag-ui", "~> 2.13"
+
+group :development, :test do
+  gem "rswag-specs", "~> 2.13"
+end
