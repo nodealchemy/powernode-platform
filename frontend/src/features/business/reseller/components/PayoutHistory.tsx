@@ -111,9 +111,9 @@ export const PayoutHistory: React.FC<PayoutHistoryProps> = ({
 
         <div className="p-4 rounded-lg bg-theme-surface mb-6">
           <p className="text-sm text-theme-tertiary mb-1">Available for Payout</p>
-          <p className="text-2xl font-bold text-green-600">{formatCurrency(pendingPayout)}</p>
+          <p className="text-2xl font-bold text-theme-success">{formatCurrency(pendingPayout)}</p>
           {!canRequestPayout && pendingPayout < 50 && (
-            <p className="text-xs text-amber-600 mt-1">
+            <p className="text-xs text-theme-warning mt-1">
               Minimum payout is $50
             </p>
           )}
@@ -152,7 +152,7 @@ export const PayoutHistory: React.FC<PayoutHistoryProps> = ({
                   <div className="text-right text-sm text-theme-tertiary">
                     <p>Requested: {formatDate(payout.requested_at)}</p>
                     {payout.completed_at && (
-                      <p className="text-green-600">Paid: {formatDate(payout.completed_at)}</p>
+                      <p className="text-theme-success">Paid: {formatDate(payout.completed_at)}</p>
                     )}
                     {payout.fee > 0 && (
                       <p className="text-xs">Fee: {formatCurrency(payout.fee)}</p>

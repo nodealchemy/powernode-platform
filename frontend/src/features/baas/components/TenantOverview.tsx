@@ -20,10 +20,10 @@ const formatNumber = (value: number): string => {
 export const TenantOverview: React.FC<TenantOverviewProps> = ({ tenant, stats }) => {
   const getTierBadge = (tier: string) => {
     const styles: Record<string, string> = {
-      free: 'bg-gray-100 text-gray-800',
-      starter: 'bg-blue-100 text-blue-800',
-      pro: 'bg-purple-100 text-purple-800',
-      enterprise: 'bg-yellow-100 text-yellow-800',
+      free: 'bg-theme-bg-tertiary text-theme-text-secondary',
+      starter: 'bg-theme-interactive-primary/10 text-theme-interactive-primary',
+      pro: 'bg-theme-primary/10 text-theme-primary',
+      enterprise: 'bg-theme-warning-background text-theme-warning',
     };
     return (
       <span className={`px-3 py-1 rounded-full text-sm font-medium ${styles[tier] || styles.free}`}>
@@ -38,9 +38,9 @@ export const TenantOverview: React.FC<TenantOverviewProps> = ({ tenant, stats })
   };
 
   const getUsageColor = (percentage: number): string => {
-    if (percentage >= 90) return 'bg-red-500';
-    if (percentage >= 75) return 'bg-yellow-500';
-    return 'bg-green-500';
+    if (percentage >= 90) return 'bg-theme-error';
+    if (percentage >= 75) return 'bg-theme-warning';
+    return 'bg-theme-success';
   };
 
   return (
@@ -55,7 +55,7 @@ export const TenantOverview: React.FC<TenantOverviewProps> = ({ tenant, stats })
           <div className="flex items-center gap-3">
             {getTierBadge(tenant.tier)}
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              tenant.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              tenant.status === 'active' ? 'bg-theme-success-background text-theme-success' : 'bg-theme-error-background text-theme-error'
             }`}>
               {tenant.status.charAt(0).toUpperCase() + tenant.status.slice(1)}
             </span>
@@ -90,7 +90,7 @@ export const TenantOverview: React.FC<TenantOverviewProps> = ({ tenant, stats })
           <p className="mt-2 text-3xl font-bold text-theme-text-primary">
             {formatCurrency(stats.overview.total_revenue)}
           </p>
-          <p className="mt-1 text-sm text-green-600">
+          <p className="mt-1 text-sm text-theme-success">
             +{formatCurrency(stats.recent_activity.revenue_30d)} last 30 days
           </p>
         </div>
@@ -172,19 +172,19 @@ export const TenantOverview: React.FC<TenantOverviewProps> = ({ tenant, stats })
           <h3 className="text-lg font-semibold text-theme-text-primary mb-4">Billing Configuration</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${stats.billing_config.stripe_connected ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <div className={`w-3 h-3 rounded-full ${stats.billing_config.stripe_connected ? 'bg-theme-success' : 'bg-theme-bg-tertiary'}`} />
               <span className="text-sm text-theme-text-secondary">Stripe</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${stats.billing_config.paypal_connected ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <div className={`w-3 h-3 rounded-full ${stats.billing_config.paypal_connected ? 'bg-theme-success' : 'bg-theme-bg-tertiary'}`} />
               <span className="text-sm text-theme-text-secondary">PayPal</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${stats.billing_config.auto_invoice ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <div className={`w-3 h-3 rounded-full ${stats.billing_config.auto_invoice ? 'bg-theme-success' : 'bg-theme-bg-tertiary'}`} />
               <span className="text-sm text-theme-text-secondary">Auto Invoice</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${stats.billing_config.dunning_enabled ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <div className={`w-3 h-3 rounded-full ${stats.billing_config.dunning_enabled ? 'bg-theme-success' : 'bg-theme-bg-tertiary'}`} />
               <span className="text-sm text-theme-text-secondary">Dunning</span>
             </div>
           </div>

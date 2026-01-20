@@ -104,12 +104,12 @@ export const PayoutManager: React.FC<PayoutManagerProps> = ({
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      completed: 'bg-green-100 text-green-800',
-      pending: 'bg-yellow-100 text-yellow-800',
-      failed: 'bg-red-100 text-red-800',
+      completed: 'bg-theme-success-background text-theme-success',
+      pending: 'bg-theme-warning-background text-theme-warning',
+      failed: 'bg-theme-error-background text-theme-error',
     };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-800'}`}>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || 'bg-theme-bg-tertiary text-theme-text-secondary'}`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
@@ -124,7 +124,7 @@ export const PayoutManager: React.FC<PayoutManagerProps> = ({
             Payout Management
           </h3>
           {payoutEnabled ? (
-            <span className="flex items-center text-green-600 text-sm">
+            <span className="flex items-center text-theme-success text-sm">
               <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>

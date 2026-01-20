@@ -88,13 +88,13 @@ export const CustomerHealthPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-theme-bg-primary rounded-lg p-6 border border-theme-border">
             <p className="text-sm font-medium text-theme-text-secondary">At Risk</p>
-            <p className="mt-2 text-3xl font-bold text-red-600">
+            <p className="mt-2 text-3xl font-bold text-theme-error">
               {summary.health_scores.at_risk_count}
             </p>
           </div>
           <div className="bg-theme-bg-primary rounded-lg p-6 border border-theme-border">
             <p className="text-sm font-medium text-theme-text-secondary">Healthy</p>
-            <p className="mt-2 text-3xl font-bold text-green-600">
+            <p className="mt-2 text-3xl font-bold text-theme-success">
               {summary.health_scores.healthy_count}
             </p>
           </div>
@@ -106,7 +106,7 @@ export const CustomerHealthPage: React.FC = () => {
           </div>
           <div className="bg-theme-bg-primary rounded-lg p-6 border border-theme-border">
             <p className="text-sm font-medium text-theme-text-secondary">Needs Intervention</p>
-            <p className="mt-2 text-3xl font-bold text-orange-600">
+            <p className="mt-2 text-3xl font-bold text-theme-warning">
               {summary.churn_predictions.needs_intervention}
             </p>
           </div>
@@ -118,46 +118,46 @@ export const CustomerHealthPage: React.FC = () => {
         <p className="text-sm font-medium text-theme-text-secondary mb-3">Health Distribution</p>
         <div className="flex rounded-full overflow-hidden h-4">
           <div
-            className="bg-green-500"
+            className="bg-theme-success"
             style={{ width: `${(distribution.thriving / healthScores.length) * 100}%` }}
             title={`Thriving: ${distribution.thriving}`}
           />
           <div
-            className="bg-green-400"
+            className="bg-theme-success opacity-70"
             style={{ width: `${(distribution.healthy / healthScores.length) * 100}%` }}
             title={`Healthy: ${distribution.healthy}`}
           />
           <div
-            className="bg-yellow-400"
+            className="bg-theme-warning"
             style={{ width: `${(distribution.needs_attention / healthScores.length) * 100}%` }}
             title={`Needs Attention: ${distribution.needs_attention}`}
           />
           <div
-            className="bg-orange-400"
+            className="bg-theme-warning opacity-70"
             style={{ width: `${(distribution.at_risk / healthScores.length) * 100}%` }}
             title={`At Risk: ${distribution.at_risk}`}
           />
           <div
-            className="bg-red-500"
+            className="bg-theme-error"
             style={{ width: `${(distribution.critical / healthScores.length) * 100}%` }}
             title={`Critical: ${distribution.critical}`}
           />
         </div>
         <div className="flex justify-between mt-2 text-xs text-theme-text-secondary">
           <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full bg-green-500" /> Thriving ({distribution.thriving})
+            <span className="w-3 h-3 rounded-full bg-theme-success" /> Thriving ({distribution.thriving})
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full bg-green-400" /> Healthy ({distribution.healthy})
+            <span className="w-3 h-3 rounded-full bg-theme-success opacity-70" /> Healthy ({distribution.healthy})
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full bg-yellow-400" /> Attention ({distribution.needs_attention})
+            <span className="w-3 h-3 rounded-full bg-theme-warning" /> Attention ({distribution.needs_attention})
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full bg-orange-400" /> At Risk ({distribution.at_risk})
+            <span className="w-3 h-3 rounded-full bg-theme-warning opacity-70" /> At Risk ({distribution.at_risk})
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full bg-red-500" /> Critical ({distribution.critical})
+            <span className="w-3 h-3 rounded-full bg-theme-error" /> Critical ({distribution.critical})
           </span>
         </div>
       </div>

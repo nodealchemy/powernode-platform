@@ -59,7 +59,7 @@ export const TemplateAnalyticsPage: React.FC = () => {
         <p className="mt-1 text-sm text-theme-text-secondary">{subValue}</p>
       )}
       {trend && (
-        <div className={`mt-2 flex items-center text-sm ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+        <div className={`mt-2 flex items-center text-sm ${trend.isPositive ? 'text-theme-success' : 'text-theme-error'}`}>
           <svg
             className={`w-4 h-4 mr-1 ${trend.isPositive ? '' : 'transform rotate-180'}`}
             fill="currentColor"
@@ -163,13 +163,13 @@ export const TemplateAnalyticsPage: React.FC = () => {
         </div>
         <div className="bg-theme-bg-primary rounded-lg p-6 border border-theme-border">
           <p className="text-sm font-medium text-theme-text-secondary">Platform Commission</p>
-          <p className="mt-2 text-2xl font-bold text-red-600">
+          <p className="mt-2 text-2xl font-bold text-theme-error">
             -{formatCurrency(analytics.summary.platform_commission)}
           </p>
         </div>
         <div className="bg-theme-bg-primary rounded-lg p-6 border border-theme-border">
           <p className="text-sm font-medium text-theme-text-secondary">Your Earnings</p>
-          <p className="mt-2 text-2xl font-bold text-green-600">
+          <p className="mt-2 text-2xl font-bold text-theme-success">
             {formatCurrency(analytics.summary.publisher_revenue)}
           </p>
         </div>

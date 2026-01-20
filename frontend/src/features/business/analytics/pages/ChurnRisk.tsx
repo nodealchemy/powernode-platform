@@ -96,16 +96,16 @@ export const ChurnRiskPage: React.FC = () => {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-theme-bg-primary rounded-lg p-6 border border-theme-border border-l-4 border-l-red-500">
+          <div className="bg-theme-bg-primary rounded-lg p-6 border border-theme-border border-l-4 border-l-theme-error">
             <p className="text-sm font-medium text-theme-text-secondary">High Risk</p>
-            <p className="mt-2 text-3xl font-bold text-red-600">
+            <p className="mt-2 text-3xl font-bold text-theme-error">
               {summary.churn_predictions.high_risk_count}
             </p>
             <p className="mt-1 text-sm text-theme-text-secondary">customers</p>
           </div>
           <div className="bg-theme-bg-primary rounded-lg p-6 border border-theme-border">
             <p className="text-sm font-medium text-theme-text-secondary">Needs Intervention</p>
-            <p className="mt-2 text-3xl font-bold text-orange-600">
+            <p className="mt-2 text-3xl font-bold text-theme-warning">
               {summary.churn_predictions.needs_intervention}
             </p>
             <p className="mt-1 text-sm text-theme-text-secondary">pending action</p>
@@ -134,17 +134,17 @@ export const ChurnRiskPage: React.FC = () => {
             <div
               key={tier}
               className={`flex-1 text-center p-3 rounded-lg ${
-                tier === 'critical' ? 'bg-red-50' :
-                tier === 'high' ? 'bg-orange-50' :
-                tier === 'medium' ? 'bg-yellow-50' :
-                tier === 'low' ? 'bg-blue-50' : 'bg-green-50'
+                tier === 'critical' ? 'bg-theme-error-background' :
+                tier === 'high' ? 'bg-theme-error-background' :
+                tier === 'medium' ? 'bg-theme-warning-background' :
+                tier === 'low' ? 'bg-theme-success-background' : 'bg-theme-success-background'
               }`}
             >
               <p className={`text-2xl font-bold ${
-                tier === 'critical' ? 'text-red-600' :
-                tier === 'high' ? 'text-orange-600' :
-                tier === 'medium' ? 'text-yellow-600' :
-                tier === 'low' ? 'text-blue-600' : 'text-green-600'
+                tier === 'critical' ? 'text-theme-error' :
+                tier === 'high' ? 'text-theme-error' :
+                tier === 'medium' ? 'text-theme-warning' :
+                tier === 'low' ? 'text-theme-success' : 'text-theme-success'
               }`}>
                 {count}
               </p>
@@ -238,14 +238,14 @@ export const ChurnRiskPage: React.FC = () => {
                 <div className="space-y-2">
                   {selectedPrediction.recommended_actions.map((action, index) => (
                     <div key={index} className={`p-3 rounded-lg ${
-                      action.priority === 'high' ? 'bg-red-50' :
-                      action.priority === 'medium' ? 'bg-yellow-50' : 'bg-gray-50'
+                      action.priority === 'high' ? 'bg-theme-error-background' :
+                      action.priority === 'medium' ? 'bg-theme-warning-background' : 'bg-theme-bg-secondary'
                     }`}>
                       <div className="flex items-center justify-between">
                         <p className="font-medium text-theme-text-primary">{action.description}</p>
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          action.priority === 'high' ? 'bg-red-100 text-red-800' :
-                          action.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                          action.priority === 'high' ? 'bg-theme-error-background text-theme-error' :
+                          action.priority === 'medium' ? 'bg-theme-warning-background text-theme-warning' : 'bg-theme-bg-tertiary text-theme-text-secondary'
                         }`}>
                           {action.priority}
                         </span>

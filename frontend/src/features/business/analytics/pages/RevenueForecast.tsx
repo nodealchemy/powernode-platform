@@ -132,7 +132,7 @@ export const RevenueForecastPage: React.FC = () => {
             <p className="mt-2 text-3xl font-bold text-theme-text-primary">
               {formatCurrency(totals.threeMonths.mrr / 3)}
             </p>
-            <p className="mt-1 text-sm text-green-600">
+            <p className="mt-1 text-sm text-theme-success">
               +{formatCurrency(totals.threeMonths.newRevenue)} new
             </p>
           </div>
@@ -147,7 +147,7 @@ export const RevenueForecastPage: React.FC = () => {
           </div>
           <div className="bg-theme-bg-primary rounded-lg p-6 border border-theme-border">
             <p className="text-sm font-medium text-theme-text-secondary">Projected Churn</p>
-            <p className="mt-2 text-3xl font-bold text-red-600">
+            <p className="mt-2 text-3xl font-bold text-theme-error">
               {formatCurrency(totals.twelveMonths.churned)}
             </p>
             <p className="mt-1 text-sm text-theme-text-secondary">
@@ -234,13 +234,13 @@ export const RevenueForecastPage: React.FC = () => {
                     <td className="px-6 py-4 text-right font-medium text-theme-text-primary">
                       {formatCurrency(forecast.projections.mrr)}
                     </td>
-                    <td className="px-6 py-4 text-right text-green-600">
+                    <td className="px-6 py-4 text-right text-theme-success">
                       +{formatCurrency(forecast.projections.new_revenue)}
                     </td>
-                    <td className="px-6 py-4 text-right text-blue-600">
+                    <td className="px-6 py-4 text-right text-theme-interactive-primary">
                       +{formatCurrency(forecast.projections.expansion_revenue)}
                     </td>
-                    <td className="px-6 py-4 text-right text-red-600">
+                    <td className="px-6 py-4 text-right text-theme-error">
                       -{formatCurrency(forecast.projections.churned_revenue)}
                     </td>
                     <td className="px-6 py-4 text-right text-theme-text-secondary">

@@ -12,10 +12,10 @@ interface PartnerTierCardProps {
 }
 
 const TIER_CONFIG: Record<ResellerTier, { label: string; color: string; bgColor: string }> = {
-  bronze: { label: 'Bronze', color: 'text-amber-700', bgColor: 'bg-amber-100' },
-  silver: { label: 'Silver', color: 'text-gray-600', bgColor: 'bg-gray-200' },
-  gold: { label: 'Gold', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
-  platinum: { label: 'Platinum', color: 'text-blue-700', bgColor: 'bg-blue-100' },
+  bronze: { label: 'Bronze', color: 'text-theme-warning', bgColor: 'bg-theme-warning-background' },
+  silver: { label: 'Silver', color: 'text-theme-text-secondary', bgColor: 'bg-theme-bg-tertiary' },
+  gold: { label: 'Gold', color: 'text-theme-warning', bgColor: 'bg-theme-warning-background' },
+  platinum: { label: 'Platinum', color: 'text-theme-interactive-primary', bgColor: 'bg-theme-interactive-primary/10' },
 };
 
 const TIER_THRESHOLDS: Record<ResellerTier, { referrals: number; revenue: number }> = {
@@ -71,7 +71,7 @@ export const PartnerTierCard: React.FC<PartnerTierCardProps> = ({
                 Progress to {nextTierConfig?.label}
               </span>
               {eligibleForUpgrade && (
-                <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">
+                <span className="text-xs px-2 py-1 rounded bg-theme-success-background text-theme-success">
                   Eligible!
                 </span>
               )}
@@ -87,7 +87,7 @@ export const PartnerTierCard: React.FC<PartnerTierCardProps> = ({
                 </div>
                 <div className="w-full bg-theme-tertiary rounded-full h-2">
                   <div
-                    className="bg-blue-500 h-2 rounded-full transition-all"
+                    className="bg-theme-interactive-primary h-2 rounded-full transition-all"
                     style={{ width: `${referralProgress}%` }}
                   />
                 </div>
@@ -102,7 +102,7 @@ export const PartnerTierCard: React.FC<PartnerTierCardProps> = ({
                 </div>
                 <div className="w-full bg-theme-tertiary rounded-full h-2">
                   <div
-                    className="bg-green-500 h-2 rounded-full transition-all"
+                    className="bg-theme-success h-2 rounded-full transition-all"
                     style={{ width: `${revenueProgress}%` }}
                   />
                 </div>

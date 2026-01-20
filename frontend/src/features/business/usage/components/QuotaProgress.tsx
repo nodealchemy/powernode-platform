@@ -19,36 +19,36 @@ export const QuotaProgress: React.FC<QuotaProgressProps> = ({ quotas }) => {
   }
 
   const getProgressColor = (quota: UsageQuota) => {
-    if (quota.exceeded) return 'bg-red-500';
-    if (quota.at_critical) return 'bg-red-400';
-    if (quota.at_warning) return 'bg-amber-500';
-    return 'bg-blue-500';
+    if (quota.exceeded) return 'bg-theme-error';
+    if (quota.at_critical) return 'bg-theme-error';
+    if (quota.at_warning) return 'bg-theme-warning';
+    return 'bg-theme-interactive-primary';
   };
 
   const getStatusBadge = (quota: UsageQuota) => {
     if (quota.exceeded) {
       return (
-        <span className="px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-700">
+        <span className="px-2 py-1 text-xs font-medium rounded bg-theme-error-background text-theme-error">
           Exceeded
         </span>
       );
     }
     if (quota.at_critical) {
       return (
-        <span className="px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-600">
+        <span className="px-2 py-1 text-xs font-medium rounded bg-theme-error-background text-theme-error">
           Critical
         </span>
       );
     }
     if (quota.at_warning) {
       return (
-        <span className="px-2 py-1 text-xs font-medium rounded bg-amber-100 text-amber-700">
+        <span className="px-2 py-1 text-xs font-medium rounded bg-theme-warning-background text-theme-warning">
           Warning
         </span>
       );
     }
     return (
-      <span className="px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-700">
+      <span className="px-2 py-1 text-xs font-medium rounded bg-theme-success-background text-theme-success">
         OK
       </span>
     );
@@ -94,7 +94,7 @@ export const QuotaProgress: React.FC<QuotaProgressProps> = ({ quotas }) => {
             </div>
 
             {quota.allow_overage && quota.overage_rate && quota.overage_amount && quota.overage_amount > 0 && (
-              <div className="text-sm text-amber-600">
+              <div className="text-sm text-theme-warning">
                 Overage charges: ${quota.overage_amount.toFixed(2)} ({formatNumber(quota.current_usage - (quota.soft_limit || quota.hard_limit || 0))} {quota.unit_name} @ ${quota.overage_rate}/{quota.unit_name})
               </div>
             )}

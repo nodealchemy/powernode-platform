@@ -150,7 +150,7 @@ export const UsageDashboard: React.FC = () => {
         </Card>
         <Card className="p-6">
           <p className="text-sm text-theme-tertiary mb-1">Quota Status</p>
-          <p className={`text-3xl font-bold ${metersExceeded > 0 ? 'text-red-600' : 'text-green-600'}`}>
+          <p className={`text-3xl font-bold ${metersExceeded > 0 ? 'text-theme-error' : 'text-theme-success'}`}>
             {metersExceeded > 0 ? `${metersExceeded} Exceeded` : 'All OK'}
           </p>
           <p className="text-sm text-theme-tertiary">{dashboardData.quotas.length} quotas configured</p>
@@ -175,7 +175,7 @@ export const UsageDashboard: React.FC = () => {
               <div className="flex items-center justify-between mb-2">
                 <span className="font-medium text-theme-primary">{meter.name}</span>
                 {meter.quota_exceeded && (
-                  <span className="px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-700">
+                  <span className="px-2 py-1 text-xs font-medium rounded bg-theme-error-background text-theme-error">
                     Exceeded
                   </span>
                 )}
@@ -194,7 +194,7 @@ export const UsageDashboard: React.FC = () => {
                 <div className="mt-2">
                   <div className="w-full bg-theme-tertiary rounded-full h-1.5">
                     <div
-                      className={`h-1.5 rounded-full ${meter.quota_exceeded ? 'bg-red-500' : 'bg-blue-500'}`}
+                      className={`h-1.5 rounded-full ${meter.quota_exceeded ? 'bg-theme-error' : 'bg-theme-interactive-primary'}`}
                       style={{ width: `${Math.min(meter.quota_percent, 100)}%` }}
                     />
                   </div>

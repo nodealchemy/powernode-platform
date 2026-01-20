@@ -45,14 +45,14 @@ export const TemplatePerformance: React.FC<TemplatePerformanceProps> = ({
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      published: 'bg-green-100 text-green-800',
-      draft: 'bg-gray-100 text-gray-800',
-      pending_review: 'bg-yellow-100 text-yellow-800',
-      rejected: 'bg-red-100 text-red-800',
-      archived: 'bg-gray-100 text-gray-600',
+      published: 'bg-theme-success-background text-theme-success',
+      draft: 'bg-theme-bg-tertiary text-theme-text-secondary',
+      pending_review: 'bg-theme-warning-background text-theme-warning',
+      rejected: 'bg-theme-error-background text-theme-error',
+      archived: 'bg-theme-bg-tertiary text-theme-text-tertiary',
     };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-800'}`}>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || 'bg-theme-bg-tertiary text-theme-text-secondary'}`}>
         {status.replace('_', ' ').charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
       </span>
     );
@@ -71,10 +71,10 @@ export const TemplatePerformance: React.FC<TemplatePerformanceProps> = ({
             key={i}
             className={`w-4 h-4 ${
               i < fullStars
-                ? 'text-yellow-400'
+                ? 'text-theme-warning'
                 : i === fullStars && hasHalfStar
-                ? 'text-yellow-400'
-                : 'text-gray-300'
+                ? 'text-theme-warning'
+                : 'text-theme-text-tertiary'
             }`}
             fill="currentColor"
             viewBox="0 0 20 20"
@@ -120,7 +120,7 @@ export const TemplatePerformance: React.FC<TemplatePerformanceProps> = ({
               <Bar
                 dataKey="installations"
                 name="Installations"
-                fill="#8B5CF6"
+                fill="var(--theme-primary)"
                 radius={[0, 4, 4, 0]}
               />
             </BarChart>
@@ -169,12 +169,12 @@ export const TemplatePerformance: React.FC<TemplatePerformanceProps> = ({
                           {template.name}
                         </Link>
                         {!isPerformanceData(template) && template.is_featured && (
-                          <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded">
+                          <span className="ml-2 px-2 py-0.5 bg-theme-warning-background text-theme-warning text-xs rounded">
                             Featured
                           </span>
                         )}
                         {!isPerformanceData(template) && template.is_verified && (
-                          <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">
+                          <span className="ml-2 px-2 py-0.5 bg-theme-interactive-primary/10 text-theme-interactive-primary text-xs rounded">
                             Verified
                           </span>
                         )}
@@ -187,7 +187,7 @@ export const TemplatePerformance: React.FC<TemplatePerformanceProps> = ({
                   <td className="px-6 py-4 text-theme-text-primary">
                     {!isPerformanceData(template) ? (
                       template.pricing_type === 'free' ? (
-                        <span className="text-green-600 font-medium">Free</span>
+                        <span className="text-theme-success font-medium">Free</span>
                       ) : (
                         formatCurrency(template.price_usd || 0)
                       )

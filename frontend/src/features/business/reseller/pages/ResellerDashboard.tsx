@@ -95,7 +95,7 @@ export const ResellerDashboard: React.FC = () => {
               {['Bronze', 'Silver', 'Gold', 'Platinum'].map((tier, index) => (
                 <div key={tier} className="p-4 rounded-lg bg-theme-surface">
                   <p className="font-medium text-theme-primary">{tier}</p>
-                  <p className="text-2xl font-bold text-blue-600">{[10, 15, 20, 25][index]}%</p>
+                  <p className="text-2xl font-bold text-theme-interactive-primary">{[10, 15, 20, 25][index]}%</p>
                   <p className="text-xs text-theme-tertiary">commission</p>
                 </div>
               ))}
@@ -151,7 +151,7 @@ export const ResellerDashboard: React.FC = () => {
         <Card className="p-6">
           <p className="text-sm text-theme-tertiary mb-1">Total Referrals</p>
           <p className="text-3xl font-bold text-theme-primary">{dashboardStats?.total_referrals || 0}</p>
-          <p className="text-sm text-green-600">{dashboardStats?.active_referrals || 0} active</p>
+          <p className="text-sm text-theme-success">{dashboardStats?.active_referrals || 0} active</p>
         </Card>
         <Card className="p-6">
           <p className="text-sm text-theme-tertiary mb-1">Revenue Generated</p>

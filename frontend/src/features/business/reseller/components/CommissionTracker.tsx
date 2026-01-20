@@ -47,27 +47,27 @@ export const CommissionTracker: React.FC<CommissionTrackerProps> = ({
     <Card className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-theme-primary">Commission Tracker</h3>
-          <p className="text-sm text-theme-tertiary">Your earnings and commissions</p>
+          <h3 className="text-lg font-semibold text-theme-text-primary">Commission Tracker</h3>
+          <p className="text-sm text-theme-text-tertiary">Your earnings and commissions</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="p-4 rounded-lg bg-theme-surface">
-          <p className="text-sm text-theme-tertiary mb-1">Lifetime Earnings</p>
-          <p className="text-2xl font-bold text-theme-primary">{formatCurrency(lifetimeEarnings)}</p>
+        <div className="p-4 rounded-lg bg-theme-bg-secondary">
+          <p className="text-sm text-theme-text-tertiary mb-1">Lifetime Earnings</p>
+          <p className="text-2xl font-bold text-theme-text-primary">{formatCurrency(lifetimeEarnings)}</p>
         </div>
-        <div className="p-4 rounded-lg bg-theme-surface">
-          <p className="text-sm text-theme-tertiary mb-1">Available for Payout</p>
-          <p className="text-2xl font-bold text-green-600">{formatCurrency(pendingPayout)}</p>
+        <div className="p-4 rounded-lg bg-theme-bg-secondary">
+          <p className="text-sm text-theme-text-tertiary mb-1">Available for Payout</p>
+          <p className="text-2xl font-bold text-theme-success">{formatCurrency(pendingPayout)}</p>
         </div>
       </div>
 
-      <div className="border-t border-theme pt-4">
-        <h4 className="text-sm font-medium text-theme-secondary mb-4">Recent Commissions</h4>
+      <div className="border-t border-theme-border pt-4">
+        <h4 className="text-sm font-medium text-theme-text-secondary mb-4">Recent Commissions</h4>
 
         {commissions.length === 0 ? (
-          <p className="text-center text-theme-tertiary py-8">
+          <p className="text-center text-theme-text-tertiary py-8">
             No commissions yet. Start referring customers to earn!
           </p>
         ) : (
@@ -78,18 +78,18 @@ export const CommissionTracker: React.FC<CommissionTrackerProps> = ({
               return (
                 <div
                   key={commission.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-theme-surface hover:bg-theme-hover transition-colors"
+                  className="flex items-center justify-between p-3 rounded-lg bg-theme-bg-secondary hover:bg-theme-bg-tertiary transition-colors"
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-theme-primary">
+                      <span className="font-medium text-theme-text-primary">
                         {formatCurrency(commission.commission_amount)}
                       </span>
                       <Badge variant={statusConfig.variant} size="sm">
                         {statusConfig.label}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-theme-tertiary">
+                    <div className="flex items-center gap-2 text-sm text-theme-text-tertiary">
                       <span>{TYPE_LABELS[commission.commission_type] || commission.commission_type}</span>
                       <span>•</span>
                       <span>{formatDate(commission.earned_at)}</span>
@@ -101,7 +101,7 @@ export const CommissionTracker: React.FC<CommissionTrackerProps> = ({
                       {commission.commission_percentage}% of {formatCurrency(commission.gross_amount)}
                     </p>
                     {commission.status === 'pending' && commission.days_until_available !== undefined && (
-                      <p className="text-xs text-amber-600">
+                      <p className="text-xs text-theme-warning">
                         Available in {commission.days_until_available} days
                       </p>
                     )}

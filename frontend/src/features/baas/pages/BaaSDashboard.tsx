@@ -226,8 +226,8 @@ export const BaaSDashboard: React.FC = () => {
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
                             key.status === 'active'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
+                              ? 'bg-theme-success-background text-theme-success'
+                              : 'bg-theme-error-background text-theme-error'
                           }`}
                         >
                           {key.status}
@@ -237,7 +237,7 @@ export const BaaSDashboard: React.FC = () => {
                         {key.status === 'active' && (
                           <button
                             onClick={() => handleRevokeApiKey(key.id)}
-                            className="text-red-600 hover:text-red-700 text-sm"
+                            className="text-theme-error hover:opacity-80 text-sm"
                           >
                             Revoke
                           </button>
@@ -299,8 +299,8 @@ export const BaaSDashboard: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-theme-bg-secondary rounded-lg">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <span className="text-purple-600 font-bold">S</span>
+                  <div className="w-10 h-10 bg-theme-primary/10 rounded-lg flex items-center justify-center">
+                    <span className="text-theme-primary font-bold">S</span>
                   </div>
                   <div>
                     <p className="font-medium text-theme-text-primary">Stripe</p>
@@ -315,8 +315,8 @@ export const BaaSDashboard: React.FC = () => {
               </div>
               <div className="flex items-center justify-between p-4 bg-theme-bg-secondary rounded-lg">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <span className="text-blue-600 font-bold">P</span>
+                  <div className="w-10 h-10 bg-theme-interactive-primary/10 rounded-lg flex items-center justify-center">
+                    <span className="text-theme-interactive-primary font-bold">P</span>
                   </div>
                   <div>
                     <p className="font-medium text-theme-text-primary">PayPal</p>

@@ -9,44 +9,44 @@ interface HealthScoreCardProps {
 
 const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
-    thriving: 'text-green-600',
-    healthy: 'text-green-500',
-    needs_attention: 'text-yellow-500',
-    at_risk: 'text-orange-500',
-    critical: 'text-red-600',
+    thriving: 'text-theme-success',
+    healthy: 'text-theme-success',
+    needs_attention: 'text-theme-warning',
+    at_risk: 'text-theme-warning',
+    critical: 'text-theme-error',
   };
-  return colors[status] || 'text-gray-500';
+  return colors[status] || 'text-theme-text-secondary';
 };
 
 const getStatusBg = (status: string): string => {
   const colors: Record<string, string> = {
-    thriving: 'bg-green-100',
-    healthy: 'bg-green-50',
-    needs_attention: 'bg-yellow-50',
-    at_risk: 'bg-orange-50',
-    critical: 'bg-red-50',
+    thriving: 'bg-theme-success-background',
+    healthy: 'bg-theme-success-background',
+    needs_attention: 'bg-theme-warning-background',
+    at_risk: 'bg-theme-warning-background',
+    critical: 'bg-theme-error-background',
   };
-  return colors[status] || 'bg-gray-50';
+  return colors[status] || 'bg-theme-bg-secondary';
 };
 
 const getTrendIcon = (direction: string) => {
   switch (direction) {
     case 'improving':
       return (
-        <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+        <svg className="w-4 h-4 text-theme-success" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
         </svg>
       );
     case 'declining':
     case 'critical_decline':
       return (
-        <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+        <svg className="w-4 h-4 text-theme-error" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
         </svg>
       );
     default:
       return (
-        <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+        <svg className="w-4 h-4 text-theme-text-secondary" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clipRule="evenodd" />
         </svg>
       );
@@ -67,7 +67,7 @@ export const HealthScoreCard: React.FC<HealthScoreCardProps> = ({
       onClick={onClick}
       className={`bg-theme-bg-primary rounded-lg p-6 border border-theme-border ${
         onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''
-      } ${healthScore.at_risk ? 'border-l-4 border-l-red-500' : ''}`}
+      } ${healthScore.at_risk ? 'border-l-4 border-l-theme-error' : ''}`}
     >
       <div className="flex items-center justify-between mb-4">
         <div>
@@ -78,7 +78,7 @@ export const HealthScoreCard: React.FC<HealthScoreCardProps> = ({
             </span>
             {getTrendIcon(healthScore.trend_direction)}
             {healthScore.score_change_30d !== null && (
-              <span className={`text-xs ${healthScore.score_change_30d >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <span className={`text-xs ${healthScore.score_change_30d >= 0 ? 'text-theme-success' : 'text-theme-error'}`}>
                 {healthScore.score_change_30d >= 0 ? '+' : ''}{healthScore.score_change_30d.toFixed(1)}
               </span>
             )}
@@ -95,7 +95,7 @@ export const HealthScoreCard: React.FC<HealthScoreCardProps> = ({
               stroke="currentColor"
               strokeWidth="8"
               fill="none"
-              className="text-gray-200"
+              className="text-theme-bg-tertiary"
             />
             <circle
               cx="40"
@@ -125,7 +125,7 @@ export const HealthScoreCard: React.FC<HealthScoreCardProps> = ({
           <ul className="space-y-1">
             {healthScore.risk_factors.slice(0, 3).map((factor, index) => (
               <li key={index} className="text-sm text-theme-text-secondary flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                <span className="w-1.5 h-1.5 rounded-full bg-theme-error" />
                 {factor}
               </li>
             ))}

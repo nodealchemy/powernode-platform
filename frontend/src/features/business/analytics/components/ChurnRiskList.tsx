@@ -9,24 +9,24 @@ interface ChurnRiskListProps {
 
 const getRiskTierColor = (tier: string): string => {
   const colors: Record<string, string> = {
-    critical: 'bg-red-100 text-red-800 border-red-200',
-    high: 'bg-orange-100 text-orange-800 border-orange-200',
-    medium: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    low: 'bg-blue-100 text-blue-800 border-blue-200',
-    minimal: 'bg-green-100 text-green-800 border-green-200',
+    critical: 'bg-theme-error-background text-theme-error border-theme-error',
+    high: 'bg-theme-error-background text-theme-error border-theme-error',
+    medium: 'bg-theme-warning-background text-theme-warning border-theme-warning',
+    low: 'bg-theme-success-background text-theme-success border-theme-success',
+    minimal: 'bg-theme-success-background text-theme-success border-theme-success',
   };
-  return colors[tier] || 'bg-gray-100 text-gray-800';
+  return colors[tier] || 'bg-theme-bg-secondary text-theme-text-secondary';
 };
 
 const getRiskIndicatorColor = (tier: string): string => {
   const colors: Record<string, string> = {
-    critical: 'bg-red-500',
-    high: 'bg-orange-500',
-    medium: 'bg-yellow-500',
-    low: 'bg-blue-500',
-    minimal: 'bg-green-500',
+    critical: 'bg-theme-error',
+    high: 'bg-theme-error',
+    medium: 'bg-theme-warning',
+    low: 'bg-theme-success',
+    minimal: 'bg-theme-success',
   };
-  return colors[tier] || 'bg-gray-500';
+  return colors[tier] || 'bg-theme-bg-tertiary';
 };
 
 export const ChurnRiskList: React.FC<ChurnRiskListProps> = ({
@@ -38,7 +38,7 @@ export const ChurnRiskList: React.FC<ChurnRiskListProps> = ({
     return (
       <div className="text-center py-12 bg-theme-bg-primary rounded-lg border border-theme-border">
         <svg
-          className="mx-auto h-12 w-12 text-green-500"
+          className="mx-auto h-12 w-12 text-theme-success"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -89,7 +89,7 @@ export const ChurnRiskList: React.FC<ChurnRiskListProps> = ({
                       {prediction.risk_tier.charAt(0).toUpperCase() + prediction.risk_tier.slice(1)} Risk
                     </span>
                     {prediction.intervention_triggered && (
-                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                      <span className="px-2 py-0.5 bg-theme-interactive-primary/10 text-theme-interactive-primary rounded-full text-xs font-medium">
                         Intervention Active
                       </span>
                     )}
@@ -142,10 +142,10 @@ export const ChurnRiskList: React.FC<ChurnRiskListProps> = ({
                     key={index}
                     className={`px-2 py-1 rounded text-xs ${
                       action.priority === 'high'
-                        ? 'bg-red-50 text-red-700'
+                        ? 'bg-theme-error-background text-theme-error'
                         : action.priority === 'medium'
-                        ? 'bg-yellow-50 text-yellow-700'
-                        : 'bg-gray-50 text-gray-700'
+                        ? 'bg-theme-warning-background text-theme-warning'
+                        : 'bg-theme-bg-secondary text-theme-text-secondary'
                     }`}
                   >
                     {action.description}
