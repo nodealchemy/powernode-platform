@@ -83,7 +83,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({ team, onEdit, onDelete, onEx
         <button
           onClick={() => onExecute(team)}
           disabled={team.status !== 'active' || team.member_count === 0}
-          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-theme-primary rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+          className="btn-theme btn-theme-primary btn-theme-sm flex items-center gap-1"
         >
           <Play size={16} />
           Execute
@@ -91,7 +91,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({ team, onEdit, onDelete, onEx
 
         <button
           onClick={() => onEdit(team)}
-          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-theme-primary bg-theme-accent rounded-md hover:bg-theme-hover transition-colors"
+          className="btn-theme btn-theme-secondary btn-theme-sm flex items-center gap-1"
         >
           <Edit2 size={16} />
           Edit

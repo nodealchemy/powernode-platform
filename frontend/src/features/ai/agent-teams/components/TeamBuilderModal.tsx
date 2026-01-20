@@ -166,14 +166,14 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-theme-primary bg-theme-accent rounded-md hover:bg-theme-hover transition-colors"
+            className="btn-theme btn-theme-secondary btn-theme-md"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting || !formData.name}
-            className="px-4 py-2 text-sm font-medium text-white bg-theme-primary rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+            className="btn-theme btn-theme-primary btn-theme-md"
           >
             {isSubmitting ? 'Saving...' : team ? 'Update Team' : 'Create Team'}
           </button>

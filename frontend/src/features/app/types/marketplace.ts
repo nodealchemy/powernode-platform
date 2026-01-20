@@ -4,7 +4,7 @@
  * Core types for the feature template marketplace.
  * Templates are aligned with actual application features:
  * - workflow_template: AI Workflow templates
- * - pipeline_template: CI/CD Pipeline templates
+ * - pipeline_template: DevOps Pipeline templates
  * - integration_template: Integration templates
  * - prompt_template: Prompt templates
  */
@@ -12,7 +12,7 @@
 // Feature-aligned template types
 export type MarketplaceItemType =
   | 'workflow_template'    // AI Workflows
-  | 'pipeline_template'    // CI/CD Pipelines
+  | 'pipeline_template'    // DevOps Pipelines
   | 'integration_template' // Integrations
   | 'prompt_template';     // Prompts
 
@@ -248,7 +248,7 @@ export function getTypeDisplayName(type: MarketplaceItemType): string {
 export function getTypeDescription(type: MarketplaceItemType): string {
   const descriptions: Record<MarketplaceItemType, string> = {
     workflow_template: 'AI Workflow automation templates',
-    pipeline_template: 'CI/CD Pipeline templates',
+    pipeline_template: 'DevOps Pipeline templates',
     integration_template: 'Third-party integration templates',
     prompt_template: 'AI prompt templates',
   };
