@@ -20,8 +20,8 @@ describe('GitProviderCard', () => {
     description: 'Connect to GitHub repositories',
     supports_oauth: true,
     supports_pat: true,
-    supports_ci_cd: true,
-    capabilities: ['repositories', 'webhooks', 'ci_cd', 'oauth'],
+    supports_devops: true,
+    capabilities: ['repositories', 'webhooks', 'devops', 'oauth'],
     configured: false,
   };
 
@@ -137,10 +137,10 @@ describe('GitProviderCard', () => {
       expect(screen.getByText('PAT')).toBeInTheDocument();
     });
 
-    it('shows CI/CD badge when supports_ci_cd is true', () => {
+    it('shows DevOps badge when supports_devops is true', () => {
       render(<GitProviderCard {...defaultProps} />);
 
-      expect(screen.getByText('CI/CD')).toBeInTheDocument();
+      expect(screen.getByText('DevOps')).toBeInTheDocument();
     });
 
     it('does not show OAuth badge when supports_oauth is false', () => {
@@ -165,15 +165,15 @@ describe('GitProviderCard', () => {
       expect(screen.queryByText('PAT')).not.toBeInTheDocument();
     });
 
-    it('does not show CI/CD badge when supports_ci_cd is false', () => {
-      const noCiCdProvider: AvailableProvider = {
+    it('does not show DevOps badge when supports_devops is false', () => {
+      const noDevopsProvider: AvailableProvider = {
         ...mockProvider,
-        supports_ci_cd: false,
+        supports_devops: false,
       };
 
-      render(<GitProviderCard {...defaultProps} provider={noCiCdProvider} />);
+      render(<GitProviderCard {...defaultProps} provider={noDevopsProvider} />);
 
-      expect(screen.queryByText('CI/CD')).not.toBeInTheDocument();
+      expect(screen.queryByText('DevOps')).not.toBeInTheDocument();
     });
   });
 

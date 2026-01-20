@@ -7,7 +7,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { devopsPipelinesApi, devopsPipelineRunsApi } from '@/services/devopsPipelinesApi';
-import type { CiCdPipeline, CiCdPipelineRun } from '@/types/devops-pipelines';
+import type { DevopsPipeline, DevopsPipelineRun } from '@/types/devops-pipelines';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const config: Record<string, { color: string; icon: React.ElementType }> = {
@@ -43,8 +43,8 @@ export const PipelineDetailPage: React.FC = () => {
     }
   });
 
-  const [pipeline, setPipeline] = useState<CiCdPipeline | null>(null);
-  const [runs, setRuns] = useState<CiCdPipelineRun[]>([]);
+  const [pipeline, setPipeline] = useState<DevopsPipeline | null>(null);
+  const [runs, setRuns] = useState<DevopsPipelineRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
 
@@ -184,7 +184,7 @@ export const PipelineDetailPage: React.FC = () => {
   return (
     <PageContainer
       title={pipeline.name}
-      description={pipeline.description || 'CI/CD Pipeline'}
+      description={pipeline.description || 'DevOps Pipeline'}
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'DevOps', href: '/app/devops' },

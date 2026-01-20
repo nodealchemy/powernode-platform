@@ -173,7 +173,7 @@ const DevOpsTemplatesPage: React.FC = () => {
   return (
     <PageContainer
       title="DevOps AI Templates"
-      description="Pre-built AI workflow templates for CI/CD pipelines, code review, and deployment validation"
+      description="Pre-built AI workflow templates for DevOps pipelines, code review, and deployment validation"
       breadcrumbs={breadcrumbs}
       actions={[
         {
@@ -311,7 +311,7 @@ const DevOpsTemplatesPage: React.FC = () => {
                 <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
                   <Code size={48} className="mx-auto text-theme-secondary mb-4" />
                   <h3 className="text-lg font-semibold text-theme-primary mb-2">No templates</h3>
-                  <p className="text-theme-secondary mb-6">Create AI pipeline templates for your CI/CD workflows</p>
+                  <p className="text-theme-secondary mb-6">Create AI pipeline templates for your DevOps workflows</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

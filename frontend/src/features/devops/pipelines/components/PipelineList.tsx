@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Play, Clock, Copy, Trash2, MoreVertical, FileCode } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import type { CiCdPipeline } from '@/types/devops-pipelines';
+import type { DevopsPipeline } from '@/types/devops-pipelines';
 
 interface PipelineListProps {
-  pipelines: CiCdPipeline[];
+  pipelines: DevopsPipeline[];
   loading: boolean;
   onTrigger: (id: string) => void;
   onDuplicate: (id: string) => void;
@@ -42,7 +42,7 @@ const formatTimeAgo = (dateString: string | null): string => {
 };
 
 const PipelineCard: React.FC<{
-  pipeline: CiCdPipeline;
+  pipeline: DevopsPipeline;
   onTrigger: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -192,7 +192,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
           No Pipelines Yet
         </h3>
         <p className="text-theme-secondary mb-4">
-          Create your first AI-powered CI/CD pipeline to get started.
+          Create your first AI-powered DevOps pipeline to get started.
         </p>
       </div>
     );

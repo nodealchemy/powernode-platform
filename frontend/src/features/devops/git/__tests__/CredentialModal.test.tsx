@@ -36,8 +36,8 @@ describe('CredentialModal', () => {
     description: 'Connect to GitHub',
     supports_oauth: true,
     supports_pat: true,
-    supports_ci_cd: true,
-    capabilities: ['repositories', 'webhooks', 'ci_cd', 'oauth'],
+    supports_devops: true,
+    capabilities: ['repositories', 'webhooks', 'devops', 'oauth'],
     configured: false,
   };
 
@@ -49,8 +49,8 @@ describe('CredentialModal', () => {
     description: 'Connect to Gitea',
     supports_oauth: false,
     supports_pat: true,
-    supports_ci_cd: true,
-    capabilities: ['repositories', 'webhooks', 'ci_cd'],
+    supports_devops: true,
+    capabilities: ['repositories', 'webhooks', 'devops'],
     configured: false,
   };
 

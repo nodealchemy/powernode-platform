@@ -12,7 +12,7 @@ export interface GitProvider {
   supports_oauth: boolean;
   supports_pat: boolean;
   supports_webhooks: boolean;
-  supports_ci_cd: boolean;
+  supports_devops: boolean;
   capabilities: string[];
   priority_order: number;
   created_at: string;
@@ -21,7 +21,7 @@ export interface GitProvider {
 export interface GitProviderDetail extends GitProvider {
   oauth_config?: Record<string, unknown>;
   webhook_config?: Record<string, unknown>;
-  ci_cd_config?: Record<string, unknown>;
+  devops_config?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
   credentials_count: number;
 }
@@ -231,7 +231,7 @@ export interface AvailableProvider {
   description?: string;
   supports_oauth: boolean;
   supports_pat: boolean;
-  supports_ci_cd: boolean;
+  supports_devops: boolean;
   capabilities: string[];
   configured: boolean;
 }
@@ -320,7 +320,7 @@ export interface CreateProviderData {
   supports_oauth?: boolean;
   supports_pat?: boolean;
   supports_webhooks?: boolean;
-  supports_ci_cd?: boolean;
+  supports_devops?: boolean;
 }
 
 export interface UpdateProviderData {

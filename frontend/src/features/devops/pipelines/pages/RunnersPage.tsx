@@ -240,7 +240,7 @@ const RunnersPageContent: React.FC = () => {
 
   return (
     <PageContainer
-      title="CI/CD Runners"
+      title="DevOps Runners"
       description="Manage self-hosted runners for GitHub Actions and Gitea Actions"
       breadcrumbs={breadcrumbs}
       actions={actions}

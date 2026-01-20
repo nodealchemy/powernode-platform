@@ -53,7 +53,7 @@ export const ApprovalResponsePage: React.FC = () => {
 
     try {
       const response = await apiClient.get<{ success: boolean; data?: ApprovalDetails; error?: string }>(
-        `/api/v1/ci_cd/step_approvals/${token}`
+        `/api/v1/devops/step_approvals/${token}`
       );
       const result = response.data;
 
@@ -92,7 +92,7 @@ export const ApprovalResponsePage: React.FC = () => {
 
     try {
       const response = await apiClient.post<{ success: boolean; data?: { message?: string }; error?: string }>(
-        `/api/v1/ci_cd/step_approvals/${token}/${approvalAction}`,
+        `/api/v1/devops/step_approvals/${token}/${approvalAction}`,
         { comment: comment.trim() || undefined }
       );
       const result = response.data;
@@ -321,7 +321,7 @@ export const ApprovalResponsePage: React.FC = () => {
         {/* Footer */}
         <div className="px-6 py-4 bg-theme-surface-elevated border-t border-theme text-center">
           <p className="text-xs text-theme-tertiary">
-            Powernode Platform - CI/CD Pipeline Approval
+            Powernode Platform - DevOps Pipeline Approval
           </p>
         </div>
       </div>

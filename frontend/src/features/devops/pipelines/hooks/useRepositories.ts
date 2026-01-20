@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { devopsRepositoriesApi } from '@/services/devopsPipelinesApi';
-import type { CiCdRepository, CiCdRepositoryFormData } from '@/types/devops-pipelines';
+import type { DevopsRepository, DevopsRepositoryFormData } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UseRepositoriesParams {
@@ -9,7 +9,7 @@ interface UseRepositoriesParams {
 }
 
 export function useRepositories(params: UseRepositoriesParams = {}) {
-  const [repositories, setRepositories] = useState<CiCdRepository[]>([]);
+  const [repositories, setRepositories] = useState<DevopsRepository[]>([]);
   const [meta, setMeta] = useState<{
     total: number;
     active_count: number;
@@ -47,7 +47,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.provider_id, params.is_active]);
 
-  const createRepository = async (data: CiCdRepositoryFormData) => {
+  const createRepository = async (data: DevopsRepositoryFormData) => {
     try {
       const repository = await devopsRepositoriesApi.create(data);
       showNotification('Repository created successfully', 'success');
@@ -59,7 +59,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
     }
   };
 
-  const updateRepository = async (id: string, data: Partial<CiCdRepositoryFormData>) => {
+  const updateRepository = async (id: string, data: Partial<DevopsRepositoryFormData>) => {
     try {
       const repository = await devopsRepositoriesApi.update(id, data);
       showNotification('Repository updated successfully', 'success');
@@ -135,7 +135,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
 }
 
 export function useRepository(id: string | null) {
-  const [repository, setRepository] = useState<CiCdRepository | null>(null);
+  const [repository, setRepository] = useState<DevopsRepository | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -166,7 +166,7 @@ export function useRepository(id: string | null) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const updateRepository = async (data: Partial<CiCdRepositoryFormData>) => {
+  const updateRepository = async (data: Partial<DevopsRepositoryFormData>) => {
     if (!id) return null;
 
     try {

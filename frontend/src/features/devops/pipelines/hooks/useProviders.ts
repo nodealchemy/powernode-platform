@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { devopsProvidersApi } from '@/services/devopsPipelinesApi';
-import type { CiCdProvider, CiCdProviderFormData, CiCdConnectionTestResponse } from '@/types/devops-pipelines';
+import type { DevopsProvider, DevopsProviderFormData, DevopsConnectionTestResponse } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UseProvidersParams {
@@ -9,7 +9,7 @@ interface UseProvidersParams {
 }
 
 export function useProviders(params: UseProvidersParams = {}) {
-  const [providers, setProviders] = useState<CiCdProvider[]>([]);
+  const [providers, setProviders] = useState<DevopsProvider[]>([]);
   const [meta, setMeta] = useState<{
     total: number;
     by_type: Record<string, number>;
@@ -46,7 +46,7 @@ export function useProviders(params: UseProvidersParams = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.provider_type, params.is_active]);
 
-  const createProvider = async (data: CiCdProviderFormData) => {
+  const createProvider = async (data: DevopsProviderFormData) => {
     try {
       const provider = await devopsProvidersApi.create(data);
       showNotification('Provider created successfully', 'success');
@@ -58,7 +58,7 @@ export function useProviders(params: UseProvidersParams = {}) {
     }
   };
 
-  const updateProvider = async (id: string, data: Partial<CiCdProviderFormData>) => {
+  const updateProvider = async (id: string, data: Partial<DevopsProviderFormData>) => {
     try {
       const provider = await devopsProvidersApi.update(id, data);
       showNotification('Provider updated successfully', 'success');
@@ -82,7 +82,7 @@ export function useProviders(params: UseProvidersParams = {}) {
     }
   };
 
-  const testConnection = async (id: string): Promise<CiCdConnectionTestResponse | null> => {
+  const testConnection = async (id: string): Promise<DevopsConnectionTestResponse | null> => {
     try {
       const result = await devopsProvidersApi.testConnection(id);
       if (result.connected) {
@@ -123,7 +123,7 @@ export function useProviders(params: UseProvidersParams = {}) {
 }
 
 export function useProvider(id: string | null) {
-  const [provider, setProvider] = useState<CiCdProvider | null>(null);
+  const [provider, setProvider] = useState<DevopsProvider | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -154,7 +154,7 @@ export function useProvider(id: string | null) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const updateProvider = async (data: Partial<CiCdProviderFormData>) => {
+  const updateProvider = async (data: Partial<DevopsProviderFormData>) => {
     if (!id) return null;
 
     try {

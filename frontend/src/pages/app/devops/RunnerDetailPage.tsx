@@ -166,7 +166,7 @@ export const RunnerDetailPage: React.FC = () => {
   return (
     <PageContainer
       title={runner.name}
-      description={`CI/CD Runner - ${runner.provider_type}`}
+      description={`DevOps Runner - ${runner.provider_type}`}
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'DevOps', href: '/app/devops' },

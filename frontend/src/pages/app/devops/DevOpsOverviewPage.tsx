@@ -348,7 +348,7 @@ export function DevOpsOverviewPage() {
     },
     {
       id: 'runners',
-      name: 'CI/CD Runners',
+      name: 'DevOps Runners',
       description: 'Self-hosted workflow execution agents',
       href: '/app/devops/runners',
       icon: Server,
@@ -420,7 +420,7 @@ export function DevOpsOverviewPage() {
   return (
     <PageContainer
       title="DevOps Overview"
-      description="Infrastructure, CI/CD, and development operations dashboard"
+      description="Infrastructure, pipelines, and development operations dashboard"
       breadcrumbs={breadcrumbs}
       actions={actions}
     >

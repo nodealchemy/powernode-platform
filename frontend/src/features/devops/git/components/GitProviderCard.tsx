@@ -152,9 +152,9 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
               PAT
             </span>
           )}
-          {provider.supports_ci_cd && (
+          {provider.supports_devops && (
             <span className="px-2 py-1 text-xs rounded-full bg-theme-warning/10 text-theme-warning">
-              CI/CD
+              DevOps
             </span>
           )}
         </div>

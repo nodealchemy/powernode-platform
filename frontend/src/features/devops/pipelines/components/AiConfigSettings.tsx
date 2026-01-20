@@ -6,9 +6,9 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import type { AiProvider } from '@/shared/types/ai';
 
 /**
- * AI Configuration Settings for CI/CD Pipelines
+ * AI Configuration Settings for DevOps Pipelines
  *
- * This component displays AI providers that can be used with CI/CD pipelines.
+ * This component displays AI providers that can be used with DevOps pipelines.
  * Provider management (create, edit, delete) is now done through the main
  * AI Providers page (/app/ai-providers).
  */
@@ -59,7 +59,7 @@ const ProviderCard: React.FC<{
             {isDefault && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-theme-warning/10 text-theme-warning">
                 <Star className="w-3 h-3" />
-                CI/CD Default
+                DevOps Default
               </span>
             )}
           </div>
@@ -88,7 +88,7 @@ const ProviderCard: React.FC<{
         {!isDefault && provider.is_active && provider.credential_count > 0 && (
           <Button onClick={onSetDefault} variant="secondary" size="sm">
             <Star className="w-4 h-4 mr-1" />
-            Set as CI/CD Default
+            Set as DevOps Default
           </Button>
         )}
         {provider.credential_count === 0 && (
@@ -135,7 +135,7 @@ export const AiConfigSettings: React.FC<AiConfigSettingsProps> = ({
               <Link to="/app/ai-providers" className="text-theme-primary hover:underline">
                 AI Providers page
               </Link>
-              . Here you can select which provider to use as the default for CI/CD pipelines.
+              . Here you can select which provider to use as the default for DevOps pipelines.
             </p>
           </div>
         </div>
@@ -148,7 +148,7 @@ export const AiConfigSettings: React.FC<AiConfigSettingsProps> = ({
             No AI Providers Available
           </h3>
           <p className="text-theme-secondary mb-4">
-            Configure AI providers to power your CI/CD pipelines with Claude.
+            Configure AI providers to power your DevOps pipelines with Claude.
           </p>
           <Link to="/app/ai-providers">
             <Button variant="primary">

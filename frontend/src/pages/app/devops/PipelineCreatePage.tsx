@@ -6,9 +6,9 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { devopsPipelinesApi } from '@/services/devopsPipelinesApi';
-import type { CiCdPipelineFormData, CiCdPipelineStepFormData, CiCdStepType } from '@/types/devops-pipelines';
+import type { DevopsPipelineFormData, DevopsPipelineStepFormData, DevopsStepType } from '@/types/devops-pipelines';
 
-const STEP_TYPES: { value: CiCdStepType; label: string; description: string }[] = [
+const STEP_TYPES: { value: DevopsStepType; label: string; description: string }[] = [
   { value: 'checkout', label: 'Checkout', description: 'Check out repository code' },
   { value: 'run_tests', label: 'Run Tests', description: 'Execute test suite' },
   { value: 'deploy', label: 'Deploy', description: 'Deploy to environment' },
@@ -31,7 +31,7 @@ export const PipelineCreatePage: React.FC = () => {
   });
   const [saving, setSaving] = useState(false);
 
-  const [formData, setFormData] = useState<CiCdPipelineFormData>({
+  const [formData, setFormData] = useState<DevopsPipelineFormData>({
     name: '',
     description: '',
     pipeline_type: 'standard',
@@ -44,15 +44,15 @@ export const PipelineCreatePage: React.FC = () => {
     steps: [],
   });
 
-  const [steps, setSteps] = useState<CiCdPipelineStepFormData[]>([]);
+  const [steps, setSteps] = useState<DevopsPipelineStepFormData[]>([]);
 
 
-  const handleInputChange = (field: keyof CiCdPipelineFormData, value: unknown) => {
+  const handleInputChange = (field: keyof DevopsPipelineFormData, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const addStep = () => {
-    const newStep: CiCdPipelineStepFormData = {
+    const newStep: DevopsPipelineStepFormData = {
       name: `Step ${steps.length + 1}`,
       step_type: 'checkout',
       position: steps.length,
@@ -62,7 +62,7 @@ export const PipelineCreatePage: React.FC = () => {
     setSteps([...steps, newStep]);
   };
 
-  const updateStep = (index: number, field: keyof CiCdPipelineStepFormData, value: unknown) => {
+  const updateStep = (index: number, field: keyof DevopsPipelineStepFormData, value: unknown) => {
     const updated = [...steps];
     updated[index] = { ...updated[index], [field]: value };
     setSteps(updated);
@@ -107,7 +107,7 @@ export const PipelineCreatePage: React.FC = () => {
   return (
     <PageContainer
       title="Create Pipeline"
-      description="Create a new CI/CD pipeline for automated deployments"
+      description="Create a new DevOps pipeline for automated deployments"
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'DevOps', href: '/app/devops' },
@@ -274,7 +274,7 @@ export const PipelineCreatePage: React.FC = () => {
                       </label>
                       <select
                         value={step.step_type}
-                        onChange={(e) => updateStep(index, 'step_type', e.target.value as CiCdStepType)}
+                        onChange={(e) => updateStep(index, 'step_type', e.target.value as DevopsStepType)}
                         className="w-full px-2 py-1.5 text-sm bg-theme-surface border border-theme rounded text-theme-primary"
                       >
                         {STEP_TYPES.map((type) => (

@@ -101,7 +101,7 @@ export const PipelinesPage: React.FC = () => {
 
   return (
     <PageContainer
-      title="CI/CD Pipelines"
+      title="DevOps Pipelines"
       description="Create and manage automated deployment pipelines"
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
