@@ -106,9 +106,9 @@ const EmailVerificationPage: React.FC = () => {
           <div className="flex flex-col space-y-3">
             <button
               onClick={() => handleResendVerification?.()}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-theme-primary hover:bg-theme-primary-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary"
+              className="btn-theme btn-theme-primary btn-theme-md w-full flex justify-center items-center gap-2"
             >
-              <Mail className="h-4 w-4 mr-2" />
+              <Mail className="h-4 w-4" />
               Request New Verification Email
             </button>
             <button
@@ -158,10 +158,10 @@ const EmailVerificationPage: React.FC = () => {
                 <div className="mt-8">
                   <button
                     onClick={() => handleContinue?.()}
-                    className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-theme-primary hover:bg-theme-primary-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary"
+                    className="btn-theme btn-theme-primary btn-theme-md w-full flex justify-center items-center gap-2 group"
                   >
                     Continue to Dashboard
-                    <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </button>
                 </div>
               </>
@@ -178,9 +178,9 @@ const EmailVerificationPage: React.FC = () => {
                 <div className="mt-8 flex flex-col space-y-3">
                   <button
                     onClick={() => handleResendVerification?.()}
-                    className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-theme-primary hover:bg-theme-primary-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary"
+                    className="btn-theme btn-theme-primary btn-theme-md w-full flex justify-center items-center gap-2"
                   >
-                    <Mail className="h-4 w-4 mr-2" />
+                    <Mail className="h-4 w-4" />
                     Request New Verification Email
                   </button>
                   <button

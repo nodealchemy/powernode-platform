@@ -383,7 +383,7 @@ export const adminNavigationOverrides = {
           name: 'Pipelines',
           href: '/app/devops/pipelines',
           icon: Workflow,
-          description: 'CI/CD pipelines for automated deployments',
+          description: 'DevOps pipelines for automated deployments',
           permissions: ['devops.pipelines.read'],
           order: 3
         },

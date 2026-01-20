@@ -342,7 +342,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
           <div className="flex justify-end">
             <button
               onClick={handleClose}
-              className="px-4 py-2 bg-theme-primary text-white rounded hover:bg-theme-primary-dark transition-colors"
+              className="btn-theme btn-theme-primary btn-theme-md"
             >
               {status === 'completed' || status === 'failed' ? 'Close' : 'Cancel'}
             </button>

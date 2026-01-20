@@ -71,7 +71,7 @@ export const ConsentManager: React.FC<ConsentManagerProps> = ({
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-dark transition-colors disabled:opacity-50"
+            className="btn-theme btn-theme-primary btn-theme-md"
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
