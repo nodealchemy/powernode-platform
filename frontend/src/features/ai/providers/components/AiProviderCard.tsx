@@ -259,14 +259,14 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       <div className="mb-4">
         <p className="text-xs font-medium text-theme-text-tertiary mb-2">CAPABILITIES</p>
         <div className="flex flex-wrap gap-1">
-          {provider.capabilities.slice(0, 4).map((capability) => (
+          {(provider.capabilities ?? []).slice(0, 4).map((capability) => (
             <Badge key={capability} variant="outline" size="xs">
               {capability.replace('_', ' ')}
             </Badge>
           ))}
-          {provider.capabilities.length > 4 && (
+          {(provider.capabilities?.length ?? 0) > 4 && (
             <Badge variant="outline" size="xs">
-              +{provider.capabilities.length - 4} more
+              +{(provider.capabilities?.length ?? 0) - 4} more
             </Badge>
           )}
         </div>

@@ -205,7 +205,7 @@ const MyFilesPage: React.FC = () => {
     if (!selectedProvider?.max_file_size_mb) return 0;
 
     const quotaBytes = selectedProvider.max_file_size_mb * 1024 * 1024;
-    return Math.round((fileStats.total_size / quotaBytes) * 100);
+    return Math.round(((fileStats.total_size ?? 0) / quotaBytes) * 100);
   };
 
   const breadcrumbs = [
@@ -496,7 +496,7 @@ const MyFilesPage: React.FC = () => {
               </div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-2xl font-bold text-theme-primary">
-                  {formatFileSize(fileStats.total_size)}
+                  {formatFileSize(fileStats.total_size ?? 0)}
                 </span>
                 {selectedStorageId && (
                   <span className="text-sm text-theme-secondary">
@@ -523,11 +523,11 @@ const MyFilesPage: React.FC = () => {
                 </span>
               </div>
               <div className="text-2xl font-bold text-theme-primary">
-                {fileStats.total_files.toLocaleString()}
+                {(fileStats.total_files ?? 0).toLocaleString()}
               </div>
-              {Object.keys(fileStats.by_category).length > 0 && (
+              {Object.keys(fileStats.by_category ?? {}).length > 0 && (
                 <div className="mt-2 text-xs text-theme-secondary">
-                  {Object.entries(fileStats.by_category)
+                  {Object.entries(fileStats.by_category ?? {})
                     .slice(0, 2)
                     .map(([category, count]) => (
                       <div key={category}>
