@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_20_101854) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_20_203012) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -5742,6 +5742,829 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_20_101854) do
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'trialing'::character varying::text, 'past_due'::character varying::text, 'canceled'::character varying::text, 'unpaid'::character varying::text, 'incomplete'::character varying::text, 'incomplete_expired'::character varying::text, 'paused'::character varying::text])", name: "valid_subscription_status"
   end
 
+  create_table "supply_chain_attestations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "attestation_id", null: false
+    t.string "attestation_type", default: "slsa_provenance", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "pipeline_run_id"
+    t.jsonb "predicate", default: {}, null: false
+    t.string "predicate_type", null: false
+    t.string "rekor_log_id"
+    t.string "rekor_log_url"
+    t.datetime "rekor_logged_at"
+    t.uuid "sbom_id"
+    t.text "signature"
+    t.string "signature_algorithm"
+    t.string "signature_format", default: "dsse"
+    t.uuid "signing_key_id"
+    t.integer "slsa_level", default: 1
+    t.string "subject_digest", null: false
+    t.string "subject_digest_algorithm", default: "sha256", null: false
+    t.string "subject_name", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "verification_results", default: {}, null: false
+    t.string "verification_status", default: "unverified", null: false
+    t.datetime "verified_at"
+    t.index ["account_id", "attestation_id"], name: "idx_attestations_account_id", unique: true
+    t.index ["account_id"], name: "index_supply_chain_attestations_on_account_id"
+    t.index ["created_by_id"], name: "index_supply_chain_attestations_on_created_by_id"
+    t.index ["pipeline_run_id"], name: "index_supply_chain_attestations_on_pipeline_run_id"
+    t.index ["predicate"], name: "idx_attestations_predicate", using: :gin
+    t.index ["sbom_id"], name: "index_supply_chain_attestations_on_sbom_id"
+    t.index ["signing_key_id"], name: "index_supply_chain_attestations_on_signing_key_id"
+    t.index ["subject_digest"], name: "idx_attestations_subject_digest"
+    t.index ["verification_status"], name: "idx_attestations_verification"
+    t.check_constraint "attestation_type::text = ANY (ARRAY['slsa_provenance'::character varying, 'sbom'::character varying, 'vuln_scan'::character varying, 'custom'::character varying]::text[])", name: "check_attestations_type"
+    t.check_constraint "slsa_level = ANY (ARRAY[0, 1, 2, 3])", name: "check_attestations_slsa_level"
+    t.check_constraint "verification_status::text = ANY (ARRAY['unverified'::character varying, 'verified'::character varying, 'failed'::character varying, 'expired'::character varying]::text[])", name: "check_attestations_verification_status"
+  end
+
+  create_table "supply_chain_attributions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "attribution_url"
+    t.string "copyright_holder"
+    t.integer "copyright_year"
+    t.datetime "created_at", null: false
+    t.uuid "license_id"
+    t.text "license_text"
+    t.jsonb "metadata", default: {}, null: false
+    t.text "notice_text"
+    t.string "package_name", null: false
+    t.string "package_version"
+    t.boolean "requires_attribution", default: true, null: false
+    t.boolean "requires_license_copy", default: false, null: false
+    t.boolean "requires_source_disclosure", default: false, null: false
+    t.uuid "sbom_component_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "idx_attributions_account"
+    t.index ["account_id"], name: "index_supply_chain_attributions_on_account_id"
+    t.index ["license_id"], name: "index_supply_chain_attributions_on_license_id"
+    t.index ["sbom_component_id"], name: "idx_attributions_component", unique: true
+    t.index ["sbom_component_id"], name: "index_supply_chain_attributions_on_sbom_component_id"
+  end
+
+  create_table "supply_chain_build_provenances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "attestation_id", null: false
+    t.jsonb "build_config", default: {}, null: false
+    t.integer "build_duration_ms"
+    t.datetime "build_finished_at"
+    t.datetime "build_started_at"
+    t.string "builder_id", null: false
+    t.string "builder_version"
+    t.datetime "created_at", null: false
+    t.jsonb "environment", default: {}, null: false
+    t.jsonb "invocation", default: {}, null: false
+    t.jsonb "materials", default: [], null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "reproducibility_hash"
+    t.datetime "reproducibility_verified_at"
+    t.boolean "reproducible", default: false, null: false
+    t.string "source_branch"
+    t.string "source_commit"
+    t.string "source_repository"
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_supply_chain_build_provenances_on_account_id"
+    t.index ["attestation_id"], name: "idx_build_provenance_attestation", unique: true
+    t.index ["attestation_id"], name: "index_supply_chain_build_provenances_on_attestation_id"
+    t.index ["builder_id"], name: "idx_build_provenance_builder"
+    t.index ["materials"], name: "idx_build_provenance_materials", using: :gin
+  end
+
+  create_table "supply_chain_container_images", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "architecture"
+    t.uuid "attestation_id"
+    t.uuid "base_image_id"
+    t.datetime "created_at", null: false
+    t.integer "critical_vuln_count", default: 0, null: false
+    t.jsonb "deployment_contexts", default: [], null: false
+    t.string "digest", null: false
+    t.integer "high_vuln_count", default: 0, null: false
+    t.boolean "is_deployed", default: false, null: false
+    t.boolean "is_signed", default: false, null: false
+    t.jsonb "labels", default: {}, null: false
+    t.datetime "last_scanned_at"
+    t.jsonb "layers", default: [], null: false
+    t.integer "low_vuln_count", default: 0, null: false
+    t.integer "medium_vuln_count", default: 0, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "os"
+    t.datetime "pushed_at"
+    t.string "registry", null: false
+    t.string "repository", null: false
+    t.uuid "sbom_id"
+    t.bigint "size_bytes", default: 0
+    t.string "status", default: "unverified", null: false
+    t.string "tag"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "digest"], name: "idx_container_images_account_digest", unique: true
+    t.index ["account_id"], name: "index_supply_chain_container_images_on_account_id"
+    t.index ["attestation_id"], name: "index_supply_chain_container_images_on_attestation_id"
+    t.index ["base_image_id"], name: "index_supply_chain_container_images_on_base_image_id"
+    t.index ["is_deployed"], name: "idx_container_images_deployed"
+    t.index ["labels"], name: "idx_container_images_labels", using: :gin
+    t.index ["registry", "repository", "tag"], name: "idx_container_images_registry_repo_tag"
+    t.index ["sbom_id"], name: "index_supply_chain_container_images_on_sbom_id"
+    t.index ["status"], name: "idx_container_images_status"
+    t.check_constraint "status::text = ANY (ARRAY['unverified'::character varying, 'verified'::character varying, 'quarantined'::character varying, 'approved'::character varying, 'rejected'::character varying]::text[])", name: "check_container_images_status"
+  end
+
+  create_table "supply_chain_cve_monitors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.jsonb "filters", default: {}, null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_run_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "min_severity", default: "medium", null: false
+    t.string "name", null: false
+    t.datetime "next_run_at"
+    t.jsonb "notification_channels", default: [], null: false
+    t.string "schedule_cron"
+    t.uuid "scope_id"
+    t.string "scope_type", default: "account_wide", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "idx_cve_monitors_account_name", unique: true
+    t.index ["account_id"], name: "index_supply_chain_cve_monitors_on_account_id"
+    t.index ["created_by_id"], name: "index_supply_chain_cve_monitors_on_created_by_id"
+    t.index ["is_active"], name: "idx_cve_monitors_active"
+    t.index ["next_run_at"], name: "idx_cve_monitors_next_run"
+    t.index ["scope_type", "scope_id"], name: "idx_cve_monitors_scope"
+    t.check_constraint "min_severity::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying]::text[])", name: "check_cve_monitors_severity"
+    t.check_constraint "scope_type::text = ANY (ARRAY['image'::character varying, 'repository'::character varying, 'account_wide'::character varying]::text[])", name: "check_cve_monitors_scope"
+  end
+
+  create_table "supply_chain_image_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.string "enforcement_level", default: "warn", null: false
+    t.boolean "is_active", default: true, null: false
+    t.jsonb "match_rules", default: {}, null: false
+    t.integer "max_critical_vulns"
+    t.integer "max_high_vulns"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.string "policy_type", default: "registry_allowlist", null: false
+    t.integer "priority", default: 0, null: false
+    t.boolean "require_sbom", default: false, null: false
+    t.boolean "require_signature", default: false, null: false
+    t.jsonb "rules", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "idx_image_policies_account_name", unique: true
+    t.index ["account_id"], name: "index_supply_chain_image_policies_on_account_id"
+    t.index ["created_by_id"], name: "index_supply_chain_image_policies_on_created_by_id"
+    t.index ["is_active"], name: "idx_image_policies_active"
+    t.index ["policy_type"], name: "idx_image_policies_type"
+    t.check_constraint "enforcement_level::text = ANY (ARRAY['log'::character varying, 'warn'::character varying, 'block'::character varying]::text[])", name: "check_image_policies_enforcement"
+    t.check_constraint "policy_type::text = ANY (ARRAY['registry_allowlist'::character varying, 'signature_required'::character varying, 'vulnerability_threshold'::character varying, 'custom'::character varying]::text[])", name: "check_image_policies_type"
+  end
+
+  create_table "supply_chain_license_detections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "ai_interpretation", default: {}, null: false
+    t.decimal "confidence_score", precision: 5, scale: 4, default: "1.0"
+    t.datetime "created_at", null: false
+    t.string "detected_license_id"
+    t.string "detected_license_name"
+    t.string "detection_source", default: "manifest", null: false
+    t.string "file_path"
+    t.boolean "is_primary", default: true, null: false
+    t.uuid "license_id"
+    t.text "license_text_snippet"
+    t.jsonb "metadata", default: {}, null: false
+    t.boolean "requires_review", default: false, null: false
+    t.uuid "sbom_component_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_supply_chain_license_detections_on_account_id"
+    t.index ["detection_source"], name: "idx_license_detections_source"
+    t.index ["license_id"], name: "idx_license_detections_license"
+    t.index ["license_id"], name: "index_supply_chain_license_detections_on_license_id"
+    t.index ["sbom_component_id"], name: "idx_license_detections_component"
+    t.index ["sbom_component_id"], name: "index_supply_chain_license_detections_on_sbom_component_id"
+  end
+
+  create_table "supply_chain_license_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "allowed_licenses", default: [], null: false
+    t.boolean "block_copyleft", default: false, null: false
+    t.boolean "block_strong_copyleft", default: true, null: false
+    t.boolean "block_unknown", default: false, null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.jsonb "denied_licenses", default: [], null: false
+    t.text "description"
+    t.string "enforcement_level", default: "warn", null: false
+    t.jsonb "exception_packages", default: [], null: false
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_default", default: false, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.string "policy_type", default: "allowlist", null: false
+    t.integer "priority", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "idx_license_policies_account_name", unique: true
+    t.index ["account_id"], name: "index_supply_chain_license_policies_on_account_id"
+    t.index ["created_by_id"], name: "index_supply_chain_license_policies_on_created_by_id"
+    t.index ["is_active"], name: "idx_license_policies_active"
+    t.index ["is_default"], name: "idx_license_policies_default", where: "(is_default = true)"
+    t.check_constraint "enforcement_level::text = ANY (ARRAY['log'::character varying, 'warn'::character varying, 'block'::character varying]::text[])", name: "check_license_policies_enforcement"
+    t.check_constraint "policy_type::text = ANY (ARRAY['allowlist'::character varying, 'denylist'::character varying, 'hybrid'::character varying]::text[])", name: "check_license_policies_type"
+  end
+
+  create_table "supply_chain_license_violations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "ai_remediation", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.datetime "exception_approved_at"
+    t.uuid "exception_approved_by_id"
+    t.datetime "exception_expires_at"
+    t.text "exception_reason"
+    t.boolean "exception_requested", default: false, null: false
+    t.string "exception_status"
+    t.uuid "license_id"
+    t.uuid "license_policy_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "sbom_component_id", null: false
+    t.uuid "sbom_id", null: false
+    t.string "severity", default: "high", null: false
+    t.string "status", default: "open", null: false
+    t.datetime "updated_at", null: false
+    t.string "violation_type", default: "denied", null: false
+    t.index ["account_id", "status"], name: "idx_license_violations_account_status"
+    t.index ["account_id"], name: "index_supply_chain_license_violations_on_account_id"
+    t.index ["exception_approved_by_id"], name: "idx_on_exception_approved_by_id_cfba11f498"
+    t.index ["license_id"], name: "index_supply_chain_license_violations_on_license_id"
+    t.index ["license_policy_id"], name: "index_supply_chain_license_violations_on_license_policy_id"
+    t.index ["sbom_component_id"], name: "index_supply_chain_license_violations_on_sbom_component_id"
+    t.index ["sbom_id"], name: "idx_license_violations_sbom"
+    t.index ["sbom_id"], name: "index_supply_chain_license_violations_on_sbom_id"
+    t.index ["violation_type"], name: "idx_license_violations_type"
+    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying]::text[])", name: "check_license_violations_severity"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'reviewing'::character varying, 'resolved'::character varying, 'exception_granted'::character varying, 'wont_fix'::character varying]::text[])", name: "check_license_violations_status"
+    t.check_constraint "violation_type::text = ANY (ARRAY['denied'::character varying, 'copyleft'::character varying, 'incompatible'::character varying, 'unknown'::character varying, 'expired'::character varying]::text[])", name: "check_license_violations_type"
+  end
+
+  create_table "supply_chain_licenses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "category", default: "unknown", null: false
+    t.jsonb "compatibility", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.jsonb "detection_patterns", default: [], null: false
+    t.boolean "is_copyleft", default: false, null: false
+    t.boolean "is_deprecated", default: false, null: false
+    t.boolean "is_network_copyleft", default: false, null: false
+    t.boolean "is_osi_approved", default: false, null: false
+    t.boolean "is_strong_copyleft", default: false, null: false
+    t.text "license_text"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.string "spdx_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "url"
+    t.index ["category"], name: "idx_licenses_category"
+    t.index ["is_copyleft"], name: "idx_licenses_copyleft"
+    t.index ["spdx_id"], name: "idx_licenses_spdx_id", unique: true
+    t.check_constraint "category::text = ANY (ARRAY['permissive'::character varying, 'copyleft'::character varying, 'weak_copyleft'::character varying, 'public_domain'::character varying, 'proprietary'::character varying, 'unknown'::character varying]::text[])", name: "check_licenses_category"
+  end
+
+  create_table "supply_chain_questionnaire_responses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "access_token", null: false
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.decimal "overall_score", precision: 5, scale: 2
+    t.uuid "requested_by_id"
+    t.jsonb "responses", default: {}, null: false
+    t.text "review_notes"
+    t.datetime "reviewed_at"
+    t.uuid "reviewed_by_id"
+    t.uuid "risk_assessment_id"
+    t.jsonb "section_scores", default: {}, null: false
+    t.datetime "sent_at"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.datetime "submitted_at"
+    t.uuid "template_id", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "vendor_id", null: false
+    t.index ["access_token"], name: "idx_questionnaire_responses_token", unique: true
+    t.index ["account_id"], name: "index_supply_chain_questionnaire_responses_on_account_id"
+    t.index ["requested_by_id"], name: "index_supply_chain_questionnaire_responses_on_requested_by_id"
+    t.index ["reviewed_by_id"], name: "index_supply_chain_questionnaire_responses_on_reviewed_by_id"
+    t.index ["risk_assessment_id"], name: "idx_on_risk_assessment_id_2f7cfcf19d"
+    t.index ["status"], name: "idx_questionnaire_responses_status"
+    t.index ["template_id"], name: "index_supply_chain_questionnaire_responses_on_template_id"
+    t.index ["vendor_id", "template_id"], name: "idx_questionnaire_responses_vendor_template"
+    t.index ["vendor_id"], name: "index_supply_chain_questionnaire_responses_on_vendor_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'in_progress'::character varying, 'submitted'::character varying, 'reviewed'::character varying, 'expired'::character varying]::text[])", name: "check_questionnaire_responses_status"
+  end
+
+  create_table "supply_chain_questionnaire_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_system", default: false, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.jsonb "questions", default: [], null: false
+    t.jsonb "sections", default: [], null: false
+    t.string "template_type", default: "custom", null: false
+    t.datetime "updated_at", null: false
+    t.string "version", default: "1.0", null: false
+    t.index ["account_id", "name"], name: "idx_questionnaire_templates_account_name", unique: true, where: "(account_id IS NOT NULL)"
+    t.index ["account_id"], name: "index_supply_chain_questionnaire_templates_on_account_id"
+    t.index ["created_by_id"], name: "index_supply_chain_questionnaire_templates_on_created_by_id"
+    t.index ["is_system"], name: "idx_questionnaire_templates_system"
+    t.index ["template_type"], name: "idx_questionnaire_templates_type"
+    t.check_constraint "template_type::text = ANY (ARRAY['soc2'::character varying, 'iso27001'::character varying, 'gdpr'::character varying, 'hipaa'::character varying, 'pci_dss'::character varying, 'custom'::character varying]::text[])", name: "check_questionnaire_templates_type"
+  end
+
+  create_table "supply_chain_remediation_plans", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "approval_status", default: "pending"
+    t.datetime "approved_at"
+    t.uuid "approved_by_id"
+    t.boolean "auto_executable", default: false, null: false
+    t.jsonb "breaking_changes", default: [], null: false
+    t.decimal "confidence_score", precision: 5, scale: 4, default: "0.0"
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.string "generated_pr_url"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "plan_type", default: "manual", null: false
+    t.uuid "sbom_id", null: false
+    t.string "status", default: "draft", null: false
+    t.text "summary"
+    t.jsonb "target_vulnerabilities", default: [], null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "upgrade_recommendations", default: [], null: false
+    t.uuid "workflow_run_id"
+    t.index ["account_id", "status"], name: "idx_remediation_plans_account_status"
+    t.index ["account_id"], name: "index_supply_chain_remediation_plans_on_account_id"
+    t.index ["approved_by_id"], name: "index_supply_chain_remediation_plans_on_approved_by_id"
+    t.index ["created_by_id"], name: "index_supply_chain_remediation_plans_on_created_by_id"
+    t.index ["sbom_id"], name: "idx_remediation_plans_sbom"
+    t.index ["sbom_id"], name: "index_supply_chain_remediation_plans_on_sbom_id"
+    t.index ["workflow_run_id"], name: "index_supply_chain_remediation_plans_on_workflow_run_id"
+    t.check_constraint "plan_type::text = ANY (ARRAY['manual'::character varying, 'ai_generated'::character varying, 'auto_fix'::character varying]::text[])", name: "check_remediation_plans_type"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'pending_review'::character varying, 'approved'::character varying, 'rejected'::character varying, 'executing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "check_remediation_plans_status"
+  end
+
+  create_table "supply_chain_reports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.datetime "expires_at"
+    t.string "file_path"
+    t.bigint "file_size_bytes"
+    t.string "file_url"
+    t.string "format", default: "pdf", null: false
+    t.datetime "generated_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.jsonb "parameters", default: {}, null: false
+    t.string "report_type", null: false
+    t.uuid "sbom_id"
+    t.string "status", default: "pending", null: false
+    t.jsonb "summary", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "report_type"], name: "idx_reports_account_type"
+    t.index ["account_id"], name: "index_supply_chain_reports_on_account_id"
+    t.index ["created_at"], name: "idx_reports_created"
+    t.index ["created_by_id"], name: "index_supply_chain_reports_on_created_by_id"
+    t.index ["sbom_id"], name: "index_supply_chain_reports_on_sbom_id"
+    t.index ["status"], name: "idx_reports_status"
+    t.check_constraint "format::text = ANY (ARRAY['pdf'::character varying, 'json'::character varying, 'csv'::character varying, 'html'::character varying, 'xml'::character varying, 'spdx'::character varying, 'cyclonedx'::character varying]::text[])", name: "check_reports_format"
+    t.check_constraint "report_type::text = ANY (ARRAY['sbom_export'::character varying, 'vulnerability_report'::character varying, 'license_report'::character varying, 'attribution'::character varying, 'compliance_summary'::character varying, 'vendor_assessment'::character varying, 'custom'::character varying]::text[])", name: "check_reports_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'generating'::character varying, 'completed'::character varying, 'failed'::character varying, 'expired'::character varying]::text[])", name: "check_reports_status"
+  end
+
+  create_table "supply_chain_risk_assessments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "assessment_date"
+    t.string "assessment_type", default: "initial", null: false
+    t.uuid "assessor_id"
+    t.datetime "completed_at"
+    t.decimal "compliance_score", precision: 5, scale: 2, default: "0.0"
+    t.datetime "created_at", null: false
+    t.jsonb "evidence", default: [], null: false
+    t.jsonb "findings", default: [], null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.decimal "operational_score", precision: 5, scale: 2, default: "0.0"
+    t.decimal "overall_score", precision: 5, scale: 2, default: "0.0"
+    t.jsonb "recommendations", default: [], null: false
+    t.decimal "security_score", precision: 5, scale: 2, default: "0.0"
+    t.string "status", default: "in_progress", null: false
+    t.text "summary"
+    t.datetime "updated_at", null: false
+    t.datetime "valid_until"
+    t.uuid "vendor_id", null: false
+    t.index ["account_id", "status"], name: "idx_risk_assessments_account_status"
+    t.index ["account_id"], name: "index_supply_chain_risk_assessments_on_account_id"
+    t.index ["assessment_type"], name: "idx_risk_assessments_type"
+    t.index ["assessor_id"], name: "index_supply_chain_risk_assessments_on_assessor_id"
+    t.index ["vendor_id", "created_at"], name: "idx_risk_assessments_vendor_created"
+    t.index ["vendor_id"], name: "index_supply_chain_risk_assessments_on_vendor_id"
+    t.check_constraint "assessment_type::text = ANY (ARRAY['initial'::character varying, 'periodic'::character varying, 'incident'::character varying, 'renewal'::character varying]::text[])", name: "check_risk_assessments_type"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'in_progress'::character varying, 'pending_review'::character varying, 'completed'::character varying, 'expired'::character varying]::text[])", name: "check_risk_assessments_status"
+  end
+
+  create_table "supply_chain_sbom_components", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.string "dependency_type", default: "direct", null: false
+    t.integer "depth", default: 0, null: false
+    t.string "ecosystem", null: false
+    t.boolean "has_known_vulnerabilities", default: false, null: false
+    t.boolean "is_outdated", default: false, null: false
+    t.string "latest_version"
+    t.string "license_compliance_status", default: "unknown"
+    t.string "license_name"
+    t.string "license_spdx_id"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.string "namespace"
+    t.jsonb "properties", default: {}, null: false
+    t.string "purl", null: false
+    t.decimal "risk_score", precision: 5, scale: 2, default: "0.0"
+    t.uuid "sbom_id", null: false
+    t.string "scope"
+    t.datetime "updated_at", null: false
+    t.string "version"
+    t.index ["account_id", "ecosystem"], name: "idx_sbom_components_account_ecosystem"
+    t.index ["account_id"], name: "index_supply_chain_sbom_components_on_account_id"
+    t.index ["has_known_vulnerabilities"], name: "idx_sbom_components_has_vulns"
+    t.index ["metadata"], name: "idx_sbom_components_metadata", using: :gin
+    t.index ["purl"], name: "idx_sbom_components_purl"
+    t.index ["sbom_id", "purl"], name: "idx_sbom_components_sbom_purl", unique: true
+    t.index ["sbom_id"], name: "index_supply_chain_sbom_components_on_sbom_id"
+    t.check_constraint "dependency_type::text = ANY (ARRAY['direct'::character varying, 'transitive'::character varying, 'dev'::character varying, 'optional'::character varying, 'peer'::character varying]::text[])", name: "check_sbom_components_dependency_type"
+    t.check_constraint "ecosystem::text = ANY (ARRAY['npm'::character varying, 'gem'::character varying, 'pip'::character varying, 'maven'::character varying, 'gradle'::character varying, 'go'::character varying, 'cargo'::character varying, 'nuget'::character varying, 'composer'::character varying, 'hex'::character varying, 'pub'::character varying, 'cocoapods'::character varying, 'swift'::character varying, 'other'::character varying]::text[])", name: "check_sbom_components_ecosystem"
+  end
+
+  create_table "supply_chain_sbom_diffs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "added_components", default: [], null: false
+    t.integer "added_count", default: 0, null: false
+    t.uuid "base_sbom_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.jsonb "new_vulnerabilities", default: [], null: false
+    t.jsonb "removed_components", default: [], null: false
+    t.integer "removed_count", default: 0, null: false
+    t.jsonb "resolved_vulnerabilities", default: [], null: false
+    t.decimal "risk_delta", precision: 5, scale: 2, default: "0.0"
+    t.uuid "target_sbom_id", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "updated_components", default: [], null: false
+    t.integer "updated_count", default: 0, null: false
+    t.index ["account_id", "created_at"], name: "idx_sbom_diffs_account_created"
+    t.index ["account_id"], name: "index_supply_chain_sbom_diffs_on_account_id"
+    t.index ["base_sbom_id", "target_sbom_id"], name: "idx_sbom_diffs_base_target", unique: true
+    t.index ["base_sbom_id"], name: "index_supply_chain_sbom_diffs_on_base_sbom_id"
+    t.index ["target_sbom_id"], name: "index_supply_chain_sbom_diffs_on_target_sbom_id"
+  end
+
+  create_table "supply_chain_sbom_vulnerabilities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "component_id", null: false
+    t.jsonb "context_factors", default: {}, null: false
+    t.decimal "contextual_score", precision: 4, scale: 2
+    t.datetime "created_at", null: false
+    t.decimal "cvss_score", precision: 4, scale: 2
+    t.string "cvss_vector"
+    t.integer "cvss_version"
+    t.text "description"
+    t.text "dismissal_reason"
+    t.datetime "dismissed_at"
+    t.uuid "dismissed_by_id"
+    t.string "fixed_version"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "modified_at"
+    t.datetime "published_at"
+    t.jsonb "references", default: [], null: false
+    t.string "remediation_status", default: "open", null: false
+    t.uuid "sbom_id", null: false
+    t.string "severity", default: "unknown", null: false
+    t.string "source", default: "nvd", null: false
+    t.datetime "updated_at", null: false
+    t.string "vulnerability_id", null: false
+    t.index ["account_id", "severity"], name: "idx_sbom_vulns_account_severity"
+    t.index ["account_id"], name: "index_supply_chain_sbom_vulnerabilities_on_account_id"
+    t.index ["component_id"], name: "index_supply_chain_sbom_vulnerabilities_on_component_id"
+    t.index ["context_factors"], name: "idx_sbom_vulns_context", using: :gin
+    t.index ["dismissed_by_id"], name: "index_supply_chain_sbom_vulnerabilities_on_dismissed_by_id"
+    t.index ["remediation_status"], name: "idx_sbom_vulns_status"
+    t.index ["sbom_id", "vulnerability_id", "component_id"], name: "idx_sbom_vulns_unique", unique: true
+    t.index ["sbom_id"], name: "index_supply_chain_sbom_vulnerabilities_on_sbom_id"
+    t.index ["vulnerability_id"], name: "idx_sbom_vulns_vuln_id"
+    t.check_constraint "remediation_status::text = ANY (ARRAY['open'::character varying, 'in_progress'::character varying, 'fixed'::character varying, 'dismissed'::character varying, 'wont_fix'::character varying]::text[])", name: "check_sbom_vulns_remediation_status"
+    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying, 'none'::character varying, 'unknown'::character varying]::text[])", name: "check_sbom_vulns_severity"
+  end
+
+  create_table "supply_chain_sboms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "branch"
+    t.string "commit_sha"
+    t.integer "component_count", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.jsonb "document", default: {}, null: false
+    t.string "document_hash"
+    t.string "format", default: "cyclonedx_1_5", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name"
+    t.boolean "ntia_minimum_compliant", default: false, null: false
+    t.uuid "pipeline_run_id"
+    t.uuid "repository_id"
+    t.decimal "risk_score", precision: 5, scale: 2, default: "0.0"
+    t.string "sbom_id", null: false
+    t.text "signature"
+    t.string "signature_algorithm"
+    t.string "status", default: "draft", null: false
+    t.datetime "updated_at", null: false
+    t.string "version"
+    t.integer "vulnerability_count", default: 0, null: false
+    t.index ["account_id", "sbom_id"], name: "idx_sboms_account_sbom_id", unique: true
+    t.index ["account_id", "status"], name: "idx_sboms_account_status"
+    t.index ["account_id"], name: "index_supply_chain_sboms_on_account_id"
+    t.index ["created_at"], name: "idx_sboms_created_at"
+    t.index ["created_by_id"], name: "index_supply_chain_sboms_on_created_by_id"
+    t.index ["metadata"], name: "idx_sboms_metadata", using: :gin
+    t.index ["pipeline_run_id"], name: "index_supply_chain_sboms_on_pipeline_run_id"
+    t.index ["repository_id", "commit_sha"], name: "idx_sboms_repo_commit"
+    t.index ["repository_id"], name: "index_supply_chain_sboms_on_repository_id"
+    t.check_constraint "format::text = ANY (ARRAY['spdx_2_3'::character varying, 'cyclonedx_1_4'::character varying, 'cyclonedx_1_5'::character varying, 'cyclonedx_1_6'::character varying]::text[])", name: "check_sboms_format"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'generating'::character varying, 'completed'::character varying, 'failed'::character varying, 'archived'::character varying]::text[])", name: "check_sboms_status"
+  end
+
+  create_table "supply_chain_scan_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.text "error_message"
+    t.string "execution_id", null: false
+    t.jsonb "input_data", default: {}, null: false
+    t.text "logs"
+    t.jsonb "metadata", default: {}, null: false
+    t.jsonb "output_data", default: {}, null: false
+    t.uuid "scan_instance_id", null: false
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.string "trigger_type", default: "manual", null: false
+    t.uuid "triggered_by_id"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "idx_scan_executions_account_status"
+    t.index ["account_id"], name: "index_supply_chain_scan_executions_on_account_id"
+    t.index ["execution_id"], name: "idx_scan_executions_execution_id", unique: true
+    t.index ["scan_instance_id", "created_at"], name: "idx_scan_executions_instance_created"
+    t.index ["scan_instance_id"], name: "index_supply_chain_scan_executions_on_scan_instance_id"
+    t.index ["triggered_by_id"], name: "index_supply_chain_scan_executions_on_triggered_by_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "check_scan_executions_status"
+    t.check_constraint "trigger_type::text = ANY (ARRAY['manual'::character varying, 'scheduled'::character varying, 'webhook'::character varying, 'pipeline'::character varying, 'api'::character varying]::text[])", name: "check_scan_executions_trigger"
+  end
+
+  create_table "supply_chain_scan_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "configuration", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.integer "execution_count", default: 0, null: false
+    t.integer "failure_count", default: 0, null: false
+    t.uuid "installed_by_id"
+    t.datetime "last_execution_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.datetime "next_execution_at"
+    t.uuid "scan_template_id", null: false
+    t.string "schedule_cron"
+    t.string "status", default: "active", null: false
+    t.integer "success_count", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "scan_template_id"], name: "idx_scan_instances_account_template", unique: true
+    t.index ["account_id"], name: "index_supply_chain_scan_instances_on_account_id"
+    t.index ["installed_by_id"], name: "index_supply_chain_scan_instances_on_installed_by_id"
+    t.index ["next_execution_at"], name: "idx_scan_instances_next_execution"
+    t.index ["scan_template_id"], name: "index_supply_chain_scan_instances_on_scan_template_id"
+    t.index ["status"], name: "idx_scan_instances_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'disabled'::character varying]::text[])", name: "check_scan_instances_status"
+  end
+
+  create_table "supply_chain_scan_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.decimal "average_rating", precision: 3, scale: 2, default: "0.0"
+    t.string "category", default: "security", null: false
+    t.jsonb "configuration_schema", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.jsonb "default_configuration", default: {}, null: false
+    t.text "description"
+    t.integer "install_count", default: 0, null: false
+    t.boolean "is_public", default: false, null: false
+    t.boolean "is_system", default: false, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.string "status", default: "draft", null: false
+    t.jsonb "supported_ecosystems", default: [], null: false
+    t.datetime "updated_at", null: false
+    t.string "version", default: "1.0.0", null: false
+    t.index ["account_id"], name: "index_supply_chain_scan_templates_on_account_id"
+    t.index ["category"], name: "idx_scan_templates_category"
+    t.index ["created_by_id"], name: "index_supply_chain_scan_templates_on_created_by_id"
+    t.index ["is_public"], name: "idx_scan_templates_public"
+    t.index ["slug"], name: "idx_scan_templates_slug", unique: true
+    t.index ["status"], name: "idx_scan_templates_status"
+    t.check_constraint "category::text = ANY (ARRAY['security'::character varying, 'compliance'::character varying, 'license'::character varying, 'quality'::character varying, 'custom'::character varying]::text[])", name: "check_scan_templates_category"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'archived'::character varying, 'deprecated'::character varying]::text[])", name: "check_scan_templates_status"
+  end
+
+  create_table "supply_chain_signing_keys", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.text "encrypted_private_key"
+    t.datetime "expires_at"
+    t.string "fingerprint", null: false
+    t.string "key_id", null: false
+    t.string "key_type", default: "cosign", null: false
+    t.string "kms_key_uri"
+    t.string "kms_provider"
+    t.string "kms_region"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.text "public_key", null: false
+    t.datetime "rotated_at"
+    t.uuid "rotated_from_id"
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "key_id"], name: "idx_signing_keys_account_key_id", unique: true
+    t.index ["account_id"], name: "index_supply_chain_signing_keys_on_account_id"
+    t.index ["created_by_id"], name: "index_supply_chain_signing_keys_on_created_by_id"
+    t.index ["fingerprint"], name: "idx_signing_keys_fingerprint", unique: true
+    t.index ["rotated_from_id"], name: "index_supply_chain_signing_keys_on_rotated_from_id"
+    t.index ["status"], name: "idx_signing_keys_status"
+    t.check_constraint "key_type::text = ANY (ARRAY['cosign'::character varying, 'oidc_identity'::character varying, 'kms_reference'::character varying, 'gpg'::character varying]::text[])", name: "check_signing_keys_type"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'rotating'::character varying, 'rotated'::character varying, 'revoked'::character varying, 'expired'::character varying]::text[])", name: "check_signing_keys_status"
+  end
+
+  create_table "supply_chain_vendor_monitoring_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "acknowledged_at"
+    t.uuid "acknowledged_by_id"
+    t.jsonb "affected_services", default: [], null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.datetime "detected_at", null: false
+    t.string "event_type", null: false
+    t.string "external_url"
+    t.boolean "is_acknowledged", default: false, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.jsonb "recommended_actions", default: [], null: false
+    t.datetime "resolved_at"
+    t.string "severity", default: "info", null: false
+    t.string "source", default: "internal", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "vendor_id", null: false
+    t.index ["account_id", "severity"], name: "idx_vendor_events_account_severity"
+    t.index ["account_id"], name: "index_supply_chain_vendor_monitoring_events_on_account_id"
+    t.index ["acknowledged_by_id"], name: "idx_on_acknowledged_by_id_6c4702b009"
+    t.index ["event_type"], name: "idx_vendor_events_type"
+    t.index ["is_acknowledged"], name: "idx_vendor_events_acknowledged"
+    t.index ["vendor_id", "created_at"], name: "idx_vendor_events_vendor_created"
+    t.index ["vendor_id"], name: "index_supply_chain_vendor_monitoring_events_on_vendor_id"
+    t.check_constraint "event_type::text = ANY (ARRAY['security_incident'::character varying, 'breach'::character varying, 'certification_expiry'::character varying, 'contract_renewal'::character varying, 'service_degradation'::character varying, 'compliance_update'::character varying, 'news_alert'::character varying]::text[])", name: "check_vendor_events_type"
+    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying, 'info'::character varying]::text[])", name: "check_vendor_events_severity"
+  end
+
+  create_table "supply_chain_vendors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "certifications", default: [], null: false
+    t.string "contact_email"
+    t.datetime "contract_end_date"
+    t.datetime "contract_start_date"
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.boolean "handles_pci", default: false, null: false
+    t.boolean "handles_phi", default: false, null: false
+    t.boolean "handles_pii", default: false, null: false
+    t.boolean "has_baa", default: false, null: false
+    t.boolean "has_dpa", default: false, null: false
+    t.datetime "last_assessment_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.datetime "next_assessment_due"
+    t.decimal "risk_score", precision: 5, scale: 2, default: "0.0"
+    t.string "risk_tier", default: "medium", null: false
+    t.jsonb "security_contacts", default: [], null: false
+    t.string "slug", null: false
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.string "vendor_type", default: "saas", null: false
+    t.string "website"
+    t.index ["account_id", "slug"], name: "idx_vendors_account_slug", unique: true
+    t.index ["account_id"], name: "index_supply_chain_vendors_on_account_id"
+    t.index ["certifications"], name: "idx_vendors_certifications", using: :gin
+    t.index ["created_by_id"], name: "index_supply_chain_vendors_on_created_by_id"
+    t.index ["risk_tier"], name: "idx_vendors_risk_tier"
+    t.index ["status"], name: "idx_vendors_status"
+    t.check_constraint "risk_tier::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying]::text[])", name: "check_vendors_risk_tier"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'under_review'::character varying, 'terminated'::character varying]::text[])", name: "check_vendors_status"
+    t.check_constraint "vendor_type::text = ANY (ARRAY['saas'::character varying, 'api'::character varying, 'library'::character varying, 'infrastructure'::character varying, 'hardware'::character varying, 'consulting'::character varying, 'other'::character varying]::text[])", name: "check_vendors_type"
+  end
+
+  create_table "supply_chain_verification_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "attestation_id", null: false
+    t.datetime "created_at", null: false
+    t.string "log_hash", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "previous_log_hash"
+    t.string "result", null: false
+    t.text "result_message"
+    t.datetime "updated_at", null: false
+    t.jsonb "verification_details", default: {}, null: false
+    t.string "verification_type", null: false
+    t.uuid "verified_by_id"
+    t.index ["account_id"], name: "index_supply_chain_verification_logs_on_account_id"
+    t.index ["attestation_id", "created_at"], name: "idx_verification_logs_attestation_time"
+    t.index ["attestation_id"], name: "index_supply_chain_verification_logs_on_attestation_id"
+    t.index ["log_hash"], name: "idx_verification_logs_hash", unique: true
+    t.index ["previous_log_hash"], name: "idx_verification_logs_prev_hash"
+    t.index ["verified_by_id"], name: "index_supply_chain_verification_logs_on_verified_by_id"
+  end
+
+  create_table "supply_chain_vulnerability_feeds", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "api_key_encrypted"
+    t.jsonb "configuration", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.integer "entry_count", default: 0, null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_sync_at"
+    t.text "last_sync_error"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.string "source", null: false
+    t.string "sync_status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.string "url"
+    t.index ["account_id", "source"], name: "idx_vuln_feeds_account_source", unique: true
+    t.index ["account_id"], name: "index_supply_chain_vulnerability_feeds_on_account_id"
+    t.index ["sync_status"], name: "idx_vuln_feeds_sync_status"
+    t.check_constraint "source::text = ANY (ARRAY['nvd'::character varying, 'osv'::character varying, 'github_advisory'::character varying, 'snyk'::character varying, 'sonatype'::character varying, 'custom'::character varying]::text[])", name: "check_vuln_feeds_source"
+    t.check_constraint "sync_status::text = ANY (ARRAY['pending'::character varying, 'syncing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "check_vuln_feeds_sync_status"
+  end
+
+  create_table "supply_chain_vulnerability_scans", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "completed_at"
+    t.uuid "container_image_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "critical_count", default: 0, null: false
+    t.integer "duration_ms"
+    t.text "error_message"
+    t.integer "high_count", default: 0, null: false
+    t.jsonb "layer_vulnerabilities", default: {}, null: false
+    t.integer "low_count", default: 0, null: false
+    t.integer "medium_count", default: 0, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.jsonb "sbom", default: {}, null: false
+    t.string "scanner_name", default: "trivy", null: false
+    t.string "scanner_version"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.uuid "triggered_by_id"
+    t.integer "unknown_count", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "vulnerabilities", default: [], null: false
+    t.index ["account_id", "status"], name: "idx_vuln_scans_account_status"
+    t.index ["account_id"], name: "index_supply_chain_vulnerability_scans_on_account_id"
+    t.index ["container_image_id", "created_at"], name: "idx_vuln_scans_image_created"
+    t.index ["container_image_id"], name: "index_supply_chain_vulnerability_scans_on_container_image_id"
+    t.index ["triggered_by_id"], name: "index_supply_chain_vulnerability_scans_on_triggered_by_id"
+    t.index ["vulnerabilities"], name: "idx_vuln_scans_vulns", using: :gin
+    t.check_constraint "scanner_name::text = ANY (ARRAY['trivy'::character varying, 'grype'::character varying, 'clair'::character varying, 'snyk'::character varying, 'custom'::character varying]::text[])", name: "check_vuln_scans_scanner"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "check_vuln_scans_status"
+  end
+
   create_table "system_health_checks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "check_name", limit: 100, null: false
     t.datetime "checked_at", null: false
@@ -6635,6 +7458,90 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_20_101854) do
   add_foreign_key "shared_prompt_templates", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "subscriptions", "accounts"
   add_foreign_key "subscriptions", "plans"
+  add_foreign_key "supply_chain_attestations", "accounts"
+  add_foreign_key "supply_chain_attestations", "devops_pipeline_runs", column: "pipeline_run_id"
+  add_foreign_key "supply_chain_attestations", "supply_chain_sboms", column: "sbom_id"
+  add_foreign_key "supply_chain_attestations", "supply_chain_signing_keys", column: "signing_key_id"
+  add_foreign_key "supply_chain_attestations", "users", column: "created_by_id"
+  add_foreign_key "supply_chain_attributions", "accounts"
+  add_foreign_key "supply_chain_attributions", "supply_chain_licenses", column: "license_id"
+  add_foreign_key "supply_chain_attributions", "supply_chain_sbom_components", column: "sbom_component_id", on_delete: :cascade
+  add_foreign_key "supply_chain_build_provenances", "accounts"
+  add_foreign_key "supply_chain_build_provenances", "supply_chain_attestations", column: "attestation_id", on_delete: :cascade
+  add_foreign_key "supply_chain_container_images", "accounts"
+  add_foreign_key "supply_chain_container_images", "supply_chain_attestations", column: "attestation_id"
+  add_foreign_key "supply_chain_container_images", "supply_chain_container_images", column: "base_image_id"
+  add_foreign_key "supply_chain_container_images", "supply_chain_sboms", column: "sbom_id"
+  add_foreign_key "supply_chain_cve_monitors", "accounts"
+  add_foreign_key "supply_chain_cve_monitors", "users", column: "created_by_id"
+  add_foreign_key "supply_chain_image_policies", "accounts"
+  add_foreign_key "supply_chain_image_policies", "users", column: "created_by_id"
+  add_foreign_key "supply_chain_license_detections", "accounts"
+  add_foreign_key "supply_chain_license_detections", "supply_chain_licenses", column: "license_id"
+  add_foreign_key "supply_chain_license_detections", "supply_chain_sbom_components", column: "sbom_component_id", on_delete: :cascade
+  add_foreign_key "supply_chain_license_policies", "accounts"
+  add_foreign_key "supply_chain_license_policies", "users", column: "created_by_id"
+  add_foreign_key "supply_chain_license_violations", "accounts"
+  add_foreign_key "supply_chain_license_violations", "supply_chain_license_policies", column: "license_policy_id"
+  add_foreign_key "supply_chain_license_violations", "supply_chain_licenses", column: "license_id"
+  add_foreign_key "supply_chain_license_violations", "supply_chain_sbom_components", column: "sbom_component_id"
+  add_foreign_key "supply_chain_license_violations", "supply_chain_sboms", column: "sbom_id"
+  add_foreign_key "supply_chain_license_violations", "users", column: "exception_approved_by_id"
+  add_foreign_key "supply_chain_questionnaire_responses", "accounts"
+  add_foreign_key "supply_chain_questionnaire_responses", "supply_chain_questionnaire_templates", column: "template_id"
+  add_foreign_key "supply_chain_questionnaire_responses", "supply_chain_risk_assessments", column: "risk_assessment_id"
+  add_foreign_key "supply_chain_questionnaire_responses", "supply_chain_vendors", column: "vendor_id"
+  add_foreign_key "supply_chain_questionnaire_responses", "users", column: "requested_by_id"
+  add_foreign_key "supply_chain_questionnaire_responses", "users", column: "reviewed_by_id"
+  add_foreign_key "supply_chain_questionnaire_templates", "accounts"
+  add_foreign_key "supply_chain_questionnaire_templates", "users", column: "created_by_id"
+  add_foreign_key "supply_chain_remediation_plans", "accounts"
+  add_foreign_key "supply_chain_remediation_plans", "ai_workflow_runs", column: "workflow_run_id"
+  add_foreign_key "supply_chain_remediation_plans", "supply_chain_sboms", column: "sbom_id"
+  add_foreign_key "supply_chain_remediation_plans", "users", column: "approved_by_id"
+  add_foreign_key "supply_chain_remediation_plans", "users", column: "created_by_id"
+  add_foreign_key "supply_chain_reports", "accounts"
+  add_foreign_key "supply_chain_reports", "supply_chain_sboms", column: "sbom_id"
+  add_foreign_key "supply_chain_reports", "users", column: "created_by_id"
+  add_foreign_key "supply_chain_risk_assessments", "accounts"
+  add_foreign_key "supply_chain_risk_assessments", "supply_chain_vendors", column: "vendor_id", on_delete: :cascade
+  add_foreign_key "supply_chain_risk_assessments", "users", column: "assessor_id"
+  add_foreign_key "supply_chain_sbom_components", "accounts"
+  add_foreign_key "supply_chain_sbom_components", "supply_chain_sboms", column: "sbom_id", on_delete: :cascade
+  add_foreign_key "supply_chain_sbom_diffs", "accounts"
+  add_foreign_key "supply_chain_sbom_diffs", "supply_chain_sboms", column: "base_sbom_id"
+  add_foreign_key "supply_chain_sbom_diffs", "supply_chain_sboms", column: "target_sbom_id"
+  add_foreign_key "supply_chain_sbom_vulnerabilities", "accounts"
+  add_foreign_key "supply_chain_sbom_vulnerabilities", "supply_chain_sbom_components", column: "component_id", on_delete: :cascade
+  add_foreign_key "supply_chain_sbom_vulnerabilities", "supply_chain_sboms", column: "sbom_id", on_delete: :cascade
+  add_foreign_key "supply_chain_sbom_vulnerabilities", "users", column: "dismissed_by_id"
+  add_foreign_key "supply_chain_sboms", "accounts"
+  add_foreign_key "supply_chain_sboms", "devops_pipeline_runs", column: "pipeline_run_id"
+  add_foreign_key "supply_chain_sboms", "devops_repositories", column: "repository_id"
+  add_foreign_key "supply_chain_sboms", "users", column: "created_by_id"
+  add_foreign_key "supply_chain_scan_executions", "accounts"
+  add_foreign_key "supply_chain_scan_executions", "supply_chain_scan_instances", column: "scan_instance_id", on_delete: :cascade
+  add_foreign_key "supply_chain_scan_executions", "users", column: "triggered_by_id"
+  add_foreign_key "supply_chain_scan_instances", "accounts"
+  add_foreign_key "supply_chain_scan_instances", "supply_chain_scan_templates", column: "scan_template_id"
+  add_foreign_key "supply_chain_scan_instances", "users", column: "installed_by_id"
+  add_foreign_key "supply_chain_scan_templates", "accounts"
+  add_foreign_key "supply_chain_scan_templates", "users", column: "created_by_id"
+  add_foreign_key "supply_chain_signing_keys", "accounts"
+  add_foreign_key "supply_chain_signing_keys", "supply_chain_signing_keys", column: "rotated_from_id"
+  add_foreign_key "supply_chain_signing_keys", "users", column: "created_by_id"
+  add_foreign_key "supply_chain_vendor_monitoring_events", "accounts"
+  add_foreign_key "supply_chain_vendor_monitoring_events", "supply_chain_vendors", column: "vendor_id", on_delete: :cascade
+  add_foreign_key "supply_chain_vendor_monitoring_events", "users", column: "acknowledged_by_id"
+  add_foreign_key "supply_chain_vendors", "accounts"
+  add_foreign_key "supply_chain_vendors", "users", column: "created_by_id"
+  add_foreign_key "supply_chain_verification_logs", "accounts"
+  add_foreign_key "supply_chain_verification_logs", "supply_chain_attestations", column: "attestation_id"
+  add_foreign_key "supply_chain_verification_logs", "users", column: "verified_by_id"
+  add_foreign_key "supply_chain_vulnerability_feeds", "accounts"
+  add_foreign_key "supply_chain_vulnerability_scans", "accounts"
+  add_foreign_key "supply_chain_vulnerability_scans", "supply_chain_container_images", column: "container_image_id", on_delete: :cascade
+  add_foreign_key "supply_chain_vulnerability_scans", "users", column: "triggered_by_id"
   add_foreign_key "system_operations", "users", column: "initiated_by_id"
   add_foreign_key "task_executions", "scheduled_tasks"
   add_foreign_key "terms_acceptances", "accounts"

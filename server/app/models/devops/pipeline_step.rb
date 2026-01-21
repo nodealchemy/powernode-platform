@@ -17,6 +17,13 @@ module Devops
       deploy
       notify
       custom
+      sbom_generate
+      vulnerability_scan
+      compliance_export
+      remediation_plan
+      generate_attestation
+      sign_artifact
+      policy_gate
     ].freeze
 
     # ============================================
