@@ -100,18 +100,16 @@ const QuickLinkCard: React.FC<QuickLinkCardProps> = ({
 
 interface AlertsPanelProps {
   alerts: Array<{
-    id: string;
-    type: string;
     severity: string;
-    title: string;
+    type: string;
     message: string;
-    entity_id: string;
-    entity_type: string;
-    created_at: string;
+    action_url: string;
   }>;
 }
 
 const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts }) => {
+  const navigate = useNavigate();
+
   const getSeverityColor = (severity: string): string => {
     switch (severity.toLowerCase()) {
       case 'critical':
@@ -148,10 +146,11 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts }) => {
       </div>
       {alerts.length > 0 ? (
         <div className="space-y-3">
-          {alerts.slice(0, 5).map((alert) => (
+          {alerts.slice(0, 5).map((alert, index) => (
             <div
-              key={alert.id}
-              className={`p-3 rounded-lg ${getSeverityBgColor(alert.severity)}`}
+              key={`${alert.type}-${index}`}
+              onClick={() => alert.action_url && navigate(`/app${alert.action_url}`)}
+              className={`p-3 rounded-lg ${getSeverityBgColor(alert.severity)} ${alert.action_url ? 'cursor-pointer hover:opacity-80' : ''}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -161,8 +160,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts }) => {
                     </span>
                     <span className="text-xs text-theme-tertiary">{alert.type}</span>
                   </div>
-                  <p className="text-sm font-medium text-theme-primary mt-1">{alert.title}</p>
-                  <p className="text-xs text-theme-secondary mt-1">{alert.message}</p>
+                  <p className="text-sm text-theme-secondary mt-1">{alert.message}</p>
                 </div>
               </div>
             </div>
@@ -180,13 +178,10 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts }) => {
 
 interface ActivityFeedProps {
   activities: Array<{
-    id: string;
-    action: string;
-    entity_type: string;
-    entity_name: string;
-    user_name?: string;
-    details?: string;
-    created_at: string;
+    type: string;
+    title: string;
+    timestamp: string;
+    details: Record<string, unknown>;
   }>;
 }
 
@@ -205,6 +200,19 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities }) => {
     return `${diffDays}d ago`;
   };
 
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'sbom_created':
+        return FileCode;
+      case 'scan_completed':
+        return Container;
+      case 'attestation_created':
+        return CheckCircle2;
+      default:
+        return Clock;
+    }
+  };
+
   return (
     <div className="bg-theme-surface border border-theme rounded-lg p-5">
       <div className="flex items-center justify-between mb-4">
@@ -215,33 +223,33 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities }) => {
       </div>
       {activities.length > 0 ? (
         <div className="space-y-3">
-          {activities.slice(0, 5).map((activity) => (
-            <div
-              key={activity.id}
-              className="flex items-start gap-3 p-2 rounded hover:bg-theme-secondary/5 transition-colors"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-theme-primary">
-                  <span className="font-medium">{activity.action}</span>
-                  {' '}
-                  <span className="text-theme-secondary">{activity.entity_type}</span>
-                  {' '}
-                  <span className="font-medium">{activity.entity_name}</span>
-                </p>
-                {activity.user_name && (
-                  <p className="text-xs text-theme-tertiary mt-1">
-                    by {activity.user_name}
-                  </p>
-                )}
-                {activity.details && (
-                  <p className="text-xs text-theme-tertiary mt-1">{activity.details}</p>
-                )}
+          {activities.slice(0, 5).map((activity, index) => {
+            const IconComponent = getActivityIcon(activity.type);
+            return (
+              <div
+                key={`${activity.type}-${index}`}
+                className="flex items-start gap-3 p-2 rounded hover:bg-theme-secondary/5 transition-colors"
+              >
+                <div className="p-1.5 rounded bg-theme-primary/10">
+                  <IconComponent className="w-4 h-4 text-theme-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-theme-primary">{activity.title}</p>
+                  {activity.details && Object.keys(activity.details).length > 0 && (
+                    <p className="text-xs text-theme-tertiary mt-1">
+                      {Object.entries(activity.details)
+                        .filter(([key]) => key !== 'id')
+                        .map(([key, value]) => `${key}: ${value}`)
+                        .join(' • ')}
+                    </p>
+                  )}
+                </div>
+                <span className="text-xs text-theme-tertiary flex-shrink-0">
+                  {formatTimeAgo(activity.timestamp)}
+                </span>
               </div>
-              <span className="text-xs text-theme-tertiary flex-shrink-0">
-                {formatTimeAgo(activity.created_at)}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="text-center py-8">
@@ -410,18 +418,18 @@ export function SupplyChainDashboardPage() {
             onClick={() => navigate('/app/supply-chain/vendors')}
           />
           <StatCard
-            title="License Violations"
-            value={data.open_violations}
-            subtitle={`${data.license_violation_count} total`}
+            title="NTIA Compliant"
+            value={data.ntia_compliant_sboms}
+            subtitle={`of ${data.sbom_count} SBOMs`}
             icon={Scale}
-            status={data.open_violations > 0 ? 'warning' : 'success'}
-            onClick={() => navigate('/app/supply-chain/license-violations')}
+            status={data.sbom_count > 0 && data.ntia_compliant_sboms === data.sbom_count ? 'success' : 'warning'}
+            onClick={() => navigate('/app/supply-chain/sboms')}
           />
         </div>
 
         {/* Alerts and Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <AlertsPanel alerts={data.recent_alerts} />
+          <AlertsPanel alerts={data.alerts} />
           <ActivityFeed activities={data.recent_activity} />
         </div>
 
@@ -442,7 +450,7 @@ export function SupplyChainDashboardPage() {
         </div>
 
         {/* Security Status */}
-        {(data.critical_vulnerabilities > 0 || data.quarantined_images > 0 || data.high_risk_vendors > 0) && (
+        {(data.critical_vulnerabilities > 0 || data.quarantined_images > 0 || data.high_risk_vendors > 0 || data.open_vulnerabilities > 0) && (
           <div className="bg-theme-warning/10 border border-theme-warning/30 rounded-lg p-4">
             <h3 className="font-semibold text-theme-warning flex items-center gap-2 mb-3">
               <Shield className="w-5 h-5" />
@@ -455,7 +463,7 @@ export function SupplyChainDashboardPage() {
                     {data.critical_vulnerabilities} critical vulnerabilit{data.critical_vulnerabilities > 1 ? 'ies' : 'y'} detected
                   </span>
                   <button
-                    onClick={() => navigate('/app/supply-chain/vulnerabilities')}
+                    onClick={() => navigate('/app/supply-chain/sboms')}
                     className="text-theme-primary hover:underline"
                   >
                     Review
