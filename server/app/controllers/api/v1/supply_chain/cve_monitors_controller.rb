@@ -19,7 +19,7 @@ module Api
 
           render_success(
             cve_monitors: @monitors.map { |m| serialize_monitor(m) },
-            meta: pagination_meta(@monitors)
+            meta: pagination_meta
           )
         end
 

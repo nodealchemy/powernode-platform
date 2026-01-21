@@ -22,7 +22,7 @@ module Api
 
           render_success(
             license_violations: @violations.map { |v| serialize_violation(v) },
-            meta: pagination_meta(@violations)
+            meta: pagination_meta
           )
         end
 

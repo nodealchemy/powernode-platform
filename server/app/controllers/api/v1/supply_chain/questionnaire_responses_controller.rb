@@ -23,7 +23,7 @@ module Api
 
           render_success(
             questionnaire_responses: @responses.map { |r| serialize_response(r) },
-            meta: pagination_meta(@responses)
+            meta: pagination_meta
           )
         end
 

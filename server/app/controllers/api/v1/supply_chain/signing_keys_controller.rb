@@ -18,7 +18,7 @@ module Api
 
           render_success(
             signing_keys: @signing_keys.map { |key| serialize_signing_key(key) },
-            meta: pagination_meta(@signing_keys)
+            meta: pagination_meta
           )
         end
 

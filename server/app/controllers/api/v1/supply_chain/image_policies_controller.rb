@@ -19,7 +19,7 @@ module Api
 
           render_success(
             image_policies: @policies.map { |p| serialize_policy(p) },
-            meta: pagination_meta(@policies)
+            meta: pagination_meta
           )
         end
 

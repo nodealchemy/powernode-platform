@@ -19,7 +19,7 @@ module Api
 
           render_success(
             questionnaire_templates: @templates.map { |t| serialize_template(t) },
-            meta: pagination_meta(@templates)
+            meta: pagination_meta
           )
         end
 

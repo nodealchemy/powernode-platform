@@ -18,7 +18,7 @@ module Api
 
           render_success(
             scan_instances: @instances.map { |i| serialize_instance(i) },
-            meta: pagination_meta(@instances)
+            meta: pagination_meta
           )
         end
 
@@ -95,7 +95,7 @@ module Api
 
           render_success(
             scan_executions: @executions.map { |e| serialize_execution(e) },
-            meta: pagination_meta(@executions)
+            meta: pagination_meta
           )
         end
 

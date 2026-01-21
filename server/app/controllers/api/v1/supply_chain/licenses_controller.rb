@@ -26,7 +26,7 @@ module Api
 
           render_success(
             licenses: @licenses.map { |l| serialize_license(l) },
-            meta: pagination_meta(@licenses)
+            meta: pagination_meta
           )
         end
 
