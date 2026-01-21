@@ -25,7 +25,8 @@ export const ContainerImagesPage: React.FC = () => {
   });
 
   const handleScanImage = () => {
-    navigate('/app/supply-chain/container-images/scan');
+    // TODO: Implement container image scan form
+    alert('Container image scanning form coming soon.');
   };
 
   const handleRowClick = (image: ContainerImage) => {

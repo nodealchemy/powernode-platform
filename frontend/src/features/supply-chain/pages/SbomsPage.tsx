@@ -198,7 +198,7 @@ const SbomsPageContent: React.FC = () => {
     {
       id: 'generate',
       label: 'Generate SBOM',
-      onClick: () => navigate('/app/supply-chain/sboms/new'),
+      onClick: () => alert('SBOM generation form coming soon.'),
       variant: 'primary' as const,
       icon: Plus,
     },
@@ -266,7 +266,7 @@ const SbomsPageContent: React.FC = () => {
             action: !statusFilter
               ? {
                   label: 'Generate SBOM',
-                  onClick: () => navigate('/app/supply-chain/sboms/new'),
+                  onClick: () => alert('SBOM generation form coming soon.'),
                 }
               : undefined,
           }}

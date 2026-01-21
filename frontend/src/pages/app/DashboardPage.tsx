@@ -617,8 +617,8 @@ const DashboardPage: React.FC = () => {
         <Route path="/supply-chain/attestations" element={<AttestationsPage />} />
         <Route path="/supply-chain/attestations/:id" element={<AttestationDetailPage />} />
         <Route path="/supply-chain/vendors" element={<VendorsPage />} />
-        <Route path="/supply-chain/vendors/:id" element={<VendorDetailPage />} />
         <Route path="/supply-chain/vendors/risk-dashboard" element={<VendorRiskDashboardPage />} />
+        <Route path="/supply-chain/vendors/:id" element={<VendorDetailPage />} />
         <Route path="/supply-chain/licenses" element={<LicensePoliciesPage />} />
         <Route path="/supply-chain/licenses/policies" element={<LicensePoliciesPage />} />
         <Route path="/supply-chain/licenses/violations" element={<LicenseViolationsPage />} />

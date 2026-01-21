@@ -26,7 +26,8 @@ export const AttestationsPage: React.FC = () => {
   });
 
   const handleCreateAttestation = () => {
-    navigate('/app/supply-chain/attestations/create');
+    // TODO: Implement attestation creation form
+    alert('Attestation creation form coming soon. Attestations are typically generated programmatically via CI/CD pipelines.');
   };
 
   const handleRowClick = (attestation: Attestation) => {

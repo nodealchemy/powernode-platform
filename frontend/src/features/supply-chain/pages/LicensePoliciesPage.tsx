@@ -137,7 +137,7 @@ export const LicensePoliciesPage: React.FC = () => {
         {
           id: 'create-policy',
           label: 'Create Policy',
-          onClick: () => navigate('/app/supply-chain/licenses/policies/new'),
+          onClick: () => alert('License policy creation form coming soon.'),
           variant: 'primary',
           icon: Plus,
         },
@@ -156,7 +156,7 @@ export const LicensePoliciesPage: React.FC = () => {
             description: 'Create your first license policy to enforce compliance rules',
             action: {
               label: 'Create Policy',
-              onClick: () => navigate('/app/supply-chain/licenses/policies/new'),
+              onClick: () => alert('License policy creation form coming soon.'),
             },
           }}
         />
