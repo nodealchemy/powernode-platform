@@ -2,6 +2,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AiProviderCard } from './AiProviderCard';
 import type { AiProvider } from '@/shared/types/ai';
 
+import { providersApi } from '@/shared/services/ai';
+
 // Mock the hooks and services
 const mockAddNotification = jest.fn();
 jest.mock('@/shared/hooks/useNotifications', () => ({
@@ -16,8 +18,6 @@ jest.mock('@/shared/services/ai', () => ({
     syncModels: jest.fn()
   }
 }));
-
-import { providersApi } from '@/shared/services/ai';
 
 describe('AiProviderCard', () => {
   const mockProvider: AiProvider = {

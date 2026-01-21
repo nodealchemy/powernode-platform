@@ -1,4 +1,45 @@
 // Node type configuration components
+// Registry imports
+import { StartNodeConfig } from './StartNodeConfig';
+import { EndNodeConfig } from './EndNodeConfig';
+import { AiAgentNodeConfig } from './AiAgentNodeConfig';
+import { ApiCallNodeConfig } from './ApiCallNodeConfig';
+import { ConditionNodeConfig } from './ConditionNodeConfig';
+import { TransformNodeConfig } from './TransformNodeConfig';
+import { LoopNodeConfig } from './LoopNodeConfig';
+import { MergeNodeConfig } from './MergeNodeConfig';
+import { SplitNodeConfig } from './SplitNodeConfig';
+import { TriggerNodeConfig } from './TriggerNodeConfig';
+import { HumanApprovalNodeConfig } from './HumanApprovalNodeConfig';
+import { SubWorkflowNodeConfig } from './SubWorkflowNodeConfig';
+import { WebhookNodeConfig } from './WebhookNodeConfig';
+import { DatabaseNodeConfig } from './DatabaseNodeConfig';
+import { EmailNodeConfig } from './EmailNodeConfig';
+import { FileNodeConfig } from './FileNodeConfig';
+import { FileTransformNodeConfig } from './FileTransformNodeConfig';
+import { ValidatorNodeConfig } from './ValidatorNodeConfig';
+import { PromptTemplateNodeConfig } from './PromptTemplateNodeConfig';
+import { DataProcessorNodeConfig } from './DataProcessorNodeConfig';
+import { NotificationNodeConfig } from './NotificationNodeConfig';
+import { SchedulerNodeConfig } from './SchedulerNodeConfig';
+import { DefaultNodeConfig } from './DefaultNodeConfig';
+import { KbArticleCreateConfig } from './KbArticleCreateConfig';
+import { KbArticleReadConfig } from './KbArticleReadConfig';
+import { KbArticleUpdateConfig } from './KbArticleUpdateConfig';
+import { KbArticleSearchConfig } from './KbArticleSearchConfig';
+import { KbArticlePublishConfig } from './KbArticlePublishConfig';
+import { KbArticleUnifiedConfig } from './KbArticleUnifiedConfig';
+import { PageCreateConfig } from './PageCreateConfig';
+import { PageReadConfig } from './PageReadConfig';
+import { PageUpdateConfig } from './PageUpdateConfig';
+import { PagePublishConfig } from './PagePublishConfig';
+import { PageUnifiedConfig } from './PageUnifiedConfig';
+import { McpToolNodeConfig } from './McpToolNodeConfig';
+import { McpResourceNodeConfig } from './McpResourceNodeConfig';
+import { McpPromptNodeConfig } from './McpPromptNodeConfig';
+import { McpOperationConfig } from './McpOperationConfig';
+import type { NodeTypeConfigComponent } from './types';
+
 export { StartNodeConfig } from './StartNodeConfig';
 export { EndNodeConfig } from './EndNodeConfig';
 export { AiAgentNodeConfig } from './AiAgentNodeConfig';
@@ -47,47 +88,6 @@ export { McpOperationConfig } from './McpOperationConfig';
 // Types
 export type { NodeTypeConfigProps, NodeConfiguration, NodeTypeConfigComponent } from './types';
 export { positionOptions } from './types';
-
-// Registry imports
-import { StartNodeConfig } from './StartNodeConfig';
-import { EndNodeConfig } from './EndNodeConfig';
-import { AiAgentNodeConfig } from './AiAgentNodeConfig';
-import { ApiCallNodeConfig } from './ApiCallNodeConfig';
-import { ConditionNodeConfig } from './ConditionNodeConfig';
-import { TransformNodeConfig } from './TransformNodeConfig';
-import { LoopNodeConfig } from './LoopNodeConfig';
-import { MergeNodeConfig } from './MergeNodeConfig';
-import { SplitNodeConfig } from './SplitNodeConfig';
-import { TriggerNodeConfig } from './TriggerNodeConfig';
-import { HumanApprovalNodeConfig } from './HumanApprovalNodeConfig';
-import { SubWorkflowNodeConfig } from './SubWorkflowNodeConfig';
-import { WebhookNodeConfig } from './WebhookNodeConfig';
-import { DatabaseNodeConfig } from './DatabaseNodeConfig';
-import { EmailNodeConfig } from './EmailNodeConfig';
-import { FileNodeConfig } from './FileNodeConfig';
-import { FileTransformNodeConfig } from './FileTransformNodeConfig';
-import { ValidatorNodeConfig } from './ValidatorNodeConfig';
-import { PromptTemplateNodeConfig } from './PromptTemplateNodeConfig';
-import { DataProcessorNodeConfig } from './DataProcessorNodeConfig';
-import { NotificationNodeConfig } from './NotificationNodeConfig';
-import { SchedulerNodeConfig } from './SchedulerNodeConfig';
-import { DefaultNodeConfig } from './DefaultNodeConfig';
-import { KbArticleCreateConfig } from './KbArticleCreateConfig';
-import { KbArticleReadConfig } from './KbArticleReadConfig';
-import { KbArticleUpdateConfig } from './KbArticleUpdateConfig';
-import { KbArticleSearchConfig } from './KbArticleSearchConfig';
-import { KbArticlePublishConfig } from './KbArticlePublishConfig';
-import { KbArticleUnifiedConfig } from './KbArticleUnifiedConfig';
-import { PageCreateConfig } from './PageCreateConfig';
-import { PageReadConfig } from './PageReadConfig';
-import { PageUpdateConfig } from './PageUpdateConfig';
-import { PagePublishConfig } from './PagePublishConfig';
-import { PageUnifiedConfig } from './PageUnifiedConfig';
-import { McpToolNodeConfig } from './McpToolNodeConfig';
-import { McpResourceNodeConfig } from './McpResourceNodeConfig';
-import { McpPromptNodeConfig } from './McpPromptNodeConfig';
-import { McpOperationConfig } from './McpOperationConfig';
-import type { NodeTypeConfigComponent } from './types';
 
 export const nodeTypeConfigRegistry: Record<string, NodeTypeConfigComponent> = {
   // Core workflow nodes

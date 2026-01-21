@@ -2,6 +2,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TwoFactorSetup } from './TwoFactorSetup';
 
+import { twoFactorApi } from '@/shared/services/account/twoFactorApi';
+
 // Mock the twoFactorApi
 jest.mock('@/shared/services/account/twoFactorApi', () => ({
   twoFactorApi: {
@@ -21,8 +23,6 @@ Object.assign(navigator, {
 jest.mock('@/shared/utils/sanitizeHtml', () => ({
   sanitizeQrCode: (html: string) => html
 }));
-
-import { twoFactorApi } from '@/shared/services/account/twoFactorApi';
 
 describe('TwoFactorSetup', () => {
   const mockEnableResponse = {

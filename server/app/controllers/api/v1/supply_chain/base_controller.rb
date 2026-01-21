@@ -5,6 +5,7 @@ module Api
     module SupplyChain
       class BaseController < ApplicationController
         include AuditLogging
+        include Paginatable
 
         before_action :authenticate_request
 

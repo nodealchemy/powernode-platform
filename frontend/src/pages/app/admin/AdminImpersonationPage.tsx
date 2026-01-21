@@ -34,13 +34,13 @@ export const AdminImpersonationPage: React.FC = () => {
   const canImpersonate = hasPermissions(user, ['admin.users.impersonate', 'admin.access']);
   const canViewHistory = hasPermissions(user, ['admin.impersonation.read', 'admin.access']);
 
-  if (!canViewHistory) {
-    return <Navigate to="/app" replace />;
-  }
-
   const handleRefresh = useCallback(() => {
     setRefreshKey(prev => prev + 1);
   }, []);
+
+  if (!canViewHistory) {
+    return <Navigate to="/app" replace />;
+  }
 
   const pageActions: PageAction[] = [
     {
