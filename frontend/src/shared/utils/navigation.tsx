@@ -4,7 +4,8 @@ import {
   FileText, Package, UserCheck, Store,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
   HardDrive, Workflow, Server, GitBranch, FolderGit2,
-  Puzzle, BookOpen, UserCog, Key
+  Puzzle, BookOpen, UserCog, Key, Shield, FileCode,
+  CheckCircle2, Scale, Building2
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -428,6 +429,71 @@ export const adminNavigationOverrides = {
       collapsible: true,
       defaultExpanded: false,
       order: 20  // After Content (15)
+    },
+    // Supply Chain section - software supply chain security
+    {
+      id: 'supply-chain',
+      name: 'Supply Chain',
+      items: [
+        {
+          id: 'sc-overview',
+          name: 'Overview',
+          href: '/app/supply-chain',
+          icon: Shield,
+          description: 'Supply chain security dashboard',
+          permissions: ['supply_chain.read'],
+          order: 1
+        },
+        {
+          id: 'sc-sboms',
+          name: 'SBOMs',
+          href: '/app/supply-chain/sboms',
+          icon: FileCode,
+          description: 'Software Bill of Materials',
+          permissions: ['supply_chain.read'],
+          order: 2
+        },
+        {
+          id: 'sc-attestations',
+          name: 'Attestations',
+          href: '/app/supply-chain/attestations',
+          icon: CheckCircle2,
+          description: 'Build provenance and attestations',
+          permissions: ['supply_chain.read'],
+          order: 3
+        },
+        {
+          id: 'sc-containers',
+          name: 'Container Images',
+          href: '/app/supply-chain/containers',
+          icon: Package,
+          description: 'Container image security',
+          permissions: ['supply_chain.read'],
+          order: 4
+        },
+        {
+          id: 'sc-licenses',
+          name: 'License Compliance',
+          href: '/app/supply-chain/licenses',
+          icon: Scale,
+          description: 'License policies and violations',
+          permissions: ['supply_chain.read'],
+          order: 5
+        },
+        {
+          id: 'sc-vendors',
+          name: 'Vendor Risk',
+          href: '/app/supply-chain/vendors',
+          icon: Building2,
+          description: 'Third-party vendor management',
+          permissions: ['supply_chain.read'],
+          order: 6
+        }
+      ],
+      permissions: ['supply_chain.read'],
+      collapsible: true,
+      defaultExpanded: false,
+      order: 22  // After DevOps (20), before System (25)
     },
     // System section - infrastructure only
     {
