@@ -299,7 +299,7 @@ module Api
 
         def filtered_plugins
           # Plugin system deprecated - return empty relation
-          Devops::IntegrationTemplate.none
+          ::Devops::IntegrationTemplate.none
         end
 
         def filtered_templates
@@ -325,7 +325,7 @@ module Api
 
         def featured_plugins
           # Plugin system deprecated - return empty relation
-          Devops::IntegrationTemplate.none
+          ::Devops::IntegrationTemplate.none
         end
 
         def featured_templates
@@ -553,7 +553,7 @@ module Api
 
         # Item finders
         def find_app(app_id)
-          Marketplace::Definition.find_by(id: app_id)&.marketplace_listing
+          ::Marketplace::Definition.find_by(id: app_id)&.marketplace_listing
         end
 
         def find_plugin(_plugin_id)
@@ -600,7 +600,7 @@ module Api
             ::Shared::PromptTemplate.find_by(id: item_id)
           # Legacy types
           when "app"
-            Marketplace::Definition.find_by(id: item_id)
+            ::Marketplace::Definition.find_by(id: item_id)
           when "plugin"
             nil  # Plugin system deprecated
           when "template"

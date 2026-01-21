@@ -1086,12 +1086,7 @@ Rails.application.routes.draw do
           end
         end
 
-        # Item details and actions
-        get ":type/:id", to: "items#show"
-        post ":type/:id/subscribe", to: "items#subscribe"
-        delete ":type/:id/unsubscribe", to: "items#unsubscribe"
-
-        # Feature template management
+        # Feature template management (must come before :type/:id catch-all)
         scope :templates do
           # Create templates from existing features
           post "from_workflow/:id", to: "templates#create_from_workflow"
@@ -1112,6 +1107,11 @@ Rails.application.routes.draw do
           post ":type/:id/reject", to: "templates#reject"
           post ":type/:id/create_instance", to: "templates#create_instance"
         end
+
+        # Item details and actions (catch-all routes must come after specific routes)
+        get ":type/:id", to: "items#show"
+        post ":type/:id/subscribe", to: "items#subscribe"
+        delete ":type/:id/unsubscribe", to: "items#unsubscribe"
       end
 
       # Marketplace Categories (admin management)

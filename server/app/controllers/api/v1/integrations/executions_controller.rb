@@ -11,7 +11,7 @@ module Api
         def index
           authorize_action!("integrations.read")
 
-          scope = Devops::IntegrationExecution.where(account: current_account)
+          scope = ::Devops::IntegrationExecution.where(account: current_account)
 
           # Filter by instance
           if params[:instance_id].present?
@@ -79,7 +79,7 @@ module Api
 
           period = (params[:period] || 30).to_i.days
 
-          scope = Devops::IntegrationExecution
+          scope = ::Devops::IntegrationExecution
             .where(account: current_account)
             .where("created_at >= ?", period.ago)
 
@@ -106,7 +106,7 @@ module Api
         private
 
         def set_execution
-          @execution = Devops::IntegrationExecution.find_by(id: params[:id], account: current_account)
+          @execution = ::Devops::IntegrationExecution.find_by(id: params[:id], account: current_account)
 
           render_not_found("Execution") unless @execution
         end

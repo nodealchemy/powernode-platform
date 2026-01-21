@@ -11,7 +11,7 @@ module Api
         def index
           authorize_action!("devops.integrations.credentials.read")
 
-          credentials = Devops::IntegrationCredential
+          credentials = ::Devops::IntegrationCredential
             .where(account: current_account)
             .order(created_at: :desc)
             .page(pagination_params[:page])
@@ -99,7 +99,7 @@ module Api
         private
 
         def set_credential
-          @credential = Devops::IntegrationCredential.find_by(id: params[:id], account: current_account)
+          @credential = ::Devops::IntegrationCredential.find_by(id: params[:id], account: current_account)
 
           render_not_found("Credential") unless @credential
         end

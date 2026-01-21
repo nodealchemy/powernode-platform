@@ -4,7 +4,7 @@ module Api
   module V1
     module Marketplace
       class TemplatesController < ApplicationController
-        before_action :set_template, only: [:show, :submit, :withdraw, :approve, :reject]
+        before_action :set_template, only: [:submit, :withdraw, :approve, :reject]
 
         # POST /api/v1/marketplace/templates/from_workflow/:id
         # Create a template from an existing workflow
@@ -41,7 +41,7 @@ module Api
         # POST /api/v1/marketplace/templates/from_integration/:id
         # Create a template from an existing integration template
         def create_from_integration
-          integration = Devops::IntegrationTemplate.find(params[:id])
+          integration = ::Devops::IntegrationTemplate.find(params[:id])
 
           creator = ::Marketplace::TemplateCreator.new(current_user)
           template = creator.create_from_integration(integration, template_params)
@@ -138,14 +138,14 @@ module Api
           templates += current_account.ai_workflows
                         .joins("INNER JOIN ai_workflow_templates ON ai_workflow_templates.source_workflow_id = ai_workflows.id")
                         .where(ai_workflow_templates: { account_id: current_account.id })
-                        .map { |_w| Ai::WorkflowTemplate.where(account_id: current_account.id) }
+                        .map { |_w| ::Ai::WorkflowTemplate.where(account_id: current_account.id) }
                         .flatten
 
           # Get directly owned templates
-          templates += Ai::WorkflowTemplate.where(account_id: current_account.id).to_a
-          templates += Devops::PipelineTemplate.where(account_id: current_account.id).to_a
-          templates += Devops::IntegrationTemplate.where(account_id: current_account.id).to_a
-          templates += Shared::PromptTemplate.where(account_id: current_account.id, is_system: false).to_a
+          templates += ::Ai::WorkflowTemplate.where(account_id: current_account.id).to_a
+          templates += ::Devops::PipelineTemplate.where(account_id: current_account.id).to_a
+          templates += ::Devops::IntegrationTemplate.where(account_id: current_account.id).to_a
+          templates += ::Shared::PromptTemplate.where(account_id: current_account.id, is_system: false).to_a
 
           # Remove duplicates and serialize
           templates = templates.uniq(&:id)
@@ -155,10 +155,10 @@ module Api
             meta: {
               total_count: templates.count,
               counts_by_type: {
-                workflow_template: templates.count { |t| t.is_a?(Ai::WorkflowTemplate) },
-                pipeline_template: templates.count { |t| t.is_a?(Devops::PipelineTemplate) },
-                integration_template: templates.count { |t| t.is_a?(Devops::IntegrationTemplate) },
-                prompt_template: templates.count { |t| t.is_a?(Shared::PromptTemplate) }
+                workflow_template: templates.count { |t| t.is_a?(::Ai::WorkflowTemplate) },
+                pipeline_template: templates.count { |t| t.is_a?(::Devops::PipelineTemplate) },
+                integration_template: templates.count { |t| t.is_a?(::Devops::IntegrationTemplate) },
+                prompt_template: templates.count { |t| t.is_a?(::Shared::PromptTemplate) }
               }
             }
           )
@@ -170,10 +170,10 @@ module Api
           authorize_admin!
 
           templates = []
-          templates += Ai::WorkflowTemplate.marketplace_pending.to_a
-          templates += Devops::PipelineTemplate.marketplace_pending.to_a
-          templates += Devops::IntegrationTemplate.marketplace_pending.to_a
-          templates += Shared::PromptTemplate.marketplace_pending.to_a
+          templates += ::Ai::WorkflowTemplate.marketplace_pending.to_a
+          templates += ::Devops::PipelineTemplate.marketplace_pending.to_a
+          templates += ::Devops::IntegrationTemplate.marketplace_pending.to_a
+          templates += ::Shared::PromptTemplate.marketplace_pending.to_a
 
           render_success(
             templates.map { |t| serialize_template(t) },
@@ -213,13 +213,13 @@ module Api
         def set_template
           @template = case params[:type]
                       when "workflow_template"
-                        Ai::WorkflowTemplate.find(params[:id])
+                        ::Ai::WorkflowTemplate.find(params[:id])
                       when "pipeline_template"
-                        Devops::PipelineTemplate.find(params[:id])
+                        ::Devops::PipelineTemplate.find(params[:id])
                       when "integration_template"
-                        Devops::IntegrationTemplate.find(params[:id])
+                        ::Devops::IntegrationTemplate.find(params[:id])
                       when "prompt_template"
-                        Shared::PromptTemplate.find(params[:id])
+                        ::Shared::PromptTemplate.find(params[:id])
                       else
                         render_error("Invalid template type", status: :bad_request)
                         nil

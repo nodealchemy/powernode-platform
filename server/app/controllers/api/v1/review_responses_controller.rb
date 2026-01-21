@@ -134,7 +134,7 @@ class Api::V1::ReviewResponsesController < ApplicationController
   private
 
   def set_app_review
-    @app_review = Marketplace::Review.find(params[:app_review_id])
+    @app_review = ::Marketplace::Review.find(params[:app_review_id])
   end
 
   def set_review_response

@@ -8,7 +8,7 @@ module Api
         # GET /api/v1/internal/step_approvals/:step_execution_id
         # Returns step execution details for email template
         def show
-          step_execution = Devops::StepExecution.find(params[:step_execution_id])
+          step_execution = ::Devops::StepExecution.find(params[:step_execution_id])
 
           render_success({
             id: step_execution.id,
@@ -45,7 +45,7 @@ module Api
         # POST /api/v1/internal/step_approvals/:step_execution_id/create_tokens
         # Creates approval tokens for each recipient
         def create_tokens
-          step_execution = Devops::StepExecution.find(params[:step_execution_id])
+          step_execution = ::Devops::StepExecution.find(params[:step_execution_id])
           recipients = params[:recipients] || []
 
           tokens = []
@@ -58,7 +58,7 @@ module Api
             user = user_id ? User.find_by(id: user_id) : nil
 
             # Create token
-            token, raw_token = Devops::StepApprovalToken.create_for_recipient(
+            token, raw_token = ::Devops::StepApprovalToken.create_for_recipient(
               step_execution: step_execution,
               recipient_email: email,
               recipient_user: user,

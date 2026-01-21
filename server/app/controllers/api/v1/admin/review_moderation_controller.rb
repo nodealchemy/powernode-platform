@@ -6,7 +6,7 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
 
   # GET /api/v1/admin/review_moderation/queue
   def queue
-    @reviews = Marketplace::Review.includes(:account, :app, :review_moderation_actions)
+    @reviews = ::Marketplace::Review.includes(:account, :app, :review_moderation_actions)
 
     # Apply filters
     case params[:status]
@@ -83,7 +83,7 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
       return render_error("No reviews selected", status: :unprocessable_content)
     end
 
-    reviews = Marketplace::Review.where(id: review_ids)
+    reviews = ::Marketplace::Review.where(id: review_ids)
     results = { success: 0, failed: 0, errors: [] }
 
     reviews.each do |review|
@@ -130,9 +130,9 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
 
     analytics_data = {
       queue_stats: {
-        total_flagged: Marketplace::Review.flagged.count,
-        total_pending: Marketplace::Review.pending_moderation.count,
-        total_removed: Marketplace::Review.where(removed: true).count,
+        total_flagged: ::Marketplace::Review.flagged.count,
+        total_pending: ::Marketplace::Review.pending_moderation.count,
+        total_removed: ::Marketplace::Review.where(removed: true).count,
         avg_resolution_time: calculate_avg_resolution_time(start_date)
       },
       moderation_actions: Review::ModerationAction.where("created_at >= ?", start_date)
@@ -165,7 +165,7 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
 
   # GET /api/v1/admin/review_moderation/history/:review_id
   def history
-    review = Marketplace::Review.find(params[:review_id])
+    review = ::Marketplace::Review.find(params[:review_id])
     actions = review.review_moderation_actions
                     .includes(:moderator)
                     .order(created_at: :desc)

@@ -7,7 +7,7 @@ class Api::V1::Internal::WebhookDeliveriesController < ApplicationController
 
   # GET /api/v1/internal/webhook_deliveries/:id
   def show
-    delivery = Marketplace::WebhookDelivery.find(params[:id])
+    delivery = ::Marketplace::WebhookDelivery.find(params[:id])
 
     render_success({
       id: delivery.id,
@@ -26,7 +26,7 @@ class Api::V1::Internal::WebhookDeliveriesController < ApplicationController
 
   # PATCH /api/v1/internal/webhook_deliveries/:id
   def update
-    delivery = Marketplace::WebhookDelivery.find(params[:id])
+    delivery = ::Marketplace::WebhookDelivery.find(params[:id])
 
     update_params = {
       status: params[:status]
@@ -66,7 +66,7 @@ class Api::V1::Internal::WebhookDeliveriesController < ApplicationController
 
   # PATCH /api/v1/internal/webhook_deliveries/:id/increment_attempt
   def increment_attempt
-    delivery = Marketplace::WebhookDelivery.find(params[:id])
+    delivery = ::Marketplace::WebhookDelivery.find(params[:id])
 
     delivery.increment!(:attempts)
 
