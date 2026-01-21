@@ -4,7 +4,7 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { DataTable } from '@/shared/components/ui/DataTable';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
-import { Plus, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { useLicensePolicies, useDeleteLicensePolicy, useToggleLicensePolicyActive } from '../hooks/useLicenseCompliance';
 
 export const LicensePoliciesPage: React.FC = () => {
@@ -133,15 +133,7 @@ export const LicensePoliciesPage: React.FC = () => {
       title="License Policies"
       description="Manage license compliance policies and enforcement rules"
       breadcrumbs={breadcrumbs}
-      actions={[
-        {
-          id: 'create-policy',
-          label: 'Create Policy',
-          onClick: () => alert('License policy creation form coming soon.'),
-          variant: 'primary',
-          icon: Plus,
-        },
-      ]}
+      actions={[]}
     >
       <div className="card-theme-elevated">
         <DataTable
@@ -153,11 +145,7 @@ export const LicensePoliciesPage: React.FC = () => {
           emptyState={{
             icon: Shield,
             title: 'No license policies',
-            description: 'Create your first license policy to enforce compliance rules',
-            action: {
-              label: 'Create Policy',
-              onClick: () => alert('License policy creation form coming soon.'),
-            },
+            description: 'No license policies have been configured yet.',
           }}
         />
       </div>

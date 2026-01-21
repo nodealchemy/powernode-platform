@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RefreshCw, FileText, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { RefreshCw, FileText, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
@@ -187,6 +187,7 @@ const SbomsPageContent: React.FC = () => {
     { label: 'SBOMs' },
   ];
 
+  // SBOMs are generated via CI/CD pipelines or repository integrations
   const actions = [
     {
       id: 'refresh',
@@ -194,13 +195,6 @@ const SbomsPageContent: React.FC = () => {
       onClick: refresh,
       variant: 'secondary' as const,
       icon: RefreshCw,
-    },
-    {
-      id: 'generate',
-      label: 'Generate SBOM',
-      onClick: () => alert('SBOM generation form coming soon.'),
-      variant: 'primary' as const,
-      icon: Plus,
     },
   ];
 
@@ -262,13 +256,7 @@ const SbomsPageContent: React.FC = () => {
             title: 'No SBOMs Found',
             description: statusFilter
               ? `No ${statusFilter} SBOMs found. Try adjusting your filters.`
-              : 'Generate your first SBOM to track software components and dependencies.',
-            action: !statusFilter
-              ? {
-                  label: 'Generate SBOM',
-                  onClick: () => alert('SBOM generation form coming soon.'),
-                }
-              : undefined,
+              : 'SBOMs are generated via CI/CD pipelines or repository integrations.',
           }}
         />
       </div>

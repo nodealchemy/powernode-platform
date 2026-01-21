@@ -24,11 +24,6 @@ export const ContainerImagesPage: React.FC = () => {
     status: statusFilter,
   });
 
-  const handleScanImage = () => {
-    // TODO: Implement container image scan form
-    alert('Container image scanning form coming soon.');
-  };
-
   const handleRowClick = (image: ContainerImage) => {
     navigate(`/app/supply-chain/container-images/${image.id}`);
   };
@@ -159,15 +154,8 @@ export const ContainerImagesPage: React.FC = () => {
     { label: 'Container Images' },
   ];
 
-  const actions = [
-    {
-      id: 'scan-image',
-      label: 'Scan Image',
-      onClick: handleScanImage,
-      variant: 'primary' as const,
-      icon: Package,
-    },
-  ];
+  // Container images are discovered and scanned via registry integrations
+  const actions: never[] = [];
 
   return (
     <PageContainer
@@ -210,12 +198,8 @@ export const ContainerImagesPage: React.FC = () => {
               icon: Package,
               title: 'No container images found',
               description: activeTab === 'all'
-                ? 'Get started by scanning your first container image.'
+                ? 'Container images are discovered via registry integrations.'
                 : `No ${activeTab} container images found.`,
-              action: {
-                label: 'Scan Image',
-                onClick: handleScanImage,
-              },
             }}
           />
         )}

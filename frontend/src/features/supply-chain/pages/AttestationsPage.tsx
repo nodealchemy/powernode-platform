@@ -25,11 +25,6 @@ export const AttestationsPage: React.FC = () => {
     attestationType: typeFilter,
   });
 
-  const handleCreateAttestation = () => {
-    // TODO: Implement attestation creation form
-    alert('Attestation creation form coming soon. Attestations are typically generated programmatically via CI/CD pipelines.');
-  };
-
   const handleRowClick = (attestation: Attestation) => {
     navigate(`/app/supply-chain/attestations/${attestation.id}`);
   };
@@ -156,15 +151,8 @@ export const AttestationsPage: React.FC = () => {
     { label: 'Attestations' },
   ];
 
-  const actions = [
-    {
-      id: 'create-attestation',
-      label: 'Create Attestation',
-      onClick: handleCreateAttestation,
-      variant: 'primary' as const,
-      icon: FileSignature,
-    },
-  ];
+  // Attestations are generated programmatically via CI/CD pipelines
+  const actions: never[] = [];
 
   return (
     <PageContainer
@@ -207,12 +195,8 @@ export const AttestationsPage: React.FC = () => {
               icon: FileSignature,
               title: 'No attestations found',
               description: activeTab === 'all'
-                ? 'Get started by creating your first attestation.'
+                ? 'Attestations are generated automatically via CI/CD pipelines.'
                 : `No ${getTypeLabel(activeTab as AttestationType)} attestations found.`,
-              action: {
-                label: 'Create Attestation',
-                onClick: handleCreateAttestation,
-              },
             }}
           />
         )}
