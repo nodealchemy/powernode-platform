@@ -28,7 +28,7 @@ RSpec.describe SupplyChain::Attestation, type: :model do
     let!(:signed) { create(:supply_chain_attestation, account: account, signature: "sig123") }
     let!(:unsigned) { create(:supply_chain_attestation, account: account, signature: nil) }
     let!(:verified) { create(:supply_chain_attestation, account: account, verification_status: "verified") }
-    let!(:unverified) { create(:supply_chain_attestation, account: account, verification_status: "pending") }
+    let!(:unverified) { create(:supply_chain_attestation, account: account, verification_status: "unverified") }
 
     it "filters signed attestations" do
       expect(described_class.signed).to include(signed)
@@ -60,7 +60,7 @@ RSpec.describe SupplyChain::Attestation, type: :model do
     end
 
     it "returns false for other statuses" do
-      attestation = build(:supply_chain_attestation, verification_status: "pending")
+      attestation = build(:supply_chain_attestation, verification_status: "unverified")
       expect(attestation.verified?).to be false
     end
   end
@@ -78,14 +78,36 @@ RSpec.describe SupplyChain::Attestation, type: :model do
   end
 
   describe "#slsa_compliant?" do
-    it "returns true for valid SLSA level" do
+    it "returns true for valid SLSA level with signature and verification" do
       attestation = build(:supply_chain_attestation, slsa_level: 2, signature: "sig", verification_status: "verified")
       expect(attestation.slsa_compliant?(2)).to be true
     end
 
     it "returns false for higher SLSA level requirement" do
-      attestation = build(:supply_chain_attestation, slsa_level: 1)
+      attestation = build(:supply_chain_attestation, slsa_level: 1, signature: "sig", verification_status: "verified")
       expect(attestation.slsa_compliant?(2)).to be false
+    end
+
+    it "returns false when not signed" do
+      attestation = build(:supply_chain_attestation, slsa_level: 2, signature: nil, verification_status: "verified")
+      expect(attestation.slsa_compliant?(2)).to be false
+    end
+
+    it "returns false when not verified" do
+      attestation = build(:supply_chain_attestation, slsa_level: 2, signature: "sig", verification_status: "unverified")
+      expect(attestation.slsa_compliant?(2)).to be false
+    end
+  end
+
+  describe "#slsa_provenance?" do
+    it "returns true for slsa_provenance type" do
+      attestation = build(:supply_chain_attestation, attestation_type: "slsa_provenance")
+      expect(attestation.slsa_provenance?).to be true
+    end
+
+    it "returns false for other types" do
+      attestation = build(:supply_chain_attestation, attestation_type: "sbom")
+      expect(attestation.slsa_provenance?).to be false
     end
   end
 end

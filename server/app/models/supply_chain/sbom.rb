@@ -37,6 +37,8 @@ module SupplyChain
              foreign_key: :base_sbom_id, dependent: :destroy
     has_many :target_diffs, class_name: "SupplyChain::SbomDiff",
              foreign_key: :target_sbom_id, dependent: :destroy
+    has_many :diffs, ->(sbom) { unscope(:where).where(base_sbom_id: sbom.id).or(where(target_sbom_id: sbom.id)) },
+             class_name: "SupplyChain::SbomDiff"
 
     # ============================================
     # Validations
@@ -172,6 +174,17 @@ module SupplyChain
       else
         document
       end
+    end
+
+    def vulnerability_summary
+      counts = vulnerabilities.group(:severity).count
+      {
+        critical: counts["critical"] || 0,
+        high: counts["high"] || 0,
+        medium: counts["medium"] || 0,
+        low: counts["low"] || 0,
+        total: vulnerability_count
+      }
     end
 
     def summary

@@ -5,10 +5,10 @@ FactoryBot.define do
   factory :supply_chain_sbom, class: "SupplyChain::Sbom" do
     association :account
     name { "#{Faker::App.name} SBOM" }
-    sbom_id { "urn:uuid:#{SecureRandom.uuid}" }
+    sbom_id { "sbom-#{SecureRandom.hex(8)}" }
     format { "cyclonedx_1_5" }
     version { Faker::App.semantic_version }
-    status { "active" }
+    status { "completed" }
     component_count { rand(10..100) }
     vulnerability_count { rand(0..20) }
     risk_score { rand(0..100) }
@@ -31,6 +31,7 @@ FactoryBot.define do
   # SBOM Component
   factory :supply_chain_sbom_component, class: "SupplyChain::SbomComponent" do
     association :sbom, factory: :supply_chain_sbom
+    association :account
     purl { "pkg:npm/#{Faker::Internet.slug}@#{Faker::App.semantic_version}" }
     name { Faker::Internet.slug }
     version { Faker::App.semantic_version }
@@ -45,6 +46,7 @@ FactoryBot.define do
   factory :supply_chain_sbom_vulnerability, class: "SupplyChain::SbomVulnerability" do
     association :sbom, factory: :supply_chain_sbom
     association :component, factory: :supply_chain_sbom_component
+    association :account
     vulnerability_id { "CVE-#{rand(2020..2024)}-#{rand(1000..99999)}" }
     severity { %w[critical high medium low].sample }
     cvss_score { rand(0.0..10.0).round(1) }
@@ -94,6 +96,7 @@ FactoryBot.define do
   factory :supply_chain_vendor, class: "SupplyChain::Vendor" do
     association :account
     name { Faker::Company.name }
+    sequence(:slug) { |n| "vendor-#{n}-#{SecureRandom.hex(4)}" }
     vendor_type { %w[saas api library infrastructure hardware consulting].sample }
     risk_tier { %w[critical high medium low].sample }
     risk_score { rand(0..100) }
@@ -101,10 +104,8 @@ FactoryBot.define do
     handles_pii { [true, false].sample }
     handles_phi { false }
     handles_pci { [true, false].sample }
-    certifications { [%w[SOC2 ISO27001 GDPR HIPAA PCI-DSS].sample(rand(0..3))] }
-    contact_name { Faker::Name.name }
+    certifications { [] }
     contact_email { Faker::Internet.email }
-    website { Faker::Internet.url }
 
     trait :critical do
       risk_tier { "critical" }
@@ -122,9 +123,10 @@ FactoryBot.define do
   # Risk Assessment
   factory :supply_chain_risk_assessment, class: "SupplyChain::RiskAssessment" do
     association :vendor, factory: :supply_chain_vendor
-    assessment_type { %w[initial periodic ad_hoc].sample }
+    association :account
+    assessment_type { %w[initial periodic incident renewal].sample }
     status { "completed" }
-    assessment_date { rand(1..30).days.ago }
+    assessment_date { rand(30..60).days.ago }
     completed_at { assessment_date + rand(1..7).days }
     security_score { rand(50..100) }
     compliance_score { rand(50..100) }
@@ -142,9 +144,11 @@ FactoryBot.define do
     slsa_level { [1, 2, 3].sample }
     subject_name { "app:#{Faker::App.name.downcase}" }
     subject_digest { "sha256:#{SecureRandom.hex(32)}" }
+    subject_digest_algorithm { "sha256" }
     predicate_type { "https://slsa.dev/provenance/v1" }
     predicate { { builder: { id: "https://github.com/actions/runner" } } }
-    verification_status { "pending" }
+    verification_status { "unverified" }
+    signature_format { "dsse" }
 
     trait :signed do
       signature { Base64.encode64(SecureRandom.random_bytes(256)) }

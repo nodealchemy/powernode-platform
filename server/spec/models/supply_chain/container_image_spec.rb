@@ -17,14 +17,19 @@ RSpec.describe SupplyChain::ContainerImage, type: :model do
 
     it { is_expected.to validate_presence_of(:registry) }
     it { is_expected.to validate_presence_of(:repository) }
-    it { is_expected.to validate_presence_of(:tag) }
+    it { is_expected.to validate_presence_of(:digest) }
     it { is_expected.to validate_inclusion_of(:status).in_array(SupplyChain::ContainerImage::STATUSES) }
   end
 
   describe "#full_reference" do
-    it "returns full image reference" do
+    it "returns full image reference with tag" do
       image = build(:supply_chain_container_image, registry: "gcr.io", repository: "project/app", tag: "v1.0.0")
       expect(image.full_reference).to eq("gcr.io/project/app:v1.0.0")
+    end
+
+    it "returns full image reference with digest when no tag" do
+      image = build(:supply_chain_container_image, registry: "gcr.io", repository: "project/app", tag: nil, digest: "sha256:abc123")
+      expect(image.full_reference).to eq("gcr.io/project/app@sha256:abc123")
     end
   end
 
@@ -96,6 +101,18 @@ RSpec.describe SupplyChain::ContainerImage, type: :model do
 
     it "returns false when within thresholds" do
       expect(image.exceeds_vulnerability_threshold?(max_critical: 5, max_high: 10)).to be false
+    end
+  end
+
+  describe "#has_critical_vulnerabilities?" do
+    it "returns true when critical_vuln_count > 0" do
+      image = build(:supply_chain_container_image, critical_vuln_count: 1)
+      expect(image.has_critical_vulnerabilities?).to be true
+    end
+
+    it "returns false when critical_vuln_count is 0" do
+      image = build(:supply_chain_container_image, critical_vuln_count: 0)
+      expect(image.has_critical_vulnerabilities?).to be false
     end
   end
 end

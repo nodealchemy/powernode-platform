@@ -94,7 +94,7 @@ module SupplyChain
       assessment_type == "renewal"
     end
 
-    def valid?
+    def currently_valid?
       completed? && (valid_until.nil? || valid_until > Time.current)
     end
 
@@ -237,7 +237,7 @@ module SupplyChain
         assessment_date: assessment_date,
         completed_at: completed_at,
         valid_until: valid_until,
-        is_valid: valid?,
+        is_valid: currently_valid?,
         created_at: created_at
       }
     end

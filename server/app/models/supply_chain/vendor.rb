@@ -158,6 +158,23 @@ module SupplyChain
       update!(risk_score: score, risk_tier: tier)
     end
 
+    def calculate_risk_score!
+      assessment = latest_assessment
+      return update!(risk_score: 50) unless assessment
+
+      # Invert scores since assessments are "good" scores (high=good) but risk should be "bad" (high=bad)
+      avg = (assessment.security_score + assessment.compliance_score + assessment.operational_score) / 3.0
+      score = (100 - avg).round
+      update_risk_score!(score)
+    end
+
+    def data_sensitivity
+      return "high" if handles_phi
+      return "medium" if handles_pci || handles_pii
+
+      "low"
+    end
+
     def schedule_next_assessment!(months = nil)
       months ||= case risk_tier
                  when "critical" then 3

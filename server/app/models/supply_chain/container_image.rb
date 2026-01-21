@@ -99,6 +99,27 @@ module SupplyChain
       critical_vuln_count + high_vuln_count + medium_vuln_count + low_vuln_count
     end
 
+    alias_method :total_vulnerabilities, :total_vulnerability_count
+
+    def vulnerability_summary
+      {
+        critical: critical_vuln_count,
+        high: high_vuln_count,
+        medium: medium_vuln_count,
+        low: low_vuln_count,
+        total: total_vulnerability_count
+      }
+    end
+
+    def exceeds_vulnerability_threshold?(max_critical: nil, max_high: nil, max_medium: nil, max_low: nil)
+      return true if max_critical && critical_vuln_count > max_critical
+      return true if max_high && high_vuln_count > max_high
+      return true if max_medium && medium_vuln_count > max_medium
+      return true if max_low && low_vuln_count > max_low
+
+      false
+    end
+
     def needs_scan?
       last_scanned_at.nil? || last_scanned_at < 24.hours.ago
     end

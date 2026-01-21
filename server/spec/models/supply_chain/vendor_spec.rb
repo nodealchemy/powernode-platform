@@ -18,6 +18,8 @@ RSpec.describe SupplyChain::Vendor, type: :model do
 
     it { is_expected.to validate_presence_of(:name) }
     it { is_expected.to validate_presence_of(:vendor_type) }
+    it { is_expected.to validate_presence_of(:risk_tier) }
+    it { is_expected.to validate_presence_of(:status) }
     it { is_expected.to validate_inclusion_of(:vendor_type).in_array(SupplyChain::Vendor::VENDOR_TYPES) }
     it { is_expected.to validate_inclusion_of(:risk_tier).in_array(SupplyChain::Vendor::RISK_TIERS) }
     it { is_expected.to validate_inclusion_of(:status).in_array(SupplyChain::Vendor::STATUSES) }
@@ -40,15 +42,15 @@ RSpec.describe SupplyChain::Vendor, type: :model do
     end
   end
 
-  describe "#calculate_risk_score" do
+  describe "#calculate_risk_score!" do
     let(:vendor) { create(:supply_chain_vendor, account: account) }
 
     context "with risk assessments" do
       before do
-        create(:supply_chain_risk_assessment, vendor: vendor, security_score: 80, compliance_score: 70, operational_score: 90)
+        create(:supply_chain_risk_assessment, vendor: vendor, account: account, security_score: 80, compliance_score: 70, operational_score: 90)
       end
 
-      it "calculates weighted average risk score" do
+      it "calculates risk score from assessment scores" do
         vendor.calculate_risk_score!
         expect(vendor.risk_score).to be_between(0, 100)
       end
@@ -63,17 +65,17 @@ RSpec.describe SupplyChain::Vendor, type: :model do
   end
 
   describe "#needs_assessment?" do
-    let(:vendor) { create(:supply_chain_vendor, account: account) }
+    let(:vendor) { create(:supply_chain_vendor, account: account, next_assessment_due: nil) }
 
-    context "with no assessments" do
+    context "with no next_assessment_due" do
       it "returns true" do
         expect(vendor.needs_assessment?).to be true
       end
     end
 
-    context "with recent assessment" do
+    context "with future next_assessment_due" do
       before do
-        create(:supply_chain_risk_assessment, vendor: vendor, completed_at: 1.month.ago)
+        vendor.update!(next_assessment_due: 1.month.from_now)
       end
 
       it "returns false" do
@@ -81,9 +83,9 @@ RSpec.describe SupplyChain::Vendor, type: :model do
       end
     end
 
-    context "with old assessment" do
+    context "with past next_assessment_due" do
       before do
-        create(:supply_chain_risk_assessment, vendor: vendor, completed_at: 13.months.ago)
+        vendor.update!(next_assessment_due: 1.month.ago)
       end
 
       it "returns true" do
@@ -94,23 +96,35 @@ RSpec.describe SupplyChain::Vendor, type: :model do
 
   describe "#data_sensitivity" do
     it "returns high for PHI handling" do
-      vendor = build(:supply_chain_vendor, handles_phi: true)
+      vendor = build(:supply_chain_vendor, handles_phi: true, handles_pii: false, handles_pci: false)
       expect(vendor.data_sensitivity).to eq("high")
     end
 
     it "returns medium for PCI handling" do
-      vendor = build(:supply_chain_vendor, handles_pci: true)
+      vendor = build(:supply_chain_vendor, handles_phi: false, handles_pci: true, handles_pii: false)
       expect(vendor.data_sensitivity).to eq("medium")
     end
 
     it "returns medium for PII handling" do
-      vendor = build(:supply_chain_vendor, handles_pii: true)
+      vendor = build(:supply_chain_vendor, handles_phi: false, handles_pci: false, handles_pii: true)
       expect(vendor.data_sensitivity).to eq("medium")
     end
 
     it "returns low for no sensitive data" do
       vendor = build(:supply_chain_vendor, handles_pii: false, handles_phi: false, handles_pci: false)
       expect(vendor.data_sensitivity).to eq("low")
+    end
+  end
+
+  describe "#handles_sensitive_data?" do
+    it "returns true when handling any sensitive data" do
+      vendor = build(:supply_chain_vendor, handles_pii: true)
+      expect(vendor.handles_sensitive_data?).to be true
+    end
+
+    it "returns false when not handling sensitive data" do
+      vendor = build(:supply_chain_vendor, handles_pii: false, handles_phi: false, handles_pci: false)
+      expect(vendor.handles_sensitive_data?).to be false
     end
   end
 end

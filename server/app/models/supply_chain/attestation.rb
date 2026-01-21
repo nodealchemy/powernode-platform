@@ -109,6 +109,14 @@ module SupplyChain
       rekor_log_id.present?
     end
 
+    def slsa_compliant?(required_level)
+      return false if slsa_level.nil? || slsa_level < required_level
+      return false unless signed?
+      return false unless verified?
+
+      true
+    end
+
     def subject_uri
       "#{subject_name}@#{subject_digest_algorithm}:#{subject_digest}"
     end
