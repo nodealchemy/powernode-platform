@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { ShieldCheck, Download, BookOpen, History } from 'lucide-react';
+import { ShieldCheck, Download, BookOpen, History, Key } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
@@ -8,8 +8,10 @@ import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { StatusBadge } from '../components/shared/StatusBadge';
-import { useAttestation } from '../hooks/useAttestations';
+import { useAttestation, useSignAttestation } from '../hooks/useAttestations';
 import { attestationsApi, AttestationType } from '../services/attestationsApi';
+import { SignAttestationModal } from '../components/attestation/SignAttestationModal';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 type TabId = 'overview' | 'provenance' | 'verification';
 
@@ -19,6 +21,21 @@ export const AttestationDetailPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
 
   const { attestation, loading, error, refresh } = useAttestation(id || null);
+  const signMutation = useSignAttestation();
+  const { showNotification } = useNotifications();
+  const [showSignModal, setShowSignModal] = useState(false);
+
+  const handleSign = async (signingKeyId?: string) => {
+    if (!id) return;
+    try {
+      await signMutation.mutateAsync({ id, signingKeyId });
+      showNotification('Attestation signed successfully', 'success');
+      setShowSignModal(false);
+      refresh();
+    } catch {
+      showNotification('Failed to sign attestation', 'error');
+    }
+  };
 
   const handleVerify = async () => {
     if (!id) return;
@@ -111,10 +128,18 @@ export const AttestationDetailPage: React.FC = () => {
 
   const actions = [
     {
+      id: 'sign',
+      label: 'Sign',
+      onClick: () => setShowSignModal(true),
+      variant: 'primary' as const,
+      icon: Key,
+      disabled: actionLoading || attestation.signed,
+    },
+    {
       id: 'verify',
       label: 'Verify',
       onClick: handleVerify,
-      variant: 'primary' as const,
+      variant: 'secondary' as const,
       icon: ShieldCheck,
       disabled: actionLoading,
     },
@@ -380,6 +405,15 @@ export const AttestationDetailPage: React.FC = () => {
         {activeTab === 'provenance' && renderProvenance()}
         {activeTab === 'verification' && renderVerification()}
       </div>
+
+      {showSignModal && (
+        <SignAttestationModal
+          attestationId={attestation.id}
+          onClose={() => setShowSignModal(false)}
+          onSign={handleSign}
+          attestationName={attestation.subject_name}
+        />
+      )}
     </PageContainer>
   );
 };

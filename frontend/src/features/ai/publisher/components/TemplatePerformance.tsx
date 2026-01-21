@@ -108,8 +108,8 @@ export const TemplatePerformance: React.FC<TemplatePerformanceProps> = ({
                 tick={{ fontSize: 12 }}
               />
               <Tooltip
-                formatter={(value: number, name: string) =>
-                  name === 'revenue' ? formatCurrency(value) : formatNumber(value)
+                formatter={(value, name) =>
+                  name === 'revenue' ? formatCurrency(Number(value)) : formatNumber(Number(value))
                 }
                 contentStyle={{
                   backgroundColor: 'var(--theme-bg-secondary)',

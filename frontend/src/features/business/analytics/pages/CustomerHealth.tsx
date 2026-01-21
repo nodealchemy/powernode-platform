@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { Button } from '@/shared/components/ui/Button';
-import { useNotification } from '@/shared/contexts/NotificationContext';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import predictiveAnalyticsApi from '../services/predictiveAnalyticsApi';
 import { HealthScoreCard } from '../components/HealthScoreCard';
 import type { CustomerHealthScore, PredictiveAnalyticsSummary } from '../types/predictive';
 
 export const CustomerHealthPage: React.FC = () => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [healthScores, setHealthScores] = useState<CustomerHealthScore[]>([]);
   const [summary, setSummary] = useState<PredictiveAnalyticsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,7 +26,7 @@ export const CustomerHealthPage: React.FC = () => {
       setSummary(summaryResponse.data);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to load health scores';
-      showNotification('error', message);
+      showNotification(message, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -40,11 +39,11 @@ export const CustomerHealthPage: React.FC = () => {
   const handleRecalculate = async () => {
     try {
       await predictiveAnalyticsApi.calculateHealthScore();
-      showNotification('success', 'Health scores recalculated');
+      showNotification('Health scores recalculated', 'success');
       fetchData();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to recalculate';
-      showNotification('error', message);
+      showNotification(message, 'error');
     }
   };
 
@@ -77,11 +76,13 @@ export const CustomerHealthPage: React.FC = () => {
   return (
     <PageContainer
       title="Customer Health"
-      actions={
-        <Button variant="primary" onClick={handleRecalculate}>
-          Recalculate Scores
-        </Button>
-      }
+      actions={[
+        {
+          label: 'Recalculate Scores',
+          onClick: handleRecalculate,
+          variant: 'primary',
+        },
+      ]}
     >
       {/* Summary Cards */}
       {summary && (

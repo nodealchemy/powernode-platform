@@ -118,6 +118,7 @@ import {
   SupplyChainDashboardPage,
   SbomsPage,
   SbomDetailPage,
+  SbomDiffPage,
   ContainerImagesPage,
   ContainerImageDetailPage,
   AttestationsPage,
@@ -125,8 +126,13 @@ import {
   VendorsPage,
   VendorDetailPage,
   VendorRiskDashboardPage,
+  AssessmentDetailPage,
+  QuestionnaireDetailPage,
   LicensePoliciesPage,
+  LicensePolicyFormPage,
+  LicensePolicyDetailPage,
   LicenseViolationsPage,
+  LicenseViolationDetailPage,
 } from '@/features/supply-chain/pages';
 
 // Dashboard overview page
@@ -612,6 +618,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/supply-chain" element={<SupplyChainDashboardPage />} />
         <Route path="/supply-chain/sboms" element={<SbomsPage />} />
         <Route path="/supply-chain/sboms/:id" element={<SbomDetailPage />} />
+        <Route path="/supply-chain/sboms/:id/diff/:diffId" element={<SbomDiffPage />} />
         <Route path="/supply-chain/containers" element={<ContainerImagesPage />} />
         <Route path="/supply-chain/containers/:id" element={<ContainerImageDetailPage />} />
         <Route path="/supply-chain/attestations" element={<AttestationsPage />} />
@@ -619,9 +626,15 @@ const DashboardPage: React.FC = () => {
         <Route path="/supply-chain/vendors" element={<VendorsPage />} />
         <Route path="/supply-chain/vendors/risk-dashboard" element={<VendorRiskDashboardPage />} />
         <Route path="/supply-chain/vendors/:id" element={<VendorDetailPage />} />
+        <Route path="/supply-chain/vendors/:id/assessments/:assessmentId" element={<AssessmentDetailPage />} />
+        <Route path="/supply-chain/vendors/:id/questionnaires/:questionnaireId" element={<QuestionnaireDetailPage />} />
         <Route path="/supply-chain/licenses" element={<LicensePoliciesPage />} />
         <Route path="/supply-chain/licenses/policies" element={<LicensePoliciesPage />} />
+        <Route path="/supply-chain/licenses/policies/new" element={<LicensePolicyFormPage />} />
+        <Route path="/supply-chain/licenses/policies/:id/edit" element={<LicensePolicyFormPage />} />
+        <Route path="/supply-chain/licenses/policies/:id" element={<LicensePolicyDetailPage />} />
         <Route path="/supply-chain/licenses/violations" element={<LicenseViolationsPage />} />
+        <Route path="/supply-chain/licenses/violations/:id" element={<LicenseViolationDetailPage />} />
 
         {/* Business Analytics Pages */}
         <Route path="/business/analytics/*" element={<AnalyticsPage />} />

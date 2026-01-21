@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { PageContainer } from '@/shared/components/layout';
-import { LoadingSpinner, EmptyState, Card, Button } from '@/shared/components/ui';
+import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { LoadingSpinner, Card, Button } from '@/shared/components/ui';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usageApi } from '../services/usageApi';
 import { QuotaProgress } from '../components/QuotaProgress';
@@ -94,12 +94,11 @@ export const UsageDashboard: React.FC = () => {
   if (error) {
     return (
       <PageContainer title="Usage Dashboard">
-        <EmptyState
-          icon="alert-circle"
-          title="Error Loading Data"
-          description={error}
-          action={<Button onClick={loadData}>Retry</Button>}
-        />
+        <Card className="p-8 text-center">
+          <h3 className="text-lg font-semibold text-theme-primary mb-2">Error Loading Data</h3>
+          <p className="text-theme-secondary mb-4">{error}</p>
+          <Button onClick={loadData}>Retry</Button>
+        </Card>
       </PageContainer>
     );
   }
@@ -107,11 +106,10 @@ export const UsageDashboard: React.FC = () => {
   if (!dashboardData) {
     return (
       <PageContainer title="Usage Dashboard">
-        <EmptyState
-          icon="activity"
-          title="No Usage Data"
-          description="Start tracking usage events to see your dashboard."
-        />
+        <Card className="p-8 text-center">
+          <h3 className="text-lg font-semibold text-theme-primary mb-2">No Usage Data</h3>
+          <p className="text-theme-secondary">Start tracking usage events to see your dashboard.</p>
+        </Card>
       </PageContainer>
     );
   }
@@ -125,11 +123,13 @@ export const UsageDashboard: React.FC = () => {
     <PageContainer
       title="Usage Dashboard"
       description={`Current billing period: ${formatPeriod(dashboardData.period.start, dashboardData.period.end)}`}
-      actions={
-        <Button variant="secondary" onClick={handleExport}>
-          Export Usage
-        </Button>
-      }
+      actions={[
+        {
+          label: 'Export Usage',
+          onClick: handleExport,
+          variant: 'secondary',
+        },
+      ]}
     >
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">

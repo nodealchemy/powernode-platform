@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { Button } from '@/shared/components/ui/Button';
-import { useNotification } from '@/shared/contexts/NotificationContext';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import publisherApi from '../services/publisherApi';
 import { EarningsChart } from '../components/EarningsChart';
 import { TemplatePerformance } from '../components/TemplatePerformance';
@@ -22,7 +21,7 @@ const formatNumber = (value: number): string => {
 export const TemplateAnalyticsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [analytics, setAnalytics] = useState<PublisherAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState<number>(30);
@@ -37,7 +36,7 @@ export const TemplateAnalyticsPage: React.FC = () => {
         setAnalytics(response.data);
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Failed to load analytics';
-        showNotification('error', message);
+        showNotification(message, 'error');
       } finally {
         setIsLoading(false);
       }
@@ -96,24 +95,28 @@ export const TemplateAnalyticsPage: React.FC = () => {
   return (
     <PageContainer
       title="Publisher Analytics"
-      actions={
-        <div className="flex gap-3">
-          <select
-            value={period}
-            onChange={(e) => setPeriod(Number(e.target.value))}
-            className="bg-theme-bg-secondary border border-theme-border rounded-lg px-4 py-2 text-theme-text-primary"
-          >
-            <option value={7}>Last 7 days</option>
-            <option value={30}>Last 30 days</option>
-            <option value={90}>Last 90 days</option>
-            <option value={365}>Last year</option>
-          </select>
-          <Button variant="outline" onClick={() => navigate('/ai/publisher/dashboard')}>
-            Back to Dashboard
-          </Button>
-        </div>
-      }
+      actions={[
+        {
+          label: 'Back to Dashboard',
+          onClick: () => navigate('/ai/publisher/dashboard'),
+          variant: 'outline',
+        },
+      ]}
     >
+      {/* Period Selector */}
+      <div className="mb-6">
+        <select
+          value={period}
+          onChange={(e) => setPeriod(Number(e.target.value))}
+          className="bg-theme-bg-secondary border border-theme-border rounded-lg px-4 py-2 text-theme-text-primary"
+        >
+          <option value={7}>Last 7 days</option>
+          <option value={30}>Last 30 days</option>
+          <option value={90}>Last 90 days</option>
+          <option value={365}>Last year</option>
+        </select>
+      </div>
+
       {/* Period Info */}
       <div className="bg-theme-bg-secondary rounded-lg p-4 mb-6">
         <p className="text-theme-text-secondary">

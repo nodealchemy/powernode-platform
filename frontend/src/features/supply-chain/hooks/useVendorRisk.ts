@@ -169,3 +169,135 @@ export function useVendorRiskDashboard() {
 
   return { data, loading, error, refresh: fetchDashboard };
 }
+
+// Vendor mutation hooks
+export function useCreateVendor() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutateAsync = useCallback(async (data: {
+    name: string;
+    vendor_type: VendorType;
+    contact_name?: string;
+    contact_email?: string;
+    website?: string;
+    handles_pii?: boolean;
+    handles_phi?: boolean;
+    handles_pci?: boolean;
+    certifications?: string[];
+  }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await vendorRiskApi.createVendor(data);
+      return result;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to create vendor';
+      setError(errorMsg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { mutateAsync, isLoading: loading, error };
+}
+
+export function useUpdateVendor() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutateAsync = useCallback(async ({ id, data }: { id: string; data: Partial<Vendor> }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await vendorRiskApi.updateVendor(id, data);
+      return result;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to update vendor';
+      setError(errorMsg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { mutateAsync, isLoading: loading, error };
+}
+
+export function useDeleteVendor() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutateAsync = useCallback(async (id: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await vendorRiskApi.deleteVendor(id);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to delete vendor';
+      setError(errorMsg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { mutateAsync, isLoading: loading, error };
+}
+
+export function useStartAssessment() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutateAsync = useCallback(async ({
+    vendorId,
+    assessmentType,
+  }: {
+    vendorId: string;
+    assessmentType: string;
+  }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await vendorRiskApi.startAssessment(vendorId, assessmentType);
+      return result;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to start assessment';
+      setError(errorMsg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { mutateAsync, isLoading: loading, error };
+}
+
+export function useSendQuestionnaire() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutateAsync = useCallback(async ({
+    vendorId,
+    templateId,
+  }: {
+    vendorId: string;
+    templateId: string;
+  }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await vendorRiskApi.sendQuestionnaire(vendorId, templateId);
+      return result;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to send questionnaire';
+      setError(errorMsg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { mutateAsync, isLoading: loading, error };
+}

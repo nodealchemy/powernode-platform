@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
-import { useNotification } from '@/shared/contexts/NotificationContext';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import publisherApi from '../services/publisherApi';
 import { EarningsChart } from '../components/EarningsChart';
 import { PayoutManager } from '../components/PayoutManager';
@@ -27,7 +27,7 @@ const formatNumber = (value: number): string => {
 
 export const PublisherDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [publisher, setPublisher] = useState<Publisher | null>(null);
   const [dashboardStats, setDashboardStats] = useState<PublisherDashboardStats | null>(null);
   const [earnings, setEarnings] = useState<PublisherEarnings | null>(null);
@@ -56,9 +56,9 @@ export const PublisherDashboard: React.FC = () => {
       const message = error instanceof Error ? error.message : 'Failed to load publisher data';
       if (message.includes('not found') || message.includes('404')) {
         // No publisher profile - could redirect to setup
-        showNotification('info', 'No publisher profile found. Create one to get started.');
+        showNotification('No publisher profile found. Create one to get started.', 'info');
       } else {
-        showNotification('error', message);
+        showNotification(message, 'error');
       }
     } finally {
       setIsLoading(false);
@@ -114,14 +114,13 @@ export const PublisherDashboard: React.FC = () => {
     return (
       <PageContainer
         title="Become a Publisher"
-        actions={
-          <Button
-            variant="primary"
-            onClick={() => navigate('/ai/publisher/setup')}
-          >
-            Create Publisher Profile
-          </Button>
-        }
+        actions={[
+          {
+            label: 'Create Publisher Profile',
+            onClick: () => navigate('/ai/publisher/setup'),
+            variant: 'primary',
+          },
+        ]}
       >
         <div className="text-center py-16 bg-theme-bg-primary rounded-lg border border-theme-border">
           <svg
@@ -166,22 +165,18 @@ export const PublisherDashboard: React.FC = () => {
   return (
     <PageContainer
       title="Publisher Dashboard"
-      actions={
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={() => navigate('/ai/publisher/analytics')}
-          >
-            View Analytics
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => navigate('/ai/workflows?action=create')}
-          >
-            Create Template
-          </Button>
-        </div>
-      }
+      actions={[
+        {
+          label: 'View Analytics',
+          onClick: () => navigate('/ai/publisher/analytics'),
+          variant: 'outline',
+        },
+        {
+          label: 'Create Template',
+          onClick: () => navigate('/ai/workflows?action=create'),
+          variant: 'primary',
+        },
+      ]}
     >
       {/* Publisher Header */}
       <div className="bg-theme-bg-primary rounded-lg p-6 border border-theme-border mb-6">

@@ -8,12 +8,12 @@ interface CommissionTrackerProps {
   pendingPayout: number;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; variant: 'success' | 'warning' | 'error' | 'default' }> = {
+const STATUS_CONFIG: Record<string, { label: string; variant: 'success' | 'warning' | 'danger' | 'default' }> = {
   pending: { label: 'Pending', variant: 'warning' },
   available: { label: 'Available', variant: 'success' },
   paid: { label: 'Paid', variant: 'default' },
-  cancelled: { label: 'Cancelled', variant: 'error' },
-  clawed_back: { label: 'Clawed Back', variant: 'error' },
+  cancelled: { label: 'Cancelled', variant: 'danger' },
+  clawed_back: { label: 'Clawed Back', variant: 'danger' },
 };
 
 const TYPE_LABELS: Record<string, string> = {

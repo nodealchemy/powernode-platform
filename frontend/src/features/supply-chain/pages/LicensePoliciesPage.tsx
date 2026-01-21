@@ -3,16 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { DataTable } from '@/shared/components/ui/DataTable';
 import { Badge } from '@/shared/components/ui/Badge';
-import { Button } from '@/shared/components/ui/Button';
-import { Shield } from 'lucide-react';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import { Plus, Shield, Eye, Edit, Trash2 } from 'lucide-react';
 import { useLicensePolicies, useDeleteLicensePolicy, useToggleLicensePolicyActive } from '../hooks/useLicenseCompliance';
 
 export const LicensePoliciesPage: React.FC = () => {
   const navigate = useNavigate();
+  const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 25;
 
-  const { data, isLoading } = useLicensePolicies({
+  const { data, isLoading, refetch } = useLicensePolicies({
     page: currentPage,
     per_page: perPage,
   });
@@ -20,14 +23,41 @@ export const LicensePoliciesPage: React.FC = () => {
   const deleteMutation = useDeleteLicensePolicy();
   const toggleActiveMutation = useToggleLicensePolicyActive();
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this license policy?')) {
-      await deleteMutation.mutateAsync(id);
-    }
+  const handleDelete = (id: string, name: string) => {
+    confirm({
+      title: 'Delete License Policy',
+      message: `Are you sure you want to delete "${name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteMutation.mutateAsync(id);
+          showNotification('License policy deleted successfully', 'success');
+          refetch();
+        } catch (err) {
+          showNotification(
+            err instanceof Error ? err.message : 'Failed to delete policy',
+            'error'
+          );
+        }
+      },
+    });
   };
 
   const handleToggleActive = async (id: string, isActive: boolean) => {
-    await toggleActiveMutation.mutateAsync({ id, isActive: !isActive });
+    try {
+      await toggleActiveMutation.mutateAsync({ id, isActive: !isActive });
+      showNotification(
+        `Policy ${isActive ? 'deactivated' : 'activated'} successfully`,
+        'success'
+      );
+      refetch();
+    } catch (err) {
+      showNotification(
+        err instanceof Error ? err.message : 'Failed to update policy',
+        'error'
+      );
+    }
   };
 
   const getPolicyTypeBadge = (type: string) => {
@@ -102,21 +132,37 @@ export const LicensePoliciesPage: React.FC = () => {
       key: 'actions',
       header: 'Actions',
       render: (policy: any) => (
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="xs"
-            onClick={() => navigate(`/app/supply-chain/licenses/policies/${policy.id}/edit`)}
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/app/supply-chain/licenses/policies/${policy.id}`);
+            }}
+            className="p-1.5 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-secondary rounded"
+            title="View details"
           >
-            Edit
-          </Button>
-          <Button
-            variant="danger"
-            size="xs"
-            onClick={() => handleDelete(policy.id)}
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/app/supply-chain/licenses/policies/${policy.id}/edit`);
+            }}
+            className="p-1.5 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-secondary rounded"
+            title="Edit policy"
           >
-            Delete
-          </Button>
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(policy.id, policy.name);
+            }}
+            className="p-1.5 text-theme-secondary hover:text-theme-error hover:bg-theme-error/10 rounded"
+            title="Delete policy"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       ),
     },
@@ -128,27 +174,43 @@ export const LicensePoliciesPage: React.FC = () => {
     { label: 'License Policies' },
   ];
 
+  const actions = [
+    {
+      id: 'create',
+      label: 'Create Policy',
+      onClick: () => navigate('/app/supply-chain/licenses/policies/new'),
+      variant: 'primary' as const,
+      icon: Plus,
+    },
+  ];
+
   return (
     <PageContainer
       title="License Policies"
       description="Manage license compliance policies and enforcement rules"
       breadcrumbs={breadcrumbs}
-      actions={[]}
+      actions={actions}
     >
       <div className="card-theme-elevated">
         <DataTable
           columns={columns}
           data={data?.policies || []}
           loading={isLoading}
-          pagination={data?.pagination}
+          pagination={data?.pagination || undefined}
           onPageChange={setCurrentPage}
+          onRowClick={(policy) => navigate(`/app/supply-chain/licenses/policies/${policy.id}`)}
           emptyState={{
             icon: Shield,
             title: 'No license policies',
-            description: 'No license policies have been configured yet.',
+            description: 'Create your first license policy to enforce compliance rules.',
+            action: {
+              label: 'Create Policy',
+              onClick: () => navigate('/app/supply-chain/licenses/policies/new'),
+            },
           }}
         />
       </div>
+      {ConfirmationDialog}
     </PageContainer>
   );
 };

@@ -66,6 +66,84 @@ interface SbomDetail extends Sbom {
   repository?: { id: string; name: string; full_name: string };
 }
 
+interface VulnerabilityDetail extends SbomVulnerability {
+  description?: string;
+  references?: string[];
+  published_at?: string;
+  cwe_ids?: string[];
+  epss_score?: number;
+  exploit_available?: boolean;
+  suppressed?: boolean;
+  false_positive?: boolean;
+  false_positive_reason?: string;
+}
+
+interface ComplianceStatus {
+  ntia_minimum_compliant: boolean;
+  ntia_fields: {
+    supplier_name: boolean;
+    component_name: boolean;
+    component_version: boolean;
+    unique_identifier: boolean;
+    dependency_relationship: boolean;
+    author: boolean;
+    timestamp: boolean;
+  };
+  completeness_score: number;
+  missing_fields: string[];
+}
+
+interface RiskCalculation {
+  overall_score: number;
+  vulnerability_score: number;
+  license_score: number;
+  dependency_score: number;
+  recommendations: string[];
+}
+
+interface CorrelationResult {
+  correlated_count: number;
+  new_vulnerabilities: number;
+  resolved_vulnerabilities: number;
+  last_correlated_at: string;
+}
+
+interface SbomStatistics {
+  total_sboms: number;
+  sboms_by_status: Record<SbomStatus, number>;
+  sboms_by_format: Record<SbomFormat, number>;
+  total_components: number;
+  total_vulnerabilities: number;
+  critical_vulnerabilities: number;
+  avg_risk_score: number;
+  compliance_rate: number;
+}
+
+interface SbomDiff {
+  id: string;
+  source_sbom_id: string;
+  compare_sbom_id: string;
+  added_count: number;
+  removed_count: number;
+  changed_count: number;
+  created_at: string;
+}
+
+interface SbomDiffDetail extends SbomDiff {
+  added_components: Array<{ name: string; version: string; ecosystem: string }>;
+  removed_components: Array<{ name: string; version: string; ecosystem: string }>;
+  changed_components: Array<{
+    name: string;
+    old_version: string;
+    new_version: string;
+    ecosystem: string;
+  }>;
+  added_vulnerabilities: Array<{ vulnerability_id: string; severity: Severity }>;
+  removed_vulnerabilities: Array<{ vulnerability_id: string; severity: Severity }>;
+}
+
+type ExportFormat = 'json' | 'xml' | 'pdf' | 'cyclonedx' | 'spdx';
+
 interface CreateSbomRequest {
   name: string;
   format: SbomFormat;
@@ -145,5 +223,111 @@ export const sbomsApi = {
       sbom: Sbom;
     }>>(`/supply_chain/sboms/${id}/rescan`);
     return response.data.data.sbom;
+  },
+
+  // Vulnerability management methods
+  getVulnerability: async (sbomId: string, vulnId: string): Promise<VulnerabilityDetail> => {
+    const response = await apiClient.get<ApiResponse<{
+      vulnerability: VulnerabilityDetail;
+    }>>(`/supply_chain/sboms/${sbomId}/vulnerabilities/${vulnId}`);
+    return response.data.data.vulnerability;
+  },
+
+  updateVulnerabilityStatus: async (
+    sbomId: string,
+    vulnId: string,
+    status: RemediationStatus
+  ): Promise<SbomVulnerability> => {
+    const response = await apiClient.patch<ApiResponse<{
+      vulnerability: SbomVulnerability;
+    }>>(`/supply_chain/sboms/${sbomId}/vulnerabilities/${vulnId}`, { vulnerability: { remediation_status: status } });
+    return response.data.data.vulnerability;
+  },
+
+  suppressVulnerability: async (sbomId: string, vulnId: string): Promise<SbomVulnerability> => {
+    const response = await apiClient.post<ApiResponse<{
+      vulnerability: SbomVulnerability;
+    }>>(`/supply_chain/sboms/${sbomId}/vulnerabilities/${vulnId}/suppress`);
+    return response.data.data.vulnerability;
+  },
+
+  unsuppressVulnerability: async (sbomId: string, vulnId: string): Promise<SbomVulnerability> => {
+    const response = await apiClient.post<ApiResponse<{
+      vulnerability: SbomVulnerability;
+    }>>(`/supply_chain/sboms/${sbomId}/vulnerabilities/${vulnId}/unsuppress`);
+    return response.data.data.vulnerability;
+  },
+
+  markFalsePositive: async (sbomId: string, vulnId: string, reason: string): Promise<SbomVulnerability> => {
+    const response = await apiClient.post<ApiResponse<{
+      vulnerability: SbomVulnerability;
+    }>>(`/supply_chain/sboms/${sbomId}/vulnerabilities/${vulnId}/false_positive`, { reason });
+    return response.data.data.vulnerability;
+  },
+
+  getComponentVulnerabilities: async (sbomId: string, componentId: string): Promise<SbomVulnerability[]> => {
+    const response = await apiClient.get<ApiResponse<{
+      vulnerabilities: SbomVulnerability[];
+    }>>(`/supply_chain/sboms/${sbomId}/components/${componentId}/vulnerabilities`);
+    return response.data.data.vulnerabilities;
+  },
+
+  // Compliance and analysis methods
+  getComplianceStatus: async (sbomId: string): Promise<ComplianceStatus> => {
+    const response = await apiClient.get<ApiResponse<{
+      compliance: ComplianceStatus;
+    }>>(`/supply_chain/sboms/${sbomId}/compliance`);
+    return response.data.data.compliance;
+  },
+
+  calculateRisk: async (sbomId: string): Promise<RiskCalculation> => {
+    const response = await apiClient.post<ApiResponse<{
+      risk: RiskCalculation;
+    }>>(`/supply_chain/sboms/${sbomId}/calculate_risk`);
+    return response.data.data.risk;
+  },
+
+  correlateVulnerabilities: async (sbomId: string): Promise<CorrelationResult> => {
+    const response = await apiClient.post<ApiResponse<{
+      correlation: CorrelationResult;
+    }>>(`/supply_chain/sboms/${sbomId}/correlate_vulnerabilities`);
+    return response.data.data.correlation;
+  },
+
+  getStatistics: async (): Promise<SbomStatistics> => {
+    const response = await apiClient.get<ApiResponse<{
+      statistics: SbomStatistics;
+    }>>('/supply_chain/sboms/statistics');
+    return response.data.data.statistics;
+  },
+
+  // Diff methods
+  listDiffs: async (sbomId: string): Promise<SbomDiff[]> => {
+    const response = await apiClient.get<ApiResponse<{
+      diffs: SbomDiff[];
+    }>>(`/supply_chain/sboms/${sbomId}/diffs`);
+    return response.data.data.diffs;
+  },
+
+  getDiff: async (sbomId: string, diffId: string): Promise<SbomDiffDetail> => {
+    const response = await apiClient.get<ApiResponse<{
+      diff: SbomDiffDetail;
+    }>>(`/supply_chain/sboms/${sbomId}/diffs/${diffId}`);
+    return response.data.data.diff;
+  },
+
+  createDiff: async (sbomId: string, compareSbomId: string): Promise<SbomDiff> => {
+    const response = await apiClient.post<ApiResponse<{
+      diff: SbomDiff;
+    }>>(`/supply_chain/sboms/${sbomId}/diffs`, { compare_sbom_id: compareSbomId });
+    return response.data.data.diff;
+  },
+
+  // Enhanced export
+  exportSbom: async (id: string, format: ExportFormat): Promise<Blob> => {
+    const response = await apiClient.post(`/supply_chain/sboms/${id}/export`, { format }, {
+      responseType: 'blob'
+    });
+    return response.data;
   },
 };

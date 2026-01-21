@@ -99,6 +99,39 @@ export const attestationsApi = {
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/supply_chain/attestations/${id}`);
   },
+
+  // Signing methods
+  sign: async (id: string, signingKeyId?: string): Promise<AttestationDetail> => {
+    const response = await apiClient.post<ApiResponse<{
+      attestation: AttestationDetail;
+    }>>(`/supply_chain/attestations/${id}/sign`, signingKeyId ? { signing_key_id: signingKeyId } : {});
+    return response.data.data.attestation;
+  },
+
+  listSigningKeys: async (): Promise<SigningKey[]> => {
+    const response = await apiClient.get<ApiResponse<{
+      signing_keys: SigningKey[];
+    }>>('/supply_chain/signing_keys');
+    return response.data.data.signing_keys;
+  },
 };
 
-export type { Attestation, AttestationDetail, AttestationType, VerificationStatus, Pagination };
+interface SigningKey {
+  id: string;
+  name: string;
+  key_type: 'rsa' | 'ecdsa' | 'ed25519';
+  fingerprint: string;
+  is_default: boolean;
+  expires_at?: string;
+  created_at: string;
+}
+
+interface CreateAttestationRequest {
+  attestation_type: AttestationType;
+  subject_name: string;
+  subject_digest: string;
+  predicate: Record<string, unknown>;
+  slsa_level?: 1 | 2 | 3;
+}
+
+export type { Attestation, AttestationDetail, AttestationType, VerificationStatus, Pagination, SigningKey, CreateAttestationRequest };

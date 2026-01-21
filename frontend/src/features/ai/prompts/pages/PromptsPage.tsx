@@ -8,7 +8,6 @@ import { usePromptTemplates } from '../hooks/usePromptTemplates';
 import type {
   PromptTemplate,
   PromptCategory,
-  PromptDomain,
   PromptTemplateFormData,
   PromptPreviewResponse,
 } from '../types';

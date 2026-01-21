@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNotification } from '@/shared/contexts/NotificationContext';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -36,7 +36,7 @@ export const PayoutManager: React.FC<PayoutManagerProps> = ({
   payouts,
   onPayoutRequested,
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [payoutAmount, setPayoutAmount] = useState<string>('');
@@ -58,24 +58,24 @@ export const PayoutManager: React.FC<PayoutManagerProps> = ({
   const handleRequestPayout = async () => {
     const amount = parseFloat(payoutAmount);
     if (isNaN(amount) || amount <= 0) {
-      showNotification('error', 'Please enter a valid amount');
+      showNotification('Please enter a valid amount', 'error');
       return;
     }
     if (amount > pendingPayout) {
-      showNotification('error', 'Amount exceeds available balance');
+      showNotification('Amount exceeds available balance', 'error');
       return;
     }
 
     setIsSubmitting(true);
     try {
       const response = await publisherApi.requestPayout(publisherId, { amount });
-      showNotification('success', response.message);
+      showNotification(response.message, 'success');
       setIsRequestModalOpen(false);
       setPayoutAmount('');
       onPayoutRequested?.();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to request payout';
-      showNotification('error', message);
+      showNotification(message, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -96,7 +96,7 @@ export const PayoutManager: React.FC<PayoutManagerProps> = ({
       window.location.href = response.data.onboarding_url;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to setup Stripe';
-      showNotification('error', message);
+      showNotification(message, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -234,7 +234,7 @@ export const PayoutManager: React.FC<PayoutManagerProps> = ({
             <Button
               variant="primary"
               onClick={handleRequestPayout}
-              isLoading={isSubmitting}
+              loading={isSubmitting}
             >
               Request Payout
             </Button>
@@ -274,7 +274,7 @@ export const PayoutManager: React.FC<PayoutManagerProps> = ({
             <Button
               variant="primary"
               onClick={handleStripeSetup}
-              isLoading={isSubmitting}
+              loading={isSubmitting}
             >
               Connect with Stripe
             </Button>

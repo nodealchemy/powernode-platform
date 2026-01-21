@@ -1,6 +1,7 @@
 export { SupplyChainDashboardPage } from './SupplyChainDashboardPage';
 export { SbomsPage } from './SbomsPage';
 export { SbomDetailPage } from './SbomDetailPage';
+export { SbomDiffPage } from './SbomDiffPage';
 export { ContainerImagesPage } from './ContainerImagesPage';
 export { ContainerImageDetailPage } from './ContainerImageDetailPage';
 export { AttestationsPage } from './AttestationsPage';
@@ -8,5 +9,10 @@ export { AttestationDetailPage } from './AttestationDetailPage';
 export { VendorsPage } from './VendorsPage';
 export { VendorDetailPage } from './VendorDetailPage';
 export { VendorRiskDashboardPage } from './VendorRiskDashboardPage';
+export { AssessmentDetailPage } from './AssessmentDetailPage';
+export { QuestionnaireDetailPage } from './QuestionnaireDetailPage';
 export { LicensePoliciesPage } from './LicensePoliciesPage';
+export { LicensePolicyFormPage } from './LicensePolicyFormPage';
+export { LicensePolicyDetailPage } from './LicensePolicyDetailPage';
 export { LicenseViolationsPage } from './LicenseViolationsPage';
+export { LicenseViolationDetailPage } from './LicenseViolationDetailPage';

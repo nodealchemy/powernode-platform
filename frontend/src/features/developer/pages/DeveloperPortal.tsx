@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { PageContainer } from '@/shared/components/layout';
-import { Card, TabContainer } from '@/shared/components/ui';
+import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { TabContainer } from '@/shared/components/layout/TabContainer';
+import { Card } from '@/shared/components/ui';
 import { ApiDocs } from './ApiDocs';
 import { CodeSamples } from '../components/CodeSamples';
 import { ApiKeyManager } from '../components/ApiKeyManager';
@@ -23,8 +24,8 @@ export const DeveloperPortal: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-lg bg-theme-info/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-theme-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
@@ -37,7 +38,7 @@ export const DeveloperPortal: React.FC = () => {
             href="/api-docs"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-blue-600 hover:text-blue-700"
+            className="text-sm text-theme-info hover:text-theme-info/80"
           >
             View Interactive Docs →
           </a>
@@ -45,8 +46,8 @@ export const DeveloperPortal: React.FC = () => {
 
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-lg bg-theme-success/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-theme-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
             </div>
@@ -60,8 +61,8 @@ export const DeveloperPortal: React.FC = () => {
 
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-lg bg-theme-primary/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-theme-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
@@ -75,8 +76,8 @@ export const DeveloperPortal: React.FC = () => {
 
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-lg bg-theme-warning/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-theme-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -93,12 +94,21 @@ export const DeveloperPortal: React.FC = () => {
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-      >
-        {activeTab === 'docs' && <ApiDocs />}
-        {activeTab === 'keys' && <ApiKeyManager />}
-        {activeTab === 'samples' && <CodeSamples />}
-        {activeTab === 'webhooks' && <WebhookDocs />}
-      </TabContainer>
+        renderContent={(tab) => {
+          switch (tab) {
+            case 'docs':
+              return <ApiDocs />;
+            case 'keys':
+              return <ApiKeyManager />;
+            case 'samples':
+              return <CodeSamples />;
+            case 'webhooks':
+              return <WebhookDocs />;
+            default:
+              return null;
+          }
+        }}
+      />
     </PageContainer>
   );
 };
@@ -136,7 +146,7 @@ const WebhookDocs: React.FC = () => {
               {events.map((event) => (
                 <tr key={event.name} className="border-b border-theme">
                   <td className="py-3 px-2">
-                    <code className="text-sm bg-theme-surface px-2 py-1 rounded font-mono text-blue-600">
+                    <code className="text-sm bg-theme-surface px-2 py-1 rounded font-mono text-theme-info">
                       {event.name}
                     </code>
                   </td>

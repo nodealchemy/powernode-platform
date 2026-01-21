@@ -164,7 +164,7 @@ export const ApiKeyManager: React.FC = () => {
                     <div className="flex items-center gap-3 mb-2">
                       <span className="font-medium text-theme-primary">{key.name}</span>
                       <Badge
-                        variant={key.status === 'active' ? 'success' : 'error'}
+                        variant={key.status === 'active' ? 'success' : 'danger'}
                         size="sm"
                       >
                         {key.status}
@@ -212,8 +212,8 @@ export const ApiKeyManager: React.FC = () => {
       >
         {newKey ? (
           <div className="space-y-4">
-            <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
-              <p className="text-sm text-amber-800 mb-2">
+            <div className="p-4 rounded-lg bg-theme-warning/10 border border-theme-warning/30">
+              <p className="text-sm text-theme-warning mb-2">
                 <strong>Important:</strong> Copy your API key now. You won't be able to see it again!
               </p>
             </div>

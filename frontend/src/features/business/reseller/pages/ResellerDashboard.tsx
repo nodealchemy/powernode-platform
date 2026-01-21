@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { PageContainer } from '@/shared/components/layout';
-import { LoadingSpinner, EmptyState, Card, Button } from '@/shared/components/ui';
+import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { LoadingSpinner, Card, Button } from '@/shared/components/ui';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { resellerApi } from '../services/resellerApi';
 import { PartnerTierCard } from '../components/PartnerTierCard';
@@ -67,14 +67,11 @@ export const ResellerDashboard: React.FC = () => {
   if (error) {
     return (
       <PageContainer title="Partner Dashboard">
-        <EmptyState
-          icon="alert-circle"
-          title="Error Loading Data"
-          description={error}
-          action={
-            <Button onClick={loadData}>Retry</Button>
-          }
-        />
+        <Card className="p-8 text-center">
+          <h3 className="text-lg font-semibold text-theme-primary mb-2">Error Loading Data</h3>
+          <p className="text-theme-secondary mb-4">{error}</p>
+          <Button onClick={loadData}>Retry</Button>
+        </Card>
       </PageContainer>
     );
   }
@@ -117,8 +114,8 @@ export const ResellerDashboard: React.FC = () => {
       <PageContainer title="Partner Program">
         <div className="max-w-2xl mx-auto">
           <Card className="p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 rounded-full bg-theme-warning/10 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-theme-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -141,11 +138,13 @@ export const ResellerDashboard: React.FC = () => {
   return (
     <PageContainer
       title="Partner Dashboard"
-      actions={
-        <Button variant="secondary" onClick={handleCopyReferralCode}>
-          Copy Referral Code: {reseller.referral_code}
-        </Button>
-      }
+      actions={[
+        {
+          label: `Copy Referral Code: ${reseller.referral_code}`,
+          onClick: handleCopyReferralCode,
+          variant: 'secondary',
+        },
+      ]}
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <Card className="p-6">

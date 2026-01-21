@@ -20,15 +20,47 @@ type Severity = 'critical' | 'high' | 'medium' | 'low';
 interface LicensePolicy {
   id: string;
   name: string;
+  description?: string;
   policy_type: LicensePolicyType;
   enforcement_level: EnforcementLevel;
   is_active: boolean;
+  is_default?: boolean;
+  priority?: number;
   block_copyleft: boolean;
   block_strong_copyleft: boolean;
+  block_network_copyleft?: boolean;
+  block_unknown?: boolean;
+  require_osi_approved?: boolean;
+  require_attribution?: boolean;
   allowed_licenses?: string[];
   denied_licenses?: string[];
+  exception_packages?: Array<{
+    package: string;
+    license: string;
+    reason: string;
+    added_at: string;
+    expires_at?: string;
+  }>;
+  metadata?: Record<string, unknown>;
+  violation_count?: number;
   created_at: string;
   updated_at: string;
+}
+
+interface CreateLicensePolicyData {
+  name: string;
+  description?: string;
+  policy_type: LicensePolicyType;
+  enforcement_level: EnforcementLevel;
+  is_active?: boolean;
+  block_copyleft?: boolean;
+  block_strong_copyleft?: boolean;
+  block_network_copyleft?: boolean;
+  block_unknown?: boolean;
+  require_osi_approved?: boolean;
+  require_attribution?: boolean;
+  allowed_licenses?: string[];
+  denied_licenses?: string[];
 }
 
 interface LicenseViolation {
@@ -55,39 +87,31 @@ export const licenseComplianceApi = {
     policy_type?: LicensePolicyType;
   }): Promise<{ policies: LicensePolicy[]; pagination: Pagination }> => {
     const response = await apiClient.get<ApiResponse<{
-      policies: LicensePolicy[];
-      pagination: Pagination;
+      license_policies: LicensePolicy[];
+      meta: Pagination;
     }>>('/supply_chain/license_policies', { params });
-    return response.data.data;
+    return { policies: response.data.data.license_policies, pagination: response.data.data.meta };
   },
 
   getPolicy: async (id: string): Promise<LicensePolicy> => {
     const response = await apiClient.get<ApiResponse<{
-      policy: LicensePolicy;
+      license_policy: LicensePolicy;
     }>>(`/supply_chain/license_policies/${id}`);
-    return response.data.data.policy;
+    return response.data.data.license_policy;
   },
 
-  createPolicy: async (data: {
-    name: string;
-    policy_type: LicensePolicyType;
-    enforcement_level: EnforcementLevel;
-    block_copyleft?: boolean;
-    block_strong_copyleft?: boolean;
-    allowed_licenses?: string[];
-    denied_licenses?: string[];
-  }): Promise<LicensePolicy> => {
+  createPolicy: async (data: CreateLicensePolicyData): Promise<LicensePolicy> => {
     const response = await apiClient.post<ApiResponse<{
-      policy: LicensePolicy;
-    }>>('/supply_chain/license_policies', { policy: data });
-    return response.data.data.policy;
+      license_policy: LicensePolicy;
+    }>>('/supply_chain/license_policies', { license_policy: data });
+    return response.data.data.license_policy;
   },
 
-  updatePolicy: async (id: string, data: Partial<LicensePolicy>): Promise<LicensePolicy> => {
+  updatePolicy: async (id: string, data: Partial<CreateLicensePolicyData>): Promise<LicensePolicy> => {
     const response = await apiClient.patch<ApiResponse<{
-      policy: LicensePolicy;
-    }>>(`/supply_chain/license_policies/${id}`, { policy: data });
-    return response.data.data.policy;
+      license_policy: LicensePolicy;
+    }>>(`/supply_chain/license_policies/${id}`, { license_policy: data });
+    return response.data.data.license_policy;
   },
 
   deletePolicy: async (id: string): Promise<void> => {
@@ -96,9 +120,9 @@ export const licenseComplianceApi = {
 
   togglePolicyActive: async (id: string, isActive: boolean): Promise<LicensePolicy> => {
     const response = await apiClient.patch<ApiResponse<{
-      policy: LicensePolicy;
-    }>>(`/supply_chain/license_policies/${id}`, { policy: { is_active: isActive } });
-    return response.data.data.policy;
+      license_policy: LicensePolicy;
+    }>>(`/supply_chain/license_policies/${id}`, { license_policy: { is_active: isActive } });
+    return response.data.data.license_policy;
   },
 
   listViolations: async (params?: {
@@ -135,4 +159,51 @@ export const licenseComplianceApi = {
     }>>(`/supply_chain/license_violations/${id}/grant_exception`, { note });
     return response.data.data.violation;
   },
+
+  // Exception workflow methods
+  requestException: async (
+    id: string,
+    justification: string,
+    expiresAt?: string
+  ): Promise<LicenseViolation> => {
+    const response = await apiClient.post<ApiResponse<{
+      violation: LicenseViolation;
+    }>>(`/supply_chain/license_violations/${id}/request_exception`, {
+      justification,
+      expires_at: expiresAt,
+    });
+    return response.data.data.violation;
+  },
+
+  approveException: async (
+    id: string,
+    notes?: string,
+    expiresAt?: string
+  ): Promise<LicenseViolation> => {
+    const response = await apiClient.post<ApiResponse<{
+      violation: LicenseViolation;
+    }>>(`/supply_chain/license_violations/${id}/approve_exception`, {
+      notes,
+      expires_at: expiresAt,
+    });
+    return response.data.data.violation;
+  },
+
+  rejectException: async (id: string, reason?: string): Promise<LicenseViolation> => {
+    const response = await apiClient.post<ApiResponse<{
+      violation: LicenseViolation;
+    }>>(`/supply_chain/license_violations/${id}/reject_exception`, { reason });
+    return response.data.data.violation;
+  },
+};
+
+export type {
+  LicensePolicy,
+  LicenseViolation,
+  LicensePolicyType,
+  EnforcementLevel,
+  ViolationType,
+  Severity,
+  Pagination,
+  CreateLicensePolicyData,
 };

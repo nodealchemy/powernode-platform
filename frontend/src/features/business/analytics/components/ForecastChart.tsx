@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -77,7 +76,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
             className="text-theme-text-secondary"
           />
           <Tooltip
-            formatter={(value: number, name: string) => [formatCurrency(value), name]}
+            formatter={(value, name) => [formatCurrency(Number(value)), name]}
             contentStyle={{
               backgroundColor: 'var(--theme-bg-secondary)',
               border: '1px solid var(--theme-border)',

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
-import { useNotification } from '@/shared/contexts/NotificationContext';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import predictiveAnalyticsApi from '../services/predictiveAnalyticsApi';
 import { ForecastChart } from '../components/ForecastChart';
 import type { RevenueForecast } from '../types/predictive';
@@ -16,7 +16,7 @@ const formatCurrency = (value: number): string => {
 };
 
 export const RevenueForecastPage: React.FC = () => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [forecasts, setForecasts] = useState<RevenueForecast[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -33,7 +33,7 @@ export const RevenueForecastPage: React.FC = () => {
       setForecasts(response.data);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to load forecasts';
-      showNotification('error', message);
+      showNotification(message, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -50,11 +50,11 @@ export const RevenueForecastPage: React.FC = () => {
         months_ahead: 12,
         period: period,
       });
-      showNotification('success', response.message);
+      showNotification(response.message, 'success');
       fetchData();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to generate forecast';
-      showNotification('error', message);
+      showNotification(message, 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -99,22 +99,27 @@ export const RevenueForecastPage: React.FC = () => {
   return (
     <PageContainer
       title="Revenue Forecast"
-      actions={
-        <div className="flex gap-3">
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as 'monthly' | 'quarterly')}
-            className="bg-theme-bg-secondary border border-theme-border rounded-lg px-4 py-2 text-theme-text-primary"
-          >
-            <option value="monthly">Monthly</option>
-            <option value="quarterly">Quarterly</option>
-          </select>
-          <Button variant="primary" onClick={handleGenerateForecast} isLoading={isGenerating}>
-            Generate Forecast
-          </Button>
-        </div>
-      }
+      actions={[
+        {
+          label: 'Generate Forecast',
+          onClick: handleGenerateForecast,
+          variant: 'primary',
+          disabled: isGenerating,
+        },
+      ]}
     >
+      {/* Period Selector */}
+      <div className="mb-6">
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value as 'monthly' | 'quarterly')}
+          className="bg-theme-bg-secondary border border-theme-border rounded-lg px-4 py-2 text-theme-text-primary"
+        >
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+        </select>
+      </div>
+
       {/* Summary Cards */}
       {totals && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -185,7 +190,7 @@ export const RevenueForecastPage: React.FC = () => {
             variant="primary"
             className="mt-4"
             onClick={handleGenerateForecast}
-            isLoading={isGenerating}
+            loading={isGenerating}
           >
             Generate Forecast
           </Button>

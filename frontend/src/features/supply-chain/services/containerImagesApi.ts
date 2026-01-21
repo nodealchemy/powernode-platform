@@ -98,6 +98,77 @@ export const containerImagesApi = {
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/supply_chain/container_images/${id}`);
   },
+
+  // Vulnerability methods
+  getVulnerabilities: async (imageId: string, params?: {
+    page?: number;
+    per_page?: number;
+    severity?: Severity;
+  }): Promise<{ vulnerabilities: ContainerVulnerability[]; pagination: Pagination }> => {
+    const response = await apiClient.get<ApiResponse<{
+      vulnerabilities: ContainerVulnerability[];
+      pagination: Pagination;
+    }>>(`/supply_chain/container_images/${imageId}/vulnerabilities`, { params });
+    return response.data.data;
+  },
+
+  // SBOM methods
+  getSbom: async (imageId: string): Promise<ContainerSbom> => {
+    const response = await apiClient.get<ApiResponse<{
+      sbom: ContainerSbom;
+    }>>(`/supply_chain/container_images/${imageId}/sbom`);
+    return response.data.data.sbom;
+  },
+
+  // Policy evaluation
+  evaluatePolicies: async (imageId: string): Promise<PolicyEvaluationResult[]> => {
+    const response = await apiClient.post<ApiResponse<{
+      evaluations: PolicyEvaluationResult[];
+    }>>(`/supply_chain/container_images/${imageId}/evaluate_policies`);
+    return response.data.data.evaluations;
+  },
 };
 
-export type { ContainerImage, ContainerImageDetail, ContainerStatus, Pagination };
+type Severity = 'critical' | 'high' | 'medium' | 'low';
+
+interface ContainerVulnerability {
+  id: string;
+  vulnerability_id: string;
+  severity: Severity;
+  cvss_score: number;
+  package_name: string;
+  package_version: string;
+  fixed_version?: string;
+  description?: string;
+  published_at?: string;
+  exploit_available?: boolean;
+}
+
+interface ContainerSbom {
+  id: string;
+  format: string;
+  component_count: number;
+  components: Array<{
+    name: string;
+    version: string;
+    type: string;
+    licenses: string[];
+  }>;
+  generated_at: string;
+}
+
+interface PolicyEvaluationResult {
+  policy_id: string;
+  policy_name: string;
+  policy_type: string;
+  enforcement_level: string;
+  passed: boolean;
+  violations: Array<{
+    rule: string;
+    message: string;
+    severity: Severity;
+  }>;
+  evaluated_at: string;
+}
+
+export type { ContainerImage, ContainerImageDetail, ContainerStatus, Pagination, ContainerVulnerability, ContainerSbom, PolicyEvaluationResult, Severity };

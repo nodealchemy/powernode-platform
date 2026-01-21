@@ -1,19 +1,68 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Edit, PlayCircle, Send, ExternalLink, Shield, FileText, Database, CheckCircle, AlertCircle } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Edit, PlayCircle, Send, ExternalLink, Shield, FileText, Database, CheckCircle, AlertCircle, Eye } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
 import { RiskTierBadge } from '../components/shared/RiskTierBadge';
 import { StatusBadge } from '../components/shared/StatusBadge';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { useVendor } from '../hooks/useVendorRisk';
+import { useVendor, useUpdateVendor, useStartAssessment, useSendQuestionnaire } from '../hooks/useVendorRisk';
 import { formatDistanceToNow, format } from 'date-fns';
+import { EditVendorModal } from '../components/vendor/EditVendorModal';
+import { StartAssessmentModal } from '../components/vendor/StartAssessmentModal';
+import { SendQuestionnaireModal } from '../components/vendor/SendQuestionnaireModal';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const VendorDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
-  const { vendor, loading, error } = useVendor(id || null);
+  const { vendor, loading, error, refresh } = useVendor(id || null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAssessmentModal, setShowAssessmentModal] = useState(false);
+  const [showQuestionnaireModal, setShowQuestionnaireModal] = useState(false);
+
+  const updateVendorMutation = useUpdateVendor();
+  const startAssessmentMutation = useStartAssessment();
+  const sendQuestionnaireMutation = useSendQuestionnaire();
+  const { showNotification } = useNotifications();
+
+  const handleUpdateVendor = async (data: Record<string, unknown>) => {
+    if (!id) return;
+    try {
+      await updateVendorMutation.mutateAsync({ id, data });
+      showNotification('Vendor updated successfully', 'success');
+      setShowEditModal(false);
+      refresh();
+    } catch {
+      showNotification('Failed to update vendor', 'error');
+    }
+  };
+
+  const handleStartAssessment = async (assessmentType: 'initial' | 'periodic' | 'incident' | 'renewal') => {
+    if (!id) return;
+    try {
+      await startAssessmentMutation.mutateAsync({ vendorId: id, assessmentType });
+      showNotification('Assessment started successfully', 'success');
+      setShowAssessmentModal(false);
+      refresh();
+    } catch {
+      showNotification('Failed to start assessment', 'error');
+    }
+  };
+
+  const handleSendQuestionnaire = async (templateId: string) => {
+    if (!id) return;
+    try {
+      await sendQuestionnaireMutation.mutateAsync({ vendorId: id, templateId });
+      showNotification('Questionnaire sent successfully', 'success');
+      setShowQuestionnaireModal(false);
+      refresh();
+    } catch {
+      showNotification('Failed to send questionnaire', 'error');
+    }
+  };
 
   if (loading) {
     return (
@@ -151,17 +200,26 @@ export const VendorDetailPage: React.FC = () => {
                   {formatDistanceToNow(new Date(assessment.created_at), { addSuffix: true })}
                 </p>
               </div>
-              <Badge
-                variant={
-                  assessment.status === 'completed'
-                    ? 'success'
-                    : assessment.status === 'in_progress'
-                    ? 'info'
-                    : 'secondary'
-                }
-              >
-                {assessment.status.replace('_', ' ')}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={
+                    assessment.status === 'completed'
+                      ? 'success'
+                      : assessment.status === 'in_progress'
+                      ? 'info'
+                      : 'secondary'
+                  }
+                >
+                  {assessment.status.replace('_', ' ')}
+                </Badge>
+                <button
+                  onClick={() => navigate(`/app/supply-chain/vendors/${id}/assessments/${assessment.id}`)}
+                  className="text-theme-interactive-primary hover:text-theme-interactive-primary-hover"
+                  title="View Details"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -217,19 +275,28 @@ export const VendorDetailPage: React.FC = () => {
                     : 'Not sent yet'}
                 </p>
               </div>
-              <Badge
-                variant={
-                  questionnaire.status === 'completed'
-                    ? 'success'
-                    : questionnaire.status === 'in_progress'
-                    ? 'info'
-                    : questionnaire.status === 'sent'
-                    ? 'warning'
-                    : 'secondary'
-                }
-              >
-                {questionnaire.status}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={
+                    questionnaire.status === 'completed'
+                      ? 'success'
+                      : questionnaire.status === 'in_progress'
+                      ? 'info'
+                      : questionnaire.status === 'sent'
+                      ? 'warning'
+                      : 'secondary'
+                  }
+                >
+                  {questionnaire.status}
+                </Badge>
+                <button
+                  onClick={() => navigate(`/app/supply-chain/vendors/${id}/questionnaires/${questionnaire.id}`)}
+                  className="text-theme-interactive-primary hover:text-theme-interactive-primary-hover"
+                  title="View Details"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center gap-6">
@@ -309,27 +376,21 @@ export const VendorDetailPage: React.FC = () => {
         {
           id: 'edit',
           label: 'Edit',
-          onClick: () => {
-            // TODO: Implement edit vendor
-          },
+          onClick: () => setShowEditModal(true),
           variant: 'secondary',
           icon: Edit,
         },
         {
           id: 'send-questionnaire',
           label: 'Send Questionnaire',
-          onClick: () => {
-            // TODO: Implement send questionnaire
-          },
+          onClick: () => setShowQuestionnaireModal(true),
           variant: 'secondary',
           icon: Send,
         },
         {
           id: 'start-assessment',
           label: 'Start Assessment',
-          onClick: () => {
-            // TODO: Implement start assessment
-          },
+          onClick: () => setShowAssessmentModal(true),
           variant: 'primary',
           icon: PlayCircle,
         },
@@ -366,6 +427,41 @@ export const VendorDetailPage: React.FC = () => {
           {activeTab === 'questionnaires' && renderQuestionnaires()}
           {activeTab === 'monitoring' && renderMonitoring()}
         </div>
+
+      {vendor && showEditModal && (
+        <EditVendorModal
+          onClose={() => setShowEditModal(false)}
+          onSave={handleUpdateVendor}
+          vendor={{
+            id: vendor.id,
+            name: vendor.name,
+            vendor_type: vendor.vendor_type,
+            contact_name: vendor.contact_name,
+            contact_email: vendor.contact_email,
+            website: vendor.website,
+            handles_pii: vendor.handles_pii,
+            handles_phi: vendor.handles_phi,
+            handles_pci: vendor.handles_pci,
+            certifications: vendor.certifications || [],
+          }}
+        />
+      )}
+
+      {vendor && showAssessmentModal && (
+        <StartAssessmentModal
+          onClose={() => setShowAssessmentModal(false)}
+          onStart={handleStartAssessment}
+          vendorName={vendor.name}
+        />
+      )}
+
+      {vendor && showQuestionnaireModal && (
+        <SendQuestionnaireModal
+          onClose={() => setShowQuestionnaireModal(false)}
+          onSend={handleSendQuestionnaire}
+          vendorName={vendor.name}
+        />
+      )}
     </PageContainer>
   );
 };

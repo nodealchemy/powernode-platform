@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { DataTable } from '@/shared/components/ui/DataTable';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
-import { AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ShieldAlert, Eye } from 'lucide-react';
 import { useLicenseViolations, useResolveViolation, useGrantViolationException } from '../hooks/useLicenseCompliance';
 import { SeverityBadge } from '../components/shared/SeverityBadge';
 
 type ViolationStatus = 'open' | 'resolved' | 'exception_granted';
 
 export const LicenseViolationsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<ViolationStatus>('open');
   const perPage = 25;
@@ -120,30 +122,39 @@ export const LicenseViolationsPage: React.FC = () => {
       key: 'actions',
       header: 'Actions',
       render: (violation: any) => {
-        if (violation.status === 'open') {
-          return (
-            <div className="flex gap-2">
-              <Button
-                variant="success"
-                size="xs"
-                onClick={() => handleResolve(violation.id)}
-              >
-                Resolve
-              </Button>
-              <Button
-                variant="secondary"
-                size="xs"
-                onClick={() => handleGrantException(violation.id)}
-              >
-                Exception
-              </Button>
-            </div>
-          );
-        }
         return (
-          <span className="text-theme-tertiary text-sm">
-            {violation.resolved_at && new Date(violation.resolved_at).toLocaleDateString()}
-          </span>
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => navigate(`/app/supply-chain/licenses/violations/${violation.id}`)}
+              className="text-theme-interactive-primary hover:text-theme-interactive-primary-hover"
+              title="View Details"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+            {violation.status === 'open' && (
+              <>
+                <Button
+                  variant="success"
+                  size="xs"
+                  onClick={() => handleResolve(violation.id)}
+                >
+                  Resolve
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => handleGrantException(violation.id)}
+                >
+                  Exception
+                </Button>
+              </>
+            )}
+            {violation.status !== 'open' && violation.resolved_at && (
+              <span className="text-theme-tertiary text-sm">
+                {new Date(violation.resolved_at).toLocaleDateString()}
+              </span>
+            )}
+          </div>
         );
       },
     },
@@ -202,7 +213,7 @@ export const LicenseViolationsPage: React.FC = () => {
           columns={columns}
           data={data?.violations || []}
           loading={isLoading}
-          pagination={data?.pagination}
+          pagination={data?.pagination || undefined}
           onPageChange={setCurrentPage}
           emptyState={{
             icon: AlertTriangle,

@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
-import { useNotification } from '@/shared/contexts/NotificationContext';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import predictiveAnalyticsApi from '../services/predictiveAnalyticsApi';
 import { ChurnRiskList } from '../components/ChurnRiskList';
 import type { ChurnPrediction, PredictiveAnalyticsSummary } from '../types/predictive';
 
 export const ChurnRiskPage: React.FC = () => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [predictions, setPredictions] = useState<ChurnPrediction[]>([]);
   const [summary, setSummary] = useState<PredictiveAnalyticsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,7 +28,7 @@ export const ChurnRiskPage: React.FC = () => {
       setSummary(summaryResponse.data);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to load predictions';
-      showNotification('error', message);
+      showNotification(message, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -41,11 +41,11 @@ export const ChurnRiskPage: React.FC = () => {
   const handleRunPredictions = async () => {
     try {
       await predictiveAnalyticsApi.predictChurn();
-      showNotification('success', 'Churn predictions updated');
+      showNotification('Churn predictions updated', 'success');
       fetchData();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to run predictions';
-      showNotification('error', message);
+      showNotification(message, 'error');
     }
   };
 
@@ -55,7 +55,7 @@ export const ChurnRiskPage: React.FC = () => {
   };
 
   const handleIntervene = (prediction: ChurnPrediction) => {
-    showNotification('info', `Intervention workflow started for account ${prediction.account_id.substring(0, 8)}`);
+    showNotification(`Intervention workflow started for account ${prediction.account_id.substring(0, 8)}`, 'info');
   };
 
   const getRiskDistribution = () => {
@@ -87,11 +87,13 @@ export const ChurnRiskPage: React.FC = () => {
   return (
     <PageContainer
       title="Churn Risk Analysis"
-      actions={
-        <Button variant="primary" onClick={handleRunPredictions}>
-          Run Predictions
-        </Button>
-      }
+      actions={[
+        {
+          label: 'Run Predictions',
+          onClick: handleRunPredictions,
+          variant: 'primary',
+        },
+      ]}
     >
       {/* Summary Cards */}
       {summary && (

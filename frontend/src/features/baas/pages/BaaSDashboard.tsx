@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
-import { useNotification } from '@/shared/contexts/NotificationContext';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import baasApi from '../services/baasApi';
 import { TenantOverview } from '../components/TenantOverview';
 import type { BaaSTenant, BaaSDashboardStats, BaaSApiKey } from '../types';
 
 export const BaaSDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [tenant, setTenant] = useState<BaaSTenant | null>(null);
   const [stats, setStats] = useState<BaaSDashboardStats | null>(null);
   const [apiKeys, setApiKeys] = useState<BaaSApiKey[]>([]);
@@ -30,9 +30,9 @@ export const BaaSDashboard: React.FC = () => {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to load BaaS data';
       if (message.includes('not found') || message.includes('401')) {
-        showNotification('info', 'Set up your BaaS tenant to get started');
+        showNotification('Set up your BaaS tenant to get started', 'info');
       } else {
-        showNotification('error', message);
+        showNotification(message, 'error');
       }
     } finally {
       setIsLoading(false);
@@ -50,22 +50,22 @@ export const BaaSDashboard: React.FC = () => {
         key_type: 'secret',
         scopes: ['*'],
       });
-      showNotification('success', `API Key created. Key: ${result.data.key}`);
+      showNotification(`API Key created. Key: ${result.data.key}`, 'success');
       fetchData();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to create API key';
-      showNotification('error', message);
+      showNotification(message, 'error');
     }
   };
 
   const handleRevokeApiKey = async (keyId: string) => {
     try {
       await baasApi.revokeApiKey(keyId);
-      showNotification('success', 'API key revoked');
+      showNotification('API key revoked', 'success');
       fetchData();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to revoke API key';
-      showNotification('error', message);
+      showNotification(message, 'error');
     }
   };
 
@@ -83,11 +83,13 @@ export const BaaSDashboard: React.FC = () => {
     return (
       <PageContainer
         title="Billing-as-a-Service"
-        actions={
-          <Button variant="primary" onClick={() => navigate('/baas/setup')}>
-            Set Up BaaS
-          </Button>
-        }
+        actions={[
+          {
+            label: 'Set Up BaaS',
+            onClick: () => navigate('/baas/setup'),
+            variant: 'primary',
+          },
+        ]}
       >
         <div className="text-center py-16 bg-theme-bg-primary rounded-lg border border-theme-border">
           <svg
@@ -131,16 +133,18 @@ export const BaaSDashboard: React.FC = () => {
   return (
     <PageContainer
       title="BaaS Dashboard"
-      actions={
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={() => navigate('/baas/docs')}>
-            API Docs
-          </Button>
-          <Button variant="primary" onClick={() => navigate('/baas/customers')}>
-            Manage Customers
-          </Button>
-        </div>
-      }
+      actions={[
+        {
+          label: 'API Docs',
+          onClick: () => navigate('/baas/docs'),
+          variant: 'outline',
+        },
+        {
+          label: 'Manage Customers',
+          onClick: () => navigate('/baas/customers'),
+          variant: 'primary',
+        },
+      ]}
     >
       {/* Tabs */}
       <div className="border-b border-theme-border mb-6">

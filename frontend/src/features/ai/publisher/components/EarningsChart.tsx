@@ -98,7 +98,7 @@ export const EarningsChart: React.FC<EarningsChartProps> = ({
               className="text-theme-text-secondary"
             />
             <Tooltip
-              formatter={(value: number) => formatCurrency(value)}
+              formatter={(value) => formatCurrency(Number(value))}
               contentStyle={{
                 backgroundColor: 'var(--theme-bg-secondary)',
                 border: '1px solid var(--theme-border)',
@@ -154,8 +154,8 @@ export const EarningsChart: React.FC<EarningsChartProps> = ({
             className="text-theme-text-secondary"
           />
           <Tooltip
-            formatter={(value: number, name: string) =>
-              name === 'revenue' ? formatCurrency(value) : value
+            formatter={(value, name) =>
+              name === 'revenue' ? formatCurrency(Number(value)) : value
             }
             contentStyle={{
               backgroundColor: 'var(--theme-bg-secondary)',

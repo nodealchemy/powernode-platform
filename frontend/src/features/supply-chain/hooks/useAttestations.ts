@@ -63,3 +63,94 @@ export function useAttestation(id: string | null) {
 
   return { attestation, loading, error, refresh: fetchAttestation };
 }
+
+// Sign attestation hook
+export function useSignAttestation() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutateAsync = useCallback(async ({
+    id,
+    signingKeyId,
+  }: {
+    id: string;
+    signingKeyId?: string;
+  }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await attestationsApi.sign(id, signingKeyId);
+      return result;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to sign attestation';
+      setError(errorMsg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { mutateAsync, isLoading: loading, error };
+}
+
+// Signing keys hook
+export function useSigningKeys() {
+  const [signingKeys, setSigningKeys] = useState<Array<{
+    id: string;
+    name: string;
+    key_type: 'rsa' | 'ecdsa' | 'ed25519';
+    fingerprint: string;
+    is_default: boolean;
+    expires_at?: string;
+    created_at: string;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchSigningKeys = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await attestationsApi.listSigningKeys();
+      setSigningKeys(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch signing keys');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSigningKeys();
+  }, [fetchSigningKeys]);
+
+  return { signingKeys, loading, error, refresh: fetchSigningKeys };
+}
+
+// Create attestation hook
+export function useCreateAttestation() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutateAsync = useCallback(async (data: {
+    attestation_type: AttestationType;
+    subject_name: string;
+    subject_digest: string;
+    predicate: Record<string, unknown>;
+  }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await attestationsApi.create(data);
+      return result;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to create attestation';
+      setError(errorMsg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { mutateAsync, isLoading: loading, error };
+}

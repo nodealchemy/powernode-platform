@@ -1,15 +1,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Download, RefreshCw, Trash2, Package, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { RefreshCw, Trash2, Package, AlertTriangle, CheckCircle, XCircle, GitCompare, Shield, Calculator } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
 import { DataTable } from '@/shared/components/ui/DataTable';
 import { Badge } from '@/shared/components/ui/Badge';
+import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { sbomsApi } from '../services/sbomsApi';
+import { VulnerabilityActionsMenu } from '../components/sbom/VulnerabilityActionsMenu';
+import { RemediationStatusSelect } from '../components/sbom/RemediationStatusSelect';
+import { ComplianceStatusCard } from '../components/sbom/ComplianceStatusCard';
+import { CreateDiffModal } from '../components/sbom/CreateDiffModal';
+import { ExportFormatDropdown } from '../components/sbom/ExportFormatDropdown';
+import {
+  useSbomCompliance,
+  useSbomDiffs,
+  useCreateSbomDiff,
+  useUpdateVulnerabilityStatus,
+  useSuppressVulnerability,
+  useMarkFalsePositive,
+  useCalculateRisk,
+  useCorrelateVulnerabilities,
+} from '../hooks/useSboms';
 
 type SbomStatus = 'draft' | 'generating' | 'completed' | 'failed';
 type DependencyType = 'direct' | 'transitive' | 'dev';
@@ -127,6 +143,17 @@ const SbomDetailPageContent: React.FC = () => {
   const [sbom, setSbom] = useState<Sbom | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showDiffModal, setShowDiffModal] = useState(false);
+
+  // New hooks for enhanced functionality
+  const { compliance, loading: complianceLoading } = useSbomCompliance(id || null);
+  const { diffs, refresh: refreshDiffs } = useSbomDiffs(id || null);
+  const createDiffMutation = useCreateSbomDiff();
+  const updateStatusMutation = useUpdateVulnerabilityStatus();
+  const suppressMutation = useSuppressVulnerability();
+  const markFalsePositiveMutation = useMarkFalsePositive();
+  const calculateRiskMutation = useCalculateRisk();
+  const correlateVulnsMutation = useCorrelateVulnerabilities();
 
   const [components, setComponents] = useState<SbomComponent[]>([]);
   const [componentsPagination, setComponentsPagination] = useState<Pagination | null>(null);
@@ -201,19 +228,89 @@ const SbomDetailPageContent: React.FC = () => {
     }
   }, [activeTab, fetchComponents, fetchVulnerabilities]);
 
-  const handleExport = async (format: 'json' | 'xml') => {
+  const handleExport = async (format: 'json' | 'xml' | 'pdf' | 'cyclonedx' | 'spdx') => {
     if (!id) return;
     try {
-      const blob = await sbomsApi.export(id, format);
+      const blob = await sbomsApi.exportSbom(id, format);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${sbom?.name || 'sbom'}.${format}`;
+      const extension = format === 'cyclonedx' || format === 'spdx' ? 'json' : format;
+      a.download = `${sbom?.name || 'sbom'}.${extension}`;
       a.click();
       window.URL.revokeObjectURL(url);
       showNotification(`SBOM exported as ${format.toUpperCase()}`, 'success');
     } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to export SBOM', 'error');
+    }
+  };
+
+  const handleUpdateVulnStatus = async (vulnId: string, status: RemediationStatus) => {
+    if (!id) return;
+    try {
+      await updateStatusMutation.mutateAsync({ sbomId: id, vulnId, status });
+      showNotification('Status updated', 'success');
+      fetchVulnerabilities();
+    } catch {
+      showNotification('Failed to update status', 'error');
+    }
+  };
+
+  const handleSuppressVuln = async (vulnId: string) => {
+    if (!id) return;
+    try {
+      await suppressMutation.mutateAsync({ sbomId: id, vulnId });
+      showNotification('Vulnerability suppressed', 'success');
+      fetchVulnerabilities();
+    } catch {
+      showNotification('Failed to suppress vulnerability', 'error');
+    }
+  };
+
+  const handleMarkFalsePositive = async (vulnId: string) => {
+    if (!id) return;
+    const reason = window.prompt('Enter reason for marking as false positive:');
+    if (!reason) return;
+    try {
+      await markFalsePositiveMutation.mutateAsync({ sbomId: id, vulnId, reason });
+      showNotification('Marked as false positive', 'success');
+      fetchVulnerabilities();
+    } catch {
+      showNotification('Failed to mark as false positive', 'error');
+    }
+  };
+
+  const handleCreateDiff = async (compareSbomId: string) => {
+    if (!id) return;
+    try {
+      const diff = await createDiffMutation.mutateAsync({ sbomId: id, compareSbomId });
+      showNotification('Diff created successfully', 'success');
+      refreshDiffs();
+      navigate(`/app/supply-chain/sboms/${id}/diff/${diff.id}`);
+    } catch {
+      showNotification('Failed to create diff', 'error');
+    }
+  };
+
+  const handleCalculateRisk = async () => {
+    if (!id) return;
+    try {
+      const result = await calculateRiskMutation.mutateAsync(id);
+      showNotification(`Risk calculated: ${result.overall_score.toFixed(1)}`, 'success');
+      fetchSbom();
+    } catch {
+      showNotification('Failed to calculate risk', 'error');
+    }
+  };
+
+  const handleCorrelateVulns = async () => {
+    if (!id) return;
+    try {
+      const result = await correlateVulnsMutation.mutateAsync(id);
+      showNotification(`Found ${result.new_vulnerabilities} new vulnerabilities`, 'success');
+      fetchVulnerabilities();
+    } catch {
+      showNotification('Failed to correlate vulnerabilities', 'error');
     }
   };
 
@@ -343,6 +440,27 @@ const SbomDetailPageContent: React.FC = () => {
         <span className="text-theme-secondary text-sm">{item.fixed_version || 'N/A'}</span>
       ),
     },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (item: SbomVulnerability) => (
+        <div className="flex items-center gap-2">
+          <RemediationStatusSelect
+            value={item.remediation_status}
+            onChange={(status) => handleUpdateVulnStatus(item.id, status)}
+            size="sm"
+          />
+          <VulnerabilityActionsMenu
+            vulnerabilityId={item.id}
+            currentStatus={item.remediation_status}
+            onSuppress={() => handleSuppressVuln(item.id)}
+            onUnsuppress={() => handleSuppressVuln(item.id)}
+            onMarkFalsePositive={() => handleMarkFalsePositive(item.id)}
+            onUpdateStatus={(status) => handleUpdateVulnStatus(item.id, status)}
+          />
+        </div>
+      ),
+    },
   ];
 
   if (loading || !sbom) {
@@ -363,11 +481,11 @@ const SbomDetailPageContent: React.FC = () => {
 
   const actions = [
     {
-      id: 'export',
-      label: 'Export',
-      onClick: () => handleExport('json'),
+      id: 'compare',
+      label: 'Compare',
+      onClick: () => setShowDiffModal(true),
       variant: 'secondary' as const,
-      icon: Download,
+      icon: GitCompare,
     },
     {
       id: 'rescan',
@@ -524,7 +642,7 @@ const SbomDetailPageContent: React.FC = () => {
       badge: sbom.vulnerability_count,
       content: (
         <div className="space-y-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between">
             <select
               value={severityFilter}
               onChange={(e) => {
@@ -539,6 +657,26 @@ const SbomDetailPageContent: React.FC = () => {
               <option value="medium">Medium</option>
               <option value="low">Low</option>
             </select>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleCalculateRisk}
+                disabled={calculateRiskMutation.isLoading}
+              >
+                <Calculator className="w-4 h-4 mr-1" />
+                {calculateRiskMutation.isLoading ? 'Calculating...' : 'Calculate Risk'}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleCorrelateVulns}
+                disabled={correlateVulnsMutation.isLoading}
+              >
+                <RefreshCw className="w-4 h-4 mr-1" />
+                {correlateVulnsMutation.isLoading ? 'Correlating...' : 'Correlate'}
+              </Button>
+            </div>
           </div>
           <DataTable
             columns={vulnerabilityColumns}
@@ -555,21 +693,91 @@ const SbomDetailPageContent: React.FC = () => {
         </div>
       ),
     },
+    {
+      id: 'compliance',
+      label: 'Compliance',
+      content: complianceLoading ? (
+        <div className="flex justify-center py-12">
+          <LoadingSpinner size="lg" />
+        </div>
+      ) : compliance ? (
+        <ComplianceStatusCard compliance={compliance} />
+      ) : (
+        <div className="text-center py-12 text-theme-muted">
+          <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <p>Compliance data not available</p>
+        </div>
+      ),
+    },
+    {
+      id: 'diffs',
+      label: 'Diff History',
+      badge: diffs.length,
+      content: (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="primary" size="sm" onClick={() => setShowDiffModal(true)}>
+              <GitCompare className="w-4 h-4 mr-1" />
+              Create Diff
+            </Button>
+          </div>
+          {diffs.length === 0 ? (
+            <div className="text-center py-12 text-theme-muted">
+              <GitCompare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No diffs created yet</p>
+              <p className="text-sm mt-2">Compare this SBOM with another version to track changes</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {diffs.map((diff) => (
+                <button
+                  key={diff.id}
+                  onClick={() => navigate(`/app/supply-chain/sboms/${id}/diff/${diff.id}`)}
+                  className="w-full p-4 bg-theme-surface border border-theme rounded-lg hover:border-theme-interactive-primary transition-colors text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <span className="text-theme-success">+{diff.added_count}</span>
+                      <span className="text-theme-error">-{diff.removed_count}</span>
+                      <span className="text-theme-warning">~{diff.changed_count}</span>
+                    </div>
+                    <span className="text-sm text-theme-secondary">
+                      {new Date(diff.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ),
+    },
   ];
 
   return (
     <PageContainer title={sbom.name} breadcrumbs={breadcrumbs} actions={actions}>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <StatusBadge status={sbom.status} />
-          <Badge variant="outline" size="sm">
-            {sbom.format.toUpperCase()}
-          </Badge>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <StatusBadge status={sbom.status} />
+            <Badge variant="outline" size="sm">
+              {sbom.format.toUpperCase()}
+            </Badge>
+          </div>
+          <ExportFormatDropdown onExport={handleExport} />
         </div>
 
         <TabContainer tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} variant="underline" />
       </div>
       {ConfirmationDialog}
+      {showDiffModal && (
+        <CreateDiffModal
+          currentSbomId={id!}
+          currentSbomName={sbom.name}
+          onClose={() => setShowDiffModal(false)}
+          onCreateDiff={handleCreateDiff}
+        />
+      )}
     </PageContainer>
   );
 };

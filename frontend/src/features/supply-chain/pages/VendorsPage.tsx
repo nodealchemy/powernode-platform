@@ -7,8 +7,11 @@ import { DataTable, DataTableColumn } from '@/shared/components/ui/DataTable';
 import { RiskTierBadge } from '../components/RiskTierBadge';
 import { StatusBadge } from '../components/StatusBadge';
 import { Badge } from '@/shared/components/ui/Badge';
-import { useVendors } from '../hooks/useVendorRisk';
+import { useVendors, useCreateVendor, useStartAssessment } from '../hooks/useVendorRisk';
 import { formatDistanceToNow } from 'date-fns';
+import { AddVendorModal } from '../components/vendor/AddVendorModal';
+import { StartAssessmentModal } from '../components/vendor/StartAssessmentModal';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 type VendorType = 'saas' | 'api' | 'library' | 'infrastructure' | 'hardware' | 'consulting';
 type RiskTier = 'critical' | 'high' | 'medium' | 'low';
@@ -35,10 +38,18 @@ export const VendorsPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showAssessmentModal, setShowAssessmentModal] = useState(false);
+  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
+  const [selectedVendorName, setSelectedVendorName] = useState<string>('');
+
+  const createVendorMutation = useCreateVendor();
+  const startAssessmentMutation = useStartAssessment();
+  const { showNotification } = useNotifications();
 
   const riskTierFilter = activeTab === 'critical' ? 'critical' : activeTab === 'high' ? 'high' : undefined;
 
-  const { vendors, pagination, loading, error } = useVendors({
+  const { vendors, pagination, loading, error, refresh } = useVendors({
     page: currentPage,
     perPage: 20,
     riskTier: riskTierFilter,
@@ -61,6 +72,49 @@ export const VendorsPage: React.FC = () => {
     if (score >= 60) return 'text-theme-warning';
     if (score >= 40) return 'text-theme-info';
     return 'text-theme-success';
+  };
+
+  const handleAddVendor = async (data: {
+    name: string;
+    vendor_type: 'saas' | 'api' | 'library' | 'infrastructure' | 'hardware' | 'consulting';
+    contact_name?: string;
+    contact_email?: string;
+    website?: string;
+    handles_pii?: boolean;
+    handles_phi?: boolean;
+    handles_pci?: boolean;
+    certifications?: string[];
+  }) => {
+    try {
+      await createVendorMutation.mutateAsync(data);
+      showNotification('Vendor created successfully', 'success');
+      setShowAddModal(false);
+      refresh();
+    } catch {
+      showNotification('Failed to create vendor', 'error');
+    }
+  };
+
+  const handleStartAssessment = async (assessmentType: 'initial' | 'periodic' | 'incident' | 'renewal') => {
+    if (!selectedVendorId) return;
+    try {
+      await startAssessmentMutation.mutateAsync({
+        vendorId: selectedVendorId,
+        assessmentType,
+      });
+      showNotification('Assessment started successfully', 'success');
+      setShowAssessmentModal(false);
+      setSelectedVendorId(null);
+      refresh();
+    } catch {
+      showNotification('Failed to start assessment', 'error');
+    }
+  };
+
+  const openAssessmentModal = (vendorId: string, vendorName: string) => {
+    setSelectedVendorId(vendorId);
+    setSelectedVendorName(vendorName);
+    setShowAssessmentModal(true);
   };
 
   const columns: DataTableColumn<Vendor>[] = [
@@ -158,9 +212,7 @@ export const VendorsPage: React.FC = () => {
             <Eye className="w-4 h-4" />
           </button>
           <button
-            onClick={() => {
-              // TODO: Implement start assessment
-            }}
+            onClick={() => openAssessmentModal(vendor.id, vendor.name)}
             className="text-theme-warning hover:text-theme-warning-hover"
             title="Start Assessment"
           >
@@ -202,9 +254,7 @@ export const VendorsPage: React.FC = () => {
         {
           id: 'add-vendor',
           label: 'Add Vendor',
-          onClick: () => {
-            // TODO: Implement add vendor modal
-          },
+          onClick: () => setShowAddModal(true),
           variant: 'primary',
           icon: Plus,
         },
@@ -234,14 +284,30 @@ export const VendorsPage: React.FC = () => {
               description: 'Get started by adding your first vendor',
               action: {
                 label: 'Add Vendor',
-                onClick: () => {
-                  // TODO: Implement add vendor modal
-                },
+                onClick: () => setShowAddModal(true),
               },
             }}
           />
         </div>
       </TabContainer>
+
+      {showAddModal && (
+        <AddVendorModal
+          onClose={() => setShowAddModal(false)}
+          onAdd={handleAddVendor}
+        />
+      )}
+
+      {showAssessmentModal && (
+        <StartAssessmentModal
+          onClose={() => {
+            setShowAssessmentModal(false);
+            setSelectedVendorId(null);
+          }}
+          onStart={handleStartAssessment}
+          vendorName={selectedVendorName}
+        />
+      )}
     </PageContainer>
   );
 };

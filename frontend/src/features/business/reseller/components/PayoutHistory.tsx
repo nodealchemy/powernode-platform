@@ -12,12 +12,12 @@ interface PayoutHistoryProps {
   onPayoutRequested: () => void;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; variant: 'success' | 'warning' | 'error' | 'default' }> = {
+const STATUS_CONFIG: Record<string, { label: string; variant: 'success' | 'warning' | 'danger' | 'default' }> = {
   pending: { label: 'Pending', variant: 'warning' },
   processing: { label: 'Processing', variant: 'default' },
   completed: { label: 'Completed', variant: 'success' },
-  failed: { label: 'Failed', variant: 'error' },
-  cancelled: { label: 'Cancelled', variant: 'error' },
+  failed: { label: 'Failed', variant: 'danger' },
+  cancelled: { label: 'Cancelled', variant: 'danger' },
 };
 
 const METHOD_LABELS: Record<string, string> = {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { RefreshCw, ShieldCheck, Ban, AlertCircle, FileText, Shield } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Ban } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
@@ -8,8 +8,11 @@ import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { StatusBadge } from '../components/shared/StatusBadge';
-import { useContainerImage } from '../hooks/useContainerImages';
+import { useContainerImage, useContainerVulnerabilities, useContainerSbom, useEvaluatePolicies } from '../hooks/useContainerImages';
 import { containerImagesApi } from '../services/containerImagesApi';
+import { ContainerVulnerabilitiesTable } from '../components/container/ContainerVulnerabilitiesTable';
+import { ContainerSbomViewer } from '../components/container/ContainerSbomViewer';
+import { PolicyViolationsList } from '../components/container/PolicyViolationsList';
 
 type TabId = 'overview' | 'vulnerabilities' | 'sbom' | 'policies';
 
@@ -19,6 +22,16 @@ export const ContainerImageDetailPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
 
   const { image, loading, error, refresh } = useContainerImage(id || null);
+  const { vulnerabilities, loading: vulnLoading } = useContainerVulnerabilities(id || null);
+  const { sbom, loading: sbomLoading } = useContainerSbom(id || null);
+  const evaluatePolicies = useEvaluatePolicies();
+  const [policyResults, setPolicyResults] = useState<Awaited<ReturnType<typeof evaluatePolicies.mutateAsync>> | null>(null);
+
+  const handleEvaluatePolicies = async () => {
+    if (!id) return;
+    const results = await evaluatePolicies.mutateAsync(id);
+    setPolicyResults(results);
+  };
 
   const handleRescan = async () => {
     if (!id) return;
@@ -249,50 +262,25 @@ export const ContainerImageDetailPage: React.FC = () => {
   );
 
   const renderVulnerabilities = () => (
-    <Card className="p-6">
-      <div className="text-center py-12 text-theme-muted">
-        <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p>Vulnerability details view coming soon</p>
-      </div>
-    </Card>
+    <ContainerVulnerabilitiesTable
+      vulnerabilities={vulnerabilities || []}
+      loading={vulnLoading}
+    />
   );
 
   const renderSBOM = () => (
-    <Card className="p-6">
-      <div className="text-center py-12 text-theme-muted">
-        <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p>SBOM view coming soon</p>
-      </div>
-    </Card>
+    <ContainerSbomViewer
+      sbom={sbom || null}
+      loading={sbomLoading}
+    />
   );
 
   const renderPolicies = () => (
-    <div className="space-y-4">
-      {image.applicable_policies && image.applicable_policies.length > 0 ? (
-        image.applicable_policies.map((policy) => (
-          <Card key={policy.id} className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="font-semibold text-theme-primary">{policy.name}</h3>
-                <p className="text-sm text-theme-muted mt-1">
-                  Type: {policy.policy_type} | Enforcement: {policy.enforcement_level}
-                </p>
-              </div>
-              <Badge variant={policy.is_active ? 'success' : 'secondary'}>
-                {policy.is_active ? 'Active' : 'Inactive'}
-              </Badge>
-            </div>
-          </Card>
-        ))
-      ) : (
-        <Card className="p-6">
-          <div className="text-center py-12 text-theme-muted">
-            <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No applicable policies found</p>
-          </div>
-        </Card>
-      )}
-    </div>
+    <PolicyViolationsList
+      evaluations={policyResults}
+      loading={evaluatePolicies.isLoading}
+      onEvaluate={handleEvaluatePolicies}
+    />
   );
 
   return (
