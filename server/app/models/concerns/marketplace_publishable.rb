@@ -142,6 +142,8 @@ module MarketplacePublishable
       "integration_template"
     when "Shared::PromptTemplate"
       "prompt_template"
+    when "SupplyChain::ScanTemplate"
+      "scan_template"
     else
       "unknown"
     end
@@ -169,6 +171,7 @@ module MarketplacePublishable
     count += Devops::PipelineTemplate.published_by_account(account.id).count if defined?(Devops::PipelineTemplate)
     count += Devops::IntegrationTemplate.published_by_account(account.id).count if defined?(Devops::IntegrationTemplate)
     count += Shared::PromptTemplate.published_by_account(account.id).count if defined?(Shared::PromptTemplate)
+    count += SupplyChain::ScanTemplate.published_by_account(account.id).count if defined?(SupplyChain::ScanTemplate)
 
     count
   end
