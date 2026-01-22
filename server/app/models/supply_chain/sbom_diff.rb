@@ -24,7 +24,7 @@ module SupplyChain
     # ============================================
     scope :recent, -> { order(created_at: :desc) }
     scope :with_changes, -> { where("added_count > 0 OR removed_count > 0 OR updated_count > 0") }
-    scope :with_new_vulnerabilities, -> { where("jsonb_array_length(new_vulnerabilities) > 0") }
+    scope :with_new_vulnerabilities, -> { where("new_vulnerabilities IS NOT NULL AND jsonb_array_length(new_vulnerabilities) > 0") }
     scope :risk_increased, -> { where("risk_delta > 0") }
     scope :risk_decreased, -> { where("risk_delta < 0") }
 
@@ -34,6 +34,21 @@ module SupplyChain
     before_validation :set_account_from_base_sbom
     before_save :sanitize_jsonb_fields
     after_create :compute_diff
+
+    # ============================================
+    # JSONB Accessors (handle proper type conversions after reload)
+    # ============================================
+    %i[added_components removed_components updated_components new_vulnerabilities resolved_vulnerabilities].each do |attr|
+      define_method(attr) do
+        value = read_attribute(attr)
+        value.is_a?(Array) ? value : []
+      end
+    end
+
+    def metadata
+      value = read_attribute(:metadata)
+      value.is_a?(Hash) ? value : {}
+    end
 
     # ============================================
     # Instance Methods
@@ -63,6 +78,8 @@ module SupplyChain
     end
 
     def compute_diff
+      return if @skip_compute_diff
+
       base_components = build_component_map(base_sbom)
       target_components = build_component_map(target_sbom)
 
@@ -71,14 +88,14 @@ module SupplyChain
       updated = []
 
       # Find added and updated components
-      target_components.each do |purl, target_comp|
-        if base_components[purl].nil?
+      target_components.each do |key, target_comp|
+        if base_components[key].nil?
           added << component_summary(target_comp)
-        elsif base_components[purl][:version] != target_comp[:version]
+        elsif base_components[key][:version] != target_comp[:version]
           updated << {
-            purl: purl,
+            purl: target_comp[:purl],
             name: target_comp[:name],
-            old_version: base_components[purl][:version],
+            old_version: base_components[key][:version],
             new_version: target_comp[:version],
             ecosystem: target_comp[:ecosystem]
           }
@@ -86,8 +103,8 @@ module SupplyChain
       end
 
       # Find removed components
-      base_components.each do |purl, base_comp|
-        if target_components[purl].nil?
+      base_components.each do |key, base_comp|
+        if target_components[key].nil?
           removed << component_summary(base_comp)
         end
       end
@@ -174,7 +191,9 @@ module SupplyChain
 
     def build_component_map(sbom)
       sbom.components.each_with_object({}) do |comp, map|
-        map[comp.purl] = {
+        # Use version-less key for comparison to detect updates
+        key = component_comparison_key(comp)
+        map[key] = {
           purl: comp.purl,
           name: comp.full_name,
           version: comp.version,
@@ -183,6 +202,12 @@ module SupplyChain
           risk_score: comp.risk_score
         }
       end
+    end
+
+    # Returns a version-less key for component comparison
+    # Uses ecosystem/namespace/name to uniquely identify a component across versions
+    def component_comparison_key(comp)
+      [comp.ecosystem, comp.namespace, comp.name].compact.join("/")
     end
 
     def component_summary(comp)

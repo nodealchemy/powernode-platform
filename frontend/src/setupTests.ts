@@ -39,7 +39,9 @@ console.error = (...args: any[]) => {
     // Redux warnings
     errorMessage.includes('No reducer provided for key') ||
     // jsdom navigation warnings (window.location.reload not implemented)
-    errorMessage.includes('Not implemented: navigation')
+    errorMessage.includes('Not implemented: navigation') ||
+    // Test mock rejections
+    errorMessage.includes('mock_rejection')
   ) {
     return;
   }

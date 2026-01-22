@@ -139,7 +139,7 @@ module SupplyChain
         verified_at: Time.current
       )
 
-      result[:success]
+      { verified: result[:success], details: result }
     end
 
     def record_to_rekor!(log_id, log_url)

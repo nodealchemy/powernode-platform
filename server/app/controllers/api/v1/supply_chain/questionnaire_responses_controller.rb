@@ -5,7 +5,9 @@ module Api
     module SupplyChain
       class QuestionnaireResponsesController < BaseController
         skip_before_action :authenticate_request, only: [:show_by_token, :submit_by_token]
-        before_action :set_response, only: [:show, :update, :approve, :reject, :request_changes]
+        before_action :require_read_permission, only: [:index, :show]
+        before_action :require_write_permission, only: [:update, :submit, :review, :send_reminder, :approve, :reject, :request_changes]
+        before_action :set_response, only: [:show, :update, :submit, :review, :send_reminder, :approve, :reject, :request_changes]
         before_action :set_response_by_token, only: [:show_by_token, :submit_by_token]
 
         # GET /api/v1/supply_chain/questionnaire_responses
@@ -22,22 +24,22 @@ module Api
           @responses = paginate(@responses)
 
           render_success(
-            questionnaire_responses: @responses.map { |r| serialize_response(r) },
+            { questionnaire_responses: @responses.map { |r| serialize_response(r) } },
             meta: pagination_meta
           )
         end
 
         # GET /api/v1/supply_chain/questionnaire_responses/:id
         def show
-          render_success(questionnaire_response: serialize_response(@response, include_details: true))
+          render_success({ questionnaire_response: serialize_response(@response, include_details: true) })
         end
 
         # GET /api/v1/supply_chain/questionnaire_responses/token/:token
         def show_by_token
-          render_success(
+          render_success({
             questionnaire_response: serialize_response_for_vendor(@response),
             template: serialize_template_for_vendor(@response.template)
-          )
+          })
         end
 
         # POST /api/v1/supply_chain/questionnaire_responses/token/:token/submit
@@ -60,10 +62,9 @@ module Api
             # Notify account of submission
             SupplyChainChannel.broadcast_questionnaire_submitted(@response)
 
-            render_success(
-              message: "Questionnaire submitted successfully",
+            render_success({
               overall_score: @response.overall_score
-            )
+            }, message: "Questionnaire submitted successfully")
           else
             render_error(@response.errors.full_messages.join(", "), status: :unprocessable_entity)
           end
@@ -72,10 +73,54 @@ module Api
         # PATCH/PUT /api/v1/supply_chain/questionnaire_responses/:id
         def update
           if @response.update(response_params)
-            render_success(questionnaire_response: serialize_response(@response))
+            render_success({ questionnaire_response: serialize_response(@response) })
           else
             render_error(@response.errors.full_messages.join(", "), status: :unprocessable_entity)
           end
+        end
+
+        # POST /api/v1/supply_chain/questionnaire_responses/:id/submit
+        def submit
+          if @response.submitted?
+            render_error("Questionnaire already submitted", status: :unprocessable_entity)
+            return
+          end
+
+          if @response.submit!
+            render_success(
+              { questionnaire_response: serialize_response(@response) },
+              message: "Questionnaire submitted successfully"
+            )
+          else
+            render_error("Failed to submit questionnaire", status: :unprocessable_entity)
+          end
+        rescue StandardError => e
+          render_error("Failed to submit: #{e.message}", status: :unprocessable_entity)
+        end
+
+        # POST /api/v1/supply_chain/questionnaire_responses/:id/review
+        def review
+          @response.review!(current_user, notes: params[:notes])
+
+          render_success(
+            { questionnaire_response: serialize_response(@response) },
+            message: "Questionnaire reviewed"
+          )
+        rescue StandardError => e
+          render_error("Failed to review: #{e.message}", status: :unprocessable_entity)
+        end
+
+        # POST /api/v1/supply_chain/questionnaire_responses/:id/send_reminder
+        def send_reminder
+          # TODO: Actually send the reminder email
+          @response.touch(:sent_at)
+
+          render_success(
+            { questionnaire_response: serialize_response(@response) },
+            message: "Reminder sent"
+          )
+        rescue StandardError => e
+          render_error("Failed to send reminder: #{e.message}", status: :unprocessable_entity)
         end
 
         # POST /api/v1/supply_chain/questionnaire_responses/:id/approve
@@ -86,7 +131,7 @@ module Api
           @response.vendor.update_risk_from_questionnaire(@response)
 
           render_success(
-            questionnaire_response: serialize_response(@response),
+            { questionnaire_response: serialize_response(@response) },
             message: "Questionnaire approved"
           )
         rescue StandardError => e
@@ -104,7 +149,7 @@ module Api
           @response.reject!(rejected_by: current_user, reason: reason)
 
           render_success(
-            questionnaire_response: serialize_response(@response),
+            { questionnaire_response: serialize_response(@response) },
             message: "Questionnaire rejected"
           )
         rescue StandardError => e
@@ -124,7 +169,7 @@ module Api
           # TODO: Send notification to vendor
 
           render_success(
-            questionnaire_response: serialize_response(@response),
+            { questionnaire_response: serialize_response(@response) },
             message: "Changes requested"
           )
         rescue StandardError => e
@@ -138,6 +183,8 @@ module Api
                         .joins(:vendor)
                         .where(supply_chain_vendors: { account_id: current_account.id })
                         .find(params[:id])
+        rescue ActiveRecord::RecordNotFound
+          render_error("Questionnaire response not found", status: :not_found)
         end
 
         def set_response_by_token
@@ -152,7 +199,7 @@ module Api
         end
 
         def response_params
-          params.require(:questionnaire_response).permit(:notes, metadata: {})
+          params.require(:questionnaire_response).permit(:review_notes, metadata: {})
         end
 
         def serialize_response(response, include_details: false)
@@ -165,7 +212,7 @@ module Api
             status: response.status,
             overall_score: response.overall_score,
             sent_at: response.sent_at,
-            due_at: response.due_at,
+            due_at: response.expires_at,
             submitted_at: response.submitted_at,
             reviewed_at: response.reviewed_at,
             created_at: response.created_at
@@ -174,8 +221,8 @@ module Api
           if include_details
             data[:responses] = response.responses
             data[:section_scores] = response.section_scores
-            data[:reviewer_notes] = response.reviewer_notes
-            data[:feedback] = response.feedback
+            data[:reviewer_notes] = response.review_notes
+            data[:feedback] = response.metadata["feedback"]
             data[:metadata] = response.metadata
           end
 
@@ -187,9 +234,9 @@ module Api
             id: response.id,
             template_name: response.template&.name,
             status: response.status,
-            due_at: response.due_at,
+            due_at: response.expires_at,
             responses: response.responses,
-            feedback: response.feedback
+            feedback: response.metadata["feedback"]
           }
         end
 

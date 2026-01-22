@@ -107,7 +107,8 @@ module SupplyChain
       all_components = {}
       sboms.each do |sbom|
         sbom.components.each do |component|
-          key = component.purl
+          # Deduplicate by name+ecosystem, keeping the newer version
+          key = "#{component.name}:#{component.ecosystem}"
           if all_components[key].nil? || version_newer?(component.version, all_components[key][:version])
             all_components[key] = component.attributes.symbolize_keys
           end
@@ -204,7 +205,7 @@ module SupplyChain
     end
 
     def build_cyclonedx_document(format, components)
-      version = format.split("_").last.tr("_", ".")
+      version = format.sub(/^cyclonedx_/, "").tr("_", ".")
 
       {
         "bomFormat" => "CycloneDX",

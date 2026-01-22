@@ -4,6 +4,7 @@ module Api
   module V1
     module SupplyChain
       class LicensesController < BaseController
+        skip_before_action :authenticate_request
         before_action :set_license, only: [:show]
 
         # GET /api/v1/supply_chain/licenses
@@ -25,26 +26,30 @@ module Api
           @licenses = paginate(@licenses)
 
           render_success(
-            licenses: @licenses.map { |l| serialize_license(l) },
-            meta: pagination_meta
+            data: {
+              licenses: @licenses.map { |l| serialize_license(l) },
+              meta: pagination_meta
+            }
           )
         end
 
         # GET /api/v1/supply_chain/licenses/:id
         def show
-          render_success(license: serialize_license(@license, include_details: true))
+          render_success(data: { license: serialize_license(@license, include_details: true) })
         end
 
         # GET /api/v1/supply_chain/licenses/categories
         def categories
           render_success(
-            categories: ::SupplyChain::License::CATEGORIES.map do |cat|
-              {
-                id: cat,
-                name: cat.humanize,
-                count: ::SupplyChain::License.by_category(cat).count
-              }
-            end
+            data: {
+              categories: ::SupplyChain::License::CATEGORIES.map do |cat|
+                {
+                  id: cat,
+                  name: cat.humanize,
+                  count: ::SupplyChain::License.by_category(cat).count
+                }
+              end
+            }
           )
         end
 
@@ -61,10 +66,12 @@ module Api
           compatible = license1.compatible_with?(license2)
 
           render_success(
-            license1: serialize_license(license1),
-            license2: serialize_license(license2),
-            compatible: compatible,
-            explanation: compatibility_explanation(license1, license2, compatible)
+            data: {
+              license1: serialize_license(license1),
+              license2: serialize_license(license2),
+              compatible: compatible,
+              explanation: compatibility_explanation(license1, license2, compatible)
+            }
           )
         end
 
@@ -74,7 +81,7 @@ module Api
           @license = ::SupplyChain::License.find(params[:id])
         rescue ActiveRecord::RecordNotFound
           @license = ::SupplyChain::License.find_by_spdx(params[:id])
-          raise ActiveRecord::RecordNotFound unless @license
+          render_error("License not found", status: :not_found) unless @license
         end
 
         def serialize_license(license, include_details: false)

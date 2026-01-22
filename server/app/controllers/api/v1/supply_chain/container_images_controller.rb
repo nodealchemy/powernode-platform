@@ -173,7 +173,7 @@ module Api
 
         # POST /api/v1/supply_chain/container_images/:id/quarantine
         def quarantine
-          @container_image.quarantine!(reason: params[:reason])
+          @container_image.quarantine!(params[:reason])
 
           render_success({
             container_image: serialize_container_image(@container_image),

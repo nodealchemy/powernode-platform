@@ -2674,6 +2674,9 @@ Rails.application.routes.draw do
 
         # CVE Monitors
         resources :cve_monitors do
+          collection do
+            post :run_all
+          end
           member do
             post :run
             post :pause
@@ -2683,7 +2686,12 @@ Rails.application.routes.draw do
         end
 
         # License Management
-        resources :licenses, only: [:index, :show]
+        resources :licenses, only: [:index, :show] do
+          collection do
+            get :categories
+            post :check_compatibility
+          end
+        end
 
         resources :license_policies do
           member do
@@ -2698,7 +2706,11 @@ Rails.application.routes.draw do
         end
 
         resources :license_violations do
+          collection do
+            get :statistics
+          end
           member do
+            post :resolve
             post :request_exception
             post :approve_exception
             post :reject_exception
@@ -2751,6 +2763,24 @@ Rails.application.routes.draw do
             post :duplicate
             post :publish
             post :unpublish
+            post :send_to_vendor
+          end
+        end
+
+        # Questionnaire Responses (top-level access)
+        resources :questionnaire_responses, only: [:index, :show, :update] do
+          member do
+            post :submit
+            post :review
+            post :send_reminder
+            post :approve
+            post :reject
+            post :request_changes
+          end
+
+          collection do
+            get "token/:token", to: "questionnaire_responses#show_by_token"
+            post "token/:token/submit", to: "questionnaire_responses#submit_by_token"
           end
         end
 

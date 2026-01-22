@@ -224,7 +224,7 @@ module Api
             id: log.id,
             verification_type: log.verification_type,
             result: log.result,
-            verifier_identity: log.verifier_identity,
+            verifier_identity: log.verified_by&.email,
             verification_details: log.verification_details,
             created_at: log.created_at
           }

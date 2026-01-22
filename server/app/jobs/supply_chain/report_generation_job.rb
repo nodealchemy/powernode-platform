@@ -41,7 +41,7 @@ module SupplyChain
 
         report.update!(
           status: "failed",
-          error_message: e.message
+          metadata: (report.metadata || {}).merge(error_message: e.message)
         )
 
         # Broadcast failure
@@ -58,7 +58,7 @@ module SupplyChain
       sbom = report.account.supply_chain_sboms.find(params[:sbom_id])
 
       export_format = params[:export_format] || "json"
-      content = sbom.export(export_format.to_sym)
+      content = sbom.export(format: export_format.to_sym)
 
       save_report_content(report, content, "sbom.#{export_format}", content_type_for(export_format))
     end
@@ -202,8 +202,8 @@ module SupplyChain
       lines << ""
 
       sboms.each do |sbom|
-        sbom.components.includes(:license).each do |component|
-          next unless component.license.present?
+        sbom.components.each do |component|
+          next unless component.license_spdx_id.present?
 
           lines << "-" * 80
           lines << "#{component.name} (#{component.version})"
@@ -312,15 +312,18 @@ module SupplyChain
       # In a real implementation, this would save to cloud storage
       # For now, store in the report record
 
+      # Convert Hash content to JSON string if needed
+      content_string = content.is_a?(Hash) ? content.to_json : content.to_s
+
       report.update!(
         file_path: "/reports/#{report.id}/#{filename}",
-        file_size: content.bytesize,
-        content_type: content_type,
-        filename: filename
+        file_size_bytes: content_string.bytesize,
+        metadata: (report.metadata || {}).merge(
+          content_type: content_type,
+          filename: filename,
+          content_preview: content_string[0..1000]
+        )
       )
-
-      # Store content in metadata for retrieval
-      report.update!(metadata: (report.metadata || {}).merge(content_preview: content[0..1000]))
     end
 
     def content_type_for(format)

@@ -196,8 +196,8 @@ module Api
         def build_vulnerability_trends
           # Group vulnerabilities by week
           current_account.supply_chain_sbom_vulnerabilities
-                         .where("created_at > ?", 90.days.ago)
-                         .group("date_trunc('week', created_at)")
+                         .where("supply_chain_sbom_vulnerabilities.created_at > ?", 90.days.ago)
+                         .group("date_trunc('week', supply_chain_sbom_vulnerabilities.created_at)")
                          .group(:severity)
                          .count
         end

@@ -141,7 +141,7 @@ module Api
         # POST /api/v1/supply_chain/sboms/:id/export
         def export
           format = params[:export_format] || "json"
-          document = @sbom.export(format.to_sym)
+          document = @sbom.export(format: format.to_sym)
 
           render_success({
             format: format,
@@ -236,7 +236,7 @@ module Api
             ecosystem: component.ecosystem,
             dependency_type: component.dependency_type,
             depth: component.depth,
-            license_id: component.license_id,
+            license_spdx_id: component.license_spdx_id,
             license_compliance_status: component.license_compliance_status,
             risk_score: component.risk_score,
             has_known_vulnerabilities: component.has_known_vulnerabilities,

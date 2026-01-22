@@ -23,7 +23,7 @@ module SupplyChain
       Rails.logger.info "[CveMonitoringJob] Monitoring CVEs for account #{account.id}"
 
       # Get all active SBOMs and container images
-      sboms = account.supply_chain_sboms.where(status: "active")
+      sboms = account.supply_chain_sboms.where(status: "completed")
       images = account.supply_chain_container_images.where(is_deployed: true)
 
       # Check for new CVEs affecting components
@@ -48,7 +48,7 @@ module SupplyChain
         check_image_scope(monitor)
       end
 
-      monitor.update!(last_check_at: Time.current)
+      monitor.update!(last_run_at: Time.current)
     rescue StandardError => e
       Rails.logger.error "[CveMonitoringJob] Monitor #{monitor.id} failed: #{e.message}"
     end
@@ -145,7 +145,7 @@ module SupplyChain
       sboms.each do |sbom|
         vulns = sbom.vulnerabilities.where("severity IN (?)", severities_for_min(monitor.min_severity))
 
-        vulns.where("created_at > ?", monitor.last_check_at || 1.day.ago).each do |vuln|
+        vulns.where("created_at > ?", monitor.last_run_at || 1.day.ago).each do |vuln|
           alert = create_alert(monitor, sbom, vuln, vuln.severity)
           SupplyChainChannel.broadcast_cve_alert(monitor.account, alert) if alert
         end

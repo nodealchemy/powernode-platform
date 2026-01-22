@@ -9,7 +9,7 @@ module SupplyChain
     # ============================================
     # Constants
     # ============================================
-    REPORT_TYPES = %w[sbom_export vulnerability_report license_report attribution compliance_summary vendor_assessment custom].freeze
+    REPORT_TYPES = %w[sbom_export vulnerability vulnerability_report license_report attribution compliance compliance_summary vendor_risk vendor_assessment custom].freeze
     FORMATS = %w[pdf json csv html xml spdx cyclonedx].freeze
     STATUSES = %w[pending generating completed failed expired].freeze
 

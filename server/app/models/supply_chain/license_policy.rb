@@ -144,6 +144,22 @@ module SupplyChain
       evaluate(license_spdx_id)
     end
 
+    def check_license(license, component)
+      spdx_id = license.respond_to?(:spdx_id) ? license.spdx_id : license.to_s
+      result = evaluate(spdx_id)
+      return nil if result[:compliant]
+
+      {
+        component_id: component.id,
+        component_name: component.name,
+        component_version: component.version,
+        license_id: license.respond_to?(:id) ? license.id : nil,
+        license_spdx_id: spdx_id,
+        reason: result[:violations]&.join(", ") || "License not compliant",
+        enforcement_level: result[:enforcement_level]
+      }
+    end
+
     def allowed_license?(spdx_id)
       return false if denied_licenses.include?(spdx_id)
       return true if allowed_licenses.blank?

@@ -14,6 +14,7 @@ module SupplyChain
       SupplyChainChannel.broadcast_scan_started(image)
 
       # Perform scan
+      options ||= {}
       scan = ::SupplyChain::ContainerScanService.new(
         account: account,
         image: image,

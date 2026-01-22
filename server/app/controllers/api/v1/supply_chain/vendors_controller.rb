@@ -151,7 +151,7 @@ module Api
           events = @vendor.monitoring_events.order(created_at: :desc)
           events = events.where(event_type: params[:type]) if params[:type].present?
           events = events.where(severity: params[:severity]) if params[:severity].present?
-          events = events.where(acknowledged: false) if params[:unacknowledged] == "true"
+          events = events.where(is_acknowledged: false) if params[:unacknowledged] == "true"
 
           events = events.page(params[:page]).per(params[:per_page] || 20)
 
@@ -160,7 +160,7 @@ module Api
             meta: {
               total: events.total_count,
               page: events.current_page,
-              unacknowledged_count: @vendor.monitoring_events.where(acknowledged: false).count
+              unacknowledged_count: @vendor.monitoring_events.where(is_acknowledged: false).count
             }
           })
         end
@@ -221,9 +221,7 @@ module Api
             :status,
             :description,
             :website,
-            :primary_contact_name,
-            :primary_contact_email,
-            :primary_contact_phone,
+            :contact_email,
             :handles_pii,
             :handles_phi,
             :handles_pci,
@@ -231,26 +229,24 @@ module Api
             :has_baa,
             :contract_start_date,
             :contract_end_date,
-            :assessment_frequency_days,
             certifications: [:name, :issuer, :issued_at, :expires_at, :certificate_url],
+            security_contacts: [:name, :email, :phone, :role],
             metadata: {}
           )
         end
 
         def serialize_vendor_detail(vendor)
           serialize_vendor(vendor).merge({
+            slug: vendor.slug,
             description: vendor.description,
             website: vendor.website,
             primary_contact: {
-              name: vendor.primary_contact_name,
-              email: vendor.primary_contact_email,
-              phone: vendor.primary_contact_phone
+              email: vendor.contact_email
             },
             has_dpa: vendor.has_dpa,
             has_baa: vendor.has_baa,
-            assessment_frequency_days: vendor.assessment_frequency_days,
             next_assessment_due: vendor.next_assessment_due,
-            last_assessment_date: vendor.last_assessment_date,
+            last_assessment_date: vendor.last_assessment_at,
             assessment_count: vendor.risk_assessments.count,
             active_questionnaires: vendor.questionnaire_responses.where(status: ["sent", "in_progress"]).count,
             metadata: vendor.metadata
@@ -281,7 +277,7 @@ module Api
             title: event.title,
             description: event.description,
             source: event.source,
-            acknowledged: event.acknowledged,
+            acknowledged: event.is_acknowledged,
             acknowledged_at: event.acknowledged_at,
             created_at: event.created_at
           }

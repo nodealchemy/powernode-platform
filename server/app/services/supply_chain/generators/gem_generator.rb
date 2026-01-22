@@ -17,10 +17,12 @@ module SupplyChain
 
       def parse_lockfile(content)
         components = []
+        dependencies = {}  # Track which gems depend on which
 
         begin
           in_gems = false
-          current_depth = 0
+          in_specs = false
+          current_gem = nil
 
           content.each_line do |line|
             line = line.chomp
@@ -30,31 +32,52 @@ module SupplyChain
               next
             elsif line.match?(/^[A-Z]+$/)
               in_gems = false
+              in_specs = false
               next
             end
 
             next unless in_gems
 
-            # Parse gem entries
+            # Check for specs: section
+            if line.strip == "specs:"
+              in_specs = true
+              next
+            end
+
+            next unless in_specs
+
+            # Parse gem entries - only 4-space indent (actual gems)
             # Format: "    gem_name (version)"
-            if line =~ /^(\s+)(\S+)\s+\(([^)]+)\)/
-              indent = $1.length
-              name = $2
-              version = $3.split(",").first.strip
+            # Dependency lines have 6+ space indent and often have operators like "= 7.0.0"
+            if line =~ /^    (\S+)\s+\(([^)]+)\)$/
+              name = $1
+              version = $2.split(",").first.strip
 
               # Skip platform-specific versions
               next if version.include?("-")
 
-              depth = indent <= 4 ? 0 : (indent - 4) / 2
-              dep_type = depth == 0 ? "direct" : "transitive"
+              current_gem = name
 
               components << build_component(
                 name: name,
                 version: version,
                 purl: "pkg:gem/#{name}@#{version}",
-                dependency_type: dep_type,
-                depth: depth
+                dependency_type: "direct",
+                depth: 0
               )
+            elsif line =~ /^      (\S+)\s/ && current_gem
+              # Track dependencies for depth calculation (6+ space indent)
+              dep_name = $1
+              dependencies[dep_name] ||= []
+              dependencies[dep_name] << current_gem
+            end
+          end
+
+          # Mark transitive dependencies based on dependency graph
+          components.each do |comp|
+            if dependencies[comp[:name]].present?
+              comp[:dependency_type] = "transitive"
+              comp[:depth] = 1
             end
           end
         rescue StandardError => e

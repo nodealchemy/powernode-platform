@@ -10,23 +10,19 @@ module Api
 
         # GET /api/v1/supply_chain/reports
         def index
-          reports = current_account.supply_chain_reports
-                                   .order(created_at: :desc)
+          @reports = current_account.supply_chain_reports
+                                    .order(created_at: :desc)
 
-          reports = reports.where(report_type: params[:type]) if params[:type].present?
-          reports = reports.where(status: params[:status]) if params[:status].present?
-          reports = reports.where(format: params[:format]) if params[:format].present?
+          @reports = @reports.where(report_type: params[:type]) if params[:type].present?
+          @reports = @reports.where(status: params[:status]) if params[:status].present?
+          @reports = @reports.where(format: params[:format]) if params[:format].present?
 
-          reports = reports.page(params[:page]).per(params[:per_page] || 20)
+          @reports = paginate(@reports)
 
-          render_success({
-            reports: reports.map { |r| serialize_report(r) },
-            meta: {
-              total: reports.total_count,
-              page: reports.current_page,
-              per_page: reports.limit_value
-            }
-          })
+          render_success(
+            { reports: @reports.map { |r| serialize_report(r) } },
+            meta: pagination_meta
+          )
         rescue StandardError => e
           Rails.logger.error "[ReportsController] List failed: #{e.message}"
           render_error("Failed to list reports", status: :internal_server_error)
@@ -44,7 +40,7 @@ module Api
         # POST /api/v1/supply_chain/reports
         def create
           report = current_account.supply_chain_reports.new(report_params)
-          report.generated_by = current_user
+          report.created_by = current_user
 
           if report.save
             # Queue report generation job
@@ -96,8 +92,8 @@ module Api
           # Generate download URL or return file content
           render_success({
             report_id: @report.id,
-            filename: @report.filename,
-            content_type: @report.content_type,
+            filename: @report.suggested_filename,
+            content_type: content_type_for_format(@report.format),
             download_url: generate_download_url(@report),
             expires_at: 1.hour.from_now
           })
@@ -107,7 +103,7 @@ module Api
 
         # POST /api/v1/supply_chain/reports/:id/regenerate
         def regenerate
-          @report.update!(status: "pending", error_message: nil)
+          @report.update!(status: "pending", metadata: @report.metadata.except("error"))
           enqueue_report_generation(@report)
 
           render_success({
@@ -129,7 +125,7 @@ module Api
             report_type: "sbom_export",
             format: params[:format] || "json",
             status: "pending",
-            generated_by: current_user,
+            created_by: current_user,
             parameters: {
               sbom_id: sbom.id,
               export_format: params[:format] || "json",
@@ -156,9 +152,9 @@ module Api
           report = current_account.supply_chain_reports.create!(
             name: params[:name] || "Attribution Report",
             report_type: "attribution",
-            format: params[:format] || "txt",
+            format: params[:format] || "html",
             status: "pending",
-            generated_by: current_user,
+            created_by: current_user,
             parameters: {
               sbom_ids: sbom_ids,
               include_license_text: params[:include_license_text] != false
@@ -182,7 +178,7 @@ module Api
             report_type: "compliance",
             format: params[:format] || "pdf",
             status: "pending",
-            generated_by: current_user,
+            created_by: current_user,
             parameters: {
               framework: params[:framework] || "ntia",
               sbom_ids: params[:sbom_ids],
@@ -210,7 +206,7 @@ module Api
             report_type: "vulnerability",
             format: params[:format] || "pdf",
             status: "pending",
-            generated_by: current_user,
+            created_by: current_user,
             parameters: {
               sbom_ids: params[:sbom_ids],
               container_image_ids: params[:container_image_ids],
@@ -236,7 +232,7 @@ module Api
             report_type: "vendor_risk",
             format: params[:format] || "pdf",
             status: "pending",
-            generated_by: current_user,
+            created_by: current_user,
             parameters: {
               vendor_ids: params[:vendor_ids],
               include_assessments: params[:include_assessments] != false,
@@ -274,11 +270,11 @@ module Api
         def serialize_report_detail(report)
           serialize_report(report).merge({
             parameters: report.parameters,
-            error_message: report.error_message,
+            error_message: report.metadata["error"],
             file_path: report.file_path.present? ? "[AVAILABLE]" : nil,
-            generated_by: report.generated_by.present? ? {
-              id: report.generated_by.id,
-              email: report.generated_by.email
+            created_by: report.created_by.present? ? {
+              id: report.created_by.id,
+              email: report.created_by.email
             } : nil
           })
         end
@@ -301,6 +297,35 @@ module Api
         def generate_download_url(report)
           # Generate presigned URL or internal download path
           "/api/v1/supply_chain/reports/#{report.id}/download_file"
+        end
+
+        def content_type_for_format(format)
+          case format
+          when "pdf" then "application/pdf"
+          when "json" then "application/json"
+          when "csv" then "text/csv"
+          when "html" then "text/html"
+          when "xml" then "application/xml"
+          when "spdx" then "application/spdx+json"
+          when "cyclonedx" then "application/vnd.cyclonedx+json"
+          else "application/octet-stream"
+          end
+        end
+
+        def serialize_report(report)
+          {
+            id: report.id,
+            name: report.name,
+            description: report.description,
+            report_type: report.report_type,
+            format: report.format,
+            status: report.status,
+            file_size_bytes: report.file_size_bytes,
+            generated_at: report.generated_at,
+            expires_at: report.expires_at,
+            created_at: report.created_at,
+            updated_at: report.updated_at
+          }
         end
       end
     end

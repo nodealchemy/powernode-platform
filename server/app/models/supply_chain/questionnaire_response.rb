@@ -148,6 +148,41 @@ module SupplyChain
       )
     end
 
+    def approve!(approved_by:, notes: nil)
+      update!(
+        status: "reviewed",
+        reviewed_by: approved_by,
+        reviewed_at: Time.current,
+        review_notes: notes
+      )
+    end
+
+    def reject!(rejected_by:, reason:)
+      update!(
+        status: "reviewed",
+        reviewed_by: rejected_by,
+        reviewed_at: Time.current,
+        review_notes: reason,
+        metadata: metadata.merge("feedback" => reason)
+      )
+    end
+
+    def request_changes!(requested_by:, feedback:)
+      update!(
+        status: "in_progress",
+        metadata: self.metadata.merge("feedback" => feedback)
+      )
+    end
+
+    def feedback
+      metadata["feedback"]
+    end
+
+    def calculate_scores!
+      calculate_scores
+      save!
+    end
+
     def expire!
       update!(status: "expired")
     end

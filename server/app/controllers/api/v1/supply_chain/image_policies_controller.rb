@@ -4,6 +4,8 @@ module Api
   module V1
     module SupplyChain
       class ImagePoliciesController < BaseController
+        before_action :require_read_permission, only: [:index, :show]
+        before_action :require_write_permission, only: [:create, :update, :destroy, :evaluate]
         before_action :set_image_policy, only: [:show, :update, :destroy, :evaluate]
 
         # GET /api/v1/supply_chain/image_policies
@@ -18,14 +20,14 @@ module Api
           @policies = paginate(@policies)
 
           render_success(
-            image_policies: @policies.map { |p| serialize_policy(p) },
+            { image_policies: @policies.map { |p| serialize_policy(p) } },
             meta: pagination_meta
           )
         end
 
         # GET /api/v1/supply_chain/image_policies/:id
         def show
-          render_success(image_policy: serialize_policy(@policy, include_details: true))
+          render_success({ image_policy: serialize_policy(@policy, include_details: true) })
         end
 
         # POST /api/v1/supply_chain/image_policies
@@ -34,7 +36,7 @@ module Api
           @policy.created_by = current_user
 
           if @policy.save
-            render_success(image_policy: serialize_policy(@policy), status: :created)
+            render_success({ image_policy: serialize_policy(@policy) }, status: :created)
           else
             render_error(@policy.errors.full_messages.join(", "), status: :unprocessable_entity)
           end
@@ -43,7 +45,7 @@ module Api
         # PATCH/PUT /api/v1/supply_chain/image_policies/:id
         def update
           if @policy.update(policy_params)
-            render_success(image_policy: serialize_policy(@policy))
+            render_success({ image_policy: serialize_policy(@policy) })
           else
             render_error(@policy.errors.full_messages.join(", "), status: :unprocessable_entity)
           end
@@ -70,28 +72,30 @@ module Api
             )
           end
 
-          render_success(
+          render_success({
             policy_id: @policy.id,
             policy_name: @policy.name,
             image_id: image.id,
             image_reference: image.full_reference,
-            compliant: result[:compliant],
-            enforcement_action: result[:enforcement_action],
+            compliant: result[:passed],
+            enforcement_action: result[:enforcement_level],
             violations: result[:violations]
-          )
+          })
         end
 
         private
 
         def set_image_policy
           @policy = current_account.supply_chain_image_policies.find(params[:id])
+        rescue ActiveRecord::RecordNotFound
+          render_error("Image policy not found", status: :not_found)
         end
 
         def policy_params
           params.require(:image_policy).permit(
             :name, :description, :policy_type, :enforcement_level,
-            :is_active, :max_critical_vulnerabilities, :max_high_vulnerabilities,
-            :max_age_days, :require_signature, :require_attestation,
+            :is_active, :max_critical_vulns, :max_high_vulns,
+            :require_signature, :require_sbom,
             match_rules: {}, rules: {}, metadata: {}
           )
         end
@@ -105,7 +109,7 @@ module Api
             enforcement_level: policy.enforcement_level,
             is_active: policy.is_active,
             require_signature: policy.require_signature,
-            require_attestation: policy.require_attestation,
+            require_sbom: policy.require_sbom,
             created_at: policy.created_at,
             updated_at: policy.updated_at
           }
@@ -113,9 +117,8 @@ module Api
           if include_details
             data[:match_rules] = policy.match_rules
             data[:rules] = policy.rules
-            data[:max_critical_vulnerabilities] = policy.max_critical_vulnerabilities
-            data[:max_high_vulnerabilities] = policy.max_high_vulnerabilities
-            data[:max_age_days] = policy.max_age_days
+            data[:max_critical_vulns] = policy.max_critical_vulns
+            data[:max_high_vulns] = policy.max_high_vulns
             data[:metadata] = policy.metadata
           end
 

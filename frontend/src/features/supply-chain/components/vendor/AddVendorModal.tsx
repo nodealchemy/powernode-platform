@@ -100,7 +100,10 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({ onClose, onAdd }
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setError(null);
+              }}
               placeholder="Enter vendor name"
               className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />

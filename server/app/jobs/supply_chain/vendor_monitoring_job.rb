@@ -86,12 +86,12 @@ module SupplyChain
     def check_contract_expiry(vendor)
       return unless vendor.contract_end_date.present?
 
-      days_until_expiry = (vendor.contract_end_date - Date.current).to_i
+      days_until_expiry = (vendor.contract_end_date.to_date - Date.current).to_i
       return unless days_until_expiry.between?(0, 60)
 
       # Check for recent notification
       recent_event = vendor.monitoring_events
-                           .where(event_type: "contract_expiry")
+                           .where(event_type: "contract_renewal")
                            .where("created_at > ?", 14.days.ago)
                            .exists?
 
@@ -102,7 +102,7 @@ module SupplyChain
       event = ::SupplyChain::VendorMonitoringEvent.create!(
         vendor: vendor,
         account: vendor.account,
-        event_type: "contract_expiry",
+        event_type: "contract_renewal",
         severity: severity,
         source: "automated",
         title: "Contract expiring soon",

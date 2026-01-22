@@ -56,8 +56,8 @@ module SupplyChain
     # ============================================
     # Callbacks
     # ============================================
+    before_validation :parse_purl
     before_save :sanitize_jsonb_fields
-    before_save :parse_purl
     after_save :update_sbom_counters, if: :saved_change_to_has_known_vulnerabilities?
 
     # ============================================
@@ -85,6 +85,12 @@ module SupplyChain
 
     def license_compliant?
       license_compliance_status == "compliant"
+    end
+
+    def license
+      return nil unless license_spdx_id.present?
+
+      @license ||= SupplyChain::License.find_by_spdx(license_spdx_id)
     end
 
     def needs_license_review?

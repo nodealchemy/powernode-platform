@@ -156,6 +156,22 @@ module SupplyChain
       compliant
     end
 
+    def ntia_compliance_details
+      required_fields = %w[
+        supplier_name
+        component_name
+        component_version
+        unique_identifier
+        dependency_relationship
+        author_name
+        timestamp
+      ]
+
+      required_fields.each_with_object({}) do |field, details|
+        details["has_#{field}"] = ntia_field_present?(field)
+      end
+    end
+
     def diff_with(other_sbom)
       SupplyChain::SbomDiff.create!(
         account: account,

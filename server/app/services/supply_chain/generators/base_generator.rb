@@ -75,19 +75,22 @@ module SupplyChain
         # Simple license detection
         return nil unless text.present?
 
-        text = text.downcase
-        case text
-        when /mit/i then "MIT"
-        when /apache.*2/i then "Apache-2.0"
-        when /bsd.*3/i then "BSD-3-Clause"
-        when /bsd.*2/i then "BSD-2-Clause"
-        when /gpl.*3/i then "GPL-3.0-only"
-        when /gpl.*2/i then "GPL-2.0-only"
-        when /lgpl.*3/i then "LGPL-3.0-only"
-        when /lgpl.*2/i then "LGPL-2.1-only"
-        when /mpl.*2/i then "MPL-2.0"
-        when /isc/i then "ISC"
-        when /unlicense/i then "Unlicense"
+        text_lower = text.downcase
+        # IMPORTANT: Order matters! More specific patterns must come before general ones
+        # LGPL must be checked before GPL since "lgpl" contains "gpl"
+        case text_lower
+        when /lgpl.*3|lesser.*general.*public.*license.*3/i then "LGPL-3.0-only"
+        when /lgpl.*2|lesser.*general.*public.*license.*2/i then "LGPL-2.1-only"
+        when /agpl.*3|affero.*general.*public.*license/i then "AGPL-3.0-only"
+        when /gpl.*3|general.*public.*license.*3/i then "GPL-3.0-only"
+        when /gpl.*2|general.*public.*license.*2/i then "GPL-2.0-only"
+        when /mit/ then "MIT"
+        when /apache.*2/ then "Apache-2.0"
+        when /bsd.*3/ then "BSD-3-Clause"
+        when /bsd.*2/ then "BSD-2-Clause"
+        when /mpl.*2|mozilla.*public.*license.*2/ then "MPL-2.0"
+        when /isc/ then "ISC"
+        when /unlicense/ then "Unlicense"
         end
       end
 

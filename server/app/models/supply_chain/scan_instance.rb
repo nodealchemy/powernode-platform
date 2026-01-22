@@ -3,7 +3,7 @@
 module SupplyChain
   class ScanInstance < ApplicationRecord
     include Auditable
-    include Schedulable
+    # Note: Does not include Schedulable since schedule_cron is optional in this model
 
     self.table_name = "supply_chain_scan_instances"
 

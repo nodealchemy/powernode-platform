@@ -54,7 +54,7 @@ module SupplyChain
     # Callbacks
     # ============================================
     before_save :sanitize_jsonb_fields
-    before_save :set_severity_from_type
+    before_validation :set_severity_from_type
 
     # ============================================
     # Instance Methods
@@ -119,42 +119,53 @@ module SupplyChain
       update!(status: "reviewing")
     end
 
-    def resolve!(reason = nil)
+    def resolve!(resolution: nil, notes: nil, resolved_by: nil)
+      self.metadata ||= {}
       update!(
         status: "resolved",
-        metadata: metadata.merge("resolution_reason" => reason)
+        metadata: metadata.merge(
+          "resolution_reason" => resolution,
+          "resolved_at" => Time.current.iso8601,
+          "resolved_by_id" => resolved_by&.id,
+          "notes" => notes
+        )
       )
     end
 
     def wont_fix!(reason = nil)
+      self.metadata ||= {}
       update!(
         status: "wont_fix",
         metadata: metadata.merge("wont_fix_reason" => reason)
       )
     end
 
-    def request_exception!(reason)
+    def request_exception!(justification: nil, expires_at: nil, requested_by: nil)
       update!(
         exception_requested: true,
         exception_status: "pending",
-        exception_reason: reason
-      )
-    end
-
-    def approve_exception!(user, expires_at: nil)
-      update!(
-        status: "exception_granted",
-        exception_status: "approved",
-        exception_approved_by: user,
-        exception_approved_at: Time.current,
+        exception_reason: justification,
         exception_expires_at: expires_at
       )
     end
 
-    def reject_exception!(user, reason = nil)
+    def approve_exception!(approved_by: nil, notes: nil, expires_at: nil)
+      self.metadata ||= {}
+      update!(
+        status: "exception_granted",
+        exception_status: "approved",
+        exception_approved_by: approved_by,
+        exception_approved_at: Time.current,
+        exception_expires_at: expires_at,
+        metadata: metadata.merge("approval_notes" => notes)
+      )
+    end
+
+    def reject_exception!(rejected_by: nil, reason: nil)
+      self.metadata ||= {}
       update!(
         exception_status: "rejected",
-        exception_approved_by: user,
+        exception_approved_by: rejected_by,
         exception_approved_at: Time.current,
         metadata: metadata.merge("rejection_reason" => reason)
       )
@@ -178,6 +189,32 @@ module SupplyChain
 
     def policy_name
       license_policy.name
+    end
+
+    # Helper methods for fields stored in metadata
+    def resolved_at
+      metadata&.dig("resolved_at")&.then { |t| Time.parse(t) rescue nil }
+    end
+
+    def resolved_by_id
+      metadata&.dig("resolved_by_id")
+    end
+
+    def notes
+      metadata&.dig("notes")
+    end
+
+    def notes=(value)
+      self.metadata ||= {}
+      self.metadata["notes"] = value
+    end
+
+    def exception_justification
+      exception_reason
+    end
+
+    def recommendation
+      metadata&.dig("recommendation")
     end
 
     def summary
@@ -214,7 +251,11 @@ module SupplyChain
     end
 
     def set_severity_from_type
-      return if severity_changed? && !violation_type_changed?
+      # Only set severity automatically if:
+      # 1. It's a new record without a severity set, OR
+      # 2. The violation_type has changed on an existing record
+      # Don't override explicitly set severity for new records
+      return if severity.present? && (new_record? || !violation_type_changed?)
 
       self.severity = case violation_type
                       when "denied" then "high"

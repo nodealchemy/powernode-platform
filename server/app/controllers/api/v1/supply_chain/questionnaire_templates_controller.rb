@@ -4,6 +4,8 @@ module Api
   module V1
     module SupplyChain
       class QuestionnaireTemplatesController < BaseController
+        before_action :require_read_permission, only: [:index, :show]
+        before_action :require_write_permission, only: [:create, :update, :destroy, :duplicate, :send_to_vendor]
         before_action :set_template, only: [:show, :update, :destroy, :duplicate, :send_to_vendor]
 
         # GET /api/v1/supply_chain/questionnaire_templates
@@ -18,14 +20,14 @@ module Api
           @templates = paginate(@templates)
 
           render_success(
-            questionnaire_templates: @templates.map { |t| serialize_template(t) },
+            { questionnaire_templates: @templates.map { |t| serialize_template(t) } },
             meta: pagination_meta
           )
         end
 
         # GET /api/v1/supply_chain/questionnaire_templates/:id
         def show
-          render_success(questionnaire_template: serialize_template(@template, include_details: true))
+          render_success({ questionnaire_template: serialize_template(@template, include_details: true) })
         end
 
         # POST /api/v1/supply_chain/questionnaire_templates
@@ -35,7 +37,7 @@ module Api
           @template.is_system = false
 
           if @template.save
-            render_success(questionnaire_template: serialize_template(@template), status: :created)
+            render_success({ questionnaire_template: serialize_template(@template) }, status: :created)
           else
             render_error(@template.errors.full_messages.join(", "), status: :unprocessable_entity)
           end
@@ -49,7 +51,7 @@ module Api
           end
 
           if @template.update(template_params)
-            render_success(questionnaire_template: serialize_template(@template))
+            render_success({ questionnaire_template: serialize_template(@template) })
           else
             render_error(@template.errors.full_messages.join(", "), status: :unprocessable_entity)
           end
@@ -77,7 +79,7 @@ module Api
           new_template = @template.duplicate(new_name: new_name, for_account: current_account)
 
           render_success(
-            questionnaire_template: serialize_template(new_template),
+            { questionnaire_template: serialize_template(new_template) },
             message: "Template duplicated"
           )
         rescue StandardError => e
@@ -93,15 +95,14 @@ module Api
             account: current_account,
             status: "pending",
             sent_at: Time.current,
-            sent_by: current_user,
-            due_at: params[:due_at] || 30.days.from_now,
-            access_token: SecureRandom.urlsafe_base64(32)
+            requested_by: current_user,
+            expires_at: params[:due_at] || 30.days.from_now
           )
 
           # TODO: Send notification email to vendor
 
           render_success(
-            questionnaire_response: serialize_response(response),
+            { questionnaire_response: serialize_response(response) },
             message: "Questionnaire sent to vendor"
           )
         rescue StandardError => e
@@ -112,6 +113,8 @@ module Api
 
         def set_template
           @template = ::SupplyChain::QuestionnaireTemplate.for_account(current_account).find(params[:id])
+        rescue ActiveRecord::RecordNotFound
+          render_error("Questionnaire template not found", status: :not_found)
         end
 
         def template_params
@@ -154,7 +157,7 @@ module Api
             template_id: response.template_id,
             status: response.status,
             sent_at: response.sent_at,
-            due_at: response.due_at,
+            due_at: response.expires_at,
             access_url: questionnaire_access_url(response)
           }
         end

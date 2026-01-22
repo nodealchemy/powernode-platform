@@ -247,6 +247,80 @@ class SupplyChainChannel < ApplicationCable::Channel
       broadcast_to_account(report.account, data)
     end
 
+    # Scan Execution Events
+    def broadcast_execution_started(execution)
+      data = {
+        type: "scan_execution_started",
+        execution_id: execution.id,
+        scan_instance_id: execution.scan_instance_id,
+        status: execution.status,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_account(execution.account, data)
+    end
+
+    def broadcast_execution_completed(execution)
+      data = {
+        type: "scan_execution_completed",
+        execution_id: execution.id,
+        scan_instance_id: execution.scan_instance_id,
+        status: execution.status,
+        output_data: execution.output_data,
+        duration_ms: execution.duration_ms,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_account(execution.account, data)
+    end
+
+    def broadcast_execution_failed(execution, error_message)
+      data = {
+        type: "scan_execution_failed",
+        execution_id: execution.id,
+        scan_instance_id: execution.scan_instance_id,
+        status: execution.status,
+        error_message: error_message,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_account(execution.account, data)
+    end
+
+    # Signing Key Events
+    def broadcast_signing_key_created(signing_key)
+      data = {
+        type: "signing_key_created",
+        signing_key: serialize_signing_key(signing_key),
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_account(signing_key.account, data)
+    end
+
+    def broadcast_signing_key_rotated(old_key, new_key)
+      data = {
+        type: "signing_key_rotated",
+        old_key_id: old_key.id,
+        new_key_id: new_key.id,
+        new_key: serialize_signing_key(new_key),
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_account(old_key.account, data)
+    end
+
+    def broadcast_signing_key_revoked(signing_key)
+      data = {
+        type: "signing_key_revoked",
+        signing_key_id: signing_key.id,
+        key_id: signing_key.key_id,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_account(signing_key.account, data)
+    end
+
     # License Events
     def broadcast_license_violation_detected(violation)
       data = {
@@ -260,6 +334,21 @@ class SupplyChainChannel < ApplicationCable::Channel
       }
 
       broadcast_to_account(violation.account, data)
+    end
+
+    # Questionnaire Events
+    def broadcast_questionnaire_submitted(response)
+      data = {
+        type: "questionnaire_submitted",
+        response_id: response.id,
+        vendor_id: response.vendor_id,
+        vendor_name: response.vendor&.name,
+        template_name: response.template&.name,
+        overall_score: response.overall_score,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_account(response.vendor.account, data)
     end
 
     private
@@ -292,6 +381,18 @@ class SupplyChainChannel < ApplicationCable::Channel
         subject_name: attestation.subject_name,
         signed: attestation.signed?,
         verified: attestation.verified?
+      }
+    end
+
+    def serialize_signing_key(signing_key)
+      {
+        id: signing_key.id,
+        key_id: signing_key.key_id,
+        name: signing_key.name,
+        key_type: signing_key.key_type,
+        status: signing_key.status,
+        fingerprint: signing_key.fingerprint,
+        created_at: signing_key.created_at
       }
     end
   end

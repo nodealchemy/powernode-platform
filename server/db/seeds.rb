@@ -794,9 +794,15 @@ SiteSetting.set('footer_cache_enabled', 'true', description: 'Enable caching for
 
 puts "✅ Created #{SiteSetting.count} site settings"
 
+# Supply Chain Licenses
+puts "\n📜 Seeding Supply Chain licenses..."
+load Rails.root.join('db', 'seeds', 'supply_chain_licenses.rb')
+puts "✅ Created #{SupplyChain::License.count} licenses"
+
 if Rails.env.development? || Rails.env.test?
   puts "   Accounts: #{Account.count}"
   puts "   Users: #{User.count}"
   puts "   Subscriptions: #{Subscription.count}"
   puts "   Site Settings: #{SiteSetting.count}"
+  puts "   Supply Chain Licenses: #{SupplyChain::License.count}"
 end

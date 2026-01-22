@@ -111,6 +111,20 @@ class AuditLog < ApplicationRecord
       job_enqueue notification_send billing_operation webhook_process
       analytics_request report_generation health_check email_configuration
       error_occurred
+      supply_chain.attestations.create supply_chain.attestations.delete supply_chain.attestations.read
+      supply_chain.attestations.record_to_rekor supply_chain.attestations.sign supply_chain.attestations.update
+      supply_chain.attestations.verify
+      supply_chain.container_images.create supply_chain.container_images.delete supply_chain.container_images.evaluate_policies
+      supply_chain.container_images.quarantine supply_chain.container_images.read supply_chain.container_images.scan
+      supply_chain.container_images.update supply_chain.container_images.verify
+      supply_chain.reports.create supply_chain.reports.delete supply_chain.reports.download
+      supply_chain.reports.generate_attribution supply_chain.reports.generate_compliance supply_chain.reports.generate_sbom
+      supply_chain.reports.generate_vendor_risk supply_chain.reports.generate_vulnerability supply_chain.reports.read
+      supply_chain.reports.regenerate supply_chain.reports.update
+      supply_chain.sboms.calculate_risk supply_chain.sboms.correlate_vulnerabilities supply_chain.sboms.create
+      supply_chain.sboms.delete supply_chain.sboms.export supply_chain.sboms.read supply_chain.sboms.update
+      supply_chain.vendors.assess supply_chain.vendors.create supply_chain.vendors.delete
+      supply_chain.vendors.read supply_chain.vendors.reassess supply_chain.vendors.update
     ]
   }
   validates :resource_type, presence: true

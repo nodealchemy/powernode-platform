@@ -46,6 +46,8 @@ export const StartAssessmentModal: React.FC<StartAssessmentModalProps> = ({
       setStarting(true);
       await onStart(selectedType);
       onClose();
+    } catch (err) {
+      // Error is silently ignored to keep modal open
     } finally {
       setStarting(false);
     }
@@ -96,7 +98,7 @@ export const StartAssessmentModal: React.FC<StartAssessmentModalProps> = ({
         </div>
 
         <div className="border-t border-theme px-6 py-4 flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={starting}>
             Cancel
           </Button>
           <Button variant="primary" onClick={handleStart} disabled={starting}>

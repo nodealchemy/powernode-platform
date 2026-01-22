@@ -4,12 +4,15 @@ module Api
   module V1
     module SupplyChain
       class LicenseViolationsController < BaseController
+        before_action :require_read_permission, only: [:index, :show, :statistics]
+        before_action :require_write_permission, only: [:update, :resolve, :request_exception]
+        before_action :require_admin_permission, only: [:approve_exception, :reject_exception]
         before_action :set_violation, only: [:show, :update, :resolve, :request_exception, :approve_exception, :reject_exception]
 
         # GET /api/v1/supply_chain/license_violations
         def index
           @violations = current_account.supply_chain_license_violations
-                                       .includes(:license, :license_policy, :component)
+                                       .includes(:license, :license_policy, :sbom_component)
                                        .order(created_at: :desc)
 
           # Filters
@@ -21,20 +24,20 @@ module Api
           @violations = paginate(@violations)
 
           render_success(
-            license_violations: @violations.map { |v| serialize_violation(v) },
+            { license_violations: @violations.map { |v| serialize_violation(v) } },
             meta: pagination_meta
           )
         end
 
         # GET /api/v1/supply_chain/license_violations/:id
         def show
-          render_success(license_violation: serialize_violation(@violation, include_details: true))
+          render_success({ license_violation: serialize_violation(@violation, include_details: true) })
         end
 
         # PATCH/PUT /api/v1/supply_chain/license_violations/:id
         def update
           if @violation.update(violation_update_params)
-            render_success(license_violation: serialize_violation(@violation))
+            render_success({ license_violation: serialize_violation(@violation) })
           else
             render_error(@violation.errors.full_messages.join(", "), status: :unprocessable_entity)
           end
@@ -47,10 +50,10 @@ module Api
 
           @violation.resolve!(resolution: resolution, notes: notes, resolved_by: current_user)
 
-          render_success(
-            license_violation: serialize_violation(@violation),
-            message: "Violation resolved"
-          )
+          render_success({
+            message: "Violation resolved",
+            license_violation: serialize_violation(@violation)
+          })
         rescue StandardError => e
           render_error("Failed to resolve: #{e.message}", status: :unprocessable_entity)
         end
@@ -71,10 +74,10 @@ module Api
             requested_by: current_user
           )
 
-          render_success(
-            license_violation: serialize_violation(@violation),
-            message: "Exception requested"
-          )
+          render_success({
+            message: "Exception requested",
+            license_violation: serialize_violation(@violation)
+          })
         rescue StandardError => e
           render_error("Failed to request exception: #{e.message}", status: :unprocessable_entity)
         end
@@ -90,10 +93,10 @@ module Api
             expires_at: expires_at
           )
 
-          render_success(
-            license_violation: serialize_violation(@violation),
-            message: "Exception approved"
-          )
+          render_success({
+            message: "Exception approved",
+            license_violation: serialize_violation(@violation)
+          })
         rescue StandardError => e
           render_error("Failed to approve exception: #{e.message}", status: :unprocessable_entity)
         end
@@ -104,10 +107,10 @@ module Api
 
           @violation.reject_exception!(rejected_by: current_user, reason: reason)
 
-          render_success(
-            license_violation: serialize_violation(@violation),
-            message: "Exception rejected"
-          )
+          render_success({
+            message: "Exception rejected",
+            license_violation: serialize_violation(@violation)
+          })
         rescue StandardError => e
           render_error("Failed to reject exception: #{e.message}", status: :unprocessable_entity)
         end
@@ -116,20 +119,22 @@ module Api
         def statistics
           violations = current_account.supply_chain_license_violations
 
-          render_success(
+          render_success({
             total: violations.count,
             by_status: violations.group(:status).count,
             by_severity: violations.group(:severity).count,
             by_type: violations.group(:violation_type).count,
             open_count: violations.where(status: "open").count,
-            exception_pending: violations.where(status: "exception_pending").count
-          )
+            exception_pending: violations.where(exception_requested: true, exception_status: "pending").count
+          })
         end
 
         private
 
         def set_violation
           @violation = current_account.supply_chain_license_violations.find(params[:id])
+        rescue ActiveRecord::RecordNotFound
+          render_error("License violation not found", status: :not_found)
         end
 
         def violation_update_params
@@ -142,11 +147,12 @@ module Api
             status: violation.status,
             severity: violation.severity,
             violation_type: violation.violation_type,
-            component_name: violation.component&.name,
-            component_version: violation.component&.version,
+            component_name: violation.sbom_component&.name,
+            component_version: violation.sbom_component&.version,
             license_spdx_id: violation.license&.spdx_id,
             license_name: violation.license&.name,
             policy_name: violation.license_policy&.name,
+            notes: violation.notes,
             created_at: violation.created_at
           }
 

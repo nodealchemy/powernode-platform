@@ -186,6 +186,14 @@ module SupplyChain
       update!(next_assessment_due: months.months.from_now)
     end
 
+    def update_risk_from_questionnaire(response)
+      return unless response.overall_score.present?
+
+      # Convert questionnaire score (higher = better) to risk score (higher = worse)
+      new_risk_score = (100 - response.overall_score).round
+      update_risk_score!(new_risk_score)
+    end
+
     def add_certification(name:, expires_at: nil, verified: false)
       cert = {
         name: name,

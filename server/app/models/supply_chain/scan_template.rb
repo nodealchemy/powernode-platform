@@ -108,6 +108,8 @@ module SupplyChain
     end
 
     def supports_ecosystem?(ecosystem)
+      return false if supported_ecosystems.nil?
+
       supported_ecosystems.include?(ecosystem)
     end
 
@@ -117,6 +119,10 @@ module SupplyChain
 
     def publish!
       update!(status: "published", is_public: true)
+    end
+
+    def unpublish!
+      update!(status: "draft", is_public: false)
     end
 
     def archive!
@@ -139,7 +145,10 @@ module SupplyChain
     end
 
     def install_for_account!(account, installed_by: nil, config: {})
-      merged_config = default_configuration.deep_merge(config)
+      # Ensure both configs have symbol keys for consistent merging
+      base_config = default_configuration.is_a?(Hash) ? default_configuration.symbolize_keys : {}
+      new_config = config.is_a?(Hash) ? config.symbolize_keys : {}
+      merged_config = base_config.deep_merge(new_config)
 
       scan_instances.create!(
         account: account,
@@ -155,17 +164,18 @@ module SupplyChain
 
       errors = []
       schema = configuration_schema.with_indifferent_access
+      config_with_access = config.with_indifferent_access
 
       # Check required fields
       (schema[:required] || []).each do |field|
-        errors << "Missing required field: #{field}" unless config.key?(field)
+        errors << "Missing required field: #{field}" unless config_with_access.key?(field)
       end
 
       # Check field types
       (schema[:properties] || {}).each do |field, field_schema|
-        next unless config.key?(field)
+        next unless config_with_access.key?(field)
 
-        value = config[field]
+        value = config_with_access[field]
         expected_type = field_schema[:type]
 
         type_valid = case expected_type

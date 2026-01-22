@@ -7,6 +7,7 @@ module SupplyChain
     def perform(account_id, repository_id, options = {})
       account = Account.find(account_id)
       repository = repository_id.present? ? account.devops_repositories.find(repository_id) : nil
+      options ||= {}
 
       Rails.logger.info "[SbomGenerationJob] Starting SBOM generation for account #{account_id}"
 

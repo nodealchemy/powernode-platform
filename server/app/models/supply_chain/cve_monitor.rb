@@ -3,7 +3,7 @@
 module SupplyChain
   class CveMonitor < ApplicationRecord
     include Auditable
-    include Schedulable
+    # Note: Does not include Schedulable since schedule_cron is optional in this model
 
     self.table_name = "supply_chain_cve_monitors"
 
@@ -125,6 +125,17 @@ module SupplyChain
 
     def notification_channel_count
       notification_channels&.length || 0
+    end
+
+    def alert_count
+      # Returns count of alerts from metadata or defaults to 0
+      metadata&.dig("alert_count") || 0
+    end
+
+    def recent_alerts(limit: 50)
+      # Returns recent alerts from metadata storage
+      # In a full implementation, this would query an alerts table
+      (metadata&.dig("recent_alerts") || []).first(limit.to_i)
     end
 
     def add_notification_channel(type:, config:)

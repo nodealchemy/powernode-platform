@@ -70,6 +70,7 @@ module Api
             subject_digest: attestation.subject_digest,
             signed: attestation.signed?,
             verified: attestation.verified?,
+            verification_status: attestation.verification_status,
             rekor_logged: attestation.logged_to_rekor?,
             created_at: attestation.created_at
           }
@@ -96,6 +97,7 @@ module Api
           {
             id: vendor.id,
             name: vendor.name,
+            slug: vendor.slug,
             vendor_type: vendor.vendor_type,
             risk_tier: vendor.risk_tier,
             risk_score: vendor.risk_score,
@@ -118,7 +120,7 @@ module Api
             format: report.format,
             status: report.status,
             generated_at: report.generated_at,
-            file_size: report.file_size,
+            file_size: report.file_size_bytes,
             created_at: report.created_at
           }
         end

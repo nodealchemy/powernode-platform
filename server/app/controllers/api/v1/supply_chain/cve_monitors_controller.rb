@@ -4,6 +4,8 @@ module Api
   module V1
     module SupplyChain
       class CveMonitorsController < BaseController
+        before_action :require_read_permission, only: [:index, :show, :alerts]
+        before_action :require_write_permission, only: [:create, :update, :destroy, :run, :run_all]
         before_action :set_cve_monitor, only: [:show, :update, :destroy, :run, :alerts]
 
         # GET /api/v1/supply_chain/cve_monitors
@@ -18,14 +20,14 @@ module Api
           @monitors = paginate(@monitors)
 
           render_success(
-            cve_monitors: @monitors.map { |m| serialize_monitor(m) },
+            { cve_monitors: @monitors.map { |m| serialize_monitor(m) } },
             meta: pagination_meta
           )
         end
 
         # GET /api/v1/supply_chain/cve_monitors/:id
         def show
-          render_success(cve_monitor: serialize_monitor(@monitor, include_details: true))
+          render_success({ cve_monitor: serialize_monitor(@monitor, include_details: true) })
         end
 
         # POST /api/v1/supply_chain/cve_monitors
@@ -34,7 +36,7 @@ module Api
           @monitor.created_by = current_user
 
           if @monitor.save
-            render_success(cve_monitor: serialize_monitor(@monitor), status: :created)
+            render_success({ cve_monitor: serialize_monitor(@monitor) }, status: :created)
           else
             render_error(@monitor.errors.full_messages.join(", "), status: :unprocessable_entity)
           end
@@ -43,7 +45,7 @@ module Api
         # PATCH/PUT /api/v1/supply_chain/cve_monitors/:id
         def update
           if @monitor.update(monitor_params)
-            render_success(cve_monitor: serialize_monitor(@monitor))
+            render_success({ cve_monitor: serialize_monitor(@monitor) })
           else
             render_error(@monitor.errors.full_messages.join(", "), status: :unprocessable_entity)
           end
@@ -59,10 +61,10 @@ module Api
         def run
           ::SupplyChain::CveMonitoringJob.perform_later(@monitor.id)
 
-          render_success(
-            cve_monitor: serialize_monitor(@monitor),
-            message: "CVE monitoring job queued"
-          )
+          render_success({
+            message: "CVE monitoring job queued",
+            cve_monitor: serialize_monitor(@monitor)
+          })
         end
 
         # GET /api/v1/supply_chain/cve_monitors/:id/alerts
@@ -70,10 +72,10 @@ module Api
           # This would return recent CVE alerts from the monitor
           alerts = @monitor.recent_alerts(limit: params[:limit] || 50)
 
-          render_success(
+          render_success({
             cve_monitor_id: @monitor.id,
             alerts: alerts.map { |a| serialize_alert(a) }
-          )
+          })
         end
 
         # POST /api/v1/supply_chain/cve_monitors/run_all
@@ -83,24 +85,26 @@ module Api
             ::SupplyChain::CveMonitoringJob.perform_later(monitor.id)
           end
 
-          render_success(
+          render_success({
             message: "CVE monitoring jobs queued",
             monitors_queued: monitors.count
-          )
+          })
         end
 
         private
 
         def set_cve_monitor
           @monitor = current_account.supply_chain_cve_monitors.find(params[:id])
+        rescue ActiveRecord::RecordNotFound
+          render_error("CVE monitor not found", status: :not_found)
         end
 
         def monitor_params
           params.require(:cve_monitor).permit(
             :name, :description, :scope_type, :scope_id,
             :min_severity, :is_active, :schedule_cron,
-            :notify_on_new, :notify_on_upgrade, :notify_on_fix,
-            notification_channels: {}, filters: {}, metadata: {}
+            filters: {}, metadata: {},
+            notification_channels: [:type, :config, config: {}]
           )
         end
 
@@ -120,9 +124,6 @@ module Api
           }
 
           if include_details
-            data[:notify_on_new] = monitor.notify_on_new
-            data[:notify_on_upgrade] = monitor.notify_on_upgrade
-            data[:notify_on_fix] = monitor.notify_on_fix
             data[:notification_channels] = monitor.notification_channels
             data[:filters] = monitor.filters
             data[:alert_count] = monitor.alert_count
