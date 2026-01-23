@@ -29,20 +29,20 @@ User → Roles, Permissions, Invitations
 ### Backend Specialists
 | Specialist | Documentation | Model |
 |------------|---------------|-------|
-| Rails Architect | [RAILS_ARCHITECT_SPECIALIST.md](docs/backend/RAILS_ARCHITECT_SPECIALIST.md) | sonnet |
-| Data Modeler | [DATA_MODELER_SPECIALIST.md](docs/backend/DATA_MODELER_SPECIALIST.md) | sonnet |
-| API Developer | [API_DEVELOPER_SPECIALIST.md](docs/backend/API_DEVELOPER_SPECIALIST.md) | sonnet |
+| Rails Architect | [RAILS_ARCHITECT_SPECIALIST.md](docs/backend/RAILS_ARCHITECT_SPECIALIST.md) | **opus** |
+| Data Modeler | [DATA_MODELER_SPECIALIST.md](docs/backend/DATA_MODELER_SPECIALIST.md) | **opus** |
+| API Developer | [API_DEVELOPER_SPECIALIST.md](docs/backend/API_DEVELOPER_SPECIALIST.md) | **opus** |
 | Payment Integration | [PAYMENT_INTEGRATION_SPECIALIST.md](docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md) | **opus** |
 | Billing Engine | [BILLING_ENGINE_DEVELOPER_SPECIALIST.md](docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md) | **opus** |
-| Background Jobs | [BACKGROUND_JOB_ENGINEER_SPECIALIST.md](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md) | sonnet |
+| Background Jobs | [BACKGROUND_JOB_ENGINEER_SPECIALIST.md](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md) | **opus** |
 
 ### Frontend Specialists
 | Specialist | Documentation | Model |
 |------------|---------------|-------|
-| React Architect | [REACT_ARCHITECT_SPECIALIST.md](docs/frontend/REACT_ARCHITECT_SPECIALIST.md) | sonnet |
-| UI Components | [UI_COMPONENT_DEVELOPER_SPECIALIST.md](docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md) | haiku |
-| Dashboard | [DASHBOARD_SPECIALIST.md](docs/frontend/DASHBOARD_SPECIALIST.md) | sonnet |
-| Admin Panel | [ADMIN_PANEL_DEVELOPER_SPECIALIST.md](docs/frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md) | sonnet |
+| React Architect | [REACT_ARCHITECT_SPECIALIST.md](docs/frontend/REACT_ARCHITECT_SPECIALIST.md) | **opus** |
+| UI Components | [UI_COMPONENT_DEVELOPER_SPECIALIST.md](docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md) | **opus** |
+| Dashboard | [DASHBOARD_SPECIALIST.md](docs/frontend/DASHBOARD_SPECIALIST.md) | **opus** |
+| Admin Panel | [ADMIN_PANEL_DEVELOPER_SPECIALIST.md](docs/frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md) | **opus** |
 
 ### Infrastructure & Testing Specialists
 | Specialist | Documentation | Model |
@@ -50,15 +50,15 @@ User → Roles, Permissions, Invitations
 | DevOps Engineer | [DEVOPS_ENGINEER_SPECIALIST.md](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md) | **opus** |
 | Security | [SECURITY_SPECIALIST.md](docs/infrastructure/SECURITY_SPECIALIST.md) | **opus** |
 | Performance | [PERFORMANCE_OPTIMIZER.md](docs/infrastructure/PERFORMANCE_OPTIMIZER.md) | **opus** |
-| Backend Testing | [BACKEND_TEST_ENGINEER_SPECIALIST.md](docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md) | sonnet |
-| Frontend Testing | [FRONTEND_TEST_ENGINEER_SPECIALIST.md](docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md) | haiku |
+| Backend Testing | [BACKEND_TEST_ENGINEER_SPECIALIST.md](docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md) | **opus** |
+| Frontend Testing | [FRONTEND_TEST_ENGINEER_SPECIALIST.md](docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md) | **opus** |
 
 ### Service Specialists
 | Specialist | Documentation | Model |
 |------------|---------------|-------|
-| Project Manager | [PROJECT_MANAGER_SPECIALIST.md](docs/services/PROJECT_MANAGER_SPECIALIST.md) | sonnet |
-| Notifications | [NOTIFICATION_ENGINEER.md](docs/services/NOTIFICATION_ENGINEER.md) | sonnet |
-| Documentation | [DOCUMENTATION_SPECIALIST.md](docs/services/DOCUMENTATION_SPECIALIST.md) | haiku |
+| Project Manager | [PROJECT_MANAGER_SPECIALIST.md](docs/services/PROJECT_MANAGER_SPECIALIST.md) | **opus** |
+| Notifications | [NOTIFICATION_ENGINEER.md](docs/services/NOTIFICATION_ENGINEER.md) | **opus** |
+| Documentation | [DOCUMENTATION_SPECIALIST.md](docs/services/DOCUMENTATION_SPECIALIST.md) | **opus** |
 | Analytics | [ANALYTICS_ENGINEER.md](docs/services/ANALYTICS_ENGINEER.md) | **opus** |
 
 ---
@@ -159,7 +159,7 @@ For complex tasks, spawn specialists using the Task tool:
 Task({
   description: "Brief task description",
   subagent_type: "general-purpose",
-  model: "sonnet",  // or "opus" for critical, "haiku" for routine
+  model: "opus",
   prompt: `You are a [Specialist] for Powernode.
 Reference: [path/to/SPECIALIST.md]
 Task: [specific task]
@@ -168,9 +168,7 @@ Follow patterns in specialist documentation.`
 ```
 
 **Model Selection**:
-- **opus**: Payment, Security, DevOps, Performance, Analytics, Billing
-- **sonnet**: Rails, React, Data, API, Jobs, Dashboard, Admin, Backend Tests, Project Manager, Notifications
-- **haiku**: UI Components, Documentation, Frontend Tests
+- **opus**: All specialists use Opus 4.5 exclusively
 
 ---
 

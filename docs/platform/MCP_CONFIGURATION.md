@@ -9,20 +9,20 @@
 ### Backend Specialists
 | Specialist | Documentation | Model |
 |------------|---------------|-------|
-| Rails Architect | [RAILS_ARCHITECT_SPECIALIST.md](../backend/RAILS_ARCHITECT_SPECIALIST.md) | sonnet |
-| Data Modeler | [DATA_MODELER_SPECIALIST.md](../backend/DATA_MODELER_SPECIALIST.md) | sonnet |
-| API Developer | [API_DEVELOPER_SPECIALIST.md](../backend/API_DEVELOPER_SPECIALIST.md) | sonnet |
+| Rails Architect | [RAILS_ARCHITECT_SPECIALIST.md](../backend/RAILS_ARCHITECT_SPECIALIST.md) | **opus** |
+| Data Modeler | [DATA_MODELER_SPECIALIST.md](../backend/DATA_MODELER_SPECIALIST.md) | **opus** |
+| API Developer | [API_DEVELOPER_SPECIALIST.md](../backend/API_DEVELOPER_SPECIALIST.md) | **opus** |
 | Payment Integration | [PAYMENT_INTEGRATION_SPECIALIST.md](../backend/PAYMENT_INTEGRATION_SPECIALIST.md) | **opus** |
 | Billing Engine | [BILLING_ENGINE_DEVELOPER_SPECIALIST.md](../backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md) | **opus** |
-| Background Jobs | [BACKGROUND_JOB_ENGINEER_SPECIALIST.md](../backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md) | sonnet |
+| Background Jobs | [BACKGROUND_JOB_ENGINEER_SPECIALIST.md](../backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md) | **opus** |
 
 ### Frontend Specialists
 | Specialist | Documentation | Model |
 |------------|---------------|-------|
-| React Architect | [REACT_ARCHITECT_SPECIALIST.md](../frontend/REACT_ARCHITECT_SPECIALIST.md) | sonnet |
-| UI Components | [UI_COMPONENT_DEVELOPER_SPECIALIST.md](../frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md) | haiku |
-| Dashboard | [DASHBOARD_SPECIALIST.md](../frontend/DASHBOARD_SPECIALIST.md) | sonnet |
-| Admin Panel | [ADMIN_PANEL_DEVELOPER_SPECIALIST.md](../frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md) | sonnet |
+| React Architect | [REACT_ARCHITECT_SPECIALIST.md](../frontend/REACT_ARCHITECT_SPECIALIST.md) | **opus** |
+| UI Components | [UI_COMPONENT_DEVELOPER_SPECIALIST.md](../frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md) | **opus** |
+| Dashboard | [DASHBOARD_SPECIALIST.md](../frontend/DASHBOARD_SPECIALIST.md) | **opus** |
+| Admin Panel | [ADMIN_PANEL_DEVELOPER_SPECIALIST.md](../frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md) | **opus** |
 
 ### Infrastructure Specialists
 | Specialist | Documentation | Model |
@@ -34,15 +34,15 @@
 ### Testing Specialists
 | Specialist | Documentation | Model |
 |------------|---------------|-------|
-| Backend Testing | [BACKEND_TEST_ENGINEER_SPECIALIST.md](../testing/BACKEND_TEST_ENGINEER_SPECIALIST.md) | sonnet |
-| Frontend Testing | [FRONTEND_TEST_ENGINEER_SPECIALIST.md](../testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md) | haiku |
+| Backend Testing | [BACKEND_TEST_ENGINEER_SPECIALIST.md](../testing/BACKEND_TEST_ENGINEER_SPECIALIST.md) | **opus** |
+| Frontend Testing | [FRONTEND_TEST_ENGINEER_SPECIALIST.md](../testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md) | **opus** |
 
 ### Service Specialists
 | Specialist | Documentation | Model |
 |------------|---------------|-------|
-| Project Manager | [PROJECT_MANAGER_SPECIALIST.md](../services/PROJECT_MANAGER_SPECIALIST.md) | sonnet |
-| Notifications | [NOTIFICATION_ENGINEER.md](../services/NOTIFICATION_ENGINEER.md) | sonnet |
-| Documentation | [DOCUMENTATION_SPECIALIST.md](../services/DOCUMENTATION_SPECIALIST.md) | haiku |
+| Project Manager | [PROJECT_MANAGER_SPECIALIST.md](../services/PROJECT_MANAGER_SPECIALIST.md) | **opus** |
+| Notifications | [NOTIFICATION_ENGINEER.md](../services/NOTIFICATION_ENGINEER.md) | **opus** |
+| Documentation | [DOCUMENTATION_SPECIALIST.md](../services/DOCUMENTATION_SPECIALIST.md) | **opus** |
 | Analytics | [ANALYTICS_ENGINEER.md](../services/ANALYTICS_ENGINEER.md) | **opus** |
 
 ---
@@ -59,25 +59,15 @@
 
 ## Model Selection Strategy
 
-### Available Claude Models & Capabilities
+### Opus 4.5 Exclusive Configuration
 
-#### Sonnet 4.5 (Current Default)
-- **Strengths**: Enhanced reasoning, superior code generation, advanced problem-solving
-- **Best For**: General development tasks, architectural decisions, complex integrations
-- **Use Cases**: Multi-step planning, code architecture, system design, complex business logic
-- **Model Parameter**: `"sonnet"` or `"claude-sonnet-4-5"`
+All Claude agents in this project use **Opus 4.5** exclusively for maximum reasoning capability across all tasks.
 
-#### Haiku
-- **Strengths**: Fast response, cost-effective, good for routine tasks
-- **Best For**: Simple code generation, documentation, straightforward implementations
-- **Use Cases**: CRUD operations, basic configurations, simple fixes
-- **Model Parameter**: `"haiku"`
-
-#### Opus
+#### Opus 4.5 (Exclusive Model)
 - **Strengths**: Highest reasoning capability, complex problem solving, extended thinking
-- **Best For**: Mission-critical systems, complex debugging, system optimization
-- **Use Cases**: Performance analysis, payment processing, security analysis, infrastructure decisions
-- **Model Parameter**: `"opus"` or `"claude-3-opus"`
+- **Best For**: All development tasks - from architecture to implementation
+- **Use Cases**: All specialist work, code generation, debugging, optimization
+- **Model Parameter**: `"opus"`
 
 ### Thinking Budget Optimization
 
@@ -110,7 +100,7 @@
 
 ## Specialist Model Assignments
 
-### Architecture & System Design (Opus/Sonnet)
+### All Specialists (Opus 4.5 Exclusive)
 
 | Specialist | Model | Thinking Budget | Reasoning |
 |------------|-------|-----------------|-----------|
@@ -120,41 +110,19 @@
 | **Billing Engine** | Opus | ultrathink | Complex billing logic, proration |
 | **Analytics Engineer** | Opus | ultrathink | Statistical analysis, business intelligence |
 | **Performance Optimizer** | Opus | ultrathink | Bottleneck resolution, optimization |
-| **Rails Architect** | Sonnet 4.5 | think harder | Rails conventions, API design |
-| **React Architect** | Sonnet 4.5 | think harder | Component architecture, state management |
-| **Data Modeler** | Sonnet 4.5 | think harder | Database design, relationships |
-
-### Implementation Specialists (Sonnet/Haiku)
-
-| Specialist | Model | Thinking Budget | Reasoning |
-|------------|-------|-----------------|-----------|
-| **API Developer** | Sonnet 4.5 | think hard | RESTful design, serialization |
-| **Background Job Engineer** | Sonnet 4.5 | think hard | Async patterns, queue management |
-| **Dashboard Specialist** | Sonnet 4.5 | think hard | Data visualization, interactive components |
-| **Backend Test Engineer** | Sonnet 4.5 | think hard | Test strategy, integration testing |
-| **Notification Engineer** | Sonnet 4.5 | think hard | Communication systems, integration |
-| **Admin Panel Developer** | Sonnet 4.5 | think hard | Admin workflows, permissions |
-| **UI Component Developer** | Haiku | think | Component creation, styling |
-| **Frontend Test Engineer** | Haiku | think | Component testing, E2E testing |
-| **Documentation Specialist** | Haiku | think | Documentation, technical writing |
-
-### Dynamic Model Selection
-
-For specialists handling varying complexity:
-
-```
-UI Component Developer:
-- Simple components → Haiku + "think"
-- Complex interactive components → Sonnet 4.5 + "think hard"
-
-Frontend Test Engineer:
-- Unit tests → Haiku + "think"
-- Complex E2E scenarios → Sonnet 4.5 + "think hard"
-
-Documentation Specialist:
-- Standard docs → Haiku + "think"
-- Complex technical architecture docs → Sonnet 4.5 + "think hard"
-```
+| **Rails Architect** | Opus | ultrathink | Rails conventions, API design |
+| **React Architect** | Opus | ultrathink | Component architecture, state management |
+| **Data Modeler** | Opus | ultrathink | Database design, relationships |
+| **API Developer** | Opus | ultrathink | RESTful design, serialization |
+| **Background Job Engineer** | Opus | ultrathink | Async patterns, queue management |
+| **Dashboard Specialist** | Opus | ultrathink | Data visualization, interactive components |
+| **Backend Test Engineer** | Opus | ultrathink | Test strategy, integration testing |
+| **Notification Engineer** | Opus | ultrathink | Communication systems, integration |
+| **Admin Panel Developer** | Opus | ultrathink | Admin workflows, permissions |
+| **UI Component Developer** | Opus | ultrathink | Component creation, styling |
+| **Frontend Test Engineer** | Opus | ultrathink | Component testing, E2E testing |
+| **Documentation Specialist** | Opus | ultrathink | Documentation, technical writing |
+| **Project Manager** | Opus | ultrathink | Project coordination, releases |
 
 ---
 
@@ -365,49 +333,39 @@ end
 ### Configuration Commands
 
 ```bash
-# High Complexity Specialists (Opus + ultrathink)
+# All Specialists (Opus 4.5 + ultrathink)
 mcp__devops_engineer__task --thinking_budget "ultrathink" --model "opus"
 mcp__payment_integration_specialist__task --thinking_budget "ultrathink" --model "opus"
 mcp__billing_engine_developer__task --thinking_budget "ultrathink" --model "opus"
 mcp__analytics_engineer__task --thinking_budget "ultrathink" --model "opus"
 mcp__performance_optimizer__task --thinking_budget "ultrathink" --model "opus"
 mcp__security_specialist__task --thinking_budget "ultrathink" --model "opus"
-
-# Medium-High Complexity (Sonnet 4.5 + think harder)
-mcp__rails_architect__task --thinking_budget "think harder" --model "sonnet"
-mcp__react_architect__task --thinking_budget "think harder" --model "sonnet"
-mcp__data_modeler__task --thinking_budget "think harder" --model "sonnet"
-mcp__api_developer__task --thinking_budget "think hard" --model "sonnet"
-mcp__background_job_engineer__task --thinking_budget "think hard" --model "sonnet"
-mcp__dashboard_specialist__task --thinking_budget "think hard" --model "sonnet"
-
-# Standard Complexity (Haiku + think)
-mcp__ui_component_developer__task --thinking_budget "think" --model "haiku"
-mcp__frontend_test_engineer__task --thinking_budget "think" --model "haiku"
-mcp__documentation_specialist__task --thinking_budget "think" --model "haiku"
+mcp__rails_architect__task --thinking_budget "ultrathink" --model "opus"
+mcp__react_architect__task --thinking_budget "ultrathink" --model "opus"
+mcp__data_modeler__task --thinking_budget "ultrathink" --model "opus"
+mcp__api_developer__task --thinking_budget "ultrathink" --model "opus"
+mcp__background_job_engineer__task --thinking_budget "ultrathink" --model "opus"
+mcp__dashboard_specialist__task --thinking_budget "ultrathink" --model "opus"
+mcp__ui_component_developer__task --thinking_budget "ultrathink" --model "opus"
+mcp__frontend_test_engineer__task --thinking_budget "ultrathink" --model "opus"
+mcp__documentation_specialist__task --thinking_budget "ultrathink" --model "opus"
+mcp__backend_test_engineer__task --thinking_budget "ultrathink" --model "opus"
+mcp__admin_panel_developer__task --thinking_budget "ultrathink" --model "opus"
+mcp__notification_engineer__task --thinking_budget "ultrathink" --model "opus"
+mcp__project_manager__task --thinking_budget "ultrathink" --model "opus"
 ```
 
-### Implementation Phases
+### Implementation Configuration
 
-**Phase 1: Core Specialist Configuration**
-1. DevOps Engineer (Opus + ultrathink)
-2. Security Specialist (Opus + ultrathink)
-3. Payment Integration Specialist (Opus + ultrathink)
-4. Rails Architect (Sonnet 4.5 + think harder)
-5. React Architect (Sonnet 4.5 + think harder)
-
-**Phase 2: Specialized Domain Configuration**
-1. Data Modeler (Sonnet 4.5 + think harder)
-2. Performance Optimizer (Opus + ultrathink)
-3. Analytics Engineer (Opus + ultrathink)
-4. API Developer (Sonnet 4.5 + think hard)
-5. Background Job Engineer (Sonnet 4.5 + think hard)
-
-**Phase 3: Support Specialist Configuration**
-1. UI Component Developer (Haiku + think)
-2. Frontend Test Engineer (Haiku + think)
-3. Documentation Specialist (Haiku + think)
-4. Backend Test Engineer (Sonnet 4.5 + think hard)
+**All specialists configured with Opus 4.5 + ultrathink:**
+- DevOps Engineer, Security Specialist, Payment Integration
+- Rails Architect, React Architect, Data Modeler
+- Performance Optimizer, Analytics Engineer
+- API Developer, Background Job Engineer
+- Dashboard Specialist, Admin Panel Developer
+- UI Component Developer, Frontend Test Engineer
+- Backend Test Engineer, Documentation Specialist
+- Notification Engineer, Project Manager
 
 ### Configuration Validation
 
@@ -425,14 +383,7 @@ Test each specialist configuration with sample tasks:
 
 | Task Type | Model | Thinking |
 |-----------|-------|----------|
-| Production deployment | Opus | ultrathink |
-| Payment processing | Opus | ultrathink |
-| Security analysis | Opus | ultrathink |
-| Architecture design | Sonnet | think harder |
-| Database modeling | Sonnet | think harder |
-| API implementation | Sonnet | think hard |
-| UI components | Haiku | think |
-| Documentation | Haiku | think |
+| All tasks | Opus | ultrathink |
 
 ### Delegation Response Templates
 
@@ -465,51 +416,29 @@ Claude Code's Task tool enables spawning specialist agents for domain-specific w
 | Specialist | Subagent Type | Model | Documentation |
 |------------|---------------|-------|---------------|
 | **Platform Architect** | general-purpose | opus | Full system oversight |
-| **Rails Architect** | general-purpose | sonnet | docs/backend/RAILS_ARCHITECT_SPECIALIST.md |
-| **Data Modeler** | general-purpose | sonnet | docs/backend/DATA_MODELER_SPECIALIST.md |
+| **Rails Architect** | general-purpose | opus | docs/backend/RAILS_ARCHITECT_SPECIALIST.md |
+| **Data Modeler** | general-purpose | opus | docs/backend/DATA_MODELER_SPECIALIST.md |
 | **Payment Integration** | general-purpose | opus | docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md |
 | **Billing Engine** | general-purpose | opus | docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md |
-| **API Developer** | general-purpose | sonnet | docs/backend/API_DEVELOPER_SPECIALIST.md |
-| **Background Job Engineer** | general-purpose | sonnet | docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md |
-| **React Architect** | general-purpose | sonnet | docs/frontend/REACT_ARCHITECT_SPECIALIST.md |
-| **UI Component Developer** | general-purpose | haiku | docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md |
-| **Dashboard Specialist** | general-purpose | sonnet | docs/frontend/DASHBOARD_SPECIALIST.md |
-| **Admin Panel Developer** | general-purpose | sonnet | docs/frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md |
-| **Backend Test Engineer** | general-purpose | sonnet | docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md |
-| **Frontend Test Engineer** | general-purpose | haiku | docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md |
+| **API Developer** | general-purpose | opus | docs/backend/API_DEVELOPER_SPECIALIST.md |
+| **Background Job Engineer** | general-purpose | opus | docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md |
+| **React Architect** | general-purpose | opus | docs/frontend/REACT_ARCHITECT_SPECIALIST.md |
+| **UI Component Developer** | general-purpose | opus | docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md |
+| **Dashboard Specialist** | general-purpose | opus | docs/frontend/DASHBOARD_SPECIALIST.md |
+| **Admin Panel Developer** | general-purpose | opus | docs/frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md |
+| **Backend Test Engineer** | general-purpose | opus | docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md |
+| **Frontend Test Engineer** | general-purpose | opus | docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md |
 | **DevOps Engineer** | general-purpose | opus | docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md |
 | **Security Specialist** | general-purpose | opus | docs/infrastructure/SECURITY_SPECIALIST.md |
 | **Performance Optimizer** | general-purpose | opus | docs/infrastructure/PERFORMANCE_OPTIMIZER.md |
-| **Project Manager** | general-purpose | sonnet | docs/services/PROJECT_MANAGER_SPECIALIST.md |
-| **Notification Engineer** | general-purpose | sonnet | docs/services/NOTIFICATION_ENGINEER.md |
-| **Documentation Specialist** | general-purpose | haiku | docs/services/DOCUMENTATION_SPECIALIST.md |
+| **Project Manager** | general-purpose | opus | docs/services/PROJECT_MANAGER_SPECIALIST.md |
+| **Notification Engineer** | general-purpose | opus | docs/services/NOTIFICATION_ENGINEER.md |
+| **Documentation Specialist** | general-purpose | opus | docs/services/DOCUMENTATION_SPECIALIST.md |
 | **Analytics Engineer** | general-purpose | opus | docs/services/ANALYTICS_ENGINEER.md |
 
 ### Model Selection Guide
 
-**Use Opus for:**
-- Payment processing and PCI compliance (Payment Integration, Billing Engine)
-- Security analysis and vulnerability assessment (Security Specialist)
-- Infrastructure and production deployments (DevOps Engineer)
-- Performance optimization and bottleneck resolution (Performance Optimizer)
-- Complex analytics and business intelligence (Analytics Engineer)
-
-**Use Sonnet for:**
-- Rails API architecture and authentication (Rails Architect)
-- React component architecture and state management (React Architect)
-- Database modeling and schema design (Data Modeler)
-- API endpoint implementation (API Developer)
-- Background job patterns (Background Job Engineer)
-- Dashboard development (Dashboard Specialist)
-- Admin interface development (Admin Panel Developer)
-- Backend testing (Backend Test Engineer)
-- Project coordination, git workflow, releases (Project Manager)
-- Notification systems (Notification Engineer)
-
-**Use Haiku for:**
-- Simple UI component creation (UI Component Developer)
-- Documentation writing (Documentation Specialist)
-- Frontend unit testing (Frontend Test Engineer)
+**All specialists use Opus 4.5 exclusively** for maximum reasoning capability across all development tasks.
 
 ### Task Tool Usage Examples
 
@@ -519,7 +448,7 @@ Claude Code's Task tool enables spawning specialist agents for domain-specific w
 Task({
   description: "Rails API architecture review",
   subagent_type: "general-purpose",
-  model: "sonnet",
+  model: "opus",
   prompt: `You are a Rails 8 API architect for Powernode.
 
 Reference: docs/backend/RAILS_ARCHITECT_SPECIALIST.md
@@ -537,7 +466,7 @@ Follow patterns in the specialist documentation. Reference docs/TODO.md for cont
 })
 ```
 
-**Spawning a Payment Specialist (Opus):**
+**Spawning a Payment Specialist:**
 
 ```
 Task({
@@ -567,7 +496,7 @@ Follow PCI DSS standards and patterns in specialist documentation.`
 Task({
   description: "React dashboard component",
   subagent_type: "general-purpose",
-  model: "sonnet",
+  model: "opus",
   prompt: `You are a dashboard specialist for Powernode.
 
 Reference: docs/frontend/DASHBOARD_SPECIALIST.md
@@ -585,13 +514,13 @@ Follow visualization patterns and theme-aware styling in specialist documentatio
 })
 ```
 
-**Spawning a Quick UI Task (Haiku):**
+**Spawning a UI Task:**
 
 ```
 Task({
   description: "Create button component",
   subagent_type: "general-purpose",
-  model: "haiku",
+  model: "opus",
   prompt: `You are a UI component developer for Powernode.
 
 Reference: docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md
@@ -613,9 +542,9 @@ For complex tasks requiring multiple specialists, spawn them in parallel:
 
 ```
 // Single message with multiple Task calls
-Task({ description: "Backend API", model: "sonnet", ... })
-Task({ description: "Frontend components", model: "sonnet", ... })
-Task({ description: "Integration tests", model: "sonnet", ... })
+Task({ description: "Backend API", model: "opus", ... })
+Task({ description: "Frontend components", model: "opus", ... })
+Task({ description: "Integration tests", model: "opus", ... })
 ```
 
 ### Specialist Prompt Template
