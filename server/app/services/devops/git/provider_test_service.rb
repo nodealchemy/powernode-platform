@@ -104,7 +104,7 @@ module Devops
 
     def test_ci_cd_access(owner, repo)
       return error_result("Credential cannot be used") unless @credential.can_be_used?
-      return error_result("Provider does not support CI/CD") unless @provider.supports_ci_cd?
+      return error_result("Provider does not support DevOps") unless @provider.supports_devops?
 
       client = Devops::Git::ApiClient.for(@credential)
 

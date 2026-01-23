@@ -229,6 +229,8 @@ export interface AvailableProvider {
   slug: string;
   provider_type: string;
   description?: string;
+  api_base_url?: string;
+  web_base_url?: string;
   supports_oauth: boolean;
   supports_pat: boolean;
   supports_devops: boolean;
@@ -243,8 +245,6 @@ export interface CreateCredentialData {
     access_token?: string;
     refresh_token?: string;
     expires_at?: string;
-    api_base_url?: string; // For self-hosted providers like Gitea
-    web_base_url?: string;
   };
   is_active?: boolean;
   is_default?: boolean;

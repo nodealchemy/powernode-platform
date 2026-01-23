@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Key, Globe, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { X, Key, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { AvailableProvider, CreateCredentialData, GitCredential } from '../types';
 import { useGitCredentials } from '../hooks/useGitProviders';
 
@@ -28,21 +28,15 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
     name: string;
     auth_type: 'oauth' | 'personal_access_token';
     access_token: string;
-    api_base_url: string;
-    web_base_url: string;
     auto_sync: boolean;
     is_active: boolean;
   }>({
     name: '',
     auth_type: 'personal_access_token',
     access_token: '',
-    api_base_url: '',
-    web_base_url: '',
     auto_sync: true,
     is_active: true,
   });
-
-  const isSelfHosted = provider.provider_type === 'gitea';
 
   // Reset form when modal opens or credential changes
   useEffect(() => {
@@ -53,8 +47,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
           name: credential.name,
           auth_type: credential.auth_type,
           access_token: '', // Don't pre-fill token for security
-          api_base_url: '',
-          web_base_url: '',
           auto_sync: false,
           is_active: credential.is_active,
         });
@@ -64,8 +56,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
           name: `${provider.name} Token`,
           auth_type: 'personal_access_token',
           access_token: '',
-          api_base_url: '',
-          web_base_url: '',
           auto_sync: true,
           is_active: true,
         });
@@ -83,11 +73,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
     // For editing, token is optional (only update if provided)
     if (!isEditing && !formData.access_token) {
       setError('Access token is required');
-      return;
-    }
-
-    if (!isEditing && isSelfHosted && !formData.api_base_url) {
-      setError('API base URL is required for self-hosted providers');
       return;
     }
 
@@ -112,16 +97,12 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
 
         await updateCredential(credential.id, updateData);
       } else {
-        // Create new credential
+        // Create new credential - URLs are inherited from the provider
         const credentialData: CreateCredentialData = {
           name: formData.name,
           auth_type: formData.auth_type,
           credentials: {
             access_token: formData.access_token,
-            ...(isSelfHosted && {
-              api_base_url: formData.api_base_url,
-              web_base_url: formData.web_base_url || formData.api_base_url,
-            }),
           },
           is_active: true,
           is_default: true,
@@ -191,49 +172,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
               required
             />
           </div>
-
-          {/* Self-hosted URL fields (only for new credentials) */}
-          {isSelfHosted && !isEditing && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-theme-primary mb-1">
-                  <Globe className="w-4 h-4 inline mr-1" />
-                  API Base URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.api_base_url}
-                  onChange={(e) =>
-                    setFormData({ ...formData, api_base_url: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
-                  placeholder="https://git.example.com/api/v1"
-                  required
-                />
-                <p className="text-xs text-theme-secondary mt-1">
-                  The API endpoint of your Gitea instance
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-theme-primary mb-1">
-                  Web Base URL (Optional)
-                </label>
-                <input
-                  type="url"
-                  value={formData.web_base_url}
-                  onChange={(e) =>
-                    setFormData({ ...formData, web_base_url: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
-                  placeholder="https://git.example.com"
-                />
-                <p className="text-xs text-theme-secondary mt-1">
-                  Leave empty to use API base URL
-                </p>
-              </div>
-            </>
-          )}
 
           {/* Access Token */}
           <div>

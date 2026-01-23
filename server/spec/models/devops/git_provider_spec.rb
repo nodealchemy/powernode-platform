@@ -8,11 +8,11 @@ RSpec.describe Devops::GitProvider, type: :model do
   describe 'validations' do
     it { is_expected.to validate_presence_of(:name) }
     it { is_expected.to validate_presence_of(:provider_type) }
-    it { is_expected.to validate_presence_of(:capabilities) }
+    # Note: capabilities auto-defaults based on provider_type via callback
 
     context 'provider_type inclusion' do
       it 'accepts valid provider types' do
-        %w[github gitlab gitea].each do |type|
+        %w[github gitlab gitea bitbucket].each do |type|
           provider = build(:git_provider, provider_type: type)
           expect(provider).to be_valid
         end
@@ -21,7 +21,7 @@ RSpec.describe Devops::GitProvider, type: :model do
       it 'rejects invalid provider types' do
         provider = build(:git_provider, provider_type: 'invalid')
         expect(provider).not_to be_valid
-        expect(provider.errors[:provider_type]).to include('must be github, gitlab, or gitea')
+        expect(provider.errors[:provider_type]).to include('must be github, gitlab, gitea, or bitbucket')
       end
     end
 
@@ -62,9 +62,9 @@ RSpec.describe Devops::GitProvider, type: :model do
       end
     end
 
-    describe '.with_ci_cd' do
-      it 'returns providers with CI/CD support' do
-        expect(described_class.with_ci_cd).to include(ci_cd_provider)
+    describe '.with_devops' do
+      it 'returns providers with DevOps support' do
+        expect(described_class.with_devops).to include(ci_cd_provider)
       end
     end
   end
@@ -96,15 +96,15 @@ RSpec.describe Devops::GitProvider, type: :model do
       end
     end
 
-    describe '#supports_ci_cd?' do
-      it 'returns true when supports_ci_cd is enabled' do
-        provider = build(:git_provider, supports_ci_cd: true)
-        expect(provider.supports_ci_cd?).to be true
+    describe '#supports_devops?' do
+      it 'returns true when supports_devops is enabled' do
+        provider = build(:git_provider, supports_devops: true)
+        expect(provider.supports_devops?).to be true
       end
 
-      it 'returns false when supports_ci_cd is disabled' do
-        provider = build(:git_provider, supports_ci_cd: false)
-        expect(provider.supports_ci_cd?).to be false
+      it 'returns false when supports_devops is disabled' do
+        provider = build(:git_provider, supports_devops: false)
+        expect(provider.supports_devops?).to be false
       end
     end
 
@@ -158,6 +158,30 @@ RSpec.describe Devops::GitProvider, type: :model do
         provider.valid?
         expect(provider.web_base_url).to eq('https://example.com')
       end
+
+      it 'sets default capabilities based on provider type when not provided' do
+        provider = build(:git_provider, provider_type: 'github', capabilities: nil)
+        provider.valid?
+        expect(provider.capabilities).to include('repos', 'branches', 'devops')
+      end
+
+      it 'does not override capabilities if already set' do
+        provider = build(:git_provider, provider_type: 'github', capabilities: %w[repos])
+        provider.valid?
+        expect(provider.capabilities).to eq(%w[repos])
+      end
+    end
+  end
+
+  describe '#bitbucket?' do
+    it 'returns true for bitbucket providers' do
+      provider = build(:git_provider, provider_type: 'bitbucket')
+      expect(provider.bitbucket?).to be true
+    end
+
+    it 'returns false for non-bitbucket providers' do
+      provider = build(:git_provider, provider_type: 'github')
+      expect(provider.bitbucket?).to be false
     end
   end
 end

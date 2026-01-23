@@ -85,7 +85,7 @@ module Api
                 provider_type: credential.git_provider.provider_type,
                 api_base_url: credential.git_provider.api_base_url,
                 web_base_url: credential.git_provider.web_base_url,
-                supports_ci_cd: credential.git_provider.supports_ci_cd
+                supports_devops: credential.git_provider.supports_devops
               }
             }
           end

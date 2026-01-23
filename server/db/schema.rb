@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_22_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_22_160000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -4289,9 +4289,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_150000) do
   create_table "git_providers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "api_base_url", limit: 500
     t.jsonb "capabilities", default: [], null: false
-    t.jsonb "ci_cd_config", default: {}
     t.datetime "created_at", null: false
     t.text "description"
+    t.jsonb "devops_config", default: {}
     t.boolean "is_active", default: true
     t.jsonb "metadata", default: {}
     t.string "name", limit: 100, null: false
@@ -4299,7 +4299,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_150000) do
     t.integer "priority_order", default: 1000
     t.string "provider_type", limit: 30, null: false
     t.string "slug", limit: 50, null: false
-    t.boolean "supports_ci_cd", default: false
+    t.boolean "supports_devops", default: false
     t.boolean "supports_oauth", default: true
     t.boolean "supports_pat", default: true
     t.boolean "supports_webhooks", default: true

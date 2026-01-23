@@ -15,7 +15,7 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
   end
   let(:user_without_permissions) { create(:user, account: account, permissions: []) }
 
-  let(:provider) { create(:git_provider, :github, supports_ci_cd: true) }
+  let(:provider) { create(:git_provider, :github, supports_devops: true) }
   let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
   let(:repository) { create(:git_repository, credential: credential, account: account) }
 

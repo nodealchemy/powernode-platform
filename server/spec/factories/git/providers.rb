@@ -11,12 +11,12 @@ FactoryBot.define do
     capabilities { %w[repos branches commits pull_requests issues webhooks] }
     oauth_config { {} }
     webhook_config { { events: %w[push pull_request] } }
-    ci_cd_config { {} }
+    devops_config { {} }
     is_active { true }
     supports_oauth { true }
     supports_pat { true }
     supports_webhooks { true }
-    supports_ci_cd { false }
+    supports_devops { false }
     sequence(:priority_order) { |n| n }
 
     trait :github do
@@ -26,8 +26,8 @@ FactoryBot.define do
       api_base_url { 'https://api.github.com' }
       web_base_url { 'https://github.com' }
       capabilities { %w[repos branches commits pull_requests issues webhooks actions] }
-      supports_ci_cd { true }
-      ci_cd_config do
+      supports_devops { true }
+      devops_config do
         {
           runner_type: 'github_actions',
           supports_workflow_dispatch: true,
@@ -43,8 +43,8 @@ FactoryBot.define do
       api_base_url { 'https://gitlab.com/api/v4' }
       web_base_url { 'https://gitlab.com' }
       capabilities { %w[repos branches commits merge_requests issues webhooks pipelines] }
-      supports_ci_cd { true }
-      ci_cd_config do
+      supports_devops { true }
+      devops_config do
         {
           runner_type: 'gitlab_ci',
           supports_job_logs: true
@@ -62,8 +62,8 @@ FactoryBot.define do
       supports_oauth { true }
       supports_pat { true }
       supports_webhooks { true }
-      supports_ci_cd { true }
-      ci_cd_config do
+      supports_devops { true }
+      devops_config do
         {
           runner_type: 'act_runner',
           supports_workflow_dispatch: true,
@@ -76,9 +76,9 @@ FactoryBot.define do
       is_active { false }
     end
 
-    trait :with_ci_cd do
-      supports_ci_cd { true }
-      ci_cd_config do
+    trait :with_devops do
+      supports_devops { true }
+      devops_config do
         {
           runner_type: 'github_actions',
           supports_workflow_dispatch: true,

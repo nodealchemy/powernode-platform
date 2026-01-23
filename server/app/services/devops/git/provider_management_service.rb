@@ -309,7 +309,7 @@ module Devops
             supports_oauth: true,
             supports_pat: true,
             supports_webhooks: true,
-            supports_ci_cd: true,
+            supports_devops: true,
             priority_order: 1,
             oauth_config: {
               authorization_url: "https://github.com/login/oauth/authorize",
@@ -328,7 +328,7 @@ module Devops
             supports_oauth: true,
             supports_pat: true,
             supports_webhooks: true,
-            supports_ci_cd: true,
+            supports_devops: true,
             priority_order: 2,
             oauth_config: {
               authorization_url: "https://gitlab.com/oauth/authorize",
@@ -347,9 +347,9 @@ module Devops
             supports_oauth: true,
             supports_pat: true,
             supports_webhooks: true,
-            supports_ci_cd: true,
+            supports_devops: true,
             priority_order: 3,
-            ci_cd_config: {
+            devops_config: {
               runner_type: "act_runner",
               supports_workflow_dispatch: true,
               supports_job_logs: true

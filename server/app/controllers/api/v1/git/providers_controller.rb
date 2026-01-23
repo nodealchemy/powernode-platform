@@ -83,9 +83,11 @@ module Api
               slug: provider.slug,
               provider_type: provider.provider_type,
               description: provider.description,
+              api_base_url: provider.api_base_url,
+              web_base_url: provider.web_base_url,
               supports_oauth: provider.supports_oauth,
               supports_pat: provider.supports_pat,
-              supports_ci_cd: provider.supports_ci_cd,
+              supports_devops: provider.supports_devops,
               capabilities: provider.capabilities,
               configured: current_user.account.git_provider_credentials
                             .where(provider: provider, is_active: true).exists?
@@ -284,12 +286,12 @@ module Api
           params.require(:provider).permit(
             :name, :slug, :provider_type, :description,
             :api_base_url, :web_base_url, :is_active,
-            :supports_oauth, :supports_pat, :supports_webhooks, :supports_ci_cd,
+            :supports_oauth, :supports_pat, :supports_webhooks, :supports_devops,
             :priority_order,
             capabilities: [],
             oauth_config: {},
             webhook_config: {},
-            ci_cd_config: {},
+            devops_config: {},
             metadata: {}
           )
         end
@@ -311,7 +313,7 @@ module Api
             supports_oauth: provider.supports_oauth,
             supports_pat: provider.supports_pat,
             supports_webhooks: provider.supports_webhooks,
-            supports_ci_cd: provider.supports_ci_cd,
+            supports_devops: provider.supports_devops,
             capabilities: provider.capabilities,
             priority_order: provider.priority_order,
             created_at: provider.created_at.iso8601
@@ -325,7 +327,7 @@ module Api
             web_base_url: provider.web_base_url,
             oauth_config: provider.oauth_config.except("client_secret"),
             webhook_config: provider.webhook_config,
-            ci_cd_config: provider.ci_cd_config,
+            devops_config: provider.devops_config,
             metadata: provider.metadata,
             credentials_count: provider.credentials
                                 .where(account: current_user.account).count

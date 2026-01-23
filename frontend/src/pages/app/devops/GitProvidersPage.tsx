@@ -4,21 +4,31 @@ import {
   Plus, Settings, CheckCircle, XCircle,
   AlertTriangle, MoreVertical, RefreshCw,
   FolderGit2, Users, Activity, GitBranch, Loader2,
-  Trash2, TestTube, ExternalLink
+  Trash2, TestTube, ExternalLink, ChevronDown, ChevronRight,
+  Key, Shield, Webhook, Cpu
 } from 'lucide-react';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
 import { GitProviderModal } from '@/features/devops/git/components/GitProviderModal';
-import { GitProviderDetail } from '@/features/devops/git/types';
+import { CredentialModal } from '@/features/devops/git/components/CredentialModal';
+import { GitProviderDetail, GitCredential, AvailableProvider } from '@/features/devops/git/types';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface GitProvider {
   id: string;
   name: string;
+  slug: string;
   type: 'github' | 'gitlab' | 'gitea' | 'bitbucket';
   apiUrl: string;
+  webUrl?: string;
   status: 'connected' | 'error' | 'disconnected';
   isDefault: boolean;
+  description?: string;
+  capabilities: string[];
+  supportsOAuth: boolean;
+  supportsPAT: boolean;
+  supportsWebhooks: boolean;
+  supportsDevOps: boolean;
   stats: {
     repositories: number;
     organizations: number;
@@ -26,6 +36,7 @@ interface GitProvider {
   };
   lastSync?: string;
   error?: string;
+  credentialsCount: number;
 }
 
 export function GitProvidersPage() {
@@ -40,6 +51,13 @@ export function GitProvidersPage() {
   const [syncing, setSyncing] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
+  const [expandedProviderId, setExpandedProviderId] = useState<string | null>(null);
+  const [providerCredentials, setProviderCredentials] = useState<Record<string, GitCredential[]>>({});
+  const [loadingCredentials, setLoadingCredentials] = useState<string | null>(null);
+  const [credentialModalOpen, setCredentialModalOpen] = useState(false);
+  const [credentialModalProvider, setCredentialModalProvider] = useState<AvailableProvider | null>(null);
+  const [editingCredential, setEditingCredential] = useState<GitCredential | null>(null);
+  const [credentialActionLoading, setCredentialActionLoading] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -81,30 +99,50 @@ export function GitProvidersPage() {
       const mappedProviders: GitProvider[] = gitProviders.map((p: {
         id: string;
         name: string;
+        slug?: string;
         provider_type?: string;
         base_url?: string;
         api_url?: string;
+        api_base_url?: string;
+        web_url?: string;
+        web_base_url?: string;
         status?: string;
         is_default?: boolean;
+        description?: string;
+        capabilities?: string[];
+        supports_oauth?: boolean;
+        supports_pat?: boolean;
+        supports_webhooks?: boolean;
+        supports_devops?: boolean;
         repositories_count?: number;
         organizations_count?: number;
         webhooks_count?: number;
         last_synced_at?: string;
         error_message?: string;
+        credentials_count?: number;
       }) => ({
         id: p.id,
         name: p.name,
+        slug: p.slug || '',
         type: mapProviderType(p.provider_type),
-        apiUrl: p.base_url || p.api_url || '',
+        apiUrl: p.base_url || p.api_url || p.api_base_url || '',
+        webUrl: p.web_url || p.web_base_url || '',
         status: mapStatus(p.status),
         isDefault: p.is_default || false,
+        description: p.description || '',
+        capabilities: p.capabilities || [],
+        supportsOAuth: p.supports_oauth ?? true,
+        supportsPAT: p.supports_pat ?? true,
+        supportsWebhooks: p.supports_webhooks ?? true,
+        supportsDevOps: p.supports_devops ?? false,
         stats: {
           repositories: p.repositories_count || 0,
           organizations: p.organizations_count || 0,
           webhooksActive: p.webhooks_count || 0
         },
         lastSync: p.last_synced_at ? formatTimeAgo(p.last_synced_at) : undefined,
-        error: p.error_message
+        error: p.error_message,
+        credentialsCount: p.credentials_count || 0
       }));
 
       setProviders(mappedProviders);
@@ -142,6 +180,30 @@ export function GitProvidersPage() {
     loadProviderForEdit();
   }, [id, navigate, showNotification, isModalOpen]);
 
+  const fetchCredentialsForProvider = async (providerId: string) => {
+    setLoadingCredentials(providerId);
+    try {
+      const credentials = await gitProvidersApi.getCredentials(providerId);
+      setProviderCredentials(prev => ({ ...prev, [providerId]: credentials }));
+    } catch (error) {
+      showNotification('Failed to load credentials', 'error');
+    } finally {
+      setLoadingCredentials(null);
+    }
+  };
+
+  const handleToggleExpand = async (providerId: string) => {
+    if (expandedProviderId === providerId) {
+      setExpandedProviderId(null);
+    } else {
+      setExpandedProviderId(providerId);
+      // Fetch credentials if not already loaded
+      if (!providerCredentials[providerId]) {
+        await fetchCredentialsForProvider(providerId);
+      }
+    }
+  };
+
   const handleModalClose = () => {
     setIsModalOpen(false);
     setEditingProvider(null);
@@ -177,10 +239,13 @@ export function GitProvidersPage() {
     setSyncing(providerId);
     try {
       // Find a credential for this provider to sync
-      const credentials = await gitProvidersApi.getCredentials(providerId);
+      const credentials = providerCredentials[providerId] || await gitProvidersApi.getCredentials(providerId);
       if (credentials.length > 0) {
         await gitProvidersApi.syncRepositories(providerId, credentials[0].id);
         showNotification('Repositories synced successfully', 'success');
+        // Refresh credentials to update stats
+        await fetchCredentialsForProvider(providerId);
+        await fetchProviders();
       } else {
         showNotification('No credentials found. Add credentials first.', 'warning');
       }
@@ -195,7 +260,7 @@ export function GitProvidersPage() {
     setTesting(providerId);
     setOpenMenuId(null);
     try {
-      const credentials = await gitProvidersApi.getCredentials(providerId);
+      const credentials = providerCredentials[providerId] || await gitProvidersApi.getCredentials(providerId);
       if (credentials.length > 0) {
         const result = await gitProvidersApi.testCredential(providerId, credentials[0].id);
         if (result.success) {
@@ -222,6 +287,9 @@ export function GitProvidersPage() {
       await gitProvidersApi.deleteProvider(providerId);
       showNotification('Provider deleted successfully', 'success');
       setProviders(providers.filter(p => p.id !== providerId));
+      if (expandedProviderId === providerId) {
+        setExpandedProviderId(null);
+      }
     } catch (error) {
       showNotification('Failed to delete provider', 'error');
     }
@@ -230,6 +298,115 @@ export function GitProvidersPage() {
   const handleViewRepositories = (providerId: string) => {
     setOpenMenuId(null);
     navigate(`/app/devops/repositories?provider=${providerId}`);
+  };
+
+  // Credential management handlers
+  const handleAddCredential = (provider: GitProvider) => {
+    const availableProvider: AvailableProvider = {
+      id: provider.id,
+      name: provider.name,
+      slug: provider.slug,
+      provider_type: provider.type,
+      description: provider.description,
+      supports_oauth: provider.supportsOAuth,
+      supports_pat: provider.supportsPAT,
+      supports_devops: provider.supportsDevOps,
+      capabilities: provider.capabilities,
+      configured: provider.credentialsCount > 0
+    };
+    setCredentialModalProvider(availableProvider);
+    setEditingCredential(null);
+    setCredentialModalOpen(true);
+  };
+
+  const handleEditCredential = (provider: GitProvider, credential: GitCredential) => {
+    const availableProvider: AvailableProvider = {
+      id: provider.id,
+      name: provider.name,
+      slug: provider.slug,
+      provider_type: provider.type,
+      description: provider.description,
+      supports_oauth: provider.supportsOAuth,
+      supports_pat: provider.supportsPAT,
+      supports_devops: provider.supportsDevOps,
+      capabilities: provider.capabilities,
+      configured: true
+    };
+    setCredentialModalProvider(availableProvider);
+    setEditingCredential(credential);
+    setCredentialModalOpen(true);
+  };
+
+  const handleCredentialModalSuccess = async () => {
+    setCredentialModalOpen(false);
+    setCredentialModalProvider(null);
+    setEditingCredential(null);
+    showNotification(editingCredential ? 'Credential updated' : 'Credential added', 'success');
+    // Refresh credentials for the provider
+    if (expandedProviderId) {
+      await fetchCredentialsForProvider(expandedProviderId);
+    }
+    await fetchProviders();
+  };
+
+  const handleTestCredential = async (providerId: string, credentialId: string) => {
+    setCredentialActionLoading(`test-${credentialId}`);
+    try {
+      const result = await gitProvidersApi.testCredential(providerId, credentialId);
+      if (result.success) {
+        showNotification('Connection test successful', 'success');
+      } else {
+        showNotification(result.error || 'Connection test failed', 'error');
+      }
+    } catch (error) {
+      showNotification('Failed to test connection', 'error');
+    } finally {
+      setCredentialActionLoading(null);
+    }
+  };
+
+  const handleSyncCredential = async (providerId: string, credentialId: string) => {
+    setCredentialActionLoading(`sync-${credentialId}`);
+    try {
+      const result = await gitProvidersApi.syncRepositories(providerId, credentialId);
+      showNotification(`Synced ${result.synced_count} repositories`, 'success');
+      await fetchCredentialsForProvider(providerId);
+      await fetchProviders();
+    } catch (error) {
+      showNotification('Failed to sync repositories', 'error');
+    } finally {
+      setCredentialActionLoading(null);
+    }
+  };
+
+  const handleMakeDefaultCredential = async (providerId: string, credentialId: string) => {
+    setCredentialActionLoading(`default-${credentialId}`);
+    try {
+      await gitProvidersApi.makeDefaultCredential(providerId, credentialId);
+      showNotification('Credential set as default', 'success');
+      await fetchCredentialsForProvider(providerId);
+    } catch (error) {
+      showNotification('Failed to set default credential', 'error');
+    } finally {
+      setCredentialActionLoading(null);
+    }
+  };
+
+  const handleDeleteCredential = async (providerId: string, credentialId: string, credentialName: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${credentialName}"? This action cannot be undone.`)) {
+      return;
+    }
+    setCredentialActionLoading(`delete-${credentialId}`);
+    try {
+      await gitProvidersApi.deleteCredential(providerId, credentialId);
+      showNotification('Credential deleted', 'success');
+      await fetchCredentialsForProvider(providerId);
+      await fetchProviders();
+    } catch (error) {
+      showNotification('Failed to delete credential', 'error');
+    } finally {
+      setCredentialActionLoading(null);
+    }
   };
 
   const mapProviderType = (type?: string): GitProvider['type'] => {
@@ -359,137 +536,353 @@ export function GitProvidersPage() {
             </p>
           </div>
         ) : (
-          providers.map((provider) => (
-          <div
-            key={provider.id}
-            className={`bg-theme-surface border rounded-lg p-5 ${
-              provider.status === 'error' ? 'border-theme-danger' : 'border-theme'
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-4">
-                {getProviderLogo(provider.type)}
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-theme-primary">{provider.name}</h3>
-                    {provider.isDefault && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-theme-interactive-primary text-theme-on-primary">
-                        Default
-                      </span>
-                    )}
-                    {getStatusBadge(provider.status)}
+          providers.map((provider) => {
+            const isExpanded = expandedProviderId === provider.id;
+            const credentials = providerCredentials[provider.id] || [];
+            const isLoadingCreds = loadingCredentials === provider.id;
+
+            return (
+              <div
+                key={provider.id}
+                className={`bg-theme-surface border rounded-lg ${
+                  provider.status === 'error' ? 'border-theme-danger' : 'border-theme'
+                }`}
+              >
+                {/* Provider Header - Always visible */}
+                <div
+                  className="p-5 cursor-pointer"
+                  onClick={() => handleToggleExpand(provider.id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4">
+                      <div className="flex items-center gap-2">
+                        {isExpanded ? (
+                          <ChevronDown className="w-4 h-4 text-theme-secondary" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-theme-secondary" />
+                        )}
+                        {getProviderLogo(provider.type)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-theme-primary">{provider.name}</h3>
+                          {provider.isDefault && (
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-theme-interactive-primary text-theme-on-primary">
+                              Default
+                            </span>
+                          )}
+                          {getStatusBadge(provider.status)}
+                          {provider.credentialsCount > 0 && (
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-theme-bg-subtle text-theme-secondary">
+                              {provider.credentialsCount} credential{provider.credentialsCount !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-theme-secondary mt-1">
+                          {provider.apiUrl}
+                        </p>
+                        {provider.error && (
+                          <p className="text-sm text-theme-danger mt-2 flex items-center gap-1">
+                            <AlertTriangle className="w-4 h-4" />
+                            {provider.error}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => handleSyncProvider(provider.id)}
+                        disabled={syncing === provider.id}
+                        className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary disabled:opacity-50"
+                        title="Sync repositories"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${syncing === provider.id ? 'animate-spin' : ''}`} />
+                      </button>
+                      <button
+                        onClick={() => handleEditProvider(provider.id)}
+                        className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary"
+                        title="Settings"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
+                      <div className="relative" ref={openMenuId === provider.id ? menuRef : null}>
+                        <button
+                          onClick={() => setOpenMenuId(openMenuId === provider.id ? null : provider.id)}
+                          className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                        {openMenuId === provider.id && (
+                          <div className="absolute right-0 top-full mt-1 w-48 bg-theme-surface border border-theme rounded-lg shadow-lg z-10 py-1">
+                            <button
+                              onClick={() => handleTestConnection(provider.id)}
+                              disabled={testing === provider.id}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle disabled:opacity-50"
+                            >
+                              <TestTube className={`w-4 h-4 ${testing === provider.id ? 'animate-pulse' : ''}`} />
+                              {testing === provider.id ? 'Testing...' : 'Test Connection'}
+                            </button>
+                            <button
+                              onClick={() => handleViewRepositories(provider.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle"
+                            >
+                              <FolderGit2 className="w-4 h-4" />
+                              View Repositories
+                            </button>
+                            {provider.apiUrl && (
+                              <a
+                                href={provider.webUrl || provider.apiUrl.replace('/api/v1', '').replace('/api', '')}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => setOpenMenuId(null)}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                                Open Provider
+                              </a>
+                            )}
+                            <div className="border-t border-theme my-1" />
+                            <button
+                              onClick={() => handleDeleteProvider(provider.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-danger hover:bg-theme-danger/10"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete Provider
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-theme-secondary mt-1">
-                    {provider.apiUrl}
-                  </p>
-                  {provider.error && (
-                    <p className="text-sm text-theme-danger mt-2 flex items-center gap-1">
-                      <AlertTriangle className="w-4 h-4" />
-                      {provider.error}
+
+                  {/* Quick Stats - Always show when connected */}
+                  {provider.status === 'connected' && (
+                    <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-theme">
+                      <div className="flex items-center gap-2">
+                        <FolderGit2 className="w-4 h-4 text-theme-secondary" />
+                        <div>
+                          <p className="text-sm text-theme-secondary">Repositories</p>
+                          <p className="font-semibold text-theme-primary">{provider.stats.repositories}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-theme-secondary" />
+                        <div>
+                          <p className="text-sm text-theme-secondary">Organizations</p>
+                          <p className="font-semibold text-theme-primary">{provider.stats.organizations}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-theme-secondary" />
+                        <div>
+                          <p className="text-sm text-theme-secondary">Active Webhooks</p>
+                          <p className="font-semibold text-theme-primary">{provider.stats.webhooksActive}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {provider.lastSync && !isExpanded && (
+                    <p className="text-xs text-theme-secondary mt-3">
+                      Last synced {provider.lastSync}
                     </p>
                   )}
                 </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleSyncProvider(provider.id)}
-                  disabled={syncing === provider.id}
-                  className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary disabled:opacity-50"
-                  title="Sync repositories"
-                >
-                  <RefreshCw className={`w-4 h-4 ${syncing === provider.id ? 'animate-spin' : ''}`} />
-                </button>
-                <button
-                  onClick={() => handleEditProvider(provider.id)}
-                  className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary"
-                  title="Settings"
-                >
-                  <Settings className="w-4 h-4" />
-                </button>
-                <div className="relative" ref={openMenuId === provider.id ? menuRef : null}>
-                  <button
-                    onClick={() => setOpenMenuId(openMenuId === provider.id ? null : provider.id)}
-                    className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary"
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-                  {openMenuId === provider.id && (
-                    <div className="absolute right-0 top-full mt-1 w-48 bg-theme-surface border border-theme rounded-lg shadow-lg z-10 py-1">
-                      <button
-                        onClick={() => handleTestConnection(provider.id)}
-                        disabled={testing === provider.id}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle disabled:opacity-50"
-                      >
-                        <TestTube className={`w-4 h-4 ${testing === provider.id ? 'animate-pulse' : ''}`} />
-                        {testing === provider.id ? 'Testing...' : 'Test Connection'}
-                      </button>
-                      <button
-                        onClick={() => handleViewRepositories(provider.id)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle"
-                      >
-                        <FolderGit2 className="w-4 h-4" />
-                        View Repositories
-                      </button>
-                      {provider.apiUrl && (
-                        <a
-                          href={provider.apiUrl.replace('/api/v1', '').replace('/api', '')}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => setOpenMenuId(null)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                          Open Provider
-                        </a>
+                {/* Expanded Details */}
+                {isExpanded && (
+                  <div className="border-t border-theme">
+                    {/* Capabilities */}
+                    <div className="p-5 border-b border-theme">
+                      <h4 className="text-sm font-medium text-theme-primary mb-3">Capabilities</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {provider.supportsOAuth && (
+                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-bg-subtle text-theme-secondary">
+                            <Shield className="w-3 h-3" />
+                            OAuth
+                          </span>
+                        )}
+                        {provider.supportsPAT && (
+                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-bg-subtle text-theme-secondary">
+                            <Key className="w-3 h-3" />
+                            Personal Access Tokens
+                          </span>
+                        )}
+                        {provider.supportsWebhooks && (
+                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-bg-subtle text-theme-secondary">
+                            <Webhook className="w-3 h-3" />
+                            Webhooks
+                          </span>
+                        )}
+                        {provider.supportsDevOps && (
+                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-bg-subtle text-theme-secondary">
+                            <Cpu className="w-3 h-3" />
+                            CI/CD
+                          </span>
+                        )}
+                        {provider.capabilities.map((cap) => (
+                          <span
+                            key={cap}
+                            className="px-2 py-1 text-xs rounded-md bg-theme-bg-subtle text-theme-tertiary"
+                          >
+                            {cap}
+                          </span>
+                        ))}
+                      </div>
+                      {provider.description && (
+                        <p className="text-sm text-theme-secondary mt-3">{provider.description}</p>
                       )}
-                      <div className="border-t border-theme my-1" />
-                      <button
-                        onClick={() => handleDeleteProvider(provider.id)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-danger hover:bg-theme-danger/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete Provider
-                      </button>
                     </div>
-                  )}
-                </div>
-              </div>
-            </div>
 
-            {provider.status === 'connected' && (
-              <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-theme">
-                <div className="flex items-center gap-2">
-                  <FolderGit2 className="w-4 h-4 text-theme-secondary" />
-                  <div>
-                    <p className="text-sm text-theme-secondary">Repositories</p>
-                    <p className="font-semibold text-theme-primary">{provider.stats.repositories}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-theme-secondary" />
-                  <div>
-                    <p className="text-sm text-theme-secondary">Organizations</p>
-                    <p className="font-semibold text-theme-primary">{provider.stats.organizations}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-theme-secondary" />
-                  <div>
-                    <p className="text-sm text-theme-secondary">Active Webhooks</p>
-                    <p className="font-semibold text-theme-primary">{provider.stats.webhooksActive}</p>
-                  </div>
-                </div>
-              </div>
-            )}
+                    {/* Credentials Section */}
+                    <div className="p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-medium text-theme-primary">Credentials</h4>
+                        <button
+                          onClick={() => handleAddCredential(provider)}
+                          className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-interactive-primary text-theme-on-primary hover:bg-theme-interactive-primary-hover"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Add Credential
+                        </button>
+                      </div>
 
-            {provider.lastSync && (
-              <p className="text-xs text-theme-secondary mt-3">
-                Last synced {provider.lastSync}
-              </p>
-            )}
-          </div>
-          ))
+                      {isLoadingCreds ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="w-5 h-5 animate-spin text-theme-primary" />
+                        </div>
+                      ) : credentials.length === 0 ? (
+                        <div className="text-center py-6 bg-theme-bg rounded-lg border border-dashed border-theme">
+                          <Key className="w-8 h-8 mx-auto text-theme-secondary mb-2" />
+                          <p className="text-sm text-theme-secondary">No credentials configured</p>
+                          <p className="text-xs text-theme-tertiary mt-1">
+                            Add a credential to connect and sync repositories
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {credentials.map((credential) => (
+                            <div
+                              key={credential.id}
+                              className="flex items-center justify-between p-3 bg-theme-bg rounded-lg border border-theme"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-theme-primary/10">
+                                  <Key className="w-4 h-4 text-theme-primary" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-sm text-theme-primary">
+                                      {credential.name}
+                                    </span>
+                                    {credential.is_default && (
+                                      <span className="px-1.5 py-0.5 text-xs rounded bg-theme-primary/10 text-theme-primary">
+                                        Default
+                                      </span>
+                                    )}
+                                    {credential.is_active ? (
+                                      <span className="flex items-center gap-0.5 text-xs text-theme-success">
+                                        <CheckCircle className="w-3 h-3" />
+                                        Active
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-0.5 text-xs text-theme-danger">
+                                        <XCircle className="w-3 h-3" />
+                                        Inactive
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-1 text-xs text-theme-secondary">
+                                    <span className="capitalize">{credential.auth_type.replace('_', ' ')}</span>
+                                    {credential.external_username && (
+                                      <span>@{credential.external_username}</span>
+                                    )}
+                                    {credential.repository_count !== undefined && (
+                                      <span>{credential.repository_count} repos</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => handleTestCredential(provider.id, credential.id)}
+                                  disabled={credentialActionLoading !== null}
+                                  className="p-1.5 rounded-lg hover:bg-theme-hover text-theme-secondary hover:text-theme-primary"
+                                  title="Test Connection"
+                                >
+                                  {credentialActionLoading === `test-${credential.id}` ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <TestTube className="w-4 h-4" />
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => handleSyncCredential(provider.id, credential.id)}
+                                  disabled={credentialActionLoading !== null}
+                                  className="p-1.5 rounded-lg hover:bg-theme-hover text-theme-secondary hover:text-theme-primary"
+                                  title="Sync Repositories"
+                                >
+                                  {credentialActionLoading === `sync-${credential.id}` ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="w-4 h-4" />
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => handleEditCredential(provider, credential)}
+                                  className="p-1.5 rounded-lg hover:bg-theme-hover text-theme-secondary hover:text-theme-primary"
+                                  title="Edit"
+                                >
+                                  <Settings className="w-4 h-4" />
+                                </button>
+                                {!credential.is_default && (
+                                  <button
+                                    onClick={() => handleMakeDefaultCredential(provider.id, credential.id)}
+                                    disabled={credentialActionLoading !== null}
+                                    className="p-1.5 rounded-lg hover:bg-theme-hover text-theme-secondary hover:text-theme-primary"
+                                    title="Make Default"
+                                  >
+                                    {credentialActionLoading === `default-${credential.id}` ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleDeleteCredential(provider.id, credential.id, credential.name)}
+                                  disabled={credentialActionLoading !== null}
+                                  className="p-1.5 rounded-lg hover:bg-theme-danger/10 text-theme-secondary hover:text-theme-danger"
+                                  title="Delete"
+                                >
+                                  {credentialActionLoading === `delete-${credential.id}` ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer with last sync */}
+                    {provider.lastSync && (
+                      <div className="px-5 pb-4">
+                        <p className="text-xs text-theme-tertiary">
+                          Last synced {provider.lastSync}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 
@@ -523,7 +916,7 @@ export function GitProvidersPage() {
         </div>
       </div>
 
-      {/* Edit/Create Modal */}
+      {/* Edit/Create Provider Modal */}
       <GitProviderModal
         isOpen={isModalOpen}
         onClose={handleModalClose}
@@ -531,6 +924,21 @@ export function GitProvidersPage() {
         provider={editingProvider}
         initialProviderType={selectedProviderType}
       />
+
+      {/* Add/Edit Credential Modal */}
+      {credentialModalProvider && (
+        <CredentialModal
+          isOpen={credentialModalOpen}
+          onClose={() => {
+            setCredentialModalOpen(false);
+            setCredentialModalProvider(null);
+            setEditingCredential(null);
+          }}
+          provider={credentialModalProvider}
+          onSuccess={handleCredentialModalSuccess}
+          credential={editingCredential}
+        />
+      )}
     </PageContainer>
   );
 }
