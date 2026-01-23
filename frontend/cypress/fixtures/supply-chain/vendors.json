@@ -1,0 +1,70 @@
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "vendor-1",
+        "name": "Cloud Provider Inc",
+        "vendor_type": "iaas",
+        "risk_tier": "low",
+        "risk_score": 25,
+        "status": "active",
+        "handles_pii": true,
+        "handles_phi": false,
+        "handles_pci": false,
+        "certifications": ["SOC2", "ISO27001", "FedRAMP"],
+        "contact_name": "Jane Smith",
+        "contact_email": "jane@cloudprovider.com",
+        "website": "https://cloudprovider.com",
+        "last_assessment_at": "2024-01-01T00:00:00Z",
+        "next_assessment_due": "2024-07-01T00:00:00Z",
+        "created_at": "2023-06-01T00:00:00Z",
+        "updated_at": "2024-01-15T10:00:00Z"
+      },
+      {
+        "id": "vendor-2",
+        "name": "Payment Gateway Corp",
+        "vendor_type": "saas",
+        "risk_tier": "high",
+        "risk_score": 72,
+        "status": "active",
+        "handles_pii": true,
+        "handles_phi": false,
+        "handles_pci": true,
+        "certifications": ["PCI-DSS", "SOC2"],
+        "contact_name": "Bob Johnson",
+        "contact_email": "bob@paymentgateway.com",
+        "website": "https://paymentgateway.com",
+        "last_assessment_at": "2023-10-15T00:00:00Z",
+        "next_assessment_due": "2024-01-15T00:00:00Z",
+        "created_at": "2023-03-01T00:00:00Z",
+        "updated_at": "2024-01-10T08:00:00Z"
+      },
+      {
+        "id": "vendor-3",
+        "name": "Analytics Service",
+        "vendor_type": "saas",
+        "risk_tier": "medium",
+        "risk_score": 45,
+        "status": "active",
+        "handles_pii": true,
+        "handles_phi": false,
+        "handles_pci": false,
+        "certifications": ["SOC2"],
+        "contact_name": "Alice Brown",
+        "contact_email": "alice@analytics.com",
+        "website": "https://analytics.com",
+        "last_assessment_at": "2023-12-01T00:00:00Z",
+        "next_assessment_due": "2024-06-01T00:00:00Z",
+        "created_at": "2023-09-01T00:00:00Z",
+        "updated_at": "2024-01-08T14:00:00Z"
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 20,
+      "total_pages": 1,
+      "total_count": 3
+    }
+  }
+}
