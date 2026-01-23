@@ -89,7 +89,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["status"], name: "index_accounts_on_status"
     t.index ["stripe_customer_id"], name: "index_accounts_on_stripe_customer_id", unique: true, where: "(stripe_customer_id IS NOT NULL)"
     t.index ["subdomain"], name: "index_accounts_on_subdomain", unique: true, where: "((subdomain IS NOT NULL) AND ((subdomain)::text <> ''::text))"
-    t.check_constraint "analytics_tier::text = ANY (ARRAY['free'::character varying::text, 'starter'::character varying::text, 'pro'::character varying::text, 'enterprise'::character varying::text])", name: "check_analytics_tier"
+    t.check_constraint "analytics_tier::text = ANY (ARRAY['free'::character varying, 'starter'::character varying, 'pro'::character varying, 'enterprise'::character varying]::text[])", name: "check_analytics_tier"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'cancelled'::character varying::text, 'suspended'::character varying::text])", name: "valid_account_status"
   end
 
@@ -138,8 +138,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["created_by_id"], name: "index_ai_ab_tests_on_created_by_id"
     t.index ["target_type", "target_id"], name: "index_ai_ab_tests_on_target_type_and_target_id"
     t.index ["test_id"], name: "index_ai_ab_tests_on_test_id", unique: true
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'running'::character varying::text, 'paused'::character varying::text, 'completed'::character varying::text, 'cancelled'::character varying::text])", name: "check_ab_test_status"
-    t.check_constraint "target_type::text = ANY (ARRAY['workflow'::character varying::text, 'agent'::character varying::text, 'prompt'::character varying::text, 'model'::character varying::text, 'provider'::character varying::text])", name: "check_ab_target_type"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'running'::character varying, 'paused'::character varying, 'completed'::character varying, 'cancelled'::character varying]::text[])", name: "check_ab_test_status"
+    t.check_constraint "target_type::text = ANY (ARRAY['workflow'::character varying, 'agent'::character varying, 'prompt'::character varying, 'model'::character varying, 'provider'::character varying]::text[])", name: "check_ab_target_type"
   end
 
   create_table "ai_account_credits", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -229,7 +229,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["installed_by_id"], name: "index_ai_agent_installations_on_installed_by_id"
     t.index ["license_expires_at"], name: "index_ai_agent_installations_on_license_expires_at"
     t.index ["status"], name: "index_ai_agent_installations_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text, 'pending_update'::character varying::text])", name: "check_installation_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'expired'::character varying, 'cancelled'::character varying, 'pending_update'::character varying]::text[])", name: "check_installation_status"
   end
 
   create_table "ai_agent_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -285,7 +285,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["status"], name: "index_ai_agent_reviews_on_status"
     t.index ["user_id"], name: "index_ai_agent_reviews_on_user_id"
     t.check_constraint "rating >= 1 AND rating <= 5", name: "check_review_rating"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'published'::character varying::text, 'hidden'::character varying::text, 'flagged'::character varying::text, 'removed'::character varying::text])", name: "check_review_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'published'::character varying, 'hidden'::character varying, 'flagged'::character varying, 'removed'::character varying]::text[])", name: "check_review_status"
   end
 
   create_table "ai_agent_team_members", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -329,10 +329,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["team_topology"], name: "index_ai_agent_teams_on_team_topology"
     t.index ["team_type"], name: "index_ai_agent_teams_on_team_type"
     t.index ["template_id"], name: "index_ai_agent_teams_on_template_id"
-    t.check_constraint "communication_pattern::text = ANY (ARRAY['hub_spoke'::character varying::text, 'peer_to_peer'::character varying::text, 'broadcast'::character varying::text, 'sequential'::character varying::text, 'event_driven'::character varying::text])", name: "check_communication_pattern"
-    t.check_constraint "coordination_strategy::text = ANY (ARRAY['manager_led'::character varying::text, 'consensus'::character varying::text, 'auction'::character varying::text, 'round_robin'::character varying::text, 'priority_based'::character varying::text])", name: "check_coordination_strategy"
+    t.check_constraint "communication_pattern::text = ANY (ARRAY['hub_spoke'::character varying, 'peer_to_peer'::character varying, 'broadcast'::character varying, 'sequential'::character varying, 'event_driven'::character varying]::text[])", name: "check_communication_pattern"
+    t.check_constraint "coordination_strategy::text = ANY (ARRAY['manager_led'::character varying, 'consensus'::character varying, 'auction'::character varying, 'round_robin'::character varying, 'priority_based'::character varying]::text[])", name: "check_coordination_strategy"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'archived'::character varying::text])", name: "ai_agent_teams_status_check"
-    t.check_constraint "team_topology::text = ANY (ARRAY['hierarchical'::character varying::text, 'flat'::character varying::text, 'mesh'::character varying::text, 'pipeline'::character varying::text, 'hybrid'::character varying::text])", name: "check_team_topology_enum"
+    t.check_constraint "team_topology::text = ANY (ARRAY['hierarchical'::character varying, 'flat'::character varying, 'mesh'::character varying, 'pipeline'::character varying, 'hybrid'::character varying]::text[])", name: "check_team_topology_enum"
     t.check_constraint "team_type::text = ANY (ARRAY['hierarchical'::character varying::text, 'mesh'::character varying::text, 'sequential'::character varying::text, 'parallel'::character varying::text])", name: "ai_agent_teams_team_type_check"
   end
 
@@ -383,9 +383,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["source_agent_id"], name: "index_ai_agent_templates_on_source_agent_id"
     t.index ["status", "visibility"], name: "index_ai_agent_templates_on_status_and_visibility"
     t.index ["vertical"], name: "index_ai_agent_templates_on_vertical"
-    t.check_constraint "pricing_type::text = ANY (ARRAY['free'::character varying::text, 'one_time'::character varying::text, 'subscription'::character varying::text, 'usage_based'::character varying::text, 'freemium'::character varying::text])", name: "check_pricing_type"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'pending_review'::character varying::text, 'published'::character varying::text, 'rejected'::character varying::text, 'archived'::character varying::text, 'suspended'::character varying::text])", name: "check_template_status"
-    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'unlisted'::character varying::text, 'public'::character varying::text, 'enterprise'::character varying::text])", name: "check_template_visibility"
+    t.check_constraint "pricing_type::text = ANY (ARRAY['free'::character varying, 'one_time'::character varying, 'subscription'::character varying, 'usage_based'::character varying, 'freemium'::character varying]::text[])", name: "check_pricing_type"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'pending_review'::character varying, 'published'::character varying, 'rejected'::character varying, 'archived'::character varying, 'suspended'::character varying]::text[])", name: "check_template_status"
+    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'unlisted'::character varying, 'public'::character varying, 'enterprise'::character varying]::text[])", name: "check_template_visibility"
   end
 
   create_table "ai_agents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -445,7 +445,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["account_id"], name: "index_ai_approval_chains_on_account_id"
     t.index ["created_by_id"], name: "index_ai_approval_chains_on_created_by_id"
     t.index ["trigger_type"], name: "index_ai_approval_chains_on_trigger_type"
-    t.check_constraint "trigger_type::text = ANY (ARRAY['workflow_deploy'::character varying::text, 'agent_deploy'::character varying::text, 'high_cost'::character varying::text, 'sensitive_data'::character varying::text, 'model_change'::character varying::text, 'policy_override'::character varying::text, 'manual'::character varying::text])", name: "check_chain_trigger_type"
+    t.check_constraint "trigger_type::text = ANY (ARRAY['workflow_deploy'::character varying, 'agent_deploy'::character varying, 'high_cost'::character varying, 'sensitive_data'::character varying, 'model_change'::character varying, 'policy_override'::character varying, 'manual'::character varying]::text[])", name: "check_chain_trigger_type"
   end
 
   create_table "ai_approval_decisions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -461,7 +461,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["approval_request_id"], name: "index_ai_approval_decisions_on_approval_request_id"
     t.index ["approver_id", "created_at"], name: "index_ai_approval_decisions_on_approver_id_and_created_at"
     t.index ["approver_id"], name: "index_ai_approval_decisions_on_approver_id"
-    t.check_constraint "decision::text = ANY (ARRAY['approved'::character varying::text, 'rejected'::character varying::text, 'delegated'::character varying::text, 'abstained'::character varying::text])", name: "check_decision_type"
+    t.check_constraint "decision::text = ANY (ARRAY['approved'::character varying, 'rejected'::character varying, 'delegated'::character varying, 'abstained'::character varying]::text[])", name: "check_decision_type"
   end
 
   create_table "ai_approval_requests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -487,7 +487,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["expires_at"], name: "index_ai_approval_requests_on_expires_at"
     t.index ["request_id"], name: "index_ai_approval_requests_on_request_id", unique: true
     t.index ["requested_by_id"], name: "index_ai_approval_requests_on_requested_by_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "check_request_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying, 'expired'::character varying, 'cancelled'::character varying]::text[])", name: "check_request_status"
   end
 
   create_table "ai_code_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -525,7 +525,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["repository_id", "pull_request_number"], name: "index_ai_code_reviews_on_repository_id_and_pull_request_number"
     t.index ["review_id"], name: "index_ai_code_reviews_on_review_id", unique: true
     t.index ["status"], name: "index_ai_code_reviews_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'analyzing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'partial'::character varying::text])", name: "check_review_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'analyzing'::character varying, 'completed'::character varying, 'failed'::character varying, 'partial'::character varying]::text[])", name: "check_review_status"
   end
 
   create_table "ai_compliance_audit_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -552,7 +552,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["outcome"], name: "index_ai_compliance_audit_entries_on_outcome"
     t.index ["resource_type", "resource_id"], name: "idx_on_resource_type_resource_id_58a603956a"
     t.index ["user_id"], name: "index_ai_compliance_audit_entries_on_user_id"
-    t.check_constraint "outcome::text = ANY (ARRAY['success'::character varying::text, 'failure'::character varying::text, 'blocked'::character varying::text, 'warning'::character varying::text])", name: "check_audit_outcome"
+    t.check_constraint "outcome::text = ANY (ARRAY['success'::character varying, 'failure'::character varying, 'blocked'::character varying, 'warning'::character varying]::text[])", name: "check_audit_outcome"
   end
 
   create_table "ai_compliance_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -583,9 +583,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["enforcement_level"], name: "index_ai_compliance_policies_on_enforcement_level"
     t.index ["is_system"], name: "index_ai_compliance_policies_on_is_system"
     t.index ["policy_type"], name: "index_ai_compliance_policies_on_policy_type"
-    t.check_constraint "enforcement_level::text = ANY (ARRAY['log'::character varying::text, 'warn'::character varying::text, 'block'::character varying::text, 'require_approval'::character varying::text])", name: "check_enforcement_level"
-    t.check_constraint "policy_type::text = ANY (ARRAY['data_access'::character varying::text, 'model_usage'::character varying::text, 'output_filter'::character varying::text, 'rate_limit'::character varying::text, 'cost_limit'::character varying::text, 'approval_required'::character varying::text, 'retention'::character varying::text, 'audit'::character varying::text, 'custom'::character varying::text])", name: "check_policy_type"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'active'::character varying::text, 'disabled'::character varying::text, 'archived'::character varying::text])", name: "check_policy_status"
+    t.check_constraint "enforcement_level::text = ANY (ARRAY['log'::character varying, 'warn'::character varying, 'block'::character varying, 'require_approval'::character varying]::text[])", name: "check_enforcement_level"
+    t.check_constraint "policy_type::text = ANY (ARRAY['data_access'::character varying, 'model_usage'::character varying, 'output_filter'::character varying, 'rate_limit'::character varying, 'cost_limit'::character varying, 'approval_required'::character varying, 'retention'::character varying, 'audit'::character varying, 'custom'::character varying]::text[])", name: "check_policy_type"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'active'::character varying, 'disabled'::character varying, 'archived'::character varying]::text[])", name: "check_policy_status"
   end
 
   create_table "ai_compliance_reports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -611,8 +611,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["generated_by_id"], name: "index_ai_compliance_reports_on_generated_by_id"
     t.index ["report_id"], name: "index_ai_compliance_reports_on_report_id", unique: true
     t.index ["status"], name: "index_ai_compliance_reports_on_status"
-    t.check_constraint "report_type::text = ANY (ARRAY['soc2'::character varying::text, 'hipaa'::character varying::text, 'gdpr'::character varying::text, 'pci_dss'::character varying::text, 'iso27001'::character varying::text, 'custom'::character varying::text, 'audit_summary'::character varying::text, 'violation_summary'::character varying::text, 'data_inventory'::character varying::text])", name: "check_report_type"
-    t.check_constraint "status::text = ANY (ARRAY['generating'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'expired'::character varying::text])", name: "check_report_status"
+    t.check_constraint "report_type::text = ANY (ARRAY['soc2'::character varying, 'hipaa'::character varying, 'gdpr'::character varying, 'pci_dss'::character varying, 'iso27001'::character varying, 'custom'::character varying, 'audit_summary'::character varying, 'violation_summary'::character varying, 'data_inventory'::character varying]::text[])", name: "check_report_type"
+    t.check_constraint "status::text = ANY (ARRAY['generating'::character varying, 'completed'::character varying, 'failed'::character varying, 'expired'::character varying]::text[])", name: "check_report_status"
   end
 
   create_table "ai_context_access_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -742,7 +742,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["provider_id"], name: "index_ai_cost_attributions_on_provider_id"
     t.index ["roi_metric_id"], name: "index_ai_cost_attributions_on_roi_metric_id"
     t.index ["source_type", "source_id"], name: "idx_cost_attributions_source"
-    t.check_constraint "cost_category::text = ANY (ARRAY['ai_inference'::character varying::text, 'ai_training'::character varying::text, 'embedding'::character varying::text, 'storage'::character varying::text, 'compute'::character varying::text, 'api_calls'::character varying::text, 'bandwidth'::character varying::text, 'other'::character varying::text])", name: "check_cost_category"
+    t.check_constraint "cost_category::text = ANY (ARRAY['ai_inference'::character varying, 'ai_training'::character varying, 'embedding'::character varying, 'storage'::character varying, 'compute'::character varying, 'api_calls'::character varying, 'bandwidth'::character varying, 'other'::character varying]::text[])", name: "check_cost_category"
   end
 
   create_table "ai_cost_optimization_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -772,8 +772,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["account_id"], name: "index_ai_cost_optimization_logs_on_account_id"
     t.index ["created_at"], name: "index_ai_cost_optimization_logs_on_created_at"
     t.index ["resource_type", "resource_id"], name: "idx_on_resource_type_resource_id_d5df61df92"
-    t.check_constraint "optimization_type::text = ANY (ARRAY['provider_switch'::character varying::text, 'model_downgrade'::character varying::text, 'caching'::character varying::text, 'batching'::character varying::text, 'rate_optimization'::character varying::text, 'usage_reduction'::character varying::text])", name: "check_optimization_type"
-    t.check_constraint "status::text = ANY (ARRAY['identified'::character varying::text, 'analyzing'::character varying::text, 'recommended'::character varying::text, 'applied'::character varying::text, 'validated'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text])", name: "check_optimization_status"
+    t.check_constraint "optimization_type::text = ANY (ARRAY['provider_switch'::character varying, 'model_downgrade'::character varying, 'caching'::character varying, 'batching'::character varying, 'rate_optimization'::character varying, 'usage_reduction'::character varying]::text[])", name: "check_optimization_type"
+    t.check_constraint "status::text = ANY (ARRAY['identified'::character varying, 'analyzing'::character varying, 'recommended'::character varying, 'applied'::character varying, 'validated'::character varying, 'rejected'::character varying, 'expired'::character varying]::text[])", name: "check_optimization_status"
   end
 
   create_table "ai_credit_packs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -797,7 +797,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["is_active", "sort_order"], name: "index_ai_credit_packs_on_is_active_and_sort_order"
     t.index ["is_active"], name: "index_ai_credit_packs_on_is_active"
     t.index ["pack_type"], name: "index_ai_credit_packs_on_pack_type"
-    t.check_constraint "pack_type::text = ANY (ARRAY['standard'::character varying::text, 'bulk'::character varying::text, 'enterprise'::character varying::text, 'promotional'::character varying::text, 'reseller'::character varying::text])", name: "check_credit_pack_type"
+    t.check_constraint "pack_type::text = ANY (ARRAY['standard'::character varying, 'bulk'::character varying, 'enterprise'::character varying, 'promotional'::character varying, 'reseller'::character varying]::text[])", name: "check_credit_pack_type"
   end
 
   create_table "ai_credit_purchases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -828,7 +828,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["payment_reference"], name: "index_ai_credit_purchases_on_payment_reference"
     t.index ["status"], name: "index_ai_credit_purchases_on_status"
     t.index ["user_id"], name: "index_ai_credit_purchases_on_user_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'refunded'::character varying::text, 'partially_refunded'::character varying::text])", name: "check_credit_purchase_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying, 'refunded'::character varying, 'partially_refunded'::character varying]::text[])", name: "check_credit_purchase_status"
   end
 
   create_table "ai_credit_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -862,8 +862,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["reference_type", "reference_id"], name: "idx_on_reference_type_reference_id_860e01290c"
     t.index ["related_transaction_id"], name: "index_ai_credit_transactions_on_related_transaction_id"
     t.index ["status"], name: "index_ai_credit_transactions_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'reversed'::character varying::text, 'expired'::character varying::text])", name: "check_credit_transaction_status"
-    t.check_constraint "transaction_type::text = ANY (ARRAY['purchase'::character varying::text, 'usage'::character varying::text, 'refund'::character varying::text, 'transfer_in'::character varying::text, 'transfer_out'::character varying::text, 'bonus'::character varying::text, 'adjustment'::character varying::text, 'expiration'::character varying::text, 'reservation'::character varying::text, 'release'::character varying::text])", name: "check_credit_transaction_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'completed'::character varying, 'failed'::character varying, 'reversed'::character varying, 'expired'::character varying]::text[])", name: "check_credit_transaction_status"
+    t.check_constraint "transaction_type::text = ANY (ARRAY['purchase'::character varying, 'usage'::character varying, 'refund'::character varying, 'transfer_in'::character varying, 'transfer_out'::character varying, 'bonus'::character varying, 'adjustment'::character varying, 'expiration'::character varying, 'reservation'::character varying, 'release'::character varying]::text[])", name: "check_credit_transaction_type"
   end
 
   create_table "ai_credit_transfers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -895,7 +895,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["status"], name: "index_ai_credit_transfers_on_status"
     t.index ["to_account_id", "created_at"], name: "index_ai_credit_transfers_on_to_account_id_and_created_at"
     t.index ["to_account_id"], name: "index_ai_credit_transfers_on_to_account_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'completed'::character varying::text, 'rejected'::character varying::text, 'cancelled'::character varying::text, 'failed'::character varying::text])", name: "check_credit_transfer_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'completed'::character varying, 'rejected'::character varying, 'cancelled'::character varying, 'failed'::character varying]::text[])", name: "check_credit_transfer_status"
   end
 
   create_table "ai_credit_usage_rates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -939,7 +939,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["classification_level"], name: "index_ai_data_classifications_on_classification_level"
     t.index ["classified_by_id"], name: "index_ai_data_classifications_on_classified_by_id"
     t.index ["is_system"], name: "index_ai_data_classifications_on_is_system"
-    t.check_constraint "classification_level::text = ANY (ARRAY['public'::character varying::text, 'internal'::character varying::text, 'confidential'::character varying::text, 'restricted'::character varying::text, 'pii'::character varying::text, 'phi'::character varying::text, 'pci'::character varying::text])", name: "check_classification_level"
+    t.check_constraint "classification_level::text = ANY (ARRAY['public'::character varying, 'internal'::character varying, 'confidential'::character varying, 'restricted'::character varying, 'pii'::character varying, 'phi'::character varying, 'pci'::character varying]::text[])", name: "check_classification_level"
   end
 
   create_table "ai_data_connectors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -965,8 +965,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["knowledge_base_id", "status"], name: "index_ai_data_connectors_on_knowledge_base_id_and_status"
     t.index ["knowledge_base_id"], name: "index_ai_data_connectors_on_knowledge_base_id"
     t.index ["next_sync_at"], name: "index_ai_data_connectors_on_next_sync_at"
-    t.check_constraint "connector_type::text = ANY (ARRAY['notion'::character varying::text, 'confluence'::character varying::text, 'google_drive'::character varying::text, 'dropbox'::character varying::text, 'github'::character varying::text, 's3'::character varying::text, 'database'::character varying::text, 'api'::character varying::text, 'web_scraper'::character varying::text])", name: "check_connector_type"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'error'::character varying::text, 'disconnected'::character varying::text])", name: "check_connector_status"
+    t.check_constraint "connector_type::text = ANY (ARRAY['notion'::character varying, 'confluence'::character varying, 'google_drive'::character varying, 'dropbox'::character varying, 'github'::character varying, 's3'::character varying, 'database'::character varying, 'api'::character varying, 'web_scraper'::character varying]::text[])", name: "check_connector_type"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'error'::character varying, 'disconnected'::character varying]::text[])", name: "check_connector_status"
   end
 
   create_table "ai_data_detections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -990,7 +990,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["classification_id"], name: "index_ai_data_detections_on_classification_id"
     t.index ["detection_id"], name: "index_ai_data_detections_on_detection_id", unique: true
     t.index ["source_type"], name: "index_ai_data_detections_on_source_type"
-    t.check_constraint "action_taken::text = ANY (ARRAY['logged'::character varying::text, 'masked'::character varying::text, 'blocked'::character varying::text, 'encrypted'::character varying::text, 'flagged'::character varying::text])", name: "check_detection_action"
+    t.check_constraint "action_taken::text = ANY (ARRAY['logged'::character varying, 'masked'::character varying, 'blocked'::character varying, 'encrypted'::character varying, 'flagged'::character varying]::text[])", name: "check_detection_action"
   end
 
   create_table "ai_deployment_risks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1025,9 +1025,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["risk_level"], name: "index_ai_deployment_risks_on_risk_level"
     t.index ["status"], name: "index_ai_deployment_risks_on_status"
     t.index ["target_environment"], name: "index_ai_deployment_risks_on_target_environment"
-    t.check_constraint "decision IS NULL OR (decision::text = ANY (ARRAY['proceed'::character varying::text, 'proceed_with_caution'::character varying::text, 'delay'::character varying::text, 'abort'::character varying::text]))", name: "check_risk_decision"
-    t.check_constraint "risk_level::text = ANY (ARRAY['low'::character varying::text, 'medium'::character varying::text, 'high'::character varying::text, 'critical'::character varying::text])", name: "check_risk_level"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'assessed'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'overridden'::character varying::text])", name: "check_risk_status"
+    t.check_constraint "decision IS NULL OR (decision::text = ANY (ARRAY['proceed'::character varying, 'proceed_with_caution'::character varying, 'delay'::character varying, 'abort'::character varying]::text[]))", name: "check_risk_decision"
+    t.check_constraint "risk_level::text = ANY (ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying, 'critical'::character varying]::text[])", name: "check_risk_level"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'assessed'::character varying, 'approved'::character varying, 'rejected'::character varying, 'overridden'::character varying]::text[])", name: "check_risk_status"
   end
 
   create_table "ai_devops_template_installations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1051,7 +1051,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["devops_template_id"], name: "index_ai_devops_template_installations_on_devops_template_id"
     t.index ["installed_by_id"], name: "index_ai_devops_template_installations_on_installed_by_id"
     t.index ["status"], name: "index_ai_devops_template_installations_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'disabled'::character varying::text, 'pending_update'::character varying::text])", name: "check_devops_installation_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'disabled'::character varying, 'pending_update'::character varying]::text[])", name: "check_devops_installation_status"
   end
 
   create_table "ai_devops_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1091,10 +1091,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["slug"], name: "index_ai_devops_templates_on_slug", unique: true
     t.index ["status", "visibility"], name: "index_ai_devops_templates_on_status_and_visibility"
     t.index ["template_type"], name: "index_ai_devops_templates_on_template_type"
-    t.check_constraint "category::text = ANY (ARRAY['code_quality'::character varying::text, 'deployment'::character varying::text, 'documentation'::character varying::text, 'testing'::character varying::text, 'security'::character varying::text, 'monitoring'::character varying::text, 'release'::character varying::text, 'custom'::character varying::text])", name: "check_devops_category"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'pending_review'::character varying::text, 'published'::character varying::text, 'archived'::character varying::text, 'deprecated'::character varying::text])", name: "check_devops_status"
-    t.check_constraint "template_type::text = ANY (ARRAY['code_review'::character varying::text, 'security_scan'::character varying::text, 'test_generation'::character varying::text, 'deployment_validation'::character varying::text, 'release_notes'::character varying::text, 'changelog'::character varying::text, 'api_docs'::character varying::text, 'coverage_analysis'::character varying::text, 'performance_check'::character varying::text, 'custom'::character varying::text])", name: "check_devops_template_type"
-    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'team'::character varying::text, 'public'::character varying::text, 'marketplace'::character varying::text])", name: "check_devops_visibility"
+    t.check_constraint "category::text = ANY (ARRAY['code_quality'::character varying, 'deployment'::character varying, 'documentation'::character varying, 'testing'::character varying, 'security'::character varying, 'monitoring'::character varying, 'release'::character varying, 'custom'::character varying]::text[])", name: "check_devops_category"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'pending_review'::character varying, 'published'::character varying, 'archived'::character varying, 'deprecated'::character varying]::text[])", name: "check_devops_status"
+    t.check_constraint "template_type::text = ANY (ARRAY['code_review'::character varying, 'security_scan'::character varying, 'test_generation'::character varying, 'deployment_validation'::character varying, 'release_notes'::character varying, 'changelog'::character varying, 'api_docs'::character varying, 'coverage_analysis'::character varying, 'performance_check'::character varying, 'custom'::character varying]::text[])", name: "check_devops_template_type"
+    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'team'::character varying, 'public'::character varying, 'marketplace'::character varying]::text[])", name: "check_devops_visibility"
   end
 
   create_table "ai_document_chunks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1145,8 +1145,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["knowledge_base_id"], name: "index_ai_documents_on_knowledge_base_id"
     t.index ["source_type"], name: "index_ai_documents_on_source_type"
     t.index ["uploaded_by_id"], name: "index_ai_documents_on_uploaded_by_id"
-    t.check_constraint "source_type::text = ANY (ARRAY['upload'::character varying::text, 'url'::character varying::text, 'api'::character varying::text, 'database'::character varying::text, 'cloud_storage'::character varying::text, 'git'::character varying::text])", name: "check_document_source_type"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'indexed'::character varying::text, 'failed'::character varying::text, 'archived'::character varying::text])", name: "check_document_status"
+    t.check_constraint "source_type::text = ANY (ARRAY['upload'::character varying, 'url'::character varying, 'api'::character varying, 'database'::character varying, 'cloud_storage'::character varying, 'git'::character varying]::text[])", name: "check_document_source_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'indexed'::character varying, 'failed'::character varying, 'archived'::character varying]::text[])", name: "check_document_status"
   end
 
   create_table "ai_knowledge_bases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1177,8 +1177,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["created_by_id"], name: "index_ai_knowledge_bases_on_created_by_id"
     t.index ["is_public"], name: "index_ai_knowledge_bases_on_is_public"
     t.index ["status"], name: "index_ai_knowledge_bases_on_status"
-    t.check_constraint "chunking_strategy::text = ANY (ARRAY['recursive'::character varying::text, 'semantic'::character varying::text, 'fixed'::character varying::text, 'sentence'::character varying::text, 'paragraph'::character varying::text, 'custom'::character varying::text])", name: "check_kb_chunking_strategy"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'indexing'::character varying::text, 'paused'::character varying::text, 'archived'::character varying::text, 'error'::character varying::text])", name: "check_kb_status"
+    t.check_constraint "chunking_strategy::text = ANY (ARRAY['recursive'::character varying, 'semantic'::character varying, 'fixed'::character varying, 'sentence'::character varying, 'paragraph'::character varying, 'custom'::character varying]::text[])", name: "check_kb_chunking_strategy"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'indexing'::character varying, 'paused'::character varying, 'archived'::character varying, 'error'::character varying]::text[])", name: "check_kb_status"
   end
 
   create_table "ai_marketplace_categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1223,8 +1223,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["status"], name: "index_ai_marketplace_moderations_on_status"
     t.index ["submitted_at"], name: "index_ai_marketplace_moderations_on_submitted_at"
     t.index ["submitted_by_id"], name: "index_ai_marketplace_moderations_on_submitted_by_id"
-    t.check_constraint "review_type::text = ANY (ARRAY['initial'::character varying::text, 'update'::character varying::text, 'reinstatement'::character varying::text, 'appeal'::character varying::text])", name: "check_review_type"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'in_review'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'revision_requested'::character varying::text])", name: "check_moderation_status"
+    t.check_constraint "review_type::text = ANY (ARRAY['initial'::character varying, 'update'::character varying, 'reinstatement'::character varying, 'appeal'::character varying]::text[])", name: "check_review_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'in_review'::character varying, 'approved'::character varying, 'rejected'::character varying, 'revision_requested'::character varying]::text[])", name: "check_moderation_status"
   end
 
   create_table "ai_marketplace_purchases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1255,8 +1255,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["installation_id"], name: "index_ai_marketplace_purchases_on_installation_id"
     t.index ["status"], name: "index_ai_marketplace_purchases_on_status"
     t.index ["user_id"], name: "index_ai_marketplace_purchases_on_user_id"
-    t.check_constraint "purchase_type::text = ANY (ARRAY['one_time'::character varying::text, 'subscription'::character varying::text, 'credit'::character varying::text, 'upgrade'::character varying::text])", name: "check_purchase_type"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'refunded'::character varying::text, 'cancelled'::character varying::text])", name: "check_purchase_status"
+    t.check_constraint "purchase_type::text = ANY (ARRAY['one_time'::character varying, 'subscription'::character varying, 'credit'::character varying, 'upgrade'::character varying]::text[])", name: "check_purchase_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying, 'refunded'::character varying, 'cancelled'::character varying]::text[])", name: "check_purchase_status"
   end
 
   create_table "ai_marketplace_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1283,8 +1283,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["publisher_id"], name: "index_ai_marketplace_transactions_on_publisher_id"
     t.index ["status"], name: "index_ai_marketplace_transactions_on_status"
     t.index ["transaction_type"], name: "index_ai_marketplace_transactions_on_transaction_type"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'refunded'::character varying::text, 'disputed'::character varying::text])", name: "check_transaction_status"
-    t.check_constraint "transaction_type::text = ANY (ARRAY['purchase'::character varying::text, 'subscription'::character varying::text, 'renewal'::character varying::text, 'refund'::character varying::text, 'payout'::character varying::text])", name: "check_transaction_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'completed'::character varying, 'failed'::character varying, 'refunded'::character varying, 'disputed'::character varying]::text[])", name: "check_transaction_status"
+    t.check_constraint "transaction_type::text = ANY (ARRAY['purchase'::character varying, 'subscription'::character varying, 'renewal'::character varying, 'refund'::character varying, 'payout'::character varying]::text[])", name: "check_transaction_type"
   end
 
   create_table "ai_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1353,7 +1353,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["sandbox_id", "is_active", "priority"], name: "idx_on_sandbox_id_is_active_priority_2b0c78d45f"
     t.index ["sandbox_id", "provider_type"], name: "index_ai_mock_responses_on_sandbox_id_and_provider_type"
     t.index ["sandbox_id"], name: "index_ai_mock_responses_on_sandbox_id"
-    t.check_constraint "match_type::text = ANY (ARRAY['exact'::character varying::text, 'contains'::character varying::text, 'regex'::character varying::text, 'semantic'::character varying::text, 'always'::character varying::text])", name: "check_mock_match_type"
+    t.check_constraint "match_type::text = ANY (ARRAY['exact'::character varying, 'contains'::character varying, 'regex'::character varying, 'semantic'::character varying, 'always'::character varying]::text[])", name: "check_mock_match_type"
   end
 
   create_table "ai_model_routing_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1378,7 +1378,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["account_id", "rule_type"], name: "index_ai_model_routing_rules_on_account_id_and_rule_type"
     t.index ["account_id"], name: "index_ai_model_routing_rules_on_account_id"
     t.index ["conditions"], name: "index_ai_model_routing_rules_on_conditions", using: :gin
-    t.check_constraint "rule_type::text = ANY (ARRAY['capability_based'::character varying::text, 'cost_based'::character varying::text, 'latency_based'::character varying::text, 'quality_based'::character varying::text, 'custom'::character varying::text, 'ml_optimized'::character varying::text])", name: "check_routing_rule_type"
+    t.check_constraint "rule_type::text = ANY (ARRAY['capability_based'::character varying, 'cost_based'::character varying, 'latency_based'::character varying, 'quality_based'::character varying, 'custom'::character varying, 'ml_optimized'::character varying]::text[])", name: "check_routing_rule_type"
   end
 
   create_table "ai_outcome_billing_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1423,7 +1423,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["source_type", "source_id"], name: "index_ai_outcome_billing_records_on_source_type_and_source_id"
     t.index ["status"], name: "index_ai_outcome_billing_records_on_status"
     t.index ["validated_by_id"], name: "index_ai_outcome_billing_records_on_validated_by_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'successful'::character varying::text, 'failed'::character varying::text, 'timeout'::character varying::text, 'cancelled'::character varying::text, 'refunded'::character varying::text])", name: "check_outcome_billing_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'successful'::character varying, 'failed'::character varying, 'timeout'::character varying, 'cancelled'::character varying, 'refunded'::character varying]::text[])", name: "check_outcome_billing_status"
   end
 
   create_table "ai_outcome_definitions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1459,8 +1459,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["account_id"], name: "index_ai_outcome_definitions_on_account_id"
     t.index ["is_system"], name: "index_ai_outcome_definitions_on_is_system"
     t.index ["outcome_type"], name: "index_ai_outcome_definitions_on_outcome_type"
-    t.check_constraint "outcome_type::text = ANY (ARRAY['task_completion'::character varying::text, 'quality_threshold'::character varying::text, 'classification'::character varying::text, 'extraction'::character varying::text, 'generation'::character varying::text, 'conversation'::character varying::text, 'workflow'::character varying::text, 'custom'::character varying::text])", name: "check_outcome_type"
-    t.check_constraint "validation_method::text = ANY (ARRAY['automatic'::character varying::text, 'human_review'::character varying::text, 'hybrid'::character varying::text, 'api_callback'::character varying::text])", name: "check_validation_method"
+    t.check_constraint "outcome_type::text = ANY (ARRAY['task_completion'::character varying, 'quality_threshold'::character varying, 'classification'::character varying, 'extraction'::character varying, 'generation'::character varying, 'conversation'::character varying, 'workflow'::character varying, 'custom'::character varying]::text[])", name: "check_outcome_type"
+    t.check_constraint "validation_method::text = ANY (ARRAY['automatic'::character varying, 'human_review'::character varying, 'hybrid'::character varying, 'api_callback'::character varying]::text[])", name: "check_validation_method"
   end
 
   create_table "ai_performance_benchmarks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1491,7 +1491,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["sandbox_id"], name: "index_ai_performance_benchmarks_on_sandbox_id"
     t.index ["target_agent_id"], name: "index_ai_performance_benchmarks_on_target_agent_id"
     t.index ["target_workflow_id"], name: "index_ai_performance_benchmarks_on_target_workflow_id"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'archived'::character varying::text])", name: "check_benchmark_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'archived'::character varying]::text[])", name: "check_benchmark_status"
   end
 
   create_table "ai_persistent_contexts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1561,8 +1561,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["trigger_source"], name: "index_ai_pipeline_executions_on_trigger_source"
     t.index ["triggered_by_id"], name: "index_ai_pipeline_executions_on_triggered_by_id"
     t.index ["workflow_run_id"], name: "index_ai_pipeline_executions_on_workflow_run_id"
-    t.check_constraint "pipeline_type::text = ANY (ARRAY['pr_review'::character varying::text, 'commit_analysis'::character varying::text, 'deployment'::character varying::text, 'release'::character varying::text, 'scheduled'::character varying::text, 'manual'::character varying::text])", name: "check_pipeline_type"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'timeout'::character varying::text])", name: "check_pipeline_status"
+    t.check_constraint "pipeline_type::text = ANY (ARRAY['pr_review'::character varying, 'commit_analysis'::character varying, 'deployment'::character varying, 'release'::character varying, 'scheduled'::character varying, 'manual'::character varying]::text[])", name: "check_pipeline_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'timeout'::character varying]::text[])", name: "check_pipeline_status"
   end
 
   create_table "ai_policy_violations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1596,8 +1596,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["severity"], name: "index_ai_policy_violations_on_severity"
     t.index ["source_type"], name: "index_ai_policy_violations_on_source_type"
     t.index ["violation_id"], name: "index_ai_policy_violations_on_violation_id", unique: true
-    t.check_constraint "severity::text = ANY (ARRAY['low'::character varying::text, 'medium'::character varying::text, 'high'::character varying::text, 'critical'::character varying::text])", name: "check_violation_severity"
-    t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'acknowledged'::character varying::text, 'investigating'::character varying::text, 'resolved'::character varying::text, 'dismissed'::character varying::text, 'escalated'::character varying::text])", name: "check_violation_status"
+    t.check_constraint "severity::text = ANY (ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying, 'critical'::character varying]::text[])", name: "check_violation_severity"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'acknowledged'::character varying, 'investigating'::character varying, 'resolved'::character varying, 'dismissed'::character varying, 'escalated'::character varying]::text[])", name: "check_violation_status"
   end
 
   create_table "ai_provider_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1669,7 +1669,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["provider_id", "recorded_at"], name: "idx_provider_metrics_provider_time"
     t.index ["provider_id"], name: "index_ai_provider_metrics_on_provider_id"
     t.index ["recorded_at"], name: "index_ai_provider_metrics_on_recorded_at"
-    t.check_constraint "granularity::text = ANY (ARRAY['minute'::character varying::text, 'hour'::character varying::text, 'day'::character varying::text, 'week'::character varying::text, 'month'::character varying::text])", name: "check_metric_granularity"
+    t.check_constraint "granularity::text = ANY (ARRAY['minute'::character varying, 'hour'::character varying, 'day'::character varying, 'week'::character varying, 'month'::character varying]::text[])", name: "check_metric_granularity"
   end
 
   create_table "ai_provider_plugins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1757,8 +1757,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["status"], name: "index_ai_publisher_accounts_on_status"
     t.index ["stripe_account_id"], name: "index_ai_publisher_accounts_on_stripe_account_id", unique: true
     t.index ["verification_status"], name: "index_ai_publisher_accounts_on_verification_status"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'active'::character varying::text, 'suspended'::character varying::text, 'terminated'::character varying::text])", name: "check_publisher_status"
-    t.check_constraint "verification_status::text = ANY (ARRAY['unverified'::character varying::text, 'pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text])", name: "check_verification_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'active'::character varying, 'suspended'::character varying, 'terminated'::character varying]::text[])", name: "check_publisher_status"
+    t.check_constraint "verification_status::text = ANY (ARRAY['unverified'::character varying, 'pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "check_verification_status"
   end
 
   create_table "ai_publisher_earnings_snapshots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1808,7 +1808,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["knowledge_base_id"], name: "index_ai_rag_queries_on_knowledge_base_id"
     t.index ["status"], name: "index_ai_rag_queries_on_status"
     t.index ["user_id"], name: "index_ai_rag_queries_on_user_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "check_rag_query_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "check_rag_query_status"
   end
 
   create_table "ai_recorded_interactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1836,7 +1836,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["sandbox_id", "recorded_at"], name: "index_ai_recorded_interactions_on_sandbox_id_and_recorded_at"
     t.index ["sandbox_id"], name: "index_ai_recorded_interactions_on_sandbox_id"
     t.index ["source_workflow_run_id"], name: "index_ai_recorded_interactions_on_source_workflow_run_id"
-    t.check_constraint "interaction_type::text = ANY (ARRAY['llm_request'::character varying::text, 'tool_call'::character varying::text, 'api_call'::character varying::text, 'workflow_step'::character varying::text, 'agent_action'::character varying::text])", name: "check_interaction_type"
+    t.check_constraint "interaction_type::text = ANY (ARRAY['llm_request'::character varying, 'tool_call'::character varying, 'api_call'::character varying, 'workflow_step'::character varying, 'agent_action'::character varying]::text[])", name: "check_interaction_type"
   end
 
   create_table "ai_roi_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1875,8 +1875,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["account_id"], name: "index_ai_roi_metrics_on_account_id"
     t.index ["attributable_type", "attributable_id"], name: "idx_roi_metrics_attributable"
     t.index ["period_date"], name: "index_ai_roi_metrics_on_period_date"
-    t.check_constraint "metric_type::text = ANY (ARRAY['workflow'::character varying::text, 'agent'::character varying::text, 'provider'::character varying::text, 'team'::character varying::text, 'account_total'::character varying::text, 'department'::character varying::text])", name: "check_roi_metric_type"
-    t.check_constraint "period_type::text = ANY (ARRAY['daily'::character varying::text, 'weekly'::character varying::text, 'monthly'::character varying::text, 'quarterly'::character varying::text, 'yearly'::character varying::text])", name: "check_roi_period_type"
+    t.check_constraint "metric_type::text = ANY (ARRAY['workflow'::character varying, 'agent'::character varying, 'provider'::character varying, 'team'::character varying, 'account_total'::character varying, 'department'::character varying]::text[])", name: "check_roi_metric_type"
+    t.check_constraint "period_type::text = ANY (ARRAY['daily'::character varying, 'weekly'::character varying, 'monthly'::character varying, 'quarterly'::character varying, 'yearly'::character varying]::text[])", name: "check_roi_period_type"
   end
 
   create_table "ai_routing_decisions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1939,8 +1939,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["expires_at"], name: "index_ai_sandboxes_on_expires_at"
     t.index ["sandbox_type"], name: "index_ai_sandboxes_on_sandbox_type"
     t.index ["status"], name: "index_ai_sandboxes_on_status"
-    t.check_constraint "sandbox_type::text = ANY (ARRAY['standard'::character varying::text, 'isolated'::character varying::text, 'production_mirror'::character varying::text, 'performance'::character varying::text, 'security'::character varying::text])", name: "check_sandbox_type"
-    t.check_constraint "status::text = ANY (ARRAY['inactive'::character varying::text, 'active'::character varying::text, 'paused'::character varying::text, 'expired'::character varying::text, 'deleted'::character varying::text])", name: "check_sandbox_status"
+    t.check_constraint "sandbox_type::text = ANY (ARRAY['standard'::character varying, 'isolated'::character varying, 'production_mirror'::character varying, 'performance'::character varying, 'security'::character varying]::text[])", name: "check_sandbox_type"
+    t.check_constraint "status::text = ANY (ARRAY['inactive'::character varying, 'active'::character varying, 'paused'::character varying, 'expired'::character varying, 'deleted'::character varying]::text[])", name: "check_sandbox_status"
   end
 
   create_table "ai_shared_context_pools", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1998,7 +1998,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["current_period_end"], name: "index_ai_sla_contracts_on_current_period_end"
     t.index ["outcome_definition_id"], name: "index_ai_sla_contracts_on_outcome_definition_id"
     t.index ["status"], name: "index_ai_sla_contracts_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'pending_approval'::character varying::text, 'active'::character varying::text, 'suspended'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "check_sla_contract_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'pending_approval'::character varying, 'active'::character varying, 'suspended'::character varying, 'expired'::character varying, 'cancelled'::character varying]::text[])", name: "check_sla_contract_status"
   end
 
   create_table "ai_sla_violations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2027,8 +2027,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["sla_contract_id", "period_start"], name: "index_ai_sla_violations_on_sla_contract_id_and_period_start"
     t.index ["sla_contract_id"], name: "index_ai_sla_violations_on_sla_contract_id"
     t.index ["violation_type"], name: "index_ai_sla_violations_on_violation_type"
-    t.check_constraint "credit_status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'applied'::character varying::text, 'rejected'::character varying::text, 'waived'::character varying::text])", name: "check_sla_credit_status"
-    t.check_constraint "violation_type::text = ANY (ARRAY['success_rate'::character varying::text, 'latency'::character varying::text, 'availability'::character varying::text, 'quality'::character varying::text])", name: "check_sla_violation_type"
+    t.check_constraint "credit_status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'applied'::character varying, 'rejected'::character varying, 'waived'::character varying]::text[])", name: "check_sla_credit_status"
+    t.check_constraint "violation_type::text = ANY (ARRAY['success_rate'::character varying, 'latency'::character varying, 'availability'::character varying, 'quality'::character varying]::text[])", name: "check_sla_violation_type"
   end
 
   create_table "ai_team_channels", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2047,7 +2047,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["agent_team_id", "name"], name: "index_ai_team_channels_on_agent_team_id_and_name", unique: true
     t.index ["agent_team_id"], name: "index_ai_team_channels_on_agent_team_id"
     t.index ["channel_type"], name: "index_ai_team_channels_on_channel_type"
-    t.check_constraint "channel_type::text = ANY (ARRAY['broadcast'::character varying::text, 'direct'::character varying::text, 'topic'::character varying::text, 'task'::character varying::text, 'escalation'::character varying::text])", name: "check_channel_type"
+    t.check_constraint "channel_type::text = ANY (ARRAY['broadcast'::character varying, 'direct'::character varying, 'topic'::character varying, 'task'::character varying, 'escalation'::character varying]::text[])", name: "check_channel_type"
   end
 
   create_table "ai_team_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2082,7 +2082,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["execution_id"], name: "index_ai_team_executions_on_execution_id", unique: true
     t.index ["started_at"], name: "index_ai_team_executions_on_started_at"
     t.index ["triggered_by_id"], name: "index_ai_team_executions_on_triggered_by_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'paused'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'timeout'::character varying::text])", name: "check_team_execution_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'paused'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'timeout'::character varying]::text[])", name: "check_team_execution_status"
   end
 
   create_table "ai_team_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2113,7 +2113,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["team_execution_id", "sequence_number"], name: "idx_on_team_execution_id_sequence_number_beb97b4ae3"
     t.index ["team_execution_id"], name: "index_ai_team_messages_on_team_execution_id"
     t.index ["to_role_id"], name: "index_ai_team_messages_on_to_role_id"
-    t.check_constraint "message_type::text = ANY (ARRAY['task_assignment'::character varying::text, 'task_update'::character varying::text, 'task_result'::character varying::text, 'question'::character varying::text, 'answer'::character varying::text, 'escalation'::character varying::text, 'coordination'::character varying::text, 'broadcast'::character varying::text, 'human_input'::character varying::text])", name: "check_team_message_type"
+    t.check_constraint "message_type::text = ANY (ARRAY['task_assignment'::character varying, 'task_update'::character varying, 'task_result'::character varying, 'question'::character varying, 'answer'::character varying, 'escalation'::character varying, 'coordination'::character varying, 'broadcast'::character varying, 'human_input'::character varying]::text[])", name: "check_team_message_type"
   end
 
   create_table "ai_team_roles", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2142,7 +2142,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["agent_team_id"], name: "index_ai_team_roles_on_agent_team_id"
     t.index ["ai_agent_id"], name: "index_ai_team_roles_on_ai_agent_id"
     t.index ["role_type"], name: "index_ai_team_roles_on_role_type"
-    t.check_constraint "role_type::text = ANY (ARRAY['manager'::character varying::text, 'coordinator'::character varying::text, 'worker'::character varying::text, 'specialist'::character varying::text, 'reviewer'::character varying::text, 'validator'::character varying::text])", name: "check_team_role_type"
+    t.check_constraint "role_type::text = ANY (ARRAY['manager'::character varying, 'coordinator'::character varying, 'worker'::character varying, 'specialist'::character varying, 'reviewer'::character varying, 'validator'::character varying]::text[])", name: "check_team_role_type"
   end
 
   create_table "ai_team_tasks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2180,8 +2180,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["task_id"], name: "index_ai_team_tasks_on_task_id", unique: true
     t.index ["team_execution_id", "status"], name: "index_ai_team_tasks_on_team_execution_id_and_status"
     t.index ["team_execution_id"], name: "index_ai_team_tasks_on_team_execution_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'assigned'::character varying::text, 'in_progress'::character varying::text, 'waiting'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'delegated'::character varying::text])", name: "check_team_task_status"
-    t.check_constraint "task_type::text = ANY (ARRAY['execution'::character varying::text, 'review'::character varying::text, 'validation'::character varying::text, 'coordination'::character varying::text, 'escalation'::character varying::text, 'human_input'::character varying::text])", name: "check_team_task_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'assigned'::character varying, 'in_progress'::character varying, 'waiting'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'delegated'::character varying]::text[])", name: "check_team_task_status"
+    t.check_constraint "task_type::text = ANY (ARRAY['execution'::character varying, 'review'::character varying, 'validation'::character varying, 'coordination'::character varying, 'escalation'::character varying, 'human_input'::character varying]::text[])", name: "check_team_task_type"
   end
 
   create_table "ai_team_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2210,7 +2210,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["is_system"], name: "index_ai_team_templates_on_is_system"
     t.index ["slug"], name: "index_ai_team_templates_on_slug", unique: true
     t.index ["team_topology"], name: "index_ai_team_templates_on_team_topology"
-    t.check_constraint "team_topology::text = ANY (ARRAY['hierarchical'::character varying::text, 'flat'::character varying::text, 'mesh'::character varying::text, 'pipeline'::character varying::text, 'hybrid'::character varying::text])", name: "check_team_topology"
+    t.check_constraint "team_topology::text = ANY (ARRAY['hierarchical'::character varying, 'flat'::character varying, 'mesh'::character varying, 'pipeline'::character varying, 'hybrid'::character varying]::text[])", name: "check_team_topology"
   end
 
   create_table "ai_template_usage_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2261,7 +2261,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["scenario_id"], name: "index_ai_test_results_on_scenario_id"
     t.index ["test_run_id", "status"], name: "index_ai_test_results_on_test_run_id_and_status"
     t.index ["test_run_id"], name: "index_ai_test_results_on_test_run_id"
-    t.check_constraint "status::text = ANY (ARRAY['passed'::character varying::text, 'failed'::character varying::text, 'skipped'::character varying::text, 'error'::character varying::text, 'timeout'::character varying::text])", name: "check_test_result_status"
+    t.check_constraint "status::text = ANY (ARRAY['passed'::character varying, 'failed'::character varying, 'skipped'::character varying, 'error'::character varying, 'timeout'::character varying]::text[])", name: "check_test_result_status"
   end
 
   create_table "ai_test_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2293,8 +2293,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["sandbox_id", "created_at"], name: "index_ai_test_runs_on_sandbox_id_and_created_at"
     t.index ["sandbox_id"], name: "index_ai_test_runs_on_sandbox_id"
     t.index ["triggered_by_id"], name: "index_ai_test_runs_on_triggered_by_id"
-    t.check_constraint "run_type::text = ANY (ARRAY['manual'::character varying::text, 'scheduled'::character varying::text, 'ci_triggered'::character varying::text, 'regression'::character varying::text, 'smoke'::character varying::text])", name: "check_test_run_type"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'timeout'::character varying::text])", name: "check_test_run_status"
+    t.check_constraint "run_type::text = ANY (ARRAY['manual'::character varying, 'scheduled'::character varying, 'ci_triggered'::character varying, 'regression'::character varying, 'smoke'::character varying]::text[])", name: "check_test_run_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'timeout'::character varying]::text[])", name: "check_test_run_status"
   end
 
   create_table "ai_test_scenarios", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2332,8 +2332,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["scenario_type"], name: "index_ai_test_scenarios_on_scenario_type"
     t.index ["target_agent_id"], name: "index_ai_test_scenarios_on_target_agent_id"
     t.index ["target_workflow_id"], name: "index_ai_test_scenarios_on_target_workflow_id"
-    t.check_constraint "scenario_type::text = ANY (ARRAY['unit'::character varying::text, 'integration'::character varying::text, 'regression'::character varying::text, 'performance'::character varying::text, 'security'::character varying::text, 'chaos'::character varying::text, 'custom'::character varying::text])", name: "check_scenario_type"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'active'::character varying::text, 'disabled'::character varying::text, 'archived'::character varying::text])", name: "check_scenario_status"
+    t.check_constraint "scenario_type::text = ANY (ARRAY['unit'::character varying, 'integration'::character varying, 'regression'::character varying, 'performance'::character varying, 'security'::character varying, 'chaos'::character varying, 'custom'::character varying]::text[])", name: "check_scenario_type"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'active'::character varying, 'disabled'::character varying, 'archived'::character varying]::text[])", name: "check_scenario_status"
   end
 
   create_table "ai_workflow_approval_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2796,8 +2796,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["analytics_alert_id"], name: "index_analytics_alert_events_on_analytics_alert_id"
     t.index ["event_type"], name: "index_analytics_alert_events_on_event_type"
     t.index ["severity"], name: "index_analytics_alert_events_on_severity"
-    t.check_constraint "event_type::text = ANY (ARRAY['triggered'::character varying::text, 'resolved'::character varying::text, 'acknowledged'::character varying::text, 'escalated'::character varying::text])", name: "alert_events_type_check"
-    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying::text, 'high'::character varying::text, 'medium'::character varying::text, 'low'::character varying::text, 'info'::character varying::text])", name: "alert_events_severity_check"
+    t.check_constraint "event_type::text = ANY (ARRAY['triggered'::character varying, 'resolved'::character varying, 'acknowledged'::character varying, 'escalated'::character varying]::text[])", name: "alert_events_type_check"
+    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying, 'info'::character varying]::text[])", name: "alert_events_severity_check"
   end
 
   create_table "analytics_alerts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2825,9 +2825,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["alert_type"], name: "index_analytics_alerts_on_alert_type"
     t.index ["metric_name"], name: "index_analytics_alerts_on_metric_name"
     t.index ["status"], name: "index_analytics_alerts_on_status"
-    t.check_constraint "alert_type::text = ANY (ARRAY['threshold'::character varying::text, 'anomaly'::character varying::text, 'trend'::character varying::text, 'comparison'::character varying::text])", name: "analytics_alerts_type_check"
-    t.check_constraint "condition::text = ANY (ARRAY['greater_than'::character varying::text, 'less_than'::character varying::text, 'equals'::character varying::text, 'change_percent'::character varying::text, 'anomaly_detected'::character varying::text])", name: "analytics_alerts_condition_check"
-    t.check_constraint "status::text = ANY (ARRAY['enabled'::character varying::text, 'disabled'::character varying::text, 'triggered'::character varying::text, 'resolved'::character varying::text])", name: "analytics_alerts_status_check"
+    t.check_constraint "alert_type::text = ANY (ARRAY['threshold'::character varying, 'anomaly'::character varying, 'trend'::character varying, 'comparison'::character varying]::text[])", name: "analytics_alerts_type_check"
+    t.check_constraint "condition::text = ANY (ARRAY['greater_than'::character varying, 'less_than'::character varying, 'equals'::character varying, 'change_percent'::character varying, 'anomaly_detected'::character varying]::text[])", name: "analytics_alerts_condition_check"
+    t.check_constraint "status::text = ANY (ARRAY['enabled'::character varying, 'disabled'::character varying, 'triggered'::character varying, 'resolved'::character varying]::text[])", name: "analytics_alerts_status_check"
   end
 
   create_table "analytics_tiers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2994,9 +2994,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["key_hash"], name: "index_baas_api_keys_on_key_hash", unique: true
     t.index ["key_prefix"], name: "index_baas_api_keys_on_key_prefix"
     t.index ["status"], name: "index_baas_api_keys_on_status"
-    t.check_constraint "environment::text = ANY (ARRAY['development'::character varying::text, 'staging'::character varying::text, 'production'::character varying::text])", name: "baas_api_keys_environment_check"
-    t.check_constraint "key_type::text = ANY (ARRAY['secret'::character varying::text, 'publishable'::character varying::text, 'restricted'::character varying::text])", name: "baas_api_keys_key_type_check"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'revoked'::character varying::text, 'expired'::character varying::text])", name: "baas_api_keys_status_check"
+    t.check_constraint "environment::text = ANY (ARRAY['development'::character varying, 'staging'::character varying, 'production'::character varying]::text[])", name: "baas_api_keys_environment_check"
+    t.check_constraint "key_type::text = ANY (ARRAY['secret'::character varying, 'publishable'::character varying, 'restricted'::character varying]::text[])", name: "baas_api_keys_key_type_check"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'revoked'::character varying, 'expired'::character varying]::text[])", name: "baas_api_keys_status_check"
   end
 
   create_table "baas_billing_configurations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3054,7 +3054,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["baas_tenant_id", "external_id"], name: "index_baas_customers_on_baas_tenant_id_and_external_id", unique: true
     t.index ["baas_tenant_id"], name: "index_baas_customers_on_baas_tenant_id"
     t.index ["stripe_customer_id"], name: "index_baas_customers_on_stripe_customer_id", unique: true, where: "(stripe_customer_id IS NOT NULL)"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'archived'::character varying::text, 'deleted'::character varying::text])", name: "baas_customers_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'archived'::character varying, 'deleted'::character varying]::text[])", name: "baas_customers_status_check"
   end
 
   create_table "baas_invoices", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3090,7 +3090,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["number"], name: "index_baas_invoices_on_number"
     t.index ["status"], name: "index_baas_invoices_on_status"
     t.index ["stripe_invoice_id"], name: "index_baas_invoices_on_stripe_invoice_id", unique: true, where: "(stripe_invoice_id IS NOT NULL)"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'open'::character varying::text, 'paid'::character varying::text, 'void'::character varying::text, 'uncollectible'::character varying::text])", name: "baas_invoices_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'open'::character varying, 'paid'::character varying, 'void'::character varying, 'uncollectible'::character varying]::text[])", name: "baas_invoices_status_check"
   end
 
   create_table "baas_subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3121,8 +3121,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["baas_tenant_id"], name: "index_baas_subscriptions_on_baas_tenant_id"
     t.index ["status"], name: "index_baas_subscriptions_on_status"
     t.index ["stripe_subscription_id"], name: "index_baas_subscriptions_on_stripe_subscription_id", unique: true, where: "(stripe_subscription_id IS NOT NULL)"
-    t.check_constraint "billing_interval::text = ANY (ARRAY['day'::character varying::text, 'week'::character varying::text, 'month'::character varying::text, 'year'::character varying::text])", name: "baas_subscriptions_billing_interval_check"
-    t.check_constraint "status::text = ANY (ARRAY['incomplete'::character varying::text, 'incomplete_expired'::character varying::text, 'trialing'::character varying::text, 'active'::character varying::text, 'past_due'::character varying::text, 'canceled'::character varying::text, 'unpaid'::character varying::text, 'paused'::character varying::text])", name: "baas_subscriptions_status_check"
+    t.check_constraint "billing_interval::text = ANY (ARRAY['day'::character varying, 'week'::character varying, 'month'::character varying, 'year'::character varying]::text[])", name: "baas_subscriptions_billing_interval_check"
+    t.check_constraint "status::text = ANY (ARRAY['incomplete'::character varying, 'incomplete_expired'::character varying, 'trialing'::character varying, 'active'::character varying, 'past_due'::character varying, 'canceled'::character varying, 'unpaid'::character varying, 'paused'::character varying]::text[])", name: "baas_subscriptions_status_check"
   end
 
   create_table "baas_tenants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3153,9 +3153,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["slug"], name: "index_baas_tenants_on_slug", unique: true
     t.index ["status"], name: "index_baas_tenants_on_status"
     t.index ["tier"], name: "index_baas_tenants_on_tier"
-    t.check_constraint "environment::text = ANY (ARRAY['development'::character varying::text, 'staging'::character varying::text, 'production'::character varying::text])", name: "baas_tenants_environment_check"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'active'::character varying::text, 'suspended'::character varying::text, 'terminated'::character varying::text])", name: "baas_tenants_status_check"
-    t.check_constraint "tier::text = ANY (ARRAY['free'::character varying::text, 'starter'::character varying::text, 'pro'::character varying::text, 'enterprise'::character varying::text])", name: "baas_tenants_tier_check"
+    t.check_constraint "environment::text = ANY (ARRAY['development'::character varying, 'staging'::character varying, 'production'::character varying]::text[])", name: "baas_tenants_environment_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'active'::character varying, 'suspended'::character varying, 'terminated'::character varying]::text[])", name: "baas_tenants_status_check"
+    t.check_constraint "tier::text = ANY (ARRAY['free'::character varying, 'starter'::character varying, 'pro'::character varying, 'enterprise'::character varying]::text[])", name: "baas_tenants_tier_check"
   end
 
   create_table "baas_usage_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3182,8 +3182,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["baas_tenant_id"], name: "index_baas_usage_records_on_baas_tenant_id"
     t.index ["event_timestamp"], name: "index_baas_usage_records_on_event_timestamp"
     t.index ["idempotency_key"], name: "index_baas_usage_records_on_idempotency_key", unique: true, where: "(idempotency_key IS NOT NULL)"
-    t.check_constraint "action::text = ANY (ARRAY['set'::character varying::text, 'increment'::character varying::text])", name: "baas_usage_records_action_check"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processed'::character varying::text, 'invoiced'::character varying::text, 'failed'::character varying::text])", name: "baas_usage_records_status_check"
+    t.check_constraint "action::text = ANY (ARRAY['set'::character varying, 'increment'::character varying]::text[])", name: "baas_usage_records_action_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processed'::character varying, 'invoiced'::character varying, 'failed'::character varying]::text[])", name: "baas_usage_records_status_check"
   end
 
   create_table "background_jobs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3277,8 +3277,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["predicted_at"], name: "index_churn_predictions_on_predicted_at"
     t.index ["risk_tier"], name: "index_churn_predictions_on_risk_tier"
     t.index ["subscription_id"], name: "index_churn_predictions_on_subscription_id"
-    t.check_constraint "prediction_type::text = ANY (ARRAY['weekly'::character varying::text, 'monthly'::character varying::text, 'quarterly'::character varying::text])", name: "churn_predictions_type_check"
-    t.check_constraint "risk_tier::text = ANY (ARRAY['critical'::character varying::text, 'high'::character varying::text, 'medium'::character varying::text, 'low'::character varying::text, 'minimal'::character varying::text])", name: "churn_predictions_risk_tier_check"
+    t.check_constraint "prediction_type::text = ANY (ARRAY['weekly'::character varying, 'monthly'::character varying, 'quarterly'::character varying]::text[])", name: "churn_predictions_type_check"
+    t.check_constraint "risk_tier::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying, 'minimal'::character varying]::text[])", name: "churn_predictions_risk_tier_check"
   end
 
   create_table "circuit_breaker_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3365,9 +3365,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["health_status"], name: "index_customer_health_scores_on_health_status"
     t.index ["overall_score"], name: "index_customer_health_scores_on_overall_score"
     t.index ["subscription_id"], name: "index_customer_health_scores_on_subscription_id"
-    t.check_constraint "health_status::text = ANY (ARRAY['critical'::character varying::text, 'at_risk'::character varying::text, 'needs_attention'::character varying::text, 'healthy'::character varying::text, 'thriving'::character varying::text])", name: "customer_health_scores_status_check"
-    t.check_constraint "risk_level::text = ANY (ARRAY['critical'::character varying::text, 'high'::character varying::text, 'medium'::character varying::text, 'low'::character varying::text, 'none'::character varying::text])", name: "customer_health_scores_risk_level_check"
-    t.check_constraint "trend_direction::text = ANY (ARRAY['improving'::character varying::text, 'stable'::character varying::text, 'declining'::character varying::text, 'critical_decline'::character varying::text])", name: "customer_health_scores_trend_check"
+    t.check_constraint "health_status::text = ANY (ARRAY['critical'::character varying, 'at_risk'::character varying, 'needs_attention'::character varying, 'healthy'::character varying, 'thriving'::character varying]::text[])", name: "customer_health_scores_status_check"
+    t.check_constraint "risk_level::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying, 'none'::character varying]::text[])", name: "customer_health_scores_risk_level_check"
+    t.check_constraint "trend_direction::text = ANY (ARRAY['improving'::character varying, 'stable'::character varying, 'declining'::character varying, 'critical_decline'::character varying]::text[])", name: "customer_health_scores_trend_check"
   end
 
   create_table "data_deletion_requests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -4845,9 +4845,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["server_type"], name: "index_mcp_hosted_servers_on_server_type"
     t.index ["status"], name: "index_mcp_hosted_servers_on_status"
     t.index ["visibility"], name: "index_mcp_hosted_servers_on_visibility"
-    t.check_constraint "source_type::text = ANY (ARRAY['git'::character varying::text, 'upload'::character varying::text, 'inline'::character varying::text, 'registry'::character varying::text])", name: "check_mcp_source_type"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'building'::character varying::text, 'deploying'::character varying::text, 'running'::character varying::text, 'stopped'::character varying::text, 'failed'::character varying::text, 'deleted'::character varying::text])", name: "check_mcp_server_status"
-    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'team'::character varying::text, 'public'::character varying::text, 'marketplace'::character varying::text])", name: "check_mcp_server_visibility"
+    t.check_constraint "source_type::text = ANY (ARRAY['git'::character varying, 'upload'::character varying, 'inline'::character varying, 'registry'::character varying]::text[])", name: "check_mcp_source_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'building'::character varying, 'deploying'::character varying, 'running'::character varying, 'stopped'::character varying, 'failed'::character varying, 'deleted'::character varying]::text[])", name: "check_mcp_server_status"
+    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'team'::character varying, 'public'::character varying, 'marketplace'::character varying]::text[])", name: "check_mcp_server_visibility"
   end
 
   create_table "mcp_server_deployments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -4876,7 +4876,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["hosted_server_id"], name: "index_mcp_server_deployments_on_hosted_server_id"
     t.index ["status"], name: "index_mcp_server_deployments_on_status"
     t.index ["version"], name: "index_mcp_server_deployments_on_version"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'building'::character varying::text, 'deploying'::character varying::text, 'running'::character varying::text, 'failed'::character varying::text, 'rolled_back'::character varying::text, 'superseded'::character varying::text])", name: "check_deployment_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'building'::character varying, 'deploying'::character varying, 'running'::character varying, 'failed'::character varying, 'rolled_back'::character varying, 'superseded'::character varying]::text[])", name: "check_deployment_status"
   end
 
   create_table "mcp_server_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -4926,7 +4926,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["account_id"], name: "index_mcp_server_subscriptions_on_account_id"
     t.index ["hosted_server_id"], name: "index_mcp_server_subscriptions_on_hosted_server_id"
     t.index ["status"], name: "index_mcp_server_subscriptions_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'cancelled'::character varying::text, 'expired'::character varying::text])", name: "check_mcp_subscription_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'cancelled'::character varying, 'expired'::character varying]::text[])", name: "check_mcp_subscription_status"
   end
 
   create_table "mcp_servers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5414,9 +5414,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["reseller_id"], name: "index_reseller_commissions_on_reseller_id"
     t.index ["source_type", "source_id"], name: "index_reseller_commissions_on_source_type_and_source_id"
     t.index ["status"], name: "index_reseller_commissions_on_status"
-    t.check_constraint "commission_type::text = ANY (ARRAY['signup_bonus'::character varying::text, 'recurring'::character varying::text, 'one_time'::character varying::text, 'upgrade_bonus'::character varying::text])", name: "check_commission_type"
-    t.check_constraint "source_type::text = ANY (ARRAY['subscription'::character varying::text, 'payment'::character varying::text, 'credit_purchase'::character varying::text, 'plan_upgrade'::character varying::text])", name: "check_commission_source_type"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'available'::character varying::text, 'paid'::character varying::text, 'cancelled'::character varying::text, 'clawed_back'::character varying::text])", name: "check_commission_status"
+    t.check_constraint "commission_type::text = ANY (ARRAY['signup_bonus'::character varying, 'recurring'::character varying, 'one_time'::character varying, 'upgrade_bonus'::character varying]::text[])", name: "check_commission_type"
+    t.check_constraint "source_type::text = ANY (ARRAY['subscription'::character varying, 'payment'::character varying, 'credit_purchase'::character varying, 'plan_upgrade'::character varying]::text[])", name: "check_commission_source_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'available'::character varying, 'paid'::character varying, 'cancelled'::character varying, 'clawed_back'::character varying]::text[])", name: "check_commission_status"
   end
 
   create_table "reseller_payouts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5445,7 +5445,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["reseller_id", "status"], name: "index_reseller_payouts_on_reseller_id_and_status"
     t.index ["reseller_id"], name: "index_reseller_payouts_on_reseller_id"
     t.index ["status"], name: "index_reseller_payouts_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "check_payout_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "check_payout_status"
   end
 
   create_table "reseller_referrals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5465,7 +5465,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["referred_account_id"], name: "index_reseller_referrals_on_referred_account_id", unique: true
     t.index ["reseller_id", "status"], name: "index_reseller_referrals_on_reseller_id_and_status"
     t.index ["reseller_id"], name: "index_reseller_referrals_on_reseller_id"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'churned'::character varying::text, 'cancelled'::character varying::text])", name: "check_referral_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'churned'::character varying, 'cancelled'::character varying]::text[])", name: "check_referral_status"
   end
 
   create_table "resellers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5501,9 +5501,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["status", "tier"], name: "index_resellers_on_status_and_tier"
     t.index ["status"], name: "index_resellers_on_status"
     t.index ["tier"], name: "index_resellers_on_tier"
-    t.check_constraint "payout_method::text = ANY (ARRAY['bank_transfer'::character varying::text, 'paypal'::character varying::text, 'stripe'::character varying::text, 'check'::character varying::text, 'wire'::character varying::text])", name: "check_reseller_payout_method"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'active'::character varying::text, 'suspended'::character varying::text, 'terminated'::character varying::text])", name: "check_reseller_status"
-    t.check_constraint "tier::text = ANY (ARRAY['bronze'::character varying::text, 'silver'::character varying::text, 'gold'::character varying::text, 'platinum'::character varying::text])", name: "check_reseller_tier"
+    t.check_constraint "payout_method::text = ANY (ARRAY['bank_transfer'::character varying, 'paypal'::character varying, 'stripe'::character varying, 'check'::character varying, 'wire'::character varying]::text[])", name: "check_reseller_payout_method"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'active'::character varying, 'suspended'::character varying, 'terminated'::character varying]::text[])", name: "check_reseller_status"
+    t.check_constraint "tier::text = ANY (ARRAY['bronze'::character varying, 'silver'::character varying, 'gold'::character varying, 'platinum'::character varying]::text[])", name: "check_reseller_tier"
   end
 
   create_table "revenue_forecasts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5534,8 +5534,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["account_id"], name: "index_revenue_forecasts_on_account_id"
     t.index ["forecast_date", "forecast_type"], name: "index_revenue_forecasts_on_forecast_date_and_forecast_type"
     t.index ["forecast_period"], name: "index_revenue_forecasts_on_forecast_period"
-    t.check_constraint "forecast_period::text = ANY (ARRAY['weekly'::character varying::text, 'monthly'::character varying::text, 'quarterly'::character varying::text, 'yearly'::character varying::text])", name: "revenue_forecasts_period_check"
-    t.check_constraint "forecast_type::text = ANY (ARRAY['mrr'::character varying::text, 'arr'::character varying::text, 'customers'::character varying::text, 'revenue'::character varying::text])", name: "revenue_forecasts_type_check"
+    t.check_constraint "forecast_period::text = ANY (ARRAY['weekly'::character varying, 'monthly'::character varying, 'quarterly'::character varying, 'yearly'::character varying]::text[])", name: "revenue_forecasts_period_check"
+    t.check_constraint "forecast_type::text = ANY (ARRAY['mrr'::character varying, 'arr'::character varying, 'customers'::character varying, 'revenue'::character varying]::text[])", name: "revenue_forecasts_type_check"
   end
 
   create_table "revenue_snapshots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5777,9 +5777,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["signing_key_id"], name: "index_supply_chain_attestations_on_signing_key_id"
     t.index ["subject_digest"], name: "idx_attestations_subject_digest"
     t.index ["verification_status"], name: "idx_attestations_verification"
-    t.check_constraint "attestation_type::text = ANY (ARRAY['slsa_provenance'::character varying::text, 'sbom'::character varying::text, 'vuln_scan'::character varying::text, 'custom'::character varying::text])", name: "check_attestations_type"
+    t.check_constraint "attestation_type::text = ANY (ARRAY['slsa_provenance'::character varying, 'sbom'::character varying, 'vuln_scan'::character varying, 'custom'::character varying]::text[])", name: "check_attestations_type"
     t.check_constraint "slsa_level = ANY (ARRAY[0, 1, 2, 3])", name: "check_attestations_slsa_level"
-    t.check_constraint "verification_status::text = ANY (ARRAY['unverified'::character varying::text, 'verified'::character varying::text, 'failed'::character varying::text, 'expired'::character varying::text])", name: "check_attestations_verification_status"
+    t.check_constraint "verification_status::text = ANY (ARRAY['unverified'::character varying, 'verified'::character varying, 'failed'::character varying, 'expired'::character varying]::text[])", name: "check_attestations_verification_status"
   end
 
   create_table "supply_chain_attributions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5870,7 +5870,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["registry", "repository", "tag"], name: "idx_container_images_registry_repo_tag"
     t.index ["sbom_id"], name: "index_supply_chain_container_images_on_sbom_id"
     t.index ["status"], name: "idx_container_images_status"
-    t.check_constraint "status::text = ANY (ARRAY['unverified'::character varying::text, 'verified'::character varying::text, 'quarantined'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text])", name: "check_container_images_status"
+    t.check_constraint "status::text = ANY (ARRAY['unverified'::character varying, 'verified'::character varying, 'quarantined'::character varying, 'approved'::character varying, 'rejected'::character varying]::text[])", name: "check_container_images_status"
   end
 
   create_table "supply_chain_cve_monitors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5896,8 +5896,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["is_active"], name: "idx_cve_monitors_active"
     t.index ["next_run_at"], name: "idx_cve_monitors_next_run"
     t.index ["scope_type", "scope_id"], name: "idx_cve_monitors_scope"
-    t.check_constraint "min_severity::text = ANY (ARRAY['critical'::character varying::text, 'high'::character varying::text, 'medium'::character varying::text, 'low'::character varying::text])", name: "check_cve_monitors_severity"
-    t.check_constraint "scope_type::text = ANY (ARRAY['image'::character varying::text, 'repository'::character varying::text, 'account_wide'::character varying::text])", name: "check_cve_monitors_scope"
+    t.check_constraint "min_severity::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying]::text[])", name: "check_cve_monitors_severity"
+    t.check_constraint "scope_type::text = ANY (ARRAY['image'::character varying, 'repository'::character varying, 'account_wide'::character varying]::text[])", name: "check_cve_monitors_scope"
   end
 
   create_table "supply_chain_image_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5923,8 +5923,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["created_by_id"], name: "index_supply_chain_image_policies_on_created_by_id"
     t.index ["is_active"], name: "idx_image_policies_active"
     t.index ["policy_type"], name: "idx_image_policies_type"
-    t.check_constraint "enforcement_level::text = ANY (ARRAY['log'::character varying::text, 'warn'::character varying::text, 'block'::character varying::text])", name: "check_image_policies_enforcement"
-    t.check_constraint "policy_type::text = ANY (ARRAY['registry_allowlist'::character varying::text, 'signature_required'::character varying::text, 'vulnerability_threshold'::character varying::text, 'custom'::character varying::text])", name: "check_image_policies_type"
+    t.check_constraint "enforcement_level::text = ANY (ARRAY['log'::character varying, 'warn'::character varying, 'block'::character varying]::text[])", name: "check_image_policies_enforcement"
+    t.check_constraint "policy_type::text = ANY (ARRAY['registry_allowlist'::character varying, 'signature_required'::character varying, 'vulnerability_threshold'::character varying, 'custom'::character varying]::text[])", name: "check_image_policies_type"
   end
 
   create_table "supply_chain_license_detections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5975,8 +5975,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["created_by_id"], name: "index_supply_chain_license_policies_on_created_by_id"
     t.index ["is_active"], name: "idx_license_policies_active"
     t.index ["is_default"], name: "idx_license_policies_default", where: "(is_default = true)"
-    t.check_constraint "enforcement_level::text = ANY (ARRAY['log'::character varying::text, 'warn'::character varying::text, 'block'::character varying::text])", name: "check_license_policies_enforcement"
-    t.check_constraint "policy_type::text = ANY (ARRAY['allowlist'::character varying::text, 'denylist'::character varying::text, 'hybrid'::character varying::text])", name: "check_license_policies_type"
+    t.check_constraint "enforcement_level::text = ANY (ARRAY['log'::character varying, 'warn'::character varying, 'block'::character varying]::text[])", name: "check_license_policies_enforcement"
+    t.check_constraint "policy_type::text = ANY (ARRAY['allowlist'::character varying, 'denylist'::character varying, 'hybrid'::character varying]::text[])", name: "check_license_policies_type"
   end
 
   create_table "supply_chain_license_violations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6008,9 +6008,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["sbom_id"], name: "idx_license_violations_sbom"
     t.index ["sbom_id"], name: "index_supply_chain_license_violations_on_sbom_id"
     t.index ["violation_type"], name: "idx_license_violations_type"
-    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying::text, 'high'::character varying::text, 'medium'::character varying::text, 'low'::character varying::text])", name: "check_license_violations_severity"
-    t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'reviewing'::character varying::text, 'resolved'::character varying::text, 'exception_granted'::character varying::text, 'wont_fix'::character varying::text])", name: "check_license_violations_status"
-    t.check_constraint "violation_type::text = ANY (ARRAY['denied'::character varying::text, 'copyleft'::character varying::text, 'incompatible'::character varying::text, 'unknown'::character varying::text, 'expired'::character varying::text])", name: "check_license_violations_type"
+    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying]::text[])", name: "check_license_violations_severity"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'reviewing'::character varying, 'resolved'::character varying, 'exception_granted'::character varying, 'wont_fix'::character varying]::text[])", name: "check_license_violations_status"
+    t.check_constraint "violation_type::text = ANY (ARRAY['denied'::character varying, 'copyleft'::character varying, 'incompatible'::character varying, 'unknown'::character varying, 'expired'::character varying]::text[])", name: "check_license_violations_type"
   end
 
   create_table "supply_chain_licenses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6033,7 +6033,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["category"], name: "idx_licenses_category"
     t.index ["is_copyleft"], name: "idx_licenses_copyleft"
     t.index ["spdx_id"], name: "idx_licenses_spdx_id", unique: true
-    t.check_constraint "category::text = ANY (ARRAY['permissive'::character varying::text, 'copyleft'::character varying::text, 'weak_copyleft'::character varying::text, 'public_domain'::character varying::text, 'proprietary'::character varying::text, 'unknown'::character varying::text])", name: "check_licenses_category"
+    t.check_constraint "category::text = ANY (ARRAY['permissive'::character varying, 'copyleft'::character varying, 'weak_copyleft'::character varying, 'public_domain'::character varying, 'proprietary'::character varying, 'unknown'::character varying]::text[])", name: "check_licenses_category"
   end
 
   create_table "supply_chain_questionnaire_responses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6066,7 +6066,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["template_id"], name: "index_supply_chain_questionnaire_responses_on_template_id"
     t.index ["vendor_id", "template_id"], name: "idx_questionnaire_responses_vendor_template"
     t.index ["vendor_id"], name: "index_supply_chain_questionnaire_responses_on_vendor_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'in_progress'::character varying::text, 'submitted'::character varying::text, 'reviewed'::character varying::text, 'expired'::character varying::text])", name: "check_questionnaire_responses_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'in_progress'::character varying, 'submitted'::character varying, 'reviewed'::character varying, 'expired'::character varying]::text[])", name: "check_questionnaire_responses_status"
   end
 
   create_table "supply_chain_questionnaire_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6088,7 +6088,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["created_by_id"], name: "index_supply_chain_questionnaire_templates_on_created_by_id"
     t.index ["is_system"], name: "idx_questionnaire_templates_system"
     t.index ["template_type"], name: "idx_questionnaire_templates_type"
-    t.check_constraint "template_type::text = ANY (ARRAY['soc2'::character varying::text, 'iso27001'::character varying::text, 'gdpr'::character varying::text, 'hipaa'::character varying::text, 'pci_dss'::character varying::text, 'custom'::character varying::text])", name: "check_questionnaire_templates_type"
+    t.check_constraint "template_type::text = ANY (ARRAY['soc2'::character varying, 'iso27001'::character varying, 'gdpr'::character varying, 'hipaa'::character varying, 'pci_dss'::character varying, 'custom'::character varying]::text[])", name: "check_questionnaire_templates_type"
   end
 
   create_table "supply_chain_remediation_plans", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6118,8 +6118,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["sbom_id"], name: "idx_remediation_plans_sbom"
     t.index ["sbom_id"], name: "index_supply_chain_remediation_plans_on_sbom_id"
     t.index ["workflow_run_id"], name: "index_supply_chain_remediation_plans_on_workflow_run_id"
-    t.check_constraint "plan_type::text = ANY (ARRAY['manual'::character varying::text, 'ai_generated'::character varying::text, 'auto_fix'::character varying::text])", name: "check_remediation_plans_type"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'pending_review'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'executing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "check_remediation_plans_status"
+    t.check_constraint "plan_type::text = ANY (ARRAY['manual'::character varying, 'ai_generated'::character varying, 'auto_fix'::character varying]::text[])", name: "check_remediation_plans_type"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'pending_review'::character varying, 'approved'::character varying, 'rejected'::character varying, 'executing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "check_remediation_plans_status"
   end
 
   create_table "supply_chain_reports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6147,9 +6147,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["created_by_id"], name: "index_supply_chain_reports_on_created_by_id"
     t.index ["sbom_id"], name: "index_supply_chain_reports_on_sbom_id"
     t.index ["status"], name: "idx_reports_status"
-    t.check_constraint "format::text = ANY (ARRAY['pdf'::character varying::text, 'json'::character varying::text, 'csv'::character varying::text, 'html'::character varying::text, 'xml'::character varying::text, 'spdx'::character varying::text, 'cyclonedx'::character varying::text])", name: "check_reports_format"
+    t.check_constraint "format::text = ANY (ARRAY['pdf'::character varying, 'json'::character varying, 'csv'::character varying, 'html'::character varying, 'xml'::character varying, 'spdx'::character varying, 'cyclonedx'::character varying]::text[])", name: "check_reports_format"
     t.check_constraint "report_type::text = ANY (ARRAY['sbom_export'::character varying, 'vulnerability'::character varying, 'vulnerability_report'::character varying, 'license_report'::character varying, 'attribution'::character varying, 'compliance'::character varying, 'compliance_summary'::character varying, 'vendor_risk'::character varying, 'vendor_assessment'::character varying, 'custom'::character varying]::text[])", name: "check_reports_type"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'generating'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'expired'::character varying::text])", name: "check_reports_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'generating'::character varying, 'completed'::character varying, 'failed'::character varying, 'expired'::character varying]::text[])", name: "check_reports_status"
   end
 
   create_table "supply_chain_risk_assessments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6178,8 +6178,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["assessor_id"], name: "index_supply_chain_risk_assessments_on_assessor_id"
     t.index ["vendor_id", "created_at"], name: "idx_risk_assessments_vendor_created"
     t.index ["vendor_id"], name: "index_supply_chain_risk_assessments_on_vendor_id"
-    t.check_constraint "assessment_type::text = ANY (ARRAY['initial'::character varying::text, 'periodic'::character varying::text, 'incident'::character varying::text, 'renewal'::character varying::text])", name: "check_risk_assessments_type"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'in_progress'::character varying::text, 'pending_review'::character varying::text, 'completed'::character varying::text, 'expired'::character varying::text])", name: "check_risk_assessments_status"
+    t.check_constraint "assessment_type::text = ANY (ARRAY['initial'::character varying, 'periodic'::character varying, 'incident'::character varying, 'renewal'::character varying]::text[])", name: "check_risk_assessments_type"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'in_progress'::character varying, 'pending_review'::character varying, 'completed'::character varying, 'expired'::character varying]::text[])", name: "check_risk_assessments_status"
   end
 
   create_table "supply_chain_sbom_components", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6211,8 +6211,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["purl"], name: "idx_sbom_components_purl"
     t.index ["sbom_id", "purl"], name: "idx_sbom_components_sbom_purl", unique: true
     t.index ["sbom_id"], name: "index_supply_chain_sbom_components_on_sbom_id"
-    t.check_constraint "dependency_type::text = ANY (ARRAY['direct'::character varying::text, 'transitive'::character varying::text, 'dev'::character varying::text, 'optional'::character varying::text, 'peer'::character varying::text])", name: "check_sbom_components_dependency_type"
-    t.check_constraint "ecosystem::text = ANY (ARRAY['npm'::character varying::text, 'gem'::character varying::text, 'pip'::character varying::text, 'maven'::character varying::text, 'gradle'::character varying::text, 'go'::character varying::text, 'cargo'::character varying::text, 'nuget'::character varying::text, 'composer'::character varying::text, 'hex'::character varying::text, 'pub'::character varying::text, 'cocoapods'::character varying::text, 'swift'::character varying::text, 'other'::character varying::text])", name: "check_sbom_components_ecosystem"
+    t.check_constraint "dependency_type::text = ANY (ARRAY['direct'::character varying, 'transitive'::character varying, 'dev'::character varying, 'optional'::character varying, 'peer'::character varying]::text[])", name: "check_sbom_components_dependency_type"
+    t.check_constraint "ecosystem::text = ANY (ARRAY['npm'::character varying, 'gem'::character varying, 'pip'::character varying, 'maven'::character varying, 'gradle'::character varying, 'go'::character varying, 'cargo'::character varying, 'nuget'::character varying, 'composer'::character varying, 'hex'::character varying, 'pub'::character varying, 'cocoapods'::character varying, 'swift'::character varying, 'other'::character varying]::text[])", name: "check_sbom_components_ecosystem"
   end
 
   create_table "supply_chain_sbom_diffs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6271,8 +6271,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["sbom_id", "vulnerability_id", "component_id"], name: "idx_sbom_vulns_unique", unique: true
     t.index ["sbom_id"], name: "index_supply_chain_sbom_vulnerabilities_on_sbom_id"
     t.index ["vulnerability_id"], name: "idx_sbom_vulns_vuln_id"
-    t.check_constraint "remediation_status::text = ANY (ARRAY['open'::character varying::text, 'in_progress'::character varying::text, 'fixed'::character varying::text, 'dismissed'::character varying::text, 'wont_fix'::character varying::text])", name: "check_sbom_vulns_remediation_status"
-    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying::text, 'high'::character varying::text, 'medium'::character varying::text, 'low'::character varying::text, 'none'::character varying::text, 'unknown'::character varying::text])", name: "check_sbom_vulns_severity"
+    t.check_constraint "remediation_status::text = ANY (ARRAY['open'::character varying, 'in_progress'::character varying, 'fixed'::character varying, 'dismissed'::character varying, 'wont_fix'::character varying]::text[])", name: "check_sbom_vulns_remediation_status"
+    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying, 'none'::character varying, 'unknown'::character varying]::text[])", name: "check_sbom_vulns_severity"
   end
 
   create_table "supply_chain_sboms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6307,8 +6307,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["pipeline_run_id"], name: "index_supply_chain_sboms_on_pipeline_run_id"
     t.index ["repository_id", "commit_sha"], name: "idx_sboms_repo_commit"
     t.index ["repository_id"], name: "index_supply_chain_sboms_on_repository_id"
-    t.check_constraint "format::text = ANY (ARRAY['spdx_2_3'::character varying::text, 'cyclonedx_1_4'::character varying::text, 'cyclonedx_1_5'::character varying::text, 'cyclonedx_1_6'::character varying::text])", name: "check_sboms_format"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'generating'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'archived'::character varying::text])", name: "check_sboms_status"
+    t.check_constraint "format::text = ANY (ARRAY['spdx_2_3'::character varying, 'cyclonedx_1_4'::character varying, 'cyclonedx_1_5'::character varying, 'cyclonedx_1_6'::character varying]::text[])", name: "check_sboms_format"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'generating'::character varying, 'completed'::character varying, 'failed'::character varying, 'archived'::character varying]::text[])", name: "check_sboms_status"
   end
 
   create_table "supply_chain_scan_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6334,8 +6334,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["scan_instance_id", "created_at"], name: "idx_scan_executions_instance_created"
     t.index ["scan_instance_id"], name: "index_supply_chain_scan_executions_on_scan_instance_id"
     t.index ["triggered_by_id"], name: "index_supply_chain_scan_executions_on_triggered_by_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "check_scan_executions_status"
-    t.check_constraint "trigger_type::text = ANY (ARRAY['manual'::character varying::text, 'scheduled'::character varying::text, 'webhook'::character varying::text, 'pipeline'::character varying::text, 'api'::character varying::text])", name: "check_scan_executions_trigger"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "check_scan_executions_status"
+    t.check_constraint "trigger_type::text = ANY (ARRAY['manual'::character varying, 'scheduled'::character varying, 'webhook'::character varying, 'pipeline'::character varying, 'api'::character varying]::text[])", name: "check_scan_executions_trigger"
   end
 
   create_table "supply_chain_scan_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6361,7 +6361,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["next_execution_at"], name: "idx_scan_instances_next_execution"
     t.index ["scan_template_id"], name: "index_supply_chain_scan_instances_on_scan_template_id"
     t.index ["status"], name: "idx_scan_instances_status"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'disabled'::character varying::text])", name: "check_scan_instances_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'disabled'::character varying]::text[])", name: "check_scan_instances_status"
   end
 
   create_table "supply_chain_scan_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6389,8 +6389,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["is_public"], name: "idx_scan_templates_public"
     t.index ["slug"], name: "idx_scan_templates_slug", unique: true
     t.index ["status"], name: "idx_scan_templates_status"
-    t.check_constraint "category::text = ANY (ARRAY['security'::character varying::text, 'compliance'::character varying::text, 'license'::character varying::text, 'quality'::character varying::text, 'custom'::character varying::text])", name: "check_scan_templates_category"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text, 'archived'::character varying::text, 'deprecated'::character varying::text])", name: "check_scan_templates_status"
+    t.check_constraint "category::text = ANY (ARRAY['security'::character varying, 'compliance'::character varying, 'license'::character varying, 'quality'::character varying, 'custom'::character varying]::text[])", name: "check_scan_templates_category"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'archived'::character varying, 'deprecated'::character varying]::text[])", name: "check_scan_templates_status"
   end
 
   create_table "supply_chain_signing_keys", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6419,8 +6419,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["fingerprint"], name: "idx_signing_keys_fingerprint", unique: true
     t.index ["rotated_from_id"], name: "index_supply_chain_signing_keys_on_rotated_from_id"
     t.index ["status"], name: "idx_signing_keys_status"
-    t.check_constraint "key_type::text = ANY (ARRAY['cosign'::character varying::text, 'oidc_identity'::character varying::text, 'kms_reference'::character varying::text, 'gpg'::character varying::text])", name: "check_signing_keys_type"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'rotating'::character varying::text, 'rotated'::character varying::text, 'revoked'::character varying::text, 'expired'::character varying::text])", name: "check_signing_keys_status"
+    t.check_constraint "key_type::text = ANY (ARRAY['cosign'::character varying, 'oidc_identity'::character varying, 'kms_reference'::character varying, 'gpg'::character varying]::text[])", name: "check_signing_keys_type"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'rotating'::character varying, 'rotated'::character varying, 'revoked'::character varying, 'expired'::character varying]::text[])", name: "check_signing_keys_status"
   end
 
   create_table "supply_chain_vendor_monitoring_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6449,8 +6449,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["is_acknowledged"], name: "idx_vendor_events_acknowledged"
     t.index ["vendor_id", "created_at"], name: "idx_vendor_events_vendor_created"
     t.index ["vendor_id"], name: "index_supply_chain_vendor_monitoring_events_on_vendor_id"
-    t.check_constraint "event_type::text = ANY (ARRAY['security_incident'::character varying::text, 'breach'::character varying::text, 'certification_expiry'::character varying::text, 'contract_renewal'::character varying::text, 'service_degradation'::character varying::text, 'compliance_update'::character varying::text, 'news_alert'::character varying::text])", name: "check_vendor_events_type"
-    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying::text, 'high'::character varying::text, 'medium'::character varying::text, 'low'::character varying::text, 'info'::character varying::text])", name: "check_vendor_events_severity"
+    t.check_constraint "event_type::text = ANY (ARRAY['security_incident'::character varying, 'breach'::character varying, 'certification_expiry'::character varying, 'contract_renewal'::character varying, 'service_degradation'::character varying, 'compliance_update'::character varying, 'news_alert'::character varying]::text[])", name: "check_vendor_events_type"
+    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying, 'info'::character varying]::text[])", name: "check_vendor_events_severity"
   end
 
   create_table "supply_chain_vendors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6485,9 +6485,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["created_by_id"], name: "index_supply_chain_vendors_on_created_by_id"
     t.index ["risk_tier"], name: "idx_vendors_risk_tier"
     t.index ["status"], name: "idx_vendors_status"
-    t.check_constraint "risk_tier::text = ANY (ARRAY['critical'::character varying::text, 'high'::character varying::text, 'medium'::character varying::text, 'low'::character varying::text])", name: "check_vendors_risk_tier"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'under_review'::character varying::text, 'terminated'::character varying::text])", name: "check_vendors_status"
-    t.check_constraint "vendor_type::text = ANY (ARRAY['saas'::character varying::text, 'api'::character varying::text, 'library'::character varying::text, 'infrastructure'::character varying::text, 'hardware'::character varying::text, 'consulting'::character varying::text, 'other'::character varying::text])", name: "check_vendors_type"
+    t.check_constraint "risk_tier::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying]::text[])", name: "check_vendors_risk_tier"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'under_review'::character varying, 'terminated'::character varying]::text[])", name: "check_vendors_status"
+    t.check_constraint "vendor_type::text = ANY (ARRAY['saas'::character varying, 'api'::character varying, 'library'::character varying, 'infrastructure'::character varying, 'hardware'::character varying, 'consulting'::character varying, 'other'::character varying]::text[])", name: "check_vendors_type"
   end
 
   create_table "supply_chain_verification_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6529,8 +6529,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["account_id", "source"], name: "idx_vuln_feeds_account_source", unique: true
     t.index ["account_id"], name: "index_supply_chain_vulnerability_feeds_on_account_id"
     t.index ["sync_status"], name: "idx_vuln_feeds_sync_status"
-    t.check_constraint "source::text = ANY (ARRAY['nvd'::character varying::text, 'osv'::character varying::text, 'github_advisory'::character varying::text, 'snyk'::character varying::text, 'sonatype'::character varying::text, 'custom'::character varying::text])", name: "check_vuln_feeds_source"
-    t.check_constraint "sync_status::text = ANY (ARRAY['pending'::character varying::text, 'syncing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "check_vuln_feeds_sync_status"
+    t.check_constraint "source::text = ANY (ARRAY['nvd'::character varying, 'osv'::character varying, 'github_advisory'::character varying, 'snyk'::character varying, 'sonatype'::character varying, 'custom'::character varying]::text[])", name: "check_vuln_feeds_source"
+    t.check_constraint "sync_status::text = ANY (ARRAY['pending'::character varying, 'syncing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "check_vuln_feeds_sync_status"
   end
 
   create_table "supply_chain_vulnerability_scans", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6561,8 +6561,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["container_image_id"], name: "index_supply_chain_vulnerability_scans_on_container_image_id"
     t.index ["triggered_by_id"], name: "index_supply_chain_vulnerability_scans_on_triggered_by_id"
     t.index ["vulnerabilities"], name: "idx_vuln_scans_vulns", using: :gin
-    t.check_constraint "scanner_name::text = ANY (ARRAY['trivy'::character varying::text, 'grype'::character varying::text, 'clair'::character varying::text, 'snyk'::character varying::text, 'custom'::character varying::text])", name: "check_vuln_scans_scanner"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "check_vuln_scans_status"
+    t.check_constraint "scanner_name::text = ANY (ARRAY['trivy'::character varying, 'grype'::character varying, 'clair'::character varying, 'snyk'::character varying, 'custom'::character varying]::text[])", name: "check_vuln_scans_scanner"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "check_vuln_scans_status"
   end
 
   create_table "system_health_checks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6663,7 +6663,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.index ["timestamp"], name: "index_usage_events_on_timestamp"
     t.index ["usage_meter_id"], name: "index_usage_events_on_usage_meter_id"
     t.index ["user_id"], name: "index_usage_events_on_user_id"
-    t.check_constraint "source IS NULL OR (source::text = ANY (ARRAY['api'::character varying::text, 'webhook'::character varying::text, 'system'::character varying::text, 'import'::character varying::text, 'internal'::character varying::text]))", name: "check_usage_event_source"
+    t.check_constraint "source IS NULL OR (source::text = ANY (ARRAY['api'::character varying, 'webhook'::character varying, 'system'::character varying, 'import'::character varying, 'internal'::character varying]::text[]))", name: "check_usage_event_source"
   end
 
   create_table "usage_meters", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6681,9 +6681,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.datetime "updated_at", null: false
     t.index ["is_active"], name: "index_usage_meters_on_is_active"
     t.index ["slug"], name: "index_usage_meters_on_slug", unique: true
-    t.check_constraint "aggregation_type::text = ANY (ARRAY['sum'::character varying::text, 'max'::character varying::text, 'count'::character varying::text, 'last'::character varying::text, 'average'::character varying::text])", name: "check_aggregation_type"
-    t.check_constraint "billing_model::text = ANY (ARRAY['tiered'::character varying::text, 'volume'::character varying::text, 'package'::character varying::text, 'flat'::character varying::text, 'per_unit'::character varying::text])", name: "check_billing_model"
-    t.check_constraint "reset_period::text = ANY (ARRAY['never'::character varying::text, 'daily'::character varying::text, 'weekly'::character varying::text, 'monthly'::character varying::text, 'yearly'::character varying::text, 'billing_period'::character varying::text])", name: "check_reset_period"
+    t.check_constraint "aggregation_type::text = ANY (ARRAY['sum'::character varying, 'max'::character varying, 'count'::character varying, 'last'::character varying, 'average'::character varying]::text[])", name: "check_aggregation_type"
+    t.check_constraint "billing_model::text = ANY (ARRAY['tiered'::character varying, 'volume'::character varying, 'package'::character varying, 'flat'::character varying, 'per_unit'::character varying]::text[])", name: "check_billing_model"
+    t.check_constraint "reset_period::text = ANY (ARRAY['never'::character varying, 'daily'::character varying, 'weekly'::character varying, 'monthly'::character varying, 'yearly'::character varying, 'billing_period'::character varying]::text[])", name: "check_reset_period"
   end
 
   create_table "usage_quotas", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6940,7 +6940,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_055320) do
     t.check_constraint "retry_limit >= 0 AND retry_limit <= 10", name: "valid_webhook_retry_limit"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'suspended'::character varying::text])", name: "valid_webhook_status"
     t.check_constraint "success_count >= 0", name: "valid_webhook_success_count"
-    t.check_constraint "tier::text = ANY (ARRAY['free'::character varying::text, 'pro'::character varying::text, 'enterprise'::character varying::text])", name: "check_webhook_tier"
+    t.check_constraint "tier::text = ANY (ARRAY['free'::character varying, 'pro'::character varying, 'enterprise'::character varying]::text[])", name: "check_webhook_tier"
     t.check_constraint "timeout_seconds > 0 AND timeout_seconds <= 300", name: "valid_webhook_timeout"
   end
 
