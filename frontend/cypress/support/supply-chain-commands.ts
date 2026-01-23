@@ -565,25 +565,27 @@ Cypress.Commands.add('setupSupplyChainIntercepts', () => {
     body: {
       success: true,
       data: {
-        ...mockVendors[0],
-        assessments: [
-          {
-            id: 'assess-1',
-            assessment_type: 'periodic',
-            status: 'completed',
-            overall_score: 78,
-            valid_until: new Date(Date.now() + 31536000000).toISOString(),
-          },
-        ],
-        questionnaires: [
-          {
-            id: 'quest-1',
-            template_name: 'Security Assessment Q1 2024',
-            status: 'completed',
-            response_count: 45,
-            total_questions: 50,
-          },
-        ],
+        vendor: {
+          ...mockVendors[0],
+          assessments: [
+            {
+              id: 'assess-1',
+              assessment_type: 'periodic',
+              status: 'completed',
+              overall_score: 78,
+              valid_until: new Date(Date.now() + 31536000000).toISOString(),
+            },
+          ],
+          questionnaires: [
+            {
+              id: 'quest-1',
+              template_name: 'Security Assessment Q1 2024',
+              status: 'completed',
+              response_count: 45,
+              total_questions: 50,
+            },
+          ],
+        },
       },
     },
   }).as('getVendor');
@@ -705,6 +707,146 @@ Cypress.Commands.add('setupSupplyChainIntercepts', () => {
     statusCode: 200,
     body: { success: true, data: { ...mockLicenseViolations[0], status: 'exception_granted' } },
   }).as('grantLicenseException');
+
+  // ============================================================================
+  // File Management Intercepts for Supply Chain
+  // ============================================================================
+
+  const createMockFileObject = (overrides: Record<string, unknown> = {}) => ({
+    id: 'file-' + Math.random().toString(36).substr(2, 9),
+    filename: 'document.pdf',
+    file_size: 1024000,
+    content_type: 'application/pdf',
+    category: 'vendor_compliance',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    uploaded_by: {
+      id: 'user-1',
+      name: 'Test User',
+      email: 'test@example.com',
+    },
+    ...overrides,
+  });
+
+  const mockVendorFiles = [
+    createMockFileObject({
+      id: 'file-1',
+      filename: 'soc2-report-2024.pdf',
+      category: 'vendor_compliance',
+      file_size: 2048000,
+    }),
+    createMockFileObject({
+      id: 'file-2',
+      filename: 'iso27001-certificate.pdf',
+      category: 'vendor_certificate',
+      file_size: 512000,
+    }),
+    createMockFileObject({
+      id: 'file-3',
+      filename: 'risk-assessment-q1.pdf',
+      category: 'vendor_assessment',
+      file_size: 1536000,
+    }),
+  ];
+
+  const mockSbomFiles = [
+    createMockFileObject({
+      id: 'file-sbom-1',
+      filename: 'sbom-cyclonedx.json',
+      category: 'sbom_export',
+      content_type: 'application/json',
+      file_size: 256000,
+    }),
+    createMockFileObject({
+      id: 'file-sbom-2',
+      filename: 'sbom-spdx.json',
+      category: 'sbom_export',
+      content_type: 'application/json',
+      file_size: 384000,
+    }),
+  ];
+
+  const mockAttestationFiles = [
+    createMockFileObject({
+      id: 'file-att-1',
+      filename: 'attestation.sig',
+      category: 'attestation_proof',
+      content_type: 'application/octet-stream',
+      file_size: 4096,
+    }),
+    createMockFileObject({
+      id: 'file-att-2',
+      filename: 'attestation.bundle',
+      category: 'attestation_proof',
+      content_type: 'application/octet-stream',
+      file_size: 8192,
+    }),
+  ];
+
+  const mockContainerScanFiles = [
+    createMockFileObject({
+      id: 'file-scan-1',
+      filename: 'trivy-scan-report.json',
+      category: 'supply_chain_scan_report',
+      content_type: 'application/json',
+      file_size: 512000,
+    }),
+    createMockFileObject({
+      id: 'file-scan-2',
+      filename: 'grype-scan-report.json',
+      category: 'supply_chain_scan_report',
+      content_type: 'application/json',
+      file_size: 384000,
+    }),
+  ];
+
+  // Files API - Get files for vendor (handles URL-encoded colons %3A%3A)
+  cy.intercept('GET', /\/api\/v1\/files.*attachable_type=SupplyChain(%3A%3A|::)Vendor/i, {
+    statusCode: 200,
+    body: { success: true, data: { files: mockVendorFiles, pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 3 } } },
+  }).as('getVendorFiles');
+
+  // Files API - Get files for SBOM (handles URL-encoded colons %3A%3A)
+  cy.intercept('GET', /\/api\/v1\/files.*attachable_type=SupplyChain(%3A%3A|::)Sbom/i, {
+    statusCode: 200,
+    body: { success: true, data: { files: mockSbomFiles, pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 } } },
+  }).as('getSbomFiles');
+
+  // Files API - Get files for Attestation (handles URL-encoded colons %3A%3A)
+  cy.intercept('GET', /\/api\/v1\/files.*attachable_type=SupplyChain(%3A%3A|::)Attestation/i, {
+    statusCode: 200,
+    body: { success: true, data: { files: mockAttestationFiles, pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 } } },
+  }).as('getAttestationFiles');
+
+  // Files API - Get files for ContainerImage (handles URL-encoded colons %3A%3A)
+  cy.intercept('GET', /\/api\/v1\/files.*attachable_type=SupplyChain(%3A%3A|::)ContainerImage/i, {
+    statusCode: 200,
+    body: { success: true, data: { files: mockContainerScanFiles, pagination: { current_page: 1, per_page: 20, total_pages: 1, total_count: 2 } } },
+  }).as('getContainerImageFiles');
+
+  // Files API - Upload file
+  cy.intercept('POST', '**/api/v1/files/upload', {
+    statusCode: 201,
+    body: { success: true, data: { file: createMockFileObject({ id: 'file-new-upload' }) } },
+  }).as('uploadFile');
+
+  // Files API - Download file
+  cy.intercept('GET', /\/api\/v1\/files\/[^\/]+\/download/, {
+    statusCode: 200,
+    body: { success: true, data: { download_url: 'https://storage.example.com/presigned-url' } },
+  }).as('getFileDownloadUrl');
+
+  // Files API - Delete file
+  cy.intercept('DELETE', /\/api\/v1\/files\/[^\/]+$/, {
+    statusCode: 200,
+    body: { success: true, data: null },
+  }).as('deleteFile');
+
+  // Files API - Get single file info
+  cy.intercept('GET', /\/api\/v1\/files\/[^\/]+$/, {
+    statusCode: 200,
+    body: { success: true, data: { file: createMockFileObject() } },
+  }).as('getFileInfo');
 });
 
 // Navigate to supply chain page

@@ -11,6 +11,7 @@ RSpec.describe SupplyChain::Vendor, type: :model do
     it { is_expected.to have_many(:risk_assessments).class_name("SupplyChain::RiskAssessment").dependent(:destroy) }
     it { is_expected.to have_many(:questionnaire_responses).class_name("SupplyChain::QuestionnaireResponse").dependent(:destroy) }
     it { is_expected.to have_many(:monitoring_events).class_name("SupplyChain::VendorMonitoringEvent").dependent(:destroy) }
+    it { is_expected.to have_many(:file_objects).class_name("FileManagement::Object").dependent(:nullify) }
   end
 
   describe "validations" do

@@ -25,6 +25,7 @@ module SupplyChain
              foreign_key: :vendor_id, dependent: :destroy
     has_many :monitoring_events, class_name: "SupplyChain::VendorMonitoringEvent",
              foreign_key: :vendor_id, dependent: :destroy
+    has_many :file_objects, as: :attachable, class_name: "FileManagement::Object", dependent: :nullify
 
     # ============================================
     # Validations

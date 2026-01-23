@@ -39,6 +39,7 @@ module SupplyChain
              foreign_key: :attestation_id, dependent: :destroy
     has_many :container_images, class_name: "SupplyChain::ContainerImage",
              foreign_key: :attestation_id, dependent: :nullify
+    has_many :file_objects, as: :attachable, class_name: "FileManagement::Object", dependent: :nullify
 
     # ============================================
     # Validations

@@ -39,6 +39,7 @@ module SupplyChain
              foreign_key: :target_sbom_id, dependent: :destroy
     has_many :diffs, ->(sbom) { unscope(:where).where(base_sbom_id: sbom.id).or(where(target_sbom_id: sbom.id)) },
              class_name: "SupplyChain::SbomDiff"
+    has_many :file_objects, as: :attachable, class_name: "FileManagement::Object", dependent: :nullify
 
     # ============================================
     # Validations

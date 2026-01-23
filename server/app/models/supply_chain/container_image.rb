@@ -23,6 +23,7 @@ module SupplyChain
              foreign_key: :base_image_id, dependent: :nullify
     has_many :vulnerability_scans, class_name: "SupplyChain::VulnerabilityScan",
              foreign_key: :container_image_id, dependent: :destroy
+    has_many :file_objects, as: :attachable, class_name: "FileManagement::Object", dependent: :nullify
 
     # ============================================
     # Validations

@@ -12,6 +12,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { EditVendorModal } from '../components/vendor/EditVendorModal';
 import { StartAssessmentModal } from '../components/vendor/StartAssessmentModal';
 import { SendQuestionnaireModal } from '../components/vendor/SendQuestionnaireModal';
+import { VendorDocumentsPanel } from '../components/vendor/VendorDocumentsPanel';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const VendorDetailPage: React.FC = () => {
@@ -82,6 +83,7 @@ export const VendorDetailPage: React.FC = () => {
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
+    { id: 'documents', label: 'Documents' },
     { id: 'assessments', label: 'Assessments', badge: vendor.assessments?.length || 0 },
     { id: 'questionnaires', label: 'Questionnaires', badge: vendor.questionnaires?.length || 0 },
     { id: 'monitoring', label: 'Monitoring Events', badge: vendor.monitoring_events?.length || 0 },
@@ -423,6 +425,7 @@ export const VendorDetailPage: React.FC = () => {
       <TabContainer tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} variant="underline" showContent={false} />
         <div className="mt-6">
           {activeTab === 'overview' && renderOverview()}
+          {activeTab === 'documents' && <VendorDocumentsPanel vendorId={vendor.id} vendorName={vendor.name} />}
           {activeTab === 'assessments' && renderAssessments()}
           {activeTab === 'questionnaires' && renderQuestionnaires()}
           {activeTab === 'monitoring' && renderMonitoring()}
