@@ -40,7 +40,7 @@ const menuReducer = (state: MenuState, action: MenuAction): MenuState => {
 // Initial menu state
 const initialMenuState: MenuState = {
   activePath: '/',
-  expandedSections: ['business', 'content'], // Only expand business and content by default
+  expandedSections: [], // All sections collapsed by default on first login
   isCollapsed: false,
   isMobileOpen: false
 };
@@ -164,25 +164,25 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
           
           dispatch({ type: 'UPDATE_STATE', payload: {
             isCollapsed: parsed.isCollapsed || false,
-            expandedSections: validSections.length > 0 ? validSections : ['business', 'content']
+            expandedSections: validSections
           }});
         } else {
-          // Clear old state and use defaults
+          // Clear old state and use defaults (all collapsed)
           localStorage.removeItem(storageKey);
           dispatch({ type: 'UPDATE_STATE', payload: {
-            expandedSections: ['business', 'content']
+            expandedSections: []
           }});
         }
       } catch (error) {
         localStorage.removeItem(storageKey);
         dispatch({ type: 'UPDATE_STATE', payload: {
-          expandedSections: ['business', 'content']
+          expandedSections: []
         }});
       }
     } else {
-      // Set default state if no saved state
+      // Set default state if no saved state (all sections collapsed)
       dispatch({ type: 'UPDATE_STATE', payload: {
-        expandedSections: ['business', 'content']
+        expandedSections: []
       }});
     }
   }, [user?.id, buildNavigationConfig]);
