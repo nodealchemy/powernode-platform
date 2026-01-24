@@ -33,7 +33,7 @@ describe('Pipeline Approval Page Tests', () => {
 
   describe('Loading State', () => {
     it('should display loading state while fetching approval details', () => {
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         delay: 1000,
         statusCode: 200,
         body: { success: true, data: mockApprovalDetails },
@@ -46,7 +46,7 @@ describe('Pipeline Approval Page Tests', () => {
 
   describe('Approval Details Display', () => {
     beforeEach(() => {
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 200,
         body: { success: true, data: mockApprovalDetails },
       }).as('getApprovalDetails');
@@ -97,7 +97,7 @@ describe('Pipeline Approval Page Tests', () => {
 
   describe('Approval Actions', () => {
     beforeEach(() => {
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 200,
         body: { success: true, data: mockApprovalDetails },
       }).as('getApprovalDetails');
@@ -117,7 +117,7 @@ describe('Pipeline Approval Page Tests', () => {
     });
 
     it('should successfully approve step', () => {
-      cy.intercept('POST', '**/devops/step_approvals/*/approve', {
+      cy.intercept('POST', '**/devops/approval_tokens/*/approve', {
         statusCode: 200,
         body: { success: true, data: { message: 'Step approved successfully' } },
       }).as('approveStep');
@@ -131,7 +131,7 @@ describe('Pipeline Approval Page Tests', () => {
     });
 
     it('should successfully reject step', () => {
-      cy.intercept('POST', '**/devops/step_approvals/*/reject', {
+      cy.intercept('POST', '**/devops/approval_tokens/*/reject', {
         statusCode: 200,
         body: { success: true, data: { message: 'Step rejected successfully' } },
       }).as('rejectStep');
@@ -145,7 +145,7 @@ describe('Pipeline Approval Page Tests', () => {
     });
 
     it('should submit with optional comment', () => {
-      cy.intercept('POST', '**/devops/step_approvals/*/approve', {
+      cy.intercept('POST', '**/devops/approval_tokens/*/approve', {
         statusCode: 200,
         body: { success: true, data: { message: 'Step approved' } },
       }).as('approveStep');
@@ -166,7 +166,7 @@ describe('Pipeline Approval Page Tests', () => {
     };
 
     beforeEach(() => {
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 200,
         body: { success: true, data: detailsWithRequiredComment },
       }).as('getApprovalDetails');
@@ -196,7 +196,7 @@ describe('Pipeline Approval Page Tests', () => {
     };
 
     beforeEach(() => {
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 200,
         body: { success: true, data: expiredDetails },
       }).as('getApprovalDetails');
@@ -224,7 +224,7 @@ describe('Pipeline Approval Page Tests', () => {
 
   describe('Error States', () => {
     it('should display error for invalid token', () => {
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 404,
         body: { success: false, error: 'Approval request not found' },
       }).as('getApprovalDetailsError');
@@ -235,7 +235,7 @@ describe('Pipeline Approval Page Tests', () => {
     });
 
     it('should display error for already processed approval', () => {
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 400,
         body: { success: false, error: 'This approval has already been processed' },
       }).as('getApprovalDetailsError');
@@ -248,12 +248,12 @@ describe('Pipeline Approval Page Tests', () => {
     });
 
     it('should display error when approval action fails', () => {
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 200,
         body: { success: true, data: mockApprovalDetails },
       }).as('getApprovalDetails');
 
-      cy.intercept('POST', '**/devops/step_approvals/*/approve', {
+      cy.intercept('POST', '**/devops/approval_tokens/*/approve', {
         statusCode: 500,
         body: { success: false, error: 'Failed to process approval' },
       }).as('approveStepError');
@@ -266,7 +266,7 @@ describe('Pipeline Approval Page Tests', () => {
     });
 
     it('should have Go to Dashboard button on error', () => {
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 404,
         body: { success: false, error: 'Not found' },
       }).as('getApprovalDetailsError');
@@ -285,7 +285,7 @@ describe('Pipeline Approval Page Tests', () => {
         trigger_context: { branch: 'main', ref: 'refs/heads/main' },
       };
 
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 200,
         body: { success: true, data: pushTriggerDetails },
       }).as('getApprovalDetails');
@@ -302,7 +302,7 @@ describe('Pipeline Approval Page Tests', () => {
         trigger_context: {},
       };
 
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 200,
         body: { success: true, data: manualTriggerDetails },
       }).as('getApprovalDetails');
@@ -319,7 +319,7 @@ describe('Pipeline Approval Page Tests', () => {
         trigger_context: {},
       };
 
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 200,
         body: { success: true, data: scheduleTriggerDetails },
       }).as('getApprovalDetails');
@@ -332,14 +332,14 @@ describe('Pipeline Approval Page Tests', () => {
 
   describe('Completion State', () => {
     beforeEach(() => {
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 200,
         body: { success: true, data: mockApprovalDetails },
       }).as('getApprovalDetails');
     });
 
     it('should display View Pipeline Runs button after approval', () => {
-      cy.intercept('POST', '**/devops/step_approvals/*/approve', {
+      cy.intercept('POST', '**/devops/approval_tokens/*/approve', {
         statusCode: 200,
         body: { success: true, data: { message: 'Approved' } },
       }).as('approveStep');
@@ -352,7 +352,7 @@ describe('Pipeline Approval Page Tests', () => {
     });
 
     it('should navigate to pipeline runs when clicking View Pipeline Runs', () => {
-      cy.intercept('POST', '**/devops/step_approvals/*/approve', {
+      cy.intercept('POST', '**/devops/approval_tokens/*/approve', {
         statusCode: 200,
         body: { success: true, data: { message: 'Approved' } },
       }).as('approveStep');
@@ -368,7 +368,7 @@ describe('Pipeline Approval Page Tests', () => {
 
   describe('Responsive Layout', () => {
     beforeEach(() => {
-      cy.intercept('GET', '**/devops/step_approvals/*', {
+      cy.intercept('GET', '**/devops/approval_tokens/*', {
         statusCode: 200,
         body: { success: true, data: mockApprovalDetails },
       }).as('getApprovalDetails');

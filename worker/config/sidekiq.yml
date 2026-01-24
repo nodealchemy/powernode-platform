@@ -20,12 +20,12 @@
 :queues:
   - [critical, 3]          # Critical system operations
   - [high, 3]              # High priority tasks
-  - [ci_cd_high, 3]        # High priority CI/CD operations (pipeline execution, deployment)
+  - [devops_high, 3]       # High priority DevOps operations (pipeline execution, deployment)
   - [ai_workflows, 2]      # AI workflow execution (uses 600s circuit breaker)
   - [ai_agents, 2]         # AI agent operations (uses 600s circuit breaker)
   - [ai_conversations, 2]  # AI conversation processing
-  - [ci_cd_default, 2]     # Default CI/CD queue (step execution, sync)
-  - [ci_cd_webhooks, 2]    # CI/CD webhook processing
+  - [devops_default, 2]    # Default DevOps queue (step execution, sync)
+  - [devops_webhooks, 2]   # DevOps webhook processing
   - [file_processing, 2]   # File uploads/processing
   - [services, 2]          # Service health checks
   - [billing, 2]           # Billing operations (uses distributed locking)
@@ -73,12 +73,12 @@
   :listened_queues_only: false
 
 :schedule:
-  # Expire stale CI/CD approval tokens hourly
-  ci_cd_approval_expiry:
+  # Expire stale DevOps approval tokens hourly
+  devops_approval_expiry:
     cron: '0 * * * *'  # Every hour at minute 0
-    class: CiCd::ApprovalExpiryJob
+    class: Devops::ApprovalExpiryJob
     queue: default
-    description: 'Expire stale CI/CD pipeline step approval tokens'
+    description: 'Expire stale DevOps pipeline step approval tokens'
 
   # Expire stale AI workflow approval tokens hourly
   ai_workflow_approval_expiry:

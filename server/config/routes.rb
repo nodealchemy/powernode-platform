@@ -105,9 +105,9 @@ Rails.application.routes.draw do
         get "status/history", to: "status#history"
       end
 
-      # DevOps Step Approvals (public, token-based auth)
+      # DevOps Approval Tokens (public, token-based auth)
       namespace :devops do
-        resources :step_approvals, only: [:show], param: :token do
+        resources :approval_tokens, only: [:show], param: :token do
           member do
             post :approve
             post :reject
@@ -144,8 +144,8 @@ Rails.application.routes.draw do
         # Review notifications
         resources :review_notifications, only: [ :show, :update ]
 
-        # CI/CD Step Approvals (for worker service)
-        resources :step_approvals, only: [:show], param: :step_execution_id do
+        # DevOps Approval Tokens (for worker service)
+        resources :approval_tokens, only: [:show], param: :step_execution_id do
           member do
             post :create_tokens
           end
