@@ -11,7 +11,7 @@ Account.find_each do |account|
   end
 
   # Create local storage configuration
-  storage = FileStorage.create!(
+  storage = FileManagement::Storage.create!(
     account: account,
     name: 'Local Storage',
     provider_type: 'local',

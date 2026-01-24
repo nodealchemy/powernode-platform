@@ -40,7 +40,7 @@ module Mcp
             node_type: "kb_article_search",
             executed_at: Time.current.iso8601,
             operation: "search",
-            record_type: "KnowledgeBaseArticle"
+            record_type: "KnowledgeBase::Article"
           }
         }
       end
@@ -73,7 +73,7 @@ module Mcp
 
       def perform_search(params)
         # Start with base query
-        query = KnowledgeBaseArticle.all
+        query = KnowledgeBase::Article.all
 
         # Apply text search if query provided
         if params[:query].present?
@@ -89,7 +89,7 @@ module Mcp
 
         # Apply tag filter
         if params[:tags].present?
-          tag_ids = KnowledgeBaseTag.where(name: params[:tags]).pluck(:id)
+          tag_ids = KnowledgeBase::Tag.where(name: params[:tags]).pluck(:id)
           query = query.joins(:article_tags).where(knowledge_base_article_tags: { tag_id: tag_ids })
         end
 

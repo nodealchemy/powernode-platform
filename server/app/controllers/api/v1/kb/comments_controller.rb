@@ -50,7 +50,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
   # GET /api/v1/kb/comments/moderate
   def moderate
     # Admin view for comment moderation
-    comments = KnowledgeBaseComment.includes(:author, :article)
+    comments = KnowledgeBase::Comment.includes(:author, :article)
     comments = apply_admin_filters(comments)
     comments = comments.page(params[:page]).per(params[:per_page] || 20)
 
@@ -102,11 +102,11 @@ class Api::V1::Kb::CommentsController < ApplicationController
   private
 
   def set_article
-    @article = KnowledgeBaseArticle.find_by(id: params[:article_id])
+    @article = KnowledgeBase::Article.find_by(id: params[:article_id])
   end
 
   def set_comment
-    @comment = KnowledgeBaseComment.find_by(id: params[:id])
+    @comment = KnowledgeBase::Comment.find_by(id: params[:id])
   end
 
   def can_moderate_kb?
@@ -176,11 +176,11 @@ class Api::V1::Kb::CommentsController < ApplicationController
 
   def calculate_comment_stats
     {
-      total: KnowledgeBaseComment.count,
-      pending: KnowledgeBaseComment.pending.count,
-      approved: KnowledgeBaseComment.approved.count,
-      rejected: KnowledgeBaseComment.where(status: "rejected").count,
-      spam: KnowledgeBaseComment.where(status: "spam").count
+      total: KnowledgeBase::Comment.count,
+      pending: KnowledgeBase::Comment.pending.count,
+      approved: KnowledgeBase::Comment.approved.count,
+      rejected: KnowledgeBase::Comment.where(status: "rejected").count,
+      spam: KnowledgeBase::Comment.where(status: "spam").count
     }
   end
 

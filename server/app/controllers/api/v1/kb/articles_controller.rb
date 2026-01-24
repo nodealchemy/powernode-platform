@@ -13,7 +13,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   def index
     if editing_mode?
       # Admin view with all articles for editing
-      articles = KnowledgeBaseArticle.includes(:author, :category, :tags)
+      articles = KnowledgeBase::Article.includes(:author, :category, :tags)
       articles = apply_admin_filters(articles)
       articles = articles.page(params[:page]).per(params[:per_page] || 20)
 
@@ -24,7 +24,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       })
     else
       # Public view with only published articles
-      articles = KnowledgeBaseArticle.published.public_articles
+      articles = KnowledgeBase::Article.published.public_articles
       articles = apply_filters(articles)
       articles = articles.includes(:author, :category, :tags).page(params[:page]).per(params[:per_page] || 20)
 
@@ -68,7 +68,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # POST /api/v1/kb/articles
   def create
-    article = KnowledgeBaseArticle.new(article_params)
+    article = KnowledgeBase::Article.new(article_params)
     article.author = current_user
 
     if article.save
@@ -138,7 +138,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     query = params[:q]
     return render_error("Search query is required", status: :bad_request) if query.blank?
 
-    articles = KnowledgeBaseArticle.published.public_articles
+    articles = KnowledgeBase::Article.published.public_articles
     articles = articles.search_by_text(query) if query.present?
     articles = apply_filters(articles)
     articles = articles.includes(:author, :category, :tags).page(params[:page]).per(params[:per_page] || 20)
@@ -152,15 +152,15 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # GET /api/v1/kb/articles/analytics
   def analytics
-    articles = KnowledgeBaseArticle.includes(:article_views)
+    articles = KnowledgeBase::Article.includes(:article_views)
     period = params[:period]&.to_i&.days || 30.days
 
     analytics_data = {
       total_articles: articles.count,
       published_articles: articles.published.count,
       draft_articles: articles.where(status: "draft").count,
-      total_views: KnowledgeBaseArticleView.for_period(period.ago, Time.current).count,
-      top_articles: KnowledgeBaseArticleView.top_articles(limit: 10, period: period),
+      total_views: KnowledgeBase::ArticleView.for_period(period.ago, Time.current).count,
+      top_articles: KnowledgeBase::ArticleView.top_articles(limit: 10, period: period),
       views_by_day: daily_views_breakdown(period)
     }
 
@@ -172,7 +172,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     article_ids = params[:article_ids]
     return render_error("No article IDs provided", status: :bad_request) if article_ids.blank?
 
-    articles = KnowledgeBaseArticle.where(id: article_ids)
+    articles = KnowledgeBase::Article.where(id: article_ids)
     return render_error("No articles found", status: :not_found) if articles.empty?
 
     # Check permissions for all articles
@@ -202,7 +202,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     article_ids = params[:article_ids]
     return render_error("No article IDs provided", status: :bad_request) if article_ids.blank?
 
-    articles = KnowledgeBaseArticle.where(id: article_ids)
+    articles = KnowledgeBase::Article.where(id: article_ids)
     return render_error("No articles found", status: :not_found) if articles.empty?
 
     # Check permissions for all articles
@@ -228,8 +228,8 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   private
 
   def set_article
-    @article = KnowledgeBaseArticle.find_by(id: params[:id]) ||
-               KnowledgeBaseArticle.find_by(slug: params[:id])
+    @article = KnowledgeBase::Article.find_by(id: params[:id]) ||
+               KnowledgeBase::Article.find_by(slug: params[:id])
   end
 
   def editing_mode?
@@ -392,16 +392,16 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   def calculate_article_stats
     {
-      total: KnowledgeBaseArticle.count,
-      published: KnowledgeBaseArticle.published.count,
-      draft: KnowledgeBaseArticle.where(status: "draft").count,
-      review: KnowledgeBaseArticle.where(status: "review").count,
-      archived: KnowledgeBaseArticle.where(status: "archived").count
+      total: KnowledgeBase::Article.count,
+      published: KnowledgeBase::Article.published.count,
+      draft: KnowledgeBase::Article.where(status: "draft").count,
+      review: KnowledgeBase::Article.where(status: "review").count,
+      archived: KnowledgeBase::Article.where(status: "archived").count
     }
   end
 
   def daily_views_breakdown(period)
-    KnowledgeBaseArticleView.for_period(period.ago, Time.current)
+    KnowledgeBase::ArticleView.for_period(period.ago, Time.current)
       .group_by_day(:created_at)
       .count
       .transform_keys { |date| date.strftime("%Y-%m-%d") }

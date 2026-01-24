@@ -93,6 +93,3 @@ module KnowledgeBase
     end
   end
 end
-
-# Backward compatibility alias
-KnowledgeBaseAttachment = KnowledgeBase::Attachment

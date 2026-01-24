@@ -86,6 +86,3 @@ module KnowledgeBase
     end
   end
 end
-
-# Backward compatibility alias
-KnowledgeBaseComment = KnowledgeBase::Comment

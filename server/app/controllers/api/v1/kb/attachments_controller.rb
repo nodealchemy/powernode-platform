@@ -24,7 +24,7 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
   def create
     return render_error("No file provided", status: :bad_request) unless params[:file].present?
 
-    attachment = KnowledgeBaseAttachment.new(attachment_params)
+    attachment = KnowledgeBase::Attachment.new(attachment_params)
     attachment.uploader = current_user
 
     if attachment.save
@@ -54,7 +54,7 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
   private
 
   def set_attachment
-    @attachment = KnowledgeBaseAttachment.find_by(id: params[:id])
+    @attachment = KnowledgeBase::Attachment.find_by(id: params[:id])
   end
 
   def can_edit_kb?

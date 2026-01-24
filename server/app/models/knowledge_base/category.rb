@@ -89,6 +89,3 @@ module KnowledgeBase
     end
   end
 end
-
-# Backward compatibility alias
-KnowledgeBaseCategory = KnowledgeBase::Category

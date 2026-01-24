@@ -26,6 +26,3 @@ module KnowledgeBase
     end
   end
 end
-
-# Backward compatibility alias
-KnowledgeBaseArticleTag = KnowledgeBase::ArticleTag

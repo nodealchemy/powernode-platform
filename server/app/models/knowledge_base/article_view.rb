@@ -61,6 +61,3 @@ module KnowledgeBase
     end
   end
 end
-
-# Backward compatibility alias
-KnowledgeBaseArticleView = KnowledgeBase::ArticleView

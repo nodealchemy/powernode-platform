@@ -55,7 +55,7 @@ module Mcp
             node_type: "kb_article_publish",
             executed_at: Time.current.iso8601,
             operation: "publish",
-            record_type: "KnowledgeBaseArticle"
+            record_type: "KnowledgeBase::Article"
           }
         }
       end
@@ -64,9 +64,9 @@ module Mcp
 
       def find_article(article_id, article_slug)
         article = if article_id.present?
-                   KnowledgeBaseArticle.find_by(id: article_id)
+                   KnowledgeBase::Article.find_by(id: article_id)
         else
-                   KnowledgeBaseArticle.find_by(slug: article_slug)
+                   KnowledgeBase::Article.find_by(slug: article_slug)
         end
 
         unless article

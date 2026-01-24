@@ -9,7 +9,7 @@ class Api::V1::Kb::CategoriesController < ApplicationController
   def index
     if editing_mode?
       # Admin view - all categories for editing
-      categories = KnowledgeBaseCategory.includes(:children, :articles, :parent)
+      categories = KnowledgeBase::Category.includes(:children, :articles, :parent)
       categories = categories.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
       categories = categories.ordered.page(params[:page]).per(params[:per_page] || 50)
 
@@ -19,7 +19,7 @@ class Api::V1::Kb::CategoriesController < ApplicationController
       })
     else
       # Public view - only public categories
-      categories = KnowledgeBaseCategory.public_categories
+      categories = KnowledgeBase::Category.public_categories
         .root_categories
         .includes(:children, :articles)
         .ordered
@@ -32,10 +32,10 @@ class Api::V1::Kb::CategoriesController < ApplicationController
   def tree
     if can_manage_kb?
       # Full tree for admin
-      categories = KnowledgeBaseCategory.includes(:children, :articles).ordered
+      categories = KnowledgeBase::Category.includes(:children, :articles).ordered
     else
       # Public tree only
-      categories = KnowledgeBaseCategory.public_categories.includes(:children, :articles).ordered
+      categories = KnowledgeBase::Category.public_categories.includes(:children, :articles).ordered
     end
 
     render_success(build_category_tree(categories.root_categories))
@@ -71,7 +71,7 @@ class Api::V1::Kb::CategoriesController < ApplicationController
 
   # POST /api/v1/kb/categories
   def create
-    category = KnowledgeBaseCategory.new(category_params)
+    category = KnowledgeBase::Category.new(category_params)
 
     if category.save
       render_success({
@@ -107,7 +107,7 @@ class Api::V1::Kb::CategoriesController < ApplicationController
   private
 
   def set_category
-    @category = KnowledgeBaseCategory.find_by(id: params[:id])
+    @category = KnowledgeBase::Category.find_by(id: params[:id])
   end
 
   def editing_mode?
