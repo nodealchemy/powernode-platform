@@ -70,7 +70,7 @@ class JwtService
 
       # Check if token is blacklisted using JTI
       jti = payload[:jti]
-      if jti && JwtBlacklistService.blacklisted?(jti)
+      if jti && Security::JwtBlacklistService.blacklisted?(jti)
         raise StandardError, "Invalid token: Token has been blacklisted"
       end
 
@@ -207,7 +207,7 @@ class JwtService
         return true unless jti # Can't blacklist tokens without JTI
 
         # Use the centralized blacklist service
-        JwtBlacklistService.blacklist(jti, expires_at, reason: reason, user_id: user_id)
+        Security::JwtBlacklistService.blacklist(jti, expires_at, reason: reason, user_id: user_id)
       rescue JWT::DecodeError, JWT::ExpiredSignature
         # If token is invalid or expired, we don't need to blacklist it
         true
@@ -226,7 +226,7 @@ class JwtService
 
         return false unless jti
 
-        JwtBlacklistService.blacklisted?(jti)
+        Security::JwtBlacklistService.blacklisted?(jti)
       rescue JWT::DecodeError
         false # Invalid tokens are not "blacklisted", they're just invalid
       end
@@ -234,7 +234,7 @@ class JwtService
 
     # Blacklist all tokens for a user
     def blacklist_user_tokens(user_id, reason: "logout")
-      JwtBlacklistService.blacklist_user_tokens(user_id, reason: reason)
+      Security::JwtBlacklistService.blacklist_user_tokens(user_id, reason: reason)
     end
 
     private

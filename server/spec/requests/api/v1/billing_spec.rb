@@ -203,9 +203,9 @@ RSpec.describe 'Api::V1::Billing', type: :request do
     context 'when authenticated' do
       context 'with valid stripe payment method' do
         before do
-          # Mock the PaymentProcessingService
-          mock_service = instance_double(PaymentProcessingService)
-          allow(PaymentProcessingService).to receive(:new).and_return(mock_service)
+          # Mock the Billing::PaymentProcessingService
+          mock_service = instance_double(Billing::PaymentProcessingService)
+          allow(Billing::PaymentProcessingService).to receive(:new).and_return(mock_service)
 
           payment_method = create(:payment_method, :stripe, account: account)
           allow(mock_service).to receive(:attach_payment_method).and_return({
@@ -230,8 +230,8 @@ RSpec.describe 'Api::V1::Billing', type: :request do
 
       context 'with valid paypal payment method' do
         before do
-          mock_service = instance_double(PaymentProcessingService)
-          allow(PaymentProcessingService).to receive(:new).and_return(mock_service)
+          mock_service = instance_double(Billing::PaymentProcessingService)
+          allow(Billing::PaymentProcessingService).to receive(:new).and_return(mock_service)
 
           payment_method = create(:payment_method, :paypal, account: account)
           allow(mock_service).to receive(:attach_payment_method).and_return({
@@ -255,8 +255,8 @@ RSpec.describe 'Api::V1::Billing', type: :request do
 
       context 'when service returns error' do
         before do
-          mock_service = instance_double(PaymentProcessingService)
-          allow(PaymentProcessingService).to receive(:new).and_return(mock_service)
+          mock_service = instance_double(Billing::PaymentProcessingService)
+          allow(Billing::PaymentProcessingService).to receive(:new).and_return(mock_service)
           allow(mock_service).to receive(:attach_payment_method).and_return({
             success: false,
             error: 'Invalid payment method'
@@ -277,8 +277,8 @@ RSpec.describe 'Api::V1::Billing', type: :request do
 
       context 'with default provider' do
         before do
-          mock_service = instance_double(PaymentProcessingService)
-          allow(PaymentProcessingService).to receive(:new).and_return(mock_service)
+          mock_service = instance_double(Billing::PaymentProcessingService)
+          allow(Billing::PaymentProcessingService).to receive(:new).and_return(mock_service)
 
           payment_method = create(:payment_method, :stripe, account: account)
           allow(mock_service).to receive(:attach_payment_method).with(
@@ -316,8 +316,8 @@ RSpec.describe 'Api::V1::Billing', type: :request do
     context 'when authenticated' do
       context 'with valid parameters' do
         before do
-          mock_service = instance_double(PaymentProcessingService)
-          allow(PaymentProcessingService).to receive(:new).and_return(mock_service)
+          mock_service = instance_double(Billing::PaymentProcessingService)
+          allow(Billing::PaymentProcessingService).to receive(:new).and_return(mock_service)
 
           mock_intent = double('PaymentIntent', id: 'pi_test_123')
           allow(mock_service).to receive(:create_payment_intent).and_return({
@@ -345,8 +345,8 @@ RSpec.describe 'Api::V1::Billing', type: :request do
 
       context 'with default currency' do
         before do
-          mock_service = instance_double(PaymentProcessingService)
-          allow(PaymentProcessingService).to receive(:new).and_return(mock_service)
+          mock_service = instance_double(Billing::PaymentProcessingService)
+          allow(Billing::PaymentProcessingService).to receive(:new).and_return(mock_service)
 
           mock_intent = double('PaymentIntent', id: 'pi_test_456')
           allow(mock_service).to receive(:create_payment_intent).with(
@@ -372,8 +372,8 @@ RSpec.describe 'Api::V1::Billing', type: :request do
 
       context 'when service returns error' do
         before do
-          mock_service = instance_double(PaymentProcessingService)
-          allow(PaymentProcessingService).to receive(:new).and_return(mock_service)
+          mock_service = instance_double(Billing::PaymentProcessingService)
+          allow(Billing::PaymentProcessingService).to receive(:new).and_return(mock_service)
           allow(mock_service).to receive(:create_payment_intent).and_return({
             success: false,
             error: 'Invalid amount'

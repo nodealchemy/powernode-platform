@@ -8,12 +8,13 @@ import { hasAccess } from '../utils/permissionUtils';
 import { defaultNavigationConfig, adminNavigationOverrides } from '../utils/navigation';
 
 // Menu state reducer
-type MenuAction = 
+type MenuAction =
   | { type: 'SET_ACTIVE_PATH'; payload: string }
   | { type: 'TOGGLE_SECTION'; payload: string }
   | { type: 'SET_COLLAPSED'; payload: boolean }
   | { type: 'SET_MOBILE_OPEN'; payload: boolean }
-  | { type: 'UPDATE_STATE'; payload: Partial<MenuState> };
+  | { type: 'UPDATE_STATE'; payload: Partial<MenuState> }
+  | { type: 'EXPAND_SECTIONS'; payload: string[] };
 
 const menuReducer = (state: MenuState, action: MenuAction): MenuState => {
   switch (action.type) {
@@ -32,6 +33,11 @@ const menuReducer = (state: MenuState, action: MenuAction): MenuState => {
       return { ...state, isMobileOpen: action.payload };
     case 'UPDATE_STATE':
       return { ...state, ...action.payload };
+    case 'EXPAND_SECTIONS':
+      // Only add sections that aren't already expanded (doesn't re-expand collapsed sections)
+      const sectionsToAdd = action.payload.filter(id => !state.expandedSections.includes(id));
+      if (sectionsToAdd.length === 0) return state;
+      return { ...state, expandedSections: [...state.expandedSections, ...sectionsToAdd] };
     default:
       return state;
   }
@@ -96,44 +102,37 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     dispatch({ type: 'SET_ACTIVE_PATH', payload: location.pathname });
   }, [location.pathname]);
 
-  // Auto-expand sections based on active path
+  // Auto-expand sections based on active path (only on navigation, not on user toggle)
   useEffect(() => {
     const config = buildNavigationConfig();
     if (!config.sections) return;
 
     // Find which section contains the current active path
     const activeSectionIds: string[] = [];
-    
+
     config.sections.forEach(section => {
       const hasActiveItem = section.items.some(item => {
         // Check if current path matches item href exactly or is a sub-path
         const itemPath = item.href.replace(/\/$/, ''); // Remove trailing slash
         const currentPath = location.pathname.replace(/\/$/, ''); // Remove trailing slash
-        
-        return currentPath === itemPath || 
+
+        return currentPath === itemPath ||
                currentPath.startsWith(itemPath + '/') ||
                // Handle special cases like admin-settings matching admin-settings/*
                (item.href.includes('admin-settings') && currentPath.includes('admin-settings'));
       });
-      
+
       if (hasActiveItem) {
         activeSectionIds.push(section.id);
       }
     });
 
-    // Auto-expand sections that contain active items
+    // Auto-expand sections that contain active items (only add, won't re-expand user-collapsed sections)
     if (activeSectionIds.length > 0) {
-      // Keep existing expanded sections and add active sections
-      const currentExpanded = menuState.expandedSections;
-      const combinedSections = [...currentExpanded, ...activeSectionIds];
-      const newExpandedSections = Array.from(new Set(combinedSections));
-      
-      // Only update if there's actually a change
-      if (JSON.stringify(newExpandedSections.sort()) !== JSON.stringify(currentExpanded.sort())) {
-        dispatch({ type: 'UPDATE_STATE', payload: { expandedSections: newExpandedSections } });
-      }
+      dispatch({ type: 'EXPAND_SECTIONS', payload: activeSectionIds });
     }
-  }, [location.pathname, buildNavigationConfig, menuState.expandedSections]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, buildNavigationConfig]); // Only run on navigation, not on expandedSections changes
 
   // Clean up old navigation state and load saved state
   useEffect(() => {

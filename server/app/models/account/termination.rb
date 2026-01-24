@@ -210,18 +210,106 @@ class Account::Termination < ApplicationRecord
     end
 
     def notify_account_users
-      # TODO: Send notifications to all account users
+      return unless account
+
+      # Create in-app notifications for all account users
+      account.users.active.find_each do |user|
+        Notification.create(
+          user: user,
+          account: account,
+          message: "Account termination has been requested. The account will be permanently deleted on #{grace_period_ends_at.strftime('%B %d, %Y')}.",
+          notification_type: "account_termination",
+          metadata: {
+            termination_id: id,
+            event: "termination_requested",
+            grace_period_ends_at: grace_period_ends_at.iso8601
+          }
+        )
+      end
+
+      # Queue email notifications
+      NotificationService.send_email(
+        template: "account_termination_requested",
+        account_id: account.id,
+        data: {
+          termination_id: id,
+          grace_period_ends_at: grace_period_ends_at.iso8601,
+          days_remaining: DEFAULT_GRACE_PERIOD_DAYS,
+          reason: reason,
+          requested_by: requested_by&.name || "Account owner"
+        }
+      )
     end
 
     def notify_cancellation
-      # TODO: Send cancellation confirmation
+      return unless account
+
+      # Create in-app notifications for all account users
+      account.users.active.find_each do |user|
+        Notification.create(
+          user: user,
+          account: account,
+          message: "Account termination has been cancelled. Your account is now active.",
+          notification_type: "account_termination",
+          metadata: {
+            termination_id: id,
+            event: "termination_cancelled"
+          }
+        )
+      end
+
+      # Queue email notification
+      NotificationService.send_email(
+        template: "account_termination_cancelled",
+        account_id: account.id,
+        data: {
+          termination_id: id,
+          cancelled_at: cancelled_at&.iso8601,
+          cancelled_by: cancelled_by&.name || "Administrator",
+          cancellation_reason: cancellation_reason
+        }
+      )
     end
 
     def notify_completion
-      # TODO: Send final confirmation
+      return unless account
+
+      # Final completion email - account data has been deleted
+      # Note: We send to the owner's original email captured before termination
+      owner_email = account.owner&.email
+      return unless owner_email
+
+      NotificationService.send_email(
+        template: "account_termination_complete",
+        email: owner_email,
+        data: {
+          termination_id: id,
+          completed_at: completed_at&.iso8601,
+          account_name: account.name
+        }
+      )
     end
 
-  def schedule_reminders
-    # TODO: Schedule reminder emails at 7, 3, 1 days before termination
-  end
+    def schedule_reminders
+      return unless grace_period_ends_at
+
+      # Schedule reminders at 7, 3, and 1 days before termination
+      [7, 3, 1].each do |days_before|
+        reminder_time = grace_period_ends_at - days_before.days
+
+        # Only schedule if the reminder time is in the future
+        next unless reminder_time > Time.current
+
+        # Store reminder schedule in termination log for tracking
+        # The AccountTerminationJob will check these and send reminders
+        update_column(:termination_log,
+          termination_log + [{
+            event: "reminder_scheduled",
+            days_before: days_before,
+            scheduled_for: reminder_time.iso8601,
+            at: Time.current.iso8601
+          }]
+        )
+      end
+    end
 end

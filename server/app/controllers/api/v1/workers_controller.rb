@@ -85,7 +85,7 @@ class Api::V1::WorkersController < ApplicationController
   # POST /api/v1/workers
   def create
     # Check usage limit before creating worker
-    unless UsageLimitService.can_create_worker?(current_account)
+    unless Billing::UsageLimitService.can_create_worker?(current_account)
       render_error("Worker limit reached for your current plan")
       return
     end

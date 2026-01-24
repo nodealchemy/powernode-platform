@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Comprehensive test data for development and testing environments
 # This file is automatically loaded in development/test environments only
 
@@ -477,7 +479,7 @@ enterprise_accounts.each_with_index do |account, index|
     role_name = index == 0 ? 'Admin' : 'Member'
     role = Role.find_by(name: role_name)
     
-    AccountDelegation.find_or_create_by!(
+    Account::Delegation.find_or_create_by!(
       account: account,
       delegated_user: delegated_user,
       delegated_by: delegator
@@ -490,7 +492,7 @@ enterprise_accounts.each_with_index do |account, index|
   end
 end
 
-puts "  ✅ Created #{AccountDelegation.count} account delegations"
+puts "  ✅ Created #{Account::Delegation.count} account delegations"
 
 # Create sample gateway configurations (demo values only)
 puts "\n🔧 Creating sample gateway configurations..."
@@ -531,7 +533,7 @@ puts "  - Total Webhook Events: #{WebhookEvent.count}"
 puts "  - Total Revenue Snapshots: #{RevenueSnapshot.count}"
 puts "  - Total Pages: #{Page.count}"
 puts "  - Total Payment Methods: #{PaymentMethod.count}"
-puts "  - Total Account Delegations: #{AccountDelegation.count}"
+puts "  - Total Account Delegations: #{Account::Delegation.count}"
 puts "  - Total Gateway Configurations: #{GatewayConfiguration.count}"
 puts "  - Total Workers: #{Worker.count}"
 

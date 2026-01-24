@@ -43,7 +43,7 @@ class AnalyticsChannel < ApplicationCable::Channel
       return
     end
 
-    analytics_service = RevenueAnalyticsService.new(
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: account_id ? Account.find(account_id) : nil
     )
 
@@ -95,5 +95,58 @@ class AnalyticsChannel < ApplicationCable::Channel
 
   def stream_for_global_analytics
     stream_from "analytics_global"
+  end
+
+  class << self
+    # Broadcast when an alert is triggered
+    def broadcast_alert_triggered(alert)
+      return unless alert.account_id
+
+      data = {
+        type: "alert_triggered",
+        alert: {
+          id: alert.id,
+          name: alert.name,
+          alert_type: alert.alert_type,
+          metric_name: alert.metric_name,
+          condition: alert.condition,
+          threshold_value: alert.threshold_value,
+          current_value: alert.current_value,
+          status: alert.status,
+          trigger_count: alert.trigger_count
+        },
+        timestamp: Time.current.iso8601
+      }
+
+      ActionCable.server.broadcast("analytics_account_#{alert.account_id}", data)
+    end
+
+    # Broadcast when an alert is resolved
+    def broadcast_alert_resolved(alert)
+      return unless alert.account_id
+
+      data = {
+        type: "alert_resolved",
+        alert: {
+          id: alert.id,
+          name: alert.name,
+          status: alert.status
+        },
+        timestamp: Time.current.iso8601
+      }
+
+      ActionCable.server.broadcast("analytics_account_#{alert.account_id}", data)
+    end
+
+    # Broadcast metrics updates
+    def broadcast_metrics_update(account_id, metrics)
+      data = {
+        type: "metrics_update",
+        metrics: metrics,
+        timestamp: Time.current.iso8601
+      }
+
+      ActionCable.server.broadcast("analytics_account_#{account_id}", data)
+    end
   end
 end

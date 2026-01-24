@@ -66,10 +66,10 @@ class AccountSwitchService
   private
 
   def active_delegations
-    AccountDelegation.active
-                     .not_expired
-                     .for_user(@user)
-                     .includes(:account, :role)
+    Account::Delegation.active
+                       .not_expired
+                       .for_user(@user)
+                       .includes(:account, :role)
   end
 
   def has_access_to?(account)

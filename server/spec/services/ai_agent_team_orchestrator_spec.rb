@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiAgentTeamOrchestrator, type: :service do
+RSpec.describe Ai::AgentTeamOrchestrator, type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:provider) { create(:ai_provider, account: account) }
@@ -67,7 +67,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
 
         expect {
           orchestrator.execute(input: { task: 'test' })
-        }.to raise_error(AiAgentTeamOrchestrator::TeamNotActiveError)
+        }.to raise_error(Ai::AgentTeamOrchestrator::TeamNotActiveError)
       end
 
       it 'raises error if team has no members' do
@@ -76,7 +76,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
 
         expect {
           orchestrator.execute(input: { task: 'test' })
-        }.to raise_error(AiAgentTeamOrchestrator::NoMembersError)
+        }.to raise_error(Ai::AgentTeamOrchestrator::NoMembersError)
       end
     end
 
@@ -151,7 +151,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
 
         expect {
           orchestrator.execute(input: { task: 'test' })
-        }.to raise_error(AiAgentTeamOrchestrator::NoMembersError, /requires a lead/)
+        }.to raise_error(Ai::AgentTeamOrchestrator::NoMembersError, /requires a lead/)
       end
 
       it 'lead delegates to workers' do

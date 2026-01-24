@@ -161,16 +161,24 @@ class JobsController
   def valid_job_class?(job_class)
     # List of allowed job classes for security
     allowed_jobs = [
+      # Billing jobs
       'Billing::BillingAutomationJob',
       'Billing::PaymentRetryJob',
       'Billing::SubscriptionLifecycleJob',
       'Billing::BillingSchedulerJob',
       'Billing::BillingCleanupJob',
+      'Billing::SubscriptionRenewalJob',
+      'Billing::DunningProcessJob',
+      'Billing::PaymentReconciliationJob',
+      # Report jobs
       'Reports::GenerateReportJob',
       'Reports::ScheduledReportJob',
+      # Webhook jobs
       'Webhooks::ProcessWebhookJob',
+      # Analytics jobs
       'Analytics::RecalculateAnalyticsJob',
       'Analytics::UpdateRevenueSnapshotsJob',
+      # Email and notification jobs
       'SendNotificationEmailJob',
       'TestEmailJob',
       'TestWorkerJob',
@@ -178,13 +186,21 @@ class JobsController
       'Notifications::EmailDeliveryJob',
       'Notifications::BulkEmailJob',
       'Notifications::TransactionalEmailJob',
+      'Notifications::SmsDeliveryJob',
+      'Notifications::PushNotificationJob',
+      'Notifications::ReviewNotificationJob',
+      # Service jobs
       'Services::TestPaymentGatewayConnectionJob',
+      # AI/Workflow jobs
       'AiConversationProcessingJob',
       'AiAgentExecutionJob',
       'AiWorkflowExecutionJob',
       'AiWorkflowNodeExecutionJob',
       'WorkflowTimeoutJob',
       'WorkflowCleanupJob',
+      'AiWorkflow::ApprovalExpiryJob',
+      'AiContext::ContextCleanupJob',
+      'AiContext::ContextSyncJob',
       # File processing jobs
       'ThumbnailGenerationJob',
       'MetadataExtractionJob',
@@ -216,7 +232,23 @@ class JobsController
       # Integration jobs
       'Integrations::IntegrationExecutionJob',
       'Integrations::IntegrationHealthCheckJob',
-      'Integrations::CredentialRotationJob'
+      'Integrations::CredentialRotationJob',
+      # Compliance/GDPR jobs
+      'Compliance::AccountTerminationJob',
+      'Compliance::DataDeletionJob',
+      'Compliance::DataExportJob',
+      'Compliance::DataRetentionEnforcementJob',
+      'Compliance::TerminationNotificationJob',
+      'Compliance::TerminationReminderJob',
+      'Compliance::DeletionNotificationJob',
+      # Maintenance jobs
+      'Maintenance::ScheduledBackupJob',
+      'Maintenance::BackupCleanupJob',
+      'Maintenance::DatabaseMaintenanceJob',
+      'Maintenance::CacheCleanupJob',
+      'Maintenance::LogRotationJob',
+      # Supply chain jobs
+      'SupplyChain::QuestionnaireNotificationJob'
     ]
 
     allowed_jobs.include?(job_class)

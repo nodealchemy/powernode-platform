@@ -350,6 +350,19 @@ Rails.application.routes.draw do
             post :expire_stale
           end
         end
+
+        # Billing endpoints for worker service
+        namespace :billing do
+          post :process_renewal
+          post :retry_payment
+          post :process_payment
+          post :generate_invoice
+          post :suspend_subscription
+          post :cancel_subscription
+          post :cleanup
+          post :health_report
+          post :reactivate_suspended_accounts
+        end
       end
 
       # Authentication and registration endpoints
@@ -993,20 +1006,6 @@ Rails.application.routes.draw do
           patch :processed
           patch :failed
         end
-      end
-
-
-      # Billing endpoints for worker service
-      namespace :billing do
-        post :process_renewal
-        post :retry_payment
-        post :process_payment
-        post :generate_invoice
-        post :suspend_subscription
-        post :cancel_subscription
-        post :cleanup
-        post :health_report
-        post :reactivate_suspended_accounts
       end
 
       # Jobs endpoint for worker service communication

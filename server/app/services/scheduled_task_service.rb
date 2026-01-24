@@ -322,13 +322,105 @@ class ScheduledTaskService
     end
 
     def schedule_task(task)
-      # This would integrate with a job scheduler like cron or Sidekiq-scheduler
-      Rails.logger.info "Scheduled task: #{task.name} with schedule: #{task.cron_schedule}"
+      return unless task.enabled? && task.cron_schedule.present?
+
+      job_name = "scheduled_task_#{task.id}"
+
+      # Use Sidekiq-scheduler if available
+      if defined?(Sidekiq::Scheduler)
+        Sidekiq.set_schedule(job_name, {
+          "cron" => task.cron_schedule,
+          "class" => "ScheduledTaskJob",
+          "args" => [task.id],
+          "queue" => "scheduled_tasks",
+          "description" => "Scheduled task: #{task.name}"
+        })
+
+        # Reload the schedule
+        Sidekiq::Scheduler.reload_schedule!
+
+        Rails.logger.info "Scheduled task '#{task.name}' (#{task.id}) with cron: #{task.cron_schedule}"
+      else
+        # Fallback: Store schedule in Redis for custom scheduler
+        schedule_key = "powernode:scheduled_tasks:#{task.id}"
+        schedule_data = {
+          task_id: task.id,
+          name: task.name,
+          cron_schedule: task.cron_schedule,
+          next_run_at: calculate_next_run_time(task.cron_schedule),
+          enabled: true,
+          created_at: Time.current.iso8601
+        }
+
+        redis_client.set(schedule_key, schedule_data.to_json)
+        redis_client.sadd("powernode:scheduled_tasks:active", task.id)
+
+        Rails.logger.info "Scheduled task '#{task.name}' (#{task.id}) registered in Redis"
+      end
+
+      # Update task with next execution time
+      next_run = calculate_next_run_time(task.cron_schedule)
+      task.update_column(:next_execution_at, next_run) if task.respond_to?(:next_execution_at)
     end
 
     def unschedule_task(task)
-      # This would remove the task from the job scheduler
-      Rails.logger.info "Unscheduled task: #{task.name}"
+      job_name = "scheduled_task_#{task.id}"
+
+      if defined?(Sidekiq::Scheduler)
+        # Remove from Sidekiq-scheduler
+        Sidekiq.remove_schedule(job_name)
+        Sidekiq::Scheduler.reload_schedule!
+
+        Rails.logger.info "Unscheduled task '#{task.name}' (#{task.id}) from Sidekiq-scheduler"
+      else
+        # Remove from Redis
+        schedule_key = "powernode:scheduled_tasks:#{task.id}"
+        redis_client.del(schedule_key)
+        redis_client.srem("powernode:scheduled_tasks:active", task.id)
+
+        Rails.logger.info "Unscheduled task '#{task.name}' (#{task.id}) from Redis"
+      end
+
+      # Clear next execution time
+      task.update_column(:next_execution_at, nil) if task.respond_to?(:next_execution_at)
+    end
+
+    def calculate_next_run_time(cron_schedule)
+      return nil if cron_schedule.blank?
+
+      # Use fugit gem for cron parsing if available
+      if defined?(Fugit)
+        cron = Fugit.parse(cron_schedule)
+        return cron&.next_time&.to_t
+      end
+
+      # Fallback: Use rufus-scheduler if available
+      if defined?(Rufus::Scheduler)
+        cron = Rufus::Scheduler.parse(cron_schedule)
+        return cron.next_time.to_t
+      end
+
+      # Basic fallback based on predefined schedules
+      case cron_schedule
+      when PREDEFINED_SCHEDULES["hourly"]
+        Time.current.beginning_of_hour + 1.hour
+      when PREDEFINED_SCHEDULES["daily"]
+        Time.current.tomorrow.change(hour: 2)
+      when PREDEFINED_SCHEDULES["weekly"]
+        Time.current.next_occurring(:sunday).change(hour: 3)
+      when PREDEFINED_SCHEDULES["monthly"]
+        Time.current.next_month.beginning_of_month.change(hour: 4)
+      else
+        # Default to 1 day from now if we can't parse
+        1.day.from_now
+      end
+    rescue => e
+      Rails.logger.warn "Failed to calculate next run time for cron '#{cron_schedule}': #{e.message}"
+      1.day.from_now
+    end
+
+    def redis_client
+      @redis_client ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
     end
 
     # Task execution methods

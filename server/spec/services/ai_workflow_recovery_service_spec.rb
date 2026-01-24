@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiWorkflowRecoveryService, type: :service do
+RSpec.describe Ai::WorkflowRecoveryService, type: :service do
   include AiOrchestrationHelpers
 
   let(:env) { setup_ai_orchestration_environment }

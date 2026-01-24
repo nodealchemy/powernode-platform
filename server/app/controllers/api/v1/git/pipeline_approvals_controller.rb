@@ -147,15 +147,73 @@ module Api
         end
 
         def notify_pipeline_approval(approval)
-          # In a real implementation, this would notify the CI/CD system
-          # to resume the pipeline execution
-          Rails.logger.info "Pipeline #{approval.git_pipeline_id} approved at gate #{approval.gate_name}"
+          pipeline = approval.git_pipeline
+
+          # Broadcast via WebSocket for real-time UI updates
+          DevopsPipelineChannel.broadcast_approval_status(
+            pipeline,
+            status: "approved",
+            gate_name: approval.gate_name,
+            approved_by: current_user.id,
+            approved_at: Time.current.iso8601
+          )
+
+          # Send in-app notification to account admins
+          NotificationService.send_to_account(
+            account_id: pipeline.account_id,
+            template: "pipeline_approval_granted",
+            message: "Pipeline '#{pipeline.name}' approved at gate '#{approval.gate_name}'",
+            notification_type: "success",
+            data: {
+              pipeline_id: pipeline.id,
+              pipeline_name: pipeline.name,
+              gate_name: approval.gate_name,
+              approved_by: current_user.name,
+              approved_by_id: current_user.id
+            }
+          )
+
+          # Trigger pipeline continuation if configured
+          if pipeline.respond_to?(:auto_continue_on_approval?) && pipeline.auto_continue_on_approval?
+            ::Devops::PipelineContinuationJob.perform_later(pipeline.id, approval.gate_name)
+          end
+
+          Rails.logger.info "Pipeline #{approval.git_pipeline_id} approved at gate #{approval.gate_name} by #{current_user.id}"
         end
 
         def notify_pipeline_rejection(approval)
-          # In a real implementation, this would notify the CI/CD system
-          # to fail/stop the pipeline
-          Rails.logger.info "Pipeline #{approval.git_pipeline_id} rejected at gate #{approval.gate_name}"
+          pipeline = approval.git_pipeline
+
+          # Broadcast via WebSocket for real-time UI updates
+          DevopsPipelineChannel.broadcast_approval_status(
+            pipeline,
+            status: "rejected",
+            gate_name: approval.gate_name,
+            rejected_by: current_user.id,
+            rejected_at: Time.current.iso8601,
+            comment: approval.response_comment
+          )
+
+          # Send in-app notification to account admins
+          NotificationService.send_to_account(
+            account_id: pipeline.account_id,
+            template: "pipeline_approval_rejected",
+            message: "Pipeline '#{pipeline.name}' rejected at gate '#{approval.gate_name}'",
+            notification_type: "error",
+            data: {
+              pipeline_id: pipeline.id,
+              pipeline_name: pipeline.name,
+              gate_name: approval.gate_name,
+              rejected_by: current_user.name,
+              rejected_by_id: current_user.id,
+              comment: approval.response_comment
+            }
+          )
+
+          # Update pipeline status - set to failed (GitPipeline doesn't have failure_reason column)
+          pipeline.update!(status: "failed", conclusion: "failure")
+
+          Rails.logger.info "Pipeline #{approval.git_pipeline_id} rejected at gate #{approval.gate_name} by #{current_user.id}"
         end
 
         def serialize_approval(approval)

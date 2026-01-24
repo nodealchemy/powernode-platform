@@ -20,7 +20,7 @@ class Api::V1::AnalyticsController < ApplicationController
       return
     end
 
-    analytics_service = RevenueAnalyticsService.new(
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope
     )
 
@@ -73,7 +73,7 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET /api/v1/analytics/revenue
   # Returns MRR/ARR overview with historical data
   def revenue
-    analytics_service = RevenueAnalyticsService.new(
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date
@@ -133,7 +133,7 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET /api/v1/analytics/growth
   # Returns growth metrics and forecasting
   def growth
-    analytics_service = RevenueAnalyticsService.new(
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date
@@ -208,7 +208,7 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET /api/v1/analytics/churn
   # Returns comprehensive churn analysis
   def churn
-    analytics_service = RevenueAnalyticsService.new(
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date
@@ -271,7 +271,7 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET /api/v1/analytics/cohorts
   # Returns cohort retention analysis
   def cohorts
-    analytics_service = RevenueAnalyticsService.new(
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope
     )
 
@@ -358,7 +358,7 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET /api/v1/analytics/customers
   # Returns customer metrics and segmentation
   def customers
-    analytics_service = RevenueAnalyticsService.new(
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date
@@ -424,7 +424,7 @@ class Api::V1::AnalyticsController < ApplicationController
       return
     end
 
-    analytics_service = RevenueAnalyticsService.new(
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date

@@ -554,7 +554,7 @@ class Api::V1::ReportsController < ApplicationController
   end
 
   def generate_csv_data(report_type)
-    analytics_service = RevenueAnalyticsService.new(
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date

@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiAgentOrchestrationService, type: :service do
+RSpec.describe Ai::AgentOrchestrationService, type: :service do
   include AiOrchestrationTestHelpers
 
   # Timeout protection to prevent infinite loops in workflow execution

@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiWorkflowCircuitBreakerManager do
+RSpec.describe Ai::WorkflowCircuitBreakerManager do
   before do
     # Clear circuit breaker state before each test
     described_class.clear_breakers!

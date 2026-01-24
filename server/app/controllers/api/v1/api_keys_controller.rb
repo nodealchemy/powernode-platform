@@ -40,7 +40,7 @@ class Api::V1::ApiKeysController < ApplicationController
   # POST /api/v1/api_keys
   def create
     # Check usage limit before creating API key
-    unless UsageLimitService.can_create_api_key?(current_account)
+    unless Billing::UsageLimitService.can_create_api_key?(current_account)
       render_error("API key limit reached for your current plan")
       return
     end

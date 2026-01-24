@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiDebuggingService, type: :service do
+RSpec.describe Ai::DebuggingService, type: :service do
   let(:account) { create(:account) }
   let(:provider) { create(:ai_provider, account: account) }
   let(:agent) { create(:ai_agent, account: account, provider: provider) }

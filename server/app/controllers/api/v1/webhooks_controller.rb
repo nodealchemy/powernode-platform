@@ -45,7 +45,7 @@ class Api::V1::WebhooksController < ApplicationController
   # POST /api/v1/webhooks
   def create
     # Check usage limit before creating webhook endpoint
-    unless UsageLimitService.can_create_webhook?(current_account)
+    unless Billing::UsageLimitService.can_create_webhook?(current_account)
       render_error("Webhook endpoint limit reached for your current plan")
       return
     end

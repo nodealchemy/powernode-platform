@@ -58,7 +58,7 @@ class Api::V1::PaypalController < ApplicationController
     payment.add_metadata("payer_id", payer_id)
 
     # Execute payment through service
-    processing_service = PaymentProcessingService.new(account: current_account, user: current_user)
+    processing_service = Billing::PaymentProcessingService.new(account: current_account, user: current_user)
     result = processing_service.process_payment(payment: payment)
 
     if result[:success]
@@ -228,7 +228,7 @@ class Api::V1::PaypalController < ApplicationController
       return render_error("PayPal transaction ID not found", status: :not_found)
     end
 
-    processing_service = PaymentProcessingService.new(account: current_account, user: current_user)
+    processing_service = Billing::PaymentProcessingService.new(account: current_account, user: current_user)
     result = processing_service.create_refund(
       payment: payment,
       amount_cents: params[:amount_cents]&.to_i,

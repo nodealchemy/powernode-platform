@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiCredentialEncryptionService, type: :service do
+RSpec.describe Ai::CredentialEncryptionService, type: :service do
   # Sample credential data for different providers
   let(:openai_credentials) do
     {
@@ -64,7 +64,7 @@ RSpec.describe AiCredentialEncryptionService, type: :service do
     it 'validates encryption key strength' do
       expect {
         described_class.new(encryption_key: 'weak')
-      }.to raise_error(AiCredentialEncryptionService::WeakEncryptionKeyError)
+      }.to raise_error(Ai::CredentialEncryptionService::WeakEncryptionKeyError)
     end
   end
 
@@ -125,13 +125,13 @@ RSpec.describe AiCredentialEncryptionService, type: :service do
       it 'raises error for empty credentials' do
         expect {
           service.encrypt_credentials({})
-        }.to raise_error(AiCredentialEncryptionService::EncryptionError, /cannot be empty/)
+        }.to raise_error(Ai::CredentialEncryptionService::EncryptionError, /cannot be empty/)
       end
 
       it 'raises error for nil credentials' do
         expect {
           service.encrypt_credentials(nil)
-        }.to raise_error(AiCredentialEncryptionService::EncryptionError, /must be a Hash/)
+        }.to raise_error(Ai::CredentialEncryptionService::EncryptionError, /must be a Hash/)
       end
     end
 
@@ -139,7 +139,7 @@ RSpec.describe AiCredentialEncryptionService, type: :service do
       it 'raises error for non-hash input' do
         expect {
           service.encrypt_credentials('not a hash')
-        }.to raise_error(AiCredentialEncryptionService::EncryptionError, /must be a Hash/)
+        }.to raise_error(Ai::CredentialEncryptionService::EncryptionError, /must be a Hash/)
       end
     end
   end
@@ -186,7 +186,7 @@ RSpec.describe AiCredentialEncryptionService, type: :service do
 
         expect {
           service.decrypt_credentials(corrupted_data)
-        }.to raise_error(AiCredentialEncryptionService::DecryptionError)
+        }.to raise_error(Ai::CredentialEncryptionService::DecryptionError)
       end
 
       it 'raises error for tampered data' do
@@ -195,19 +195,19 @@ RSpec.describe AiCredentialEncryptionService, type: :service do
 
         expect {
           service.decrypt_credentials(tampered_data)
-        }.to raise_error(AiCredentialEncryptionService::DecryptionError)
+        }.to raise_error(Ai::CredentialEncryptionService::DecryptionError)
       end
 
       it 'raises error for nil input' do
         expect {
           service.decrypt_credentials(nil)
-        }.to raise_error(AiCredentialEncryptionService::DecryptionError, /cannot be blank/)
+        }.to raise_error(Ai::CredentialEncryptionService::DecryptionError, /cannot be blank/)
       end
 
       it 'raises error for blank input' do
         expect {
           service.decrypt_credentials('')
-        }.to raise_error(AiCredentialEncryptionService::DecryptionError, /cannot be blank/)
+        }.to raise_error(Ai::CredentialEncryptionService::DecryptionError, /cannot be blank/)
       end
     end
   end
@@ -257,7 +257,7 @@ RSpec.describe AiCredentialEncryptionService, type: :service do
       it 'raises error for non-hash input' do
         expect {
           described_class.encrypt('not a hash')
-        }.to raise_error(AiCredentialEncryptionService::EncryptionError, /must be a Hash/)
+        }.to raise_error(Ai::CredentialEncryptionService::EncryptionError, /must be a Hash/)
       end
     end
 
@@ -272,7 +272,7 @@ RSpec.describe AiCredentialEncryptionService, type: :service do
       it 'raises error for invalid data' do
         expect {
           described_class.decrypt('invalid-data')
-        }.to raise_error(AiCredentialEncryptionService::DecryptionError)
+        }.to raise_error(Ai::CredentialEncryptionService::DecryptionError)
       end
     end
 

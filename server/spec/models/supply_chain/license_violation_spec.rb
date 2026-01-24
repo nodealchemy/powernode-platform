@@ -441,12 +441,12 @@ RSpec.describe SupplyChain::LicenseViolation, type: :model do
       end
 
       it "changes status to resolved" do
-        violation.resolve!("Fixed by upgrading component")
+        violation.resolve!(resolution: "Fixed by upgrading component")
         expect(violation.status).to eq("resolved")
       end
 
       it "stores resolution reason in metadata" do
-        violation.resolve!("Fixed by upgrading component")
+        violation.resolve!(resolution: "Fixed by upgrading component")
         expect(violation.metadata["resolution_reason"]).to eq("Fixed by upgrading component")
       end
 
@@ -491,17 +491,17 @@ RSpec.describe SupplyChain::LicenseViolation, type: :model do
       end
 
       it "sets exception_requested to true" do
-        violation.request_exception!("Required for legacy system compatibility")
+        violation.request_exception!(justification: "Required for legacy system compatibility")
         expect(violation.exception_requested).to be true
       end
 
       it "sets exception_status to pending" do
-        violation.request_exception!("Required for legacy system compatibility")
+        violation.request_exception!(justification: "Required for legacy system compatibility")
         expect(violation.exception_status).to eq("pending")
       end
 
       it "stores exception reason" do
-        violation.request_exception!("Required for legacy system compatibility")
+        violation.request_exception!(justification: "Required for legacy system compatibility")
         expect(violation.exception_reason).to eq("Required for legacy system compatibility")
       end
     end
@@ -515,35 +515,35 @@ RSpec.describe SupplyChain::LicenseViolation, type: :model do
       end
 
       it "changes status to exception_granted" do
-        violation.approve_exception!(user)
+        violation.approve_exception!(approved_by: user)
         expect(violation.status).to eq("exception_granted")
       end
 
       it "sets exception_status to approved" do
-        violation.approve_exception!(user)
+        violation.approve_exception!(approved_by: user)
         expect(violation.exception_status).to eq("approved")
       end
 
       it "records who approved the exception" do
-        violation.approve_exception!(user)
+        violation.approve_exception!(approved_by: user)
         expect(violation.exception_approved_by).to eq(user)
       end
 
       it "records when the exception was approved" do
         freeze_time do
-          violation.approve_exception!(user)
+          violation.approve_exception!(approved_by: user)
           expect(violation.exception_approved_at).to eq(Time.current)
         end
       end
 
       it "sets expiration date when provided" do
         expiration_date = 90.days.from_now
-        violation.approve_exception!(user, expires_at: expiration_date)
+        violation.approve_exception!(approved_by: user, expires_at: expiration_date)
         expect(violation.exception_expires_at).to be_within(1.second).of(expiration_date)
       end
 
       it "does not set expiration date when not provided" do
-        violation.approve_exception!(user)
+        violation.approve_exception!(approved_by: user)
         expect(violation.exception_expires_at).to be_nil
       end
     end
@@ -557,29 +557,29 @@ RSpec.describe SupplyChain::LicenseViolation, type: :model do
       end
 
       it "sets exception_status to rejected" do
-        violation.reject_exception!(user, "Policy violation too severe")
+        violation.reject_exception!(rejected_by: user, reason: "Policy violation too severe")
         expect(violation.exception_status).to eq("rejected")
       end
 
       it "records who rejected the exception" do
-        violation.reject_exception!(user, "Policy violation too severe")
+        violation.reject_exception!(rejected_by: user, reason: "Policy violation too severe")
         expect(violation.exception_approved_by).to eq(user)
       end
 
       it "records when the exception was rejected" do
         freeze_time do
-          violation.reject_exception!(user, "Policy violation too severe")
+          violation.reject_exception!(rejected_by: user, reason: "Policy violation too severe")
           expect(violation.exception_approved_at).to eq(Time.current)
         end
       end
 
       it "stores rejection reason in metadata" do
-        violation.reject_exception!(user, "Policy violation too severe")
+        violation.reject_exception!(rejected_by: user, reason: "Policy violation too severe")
         expect(violation.metadata["rejection_reason"]).to eq("Policy violation too severe")
       end
 
       it "works without a reason" do
-        violation.reject_exception!(user)
+        violation.reject_exception!(rejected_by: user)
         expect(violation.exception_status).to eq("rejected")
         expect(violation.metadata["rejection_reason"]).to be_nil
       end

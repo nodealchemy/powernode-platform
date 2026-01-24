@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiProviderTestService, type: :service do
+RSpec.describe Ai::ProviderTestService, type: :service do
   let(:account) { create(:account) }
   let(:openai_provider) { create(:ai_provider, :openai) }
   let(:anthropic_provider) { create(:ai_provider, :anthropic) }

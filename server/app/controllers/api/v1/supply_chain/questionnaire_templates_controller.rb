@@ -99,7 +99,21 @@ module Api
             expires_at: params[:due_at] || 30.days.from_now
           )
 
-          # TODO: Send notification email to vendor
+          # Send notification email to vendor
+          if vendor.contact_email.present?
+            NotificationService.send_email(
+              template: "supply_chain_questionnaire_invitation",
+              email: vendor.contact_email,
+              data: {
+                vendor_name: vendor.name,
+                template_name: @template.name,
+                access_url: questionnaire_access_url(response),
+                due_at: response.expires_at&.iso8601,
+                requested_by: current_user.name,
+                account_name: current_account.name
+              }
+            )
+          end
 
           render_success(
             { questionnaire_response: serialize_response(response) },

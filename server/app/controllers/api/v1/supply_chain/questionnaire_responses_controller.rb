@@ -112,7 +112,24 @@ module Api
 
         # POST /api/v1/supply_chain/questionnaire_responses/:id/send_reminder
         def send_reminder
-          # TODO: Actually send the reminder email
+          vendor = @response.vendor
+
+          # Send reminder email to vendor
+          if vendor&.contact_email.present?
+            NotificationService.send_email(
+              template: "supply_chain_questionnaire_reminder",
+              email: vendor.contact_email,
+              data: {
+                vendor_name: vendor.name,
+                template_name: @response.template&.name,
+                access_url: questionnaire_access_url_for_response(@response),
+                due_at: @response.expires_at&.iso8601,
+                days_remaining: @response.expires_at ? ((@response.expires_at - Time.current) / 1.day).ceil : nil,
+                account_name: current_account.name
+              }
+            )
+          end
+
           @response.touch(:sent_at)
 
           render_success(
@@ -166,7 +183,22 @@ module Api
 
           @response.request_changes!(requested_by: current_user, feedback: feedback)
 
-          # TODO: Send notification to vendor
+          # Send notification to vendor
+          vendor = @response.vendor
+          if vendor&.contact_email.present?
+            NotificationService.send_email(
+              template: "supply_chain_questionnaire_changes_requested",
+              email: vendor.contact_email,
+              data: {
+                vendor_name: vendor.name,
+                template_name: @response.template&.name,
+                access_url: questionnaire_access_url_for_response(@response),
+                feedback: feedback,
+                requested_by: current_user.name,
+                account_name: current_account.name
+              }
+            )
+          end
 
           render_success(
             { questionnaire_response: serialize_response(@response) },
@@ -247,6 +279,10 @@ module Api
             sections: template.sections,
             questions: template.questions
           }
+        end
+
+        def questionnaire_access_url_for_response(response)
+          "#{Rails.application.config.frontend_url}/vendor-questionnaire/#{response.access_token}"
         end
       end
     end

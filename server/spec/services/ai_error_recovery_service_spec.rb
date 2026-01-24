@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiErrorRecoveryService, type: :service do
+RSpec.describe Ai::ErrorRecoveryService, type: :service do
   include AiOrchestrationTestHelpers
 
   let(:env) { setup_minimal_ai_environment }
@@ -105,7 +105,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
       it 'raises RecoveryFailedError' do
         expect {
           service.execute_with_recovery(provider, request_type, **options) { |p, opts| 'fail' }
-        }.to raise_error(AiErrorRecoveryService::RecoveryFailedError)
+        }.to raise_error(Ai::ErrorRecoveryService::RecoveryFailedError)
 
         expect(service).to have_received(:record_recovery_failure)
       end
@@ -855,13 +855,13 @@ RSpec.describe AiErrorRecoveryService, type: :service do
       it 'raises RecoveryFailedError after all attempts fail' do
         expect {
           service.execute_with_recovery(provider, 'test', **options, &request_block)
-        }.to raise_error(AiErrorRecoveryService::RecoveryFailedError, /All recovery attempts failed/)
+        }.to raise_error(Ai::ErrorRecoveryService::RecoveryFailedError, /All recovery attempts failed/)
       end
 
       it 'exhausts all recovery attempts before failing' do
         begin
           service.execute_with_recovery(provider, 'test', **options, &request_block)
-        rescue AiErrorRecoveryService::RecoveryFailedError
+        rescue Ai::ErrorRecoveryService::RecoveryFailedError
           # Expected - verify execute_request was called multiple times
           expect(service).to have_received(:execute_request).at_least(:once)
         end

@@ -404,12 +404,42 @@ module System
         "#{days.to_i}d #{hours.to_i}h #{minutes.to_i}m"
       end
 
-      # Placeholder methods for complex metrics
+      # Real implementations for complex metrics
       def get_long_running_queries
+        # Query pg_stat_activity for queries running longer than 30 seconds
+        sql = <<~SQL
+          SELECT pid, now() - pg_stat_activity.query_start AS duration,
+                 query, state, usename, application_name
+          FROM pg_stat_activity
+          WHERE (now() - pg_stat_activity.query_start) > interval '30 seconds'
+            AND state != 'idle'
+            AND query NOT ILIKE '%pg_stat_activity%'
+          ORDER BY duration DESC
+          LIMIT 10
+        SQL
+
+        ActiveRecord::Base.connection.execute(sql).map do |row|
+          {
+            pid: row["pid"],
+            duration_seconds: row["duration"]&.to_f&.round(2),
+            query: row["query"]&.truncate(200),
+            state: row["state"],
+            user: row["usename"],
+            application: row["application_name"]
+          }
+        end
+      rescue => e
+        Rails.logger.error "Failed to get long-running queries: #{e.message}"
         []
       end
 
       def get_database_size
+        # Query the current database size in MB
+        sql = "SELECT pg_database_size(current_database()) as size"
+        result = ActiveRecord::Base.connection.execute(sql).first
+        (result["size"].to_f / 1024 / 1024).round(2) # Convert to MB
+      rescue => e
+        Rails.logger.error "Failed to get database size: #{e.message}"
         0
       end
 
@@ -420,34 +450,170 @@ module System
       end
 
       def get_index_usage_stats
+        # Query pg_stat_user_indexes for index usage statistics
+        sql = <<~SQL
+          SELECT schemaname, relname AS table_name, indexrelname AS index_name,
+                 idx_scan AS index_scans, idx_tup_read, idx_tup_fetch
+          FROM pg_stat_user_indexes
+          ORDER BY idx_scan DESC
+          LIMIT 20
+        SQL
+
+        stats = ActiveRecord::Base.connection.execute(sql).map do |row|
+          {
+            table: row["table_name"],
+            index: row["index_name"],
+            scans: row["index_scans"].to_i,
+            tuples_read: row["idx_tup_read"].to_i,
+            tuples_fetched: row["idx_tup_fetch"].to_i
+          }
+        end
+
+        # Calculate overall index usage ratio
+        total_scans = stats.sum { |s| s[:scans] }
+        unused_indexes = stats.count { |s| s[:scans] == 0 }
+
+        {
+          top_indexes: stats.first(10),
+          total_indexes: stats.count,
+          unused_indexes: unused_indexes,
+          total_index_scans: total_scans
+        }
+      rescue => e
+        Rails.logger.error "Failed to get index usage stats: #{e.message}"
         {}
       end
 
       def get_average_response_time
+        # Calculate from recent audit logs (last hour)
+        # Look for request completion logs that include duration
+        cache_key = "health:avg_response_time"
+        cached = Rails.cache.read(cache_key)
+        return cached if cached
+
+        avg = AuditLog.where(created_at: 1.hour.ago..Time.current)
+                      .where.not(duration_ms: nil)
+                      .average(:duration_ms)&.round(2) || 0
+
+        Rails.cache.write(cache_key, avg, expires_in: 5.minutes)
+        avg
+      rescue => e
+        Rails.logger.error "Failed to get average response time: #{e.message}"
         0
       end
 
       def get_request_throughput
+        # Calculate requests per minute from audit logs
+        cache_key = "health:request_throughput"
+        cached = Rails.cache.read(cache_key)
+        return cached if cached
+
+        # Get count of requests in the last 5 minutes, then calculate per-minute rate
+        recent_count = AuditLog.where(
+          action: %w[api_request page_view],
+          created_at: 5.minutes.ago..Time.current
+        ).count
+
+        throughput = (recent_count / 5.0).round(2) # Requests per minute
+
+        Rails.cache.write(cache_key, throughput, expires_in: 1.minute)
+        throughput
+      rescue => e
+        Rails.logger.error "Failed to get request throughput: #{e.message}"
         0
       end
 
       def get_error_rate
+        # Calculate error rate (5xx errors / total requests) from recent audit logs
+        cache_key = "health:error_rate"
+        cached = Rails.cache.read(cache_key)
+        return cached if cached
+
+        time_range = 1.hour.ago..Time.current
+        total_requests = AuditLog.where(
+          action: %w[api_request page_view],
+          created_at: time_range
+        ).count
+
+        return 0 if total_requests.zero?
+
+        error_requests = AuditLog.where(
+          action: "api_error",
+          created_at: time_range
+        ).count
+
+        error_rate = ((error_requests.to_f / total_requests) * 100).round(2)
+
+        Rails.cache.write(cache_key, error_rate, expires_in: 5.minutes)
+        error_rate
+      rescue => e
+        Rails.logger.error "Failed to get error rate: #{e.message}"
         0
       end
 
       def get_cache_hit_ratio
-        0
+        # Query Redis INFO stats for cache hit ratio
+        begin
+          redis = Rails.cache.redis
+          info = redis.info("stats")
+
+          hits = info["keyspace_hits"].to_i
+          misses = info["keyspace_misses"].to_i
+          total = hits + misses
+
+          return 100.0 if total.zero?
+
+          ((hits.to_f / total) * 100).round(2)
+        rescue => e
+          Rails.logger.error "Failed to get cache hit ratio: #{e.message}"
+          0
+        end
       end
 
       def get_network_stats(direction)
+        # Read from /proc/net/dev for network statistics
+        return 0 unless File.exist?("/proc/net/dev")
+
+        net_dev = File.read("/proc/net/dev")
+        eth_line = net_dev.lines.find { |l| l.include?("eth0") || l.include?("ens") }
+        return 0 unless eth_line
+
+        parts = eth_line.split
+        case direction
+        when "inbound"
+          parts[1].to_i / 1024 / 1024 # Convert to MB
+        when "outbound"
+          parts[9].to_i / 1024 / 1024 # Convert to MB
+        else
+          0
+        end
+      rescue => e
+        Rails.logger.error "Failed to get network stats: #{e.message}"
         0
       end
 
       def get_active_connections
+        # Query pg_stat_activity for active connection count
+        sql = <<~SQL
+          SELECT count(*) as count
+          FROM pg_stat_activity
+          WHERE state = 'active'
+        SQL
+
+        result = ActiveRecord::Base.connection.execute(sql).first
+        result["count"].to_i
+      rescue => e
+        Rails.logger.error "Failed to get active connections: #{e.message}"
         0
       end
 
       def measure_network_latency
+        # Measure latency to the database (as a proxy for network health)
+        start_time = Time.current
+        ActiveRecord::Base.connection.execute("SELECT 1")
+        ((Time.current - start_time) * 1000).round(2) # Convert to milliseconds
+      rescue => e
+        Rails.logger.error "Failed to measure network latency: #{e.message}"
         0
       end
 

@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiProviderClientService, type: :service do
+RSpec.describe Ai::ProviderClientService, type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:openai_provider) { create(:ai_provider, :openai) }
@@ -29,8 +29,8 @@ RSpec.describe AiProviderClientService, type: :service do
 
     it 'initializes circuit breaker' do
       service = described_class.new(openai_credential)
-      # Circuit breaker is managed by AiProviderCircuitBreakerService
-      expect(service.instance_variable_get(:@circuit_breaker)).to be_a(AiProviderCircuitBreakerService)
+      # Circuit breaker is managed by Ai::ProviderCircuitBreakerService
+      expect(service.instance_variable_get(:@circuit_breaker)).to be_a(Ai::ProviderCircuitBreakerService)
     end
   end
 
@@ -283,7 +283,7 @@ RSpec.describe AiProviderClientService, type: :service do
 
       expect {
         service.send(:validate_message_format, invalid_messages)
-      }.to raise_error(AiProviderClientService::ValidationError, /role is required/)
+      }.to raise_error(Ai::ProviderClientService::ValidationError, /role is required/)
     end
 
     it 'rejects messages without content' do
@@ -291,7 +291,7 @@ RSpec.describe AiProviderClientService, type: :service do
 
       expect {
         service.send(:validate_message_format, invalid_messages)
-      }.to raise_error(AiProviderClientService::ValidationError, /content is required/)
+      }.to raise_error(Ai::ProviderClientService::ValidationError, /content is required/)
     end
 
     it 'rejects invalid roles' do
@@ -299,13 +299,13 @@ RSpec.describe AiProviderClientService, type: :service do
 
       expect {
         service.send(:validate_message_format, invalid_messages)
-      }.to raise_error(AiProviderClientService::ValidationError, /Invalid role/)
+      }.to raise_error(Ai::ProviderClientService::ValidationError, /Invalid role/)
     end
 
     it 'rejects empty message arrays' do
       expect {
         service.send(:validate_message_format, [])
-      }.to raise_error(AiProviderClientService::ValidationError, /at least one message/)
+      }.to raise_error(Ai::ProviderClientService::ValidationError, /at least one message/)
     end
   end
 

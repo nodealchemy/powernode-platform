@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiCostOptimizationService, type: :service do
+RSpec.describe Ai::CostOptimizationService, type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
 

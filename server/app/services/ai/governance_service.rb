@@ -219,8 +219,43 @@ module Ai
       return unless step_info
 
       approvers = step_info["approvers"] || []
-      # In a real implementation, send notifications to approvers
-      Rails.logger.info "Approval requested for #{request.request_id}, notifying: #{approvers}"
+      return if approvers.empty?
+
+      notification_data = {
+        request_id: request.request_id,
+        source_type: request.source_type,
+        source_id: request.source_id,
+        description: request.description,
+        step_name: step_info["name"],
+        approval_chain_name: request.approval_chain&.name,
+        requested_by: request.requested_by&.name,
+        timeout_at: request.timeout_at&.iso8601
+      }
+
+      approvers.each do |approver_id|
+        user = User.find_by(id: approver_id)
+        next unless user
+
+        # Send in-app notification
+        NotificationService.send_all(
+          template: "ai_governance_approval_requested",
+          message: "AI governance approval requested: #{request.description&.truncate(100)}",
+          user_id: user.id,
+          notification_type: "action_required",
+          account_id: account.id,
+          data: notification_data
+        )
+      end
+
+      # Broadcast to AI Workflow channel for real-time updates
+      AiWorkflowOrchestrationChannel.broadcast_approval_requested(
+        account,
+        request_id: request.id,
+        step_name: step_info["name"],
+        approvers: approvers
+      )
+
+      Rails.logger.info "Approval requested for #{request.request_id}, notified #{approvers.length} approvers"
     end
   end
 end

@@ -37,7 +37,7 @@ class Api::V1::BillingController < ApplicationController
   end
 
   def create_payment_method
-    processor = PaymentProcessingService.new(
+    processor = Billing::PaymentProcessingService.new(
       account: current_account,
       user: current_user
     )
@@ -65,7 +65,7 @@ class Api::V1::BillingController < ApplicationController
   end
 
   def create_payment_intent
-    processor = PaymentProcessingService.new(
+    processor = Billing::PaymentProcessingService.new(
       account: current_account,
       user: current_user
     )

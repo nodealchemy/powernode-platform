@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiWorkflowValidationService do
+RSpec.describe Ai::WorkflowValidationService do
   let(:account) { create(:account) }
   let(:user) { create(:user, :owner, account: account) }
   let(:workflow) { create(:ai_workflow, account: account, creator: user) }

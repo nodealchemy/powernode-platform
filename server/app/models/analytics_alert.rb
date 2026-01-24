@@ -168,6 +168,9 @@ class AnalyticsAlert < ApplicationRecord
   end
 
   def calculate_severity(value)
+    # Handle nil values gracefully
+    return "medium" if value.nil? || threshold_value.nil?
+
     return "critical" if condition == "greater_than" && value > threshold_value * 1.5
     return "critical" if condition == "less_than" && value < threshold_value * 0.5
     return "high" if condition == "greater_than" && value > threshold_value * 1.2
@@ -176,8 +179,74 @@ class AnalyticsAlert < ApplicationRecord
   end
 
   def send_notifications!
-    # Integration point for notification delivery
-    # Would connect to NotificationService
-    Rails.logger.info "Alert triggered: #{name} (#{id})"
+    channels = notification_channels || []
+
+    # Determine severity-based notification type
+    notification_type = case calculate_severity(current_value)
+                        when "critical" then "error"
+                        when "high" then "warning"
+                        else "info"
+                        end
+
+    notification_data = {
+      alert_id: id,
+      alert_name: name,
+      metric_name: metric_name,
+      current_value: current_value,
+      threshold_value: threshold_value,
+      condition: condition,
+      severity: calculate_severity(current_value),
+      message: generate_trigger_message
+    }
+
+    # Send in-app notification to account users
+    if account_id.present?
+      NotificationService.send_to_account(
+        account_id: account_id,
+        template: "analytics_alert_triggered",
+        message: generate_trigger_message,
+        notification_type: notification_type,
+        data: notification_data
+      )
+    end
+
+    # Send email notifications if configured
+    if channels.include?("email")
+      recipients = resolve_email_recipients
+      recipients.each do |email|
+        NotificationService.send_email(
+          template: "analytics_alert_triggered",
+          email: email,
+          data: notification_data
+        )
+      end
+    end
+
+    # Broadcast via WebSocket for real-time dashboard updates
+    if account_id.present?
+      AnalyticsChannel.broadcast_alert_triggered(self)
+    end
+
+    Rails.logger.info "Alert notifications sent: #{name} (#{id}) to #{channels.join(', ')}"
+  end
+
+  def resolve_email_recipients
+    recipients = []
+
+    if account_id.present?
+      # Get account admins
+      account = Account.find_by(id: account_id)
+      if account
+        recipients += account.users.joins(:roles)
+                            .where(roles: { name: ["admin", "owner"] })
+                            .pluck(:email)
+      end
+    end
+
+    # Add any explicitly configured recipients from metadata
+    configured_recipients = metadata&.dig("notification_recipients") || []
+    recipients += configured_recipients
+
+    recipients.uniq.compact
   end
 end

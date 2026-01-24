@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiWorkflowRetryStrategyService do
+RSpec.describe Ai::WorkflowRetryStrategyService do
   let(:account) { create(:account) }
   let(:workflow) { create(:ai_workflow, account: account) }
   let(:workflow_run) { create(:ai_workflow_run, workflow: workflow, account: account) }

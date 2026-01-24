@@ -6,11 +6,11 @@ class AppReview < ApplicationRecord
   # Associations
   belongs_to :app
   belongs_to :account
-  has_many :review_helpfulness_votes, dependent: :destroy
-  has_many :review_responses, dependent: :destroy
-  has_many :review_media_attachments, dependent: :destroy
-  has_many :review_moderation_actions, dependent: :destroy
-  has_many :approved_responses, -> { approved }, class_name: "ReviewResponse"
+  has_many :review_helpfulness_votes, class_name: "Review::HelpfulnessVote", dependent: :destroy
+  has_many :review_responses, class_name: "Review::Response", dependent: :destroy
+  has_many :review_media_attachments, class_name: "Review::MediaAttachment", dependent: :destroy
+  has_many :review_moderation_actions, class_name: "Review::ModerationAction", dependent: :destroy
+  has_many :approved_responses, -> { approved }, class_name: "Review::Response"
 
   # Validations
   validates :rating, presence: true, inclusion: { in: 1..5 }
@@ -355,6 +355,6 @@ class AppReview < ApplicationRecord
   end
 
   def update_aggregation_cache
-    ReviewAggregationCache.refresh_for_app(app)
+    Review::AggregationCache.refresh_for_app(app)
   end
 end

@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiProviderManagementService, type: :service do
+RSpec.describe Ai::ProviderManagementService, type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
 
@@ -65,7 +65,7 @@ RSpec.describe AiProviderManagementService, type: :service do
     end
 
     it 'creates provider credential' do
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple)
         .and_return({ success: true, response_time_ms: 1500 })
 
       credential = described_class.create_provider_credential(
@@ -83,7 +83,7 @@ RSpec.describe AiProviderManagementService, type: :service do
     end
 
     it 'stores encrypted credentials' do
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple)
         .and_return({ success: true })
 
       credential = described_class.create_provider_credential(
@@ -97,9 +97,9 @@ RSpec.describe AiProviderManagementService, type: :service do
     end
 
     it 'tests credential after creation' do
-      test_service = instance_double(AiProviderTestService)
-      allow(AiProviderTestService).to receive(:new).and_return(test_service)
-      allow(test_service).to receive(:test_with_details).and_return({ success: true })
+      test_service = instance_double(Ai::ProviderTestService)
+      allow(Ai::ProviderTestService).to receive(:new).and_return(test_service)
+      allow(test_service).to receive(:test_with_details_simple).and_return({ success: true })
 
       described_class.create_provider_credential(
         openai_provider,
@@ -107,7 +107,7 @@ RSpec.describe AiProviderManagementService, type: :service do
         credentials_data
       )
 
-      expect(test_service).to have_received(:test_with_details)
+      expect(test_service).to have_received(:test_with_details_simple)
     end
 
     it 'raises ValidationError for empty credentials' do
@@ -117,7 +117,7 @@ RSpec.describe AiProviderManagementService, type: :service do
           account,
           {}
         )
-      }.to raise_error(AiProviderManagementService::ValidationError)
+      }.to raise_error(Ai::ProviderManagementService::ValidationError)
     end
 
     it 'raises ValidationError for nil credentials' do
@@ -127,7 +127,7 @@ RSpec.describe AiProviderManagementService, type: :service do
           account,
           nil
         )
-      }.to raise_error(AiProviderManagementService::ValidationError)
+      }.to raise_error(Ai::ProviderManagementService::ValidationError)
     end
   end
 
@@ -141,7 +141,7 @@ RSpec.describe AiProviderManagementService, type: :service do
             openai_provider,
             { model: 'gpt-3.5-turbo' }
           )
-        }.to raise_error(AiProviderManagementService::ValidationError, /API key is required/)
+        }.to raise_error(Ai::ProviderManagementService::ValidationError, /API key is required/)
       end
 
       it 'validates api_key format must start with sk-' do
@@ -150,7 +150,7 @@ RSpec.describe AiProviderManagementService, type: :service do
             openai_provider,
             { api_key: 'invalid', model: 'gpt-3.5-turbo' }
           )
-        }.to raise_error(AiProviderManagementService::ValidationError, /sk-/)
+        }.to raise_error(Ai::ProviderManagementService::ValidationError, /sk-/)
       end
 
       it 'passes validation for valid credentials' do
@@ -172,7 +172,7 @@ RSpec.describe AiProviderManagementService, type: :service do
             anthropic_provider,
             { model: 'claude-3-sonnet' }
           )
-        }.to raise_error(AiProviderManagementService::ValidationError, /API key is required/)
+        }.to raise_error(Ai::ProviderManagementService::ValidationError, /API key is required/)
       end
 
       it 'passes validation for valid Anthropic credentials' do
@@ -207,7 +207,7 @@ RSpec.describe AiProviderManagementService, type: :service do
     let!(:other_account_credential) { create(:ai_provider_credential) }
 
     it 'tests all credentials for the account' do
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple)
         .and_return({ success: true, response_time_ms: 1000 })
 
       results = described_class.test_all_credentials(account)
@@ -219,7 +219,7 @@ RSpec.describe AiProviderManagementService, type: :service do
     end
 
     it 'includes credential information in results' do
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple)
         .and_return({ success: true, response_time_ms: 1500 })
 
       results = described_class.test_all_credentials(account)
@@ -235,7 +235,7 @@ RSpec.describe AiProviderManagementService, type: :service do
     end
 
     it 'handles test failures gracefully' do
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple)
         .and_return({ success: false, error: 'Connection timeout' })
 
       results = described_class.test_all_credentials(account)
@@ -246,7 +246,7 @@ RSpec.describe AiProviderManagementService, type: :service do
     end
 
     it 'does not test credentials from other accounts' do
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple)
         .and_return({ success: true })
 
       results = described_class.test_all_credentials(account)
@@ -363,19 +363,19 @@ RSpec.describe AiProviderManagementService, type: :service do
     it 'handles invalid provider gracefully' do
       expect {
         described_class.send(:validate_ai_provider_credentials,nil, {})
-      }.to raise_error(AiProviderManagementService::ValidationError)
+      }.to raise_error(Ai::ProviderManagementService::ValidationError)
     end
 
     it 'handles nil credentials data' do
       provider = create(:ai_provider)
       expect {
         described_class.send(:validate_ai_provider_credentials,provider, nil)
-      }.to raise_error(AiProviderManagementService::ValidationError)
+      }.to raise_error(Ai::ProviderManagementService::ValidationError)
     end
 
     it 'handles network errors during credential testing gracefully' do
       openai_provider = create(:ai_provider, :openai)
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple)
         .and_raise(StandardError.new('Network error'))
 
       # Credential should still be created, but with failure recorded

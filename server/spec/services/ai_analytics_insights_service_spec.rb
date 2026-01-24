@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AiAnalyticsInsightsService, type: :service do
+RSpec.describe Ai::AnalyticsInsightsService, type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:provider) { create(:ai_provider, account: account, slug: 'openai-analytics') }

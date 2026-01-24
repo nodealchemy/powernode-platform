@@ -30,6 +30,7 @@
   - [services, 2]          # Service health checks
   - [billing, 2]           # Billing operations (uses distributed locking)
   - [billing_scheduler, 2] # Billing scheduling (uses distributed locking)
+  - [compliance, 2]        # GDPR compliance operations (terminations, data deletion)
   - [email, 2]             # Email delivery
   - [reports, 2]           # Report generation
   - [webhooks, 1]          # Webhook delivery
@@ -110,3 +111,38 @@
     class: Maintenance::BackupCleanupJob
     queue: maintenance
     description: 'Remove expired backups beyond retention period'
+
+  # Billing scheduler - process daily billing tasks at 6 AM UTC
+  billing_scheduler:
+    cron: '0 6 * * *'
+    class: Billing::BillingSchedulerJob
+    queue: billing_scheduler
+    description: 'Process daily billing tasks and subscription renewals'
+
+  # Daily payment reconciliation at 4 AM UTC
+  daily_payment_reconciliation:
+    cron: '0 4 * * *'
+    class: Billing::PaymentReconciliationJob
+    queue: billing
+    description: 'Reconcile payments with payment gateway records'
+
+  # Billing cleanup - stale records and expired data at 3 AM UTC
+  billing_cleanup:
+    cron: '0 3 * * *'
+    class: Billing::BillingCleanupJob
+    queue: maintenance
+    description: 'Clean up stale billing records and expired payment data'
+
+  # Account termination processing - every 6 hours
+  account_termination_processing:
+    cron: '0 */6 * * *'
+    class: Compliance::AccountTerminationJob
+    queue: compliance
+    description: 'Process account terminations after grace period expires'
+
+  # Data retention enforcement - daily at 2 AM UTC
+  data_retention_enforcement:
+    cron: '0 2 * * *'
+    class: Compliance::DataRetentionEnforcementJob
+    queue: compliance
+    description: 'Enforce data retention policies and cleanup expired data'

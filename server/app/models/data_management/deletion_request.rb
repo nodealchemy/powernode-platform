@@ -228,17 +228,100 @@ module DataManagement
     end
 
     def notify_user_of_approval
-      # TODO: Implement notification
+      return unless user
+
+      # Create in-app notification
+      Notification.create(
+        user: user,
+        account: account,
+        message: "Your data deletion request has been approved. Your data will be deleted after the grace period ends on #{grace_period_ends_at.strftime('%B %d, %Y')}.",
+        notification_type: "data_deletion",
+        metadata: {
+          deletion_request_id: id,
+          event: "deletion_approved",
+          grace_period_ends_at: grace_period_ends_at.iso8601
+        }
+      )
+
+      # Queue GDPR-compliant email notification
+      NotificationService.send_email(
+        template: "data_deletion_approved",
+        user_id: user.id,
+        data: {
+          deletion_request_id: id,
+          deletion_type: deletion_type,
+          grace_period_ends_at: grace_period_ends_at.iso8601,
+          days_until_deletion: GRACE_PERIOD_DAYS,
+          approved_at: approved_at&.iso8601
+        }
+      )
     end
 
     def notify_user_of_rejection
-      # TODO: Implement notification
+      return unless user
+
+      # Create in-app notification
+      Notification.create(
+        user: user,
+        account: account,
+        message: "Your data deletion request has been rejected. Reason: #{rejection_reason}",
+        notification_type: "data_deletion",
+        metadata: {
+          deletion_request_id: id,
+          event: "deletion_rejected",
+          rejection_reason: rejection_reason
+        }
+      )
+
+      # Queue email notification
+      NotificationService.send_email(
+        template: "data_deletion_rejected",
+        user_id: user.id,
+        data: {
+          deletion_request_id: id,
+          deletion_type: deletion_type,
+          rejection_reason: rejection_reason,
+          rejected_at: completed_at&.iso8601
+        }
+      )
     end
 
     def notify_user_of_completion
-      # TODO: Implement notification
+      return unless user
+
+      # User's primary account data may be deleted, but we should still
+      # attempt to send the completion notification
+      user_email = user.email
+
+      # Create in-app notification if user record still exists and is accessible
+      begin
+        Notification.create(
+          user: user,
+          account: account,
+          message: "Your data deletion request has been completed. The requested data has been permanently removed.",
+          notification_type: "data_deletion",
+          metadata: {
+            deletion_request_id: id,
+            event: "deletion_complete",
+            completed_at: completed_at&.iso8601
+          }
+        )
+      rescue => e
+        Rails.logger.warn "Could not create in-app notification for deletion completion: #{e.message}"
+      end
+
+      # Queue GDPR-compliant completion email
+      NotificationService.send_email(
+        template: "data_deletion_complete",
+        email: user_email,
+        data: {
+          deletion_request_id: id,
+          deletion_type: deletion_type,
+          completed_at: completed_at&.iso8601,
+          deletion_log: deletion_log,
+          retention_log: retention_log
+        }
+      )
     end
   end
 end
-
-# Backwards compatibility alias
