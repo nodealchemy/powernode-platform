@@ -100,7 +100,8 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
     'max_users' => 9999,
     'max_api_keys' => 100,
     'max_webhooks' => 100,
-    'max_workers' => 100
+    'max_workers' => 100,
+    'max_repositories' => 9999
   }
   plan.is_public = false # Hidden from public view
   plan.slug = 'administrator'
@@ -146,7 +147,8 @@ free_plan = Plan.find_or_create_by!(name: 'Free') do |plan|
     'max_users' => 3,
     'max_api_keys' => 2,
     'max_webhooks' => 2,
-    'max_workers' => 1
+    'max_workers' => 1,
+    'max_repositories' => 5
   }
   plan.is_active = true
   plan.slug = 'free'
@@ -191,7 +193,8 @@ basic_plan = Plan.find_or_create_by!(name: 'Basic') do |plan|
     'max_users' => 10,
     'max_api_keys' => 10,
     'max_webhooks' => 10,
-    'max_workers' => 5
+    'max_workers' => 5,
+    'max_repositories' => 15
   }
   plan.is_active = true
   plan.slug = 'basic'
@@ -243,7 +246,8 @@ professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
     'max_users' => 50,
     'max_api_keys' => 25,
     'max_webhooks' => 25,
-    'max_workers' => 15
+    'max_workers' => 15,
+    'max_repositories' => 50
   }
   plan.is_active = true
   plan.slug = 'professional'
@@ -293,7 +297,8 @@ enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
     'max_users' => 9999,
     'max_api_keys' => 100,
     'max_webhooks' => 100,
-    'max_workers' => 50
+    'max_workers' => 50,
+    'max_repositories' => 9999
   }
   plan.is_active = true
   plan.slug = 'enterprise'
@@ -405,7 +410,14 @@ Page.find_or_create_by!(slug: 'welcome') do |page|
 
     ---
 
-    *Explore our [Knowledge Base](/kb) for detailed guides, or [contact our team](/contact) for assistance.*
+    *Explore our [Knowledge Base](/kb) for detailed guides, or [contact our team](/pages/contact) for assistance.*
+
+    | Metric | Value |
+    |--------|-------|
+    | Uptime SLA | 99.9% |
+    | Active Customers | 2,500+ |
+    | Transactions Processed | $50M+ |
+    | Countries Served | 45+ |
   MARKDOWN
 end
 
@@ -873,7 +885,255 @@ Page.find_or_create_by!(slug: 'about') do |page|
 
     ---
 
-    **Questions about our company or platform?** [Contact us](/contact) - we'd love to hear from you!
+    **Questions about our company or platform?** [Contact us](/pages/contact) - we'd love to hear from you!
+  MARKDOWN
+end
+
+# Contact page
+Page.find_or_create_by!(slug: 'contact') do |page|
+  page.title = 'Contact Us'
+  page.author = admin_user
+  page.status = 'published'
+  page.meta_description = 'Get in touch with the Powernode team for sales, support, or general inquiries.'
+  page.meta_keywords = 'contact, support, sales, inquiries, help, customer service'
+  page.content = <<~MARKDOWN
+    # Contact Us
+
+    We're here to help! Choose the best way to reach our team based on your needs.
+
+    ---
+
+    ## 📧 Sales Inquiries
+
+    Interested in Powernode for your business? Our sales team can help you find the right plan and answer any questions about enterprise features.
+
+    **Email**: sales@powernode.org
+    **Response Time**: Within 24 hours
+
+    ---
+
+    ## 🛠️ Technical Support
+
+    Need help with your existing account or experiencing technical issues? Our support team is ready to assist.
+
+    **Email**: support@powernode.org
+    **Response Time**: Based on your plan tier (see [Help Center](/pages/help) for details)
+
+    For faster resolution, please include:
+    - Your account email
+    - A clear description of the issue
+    - Steps to reproduce (if applicable)
+    - Screenshots or error messages
+
+    ---
+
+    ## 💬 General Questions
+
+    Have general questions about Powernode, partnerships, or press inquiries?
+
+    **Email**: hello@powernode.org
+
+    ---
+
+    ## 🏢 Office Location
+
+    **Powernode Headquarters**
+    123 Innovation Drive
+    Tech City, TC 12345
+    United States
+
+    ---
+
+    ## 🔗 Quick Links
+
+    - [Help Center & FAQ](/pages/help) - Find answers to common questions
+    - [System Status](/status) - Check current platform status
+    - [Knowledge Base](/kb) - Detailed guides and tutorials
+    - [API Documentation](/kb/api-integrations) - Developer resources
+
+    ---
+
+    ## 🌐 Connect With Us
+
+    Stay updated with the latest Powernode news and features:
+
+    - **Twitter/X**: @powernode
+    - **LinkedIn**: Powernode
+    - **GitHub**: github.com/powernode
+
+    ---
+
+    *We typically respond to all inquiries within 1-2 business days. For urgent issues, paid plan customers can access priority support through the dashboard.*
+  MARKDOWN
+end
+
+# Features page
+Page.find_or_create_by!(slug: 'features') do |page|
+  page.title = 'Platform Features'
+  page.author = admin_user
+  page.status = 'published'
+  page.meta_description = 'Explore Powernode features: subscription billing, AI orchestration, DevOps integration, and supply chain security.'
+  page.meta_keywords = 'features, subscription billing, AI orchestration, DevOps, supply chain security, SaaS platform'
+  page.content = <<~MARKDOWN
+    # Platform Features
+
+    Powernode is a comprehensive platform that combines subscription management, AI orchestration, DevOps integration, and supply chain security into one unified solution.
+
+    ---
+
+    ## 💰 Subscription & Billing
+
+    **Flexible subscription management for any business model**
+
+    | Feature | Description |
+    |---------|-------------|
+    | Multiple Billing Cycles | Monthly, yearly, or custom intervals |
+    | Usage-Based Billing | Metered pricing with automatic invoicing |
+    | Plan Management | Create and manage unlimited subscription plans |
+    | Payment Gateways | Stripe, PayPal, and more |
+    | Automated Invoicing | Professional invoices with custom branding |
+    | Dunning Management | Automated retry logic for failed payments |
+    | Proration | Automatic credits for plan changes |
+    | Trial Periods | Configurable free trials per plan |
+
+    **Analytics & Insights**
+    - Real-time MRR, ARR, and churn tracking
+    - Cohort analysis and customer lifetime value
+    - Revenue forecasting and growth metrics
+    - Custom dashboards and reports
+
+    ---
+
+    ## 🤖 AI Orchestration
+
+    **Build intelligent automation with multi-provider AI support**
+
+    ### AI Providers
+    - **OpenAI** - GPT-4, GPT-4 Turbo, GPT-3.5
+    - **Anthropic** - Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+    - **xAI** - Grok models
+    - **Ollama** - Local/self-hosted models (Llama, Mistral, Mixtral)
+
+    ### AI Agents
+    Create intelligent agents with:
+    - Custom system prompts and personas
+    - Memory and context retention
+    - Tool integration and function calling
+    - Conversation history management
+
+    ### Workflows
+    Visual workflow automation with:
+    - Drag-and-drop workflow builder
+    - Event triggers and scheduled execution
+    - Conditional branching and loops
+    - Multi-step AI chains
+    - Webhook integrations
+
+    ### MCP Integration
+    Model Context Protocol support for:
+    - External tool connections
+    - Database access for AI agents
+    - File system operations
+    - API integrations
+
+    ---
+
+    ## 🔧 DevOps Integration
+
+    **Streamline your development workflow**
+
+    ### Git Providers
+    Connect your repositories from:
+    - **GitHub** - OAuth and personal access tokens
+    - **GitLab** - Cloud and self-hosted instances
+    - **Gitea** - Self-hosted Git service
+    - **Bitbucket** - Cloud and server
+
+    ### CI/CD Pipelines
+    - YAML-based pipeline definitions
+    - Parallel and sequential stages
+    - Environment variables and secrets
+    - Build artifacts and caching
+    - Deployment automation
+
+    ### Webhooks
+    - 60+ event types for real-time notifications
+    - Custom headers and authentication
+    - Retry policies and delivery logs
+    - Event filtering and routing
+
+    ### API Keys
+    - Secure key generation and rotation
+    - Scoped permissions per key
+    - Usage tracking and rate limits
+    - IP allowlisting
+
+    ---
+
+    ## 🛡️ Supply Chain Security
+
+    **Secure your software supply chain**
+
+    ### SBOM Management
+    - **Import** - SPDX and CycloneDX formats
+    - **Generate** - Automatic SBOM creation
+    - **Analyze** - Component dependency graphs
+    - **Export** - Compliance-ready reports
+
+    ### Vulnerability Detection
+    - Real-time scanning against NVD, OSV
+    - CVE severity scoring and prioritization
+    - Remediation guidance and fix tracking
+    - Automated alerts and notifications
+
+    ### Container Attestations
+    - Verify image provenance
+    - Build integrity validation
+    - Sigstore and cosign support
+    - SLSA compliance tracking
+
+    ### Vendor Risk Assessment
+    - Vendor questionnaires and scoring
+    - Compliance document management
+    - Risk level tracking (Critical, High, Medium, Low)
+    - Audit trails and review history
+
+    ### License Compliance
+    - Open source license detection
+    - Policy violation alerts
+    - License compatibility analysis
+    - Compliance reporting
+
+    ---
+
+    ## 🏢 Enterprise Ready
+
+    **Built for scale and security**
+
+    | Capability | Details |
+    |------------|---------|
+    | **SSO/SAML** | Enterprise single sign-on |
+    | **Role-Based Access** | Granular permissions and roles |
+    | **Audit Logs** | Complete activity tracking |
+    | **White-Label** | Custom branding and domains |
+    | **SLA Guarantees** | 99.9% uptime commitment |
+    | **Dedicated Support** | Priority access to engineering |
+    | **Data Export** | Full data portability |
+    | **API Access** | Complete REST API |
+
+    ---
+
+    ## 🚀 Get Started
+
+    Ready to transform your business with Powernode?
+
+    - [View Pricing Plans](/plans) - Find the right plan for your needs
+    - [Create an Account](/register) - Start your free trial today
+    - [Contact Sales](/pages/contact) - Talk to our team about enterprise features
+
+    ---
+
+    *Have questions about a specific feature? Visit our [Help Center](/pages/help) or [Knowledge Base](/kb) for detailed documentation.*
   MARKDOWN
 end
 

@@ -1326,7 +1326,9 @@ Rails.application.routes.draw do
           delete "/", to: "providers#destroy_credential"
           post :test, to: "providers#test_credential"
           post :make_default, to: "providers#make_default"
-          post :sync_repositories, to: "providers#sync_repositories"
+          get :available_repositories, to: "providers#available_repositories"
+          post :import_repositories, to: "providers#import_repositories"
+          post :sync_repositories, to: "providers#sync_repositories"  # deprecated, use import_repositories
         end
 
         # Repositories

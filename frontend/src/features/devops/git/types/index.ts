@@ -310,6 +310,54 @@ export interface SyncRepositoriesResult {
   }>;
 }
 
+// Available repository from provider (not yet imported)
+export interface AvailableRepository {
+  external_id: string;
+  name: string;
+  full_name: string;
+  owner: string;
+  description?: string;
+  default_branch: string;
+  web_url?: string;
+  is_private: boolean;
+  is_fork: boolean;
+  is_archived: boolean;
+  stars_count: number;
+  primary_language?: string;
+  already_imported: boolean;
+}
+
+export interface RepositoryUsage {
+  current: number;
+  limit: number;
+  available: number;
+}
+
+export interface AvailableRepositoriesResponse {
+  repositories: AvailableRepository[];
+  pagination: {
+    current_page: number;
+    per_page: number;
+    total_count: number;
+  };
+  usage: RepositoryUsage;
+}
+
+export interface ImportRepositoriesResult {
+  imported_count: number;
+  error_count: number;
+  repositories: GitRepository[];
+  errors: Array<{
+    external_id: string;
+    error: string;
+  }>;
+  usage: {
+    current: number;
+    limit: number;
+  };
+  message: string;
+}
+
 export interface CreateProviderData {
   name: string;
   provider_type: 'github' | 'gitlab' | 'gitea' | 'bitbucket';

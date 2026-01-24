@@ -239,7 +239,8 @@ class Plan < ApplicationRecord
       "max_users" => 2,
       "max_api_keys" => 5,
       "max_webhooks" => 5,
-      "max_workers" => 3
+      "max_workers" => 3,
+      "max_repositories" => 10
     }
 
     # Only set defaults for missing keys to preserve existing values

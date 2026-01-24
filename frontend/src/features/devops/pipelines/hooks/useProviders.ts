@@ -97,17 +97,6 @@ export function useProviders(params: UseProvidersParams = {}) {
     }
   };
 
-  const syncRepositories = async (id: string) => {
-    try {
-      const result = await devopsProvidersApi.syncRepositories(id);
-      showNotification(result.message || 'Repositories synced', 'success');
-      return result;
-    } catch (err) {
-      showNotification('Failed to sync repositories', 'error');
-      return null;
-    }
-  };
-
   return {
     providers,
     meta,
@@ -118,7 +107,6 @@ export function useProviders(params: UseProvidersParams = {}) {
     updateProvider,
     deleteProvider,
     testConnection,
-    syncRepositories,
   };
 }
 

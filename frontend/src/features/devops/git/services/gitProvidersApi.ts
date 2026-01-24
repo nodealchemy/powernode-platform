@@ -45,6 +45,9 @@ import {
   GitTree,
   GitTag,
   GitBranch,
+  // Import repository types
+  AvailableRepositoriesResponse,
+  ImportRepositoriesResult,
 } from '../types';
 
 // Helper type for API responses
@@ -152,14 +155,12 @@ export const gitProvidersApi = {
    */
   createCredential: async (
     providerId: string,
-    data: CreateCredentialData,
-    autoSync = true
+    data: CreateCredentialData
   ): Promise<GitCredentialDetail> => {
     const response = await apiClient.post<ApiResponse<{
       credential: GitCredentialDetail;
     }>>(`/git/providers/${providerId}/credentials`, {
       credential: data,
-      auto_sync: autoSync,
     });
     return response.data.data.credential;
   },
@@ -225,6 +226,7 @@ export const gitProvidersApi = {
 
   /**
    * Sync repositories for a credential
+   * @deprecated Use getAvailableRepositories + importRepositories instead
    */
   syncRepositories: async (
     providerId: string,
@@ -234,6 +236,56 @@ export const gitProvidersApi = {
     const response = await apiClient.post<ApiResponse<SyncRepositoriesResult>>(
       `/git/providers/${providerId}/credentials/${credentialId}/sync_repositories`,
       options
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Get available repositories from a provider credential without importing
+   * Returns repositories with their import status and plan usage info
+   */
+  getAvailableRepositories: async (
+    providerId: string,
+    credentialId: string,
+    options?: {
+      page?: number;
+      per_page?: number;
+      search?: string;
+      include_archived?: boolean;
+      include_forks?: boolean;
+    }
+  ): Promise<AvailableRepositoriesResponse> => {
+    const params = new URLSearchParams();
+    if (options?.page) params.append('page', options.page.toString());
+    if (options?.per_page) params.append('per_page', options.per_page.toString());
+    if (options?.search) params.append('search', options.search);
+    if (options?.include_archived) params.append('include_archived', 'true');
+    if (options?.include_forks) params.append('include_forks', 'true');
+
+    const response = await apiClient.get<ApiResponse<AvailableRepositoriesResponse>>(
+      `/git/providers/${providerId}/credentials/${credentialId}/available_repositories`,
+      { params }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Import specific repositories by their external IDs
+   * Checks plan limits before importing
+   */
+  importRepositories: async (
+    providerId: string,
+    credentialId: string,
+    externalIds: string[],
+    options?: { include_archived?: boolean; include_forks?: boolean }
+  ): Promise<ImportRepositoriesResult> => {
+    const response = await apiClient.post<ApiResponse<ImportRepositoriesResult>>(
+      `/git/providers/${providerId}/credentials/${credentialId}/import_repositories`,
+      {
+        external_ids: externalIds,
+        include_archived: options?.include_archived,
+        include_forks: options?.include_forks,
+      }
     );
     return response.data.data;
   },

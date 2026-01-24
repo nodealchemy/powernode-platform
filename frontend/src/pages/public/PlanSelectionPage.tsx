@@ -126,7 +126,7 @@ export const PlanSelectionPage: React.FC = () => {
               {plansToCompare.length >= 2 && (
                 <button
                   onClick={() => startComparison?.()}
-                  className="inline-flex items-center space-x-2 px-4 py-2.5 bg-theme-success hover:bg-theme-success/90 text-white text-sm font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  className="inline-flex items-center space-x-2 px-4 py-2.5 bg-theme-success-solid hover:opacity-90 text-white text-sm font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
                 >
                   <ScaleIcon className="h-4 w-4" />
                   <span>Compare {plansToCompare.length} Plans</span>

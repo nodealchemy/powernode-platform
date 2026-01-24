@@ -288,13 +288,13 @@ const AppContent: React.FC = () => {
             element={<StatusPage />}
           />
 
-          {/* CI/CD Pipeline Approval Routes (public, token-based auth) */}
+          {/* DevOps Pipeline Approval Routes (public, token-based auth) */}
           <Route
-            path="/ci-cd/approve/:token"
+            path="/devops/approve/:token"
             element={<ApprovalResponsePage />}
           />
           <Route
-            path="/ci-cd/reject/:token"
+            path="/devops/reject/:token"
             element={<ApprovalResponsePage />}
           />
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Server, CheckCircle, RefreshCw, Trash2, Edit, Plus } from 'lucide-react';
+import { Server, CheckCircle, RefreshCw, Trash2, Edit, Plus, Download } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import type { DevopsProvider, DevopsProviderType, DevopsProviderFormData } from '@/types/devops-pipelines';
@@ -11,7 +11,7 @@ interface ProviderSettingsProps {
   onEdit: (id: string, data: Partial<DevopsProviderFormData>) => void;
   onDelete: (id: string) => void;
   onTestConnection: (id: string) => void;
-  onSyncRepositories: (id: string) => void;
+  onImportRepositories?: (id: string) => void;
 }
 
 const getProviderIcon = (type: DevopsProviderType): string => {
@@ -29,21 +29,14 @@ const ProviderCard: React.FC<{
   onEdit: () => void;
   onDelete: () => void;
   onTestConnection: () => void;
-  onSyncRepositories: () => void;
-}> = ({ provider, onEdit, onDelete, onTestConnection, onSyncRepositories }) => {
+  onImportRepositories?: () => void;
+}> = ({ provider, onEdit, onDelete, onTestConnection, onImportRepositories }) => {
   const [testing, setTesting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
 
   const handleTest = async () => {
     setTesting(true);
     await onTestConnection();
     setTesting(false);
-  };
-
-  const handleSync = async () => {
-    setSyncing(true);
-    await onSyncRepositories();
-    setSyncing(false);
   };
 
   return (
@@ -90,19 +83,16 @@ const ProviderCard: React.FC<{
             )}
             Test
           </Button>
-          <Button
-            onClick={handleSync}
-            variant="secondary"
-            size="sm"
-            disabled={syncing}
-          >
-            {syncing ? (
-              <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 mr-1" />
-            )}
-            Sync
-          </Button>
+          {onImportRepositories && (
+            <Button
+              onClick={onImportRepositories}
+              variant="secondary"
+              size="sm"
+            >
+              <Download className="w-4 h-4 mr-1" />
+              Import
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -247,7 +237,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
   onEdit,
   onDelete,
   onTestConnection,
-  onSyncRepositories,
+  onImportRepositories,
 }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingProvider, setEditingProvider] = useState<DevopsProvider | null>(null);
@@ -315,7 +305,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
               onEdit={() => setEditingProvider(provider)}
               onDelete={() => onDelete(provider.id)}
               onTestConnection={() => onTestConnection(provider.id)}
-              onSyncRepositories={() => onSyncRepositories(provider.id)}
+              onImportRepositories={onImportRepositories ? () => onImportRepositories(provider.id) : undefined}
             />
           ))}
         </div>

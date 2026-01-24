@@ -8,7 +8,6 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
-  RefreshCw,
   TestTube,
   Loader2,
 } from 'lucide-react';
@@ -35,11 +34,9 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
   const {
     credentials,
     loading,
-    refresh,
     deleteCredential,
     testCredential,
     makeDefault,
-    syncRepositories,
   } = useGitCredentials(provider.id);
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -66,25 +63,6 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
       showNotification({
         type: 'error',
         message: err instanceof Error ? err.message : 'Failed to test connection',
-      });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleSync = async (credential: GitCredential) => {
-    setActionLoading(`sync-${credential.id}`);
-    try {
-      const result = await syncRepositories(credential.id);
-      showNotification({
-        type: 'success',
-        message: `Synced ${result.synced_count} repositories`,
-      });
-      refresh();
-    } catch (err) {
-      showNotification({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Failed to sync repositories',
       });
     } finally {
       setActionLoading(null);
@@ -248,18 +226,6 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
                           <TestTube className="w-4 h-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleSync(credential)}
-                        disabled={actionLoading !== null}
-                        className="p-1.5 rounded-lg hover:bg-theme-hover text-theme-secondary hover:text-theme-primary"
-                        title="Sync Repositories"
-                      >
-                        {actionLoading === `sync-${credential.id}` ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="w-4 h-4" />
                         )}
                       </button>
 

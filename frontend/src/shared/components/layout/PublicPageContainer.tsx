@@ -198,10 +198,10 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                     </Link>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">Integrations</span>
+                    <span className="text-slate-500 text-sm cursor-default" title="Coming Soon">Integrations</span>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">API Documentation</span>
+                    <span className="text-slate-500 text-sm cursor-default" title="Coming Soon">API Documentation</span>
                   </li>
                 </ul>
               </div>
@@ -211,13 +211,19 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                 <h4 className="text-white font-semibold mb-6">Support</h4>
                 <ul className="space-y-4">
                   <li>
-                    <span className="text-slate-400 text-sm">Help Center</span>
+                    <Link to="/pages/help" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" data-testid="footer-help-center">
+                      Help Center
+                    </Link>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">Contact Us</span>
+                    <Link to="/pages/contact" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" data-testid="footer-contact">
+                      Contact Us
+                    </Link>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">System Status</span>
+                    <Link to="/status" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" data-testid="footer-status">
+                      System Status
+                    </Link>
                   </li>
                 </ul>
               </div>
@@ -227,13 +233,15 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                 <h4 className="text-white font-semibold mb-6">Company</h4>
                 <ul className="space-y-4">
                   <li>
-                    <span className="text-slate-400 text-sm">About Us</span>
+                    <Link to="/pages/about" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" data-testid="footer-about">
+                      About Us
+                    </Link>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">Careers</span>
+                    <span className="text-slate-500 text-sm cursor-default" title="Coming Soon">Careers</span>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">Blog</span>
+                    <span className="text-slate-500 text-sm cursor-default" title="Coming Soon">Blog</span>
                   </li>
                 </ul>
               </div>
@@ -246,8 +254,12 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               <div className="flex flex-wrap items-center gap-6 text-sm text-slate-400">
                 <span>© {footerData?.copyright_year || new Date().getFullYear()} {footerData?.site_name || 'Powernode'}. {footerData?.copyright_text || 'All rights reserved.'}</span>
                 <div className="flex items-center space-x-6">
-                  <span className="text-slate-500">Privacy Policy</span>
-                  <span className="text-slate-500">Terms of Service</span>
+                  <Link to="/pages/privacy" className="text-slate-400 hover:text-white transition-colors duration-200" data-testid="footer-privacy">
+                    Privacy Policy
+                  </Link>
+                  <Link to="/pages/terms" className="text-slate-400 hover:text-white transition-colors duration-200" data-testid="footer-terms">
+                    Terms of Service
+                  </Link>
                 </div>
               </div>
               

@@ -6,10 +6,11 @@ module Api
       class ProvidersController < ApplicationController
         before_action :set_provider, only: %i[
           show update destroy
-          credentials create_credential destroy_credential test_credential make_default sync_repositories
+          credentials create_credential destroy_credential test_credential make_default
+          available_repositories import_repositories
           oauth_authorize oauth_callback
         ]
-        before_action :set_credential, only: %i[destroy_credential test_credential make_default sync_repositories]
+        before_action :set_credential, only: %i[destroy_credential test_credential make_default available_repositories import_repositories]
         before_action :validate_permissions
 
         # GET /api/v1/git/providers
@@ -124,16 +125,6 @@ module Api
           )
 
           if @credential.persisted?
-            # Queue credential setup job if requested
-            if params[:auto_sync]
-              begin
-                WorkerApiClient.new.queue_git_credential_setup(@credential.id)
-              rescue WorkerApiClient::ApiError => e
-                Rails.logger.warn "Failed to queue credential setup job: #{e.message}"
-                # Continue without failing - credential was created successfully
-              end
-            end
-
             render_success({ credential: serialize_credential_detail(@credential) }, status: :created)
           else
             render_validation_error(@credential.errors)
@@ -173,7 +164,88 @@ module Api
           })
         end
 
+        # GET /api/v1/git/providers/:id/credentials/:credential_id/available_repositories
+        # Lists repositories from the provider without importing them
+        def available_repositories
+          result = ::Devops::Git::ProviderManagementService.list_available_repositories(
+            @credential,
+            page: params[:page]&.to_i || 1,
+            per_page: params[:per_page]&.to_i || 100,
+            include_archived: params[:include_archived] == "true",
+            include_forks: params[:include_forks] == "true",
+            search: params[:search]
+          )
+
+          if result[:success]
+            # Get current usage and limit
+            current_count = current_user.account.git_repositories.count
+            max_limit = repository_limit
+
+            render_success({
+              repositories: result[:repositories],
+              pagination: result[:pagination],
+              usage: {
+                current: current_count,
+                limit: max_limit,
+                available: [ max_limit - current_count, 0 ].max
+              }
+            })
+          else
+            render_error(result[:error], status: :unprocessable_content)
+          end
+        rescue ::Devops::Git::ProviderManagementService::CredentialError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/git/providers/:id/credentials/:credential_id/import_repositories
+        # Imports specific repositories by external_id
+        def import_repositories
+          external_ids = params[:external_ids] || []
+
+          if external_ids.empty?
+            return render_error("No repositories selected for import", status: :unprocessable_content)
+          end
+
+          # Check plan limits
+          current_count = current_user.account.git_repositories.count
+          max_limit = repository_limit
+          available_slots = max_limit - current_count
+
+          if external_ids.count > available_slots
+            return render_error(
+              "Cannot import #{external_ids.count} repositories. Your plan allows #{max_limit} repositories and you have #{current_count} imported. #{available_slots} slots available.",
+              status: :unprocessable_content
+            )
+          end
+
+          result = ::Devops::Git::ProviderManagementService.import_specific_repositories(
+            @credential,
+            external_ids,
+            include_archived: params[:include_archived] == "true",
+            include_forks: params[:include_forks] == "true"
+          )
+
+          if result[:success]
+            render_success({
+              imported_count: result[:imported_count],
+              error_count: result[:error_count],
+              repositories: result[:repositories]&.map { |r| serialize_repository(r) },
+              errors: result[:errors],
+              usage: {
+                current: current_user.account.git_repositories.count,
+                limit: max_limit
+              },
+              message: "Imported #{result[:imported_count]} repositories"
+            })
+          else
+            render_error(result[:error], status: :unprocessable_content)
+          end
+        rescue ::Devops::Git::ProviderManagementService::CredentialError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         # POST /api/v1/git/providers/:id/credentials/:credential_id/sync_repositories
+        # @deprecated Use import_repositories instead
         def sync_repositories
           result = ::Devops::Git::ProviderManagementService.sync_repositories(
             @credential,
@@ -277,9 +349,18 @@ module Api
             require_permission("git.credentials.update")
           when "oauth_authorize", "oauth_callback"
             require_permission("git.credentials.create")
-          when "sync_repositories"
+          when "available_repositories"
+            require_permission("git.repositories.read")
+          when "import_repositories", "sync_repositories"
             require_permission("git.repositories.sync")
           end
+        end
+
+        def repository_limit
+          subscription = current_user.account.subscription
+          return 10 unless subscription&.plan # Default fallback
+
+          subscription.plan.get_limit("max_repositories") || 10
         end
 
         def provider_params

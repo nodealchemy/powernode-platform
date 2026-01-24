@@ -8,6 +8,7 @@ import {
   ClockIcon,
 } from '@heroicons/react/24/outline';
 import { statusApi, SystemStatus, StatusHistory } from '@/features/system/status';
+import { PublicFooter } from '@/features/business/plans/components/plan-selection/PublicFooter';
 
 const STATUS_ICONS: Record<string, React.ElementType> = {
   operational: CheckCircleIcon,
@@ -316,8 +317,8 @@ export const StatusPage: React.FC = () => {
           </>
         )}
 
-        {/* Footer */}
-        <footer className="mt-12 pt-8 border-t border-theme text-center">
+        {/* Status Footer Info */}
+        <div className="mt-12 pt-8 border-t border-theme text-center">
           <p className="text-sm text-theme-tertiary">
             Status page powered by Powernode. Last checked:{' '}
             {lastRefresh.toLocaleTimeString()}
@@ -330,8 +331,11 @@ export const StatusPage: React.FC = () => {
               Sign In
             </Link>
           </div>
-        </footer>
+        </div>
       </main>
+
+      {/* Full Footer */}
+      <PublicFooter />
     </div>
   );
 };

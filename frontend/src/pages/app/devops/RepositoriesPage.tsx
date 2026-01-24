@@ -1,15 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  FolderGit2, Search, RefreshCw, Filter, MoreVertical,
+  FolderGit2, Search, Filter, MoreVertical,
   GitBranch, GitCommit, GitPullRequest,
   Lock, Unlock, Star, ExternalLink, Webhook, Trash2,
-  ChevronLeft, ChevronRight, X, Loader2, Clock, Archive, Eye
+  ChevronLeft, ChevronRight, X, Loader2, Clock, Archive, Eye,
+  Download
 } from 'lucide-react';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
 import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
 import { CommitDetailModal } from '@/features/devops/git/components/CommitDetailModal';
+import { ImportRepositoriesModal } from '@/features/devops/git/components/ImportRepositoriesModal';
 import type { GitRepository, GitProvider, PaginationInfo } from '@/features/devops/git/types';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
@@ -39,11 +41,9 @@ type CardMode = 'collapsed' | 'expanded';
 
 const RepositoryCard: React.FC<{
   repository: GitRepository;
-  onSync: () => void;
   onConfigureWebhook: () => void;
   onDelete: () => void;
-  syncing: boolean;
-}> = ({ repository, onSync, onConfigureWebhook, onDelete, syncing }) => {
+}> = ({ repository, onConfigureWebhook, onDelete }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mode, setMode] = useState<CardMode>('collapsed');
   const [activeTab, setActiveTab] = useState<'overview' | 'code' | 'prs'>('overview');
@@ -328,14 +328,6 @@ const RepositoryCard: React.FC<{
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-1 w-48 bg-theme-surface border border-theme rounded-lg shadow-lg z-10 py-1">
                   <button
-                    onClick={(e) => { e.stopPropagation(); onSync(); setMenuOpen(false); }}
-                    disabled={syncing}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                    {syncing ? 'Syncing...' : 'Sync Repository'}
-                  </button>
-                  <button
                     onClick={(e) => { e.stopPropagation(); onConfigureWebhook(); setMenuOpen(false); }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle"
                   >
@@ -532,14 +524,6 @@ const RepositoryCard: React.FC<{
                   <div>
                     <h4 className="text-sm font-medium text-theme-secondary mb-2">Quick Actions</h4>
                     <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onSync(); }}
-                        disabled={syncing}
-                        className="btn-theme btn-theme-primary btn-theme-sm inline-flex items-center gap-1.5"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-                        {syncing ? 'Syncing...' : 'Sync'}
-                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); onConfigureWebhook(); }}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-theme text-theme-primary hover:bg-theme-bg-subtle transition-colors"
@@ -791,8 +775,7 @@ export function RepositoriesPage() {
   const [repositories, setRepositories] = useState<GitRepository[]>([]);
   const [providers, setProviders] = useState<GitProvider[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState<string | null>(null);
-  const [syncingAll, setSyncingAll] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [filters, setFilters] = useState<RepositoryFilters>({
     provider_id: searchParams.get('provider') || undefined,
@@ -838,42 +821,9 @@ export function RepositoriesPage() {
     fetchRepositories();
   }, [page, filters]);
 
-  const handleSyncAll = async () => {
-    setSyncingAll(true);
-    try {
-      // Get all providers and their credentials, then sync each
-      const allProviders = await gitProvidersApi.getProviders();
-      let totalSynced = 0;
-      for (const provider of allProviders) {
-        const credentials = await gitProvidersApi.getCredentials(provider.id);
-        for (const credential of credentials) {
-          try {
-            const result = await gitProvidersApi.syncRepositories(provider.id, credential.id);
-            totalSynced += result.synced_count;
-          } catch {
-            // Continue with next credential
-          }
-        }
-      }
-      showNotification(`Synced ${totalSynced} repositories`, 'success');
-      fetchRepositories();
-    } catch (error) {
-      showNotification('Failed to sync repositories', 'error');
-    } finally {
-      setSyncingAll(false);
-    }
-  };
-
-  const handleSyncRepository = async (repoId: string) => {
-    setSyncing(repoId);
-    try {
-      // For individual repo sync, we'd need an endpoint or use credential sync
-      showNotification('Repository sync initiated', 'success');
-    } catch (error) {
-      showNotification('Failed to sync repository', 'error');
-    } finally {
-      setSyncing(null);
-    }
+  const handleImportSuccess = () => {
+    showNotification('Repositories imported successfully', 'success');
+    fetchRepositories();
   };
 
   const handleConfigureWebhook = async (repoId: string) => {
@@ -927,12 +877,11 @@ export function RepositoriesPage() {
 
   const pageActions: PageAction[] = [
     {
-      id: 'sync-all',
-      label: syncingAll ? 'Syncing...' : 'Sync All',
-      onClick: handleSyncAll,
+      id: 'import-repos',
+      label: 'Import Repositories',
+      onClick: () => setShowImportModal(true),
       variant: 'primary',
-      icon: RefreshCw,
-      disabled: syncingAll
+      icon: Download
     }
   ];
 
@@ -1043,12 +992,12 @@ export function RepositoriesPage() {
             <p className="text-theme-secondary mb-4">
               {hasActiveFilters
                 ? 'Try adjusting your filters or search query.'
-                : 'Sync repositories from your Git providers to get started.'}
+                : 'Import repositories from your connected Git providers to get started.'}
             </p>
             {!hasActiveFilters && (
-              <Button onClick={handleSyncAll} variant="primary" disabled={syncingAll}>
-                <RefreshCw className={`w-4 h-4 mr-2 ${syncingAll ? 'animate-spin' : ''}`} />
-                Sync Repositories
+              <Button onClick={() => setShowImportModal(true)} variant="primary">
+                <Download className="w-4 h-4 mr-2" />
+                Import Repositories
               </Button>
             )}
           </div>
@@ -1059,10 +1008,8 @@ export function RepositoriesPage() {
                 <RepositoryCard
                   key={repo.id}
                   repository={repo}
-                  onSync={() => handleSyncRepository(repo.id)}
                   onConfigureWebhook={() => handleConfigureWebhook(repo.id)}
                   onDelete={() => handleDeleteRepository(repo.id)}
-                  syncing={syncing === repo.id}
                 />
               ))}
             </div>
@@ -1102,6 +1049,12 @@ export function RepositoriesPage() {
         )}
       </div>
 
+      {/* Import Repositories Modal */}
+      <ImportRepositoriesModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={handleImportSuccess}
+      />
     </PageContainer>
   );
 }

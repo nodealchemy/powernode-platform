@@ -158,8 +158,14 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-theme-background min-h-screen">
-      
+    <div className="bg-theme-background min-h-screen relative overflow-hidden">
+      {/* Decorative Background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-3/4 left-1/2 w-64 h-64 bg-indigo-500/5 rounded-full blur-2xl" />
+      </div>
+
       <div className="relative flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           {/* Modern Logo and Title */}

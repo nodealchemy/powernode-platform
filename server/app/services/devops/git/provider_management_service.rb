@@ -48,7 +48,133 @@ module Devops
         credential
       end
 
+      # List available repositories from provider without importing
+      # Returns raw repository data for user to select from
+      def list_available_repositories(credential, options = {})
+        raise CredentialError, "Credential cannot be used" unless credential.can_be_used?
+
+        client = Devops::Git::ApiClient.for(credential)
+        page = options[:page] || 1
+        per_page = options[:per_page] || 100
+        search = options[:search]
+
+        repos_data = client.list_repositories(
+          page: page,
+          per_page: per_page
+        )
+
+        # Filter by search if provided
+        if search.present?
+          search_lower = search.downcase
+          repos_data = repos_data.select do |repo|
+            (repo["name"]&.downcase&.include?(search_lower) ||
+             repo["full_name"]&.downcase&.include?(search_lower) ||
+             repo["description"]&.downcase&.include?(search_lower))
+          end
+        end
+
+        # Filter archived/forks if not explicitly included
+        unless options[:include_archived]
+          repos_data = repos_data.reject { |r| r["archived"] }
+        end
+        unless options[:include_forks]
+          repos_data = repos_data.reject { |r| r["fork"] }
+        end
+
+        # Get already imported external_ids for this account
+        account = credential.account
+        imported_ids = account.git_repositories
+                        .where(credential: credential)
+                        .pluck(:external_id)
+                        .map(&:to_s)
+
+        # Map to simplified format with import status
+        repositories = repos_data.map do |repo|
+          {
+            external_id: repo["id"].to_s,
+            name: repo["name"],
+            full_name: repo["full_name"],
+            owner: extract_owner(repo),
+            description: repo["description"],
+            default_branch: repo["default_branch"] || "main",
+            web_url: repo["html_url"] || repo["web_url"],
+            is_private: repo["private"],
+            is_fork: repo["fork"],
+            is_archived: repo["archived"],
+            stars_count: repo["stargazers_count"] || repo["stars_count"] || 0,
+            primary_language: repo["language"],
+            already_imported: imported_ids.include?(repo["id"].to_s)
+          }
+        end
+
+        credential.record_success!
+        {
+          success: true,
+          repositories: repositories,
+          pagination: {
+            current_page: page,
+            per_page: per_page,
+            total_count: repos_data.count
+          }
+        }
+      rescue Devops::Git::ApiClient::ApiError => e
+        credential.record_failure!(e.message)
+        { success: false, error: e.message }
+      end
+
+      # Import specific repositories by external_id
+      def import_specific_repositories(credential, external_ids, options = {})
+        raise CredentialError, "Credential cannot be used" unless credential.can_be_used?
+        raise ValidationError, "No external_ids provided" if external_ids.blank?
+
+        client = Devops::Git::ApiClient.for(credential)
+        account = credential.account
+
+        imported = []
+        errors = []
+
+        # Fetch all repos to find the ones we need
+        # Note: For large accounts, this could be optimized with individual repo fetches
+        all_repos = client.list_repositories(page: 1, per_page: 100)
+
+        # Build a map of external_id -> repo_data
+        repos_by_id = all_repos.each_with_object({}) do |repo, hash|
+          hash[repo["id"].to_s] = repo
+        end
+
+        external_ids.each do |external_id|
+          repo_data = repos_by_id[external_id.to_s]
+
+          if repo_data.nil?
+            errors << { external_id: external_id, error: "Repository not found" }
+            next
+          end
+
+          result = sync_single_repository(credential, repo_data, options)
+          if result[:success]
+            imported << result[:repository]
+          elsif result[:skipped]
+            errors << { external_id: external_id, error: "Skipped: #{result[:reason]}" }
+          else
+            errors << { external_id: external_id, error: result[:error] }
+          end
+        end
+
+        credential.record_success!
+        {
+          success: true,
+          imported_count: imported.count,
+          error_count: errors.count,
+          repositories: imported,
+          errors: errors
+        }
+      rescue Devops::Git::ApiClient::ApiError => e
+        credential.record_failure!(e.message)
+        { success: false, error: e.message }
+      end
+
       # Sync repositories from the provider
+      # @deprecated Use import_specific_repositories for individual imports
       def sync_repositories(credential, options = {})
         raise CredentialError, "Credential cannot be used" unless credential.can_be_used?
 

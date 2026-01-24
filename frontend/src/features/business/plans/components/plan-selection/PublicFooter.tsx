@@ -44,7 +44,7 @@ export const PublicFooter: React.FC = () => {
               <h4 className="text-white font-semibold mb-6">Product</h4>
               <ul className="space-y-4">
                 <li>
-                  <Link to="/plans" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm">
+                  <Link to="/pages/features" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm">
                     Features
                   </Link>
                 </li>
@@ -54,19 +54,19 @@ export const PublicFooter: React.FC = () => {
                   </Link>
                 </li>
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <span className="text-slate-500 text-sm cursor-not-allowed" title="Coming Soon">
                     Integrations
-                  </button>
+                  </span>
                 </li>
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <span className="text-slate-500 text-sm cursor-not-allowed" title="Coming Soon">
                     API Documentation
-                  </button>
+                  </span>
                 </li>
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <span className="text-slate-500 text-sm cursor-not-allowed" title="Coming Soon">
                     Security
-                  </button>
+                  </span>
                 </li>
               </ul>
             </div>
@@ -76,29 +76,29 @@ export const PublicFooter: React.FC = () => {
               <h4 className="text-white font-semibold mb-6">Support</h4>
               <ul className="space-y-4">
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <Link to="/pages/help" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm">
                     Help Center
-                  </button>
+                  </Link>
                 </li>
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <Link to="/pages/contact" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm">
                     Contact Us
-                  </button>
+                  </Link>
                 </li>
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <Link to="/status" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm">
                     System Status
-                  </button>
+                  </Link>
                 </li>
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <span className="text-slate-500 text-sm cursor-not-allowed" title="Coming Soon">
                     Community
-                  </button>
+                  </span>
                 </li>
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <span className="text-slate-500 text-sm cursor-not-allowed" title="Coming Soon">
                     Changelog
-                  </button>
+                  </span>
                 </li>
               </ul>
             </div>
@@ -108,29 +108,29 @@ export const PublicFooter: React.FC = () => {
               <h4 className="text-white font-semibold mb-6">Company</h4>
               <ul className="space-y-4">
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <Link to="/pages/about" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm">
                     About Us
-                  </button>
+                  </Link>
                 </li>
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <span className="text-slate-500 text-sm cursor-not-allowed" title="Coming Soon">
                     Careers
-                  </button>
+                  </span>
                 </li>
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <span className="text-slate-500 text-sm cursor-not-allowed" title="Coming Soon">
                     Press
-                  </button>
+                  </span>
                 </li>
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <span className="text-slate-500 text-sm cursor-not-allowed" title="Coming Soon">
                     Partners
-                  </button>
+                  </span>
                 </li>
                 <li>
-                  <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
+                  <span className="text-slate-500 text-sm cursor-not-allowed" title="Coming Soon">
                     Blog
-                  </button>
+                  </span>
                 </li>
               </ul>
             </div>
@@ -143,23 +143,23 @@ export const PublicFooter: React.FC = () => {
             <div className="flex flex-wrap items-center gap-6 text-sm text-slate-400">
               <span>© 2024 Powernode. All rights reserved.</span>
               <div className="flex items-center space-x-6">
-                <button className="hover:text-slate-300 transition-colors duration-200" disabled>
+                <Link to="/pages/privacy" className="hover:text-slate-300 transition-colors duration-200">
                   Privacy Policy
-                </button>
-                <button className="hover:text-slate-300 transition-colors duration-200" disabled>
+                </Link>
+                <Link to="/pages/terms" className="hover:text-slate-300 transition-colors duration-200">
                   Terms of Service
-                </button>
-                <button className="hover:text-slate-300 transition-colors duration-200" disabled>
+                </Link>
+                <span className="text-slate-500 cursor-not-allowed" title="Coming Soon">
                   Cookie Policy
-                </button>
+                </span>
               </div>
             </div>
 
             <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-2 rounded-full">
+              <Link to="/status" className="flex items-center space-x-2 bg-slate-800/50 px-3 py-2 rounded-full hover:bg-slate-700/50 transition-colors duration-200">
                 <div className="w-2 h-2 bg-theme-success-solid rounded-full animate-pulse"></div>
                 <span className="text-xs text-slate-300 font-medium">All systems operational</span>
-              </div>
+              </Link>
               <div className="flex items-center space-x-2 text-xs text-slate-400">
                 <ShieldCheckIcon className="h-4 w-4" />
                 <span>SOC 2 Compliant</span>

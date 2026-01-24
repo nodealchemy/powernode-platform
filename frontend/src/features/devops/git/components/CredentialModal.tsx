@@ -28,13 +28,11 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
     name: string;
     auth_type: 'oauth' | 'personal_access_token';
     access_token: string;
-    auto_sync: boolean;
     is_active: boolean;
   }>({
     name: '',
     auth_type: 'personal_access_token',
     access_token: '',
-    auto_sync: true,
     is_active: true,
   });
 
@@ -47,7 +45,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
           name: credential.name,
           auth_type: credential.auth_type,
           access_token: '', // Don't pre-fill token for security
-          auto_sync: false,
           is_active: credential.is_active,
         });
       } else {
@@ -56,7 +53,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
           name: `${provider.name} Token`,
           auth_type: 'personal_access_token',
           access_token: '',
-          auto_sync: true,
           is_active: true,
         });
       }
@@ -108,7 +104,7 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
           is_default: true,
         };
 
-        await createCredential(credentialData, formData.auto_sync);
+        await createCredential(credentialData);
       }
 
       onSuccess();
@@ -236,27 +232,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
                 className="text-sm text-theme-primary cursor-pointer"
               >
                 Credential is active
-              </label>
-            </div>
-          )}
-
-          {/* Auto Sync (only when creating) */}
-          {!isEditing && (
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="auto_sync"
-                checked={formData.auto_sync}
-                onChange={(e) =>
-                  setFormData({ ...formData, auto_sync: e.target.checked })
-                }
-                className="w-4 h-4 rounded border-theme text-theme-primary focus:ring-theme-primary"
-              />
-              <label
-                htmlFor="auto_sync"
-                className="text-sm text-theme-primary cursor-pointer"
-              >
-                Automatically sync repositories after connecting
               </label>
             </div>
           )}

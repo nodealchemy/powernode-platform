@@ -157,35 +157,8 @@ describe('gitProvidersApi', () => {
           auth_type: 'personal_access_token',
           credentials: { access_token: 'ghp_test123' },
         },
-        auto_sync: true,
       });
       expect(result.name).toBe('New Token');
-    });
-
-    it('creates credential without auto_sync when specified', async () => {
-      mockApiClient.post.mockResolvedValue(
-        mockAxiosResponse({
-          success: true,
-          data: {
-            credential: { id: 'cred-new', name: 'New Token' },
-          },
-        })
-      );
-
-      await gitProvidersApi.createCredential(
-        'provider-1',
-        {
-          name: 'New Token',
-          auth_type: 'personal_access_token',
-          credentials: { access_token: 'ghp_test123' },
-        },
-        false
-      );
-
-      expect(mockApiClient.post).toHaveBeenCalledWith('/git/providers/provider-1/credentials', {
-        credential: expect.any(Object),
-        auto_sync: false,
-      });
     });
   });
 

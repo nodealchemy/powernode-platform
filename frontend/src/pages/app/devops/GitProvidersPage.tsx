@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Plus, Settings, CheckCircle, XCircle,
-  AlertTriangle, MoreVertical, RefreshCw,
+  AlertTriangle, MoreVertical,
   FolderGit2, Users, Activity, GitBranch, Loader2,
   Trash2, TestTube, ExternalLink, ChevronDown, ChevronRight,
   Key, Shield, Webhook, Cpu
@@ -48,7 +48,6 @@ export function GitProvidersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<GitProviderDetail | null>(null);
   const [selectedProviderType, setSelectedProviderType] = useState<'github' | 'gitlab' | 'gitea' | 'bitbucket' | undefined>(undefined);
-  const [syncing, setSyncing] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const [expandedProviderId, setExpandedProviderId] = useState<string | null>(null);
@@ -235,27 +234,6 @@ export function GitProvidersPage() {
     }
   };
 
-  const handleSyncProvider = async (providerId: string) => {
-    setSyncing(providerId);
-    try {
-      // Find a credential for this provider to sync
-      const credentials = providerCredentials[providerId] || await gitProvidersApi.getCredentials(providerId);
-      if (credentials.length > 0) {
-        await gitProvidersApi.syncRepositories(providerId, credentials[0].id);
-        showNotification('Repositories synced successfully', 'success');
-        // Refresh credentials to update stats
-        await fetchCredentialsForProvider(providerId);
-        await fetchProviders();
-      } else {
-        showNotification('No credentials found. Add credentials first.', 'warning');
-      }
-    } catch (error) {
-      showNotification('Failed to sync repositories', 'error');
-    } finally {
-      setSyncing(null);
-    }
-  };
-
   const handleTestConnection = async (providerId: string) => {
     setTesting(providerId);
     setOpenMenuId(null);
@@ -360,20 +338,6 @@ export function GitProvidersPage() {
       }
     } catch (error) {
       showNotification('Failed to test connection', 'error');
-    } finally {
-      setCredentialActionLoading(null);
-    }
-  };
-
-  const handleSyncCredential = async (providerId: string, credentialId: string) => {
-    setCredentialActionLoading(`sync-${credentialId}`);
-    try {
-      const result = await gitProvidersApi.syncRepositories(providerId, credentialId);
-      showNotification(`Synced ${result.synced_count} repositories`, 'success');
-      await fetchCredentialsForProvider(providerId);
-      await fetchProviders();
-    } catch (error) {
-      showNotification('Failed to sync repositories', 'error');
     } finally {
       setCredentialActionLoading(null);
     }
@@ -592,14 +556,6 @@ export function GitProvidersPage() {
 
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => handleSyncProvider(provider.id)}
-                        disabled={syncing === provider.id}
-                        className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary disabled:opacity-50"
-                        title="Sync repositories"
-                      >
-                        <RefreshCw className={`w-4 h-4 ${syncing === provider.id ? 'animate-spin' : ''}`} />
-                      </button>
-                      <button
                         onClick={() => handleEditProvider(provider.id)}
                         className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary"
                         title="Settings"
@@ -816,18 +772,6 @@ export function GitProvidersPage() {
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                   ) : (
                                     <TestTube className="w-4 h-4" />
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => handleSyncCredential(provider.id, credential.id)}
-                                  disabled={credentialActionLoading !== null}
-                                  className="p-1.5 rounded-lg hover:bg-theme-hover text-theme-secondary hover:text-theme-primary"
-                                  title="Sync Repositories"
-                                >
-                                  {credentialActionLoading === `sync-${credential.id}` ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : (
-                                    <RefreshCw className="w-4 h-4" />
                                   )}
                                 </button>
                                 <button

@@ -6,7 +6,6 @@ import {
   AvailableProvider,
   CreateCredentialData,
   ConnectionTestResult,
-  SyncRepositoriesResult,
 } from '../types';
 
 export function useGitProviders() {
@@ -77,13 +76,12 @@ export function useGitCredentials(providerId: string | null) {
   }, [fetchCredentials]);
 
   const createCredential = useCallback(
-    async (data: CreateCredentialData, autoSync = true) => {
+    async (data: CreateCredentialData) => {
       if (!providerId) throw new Error('No provider selected');
 
       const credential = await gitProvidersApi.createCredential(
         providerId,
-        data,
-        autoSync
+        data
       );
       await fetchCredentials();
       return credential;
@@ -138,18 +136,6 @@ export function useGitCredentials(providerId: string | null) {
     [providerId, fetchCredentials]
   );
 
-  const syncRepositories = useCallback(
-    async (
-      credentialId: string,
-      options?: { include_archived?: boolean; include_forks?: boolean }
-    ): Promise<SyncRepositoriesResult> => {
-      if (!providerId) throw new Error('No provider selected');
-
-      return gitProvidersApi.syncRepositories(providerId, credentialId, options);
-    },
-    [providerId]
-  );
-
   return {
     credentials,
     loading,
@@ -160,6 +146,5 @@ export function useGitCredentials(providerId: string | null) {
     deleteCredential,
     testCredential,
     makeDefault,
-    syncRepositories,
   };
 }
