@@ -40,23 +40,23 @@ export const TeamCard: React.FC<TeamCardProps> = ({ team, onEdit, onDelete, onEx
   };
 
   return (
-    <div className="bg-theme-surface border border-theme rounded-lg p-6 hover:shadow-md transition-shadow">
+    <div data-testid="team-card" className="bg-theme-surface border border-theme rounded-lg p-6 hover:shadow-md transition-shadow">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-theme-primary mb-1">{team.name}</h3>
+          <h3 data-testid="team-name" className="text-lg font-semibold text-theme-primary mb-1">{team.name}</h3>
           <p className="text-sm text-theme-secondary line-clamp-2">{team.description}</p>
         </div>
 
         {/* Status Badge */}
-        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(team.status)}`}>
+        <span data-testid="team-status-badge" className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(team.status)}`}>
           {team.status}
         </span>
       </div>
 
       {/* Team Info */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getTeamTypeColor(team.team_type)}`}>
+        <span data-testid="team-type-badge" className={`px-2 py-1 text-xs font-medium rounded-full ${getTeamTypeColor(team.team_type)}`}>
           {team.team_type}
         </span>
 

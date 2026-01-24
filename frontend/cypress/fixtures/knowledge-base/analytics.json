@@ -1,0 +1,53 @@
+{
+  "data": {
+    "total_articles": 24,
+    "published_articles": 20,
+    "draft_articles": 3,
+    "total_views": 15670,
+    "total_likes": 782,
+    "total_comments": 156,
+    "top_articles": {
+      "01HX9R8C8V2NP3QWKJ5ART003": 3200,
+      "01HX9R8C8V2NP3QWKJ5ART001": 2450,
+      "01HX9R8C8V2NP3QWKJ5ART006": 2100,
+      "01HX9R8C8V2NP3QWKJ5ART002": 1890,
+      "01HX9R8C8V2NP3QWKJ5ART004": 1245
+    },
+    "views_by_day": {
+      "2024-12-14": 245,
+      "2024-12-15": 312,
+      "2024-12-16": 198,
+      "2024-12-17": 287,
+      "2024-12-18": 356,
+      "2024-12-19": 402,
+      "2024-12-20": 378
+    },
+    "views_by_category": {
+      "01HX9R8C8V2NP3QWKJ5CAT005": 5200,
+      "01HX9R8C8V2NP3QWKJ5CAT001": 4100,
+      "01HX9R8C8V2NP3QWKJ5CAT003": 2800,
+      "01HX9R8C8V2NP3QWKJ5CAT006": 2100,
+      "01HX9R8C8V2NP3QWKJ5CAT002": 1245,
+      "01HX9R8C8V2NP3QWKJ5CAT004": 980
+    },
+    "popular_tags": [
+      { "tag": "api", "count": 3200 },
+      { "tag": "getting-started", "count": 2450 },
+      { "tag": "troubleshooting", "count": 2100 },
+      { "tag": "subscriptions", "count": 1890 },
+      { "tag": "billing", "count": 1500 }
+    ],
+    "engagement_metrics": {
+      "average_reading_time": 12.5,
+      "bounce_rate": 0.32,
+      "return_visitors": 0.45,
+      "search_to_article_conversion": 0.68
+    },
+    "period": {
+      "start_date": "2024-12-01T00:00:00Z",
+      "end_date": "2024-12-20T23:59:59Z",
+      "days": 20
+    }
+  },
+  "message": "Analytics retrieved successfully"
+}

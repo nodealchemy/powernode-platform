@@ -313,10 +313,12 @@ const SandboxPage: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div data-testid="sandbox-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {sandboxes.map(sandbox => (
                     <div
                       key={sandbox.id}
+                      data-testid="sandbox-card"
+                      data-selected={selectedSandbox?.id === sandbox.id}
                       onClick={() => setSelectedSandbox(sandbox)}
                       className={`bg-theme-surface border rounded-lg p-4 cursor-pointer transition-colors ${
                         selectedSandbox?.id === sandbox.id ? 'border-theme-accent' : 'border-theme hover:border-theme-accent/50'
@@ -324,7 +326,7 @@ const SandboxPage: React.FC = () => {
                     >
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium text-theme-primary">{sandbox.name}</h3>
-                        <span className={`px-2 py-1 text-xs rounded ${getStatusColor(sandbox.status)}`}>
+                        <span data-testid="sandbox-status-badge" className={`px-2 py-1 text-xs rounded ${getStatusColor(sandbox.status)}`}>
                           {sandbox.status}
                         </span>
                       </div>
@@ -362,14 +364,14 @@ const SandboxPage: React.FC = () => {
                 </div>
               ) : (
                 scenarios.map(scenario => (
-                  <div key={scenario.id} className="bg-theme-surface border border-theme rounded-lg p-4">
+                  <div key={scenario.id} data-testid="scenario-card" className="bg-theme-surface border border-theme rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <h3 className="font-medium text-theme-primary">{scenario.name}</h3>
-                        <span className={`px-2 py-1 text-xs rounded ${getStatusColor(scenario.status)}`}>
+                        <span data-testid="scenario-status-badge" className={`px-2 py-1 text-xs rounded ${getStatusColor(scenario.status)}`}>
                           {scenario.status}
                         </span>
-                        <span className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">
+                        <span data-testid="scenario-type-badge" className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">
                           {scenario.scenario_type}
                         </span>
                       </div>

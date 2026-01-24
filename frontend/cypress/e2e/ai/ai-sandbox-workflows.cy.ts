@@ -102,17 +102,17 @@ describe('AI Sandbox Workflows Tests', () => {
     });
 
     it('should display sandbox cards', () => {
-      cy.get('[class*="grid"]').should('exist');
+      cy.get('[data-testid="sandbox-grid"]').should('exist');
       cy.assertContainsAny(['Sandbox', 'active', 'inactive', 'runs', 'executions']);
     });
 
     it('should show sandbox status badges', () => {
-      cy.get('[class*="px-2"][class*="py-1"]').should('exist');
+      cy.get('[data-testid="sandbox-status-badge"]').should('exist');
     });
 
     it('should select sandbox when card clicked', () => {
-      cy.get('[class*="cursor-pointer"]').first().click();
-      cy.get('[class*="border-theme-accent"]').should('exist');
+      cy.get('[data-testid="sandbox-card"]').first().click();
+      cy.get('[data-testid="sandbox-card"][data-selected="true"]').should('exist');
     });
 
     it('should display sandbox type and description', () => {
@@ -195,7 +195,7 @@ describe('AI Sandbox Workflows Tests', () => {
     it('should display scenario status and type badges', () => {
       cy.get('body').then($body => {
         if (!$body.text().includes('No test scenarios')) {
-          cy.get('[class*="px-2"][class*="py-1"]').should('have.length.at.least', 1);
+          cy.get('[data-testid="scenario-status-badge"], [data-testid="scenario-type-badge"]').should('have.length.at.least', 1);
         }
       });
     });

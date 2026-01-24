@@ -1,0 +1,109 @@
+{
+  "policies": [
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5POLICY1",
+      "name": "Data Privacy Policy",
+      "description": "Ensures AI responses do not expose sensitive data",
+      "status": "active",
+      "scope": "global",
+      "enforcement": "strict",
+      "violations_count": 3,
+      "created_at": "2024-10-01T10:00:00Z",
+      "updated_at": "2024-12-15T14:00:00Z"
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5POLICY2",
+      "name": "Content Safety Policy",
+      "description": "Prevents harmful content generation",
+      "status": "active",
+      "scope": "all_agents",
+      "enforcement": "moderate",
+      "violations_count": 0,
+      "created_at": "2024-10-05T10:00:00Z",
+      "updated_at": "2024-12-10T11:00:00Z"
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5POLICY3",
+      "name": "Brand Voice Guidelines",
+      "description": "Maintains consistent brand voice across AI interactions",
+      "status": "draft",
+      "scope": "marketing_agents",
+      "enforcement": "advisory",
+      "violations_count": 0,
+      "created_at": "2024-12-01T09:00:00Z",
+      "updated_at": "2024-12-01T09:00:00Z"
+    }
+  ],
+  "rules": [
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5RULE1",
+      "name": "PII Detection",
+      "description": "Blocks responses containing personally identifiable information",
+      "severity": "critical",
+      "trigger": "response_contains_pii",
+      "action": "block_and_notify",
+      "enabled": true
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5RULE2",
+      "name": "Rate Limiting",
+      "description": "Limits API calls per user to prevent abuse",
+      "severity": "medium",
+      "trigger": "rate_exceeded",
+      "action": "throttle",
+      "enabled": true
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5RULE3",
+      "name": "Toxic Content Filter",
+      "description": "Filters out toxic or harmful content from responses",
+      "severity": "high",
+      "trigger": "content_is_toxic",
+      "action": "block",
+      "enabled": true
+    }
+  ],
+  "audit_logs": [
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5LOG1",
+      "event_type": "policy_updated",
+      "user": "admin@example.com",
+      "resource": "Data Privacy Policy",
+      "action": "update",
+      "details": "Updated enforcement level from moderate to strict",
+      "timestamp": "2024-12-15T14:00:00Z"
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5LOG2",
+      "event_type": "violation_detected",
+      "user": "system",
+      "resource": "Customer Support Agent",
+      "action": "block",
+      "details": "Blocked response containing email addresses",
+      "timestamp": "2024-12-14T16:30:00Z"
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5LOG3",
+      "event_type": "rule_created",
+      "user": "security@example.com",
+      "resource": "Toxic Content Filter",
+      "action": "create",
+      "details": "New rule created for content moderation",
+      "timestamp": "2024-12-10T11:00:00Z"
+    }
+  ],
+  "violations": [
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5VIOL1",
+      "policy_id": "01HX9R8C8V2NP3QWKJ5POLICY1",
+      "rule_id": "01HX9R8C8V2NP3QWKJ5RULE1",
+      "severity": "critical",
+      "status": "resolved",
+      "agent_id": "01HX9R8C8V2NP3QWKJ5F6AGENT1",
+      "description": "Agent attempted to include customer email in response",
+      "detected_at": "2024-12-14T16:30:00Z",
+      "resolved_at": "2024-12-14T17:00:00Z",
+      "resolved_by": "security@example.com"
+    }
+  ]
+}

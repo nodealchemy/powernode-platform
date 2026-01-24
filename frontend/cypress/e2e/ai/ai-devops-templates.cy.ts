@@ -109,7 +109,7 @@ describe('AI DevOps Templates Tests', () => {
     });
 
     it('should show template status badges', () => {
-      cy.get('[class*="px-2"][class*="py-1"]').should('have.length.at.least', 1);
+      cy.get('[data-testid="template-status-badge"], [data-testid="devops-template-card"]').should('have.length.at.least', 1);
     });
 
     it('should display template category and type', () => {

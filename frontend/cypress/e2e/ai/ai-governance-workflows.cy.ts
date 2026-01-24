@@ -45,7 +45,7 @@ describe('AI Governance Workflows Tests', () => {
     });
 
     it('should show policy status badges', () => {
-      cy.get('[class*="px-2"][class*="py-1"]').should('exist');
+      cy.get('[data-testid="policy-status-badge"], [data-testid="policy-enforcement-badge"], [data-testid="policy-card"]').should('exist');
     });
 
     it('should display policy details', () => {

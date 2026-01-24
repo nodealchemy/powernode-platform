@@ -1,0 +1,70 @@
+{
+  "data": {
+    "articles": [
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5ART001",
+        "title": "Welcome to Powernode - Getting Started Guide",
+        "slug": "welcome-to-powernode-getting-started-guide",
+        "excerpt": "Complete guide to getting started with Powernode subscription management platform. Learn setup, configuration, and first steps.",
+        "author_name": "System Administrator",
+        "category": {
+          "id": "01HX9R8C8V2NP3QWKJ5CAT001",
+          "name": "Getting Started",
+          "slug": "getting-started"
+        },
+        "is_public": true,
+        "is_featured": true,
+        "published_at": "2024-11-01T10:00:00Z",
+        "reading_time": 8,
+        "views_count": 2450,
+        "likes_count": 128,
+        "tags": ["getting-started", "setup", "onboarding"]
+      },
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5ART002",
+        "title": "Complete Guide to Subscription Management",
+        "slug": "complete-guide-subscription-management",
+        "excerpt": "Master subscription lifecycle management with Powernode. Learn plan creation, billing cycles, upgrades, downgrades, and automated workflows.",
+        "author_name": "System Administrator",
+        "category": {
+          "id": "01HX9R8C8V2NP3QWKJ5CAT003",
+          "name": "Billing & Subscriptions",
+          "slug": "billing-subscriptions"
+        },
+        "is_public": true,
+        "is_featured": true,
+        "published_at": "2024-11-05T14:00:00Z",
+        "reading_time": 15,
+        "views_count": 1890,
+        "likes_count": 95,
+        "tags": ["subscriptions", "billing", "management"]
+      },
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5ART003",
+        "title": "API Integration Fundamentals for Powernode",
+        "slug": "api-integration-fundamentals-powernode",
+        "excerpt": "Complete developer guide to Powernode's RESTful API. Learn authentication, endpoints, webhooks, and integration best practices.",
+        "author_name": "System Administrator",
+        "category": {
+          "id": "01HX9R8C8V2NP3QWKJ5CAT005",
+          "name": "API Documentation",
+          "slug": "api-documentation"
+        },
+        "is_public": true,
+        "is_featured": true,
+        "published_at": "2024-11-10T10:00:00Z",
+        "reading_time": 20,
+        "views_count": 3200,
+        "likes_count": 156,
+        "tags": ["api", "integration", "developers", "webhooks"]
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 1,
+      "total_count": 3,
+      "per_page": 10
+    }
+  },
+  "message": "Featured articles retrieved successfully"
+}

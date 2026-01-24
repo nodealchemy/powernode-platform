@@ -1,0 +1,96 @@
+{
+  "data": {
+    "comments": [
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5COM001",
+        "content": "This guide was extremely helpful! I was able to set up my account in under 30 minutes.",
+        "user_name": "John Smith",
+        "created_at": "2024-12-01T10:00:00Z",
+        "likes_count": 12,
+        "replies_count": 2,
+        "is_reply": false,
+        "status": "approved",
+        "replies": [
+          {
+            "id": "01HX9R8C8V2NP3QWKJ5COM002",
+            "content": "Glad it helped! Let us know if you have any questions.",
+            "user_name": "Support Team",
+            "created_at": "2024-12-01T11:00:00Z",
+            "likes_count": 5,
+            "replies_count": 0,
+            "is_reply": true,
+            "status": "approved"
+          },
+          {
+            "id": "01HX9R8C8V2NP3QWKJ5COM003",
+            "content": "Same here! The payment gateway setup section was particularly useful.",
+            "user_name": "Jane Doe",
+            "created_at": "2024-12-02T09:30:00Z",
+            "likes_count": 3,
+            "replies_count": 0,
+            "is_reply": true,
+            "status": "approved"
+          }
+        ]
+      },
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5COM004",
+        "content": "Could you add more details about setting up webhooks for subscription events?",
+        "user_name": "Mike Johnson",
+        "created_at": "2024-12-05T14:00:00Z",
+        "likes_count": 8,
+        "replies_count": 1,
+        "is_reply": false,
+        "status": "approved",
+        "replies": [
+          {
+            "id": "01HX9R8C8V2NP3QWKJ5COM005",
+            "content": "Great suggestion! We have a dedicated article for webhooks: 'Setting Up Webhook Integrations'",
+            "user_name": "Documentation Team",
+            "created_at": "2024-12-05T15:30:00Z",
+            "likes_count": 4,
+            "replies_count": 0,
+            "is_reply": true,
+            "status": "approved"
+          }
+        ]
+      },
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5COM006",
+        "content": "The quick setup checklist is a nice touch. Makes it easy to track progress.",
+        "user_name": "Sarah Williams",
+        "created_at": "2024-12-10T16:00:00Z",
+        "likes_count": 6,
+        "replies_count": 0,
+        "is_reply": false,
+        "status": "approved",
+        "replies": []
+      },
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5COM007",
+        "content": "Is there a video walkthrough available for this guide?",
+        "user_name": "Alex Brown",
+        "created_at": "2024-12-15T11:00:00Z",
+        "likes_count": 4,
+        "replies_count": 0,
+        "is_reply": false,
+        "status": "pending",
+        "replies": []
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 1,
+      "total_count": 7,
+      "per_page": 20
+    },
+    "stats": {
+      "total": 7,
+      "pending": 1,
+      "approved": 6,
+      "rejected": 0,
+      "spam": 0
+    }
+  },
+  "message": "Comments retrieved successfully"
+}

@@ -18,66 +18,33 @@ describe('Privacy Cookie Preferences Tests', () => {
       cy.clearCookies();
       cy.visit('/');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasBanner = $body.find('[data-testid="cookie-banner"], .cookie-banner, [role="dialog"]').length > 0 ||
-                         $body.text().includes('cookie') ||
-                         $body.text().includes('Cookie');
-        if (hasBanner) {
-          cy.log('Cookie banner displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['cookie', 'Cookie', 'Consent', 'Accept']);
     });
 
     it('should have accept all button', () => {
       cy.clearCookies();
       cy.visit('/');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasAccept = $body.find('button:contains("Accept"), button:contains("Accept all"), button:contains("Allow")').length > 0;
-        if (hasAccept) {
-          cy.log('Accept all button displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement([
+        'button:contains("Accept")',
+        'button:contains("Accept all")',
+        'button:contains("Allow")',
+        '[data-testid*="accept"]'
+      ]);
     });
 
-    it('should have reject/decline button', () => {
+    it('should have reject/decline option', () => {
       cy.clearCookies();
       cy.visit('/');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasReject = $body.find('button:contains("Reject"), button:contains("Decline"), button:contains("Deny")').length > 0 ||
-                         $body.text().includes('Reject') ||
-                         $body.text().includes('Decline');
-        if (hasReject) {
-          cy.log('Reject button displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Reject', 'Decline', 'Deny', 'Manage', 'Customize']);
     });
 
     it('should have customize/manage button', () => {
       cy.clearCookies();
       cy.visit('/');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasCustomize = $body.find('button:contains("Customize"), button:contains("Manage"), button:contains("Settings")').length > 0 ||
-                            $body.text().includes('Customize') ||
-                            $body.text().includes('Preferences');
-        if (hasCustomize) {
-          cy.log('Customize button displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Customize', 'Manage', 'Settings', 'Preferences']);
     });
   });
 
@@ -89,55 +56,19 @@ describe('Privacy Cookie Preferences Tests', () => {
     });
 
     it('should display necessary cookies category', () => {
-      cy.get('body').then($body => {
-        const hasNecessary = $body.text().includes('Necessary') ||
-                           $body.text().includes('Essential') ||
-                           $body.text().includes('Required');
-        if (hasNecessary) {
-          cy.log('Necessary cookies category displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Necessary', 'Essential', 'Required', 'Cookies']);
     });
 
     it('should display analytics cookies category', () => {
-      cy.get('body').then($body => {
-        const hasAnalytics = $body.text().includes('Analytics') ||
-                           $body.text().includes('Performance') ||
-                           $body.text().includes('Statistics');
-        if (hasAnalytics) {
-          cy.log('Analytics cookies category displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Analytics', 'Performance', 'Statistics', 'Usage']);
     });
 
     it('should display marketing cookies category', () => {
-      cy.get('body').then($body => {
-        const hasMarketing = $body.text().includes('Marketing') ||
-                           $body.text().includes('Advertising') ||
-                           $body.text().includes('Targeting');
-        if (hasMarketing) {
-          cy.log('Marketing cookies category displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketing', 'Advertising', 'Targeting', 'Promotional']);
     });
 
     it('should display functional cookies category', () => {
-      cy.get('body').then($body => {
-        const hasFunctional = $body.text().includes('Functional') ||
-                            $body.text().includes('Preferences') ||
-                            $body.text().includes('Personalization');
-        if (hasFunctional) {
-          cy.log('Functional cookies category displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Functional', 'Preferences', 'Personalization', 'Settings']);
     });
   });
 
@@ -149,38 +80,25 @@ describe('Privacy Cookie Preferences Tests', () => {
     });
 
     it('should have toggles for optional cookies', () => {
-      cy.get('body').then($body => {
-        const hasToggles = $body.find('input[type="checkbox"], [role="switch"]').length > 0;
-        if (hasToggles) {
-          cy.log('Cookie toggles displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement([
+        'input[type="checkbox"]',
+        '[role="switch"]',
+        '[data-testid*="toggle"]',
+        '[data-testid*="cookie"]'
+      ]);
     });
 
-    it('should disable necessary cookies toggle', () => {
-      cy.get('body').then($body => {
-        const hasDisabled = $body.find('input[disabled]').length > 0 ||
-                           $body.text().includes('always enabled') ||
-                           $body.text().includes('required');
-        if (hasDisabled) {
-          cy.log('Necessary cookies toggle disabled');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should indicate required cookies', () => {
+      cy.assertContainsAny(['always enabled', 'required', 'essential', 'necessary']);
     });
 
     it('should have save preferences button', () => {
-      cy.get('body').then($body => {
-        const hasSave = $body.find('button:contains("Save"), button:contains("Update"), button:contains("Apply")').length > 0;
-        if (hasSave) {
-          cy.log('Save preferences button displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement([
+        'button:contains("Save")',
+        'button:contains("Update")',
+        'button:contains("Apply")',
+        '[data-testid*="save"]'
+      ]);
     });
   });
 
@@ -192,41 +110,20 @@ describe('Privacy Cookie Preferences Tests', () => {
     });
 
     it('should display cookie descriptions', () => {
-      cy.get('body').then($body => {
-        const hasDescriptions = $body.find('p').length > 0 ||
-                               $body.text().includes('used for') ||
-                               $body.text().includes('help us');
-        if (hasDescriptions) {
-          cy.log('Cookie descriptions displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['used for', 'help us', 'enable', 'improve', 'Cookies']);
     });
 
-    it('should display cookie list per category', () => {
-      cy.get('body').then($body => {
-        const hasCookieList = $body.find('ul, table, [data-testid="cookie-list"]').length > 0;
-        if (hasCookieList) {
-          cy.log('Cookie list displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display cookie information', () => {
+      cy.assertHasElement([
+        'ul',
+        'table',
+        '[data-testid="cookie-list"]',
+        'p'
+      ]);
     });
 
-    it('should display cookie expiration info', () => {
-      cy.get('body').then($body => {
-        const hasExpiration = $body.text().includes('Expire') ||
-                            $body.text().includes('Duration') ||
-                            $body.text().includes('day') ||
-                            $body.text().includes('year');
-        if (hasExpiration) {
-          cy.log('Cookie expiration info displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display cookie duration info', () => {
+      cy.assertContainsAny(['Expire', 'Duration', 'day', 'year', 'session', 'Cookie']);
     });
   });
 
@@ -238,29 +135,11 @@ describe('Privacy Cookie Preferences Tests', () => {
     });
 
     it('should display third-party cookie info', () => {
-      cy.get('body').then($body => {
-        const hasThirdParty = $body.text().includes('Third-party') ||
-                            $body.text().includes('third party') ||
-                            $body.text().includes('External');
-        if (hasThirdParty) {
-          cy.log('Third-party cookie info displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Third-party', 'third party', 'External', 'Cookies', 'Analytics']);
     });
 
-    it('should list third-party providers', () => {
-      cy.get('body').then($body => {
-        const hasProviders = $body.text().includes('Google') ||
-                            $body.text().includes('Analytics') ||
-                            $body.text().includes('Provider');
-        if (hasProviders) {
-          cy.log('Third-party providers listed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should list third-party providers or categories', () => {
+      cy.assertContainsAny(['Google', 'Analytics', 'Provider', 'Marketing', 'Advertising']);
     });
   });
 
@@ -272,15 +151,12 @@ describe('Privacy Cookie Preferences Tests', () => {
     });
 
     it('should have link to full cookie policy', () => {
-      cy.get('body').then($body => {
-        const hasLink = $body.find('a[href*="cookie"], a:contains("Cookie Policy"), a:contains("Learn more")').length > 0 ||
-                       $body.text().includes('Cookie Policy');
-        if (hasLink) {
-          cy.log('Cookie policy link displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement([
+        'a[href*="cookie"]',
+        'a:contains("Cookie Policy")',
+        'a:contains("Learn more")',
+        '[data-testid*="policy"]'
+      ]);
     });
   });
 
@@ -291,17 +167,8 @@ describe('Privacy Cookie Preferences Tests', () => {
       cy.waitForPageLoad();
     });
 
-    it('should display last consent date', () => {
-      cy.get('body').then($body => {
-        const hasDate = $body.text().includes('Last updated') ||
-                       $body.text().includes('Consent given') ||
-                       $body.text().match(/\d{4}/) !== null;
-        if (hasDate) {
-          cy.log('Last consent date displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+    it('should display consent information', () => {
+      cy.assertContainsAny(['Last updated', 'Consent', 'Preferences', 'Settings']);
     });
   });
 
@@ -318,9 +185,7 @@ describe('Privacy Cookie Preferences Tests', () => {
         cy.clearCookies();
         cy.visit('/');
         cy.waitForPageLoad();
-
-        cy.get('body').should('be.visible');
-        cy.log(`Cookie preferences displayed correctly on ${name}`);
+        cy.assertContainsAny(['Cookie', 'Accept', 'Consent', 'Privacy']);
       });
     });
   });

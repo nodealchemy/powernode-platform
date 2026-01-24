@@ -27,7 +27,7 @@ describe('AI Agent Marketplace Workflows Tests', () => {
     });
 
     it('should display agent cards', () => {
-      cy.get('[class*="grid"]').should('exist');
+      cy.get('[data-testid="marketplace-templates-grid"]').should('exist');
       cy.assertContainsAny(['Agent', 'Install', 'rating', 'downloads']);
     });
 
@@ -78,8 +78,8 @@ describe('AI Agent Marketplace Workflows Tests', () => {
     });
 
     it('should display agent name and description', () => {
-      cy.get('[class*="card"]').first().within(() => {
-        cy.get('h3, [class*="title"]').should('exist');
+      cy.get('[data-testid="template-card"]').first().within(() => {
+        cy.get('[data-testid="template-title"]').should('exist');
       });
     });
 
@@ -106,22 +106,22 @@ describe('AI Agent Marketplace Workflows Tests', () => {
     });
 
     it('should navigate to agent details when card clicked', () => {
-      cy.get('[class*="card"], [class*="cursor-pointer"]').first().click();
+      cy.get('[data-testid="template-card"]').first().click();
       cy.assertContainsAny(['Details', 'Description', 'Features', 'Reviews']);
     });
 
     it('should display agent full description', () => {
-      cy.get('[class*="card"]').first().click();
+      cy.get('[data-testid="template-card"]').first().click();
       cy.assertContainsAny(['description', 'about', 'features']);
     });
 
     it('should display agent screenshots/preview', () => {
-      cy.get('[class*="card"]').first().click();
-      cy.get('img, [class*="preview"], [class*="screenshot"]').should('exist');
+      cy.get('[data-testid="template-card"]').first().click();
+      cy.get('img, [data-testid*="preview"], [data-testid*="screenshot"]').should('exist');
     });
 
     it('should display agent requirements', () => {
-      cy.get('[class*="card"]').first().click();
+      cy.get('[data-testid="template-card"]').first().click();
       cy.assertContainsAny(['requirements', 'permissions', 'version']);
     });
   });
@@ -168,7 +168,7 @@ describe('AI Agent Marketplace Workflows Tests', () => {
   describe('Reviews and Ratings', () => {
     beforeEach(() => {
       cy.navigateTo('/app/ai/marketplace');
-      cy.get('[class*="card"]').first().click();
+      cy.get('[data-testid="template-card"]').first().click();
     });
 
     it('should display reviews section', () => {

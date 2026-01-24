@@ -314,12 +314,12 @@ const DevOpsTemplatesPage: React.FC = () => {
                   <p className="text-theme-secondary mb-6">Create AI pipeline templates for your DevOps workflows</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div data-testid="devops-templates-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {templates.map(template => (
-                    <div key={template.id} className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-accent transition-colors">
+                    <div key={template.id} data-testid="devops-template-card" className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-accent transition-colors">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium text-theme-primary">{template.name}</h3>
-                        <span className={`px-2 py-1 text-xs rounded ${getStatusColor(template.status)}`}>
+                        <span data-testid="template-status-badge" className={`px-2 py-1 text-xs rounded ${getStatusColor(template.status)}`}>
                           {template.status}
                         </span>
                       </div>

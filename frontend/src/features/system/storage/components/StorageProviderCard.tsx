@@ -85,7 +85,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
   };
 
   return (
-    <div className="bg-theme-surface border border-theme rounded-lg p-6 hover:border-theme-info transition-colors relative">
+    <div data-testid="storage-provider-card" className="bg-theme-surface border border-theme rounded-lg p-6 hover:border-theme-info transition-colors relative">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -109,6 +109,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
           {getStatusIcon()}
           <div className="relative">
             <button
+              data-testid="provider-action-menu"
               onClick={() => setShowMenu(!showMenu)}
               className="p-1 hover:bg-theme-hover rounded transition-colors"
             >

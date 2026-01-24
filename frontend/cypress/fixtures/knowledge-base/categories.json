@@ -1,0 +1,123 @@
+{
+  "data": [
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5CAT001",
+      "name": "Getting Started",
+      "slug": "getting-started",
+      "description": "Essential guides for new users",
+      "full_path": "getting-started",
+      "parent_id": null,
+      "parent_name": null,
+      "article_count": 5,
+      "total_article_count": 8,
+      "sort_order": 1,
+      "is_public": true,
+      "created_at": "2024-10-01T10:00:00Z",
+      "updated_at": "2024-12-15T14:00:00Z",
+      "children": [
+        {
+          "id": "01HX9R8C8V2NP3QWKJ5CAT007",
+          "name": "Quick Start Guides",
+          "slug": "quick-start-guides",
+          "description": "Fast-track setup guides",
+          "parent_id": "01HX9R8C8V2NP3QWKJ5CAT001",
+          "article_count": 3,
+          "sort_order": 1,
+          "is_public": true
+        }
+      ]
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5CAT002",
+      "name": "Account Setup",
+      "slug": "account-setup",
+      "description": "Account configuration and team management",
+      "full_path": "account-setup",
+      "parent_id": null,
+      "parent_name": null,
+      "article_count": 4,
+      "total_article_count": 4,
+      "sort_order": 2,
+      "is_public": true,
+      "created_at": "2024-10-01T10:00:00Z",
+      "updated_at": "2024-12-10T11:00:00Z",
+      "children": []
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5CAT003",
+      "name": "Billing & Subscriptions",
+      "slug": "billing-subscriptions",
+      "description": "Subscription management and billing",
+      "full_path": "billing-subscriptions",
+      "parent_id": null,
+      "parent_name": null,
+      "article_count": 6,
+      "total_article_count": 6,
+      "sort_order": 3,
+      "is_public": true,
+      "created_at": "2024-10-01T10:00:00Z",
+      "updated_at": "2024-12-18T09:00:00Z",
+      "children": []
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5CAT004",
+      "name": "Payment Methods",
+      "slug": "payment-methods",
+      "description": "Payment processing and gateway setup",
+      "full_path": "payment-methods",
+      "parent_id": null,
+      "parent_name": null,
+      "article_count": 3,
+      "total_article_count": 3,
+      "sort_order": 4,
+      "is_public": true,
+      "created_at": "2024-10-05T10:00:00Z",
+      "updated_at": "2024-12-12T15:00:00Z",
+      "children": []
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5CAT005",
+      "name": "API Documentation",
+      "slug": "api-documentation",
+      "description": "Developer resources and API integration",
+      "full_path": "api-documentation",
+      "parent_id": null,
+      "parent_name": null,
+      "article_count": 8,
+      "total_article_count": 12,
+      "sort_order": 5,
+      "is_public": true,
+      "created_at": "2024-10-10T10:00:00Z",
+      "updated_at": "2024-12-20T16:00:00Z",
+      "children": [
+        {
+          "id": "01HX9R8C8V2NP3QWKJ5CAT008",
+          "name": "REST API Reference",
+          "slug": "rest-api-reference",
+          "description": "Complete API endpoint documentation",
+          "parent_id": "01HX9R8C8V2NP3QWKJ5CAT005",
+          "article_count": 4,
+          "sort_order": 1,
+          "is_public": true
+        }
+      ]
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5CAT006",
+      "name": "Troubleshooting",
+      "slug": "troubleshooting",
+      "description": "Solutions to common issues",
+      "full_path": "troubleshooting",
+      "parent_id": null,
+      "parent_name": null,
+      "article_count": 7,
+      "total_article_count": 7,
+      "sort_order": 6,
+      "is_public": true,
+      "created_at": "2024-10-15T10:00:00Z",
+      "updated_at": "2024-12-19T11:00:00Z",
+      "children": []
+    }
+  ],
+  "message": "Categories retrieved successfully"
+}

@@ -1,0 +1,57 @@
+{
+  "items": [
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TEAM1",
+      "name": "Customer Success Squad",
+      "description": "Team of AI agents focused on customer success and retention",
+      "status": "active",
+      "type": "collaborative",
+      "agents": [
+        {
+          "id": "01HX9R8C8V2NP3QWKJ5F6AGENT1",
+          "name": "Customer Support Agent",
+          "role": "primary"
+        },
+        {
+          "id": "01HX9R8C8V2NP3QWKJ5F6AGENT2",
+          "name": "Data Analysis Agent",
+          "role": "support"
+        }
+      ],
+      "metrics": {
+        "total_tasks_completed": 3450,
+        "avg_completion_time_hours": 2.5,
+        "customer_satisfaction": 4.7
+      },
+      "created_at": "2024-11-01T10:00:00Z",
+      "updated_at": "2024-12-18T15:00:00Z"
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TEAM2",
+      "name": "Content Creation Team",
+      "description": "AI team for content generation and marketing",
+      "status": "active",
+      "type": "sequential",
+      "agents": [
+        {
+          "id": "01HX9R8C8V2NP3QWKJ5F6AGENT3",
+          "name": "Content Writer Agent",
+          "role": "primary"
+        }
+      ],
+      "metrics": {
+        "total_tasks_completed": 890,
+        "avg_completion_time_hours": 4.2,
+        "content_quality_score": 4.3
+      },
+      "created_at": "2024-10-15T14:00:00Z",
+      "updated_at": "2024-12-10T11:30:00Z"
+    }
+  ],
+  "meta": {
+    "total": 2,
+    "page": 1,
+    "per_page": 20,
+    "total_pages": 1
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "data": {
+    "article": {
+      "id": "01HX9R8C8V2NP3QWKJ5ART001",
+      "title": "Welcome to Powernode - Getting Started Guide",
+      "slug": "welcome-to-powernode-getting-started-guide",
+      "content": "# Welcome to Powernode - Getting Started Guide\n\nWelcome to Powernode, your comprehensive subscription lifecycle management platform! This guide will help you get up and running quickly.\n\n## What is Powernode?\n\nPowernode is a powerful subscription management platform designed to handle the complete lifecycle of subscription-based businesses.\n\n### Key Features\n- **Subscription Management**: Create, modify, and track subscriptions\n- **Payment Processing**: Integrated Stripe and PayPal support\n- **Team Management**: Role-based access control and permissions\n- **Analytics & Reporting**: Comprehensive insights into your business\n- **API Integration**: RESTful API for custom integrations\n\n## Quick Setup Checklist\n\n### 1. Account Configuration\n- Complete your profile information\n- Set up your company details\n- Configure your timezone and currency preferences\n\n### 2. Payment Gateway Setup\n- Connect your Stripe account\n- Configure PayPal integration (optional)\n- Test payment processing in sandbox mode\n\n### 3. Subscription Plans\n- Create your first subscription plan\n- Configure pricing tiers\n- Set up trial periods (if applicable)\n\n## Getting Help\n\nNeed assistance? Here are your options:\n- **Knowledge Base**: Browse our comprehensive guides\n- **API Documentation**: Technical integration resources\n- **Support Portal**: Submit tickets for technical issues",
+      "excerpt": "Complete guide to getting started with Powernode subscription management platform. Learn setup, configuration, and first steps.",
+      "author_name": "System Administrator",
+      "category": {
+        "id": "01HX9R8C8V2NP3QWKJ5CAT001",
+        "name": "Getting Started",
+        "slug": "getting-started"
+      },
+      "category_id": "01HX9R8C8V2NP3QWKJ5CAT001",
+      "status": "published",
+      "is_public": true,
+      "is_featured": true,
+      "published_at": "2024-11-01T10:00:00Z",
+      "reading_time": 8,
+      "views_count": 2450,
+      "likes_count": 128,
+      "comments_count": 24,
+      "sort_order": 1,
+      "tags": ["getting-started", "setup", "onboarding"],
+      "attachments": [
+        {
+          "id": "01HX9R8C8V2NP3QWKJ5ATT001",
+          "filename": "quick-start-checklist.pdf",
+          "url": "/api/v1/kb/attachments/01HX9R8C8V2NP3QWKJ5ATT001/download",
+          "content_type": "application/pdf",
+          "size": 245678,
+          "file_size": "240 KB",
+          "download_count": 156,
+          "created_at": "2024-11-01T10:30:00Z"
+        }
+      ],
+      "can_edit": true,
+      "metadata": {
+        "seo_keywords": ["powernode", "getting started", "subscription management"],
+        "difficulty_level": "beginner"
+      },
+      "meta_title": "Getting Started with Powernode - Complete Guide",
+      "meta_description": "Learn how to set up and configure Powernode for your subscription business. Step-by-step guide for new users.",
+      "created_at": "2024-11-01T10:00:00Z",
+      "updated_at": "2024-12-15T14:00:00Z"
+    },
+    "related_articles": [
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5ART002",
+        "title": "Complete Guide to Subscription Management",
+        "slug": "complete-guide-subscription-management",
+        "excerpt": "Master subscription lifecycle management with Powernode.",
+        "author_name": "System Administrator",
+        "category": {
+          "id": "01HX9R8C8V2NP3QWKJ5CAT003",
+          "name": "Billing & Subscriptions"
+        },
+        "reading_time": 15,
+        "views_count": 1890,
+        "tags": ["subscriptions", "billing"]
+      },
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5ART004",
+        "title": "Team Management and Permissions Guide",
+        "slug": "team-management-permissions-guide",
+        "excerpt": "Learn how to effectively manage team members and permissions.",
+        "author_name": "System Administrator",
+        "category": {
+          "id": "01HX9R8C8V2NP3QWKJ5CAT002",
+          "name": "Account Setup"
+        },
+        "reading_time": 12,
+        "views_count": 1245,
+        "tags": ["team", "permissions"]
+      },
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5ART003",
+        "title": "API Integration Fundamentals for Powernode",
+        "slug": "api-integration-fundamentals-powernode",
+        "excerpt": "Complete developer guide to Powernode's RESTful API.",
+        "author_name": "System Administrator",
+        "category": {
+          "id": "01HX9R8C8V2NP3QWKJ5CAT005",
+          "name": "API Documentation"
+        },
+        "reading_time": 20,
+        "views_count": 3200,
+        "tags": ["api", "integration"]
+      }
+    ]
+  },
+  "message": "Article retrieved successfully"
+}

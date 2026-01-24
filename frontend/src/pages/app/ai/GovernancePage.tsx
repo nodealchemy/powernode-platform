@@ -274,14 +274,14 @@ const GovernancePage: React.FC = () => {
                 </div>
               ) : (
                 policies.map(policy => (
-                  <div key={policy.id} className="bg-theme-surface border border-theme rounded-lg p-4">
+                  <div key={policy.id} data-testid="policy-card" className="bg-theme-surface border border-theme rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <h3 className="font-medium text-theme-primary">{policy.name}</h3>
-                        <span className={`px-2 py-1 text-xs rounded ${getStatusColor(policy.status)}`}>
+                        <span data-testid="policy-status-badge" className={`px-2 py-1 text-xs rounded ${getStatusColor(policy.status)}`}>
                           {policy.status}
                         </span>
-                        <span className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">
+                        <span data-testid="policy-enforcement-badge" className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">
                           {policy.enforcement_level}
                         </span>
                       </div>

@@ -31,7 +31,7 @@ describe('AI Agent Teams Workflows Tests', () => {
     });
 
     it('should display teams list or cards', () => {
-      cy.get('[class*="grid"], [class*="list"]').should('exist');
+      cy.get('[data-testid="teams-grid"], [data-testid="team-card"], [class*="grid"]').should('exist');
     });
 
     it('should show team count summary', () => {
@@ -53,7 +53,7 @@ describe('AI Agent Teams Workflows Tests', () => {
     });
 
     it('should show team status', () => {
-      cy.get('[class*="px-2"][class*="py-1"]').should('exist');
+      cy.get('[data-testid="team-status-badge"], [data-testid="team-type-badge"]').should('exist');
       cy.assertContainsAny(['active', 'inactive', 'status']);
     });
 
@@ -99,7 +99,7 @@ describe('AI Agent Teams Workflows Tests', () => {
   describe('Team Details', () => {
     beforeEach(() => {
       cy.navigateTo('/app/ai/teams');
-      cy.get('[class*="card"], [class*="cursor-pointer"]').first().click();
+      cy.get('[data-testid="team-card"]').first().click();
     });
 
     it('should display team details page', () => {
@@ -122,7 +122,7 @@ describe('AI Agent Teams Workflows Tests', () => {
   describe('Add Team Member', () => {
     beforeEach(() => {
       cy.navigateTo('/app/ai/teams');
-      cy.get('[class*="card"]').first().click();
+      cy.get('[data-testid="team-card"]').first().click();
     });
 
     it('should open add member modal', () => {
@@ -133,7 +133,7 @@ describe('AI Agent Teams Workflows Tests', () => {
     it('should display available agents to add', () => {
       cy.get('button').contains(/add|assign/i).first().click();
       cy.get('body').then($body => {
-        if ($body.find('[class*="checkbox"], [role="option"]').length > 0) {
+        if ($body.find('input[type="checkbox"], [role="option"]').length > 0) {
           cy.log('Agent selection available');
         }
       });
@@ -155,7 +155,7 @@ describe('AI Agent Teams Workflows Tests', () => {
   describe('Remove Team Member', () => {
     beforeEach(() => {
       cy.navigateTo('/app/ai/teams');
-      cy.get('[class*="card"]').first().click();
+      cy.get('[data-testid="team-card"]').first().click();
     });
 
     it('should have remove member option', () => {
@@ -180,7 +180,7 @@ describe('AI Agent Teams Workflows Tests', () => {
   describe('Team Permissions', () => {
     beforeEach(() => {
       cy.navigateTo('/app/ai/teams');
-      cy.get('[class*="card"]').first().click();
+      cy.get('[data-testid="team-card"]').first().click();
       cy.get('button').contains(/settings|permissions/i).first().click();
     });
 
@@ -200,7 +200,7 @@ describe('AI Agent Teams Workflows Tests', () => {
   describe('Team Analytics', () => {
     beforeEach(() => {
       cy.navigateTo('/app/ai/teams');
-      cy.get('[class*="card"]').first().click();
+      cy.get('[data-testid="team-card"]').first().click();
       cy.get('button').contains(/analytics|stats/i).first().click();
     });
 
@@ -220,7 +220,7 @@ describe('AI Agent Teams Workflows Tests', () => {
   describe('Delete Team', () => {
     beforeEach(() => {
       cy.navigateTo('/app/ai/teams');
-      cy.get('[class*="card"]').first().click();
+      cy.get('[data-testid="team-card"]').first().click();
     });
 
     it('should have delete team option', () => {

@@ -283,12 +283,12 @@ const AgentMarketplacePage: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
+        <div data-testid="marketplace-templates-grid" className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
           {templates.map(template => (
-            <div key={template.id} className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-accent transition-colors cursor-pointer">
+            <div key={template.id} data-testid="template-card" className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-accent transition-colors cursor-pointer">
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="font-medium text-theme-primary">{template.name}</h3>
+                  <h3 data-testid="template-title" className="font-medium text-theme-primary">{template.name}</h3>
                   <p className="text-xs text-theme-secondary">{template.publisher.name}</p>
                 </div>
                 {template.is_verified && (

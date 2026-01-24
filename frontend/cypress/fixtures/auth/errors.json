@@ -1,0 +1,63 @@
+{
+  "invalid_credentials": {
+    "success": false,
+    "error": "Invalid email or password",
+    "code": "INVALID_CREDENTIALS"
+  },
+  "account_locked": {
+    "success": false,
+    "error": "Account temporarily locked due to too many failed attempts. Try again in 15 minutes.",
+    "code": "ACCOUNT_LOCKED",
+    "retry_after": 900
+  },
+  "email_not_verified": {
+    "success": false,
+    "error": "Please verify your email address before logging in",
+    "code": "EMAIL_NOT_VERIFIED"
+  },
+  "account_suspended": {
+    "success": false,
+    "error": "Your account has been suspended. Please contact support.",
+    "code": "ACCOUNT_SUSPENDED"
+  },
+  "session_expired": {
+    "success": false,
+    "error": "Your session has expired. Please login again.",
+    "code": "SESSION_EXPIRED"
+  },
+  "unauthorized": {
+    "success": false,
+    "error": "Unauthorized access",
+    "code": "UNAUTHORIZED"
+  },
+  "email_taken": {
+    "success": false,
+    "error": "An account with this email already exists",
+    "code": "EMAIL_TAKEN"
+  },
+  "weak_password": {
+    "success": false,
+    "error": "Password does not meet security requirements",
+    "code": "WEAK_PASSWORD",
+    "details": {
+      "requirements": [
+        "At least 12 characters",
+        "One uppercase letter",
+        "One lowercase letter",
+        "One number",
+        "One special character"
+      ]
+    }
+  },
+  "rate_limited": {
+    "success": false,
+    "error": "Too many requests. Please try again later.",
+    "code": "RATE_LIMITED",
+    "retry_after": 60
+  },
+  "network_error": {
+    "success": false,
+    "error": "Network error. Please check your connection.",
+    "code": "NETWORK_ERROR"
+  }
+}
