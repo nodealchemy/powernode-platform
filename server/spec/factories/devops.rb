@@ -1,6 +1,26 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
+  # Alias for backwards compatibility with ci_cd naming
+  factory :ci_cd_pipeline, class: 'Devops::Pipeline' do
+    association :account
+    name { "CI/CD Pipeline #{SecureRandom.hex(4)}" }
+    slug { name.parameterize }
+    pipeline_type { 'deploy' }
+    description { 'CI/CD pipeline for specs' }
+    triggers { { 'manual' => true } }
+    steps { [] }
+    environment { {} }
+    secret_refs { [] }
+    runner_labels { ['ubuntu-latest'] }
+    timeout_minutes { 60 }
+    allow_concurrent { false }
+    features { {} }
+    is_active { true }
+    is_system { false }
+    version { 1 }
+  end
+
   factory :devops_pipeline, class: 'Devops::Pipeline' do
     association :account
     name { "Test Pipeline #{SecureRandom.hex(4)}" }

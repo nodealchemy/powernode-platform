@@ -4,7 +4,7 @@ FactoryBot.define do
   factory :ai_conversation, class: "Ai::Conversation" do
     account
     user { association :user, account: account }
-    association :agent, factory: :ai_agent
+    agent { association :ai_agent, account: account }
     provider { agent&.provider || association(:ai_provider, account: account) }
     conversation_id { SecureRandom.uuid }
     title { Faker::Lorem.sentence }
@@ -27,13 +27,14 @@ FactoryBot.define do
         # Create initial user message
         create(:ai_message, :user_message,
                conversation: conversation,
-               account: conversation.account)
+               user: conversation.user,
+               sequence_number: 1)
 
         # Create AI response
         create(:ai_message, :ai_response,
                conversation: conversation,
-               account: conversation.account,
-               agent: conversation.agent)
+               agent: conversation.agent,
+               sequence_number: 2)
 
         # Update conversation metadata
         conversation.update!(
@@ -53,14 +54,15 @@ FactoryBot.define do
           if i.even?
             create(:ai_message, :user_message,
                    conversation: conversation,
-                   account: conversation.account,
-                   content: "User message #{i + 1}")
+                   user: conversation.user,
+                   content: "User message #{i + 1}",
+                   sequence_number: i + 1)
           else
             create(:ai_message, :ai_response,
                    conversation: conversation,
-                   account: conversation.account,
                    agent: conversation.agent,
-                   content: "AI response to message #{i}")
+                   content: "AI response to message #{i}",
+                   sequence_number: i + 1)
           end
         end
 
