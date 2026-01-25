@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_22_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_24_203823) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -3504,6 +3504,43 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_160000) do
     t.index ["permission_id"], name: "index_delegation_permissions_on_permission_id"
   end
 
+  create_table "devops_ai_configs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "config_type", limit: 50, null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.decimal "frequency_penalty", precision: 3, scale: 2, default: "0.0"
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_default", default: false, null: false
+    t.datetime "last_used_at"
+    t.integer "max_tokens", default: 4096
+    t.jsonb "metadata", default: {}, null: false
+    t.string "model", limit: 100, null: false
+    t.string "name", limit: 255, null: false
+    t.decimal "presence_penalty", precision: 3, scale: 2, default: "0.0"
+    t.string "provider", limit: 50, null: false
+    t.jsonb "rate_limits", default: {}, null: false
+    t.jsonb "settings", default: {}, null: false
+    t.string "status", limit: 20, default: "active", null: false
+    t.jsonb "system_prompt", default: {}, null: false
+    t.decimal "temperature", precision: 3, scale: 2, default: "0.7"
+    t.integer "timeout_seconds", default: 30
+    t.decimal "top_p", precision: 3, scale: 2, default: "1.0"
+    t.integer "total_requests", default: 0, null: false
+    t.integer "total_tokens", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "config_type"], name: "index_devops_ai_configs_on_account_id_and_config_type"
+    t.index ["account_id", "is_default"], name: "index_devops_ai_configs_on_account_id_and_is_default", where: "(is_default = true)"
+    t.index ["account_id", "name"], name: "index_devops_ai_configs_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_devops_ai_configs_on_account_id"
+    t.index ["created_by_id"], name: "index_devops_ai_configs_on_created_by_id"
+    t.index ["provider"], name: "index_devops_ai_configs_on_provider"
+    t.index ["status"], name: "index_devops_ai_configs_on_status"
+    t.check_constraint "config_type::text = ANY (ARRAY['chat'::character varying::text, 'completion'::character varying::text, 'embedding'::character varying::text, 'code_review'::character varying::text, 'code_generation'::character varying::text, 'custom'::character varying::text])", name: "check_devops_ai_config_type"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'archived'::character varying::text])", name: "check_devops_ai_config_status"
+  end
+
   create_table "devops_integration_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.integer "consecutive_failures", default: 0
@@ -3970,7 +4007,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_160000) do
     t.index ["parent_file_id"], name: "index_file_objects_on_parent_file_id"
     t.index ["processing_status"], name: "index_file_objects_on_processing_status"
     t.index ["uploaded_by_id"], name: "index_file_objects_on_uploaded_by_id"
-    t.check_constraint "category IS NULL OR (category::text = ANY (ARRAY['user_upload'::character varying, 'workflow_output'::character varying, 'ai_generated'::character varying, 'temp'::character varying, 'system'::character varying, 'import'::character varying, 'page_content'::character varying, 'sbom_export'::character varying, 'attestation_proof'::character varying, 'supply_chain_scan_report'::character varying, 'vendor_compliance'::character varying, 'vendor_assessment'::character varying, 'vendor_certificate'::character varying]::text[]))", name: "file_objects_category_check"
+    t.check_constraint "category IS NULL OR (category::text = ANY (ARRAY['user_upload'::character varying::text, 'workflow_output'::character varying::text, 'ai_generated'::character varying::text, 'temp'::character varying::text, 'system'::character varying::text, 'import'::character varying::text, 'page_content'::character varying::text, 'sbom_export'::character varying::text, 'attestation_proof'::character varying::text, 'supply_chain_scan_report'::character varying::text, 'vendor_compliance'::character varying::text, 'vendor_assessment'::character varying::text, 'vendor_certificate'::character varying::text]))", name: "file_objects_category_check"
     t.check_constraint "file_type::text = ANY (ARRAY['image'::character varying::text, 'document'::character varying::text, 'video'::character varying::text, 'audio'::character varying::text, 'archive'::character varying::text, 'code'::character varying::text, 'data'::character varying::text, 'other'::character varying::text])", name: "file_objects_file_type_check"
     t.check_constraint "processing_status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "file_objects_processing_status_check"
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'public'::character varying::text, 'shared'::character varying::text, 'internal'::character varying::text])", name: "file_objects_visibility_check"
@@ -6148,7 +6185,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_160000) do
     t.index ["sbom_id"], name: "index_supply_chain_reports_on_sbom_id"
     t.index ["status"], name: "idx_reports_status"
     t.check_constraint "format::text = ANY (ARRAY['pdf'::character varying::text, 'json'::character varying::text, 'csv'::character varying::text, 'html'::character varying::text, 'xml'::character varying::text, 'spdx'::character varying::text, 'cyclonedx'::character varying::text])", name: "check_reports_format"
-    t.check_constraint "report_type::text = ANY (ARRAY['sbom_export'::character varying, 'vulnerability'::character varying, 'vulnerability_report'::character varying, 'license_report'::character varying, 'attribution'::character varying, 'compliance'::character varying, 'compliance_summary'::character varying, 'vendor_risk'::character varying, 'vendor_assessment'::character varying, 'custom'::character varying]::text[])", name: "check_reports_type"
+    t.check_constraint "report_type::text = ANY (ARRAY['sbom_export'::character varying::text, 'vulnerability'::character varying::text, 'vulnerability_report'::character varying::text, 'license_report'::character varying::text, 'attribution'::character varying::text, 'compliance'::character varying::text, 'compliance_summary'::character varying::text, 'vendor_risk'::character varying::text, 'vendor_assessment'::character varying::text, 'custom'::character varying::text])", name: "check_reports_type"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'generating'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'expired'::character varying::text])", name: "check_reports_status"
   end
 
@@ -7310,6 +7347,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_22_160000) do
   add_foreign_key "database_restores", "users", column: "initiated_by_id"
   add_foreign_key "delegation_permissions", "account_delegations"
   add_foreign_key "delegation_permissions", "permissions"
+  add_foreign_key "devops_ai_configs", "accounts", on_delete: :cascade
+  add_foreign_key "devops_ai_configs", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "devops_integration_credentials", "accounts"
   add_foreign_key "devops_integration_credentials", "users", column: "created_by_user_id"
   add_foreign_key "devops_integration_executions", "accounts"
