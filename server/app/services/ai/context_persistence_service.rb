@@ -103,8 +103,8 @@ class Ai::ContextPersistenceService
       )
 
       # Clone entries
-      original.ai_context_entries.active.find_each do |entry|
-        new_context.ai_context_entries.create!(
+      original.context_entries.active.find_each do |entry|
+        new_context.context_entries.create!(
           entry_key: entry.entry_key,
           entry_type: entry.entry_type,
           content: entry.content.deep_dup,
@@ -127,7 +127,7 @@ class Ai::ContextPersistenceService
     def add_entry(context:, attributes:, accessor: nil)
       check_write_access!(context, accessor)
 
-      entry = context.ai_context_entries.new(
+      entry = context.context_entries.new(
         entry_key: attributes[:key] || attributes[:entry_key],
         entry_type: attributes[:type] || attributes[:entry_type] || "fact",
         content: attributes[:content],
@@ -154,7 +154,7 @@ class Ai::ContextPersistenceService
     def get_entry(context:, key:, accessor: nil)
       check_read_access!(context, accessor)
 
-      entry = context.ai_context_entries.active.find_by(entry_key: key)
+      entry = context.context_entries.active.find_by(entry_key: key)
       raise NotFoundError, "Entry not found: #{key}" unless entry
 
       log_access(context: context, action: "read", accessor: accessor, entry: entry)
@@ -167,7 +167,7 @@ class Ai::ContextPersistenceService
     def update_entry(context:, key:, attributes:, accessor: nil, create_version: true)
       check_write_access!(context, accessor)
 
-      entry = context.ai_context_entries.active.find_by(entry_key: key)
+      entry = context.context_entries.active.find_by(entry_key: key)
       raise NotFoundError, "Entry not found: #{key}" unless entry
 
       previous_value = entry.content.deep_dup
@@ -195,7 +195,7 @@ class Ai::ContextPersistenceService
     def delete_entry(context:, key:, accessor: nil)
       check_write_access!(context, accessor)
 
-      entry = context.ai_context_entries.find_by(entry_key: key)
+      entry = context.context_entries.find_by(entry_key: key)
       raise NotFoundError, "Entry not found: #{key}" unless entry
 
       log_access(context: context, action: "delete", accessor: accessor, entry: entry)
@@ -208,7 +208,7 @@ class Ai::ContextPersistenceService
     def list_entries(context:, filters: {}, accessor: nil, page: 1, per_page: 50)
       check_read_access!(context, accessor)
 
-      scope = context.ai_context_entries
+      scope = context.context_entries
 
       scope = scope.active unless filters[:include_archived]
       scope = scope.by_type(filters[:type]) if filters[:type].present?
@@ -226,7 +226,7 @@ class Ai::ContextPersistenceService
     def search(context:, query:, accessor: nil, filters: {}, limit: 20)
       check_read_access!(context, accessor)
 
-      scope = context.ai_context_entries.active.searchable
+      scope = context.context_entries.active.searchable
 
       # Text search
       if query.present?
@@ -257,7 +257,7 @@ class Ai::ContextPersistenceService
       check_read_access!(context, accessor)
 
       # Use pgvector's cosine distance operator
-      results = context.ai_context_entries
+      results = context.context_entries
         .active
         .where.not(embedding: nil)
         .select("*, (embedding <=> '#{query_embedding}') as distance")
@@ -306,7 +306,7 @@ class Ai::ContextPersistenceService
     def store_memory(agent:, key:, value:, type: "memory", metadata: {})
       context = get_agent_memory(account: agent.account, agent: agent)
 
-      existing = context.ai_context_entries.active.find_by(entry_key: key)
+      existing = context.context_entries.active.find_by(entry_key: key)
 
       if existing.present?
         update_entry(
@@ -335,7 +335,7 @@ class Ai::ContextPersistenceService
       context = get_agent_memory(account: agent.account, agent: agent, create_if_missing: false)
       return nil unless context.present?
 
-      entry = context.ai_context_entries.active.find_by(entry_key: key)
+      entry = context.context_entries.active.find_by(entry_key: key)
       entry&.read_content
     end
 
@@ -347,7 +347,7 @@ class Ai::ContextPersistenceService
       if query.present?
         search(context: context, query: query, accessor: agent, limit: limit)
       else
-        context.ai_context_entries.active.recent.limit(limit)
+        context.context_entries.active.recent.limit(limit)
       end
     end
 
@@ -359,7 +359,7 @@ class Ai::ContextPersistenceService
 
       data = {
         context: context.context_summary,
-        entries: context.ai_context_entries.active.map(&:entry_snapshot),
+        entries: context.context_entries.active.map(&:entry_snapshot),
         exported_at: Time.current.iso8601,
         version: "1.0"
       }

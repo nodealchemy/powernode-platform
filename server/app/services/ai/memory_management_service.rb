@@ -193,7 +193,7 @@ class Ai::MemoryManagementService
     # Get memory usage statistics
     def memory_stats(account:)
       contexts = Ai::PersistentContext.where(account: account)
-      entries = Ai::ContextEntry.joins(:ai_persistent_context)
+      entries = Ai::ContextEntry.joins(:persistent_context)
                               .where(ai_persistent_contexts: { account_id: account.id })
 
       {
@@ -203,7 +203,6 @@ class Ai::MemoryManagementService
         total_entries: entries.count,
         active_entries: entries.active.count,
         total_size_bytes: contexts.sum(:data_size_bytes),
-        entries_with_embeddings: entries.where.not(embedding: nil).count,
         contexts_by_type: contexts.group(:context_type).count,
         entries_by_type: entries.group(:entry_type).count,
         avg_importance: entries.active.average(:importance_score)&.round(3)
