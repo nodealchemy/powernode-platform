@@ -124,6 +124,8 @@ class Account < ApplicationRecord
   has_many :devops_integration_templates, class_name: "Devops::IntegrationTemplate", dependent: :destroy
   has_many :devops_integration_instances, class_name: "Devops::IntegrationInstance", dependent: :destroy
   has_many :devops_integration_credentials, class_name: "Devops::IntegrationCredential", dependent: :destroy
+  has_many :devops_ai_configs, class_name: "Devops::AiConfig", dependent: :destroy
+  has_many :devops_pipeline_templates, class_name: "Devops::PipelineTemplate", dependent: :destroy
 
   # Shared infrastructure associations
   has_many :shared_prompt_templates, class_name: "Shared::PromptTemplate", dependent: :destroy

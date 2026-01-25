@@ -16,10 +16,11 @@ module Ai
     belongs_to :previous_version, class_name: "Ai::ContextEntry", optional: true
 
     has_many :newer_versions, class_name: "Ai::ContextEntry", foreign_key: :previous_version_id, dependent: :nullify
+    has_many :access_logs, class_name: "Ai::ContextAccessLog", foreign_key: "ai_context_entry_id", dependent: :destroy
 
     # ==================== Validations ====================
     validates :entry_key, presence: true, length: { maximum: 255 }
-    validates :entry_key, uniqueness: { scope: :ai_persistent_context_id }
+    validates :entry_key, uniqueness: { scope: :ai_persistent_context_id, conditions: -> { where(archived_at: nil) } }
     validates :content, presence: true
     validates :entry_type, inclusion: { in: ENTRY_TYPES }, allow_nil: true
     validates :source_type, inclusion: { in: SOURCE_TYPES }, allow_nil: true
@@ -27,7 +28,7 @@ module Ai
     validates :importance_score, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }, allow_nil: true
 
     # ==================== Scopes ====================
-    scope :active, -> { where(archived_at: nil).where("expires_at IS NULL OR expires_at > ?", Time.current) }
+    scope :active, -> { where(archived_at: nil).where("ai_context_entries.expires_at IS NULL OR ai_context_entries.expires_at > ?", Time.current) }
     scope :archived, -> { where.not(archived_at: nil) }
     scope :expired, -> { where("expires_at <= ?", Time.current) }
     scope :by_type, ->(type) { where(entry_type: type) }

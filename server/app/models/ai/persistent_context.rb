@@ -58,6 +58,7 @@ module Ai
         context_id: context_id,
         name: name,
         context_type: context_type,
+        status: archived? ? "archived" : "active",
         scope: scope,
         agent_id: ai_agent_id,
         version: version,

@@ -4,6 +4,27 @@ module Ai
   class CostAttribution < ApplicationRecord
     include Auditable
 
+    # model_name is a reserved ActiveRecord method, so we need custom handling
+    # Use read_attribute/write_attribute directly to bypass the accessor issue
+    class << self
+      # Override to allow model_name column
+      def dangerous_attribute_method?(method_name)
+        return false if method_name.to_s == "model_name"
+        super
+      end
+    end
+
+    # Define model_name reader before ActiveRecord can raise an error
+    silence_warnings do
+      define_method(:model_name) do
+        read_attribute(:model_name)
+      end
+
+      define_method(:model_name=) do |value|
+        write_attribute(:model_name, value)
+      end
+    end
+
     # ==========================================================================
     # CONSTANTS
     # ==========================================================================

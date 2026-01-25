@@ -35,8 +35,8 @@ module Ai
     scope :active_sessions, -> { where.not(websocket_session_id: nil) }
 
     # Callbacks
-    before_create :set_conversation_id
-    before_create :set_websocket_channel
+    before_validation :set_conversation_id, on: :create
+    before_validation :set_websocket_channel, on: :create
     after_update :broadcast_status_change, if: :saved_change_to_status?
 
     # Methods
