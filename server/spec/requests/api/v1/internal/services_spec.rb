@@ -1,0 +1,251 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+
+RSpec.describe 'Api::V1::Internal::Services', type: :request do
+  # Internal service authentication
+  let(:internal_headers) do
+    token = JWT.encode(
+      { service: 'worker', type: 'service', exp: 1.hour.from_now.to_i },
+      Rails.application.config.jwt_secret_key,
+      'HS256'
+    )
+    { 'Authorization' => "Bearer #{token}" }
+  end
+
+  describe 'POST /api/v1/internal/services/health_check' do
+    context 'with internal authentication' do
+      it 'returns health status for all services' do
+        post '/api/v1/internal/services/health_check', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        health_status = response_data['data']['data']
+        expect(health_status).to have_key('database')
+        expect(health_status).to have_key('redis')
+        expect(health_status).to have_key('timestamp')
+      end
+
+      it 'includes database health status' do
+        post '/api/v1/internal/services/health_check', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        expect(response_data['data']['data']['database']).to be_in(['healthy', 'unhealthy'])
+      end
+
+      it 'includes redis health status' do
+        post '/api/v1/internal/services/health_check', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        expect(response_data['data']['data']['redis']).to be_in(['healthy', 'unhealthy'])
+      end
+
+      it 'includes timestamp of health check' do
+        freeze_time do
+          post '/api/v1/internal/services/health_check', headers: internal_headers, as: :json
+
+          expect_success_response
+          response_data = json_response
+
+          expect(Time.parse(response_data['data']['data']['timestamp'])).to be_within(1.second).of(Time.current)
+        end
+      end
+    end
+
+    context 'without authentication' do
+      it 'returns unauthorized error' do
+        post '/api/v1/internal/services/health_check', as: :json
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+  end
+
+  describe 'POST /api/v1/internal/services/generate_config' do
+    context 'with internal authentication' do
+      it 'generates service configuration' do
+        post '/api/v1/internal/services/generate_config', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        config = response_data['data']['data']
+        expect(config).to have_key('api_version')
+        expect(config).to have_key('environment')
+        expect(config).to have_key('services')
+        expect(config).to have_key('timestamp')
+      end
+
+      it 'includes API version' do
+        post '/api/v1/internal/services/generate_config', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        expect(response_data['data']['data']['api_version']).to eq('v1')
+      end
+
+      it 'includes current environment' do
+        post '/api/v1/internal/services/generate_config', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        expect(response_data['data']['data']['environment']).to eq(Rails.env)
+      end
+
+      it 'includes available services' do
+        post '/api/v1/internal/services/generate_config', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        services = response_data['data']['data']['services']
+        expect(services).to be_an(Array)
+        expect(services.length).to be > 0
+      end
+    end
+  end
+
+  describe 'POST /api/v1/internal/services/service_discovery' do
+    context 'with internal authentication' do
+      it 'returns discovered services' do
+        post '/api/v1/internal/services/service_discovery', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        expect(response_data['data']['data']).to have_key('services')
+        expect(response_data['data']['data']['services']).to be_an(Array)
+      end
+
+      it 'includes service details' do
+        post '/api/v1/internal/services/service_discovery', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        services = response_data['data']['data']['services']
+        first_service = services.first
+
+        expect(first_service).to have_key(:name)
+        expect(first_service).to have_key(:url)
+        expect(first_service).to have_key(:status)
+      end
+    end
+  end
+
+  describe 'POST /api/v1/internal/services/validate' do
+    context 'with internal authentication' do
+      it 'validates service configuration' do
+        post '/api/v1/internal/services/validate', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        expect(response_data['data']['data']).to have_key('valid')
+        expect(response_data['data']['data']).to have_key('errors')
+      end
+
+      it 'returns valid status' do
+        post '/api/v1/internal/services/validate', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        expect(response_data['data']['data']['valid']).to be true
+        expect(response_data['data']['data']['errors']).to be_empty
+      end
+    end
+  end
+
+  describe 'POST /api/v1/internal/services/test_connectivity' do
+    context 'with internal authentication' do
+      it 'tests connectivity to external services' do
+        post '/api/v1/internal/services/test_connectivity', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        results = response_data['data']['data']
+        expect(results).to have_key('database')
+        expect(results).to have_key('redis')
+      end
+
+      it 'includes database connectivity test result' do
+        post '/api/v1/internal/services/test_connectivity', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        db_result = response_data['data']['data']['database']
+        expect(db_result).to have_key('connected')
+      end
+
+      it 'includes redis connectivity test result' do
+        post '/api/v1/internal/services/test_connectivity', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        redis_result = response_data['data']['data']['redis']
+        expect(redis_result).to have_key('connected')
+      end
+
+      it 'includes latency metrics for successful connections' do
+        post '/api/v1/internal/services/test_connectivity', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        redis_result = response_data['data']['data']['redis']
+        if redis_result['connected']
+          expect(redis_result).to have_key('latency_ms')
+          expect(redis_result['latency_ms']).to be_a(Numeric)
+        end
+      end
+    end
+  end
+
+  describe 'POST /api/v1/internal/services/validate_services' do
+    context 'with internal authentication' do
+      it 'validates all registered services' do
+        post '/api/v1/internal/services/validate_services', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        expect(response_data['data']['data']).to have_key('validations')
+        expect(response_data['data']['data']['validations']).to be_an(Array)
+      end
+
+      it 'includes validation status for each service' do
+        post '/api/v1/internal/services/validate_services', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        validations = response_data['data']['data']['validations']
+        first_validation = validations.first
+
+        expect(first_validation).to have_key(:name)
+        expect(first_validation).to have_key(:valid)
+      end
+
+      it 'marks all services as valid' do
+        post '/api/v1/internal/services/validate_services', headers: internal_headers, as: :json
+
+        expect_success_response
+        response_data = json_response
+
+        validations = response_data['data']['data']['validations']
+        expect(validations.all? { |v| v[:valid] }).to be true
+      end
+    end
+  end
+end
