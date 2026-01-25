@@ -8,7 +8,7 @@ module Api
       # Handles outcome definitions, SLA contracts, billing records, and violations.
       #
       class OutcomeBillingController < ApplicationController
-        before_action :authenticate_user!
+        before_action :authenticate_request
 
         # ==========================================================================
         # OUTCOME DEFINITIONS

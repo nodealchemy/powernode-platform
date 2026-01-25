@@ -5,7 +5,7 @@ module Api
     module Ai
       class SandboxesController < ApplicationController
         before_action :set_service
-        before_action :set_sandbox, only: %i[show update destroy activate deactivate analytics scenarios mocks runs benchmarks ab_tests]
+        before_action :set_sandbox, only: %i[show update destroy activate deactivate analytics scenarios create_scenario mocks create_mock runs create_run execute_run show_run benchmarks create_benchmark run_benchmark]
 
         # GET /api/v1/ai/sandboxes
         def index

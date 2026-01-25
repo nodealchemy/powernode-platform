@@ -4,7 +4,7 @@ module Api
   module V1
     module Ai
       class TeamsController < ApplicationController
-        before_action :authenticate_user!
+        before_action :authenticate_request
         before_action :set_team_service
         before_action :set_team, only: %i[
           show update destroy

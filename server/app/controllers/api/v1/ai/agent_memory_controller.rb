@@ -10,6 +10,7 @@ module Api
         # GET /api/v1/ai/agents/:agent_id/memory
         def index
           authorize_action!("ai.memory.read")
+          return if performed?
 
           context = ::Ai::ContextPersistenceService.get_agent_memory(
             account: current_account,
@@ -18,14 +19,14 @@ module Api
           )
 
           if context.nil?
-            return render_success(
+            return render_success({
               memory: nil,
               entries: [],
               message: "No memory context exists for this agent"
-            )
+            })
           end
 
-          entries = context.ai_context_entries
+          entries = context.context_entries
             .active
             .order(importance_score: :desc, updated_at: :desc)
             .page(pagination_params[:page])
@@ -41,6 +42,7 @@ module Api
         # GET /api/v1/ai/agents/:agent_id/memory/:key
         def show
           authorize_action!("ai.memory.read")
+          return if performed?
 
           value = ::Ai::ContextPersistenceService.recall_memory(
             agent: @agent,
@@ -57,6 +59,7 @@ module Api
         # POST /api/v1/ai/agents/:agent_id/memory
         def create
           authorize_action!("ai.memory.write")
+          return if performed?
 
           entry = ::Ai::ContextPersistenceService.store_memory(
             agent: @agent,
@@ -74,6 +77,7 @@ module Api
         # PATCH /api/v1/ai/agents/:agent_id/memory/:key
         def update
           authorize_action!("ai.memory.write")
+          return if performed?
 
           entry = ::Ai::ContextPersistenceService.store_memory(
             agent: @agent,
@@ -91,6 +95,7 @@ module Api
         # DELETE /api/v1/ai/agents/:agent_id/memory/:key
         def destroy
           authorize_action!("ai.memory.write")
+          return if performed?
 
           context = ::Ai::ContextPersistenceService.get_agent_memory(
             account: current_account,
@@ -116,6 +121,7 @@ module Api
         # POST /api/v1/ai/agents/:agent_id/memory/search
         def search
           authorize_action!("ai.memory.read")
+          return if performed?
 
           memories = ::Ai::ContextPersistenceService.get_relevant_memories(
             agent: @agent,
@@ -129,6 +135,7 @@ module Api
         # POST /api/v1/ai/agents/:agent_id/memory/clear
         def clear
           authorize_action!("ai.memory.manage")
+          return if performed?
 
           context = ::Ai::ContextPersistenceService.get_agent_memory(
             account: current_account,
@@ -137,18 +144,19 @@ module Api
           )
 
           if context.nil?
-            return render_success(message: "No memory to clear", cleared: 0)
+            return render_success({ message: "No memory to clear", cleared: 0 })
           end
 
-          count = context.ai_context_entries.count
-          context.ai_context_entries.destroy_all
+          count = context.context_entries.count
+          context.context_entries.destroy_all
 
-          render_success(message: "Memory cleared", cleared: count)
+          render_success({ message: "Memory cleared", cleared: count })
         end
 
         # GET /api/v1/ai/agents/:agent_id/memory/stats
         def stats
           authorize_action!("ai.memory.read")
+          return if performed?
 
           context = ::Ai::ContextPersistenceService.get_agent_memory(
             account: current_account,
@@ -178,6 +186,7 @@ module Api
         # POST /api/v1/ai/agents/:agent_id/memory/sync
         def sync
           authorize_action!("ai.memory.manage")
+          return if performed?
 
           source_context = ::Ai::PersistentContext.find_by(
             id: params[:source_context_id],
@@ -200,10 +209,10 @@ module Api
             min_importance: params[:min_importance]&.to_f
           )
 
-          render_success(
+          render_success({
             synced: result[:synced],
             message: "Synced #{result[:synced]} entries from source context"
-          )
+          })
         end
 
         private

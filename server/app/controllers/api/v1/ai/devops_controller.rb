@@ -9,6 +9,9 @@ module Api
         # Templates
         # GET /api/v1/ai/devops/templates
         def templates
+          authorize_action!("ai.devops.read")
+          return if performed?
+
           templates = @service.search_templates(
             query: params[:query],
             category: params[:category],
@@ -25,12 +28,18 @@ module Api
 
         # GET /api/v1/ai/devops/templates/:id
         def show_template
+          authorize_action!("ai.devops.read")
+          return if performed?
+
           template = ::Ai::DevopsTemplate.find(params[:id])
           render_success(template: template_json(template, detailed: true))
         end
 
         # POST /api/v1/ai/devops/templates
         def create_template
+          authorize_action!("ai.devops.manage")
+          return if performed?
+
           template = @service.create_template(
             name: params[:name],
             category: params[:category],
@@ -49,6 +58,9 @@ module Api
         # Installations
         # GET /api/v1/ai/devops/installations
         def installations
+          authorize_action!("ai.devops.read")
+          return if performed?
+
           installations = current_account.ai_devops_template_installations
                                          .includes(:devops_template)
                                          .order(created_at: :desc)
@@ -63,6 +75,9 @@ module Api
 
         # POST /api/v1/ai/devops/templates/:template_id/install
         def install
+          authorize_action!("ai.devops.manage")
+          return if performed?
+
           template = ::Ai::DevopsTemplate.find(params[:template_id])
           result = @service.install_template(
             template: template,
@@ -81,6 +96,9 @@ module Api
         # Pipeline Executions
         # GET /api/v1/ai/devops/executions
         def executions
+          authorize_action!("ai.devops.read")
+          return if performed?
+
           executions = current_account.ai_pipeline_executions
                                      .order(created_at: :desc)
                                      .page(params[:page])
@@ -98,6 +116,9 @@ module Api
 
         # POST /api/v1/ai/devops/executions
         def create_execution
+          authorize_action!("ai.devops.manage")
+          return if performed?
+
           installation = params[:installation_id].present? ?
             current_account.ai_devops_template_installations.find(params[:installation_id]) : nil
 
@@ -123,6 +144,9 @@ module Api
 
         # GET /api/v1/ai/devops/executions/:id
         def show_execution
+          authorize_action!("ai.devops.read")
+          return if performed?
+
           execution = current_account.ai_pipeline_executions.find(params[:id])
           render_success(execution: execution_json(execution, detailed: true))
         end
@@ -130,6 +154,9 @@ module Api
         # Deployment Risks
         # GET /api/v1/ai/devops/risks
         def risks
+          authorize_action!("ai.devops.read")
+          return if performed?
+
           risks = current_account.ai_deployment_risks
                                 .order(created_at: :desc)
                                 .page(params[:page])
@@ -146,6 +173,9 @@ module Api
 
         # POST /api/v1/ai/devops/risks/assess
         def assess_risk
+          authorize_action!("ai.devops.manage")
+          return if performed?
+
           execution = params[:execution_id].present? ?
             current_account.ai_pipeline_executions.find(params[:execution_id]) : nil
 
@@ -166,6 +196,9 @@ module Api
 
         # PUT /api/v1/ai/devops/risks/:id/approve
         def approve_risk
+          authorize_action!("ai.devops.manage")
+          return if performed?
+
           risk = current_account.ai_deployment_risks.find(params[:id])
           risk.approve!(user: current_user, rationale: params[:rationale])
 
@@ -174,6 +207,9 @@ module Api
 
         # PUT /api/v1/ai/devops/risks/:id/reject
         def reject_risk
+          authorize_action!("ai.devops.manage")
+          return if performed?
+
           risk = current_account.ai_deployment_risks.find(params[:id])
           risk.reject!(user: current_user, rationale: params[:rationale])
 
@@ -183,6 +219,9 @@ module Api
         # Code Reviews
         # GET /api/v1/ai/devops/reviews
         def reviews
+          authorize_action!("ai.devops.read")
+          return if performed?
+
           reviews = current_account.ai_code_reviews
                                   .order(created_at: :desc)
                                   .page(params[:page])
@@ -199,6 +238,9 @@ module Api
 
         # POST /api/v1/ai/devops/reviews
         def create_review
+          authorize_action!("ai.devops.manage")
+          return if performed?
+
           execution = params[:execution_id].present? ?
             current_account.ai_pipeline_executions.find(params[:execution_id]) : nil
 
@@ -220,12 +262,18 @@ module Api
 
         # GET /api/v1/ai/devops/reviews/:id
         def show_review
+          authorize_action!("ai.devops.read")
+          return if performed?
+
           review = current_account.ai_code_reviews.find(params[:id])
           render_success(review: review_json(review, detailed: true))
         end
 
         # GET /api/v1/ai/devops/analytics
         def analytics
+          authorize_action!("ai.devops.read")
+          return if performed?
+
           analytics = @service.get_pipeline_analytics(
             start_date: params[:start_date]&.to_datetime || 30.days.ago,
             end_date: params[:end_date]&.to_datetime || Time.current
@@ -238,6 +286,12 @@ module Api
 
         def set_service
           @service = ::Ai::DevopsService.new(current_account)
+        end
+
+        def authorize_action!(permission)
+          unless current_user.has_permission?(permission)
+            render_forbidden("Insufficient permissions")
+          end
         end
 
         def template_json(template, detailed: false)

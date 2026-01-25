@@ -6,7 +6,7 @@ module Api
       class PublisherController < ApplicationController
         before_action :set_publisher, only: [:show, :dashboard, :analytics, :earnings, :templates, :payouts, :request_payout, :stripe_setup, :stripe_status]
         before_action -> { require_permission("ai.publisher.read") }, only: [:index, :show, :dashboard, :analytics, :earnings, :templates, :payouts]
-        before_action -> { require_permission("ai.publisher.manage") }, only: [:create, :update, :request_payout, :stripe_setup]
+        before_action -> { require_permission("ai.publisher.manage") }, only: [:create, :request_payout, :stripe_setup]
 
         # GET /api/v1/ai/publisher
         def index
@@ -53,7 +53,7 @@ module Api
 
         # GET /api/v1/ai/publisher/:id/dashboard
         def dashboard
-          authorize_publisher_action!
+          return unless authorize_publisher_action!
 
           templates = @publisher.agent_templates
           active_templates = templates.published
@@ -84,7 +84,7 @@ module Api
 
         # GET /api/v1/ai/publisher/:id/analytics
         def analytics
-          authorize_publisher_action!
+          return unless authorize_publisher_action!
 
           period = (params[:period] || 30).to_i.days
           start_date = period.ago.to_date
@@ -119,7 +119,7 @@ module Api
 
         # GET /api/v1/ai/publisher/:id/earnings
         def earnings
-          authorize_publisher_action!
+          return unless authorize_publisher_action!
 
           # Get earnings snapshots
           snapshots = ::Ai::PublisherEarningsSnapshot
@@ -150,7 +150,7 @@ module Api
 
         # GET /api/v1/ai/publisher/:id/templates
         def templates
-          authorize_publisher_action!
+          return unless authorize_publisher_action!
 
           templates = @publisher.agent_templates.includes(:categories)
 
@@ -168,7 +168,7 @@ module Api
 
         # GET /api/v1/ai/publisher/:id/payouts
         def payouts
-          authorize_publisher_action!
+          return unless authorize_publisher_action!
 
           # For now, return transaction history as payouts
           # In a full implementation, there would be a separate payouts table
@@ -186,7 +186,7 @@ module Api
 
         # POST /api/v1/ai/publisher/:id/request_payout
         def request_payout
-          authorize_publisher_action!
+          return unless authorize_publisher_action!
 
           amount = params[:amount].to_f
           if amount <= 0
@@ -208,7 +208,7 @@ module Api
 
         # POST /api/v1/ai/publisher/:id/stripe_setup
         def stripe_setup
-          authorize_publisher_action!
+          return unless authorize_publisher_action!
 
           return_url = params[:return_url]
           refresh_url = params[:refresh_url]
@@ -233,7 +233,7 @@ module Api
 
         # GET /api/v1/ai/publisher/:id/stripe_status
         def stripe_status
-          authorize_publisher_action!
+          return unless authorize_publisher_action!
 
           service = ::Ai::MarketplacePaymentService.new(account: current_account, user: current_user)
           result = service.verify_stripe_account(publisher: @publisher)
@@ -271,9 +271,10 @@ module Api
         end
 
         def authorize_publisher_action!
-          unless @publisher.account == current_account || current_user.has_permission?("ai.publisher.manage")
-            render_error("Access denied", status: :forbidden)
-          end
+          return true if @publisher.account == current_account || current_user.has_permission?("ai.publisher.manage")
+
+          render_error("Access denied", status: :forbidden)
+          false
         end
 
         def publisher_params

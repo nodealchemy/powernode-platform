@@ -266,12 +266,12 @@ module Api
 
           savings = router_service.analyze_cost_savings(time_range: @time_range)
 
+          log_audit_event("ai.model_router.cost_analysis", current_user.account)
+
           render_success({
             cost_analysis: savings,
             time_range: time_range_info
           })
-
-          log_audit_event("ai.model_router.cost_analysis", current_user.account)
         end
 
         # GET /api/v1/ai/model_router/provider_rankings

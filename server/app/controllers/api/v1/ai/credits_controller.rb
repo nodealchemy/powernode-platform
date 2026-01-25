@@ -8,7 +8,6 @@ module Api
       # Handles credit balance, purchases, transfers, and usage.
       #
       class CreditsController < ApplicationController
-        before_action :authenticate_user!
 
         # GET /api/v1/ai/credits/balance
         def balance

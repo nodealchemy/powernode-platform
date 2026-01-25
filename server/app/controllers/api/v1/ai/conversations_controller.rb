@@ -9,7 +9,7 @@ module Api
         include AuditLogging
 
         before_action :set_conversation, only: [ :show, :update, :destroy, :archive, :unarchive, :duplicate, :stats ]
-        before_action :validate_permissions, except: [ :create ]
+        before_action :validate_permissions
 
         # =============================================================================
         # GLOBAL CONVERSATION ACTIONS
@@ -132,7 +132,7 @@ module Api
           # Create new conversation with same settings
           new_conversation = current_user.account.ai_conversations.build(
             user: current_user,
-            ai_agent: @conversation.agent,
+            agent: @conversation.agent,
             provider: @conversation.provider,
             title: new_title,
             status: "active",
@@ -149,7 +149,7 @@ module Api
                   content: message.content,
                   message_type: message.message_type,
                   user: message.user,
-                  ai_agent: message.agent,
+                  agent: message.agent,
                   sequence_number: message.sequence_number
                 )
               end
@@ -160,10 +160,10 @@ module Api
               message: "Conversation duplicated successfully"
             }, status: :created)
 
-            log_audit_event("ai.conversations.duplicate", new_conversation, {
+            log_audit_event("ai.conversations.duplicate", new_conversation,
               original_conversation_id: @conversation.conversation_id,
               included_messages: include_messages
-            })
+            )
           else
             render_validation_error(new_conversation.errors)
           end
@@ -236,12 +236,12 @@ module Api
           case action_name
           when "index", "show", "stats"
             require_permission("ai.conversations.read")
+          when "create", "duplicate"
+            require_permission("ai.conversations.create")
           when "update", "archive", "unarchive"
             require_permission("ai.conversations.update")
           when "destroy"
             require_permission("ai.conversations.delete")
-          when "duplicate"
-            require_permission("ai.conversations.create")
           end
         end
 

@@ -33,8 +33,6 @@ module Api
             dashboard: dashboard_data,
             time_range: time_range_info
           })
-
-          log_audit_event("ai.aiops.dashboard", current_user.account)
         end
 
         # GET /api/v1/ai/aiops/health
@@ -159,8 +157,6 @@ module Api
             cost_analysis: cost_data,
             time_range: time_range_info
           })
-
-          log_audit_event("ai.aiops.cost_analysis", current_user.account)
         end
 
         # ==========================================================================
@@ -246,8 +242,10 @@ module Api
                "provider_comparison", "workflows", "agents", "cost_analysis",
                "alerts", "circuit_breakers", "real_time"
             require_permission("ai.aiops.read")
+            return if performed?
           when "record_metrics"
             require_permission("ai.aiops.write")
+            return if performed?
           end
         end
 

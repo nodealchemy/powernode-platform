@@ -50,7 +50,7 @@ module Api
         })
       rescue StandardError => e
         Rails.logger.error "Failed to fetch allowed hosts: #{e.message}"
-        render_error("Failed to fetch configuration")
+        render_error("Failed to fetch configuration", status: :internal_server_error)
       end
 
       private

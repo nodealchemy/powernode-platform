@@ -4,7 +4,7 @@ module Api
   module V1
     module Ai
       class RagController < ApplicationController
-        before_action :authenticate_user!
+        before_action :authenticate_request
         before_action :set_rag_service
         before_action :set_knowledge_base, only: %i[
           show_knowledge_base update_knowledge_base delete_knowledge_base

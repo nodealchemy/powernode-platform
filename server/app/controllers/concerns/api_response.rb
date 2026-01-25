@@ -12,11 +12,18 @@ module ApiResponse
   # @param status [Symbol] HTTP status code (default: :ok)
   # @param meta [Hash] Optional metadata (pagination, etc.)
   # @param message [String] Optional message for simple success responses
-  def render_success(positional_data = nil, status: :ok, meta: nil, message: nil, data: nil)
+  # @param extra_data [Hash] Additional keyword arguments treated as data fields
+  def render_success(positional_data = nil, status: :ok, meta: nil, message: nil, data: nil, **extra_data)
     response = { success: true }
 
-    # Determine actual data (keyword takes precedence, then positional)
-    actual_data = data || positional_data
+    # Determine actual data (keyword takes precedence, then positional, then extra_data)
+    actual_data = if data.present?
+                    data
+                  elsif positional_data.present? || positional_data.is_a?(Array)
+                    positional_data
+                  elsif extra_data.present?
+                    extra_data
+                  end
 
     # Support message-only responses: render_success(message: "Done")
     if actual_data.nil? && message.present?

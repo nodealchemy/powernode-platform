@@ -8,7 +8,7 @@ module Api
       # Handles server creation, deployment, lifecycle, and marketplace.
       #
       class HostingController < ApplicationController
-        before_action :authenticate_user!
+        before_action :authenticate_request
 
         # GET /api/v1/mcp/hosting/servers
         def index
