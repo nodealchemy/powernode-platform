@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { logout } from '@/shared/services/slices/authSlice';
-// import { NavigationItem } from './NavigationItem';
 import { useNavigation } from '@/shared/hooks/NavigationContext';
 import { getUserInitials } from '@/shared/utils/userUtils';
 

@@ -18,10 +18,13 @@ export interface AuditLog {
     id: string;
     name: string;
   };
-  metadata: Record<string, any>;
+  old_values: Record<string, unknown>;
+  new_values: Record<string, unknown>;
+  metadata: Record<string, unknown>;
   status: 'success' | 'warning' | 'error';
   level: 'debug' | 'info' | 'warning' | 'error';
   message: string;
+  changes_summary?: string;
   created_at: string;
 }
 

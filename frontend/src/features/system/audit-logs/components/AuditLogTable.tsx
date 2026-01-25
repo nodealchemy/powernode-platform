@@ -260,44 +260,107 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                   {isExpanded && (
                     <tr className="bg-theme-background">
                       <td colSpan={7} className="px-4 py-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Message and Details */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                          {/* Event Details */}
                           <div>
                             <h4 className="text-sm font-medium text-theme-primary mb-2">Event Details</h4>
                             <div className="space-y-2 text-sm">
                               <div>
                                 <span className="text-theme-secondary">Message:</span>
-                                <p className="text-theme-primary">{log.message}</p>
+                                <p className="text-theme-primary">{log.message || 'No message'}</p>
                               </div>
-                              
+
+                              {log.changes_summary && (
+                                <div>
+                                  <span className="text-theme-secondary">Summary:</span>
+                                  <p className="text-theme-primary">{log.changes_summary}</p>
+                                </div>
+                              )}
+
                               {log.account && (
                                 <div>
                                   <span className="text-theme-secondary">Account:</span>
                                   <span className="text-theme-primary ml-1">{log.account.name}</span>
                                 </div>
                               )}
-                              
+
+                              {log.ip_address && (
+                                <div>
+                                  <span className="text-theme-secondary">IP Address:</span>
+                                  <span className="text-theme-primary ml-1 font-mono">{log.ip_address}</span>
+                                </div>
+                              )}
+
                               {log.user_agent && (
                                 <div>
                                   <span className="text-theme-secondary">User Agent:</span>
-                                  <p className="text-theme-primary font-mono text-xs break-all">
+                                  <p className="text-theme-primary font-mono text-xs break-all mt-1">
                                     {log.user_agent}
                                   </p>
                                 </div>
                               )}
                             </div>
                           </div>
-                          
+
+                          {/* Changes - Old vs New Values */}
+                          <div>
+                            <h4 className="text-sm font-medium text-theme-primary mb-2">Changes</h4>
+                            {(Object.keys(log.old_values || {}).length > 0 || Object.keys(log.new_values || {}).length > 0) ? (
+                              <div className="space-y-2 text-sm">
+                                {/* Combine all changed fields */}
+                                {(() => {
+                                  const allKeys = new Set([
+                                    ...Object.keys(log.old_values || {}),
+                                    ...Object.keys(log.new_values || {})
+                                  ]);
+
+                                  return Array.from(allKeys).map(key => {
+                                    const oldVal = log.old_values?.[key];
+                                    const newVal = log.new_values?.[key];
+                                    const formatValue = (val: unknown) => {
+                                      if (val === null || val === undefined) return <span className="text-theme-tertiary italic">empty</span>;
+                                      if (typeof val === 'object') return <span className="font-mono">{JSON.stringify(val)}</span>;
+                                      return <span>{String(val)}</span>;
+                                    };
+
+                                    return (
+                                      <div key={key} className="bg-theme-surface rounded p-2 border border-theme">
+                                        <div className="text-theme-secondary text-xs font-medium mb-1">{key}</div>
+                                        <div className="flex items-center gap-2 text-xs">
+                                          {oldVal !== undefined && (
+                                            <span className="bg-theme-error-background text-theme-error px-2 py-0.5 rounded">
+                                              {formatValue(oldVal)}
+                                            </span>
+                                          )}
+                                          {oldVal !== undefined && newVal !== undefined && (
+                                            <span className="text-theme-tertiary">→</span>
+                                          )}
+                                          {newVal !== undefined && (
+                                            <span className="bg-theme-success-background text-theme-success px-2 py-0.5 rounded">
+                                              {formatValue(newVal)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                            ) : (
+                              <p className="text-theme-tertiary text-xs">No change data recorded</p>
+                            )}
+                          </div>
+
                           {/* Metadata */}
                           <div>
                             <h4 className="text-sm font-medium text-theme-primary mb-2">Metadata</h4>
                             <div className="space-y-1 text-sm">
-                              {Object.keys(log.metadata).length > 0 ? (
+                              {Object.keys(log.metadata || {}).length > 0 ? (
                                 Object.entries(log.metadata).map(([key, value]) => (
-                                  <div key={key} className="flex justify-between">
-                                    <span className="text-theme-secondary">{key}:</span>
-                                    <span className="text-theme-primary font-mono text-xs">
-                                      {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                  <div key={key} className="flex flex-col">
+                                    <span className="text-theme-secondary text-xs">{key}:</span>
+                                    <span className="text-theme-primary font-mono text-xs break-all">
+                                      {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
                                     </span>
                                   </div>
                                 ))
@@ -307,7 +370,7 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                             </div>
                           </div>
                         </div>
-                        
+
                         {/* Actions */}
                         <div className="mt-4 pt-4 border-t border-theme">
                           <div className="flex items-center gap-2">

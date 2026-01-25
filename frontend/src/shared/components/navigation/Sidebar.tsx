@@ -116,18 +116,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleCollapseToggle]);
 
-  // Auto-collapse on mobile screens
-  useEffect(() => {
-    const handleResize = () => {
-      // const isMobile = window.innerWidth < 768;
-      // Let user control mobile collapse manually for better UX
-    };
-    
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    
-    return () => window.removeEventListener('resize', handleResize);
-  }, [state.isCollapsed]);
 
   // Load copyright text
   useEffect(() => {
