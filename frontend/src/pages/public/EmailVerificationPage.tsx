@@ -20,6 +20,13 @@ interface VerificationResult {
   };
 }
 
+interface VerifyEmailResponse {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  user?: VerificationResult['user'];
+}
+
 const EmailVerificationPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -44,15 +51,15 @@ const EmailVerificationPage: React.FC = () => {
       const response = await authApi.verifyEmail(verificationToken);
       
       // Handle API response properly - response.data contains the actual response
-      const data = response.data;
-      
-      if ((data as any).success) {
+      const data = response.data as VerifyEmailResponse;
+
+      if (data.success) {
         setVerificationResult({
           success: true,
-          message: (data as any).message || 'Email verified successfully!',
-          user: (data as any).user
+          message: data.message || 'Email verified successfully!',
+          user: data.user
         });
-        
+
         addNotification({
           type: 'success',
           title: 'Email Verified',
@@ -61,7 +68,7 @@ const EmailVerificationPage: React.FC = () => {
       } else {
         setVerificationResult({
           success: false,
-          message: (data as any).error || 'Verification failed'
+          message: data.error || 'Verification failed'
         });
       }
     } catch (error: unknown) {

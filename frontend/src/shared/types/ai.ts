@@ -71,6 +71,8 @@ export interface AiProviderCredential {
   encryption_key_id: string;
   expires_soon: boolean;
   can_be_used: boolean;
+  last_test_at?: string;
+  last_test_status?: 'success' | 'failure';
   created_at: string;
   updated_at: string;
   recent_test?: {

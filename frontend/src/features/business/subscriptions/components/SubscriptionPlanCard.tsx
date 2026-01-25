@@ -239,14 +239,14 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
       
       <div className="mt-2">
         <p className="text-3xl font-bold text-theme-primary">
-          {formatPrice((plan as any).price_cents || (plan as any).price, plan.currency, billingCycle === 'yearly' ? 'yearly' : (plan as any).billing_cycle || (plan as any).interval, plan as PlanWithDiscounts, billingCycle)}
+          {formatPrice(plan.price_cents, plan.currency, billingCycle === 'yearly' ? 'yearly' : plan.billing_cycle, plan as PlanWithDiscounts, billingCycle)}
         </p>
         {/* Show original price with strikethrough if discounted */}
         {((billingCycle === 'yearly' && plan.has_annual_discount && plan.annual_discount_percent) ||
           (plan.has_promotional_discount && plan.promotional_discount_percent && !plan.promotional_discount_code)) && (
           <p className="text-sm text-theme-tertiary line-through mt-1">
             {(() => {
-              const priceCents = (plan as any).price_cents || (plan as any).price || 0;
+              const priceCents = plan.price_cents || 0;
               const originalPrice = billingCycle === 'yearly' 
                 ? (priceCents * 12) / 100
                 : priceCents / 100;
@@ -266,11 +266,11 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
         )}
       </div>
       
-      {((plan as any).trial_days || (plan as any).trialDays) && ((plan as any).trial_days || (plan as any).trialDays) > 0 && !isActive && (
+      {plan.trial_days > 0 && !isActive && (
         <div className="flex items-center gap-2 mt-2">
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-theme-success-background text-theme-success border border-theme-success-border">
             <span className="mr-1">🎁</span>
-            {(plan as any).trial_days || (plan as any).trialDays}-day free trial
+            {plan.trial_days}-day free trial
           </span>
         </div>
       )}

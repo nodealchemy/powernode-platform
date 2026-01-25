@@ -82,12 +82,12 @@ export const useTeamExecutionWebSocket = (options: UseTeamExecutionWebSocketOpti
             onUpdate?.(update);
           }
         } catch (error) {
-          console.error('[TeamExecutionWS] Error parsing message:', error);
+          // Error parsing message - handled silently
         }
       };
 
       ws.onerror = (error) => {
-        console.error('[TeamExecutionWS] WebSocket error:', error);
+        // WebSocket error - reconnection will be attempted
       };
 
       ws.onclose = () => {

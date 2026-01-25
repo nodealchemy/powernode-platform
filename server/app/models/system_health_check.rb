@@ -118,7 +118,7 @@ class SystemHealthCheck < ApplicationRecord
         }
       )
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log health check: #{e.message}"
   end
 
@@ -132,7 +132,7 @@ class SystemHealthCheck < ApplicationRecord
 
       # Create notification for system administrators
       # NotificationService.send_critical_alert(self)
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to send critical health alert: #{e.message}"
     end
   end

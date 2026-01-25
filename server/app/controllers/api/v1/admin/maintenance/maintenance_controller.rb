@@ -332,8 +332,8 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
         }
       }
     )
-  rescue => e
-    # If Database::Backup model doesn't exist, return empty array
+  rescue StandardError => e
+    Rails.logger.warn "Database backups unavailable: #{e.message}"
     render_success([])
   end
 
@@ -348,7 +348,8 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
  job_id: backup_job.job_id },
       message: "Backup initiated"
     )
-  rescue => e
+  rescue StandardError => e
+    Rails.logger.error "Backup creation failed: #{e.message}"
     render_error("Backup service unavailable")
   end
 
@@ -369,8 +370,8 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
         }
       }
     )
-  rescue => e
-    # If ScheduledTask model doesn't exist, return empty array
+  rescue StandardError => e
+    Rails.logger.warn "Scheduled tasks unavailable: #{e.message}"
     render_success([])
   end
 
@@ -481,26 +482,30 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   # Helper methods for status checks
   def check_database_status
     ActiveRecord::Base.connection.active? ? "connected" : "disconnected"
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Database status check failed: #{e.message}"
     "error"
   end
 
   def check_redis_status
     Redis.current.ping == "PONG" ? "connected" : "disconnected"
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Redis status check failed: #{e.message}"
     "unavailable"
   end
 
   def check_sidekiq_status
     Sidekiq::Stats.new.processes_size > 0 ? "running" : "stopped"
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Sidekiq status check failed: #{e.message}"
     "unavailable"
   end
 
   def get_last_backup_info
     backup = Database::Backup.order(created_at: :desc).first
     backup ? { created_at: backup.created_at, size: backup.size } : nil
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Failed to get last backup info: #{e.message}"
     nil
   end
 
@@ -518,7 +523,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     response_time = ((Time.current - start) * 1000).round(2)
 
     { status: "healthy", response_time_ms: response_time }
-  rescue => e
+  rescue StandardError => e
     { status: "unhealthy", error: e.message }
   end
 
@@ -528,7 +533,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     response_time = ((Time.current - start) * 1000).round(2)
 
     { status: "healthy", response_time_ms: response_time }
-  rescue => e
+  rescue StandardError => e
     { status: "unhealthy", error: e.message }
   end
 
@@ -540,7 +545,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       failed: stats.failed,
       queues: stats.queues
     }
-  rescue => e
+  rescue StandardError => e
     { status: "unhealthy", error: e.message }
   end
 
@@ -553,7 +558,8 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       used_percentage: used_percentage,
       free_gb: (stat.bytes_free / 1.gigabyte).round(2)
     }
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Disk space check failed: #{e.message}"
     { status: "unknown" }
   end
 
@@ -569,7 +575,8 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       used_mb: used.round,
       total_mb: total.round
     }
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Memory usage check failed: #{e.message}"
     { status: "unknown" }
   end
 
@@ -586,7 +593,8 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     else
       { status: "unknown" }
     end
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "CPU usage check failed: #{e.message}"
     { status: "unknown" }
   end
 
@@ -597,7 +605,8 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       subscriptions: Subscription.count,
       payments: Payment.count
     }
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Failed to get total records count: #{e.message}"
     {}
   end
 

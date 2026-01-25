@@ -91,9 +91,6 @@ export const AIConversationsPage: React.FC = () => {
         perPage: response.pagination.per_page
       });
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load conversations:', error);
-      }
       setConversations([]);
       setPagination({
         currentPage: 1,
@@ -118,7 +115,6 @@ export const AIConversationsPage: React.FC = () => {
       // Response is PaginatedResponse<AiAgent> with items array
       setAvailableAgents(response.items || []);
     } catch (error) {
-      console.error('Failed to load agents:', error);
       setAvailableAgents([]);
     }
   };
@@ -180,7 +176,6 @@ export const AIConversationsPage: React.FC = () => {
         message: 'Conversation export has been initiated'
       });
     } catch (error) {
-      console.error('Failed to export conversation:', error);
       addNotification({
         type: 'error',
         title: 'Export Failed',
@@ -205,9 +200,6 @@ export const AIConversationsPage: React.FC = () => {
 
       loadConversations(pagination.currentPage, pagination.perPage);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to archive/restore conversation:', error);
-      }
       addNotification({
         type: 'error',
         title: 'Action Failed',
@@ -231,9 +223,6 @@ export const AIConversationsPage: React.FC = () => {
 
       loadConversations(pagination.currentPage, pagination.perPage);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to duplicate conversation:', error);
-      }
       addNotification({
         type: 'error',
         title: 'Duplicate Failed',
@@ -260,9 +249,6 @@ export const AIConversationsPage: React.FC = () => {
 
           loadConversations(pagination.currentPage, pagination.perPage);
         } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Failed to delete conversation:', error);
-          }
           addNotification({
             type: 'error',
             title: 'Delete Failed',

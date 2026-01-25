@@ -151,7 +151,7 @@ class Api::V1::AppPlansController < ApplicationController
       )
     rescue ActiveRecord::RecordNotFound
       render_error("One or more plans not found", status: :not_found)
-    rescue => e
+    rescue StandardError => e
       render_error("Failed to reorder plans", status: :unprocessable_content)
     end
   end

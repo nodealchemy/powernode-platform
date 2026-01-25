@@ -71,8 +71,7 @@ export const RegisterPage: React.FC = () => {
       // Use public plans endpoint since user is not authenticated
       const response = await plansApi.getPublicPlans();
       if (response.success) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const plan = (response.data as any).plans.find((p: any) => p.id === planId);
+        const plan = response.data.plans.find((p) => p.id === planId);
         if (plan) {
           setSelectedPlan(plan);
         } else {
@@ -195,8 +194,8 @@ export const RegisterPage: React.FC = () => {
     <div className="min-h-screen bg-theme-background-secondary flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Decorative Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-theme-info/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-theme-interactive-primary/10 rounded-full blur-3xl" />
         <div className="absolute top-3/4 left-1/2 w-64 h-64 bg-indigo-500/5 rounded-full blur-2xl" />
       </div>
       <div className="sm:mx-auto sm:w-full sm:max-w-md">

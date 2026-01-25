@@ -53,7 +53,7 @@ class Api::V1::ImpersonationsController < ApplicationController
             handle_regular_token(user_token)
           end
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.warn "Failed to authenticate during impersonation destroy: #{e.message}"
       end
     end
@@ -62,7 +62,7 @@ class Api::V1::ImpersonationsController < ApplicationController
     # This is important because impersonation tokens might be expired but we still want to cleanup
 
     begin
-      Rails.logger.info "Attempting to end impersonation session with token: #{session_token[0..10]}..." if session_token
+      Rails.logger.info "Attempting to end impersonation session" if session_token
 
       # First try to find UserToken to get the impersonator
       user_token = UserToken.find_by_token(session_token)
@@ -283,9 +283,7 @@ class Api::V1::ImpersonationsController < ApplicationController
         message: "Successfully cleaned up #{cleaned_count} expired sessions"
       )
     rescue StandardError => e
-      Rails.logger.error "Error cleaning up expired impersonation sessions: #{e.message}"
-
-      render_error("Failed to cleanup expired sessions: #{e.message}", status: :internal_server_error)
+      render_internal_error("Failed to cleanup expired sessions", exception: e)
     end
   end
 

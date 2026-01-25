@@ -193,7 +193,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
         <div className="flex items-center gap-2">
           <select
             value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value as any)}
+            onChange={(e) => setTimeRange(e.target.value as typeof timeRange)}
             className="px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary text-sm"
           >
             <option value="24h">Last 24 Hours</option>
@@ -352,7 +352,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
           <div className="flex items-center gap-2">
             <select
               value={activityFilter}
-              onChange={(e) => setActivityFilter(e.target.value as any)}
+              onChange={(e) => setActivityFilter(e.target.value as typeof activityFilter)}
               className="px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary text-sm"
             >
               <option value="all">All Events</option>

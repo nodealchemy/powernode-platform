@@ -430,7 +430,7 @@ export const McpBrowserPage: React.FC = () => {
               <Filter className="h-4 w-4 text-theme-tertiary" />
               <Select
                 value={filterStatus}
-                onChange={(value) => setFilterStatus(value as any)}
+                onChange={(value) => setFilterStatus(value as typeof filterStatus)}
                 className="w-40"
               >
                 <option value="all">All Status</option>

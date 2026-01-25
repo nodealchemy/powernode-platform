@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { delegationApi, Delegation, DelegationRequest, DELEGATION_PERMISSIONS } from '@/features/delegations/services/delegationApi';
+import { delegationApi, Delegation, DelegationRequest, CreateDelegationData, DELEGATION_PERMISSIONS } from '@/features/delegations/services/delegationApi';
 import { CreateDelegationModal } from './CreateDelegationModal';
 import { DelegationDetailsModal } from './DelegationDetailsModal';
 import { DelegationRequestModal } from './DelegationRequestModal';
@@ -39,8 +39,7 @@ export const DelegationsManagement: React.FC = () => {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleCreateDelegation = async (data: any) => {
+  const handleCreateDelegation = async (data: CreateDelegationData) => {
     try {
       await delegationApi.createDelegation(data);
       loadDelegations();

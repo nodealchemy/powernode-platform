@@ -119,7 +119,7 @@ class Api::V1::WebhooksController < ApplicationController
           response: response
         }
       )
-    rescue => e
+    rescue StandardError => e
       log_webhook_action("webhook_test_failed", @webhook, {
         event_type: "test.webhook",
         error: e.message

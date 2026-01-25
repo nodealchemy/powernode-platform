@@ -18,6 +18,15 @@ export interface PaymentGatewayConfig {
   client_id?: string;
   client_secret?: string;
   environment?: 'sandbox' | 'production';
+  // Presence indicators returned by the API
+  publishable_key_present?: boolean;
+  secret_key_present?: boolean;
+  endpoint_secret_present?: boolean;
+  webhook_tolerance?: number;
+  client_id_present?: boolean;
+  client_secret_present?: boolean;
+  webhook_id_present?: boolean;
+  mode?: 'sandbox' | 'live';
 }
 
 export interface PaymentGatewaysOverview {

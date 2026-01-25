@@ -278,15 +278,15 @@ class Account < ApplicationRecord
     }
 
     # Find all admin accounts that should receive this update
+    # Optimized: Only fetch IDs and broadcast directly without loading Account objects
     admin_account_ids = User.joins(:account, user_roles: :role)
                             .where(roles: { name: [ "system.admin", "account.manager" ] })
                             .distinct.pluck(:account_id)
-    admin_accounts = Account.where(id: admin_account_ids)
 
-    admin_accounts.each do |admin_account|
-      ActionCable.server.broadcast("customer_updates_#{admin_account.id}", data)
+    admin_account_ids.each do |admin_account_id|
+      ActionCable.server.broadcast("customer_updates_#{admin_account_id}", data)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to broadcast customer change: #{e.message}"
   end
 end

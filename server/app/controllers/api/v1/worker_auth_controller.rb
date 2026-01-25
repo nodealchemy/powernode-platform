@@ -78,7 +78,7 @@ class Api::V1::WorkerAuthController < ApplicationController
       expires_at: (Time.current + 24.hours).iso8601,
       permissions: user.permissions.pluck(:resource, :action).map { |r, a| "#{r}.#{a}" }
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Worker authentication error: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
     render_error("Authentication failed", status: :internal_server_error)

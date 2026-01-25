@@ -287,8 +287,7 @@ class Api::V1::WorkersController < ApplicationController
       test_status: test_data[:status] || "completed"
     })
   rescue StandardError => e
-    Rails.logger.error "Failed to record test results for worker #{@worker.id}: #{e.message}"
-    render_error("Failed to record test results: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to record test results", exception: e)
   end
 
   # GET /api/v1/workers/:id/current_token

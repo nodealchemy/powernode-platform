@@ -112,7 +112,8 @@ module Devops
     def human_schedule
       return "Invalid schedule" unless cron_schedule
       cron_schedule.to_cron_s
-    rescue
+    rescue StandardError => e
+      Rails.logger.error "Failed to format schedule: #{e.message}"
       cron_expression
     end
 
@@ -156,7 +157,8 @@ module Devops
 
       base_time = Time.current.in_time_zone(timezone)
       cron_schedule.next_time(base_time).to_t
-    rescue
+    rescue StandardError => e
+      Rails.logger.error "Failed to calculate next run time: #{e.message}"
       nil
     end
 
@@ -166,7 +168,8 @@ module Devops
       unless Fugit::Cron.parse(cron_expression)
         errors.add(:cron_expression, "is not a valid cron expression")
       end
-    rescue
+    rescue StandardError => e
+      Rails.logger.error "Cron expression validation failed: #{e.message}"
       errors.add(:cron_expression, "is not a valid cron expression")
     end
 

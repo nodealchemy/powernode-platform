@@ -166,8 +166,7 @@ module Api
 
           log_audit_event("devops.pipelines.trigger", @pipeline)
         rescue StandardError => e
-          Rails.logger.error "Failed to trigger pipeline: #{e.message}"
-          render_error("Failed to trigger pipeline: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to trigger pipeline", exception: e)
         end
 
         # GET /api/v1/devops/pipelines/:id/export_yaml
@@ -183,8 +182,7 @@ module Api
 
           log_audit_event("devops.pipelines.export_yaml", @pipeline)
         rescue StandardError => e
-          Rails.logger.error "Failed to export pipeline YAML: #{e.message}"
-          render_error("Failed to export pipeline YAML: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to export pipeline YAML", exception: e)
         end
 
         # POST /api/v1/devops/pipelines/:id/duplicate

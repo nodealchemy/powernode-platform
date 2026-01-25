@@ -98,8 +98,7 @@ module Api
             affected_execution_ids: affected_execution_ids
           })
         rescue StandardError => e
-          Rails.logger.error("Error expiring AI workflow approval tokens: #{e.message}")
-          render_error("Failed to expire tokens: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to expire tokens", exception: e)
         end
 
         private

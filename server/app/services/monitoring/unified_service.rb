@@ -721,7 +721,7 @@ module Monitoring
         usage_percent: 0
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.warn "Failed to collect memory metrics: #{e.message}"
     {}
   end
@@ -749,7 +749,7 @@ module Monitoring
     else
       fallback_cpu_metrics
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.warn "Failed to collect CPU metrics: #{e.message}"
     fallback_cpu_metrics
   end
@@ -787,7 +787,7 @@ module Monitoring
 
     redis_connections = begin
       redis.info["connected_clients"]&.to_i || 0
-    rescue => e
+    rescue StandardError => e
       Rails.logger.warn "Failed to get Redis connections: #{e.message}"
       0
     end

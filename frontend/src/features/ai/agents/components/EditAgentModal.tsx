@@ -110,7 +110,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
         ai_provider_id: values.ai_provider_id,
         name: values.name,
         description: values.description || undefined,
-        agent_type: values.agent_type as any,
+        agent_type: values.agent_type as AiAgent['agent_type'],
         // Save to both locations for consistency
         mcp_metadata: {
           model_config: modelConfig
@@ -192,7 +192,6 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
 
       setProviders(providersData);
     } catch (error) {
-      console.error('Failed to load providers:', error);
       setProviders([]); // Set empty array on error
       addNotification({
         type: 'error',
@@ -212,10 +211,9 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
       const stats = await agentsApi.getAgentStats(agent.id);
       setAgentStats(stats);
     } catch (error) {
-      console.error('Failed to load agent stats:', error);
-      
       // Check if it's a 404 (endpoint not implemented) and handle gracefully
-      const is404 = (error as any)?.response?.status === 404;
+      const httpError = error as { response?: { status?: number } };
+      const is404 = httpError?.response?.status === 404;
       if (is404) {
         // Use agent's execution_stats if available, or provide minimal stats
         const fallbackStats = {
@@ -251,7 +249,6 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
       });
       onClose();
     } catch (error) {
-      console.error('Failed to delete agent:', error);
       addNotification({
         type: 'error',
         title: 'Error',

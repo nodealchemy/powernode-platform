@@ -32,7 +32,7 @@ class Api::V1::McpOauthController < ApplicationController
       render_error("OAuth configuration error: #{e.message}", status: :unprocessable_content)
     rescue StandardError => e
       Rails.logger.error "Failed to generate OAuth authorization URL: #{e.message}"
-      render_error("Failed to initiate OAuth: #{e.message}", status: :internal_server_error)
+      render_internal_error("Failed to initiate OAuth", exception: e)
     end
   end
 
@@ -88,7 +88,7 @@ class Api::V1::McpOauthController < ApplicationController
       render_error("OAuth token exchange failed: #{e.message}", status: :unprocessable_content)
     rescue StandardError => e
       Rails.logger.error "OAuth callback error: #{e.message}"
-      render_error("OAuth callback failed: #{e.message}", status: :internal_server_error)
+      render_internal_error("OAuth callback failed", exception: e)
     end
   end
 
@@ -104,7 +104,7 @@ class Api::V1::McpOauthController < ApplicationController
     log_audit_event("mcp.oauth.status_read", @mcp_server)
   rescue StandardError => e
     Rails.logger.error "Failed to get OAuth status: #{e.message}"
-    render_error("Failed to get OAuth status: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to get OAuth status", exception: e)
   end
 
   # DELETE /api/v1/mcp_servers/:id/oauth/disconnect
@@ -128,7 +128,7 @@ class Api::V1::McpOauthController < ApplicationController
       log_audit_event("mcp.oauth.disconnect", @mcp_server)
     rescue StandardError => e
       Rails.logger.error "Failed to disconnect OAuth: #{e.message}"
-      render_error("Failed to disconnect OAuth: #{e.message}", status: :internal_server_error)
+      render_internal_error("Failed to disconnect OAuth", exception: e)
     end
   end
 
@@ -161,7 +161,7 @@ class Api::V1::McpOauthController < ApplicationController
       render_error("Token refresh failed: #{e.message}", status: :unprocessable_content)
     rescue StandardError => e
       Rails.logger.error "Failed to refresh OAuth token: #{e.message}"
-      render_error("Failed to refresh token: #{e.message}", status: :internal_server_error)
+      render_internal_error("Failed to refresh token", exception: e)
     end
   end
 

@@ -48,7 +48,6 @@ export const MySubscriptionsPage: React.FC = () => {
       const response = await marketplaceApi.getSubscriptions(params);
       setSubscriptions(response.data || []);
     } catch (error) {
-      console.error('Failed to load subscriptions:', error);
       addNotification({
         type: 'error',
         title: 'Error',
@@ -74,7 +73,6 @@ export const MySubscriptionsPage: React.FC = () => {
       });
       loadSubscriptions();
     } catch (error) {
-      console.error('Failed to pause subscription:', error);
       addNotification({
         type: 'error',
         title: 'Error',
@@ -96,7 +94,6 @@ export const MySubscriptionsPage: React.FC = () => {
       });
       loadSubscriptions();
     } catch (error) {
-      console.error('Failed to resume subscription:', error);
       addNotification({
         type: 'error',
         title: 'Error',
@@ -122,7 +119,6 @@ export const MySubscriptionsPage: React.FC = () => {
       });
       loadSubscriptions();
     } catch (error) {
-      console.error('Failed to cancel subscription:', error);
       addNotification({
         type: 'error',
         title: 'Error',

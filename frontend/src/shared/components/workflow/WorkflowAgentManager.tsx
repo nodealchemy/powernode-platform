@@ -292,7 +292,7 @@ const AddAgentModal: React.FC<AddAgentModalProps> = ({
     if (selectedAgentId && selectedRole) {
       onAdd({
         agent_id: selectedAgentId,
-        agent_role: selectedRole as any,
+        agent_role: selectedRole as WorkflowAgentAssignment['agent_role'],
         is_active: true,
         configuration: {}
       });

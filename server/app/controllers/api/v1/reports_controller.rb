@@ -32,9 +32,8 @@ class Api::V1::ReportsController < ApplicationController
     when "csv"
       generate_csv_report
     end
-  rescue => e
-    Rails.logger.error "Report generation failed: #{e.message}"
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Report generation failed", exception: e)
   end
 
   # GET /api/v1/reports
@@ -248,9 +247,8 @@ class Api::V1::ReportsController < ApplicationController
         requested_at: request.created_at.iso8601
       }
     )
-  rescue => e
-    Rails.logger.error "Failed to create report request: #{e.message}"
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to create report request", exception: e)
   end
 
   # PATCH /api/v1/reports/requests/:id
@@ -269,10 +267,9 @@ class Api::V1::ReportsController < ApplicationController
       }
     )
   rescue ActiveRecord::RecordNotFound
-    render_error("Report request not found", status: :internal_server_error)
-  rescue => e
-    Rails.logger.error "Failed to update report request: #{e.message}"
-    render_error(e.message, status: :internal_server_error)
+    render_not_found("Report request")
+  rescue StandardError => e
+    render_internal_error("Failed to update report request", exception: e)
   end
 
   # DELETE /api/v1/reports/requests/:id
@@ -457,8 +454,8 @@ class Api::V1::ReportsController < ApplicationController
         recipients: scheduled_report.recipients
       }
     )
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to schedule report", exception: e)
   end
 
   # GET /api/v1/reports/scheduled

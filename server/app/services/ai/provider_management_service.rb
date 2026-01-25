@@ -64,7 +64,7 @@ class Ai::ProviderManagementService
 
         # Health status is now computed via the model's health_status method
         true
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to sync models for provider #{provider.id}: #{e.message}"
         false
       end
@@ -350,7 +350,7 @@ class Ai::ProviderManagementService
             credential.record_failure!(test_result[:error])
             Rails.logger.warn "Created credential #{credential.id} but initial test failed: #{test_result[:error]}"
           end
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to test newly created credential #{credential.id}: #{e.message}"
           credential.record_failure!(e.message)
         end
@@ -417,7 +417,7 @@ class Ai::ProviderManagementService
             error: test_result[:error],
             response_time_ms: test_result[:response_time_ms]
           }
-        rescue => e
+        rescue StandardError => e
           credential.record_failure!(e.message)
           results << {
             credential_id: credential.id,

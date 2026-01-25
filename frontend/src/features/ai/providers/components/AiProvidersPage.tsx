@@ -83,7 +83,6 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
         });
       }
     } catch (error) {
-      console.error('Failed to load AI providers:', error);
       setProviders([]); // Ensure providers is always an array
       setPagination({ // Ensure pagination is always an object
         current_page: 1,

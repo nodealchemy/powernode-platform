@@ -201,9 +201,6 @@ class AdminApiService {
    */
   // Get all admin settings
   async getAdminSettings(): Promise<AdminSettingsData> {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('DEPRECATED: adminApi.getAdminSettings() - use adminSettingsApi.getOverview() instead');
-    }
     const response = await api.get('/admin_settings');
     return response.data;
   }
@@ -214,9 +211,6 @@ class AdminApiService {
    */
   // Update admin settings
   async updateAdminSettings(settings: AdminSettingsUpdateRequest): Promise<AdminSettingsData> {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('DEPRECATED: adminApi.updateAdminSettings() - use adminSettingsApi.updateSettings() instead');
-    }
     const response = await api.put('/admin_settings', { admin_settings: settings });
     return response.data;
   }
@@ -233,9 +227,6 @@ class AdminApiService {
     inactive_count: number;
     suspended_count: number;
   }> {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('DEPRECATED: adminApi.getUsers() - use adminSettingsApi.getUsers() instead');
-    }
     const params = filters ? new URLSearchParams(filters).toString() : '';
     const response = await api.get(`/admin_settings/users${params ? `?${params}` : ''}`);
     return response.data;
@@ -253,9 +244,6 @@ class AdminApiService {
     suspended_count: number;
     cancelled_count: number;
   }> {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('DEPRECATED: adminApi.getAccounts() - use adminSettingsApi.getAccounts() instead');
-    }
     const response = await api.get('/admin_settings/accounts');
     return response.data;
   }
@@ -269,9 +257,6 @@ class AdminApiService {
     logs: AdminLog[];
     total_count: number;
   }> {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('DEPRECATED: adminApi.getSystemLogs() - use adminSettingsApi.getSystemLogs() instead');
-    }
     const response = await api.get('/admin_settings/system_logs');
     return response.data;
   }
@@ -282,9 +267,6 @@ class AdminApiService {
    */
   // Suspend an account
   async suspendAccount(account_id: string, reason?: string): Promise<void> {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('DEPRECATED: adminApi.suspendAccount() - use adminSettingsApi.suspendAccount() instead');
-    }
     await api.post('/admin_settings/suspend_account', {
       account_id: account_id,
       reason
@@ -297,9 +279,6 @@ class AdminApiService {
    */
   // Activate an account
   async activateAccount(account_id: string, reason?: string): Promise<void> {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('DEPRECATED: adminApi.activateAccount() - use adminSettingsApi.activateAccount() instead');
-    }
     await api.post('/admin_settings/activate_account', {
       account_id: account_id,
       reason
@@ -312,9 +291,6 @@ class AdminApiService {
    */
   // Update user status (using existing users endpoint)
   async updateUserStatus(user_id: string, status: 'active' | 'inactive' | 'suspended'): Promise<AdminUser> {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('DEPRECATED: adminApi.updateUserStatus() - use usersApi.updateUser() instead');
-    }
     const response = await api.put(`/users/${user_id}`, {
       user: { status }
     });
@@ -327,9 +303,6 @@ class AdminApiService {
    */
   // Delete user (using existing users endpoint)
   async deleteUser(user_id: string): Promise<void> {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('DEPRECATED: adminApi.deleteUser() - use usersApi.deleteUser() instead');
-    }
     await api.delete(`/users/${user_id}`);
   }
 

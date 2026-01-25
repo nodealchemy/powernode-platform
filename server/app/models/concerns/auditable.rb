@@ -30,7 +30,7 @@ module Auditable
       new_values: auditable_attributes,
       source: "system"
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log record creation for #{self.class.name}##{id}: #{e.message}"
   end
 
@@ -56,7 +56,7 @@ module Auditable
       new_values: new_values,
       source: "system"
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log record update for #{self.class.name}##{id}: #{e.message}"
   end
 
@@ -72,7 +72,7 @@ module Auditable
       old_values: auditable_attributes,
       source: "system"
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log record deletion for #{self.class.name}##{id}: #{e.message}"
   end
 

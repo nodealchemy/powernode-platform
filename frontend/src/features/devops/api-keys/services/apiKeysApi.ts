@@ -1,5 +1,30 @@
 import { api } from '@/shared/services/api';
 
+/**
+ * Type-safe error extraction for axios-style errors
+ */
+interface ApiErrorResponse {
+  response?: {
+    status?: number;
+    data?: {
+      error?: string;
+      message?: string;
+    };
+  };
+  request?: unknown;
+  message?: string;
+  config?: {
+    url?: string;
+    method?: string;
+  };
+}
+
+function extractApiError(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') return fallback;
+  const apiError = error as ApiErrorResponse;
+  return apiError.response?.data?.error || apiError.response?.data?.message || fallback;
+}
+
 // Types
 export interface ApiKey {
   id: string;
@@ -134,35 +159,24 @@ export const apiKeysApi = {
     try {
       const response = await api.get(`/api_keys?page=${page}&per_page=${perPage}`);
       return response.data;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      // Log error without sensitive information
-      if (process.env.NODE_ENV === 'development') {
-        console.error('API Keys fetch error:', {
-          message: error.message,
-          status: error.response?.status,
-          url: error.config?.url?.replace(/\/api_keys.*/, '/api_keys'),
-          method: error.config?.method
-        });
-      }
+    } catch (error: unknown) {
+      const apiError = error as ApiErrorResponse;
 
-      // Handle different types of errors more specifically
+      // Handle different types of errors
       let errorMessage = 'Failed to fetch API keys';
 
-      if (error.response) {
+      if (apiError.response) {
         // Server responded with error status
-        const status = error.response.status;
-        const data = error.response.data;
-        errorMessage = data?.error || `Server error: HTTP ${status}`;
-      } else if (error.request) {
+        const status = apiError.response.status;
+        errorMessage = apiError.response.data?.error || `Server error: HTTP ${status}`;
+      } else if (apiError.request) {
         // Network error - request was made but no response received
         errorMessage = 'Network error: Unable to reach server (possible cache issue - try hard refresh)';
-        console.error('Network request failed:', error.request);
-      } else if (error.message) {
+      } else if (apiError.message) {
         // Other axios errors
-        errorMessage = `Request configuration error: ${error.message}`;
+        errorMessage = `Request configuration error: ${apiError.message}`;
       }
-      
+
       return {
         success: false,
         data: {
@@ -195,7 +209,7 @@ export const apiKeysApi = {
     } catch (error) {
       return {
         success: false,
-        error: (error as any).response?.data?.error || 'Failed to fetch API key'
+        error: extractApiError(error, 'Failed to fetch API key')
       };
     }
   },
@@ -208,7 +222,7 @@ export const apiKeysApi = {
     } catch (error) {
       return {
         success: false,
-        error: (error as any).response?.data?.error || 'Failed to create API key'
+        error: extractApiError(error, 'Failed to create API key')
       };
     }
   },
@@ -221,7 +235,7 @@ export const apiKeysApi = {
     } catch (error) {
       return {
         success: false,
-        error: (error as any).response?.data?.error || 'Failed to update API key'
+        error: extractApiError(error, 'Failed to update API key')
       };
     }
   },
@@ -234,7 +248,7 @@ export const apiKeysApi = {
     } catch (error) {
       return {
         success: false,
-        error: (error as any).response?.data?.error || 'Failed to delete API key'
+        error: extractApiError(error, 'Failed to delete API key')
       };
     }
   },
@@ -247,7 +261,7 @@ export const apiKeysApi = {
     } catch (error) {
       return {
         success: false,
-        error: (error as any).response?.data?.error || 'Failed to regenerate API key'
+        error: extractApiError(error, 'Failed to regenerate API key')
       };
     }
   },
@@ -260,7 +274,7 @@ export const apiKeysApi = {
     } catch (error) {
       return {
         success: false,
-        error: (error as any).response?.data?.error || 'Failed to toggle API key status'
+        error: extractApiError(error, 'Failed to toggle API key status')
       };
     }
   },
@@ -290,7 +304,7 @@ export const apiKeysApi = {
             date_range: {}
           }
         },
-        error: (error as any).response?.data?.error || 'Failed to fetch usage stats'
+        error: extractApiError(error, 'Failed to fetch usage stats')
       };
     }
   },
@@ -307,7 +321,7 @@ export const apiKeysApi = {
           scopes: [],
           scope_descriptions: {}
         },
-        error: (error as any).response?.data?.error || 'Failed to fetch available scopes'
+        error: extractApiError(error, 'Failed to fetch available scopes')
       };
     }
   },
@@ -321,7 +335,7 @@ export const apiKeysApi = {
       return {
         success: false,
         valid: false,
-        error: (error as any).response?.data?.error || 'Failed to validate API key'
+        error: extractApiError(error, 'Failed to validate API key')
       };
     }
   },

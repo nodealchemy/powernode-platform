@@ -104,7 +104,7 @@ export const CheckpointHistoryViewer: React.FC<CheckpointHistoryViewerProps> = (
       case 'error_handler':
         return { icon: AlertTriangle, color: 'text-theme-warning', bg: 'bg-theme-warning/10', label: 'Error Handler' };
       case 'conditional_branch':
-        return { icon: ArrowRight, color: 'text-indigo-600', bg: 'bg-indigo-500/10', label: 'Conditional' };
+        return { icon: ArrowRight, color: 'text-theme-info', bg: 'bg-theme-info/10', label: 'Conditional' };
     }
   };
 

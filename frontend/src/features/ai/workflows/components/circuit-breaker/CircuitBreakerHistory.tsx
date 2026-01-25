@@ -66,9 +66,6 @@ export const CircuitBreakerHistory: React.FC<CircuitBreakerHistoryProps> = ({
       });
       setInternalHistory(events);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load circuit breaker history:', error);
-      }
       addNotification({
         type: 'error',
         title: 'Load Failed',
@@ -217,7 +214,7 @@ export const CircuitBreakerHistory: React.FC<CircuitBreakerHistoryProps> = ({
             <Filter className="h-4 w-4 text-theme-tertiary" />
             <Select
               value={filterType}
-              onChange={(value) => setFilterType(value as any)}
+              onChange={(value) => setFilterType(value as typeof filterType)}
               className="w-40"
             >
               <option value="all">All Events</option>
@@ -228,7 +225,7 @@ export const CircuitBreakerHistory: React.FC<CircuitBreakerHistoryProps> = ({
           </div>
           <Select
             value={timeRange}
-            onChange={(value) => setTimeRange(value as any)}
+            onChange={(value) => setTimeRange(value as typeof timeRange)}
             className="w-32"
           >
             <option value="1h">Last Hour</option>

@@ -735,7 +735,7 @@ class Api::V1::AdminSettingsController < ApplicationController
     end
 
     rate_limit_violations
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Error checking API activity: #{e.message}"
     0
   end

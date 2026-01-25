@@ -143,7 +143,7 @@ class SystemOperation < ApplicationRecord
         parameters: parameters
       }
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log operation creation: #{e.message}"
   end
 
@@ -163,7 +163,7 @@ class SystemOperation < ApplicationRecord
         result_summary: result&.dig("message") || result&.dig("success")
       }
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log operation status change: #{e.message}"
   end
 end

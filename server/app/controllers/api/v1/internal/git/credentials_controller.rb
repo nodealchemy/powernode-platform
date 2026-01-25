@@ -45,7 +45,8 @@ module Api
               }
             })
           rescue StandardError => e
-            Rails.logger.error "Failed to decrypt Git credential #{@credential.id}: #{e.message}"
+            # Log credential ID and error class only - no sensitive decryption details
+            Rails.logger.error "Failed to decrypt Git credential #{@credential.id}: #{e.class.name}"
             render_error("Failed to decrypt credentials", status: :internal_server_error)
           end
 

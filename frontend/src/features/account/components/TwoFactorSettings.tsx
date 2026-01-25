@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { twoFactorApi } from '@/shared/services/twoFactorApi';
+import { twoFactorApi } from '@/shared/services/account/twoFactorApi';
 import { TwoFactorSetup } from '@/features/account/auth/components/TwoFactorSetup';
 import Modal from '@/shared/components/ui/Modal';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';

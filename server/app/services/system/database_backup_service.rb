@@ -55,7 +55,7 @@ module System
             created_at: backup.created_at.iso8601
           }
         }
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to create backup: #{e.message}"
         { success: false, error: e.message }
       end
@@ -79,7 +79,7 @@ module System
 
         backup.destroy!
         { success: true }
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to delete backup: #{e.message}"
         { success: false, error: e.message }
       end
@@ -102,7 +102,7 @@ module System
         Database::RestoreJob.perform_async(restore.id)
 
         { success: true, restore_id: restore.id }
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to initiate restore: #{e.message}"
         { success: false, error: e.message }
       end
@@ -132,7 +132,7 @@ module System
           cleanup_old_backups
 
           Rails.logger.info "Database backup completed: #{backup.filename}"
-        rescue => e
+        rescue StandardError => e
           backup.update!(
             status: "failed",
             error_message: e.message,
@@ -166,7 +166,7 @@ module System
           )
 
           Rails.logger.info "Database restore completed: #{backup.filename}"
-        rescue => e
+        rescue StandardError => e
           restore.update!(
             status: "failed",
             error_message: e.message,

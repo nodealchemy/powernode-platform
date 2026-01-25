@@ -139,14 +139,14 @@ module RateLimiting
           violations += 1 if limit && current_count >= limit
         end
         violations
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Error counting rate limit violations: #{e.message}"
         0
       end
 
       def count_active_limits
         Rails.cache.redis.keys("rate_limit:*").count
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Error counting active limits: #{e.message}"
         0
       end

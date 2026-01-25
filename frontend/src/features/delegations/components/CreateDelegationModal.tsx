@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { delegationApi, Role, Permission } from '@/features/delegations/services/delegationApi';
+import { delegationApi, Role, Permission, CreateDelegationData } from '@/features/delegations/services/delegationApi';
 import { PermissionSelector } from '@/features/account/components/PermissionSelector';
 
 interface CreateDelegationModalProps {
   onClose: () => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onCreate: (data: any) => void;
+  onCreate: (data: CreateDelegationData) => void;
 }
 
 // interface Account {
@@ -206,7 +205,7 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
                 if (step < 2 && isStepValid()) {
                   setStep(step + 1);
                 } else if (step === 2 && isStepValid()) {
-                  handleSubmit(new Event('submit') as any);
+                  onCreate(formData);
                 }
               }}
               disabled={!isStepValid() || loading}

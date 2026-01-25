@@ -9,52 +9,46 @@ module Api
 
           # GET /api/v1/internal/git/webhook_events/:id
           def show
-            render json: {
-              success: true,
-              data: serialize_event(@event)
-            }
+            render_success(serialize_event(@event))
           end
 
           # PATCH /api/v1/internal/git/webhook_events/:id
           def update
             if @event.update(event_params)
-              render json: { success: true, data: serialize_event(@event) }
+              render_success(serialize_event(@event))
             else
-              render json: { success: false, error: @event.errors.full_messages.join(", ") },
-                     status: :unprocessable_content
+              render_error(@event.errors.full_messages.join(", "), status: :unprocessable_content)
             end
           end
 
           # PATCH /api/v1/internal/git/webhook_events/:id/processing
           def processing
             unless @event.pending?
-              render json: { success: false, error: "Event is not pending" },
-                     status: :unprocessable_content
+              render_error("Event is not pending", status: :unprocessable_content)
               return
             end
 
             @event.mark_processing!
-            render json: { success: true, data: { status: @event.status } }
+            render_success({ status: @event.status })
           end
 
           # PATCH /api/v1/internal/git/webhook_events/:id/processed
           def processed
             unless @event.processing?
-              render json: { success: false, error: "Event is not processing" },
-                     status: :unprocessable_content
+              render_error("Event is not processing", status: :unprocessable_content)
               return
             end
 
             result = params[:processing_result]&.to_unsafe_h || {}
             @event.mark_processed!(result)
-            render json: { success: true, data: { status: @event.status } }
+            render_success({ status: @event.status })
           end
 
           # PATCH /api/v1/internal/git/webhook_events/:id/failed
           def failed
             error_message = params[:error_message] || "Unknown error"
             @event.mark_failed!(error_message)
-            render json: { success: true, data: { status: @event.status } }
+            render_success({ status: @event.status })
           end
 
           # POST /api/v1/internal/git/webhook_events/:id/trigger_workflows
@@ -88,15 +82,12 @@ module Api
               end
             end
 
-            render json: {
-              success: true,
-              data: {
-                triggered_count: triggered_workflows.count,
-                triggered_workflows: triggered_workflows,
-                event_id: @event.id,
-                event_type: @event.event_type
-              }
-            }
+            render_success({
+              triggered_count: triggered_workflows.count,
+              triggered_workflows: triggered_workflows,
+              event_id: @event.id,
+              event_type: @event.event_type
+            })
           end
 
           private
@@ -124,8 +115,7 @@ module Api
           def set_event
             @event = ::Devops::GitWebhookEvent.includes(:repository, :git_provider).find(params[:id])
           rescue ActiveRecord::RecordNotFound
-            render json: { success: false, error: "Webhook event not found" },
-                   status: :not_found
+            render_error("Webhook event not found", status: :not_found)
           end
 
           def event_params

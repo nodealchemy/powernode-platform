@@ -63,7 +63,7 @@ class AnalyticsChannel < ApplicationCable::Channel
         account_id: account_id
       }
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Analytics request failed: #{e.message}"
     transmit({
       type: "error",

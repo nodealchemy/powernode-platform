@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { contextApi } from '../services/contextApi';
 import { Input } from '@/shared/components/ui/Input';
 import { Button } from '@/shared/components/ui/Button';
@@ -251,9 +252,12 @@ function SearchResultItem({ result, onClick, showContext }: SearchResultItemProp
                   key={i}
                   className="text-theme-secondary"
                   dangerouslySetInnerHTML={{
-                    __html: highlight.replace(
-                      /<mark>/g,
-                      '<mark class="bg-theme-warning bg-opacity-30 text-theme-primary px-0.5 rounded">'
+                    __html: DOMPurify.sanitize(
+                      highlight.replace(
+                        /<mark>/g,
+                        '<mark class="bg-theme-warning bg-opacity-30 text-theme-primary px-0.5 rounded">'
+                      ),
+                      { ALLOWED_TAGS: ['mark'], ALLOWED_ATTR: ['class'] }
                     ),
                   }}
                 />

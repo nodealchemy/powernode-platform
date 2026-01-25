@@ -63,12 +63,12 @@ export const ApiDocs: React.FC = () => {
 
   const getMethodColor = (method: string) => {
     switch (method) {
-      case 'GET': return 'bg-blue-100 text-blue-700';
-      case 'POST': return 'bg-green-100 text-green-700';
-      case 'PATCH': return 'bg-amber-100 text-amber-700';
-      case 'PUT': return 'bg-amber-100 text-amber-700';
-      case 'DELETE': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'GET': return 'bg-theme-info bg-opacity-10 text-theme-info';
+      case 'POST': return 'bg-theme-success bg-opacity-10 text-theme-success';
+      case 'PATCH': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+      case 'PUT': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
+      case 'DELETE': return 'bg-theme-error bg-opacity-10 text-theme-error';
+      default: return 'bg-theme-surface text-theme-secondary';
     }
   };
 

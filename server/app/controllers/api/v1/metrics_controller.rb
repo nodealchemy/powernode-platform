@@ -24,7 +24,7 @@ module Api
         }
 
         render_success(health_data)
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Health check error: #{e.message}"
         render_error("Health check failed", status: :service_unavailable)
       end
@@ -43,7 +43,7 @@ module Api
         }
 
         render_success(metrics)
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Application metrics error: #{e.message}"
         render_error("Failed to retrieve metrics")
       end
@@ -52,7 +52,8 @@ module Api
 
       def uptime_seconds
         Time.current - Rails.application.config.start_time
-      rescue
+      rescue StandardError => e
+        Rails.logger.error "Failed to calculate uptime: #{e.message}"
         0
       end
 
@@ -63,7 +64,7 @@ module Api
           status: "healthy",
           response_time_ms: ((Time.current - start_time) * 1000).round(2)
         }
-      rescue => e
+      rescue StandardError => e
         {
           status: "unhealthy",
           error: e.message
@@ -79,7 +80,7 @@ module Api
           status: "healthy",
           response_time_ms: ((Time.current - start_time) * 1000).round(2)
         }
-      rescue => e
+      rescue StandardError => e
         {
           status: "unhealthy",
           error: e.message
@@ -97,7 +98,8 @@ module Api
         else
           { available: false }
         end
-      rescue
+      rescue StandardError => e
+        Rails.logger.error "Failed to fetch memory usage: #{e.message}"
         { available: false }
       end
 
@@ -108,7 +110,7 @@ module Api
           total_revenue_cents: Subscription.active.joins(:plan).sum("plans.price"),
           successful_payments_today: Payment.successful.where("created_at >= ?", 1.day.ago).count
         }
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Business metrics error: #{e.message}"
         { error: "Unable to retrieve business metrics" }
       end
@@ -202,7 +204,8 @@ module Api
         return 0 if active_last_month.zero?
 
         ((cancelled_last_month.to_f / active_last_month) * 100).round(2)
-      rescue
+      rescue StandardError => e
+        Rails.logger.error "Failed to calculate churn rate: #{e.message}"
         0
       end
 
@@ -226,7 +229,8 @@ module Api
         else
           "not_available"
         end
-      rescue StandardError
+      rescue StandardError => e
+        Rails.logger.error "Failed to calculate database size: #{e.message}"
         "calculation_failed"
       end
     end

@@ -163,8 +163,7 @@ module Api
         rescue ::Ai::ModelRouterService::NoProvidersAvailableError => e
           render_error(e.message, status: :service_unavailable)
         rescue StandardError => e
-          Rails.logger.error "Routing failed: #{e.message}"
-          render_error("Routing failed: #{e.message}", status: :internal_server_error)
+          render_internal_error("Routing failed", exception: e)
         end
 
         # ==========================================================================

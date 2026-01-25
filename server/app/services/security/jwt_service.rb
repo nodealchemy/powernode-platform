@@ -212,7 +212,7 @@ module Security
         rescue JWT::DecodeError, JWT::ExpiredSignature
           # If token is invalid or expired, we don't need to blacklist it
           true
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to blacklist token: #{e.message}"
           false
         end

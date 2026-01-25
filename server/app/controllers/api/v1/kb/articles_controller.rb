@@ -194,7 +194,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       updated_count: updated_count
     }, "#{updated_count} articles updated successfully")
   rescue StandardError => e
-    render_error("Bulk update failed: #{e.message}", status: :internal_server_error)
+    render_internal_error("Bulk update failed", exception: e)
   end
 
   # DELETE /api/v1/kb/articles/bulk
@@ -222,7 +222,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       deleted_count: deleted_count
     }, "#{deleted_count} articles deleted successfully")
   rescue StandardError => e
-    render_error("Bulk delete failed: #{e.message}", status: :internal_server_error)
+    render_internal_error("Bulk delete failed", exception: e)
   end
 
   private

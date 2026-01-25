@@ -65,7 +65,6 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
       // Response is the provider object after service unwraps the { provider: {...} } envelope
       setProvider(response);
     } catch (error) {
-      console.error('Failed to load provider:', error);
       setError('Failed to load provider details. Please try again.');
       addNotification({
         type: 'error',
@@ -119,7 +118,6 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
         onUpdate?.();
       }
     } catch (error) {
-      console.error('Failed to test connection:', error);
       addNotification({
         type: 'error',
         title: 'Test Failed',
@@ -147,7 +145,6 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
       loadProvider(); // Reload to get updated model count
       onUpdate?.();
     } catch (error) {
-      console.error('Failed to sync models:', error);
       addNotification({
         type: 'error',
         title: 'Sync Failed',

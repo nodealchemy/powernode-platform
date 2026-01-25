@@ -367,8 +367,7 @@ module Api
         rescue ActiveRecord::RecordNotFound
           render_error("Account not found", status: :not_found)
         rescue StandardError => e
-          Rails.logger.error "Failed to broadcast metrics: #{e.message}"
-          render_error("Failed to broadcast metrics: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to broadcast metrics", exception: e)
         end
 
         # POST /api/v1/ai/monitoring/start
@@ -387,8 +386,7 @@ module Api
 
             log_audit_event("ai.monitoring.start", current_user.account)
           rescue StandardError => e
-            Rails.logger.error "Failed to start monitoring: #{e.message}"
-            render_error("Failed to start monitoring: #{e.message}", status: :internal_server_error)
+            render_internal_error("Failed to start monitoring", exception: e)
           end
         end
 

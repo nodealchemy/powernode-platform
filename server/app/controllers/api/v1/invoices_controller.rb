@@ -51,7 +51,7 @@ class Api::V1::InvoicesController < ApplicationController
       render_error("Invoice has already been sent", status: :unprocessable_content)
     end
   rescue StandardError => e
-    render_error("Failed to send invoice: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to send invoice", exception: e)
   end
 
   # POST /api/v1/invoices/:id/mark_paid
@@ -67,7 +67,7 @@ class Api::V1::InvoicesController < ApplicationController
       render_error("Invoice cannot be marked as paid (current status: #{@invoice.status})", status: :unprocessable_content)
     end
   rescue StandardError => e
-    render_error("Failed to mark invoice as paid: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to mark invoice as paid", exception: e)
   end
 
   # POST /api/v1/invoices/:id/void
@@ -83,7 +83,7 @@ class Api::V1::InvoicesController < ApplicationController
       render_error("Invoice cannot be voided (current status: #{@invoice.status})", status: :unprocessable_content)
     end
   rescue StandardError => e
-    render_error("Failed to void invoice: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to void invoice", exception: e)
   end
 
   # POST /api/v1/invoices/:id/retry_payment
@@ -111,7 +111,7 @@ class Api::V1::InvoicesController < ApplicationController
       data: invoice_data(@invoice)
     )
   rescue StandardError => e
-    render_error("Failed to retry payment: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to retry payment", exception: e)
   end
 
   # GET /api/v1/invoices/:id/pdf
@@ -130,7 +130,7 @@ class Api::V1::InvoicesController < ApplicationController
       }
     )
   rescue StandardError => e
-    render_error("Failed to generate PDF: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to generate PDF", exception: e)
   end
 
   # GET /api/v1/invoices/statistics

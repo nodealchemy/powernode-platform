@@ -80,7 +80,7 @@ class ScheduledTask < ApplicationRecord
         description: description
       }
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log task creation: #{e.message}"
   end
 
@@ -96,7 +96,7 @@ class ScheduledTask < ApplicationRecord
         changes: saved_changes.except("updated_at")
       }
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log task update: #{e.message}"
   end
 
@@ -112,7 +112,7 @@ class ScheduledTask < ApplicationRecord
         task_type: task_type
       }
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log task deletion: #{e.message}"
   end
 end

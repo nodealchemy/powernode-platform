@@ -46,7 +46,7 @@ module Api
           })
 
           log_audit_event("ai.validation_statistics.read", current_user.account)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to get validation statistics: #{e.message}"
           render_error("Failed to get validation statistics", status: :internal_server_error)
         end
@@ -101,7 +101,7 @@ module Api
           })
 
           log_audit_event("ai.validation_statistics.common_issues", current_user.account)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to get common issues: #{e.message}"
           render_error("Failed to get common issues", status: :internal_server_error)
         end
@@ -149,7 +149,7 @@ module Api
           })
 
           log_audit_event("ai.validation_statistics.health_distribution", current_user.account)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to get health distribution: #{e.message}"
           render_error("Failed to get health distribution", status: :internal_server_error)
         end

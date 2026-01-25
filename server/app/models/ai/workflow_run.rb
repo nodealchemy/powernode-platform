@@ -283,7 +283,7 @@ module Ai
           "queue" => "maintenance",
           "at" => 30.minutes.from_now.to_i
         })
-      rescue => e
+      rescue StandardError => e
         Rails.logger.warn "Failed to schedule timeout job for workflow run #{run_id}: #{e.message}"
       end
     end
@@ -312,7 +312,8 @@ module Ai
       begin
         scheduled_jobs = Sidekiq::ScheduledSet.new
         scheduled_jobs.any? { |job| job.klass == "WorkflowTimeoutJob" && job.args.include?(id) }
-      rescue
+      rescue StandardError => e
+        Rails.logger.error "Failed to check timeout job status: #{e.message}"
         false
       end
     end

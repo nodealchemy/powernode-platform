@@ -74,13 +74,13 @@ module KnowledgeBase
       return true if author_id == user.id
 
       # Users with kb.manage permission can view any article
-      user.permissions.include?("kb.manage")
+      user.has_permission?("kb.manage")
     end
 
     def editable_by?(user)
       return false unless user
       return true if author_id == user.id
-      user.permissions.include?("kb.manage")
+      user.has_permission?("kb.manage")
     end
 
     def record_view!(user: nil, session_id: nil, ip_address: nil, user_agent: nil)

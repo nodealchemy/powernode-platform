@@ -139,8 +139,7 @@ module Api
 
           log_audit_event("devops.repositories.sync", @repository)
         rescue StandardError => e
-          Rails.logger.error "Failed to sync repository: #{e.message}"
-          render_error("Failed to sync repository: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to sync repository", exception: e)
         end
 
         # POST /api/v1/devops/repositories/:id/attach_pipeline
@@ -172,8 +171,7 @@ module Api
         rescue ActiveRecord::RecordNotFound
           render_error("Pipeline not found", status: :not_found)
         rescue StandardError => e
-          Rails.logger.error "Failed to attach pipeline: #{e.message}"
-          render_error("Failed to attach pipeline: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to attach pipeline", exception: e)
         end
 
         # DELETE /api/v1/devops/repositories/:id/detach_pipeline
@@ -190,8 +188,7 @@ module Api
         rescue ActiveRecord::RecordNotFound
           render_error("Pipeline not attached to this repository", status: :not_found)
         rescue StandardError => e
-          Rails.logger.error "Failed to detach pipeline: #{e.message}"
-          render_error("Failed to detach pipeline: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to detach pipeline", exception: e)
         end
 
         private

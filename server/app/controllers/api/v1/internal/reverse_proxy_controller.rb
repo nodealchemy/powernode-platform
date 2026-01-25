@@ -14,7 +14,7 @@ class Api::V1::Internal::ReverseProxyController < ApplicationController
     validation_result = validate_proxy_config(config)
 
     render_success(validation_result)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Config validation failed: #{e.message}"
     render_error("Configuration validation failed", status: :internal_server_error)
   end
@@ -26,7 +26,7 @@ class Api::V1::Internal::ReverseProxyController < ApplicationController
     connectivity_result = test_service_connectivity(config)
 
     render_success(connectivity_result)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Connectivity test failed: #{e.message}"
     render_error("Connectivity test failed", status: :internal_server_error)
   end
@@ -52,7 +52,7 @@ class Api::V1::Internal::ReverseProxyController < ApplicationController
       filename: "powernode_#{proxy_type.downcase}.conf",
       instructions: proxy_installation_instructions(proxy_type)
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Config generation failed: #{e.message}"
     render_error("Config generation failed", status: :internal_server_error)
   end
@@ -84,7 +84,7 @@ class Api::V1::Internal::ReverseProxyController < ApplicationController
       services: discovered_services,
       message: "Discovered #{discovered_services.length} services"
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Service discovery failed: #{e.message}"
     render_error("Service discovery failed", status: :internal_server_error)
   end
@@ -114,7 +114,7 @@ class Api::V1::Internal::ReverseProxyController < ApplicationController
       services: results,
       environment: target_env
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Health check failed: #{e.message}"
     render_error("Health check failed", status: :internal_server_error)
   end
@@ -132,7 +132,7 @@ class Api::V1::Internal::ReverseProxyController < ApplicationController
     render_success({
       validations: validations
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Service validation failed: #{e.message}"
     render_error("Service validation failed", status: :internal_server_error)
   end
@@ -227,7 +227,7 @@ class Api::V1::Internal::ReverseProxyController < ApplicationController
         response_time_ms: response_time,
         url: health_url
       }
-    rescue => e
+    rescue StandardError => e
       {
         status: "unreachable",
         error: e.message,

@@ -262,7 +262,7 @@ export const PagesPage: React.FC = () => {
             <label className="label-theme">Status</label>
             <select
               value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value as any, currentPage: 1 })}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value as typeof filters.status, currentPage: 1 })}
               className="select-theme"
             >
               <option value="all">All Status</option>

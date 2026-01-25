@@ -11,7 +11,7 @@ module Orchestration
 
       begin
         execute_workflow_by_order(workflow_execution, workflow_config)
-      rescue => e
+      rescue StandardError => e
         @logger.error "Workflow orchestration failed: #{e.message}"
         workflow_execution.update!(
           status: "failed",

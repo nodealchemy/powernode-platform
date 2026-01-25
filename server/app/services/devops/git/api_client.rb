@@ -248,6 +248,90 @@ module Devops
 
       "#{base}/webhooks/git/#{@provider.provider_type}"
     end
+
+    # Standardized error handling wrapper for API operations
+    # Usage: with_error_handling { delete("/path"); { success: true } }
+    # Usage: with_error_handling(default_on_not_found: { success: true }) { ... }
+    #
+    # When default_on_not_found is provided, NotFoundError returns that value.
+    # Otherwise, NotFoundError (like all ApiErrors) returns { success: false, error: message }
+    def with_error_handling(default_on_not_found: nil)
+      yield
+    rescue NotFoundError => e
+      default_on_not_found || { success: false, error: e.message }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    # Extract pagination parameters from options hash
+    # Different providers use different parameter names (per_page vs limit)
+    def pagination_params(options, limit_key: :per_page, default_limit: 100)
+      {
+        page: options[:page] || 1,
+        limit_key => options[:per_page] || default_limit
+      }
+    end
+
+    # Parse unified diff patch into structured hunk data
+    # This is provider-agnostic - all Git providers use the same patch format
+    def parse_patch_hunks(patch)
+      return [] if patch.blank?
+
+      hunks = []
+      current_hunk = nil
+      old_line = 0
+      new_line = 0
+
+      patch.lines.each do |line|
+        if line.start_with?("@@")
+          # Parse hunk header: @@ -old_start,old_lines +new_start,new_lines @@
+          match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/)
+          if match
+            current_hunk = {
+              header: line.chomp,
+              old_start: match[1].to_i,
+              old_lines: match[2]&.to_i || 1,
+              new_start: match[3].to_i,
+              new_lines: match[4]&.to_i || 1,
+              lines: []
+            }
+            hunks << current_hunk
+            old_line = current_hunk[:old_start]
+            new_line = current_hunk[:new_start]
+          end
+        elsif current_hunk
+          line_type = case line[0]
+                      when "+" then "addition"
+                      when "-" then "deletion"
+                      when " " then "context"
+                      else "context"
+                      end
+
+          diff_line = {
+            type: line_type,
+            content: line[1..].to_s.chomp
+          }
+
+          case line_type
+          when "deletion"
+            diff_line[:old_line_number] = old_line
+            old_line += 1
+          when "addition"
+            diff_line[:new_line_number] = new_line
+            new_line += 1
+          when "context"
+            diff_line[:old_line_number] = old_line
+            diff_line[:new_line_number] = new_line
+            old_line += 1
+            new_line += 1
+          end
+
+          current_hunk[:lines] << diff_line
+        end
+      end
+
+      hunks
+    end
   end
 end
 end

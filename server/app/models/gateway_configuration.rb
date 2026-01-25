@@ -8,7 +8,7 @@ class GatewayConfiguration < ApplicationRecord
   # Encrypt sensitive configuration values (if encryption is available)
   begin
     encrypts :encrypted_value, deterministic: false
-  rescue => e
+  rescue StandardError => e
     Rails.logger.warn "ActiveRecord encryption not available: #{e.message}"
     # Fall back to storing values as-is if encryption fails
   end

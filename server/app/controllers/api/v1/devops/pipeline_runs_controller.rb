@@ -78,8 +78,7 @@ module Api
 
           log_audit_event("devops.pipeline_runs.cancel", @pipeline_run)
         rescue StandardError => e
-          Rails.logger.error "Failed to cancel pipeline run: #{e.message}"
-          render_error("Failed to cancel pipeline run: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to cancel pipeline run", exception: e)
         end
 
         # POST /api/v1/devops/pipeline_runs/:id/retry
@@ -118,8 +117,7 @@ module Api
 
           log_audit_event("devops.pipeline_runs.retry", new_run)
         rescue StandardError => e
-          Rails.logger.error "Failed to retry pipeline run: #{e.message}"
-          render_error("Failed to retry pipeline run: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to retry pipeline run", exception: e)
         end
 
         # GET /api/v1/devops/pipeline_runs/:id/logs

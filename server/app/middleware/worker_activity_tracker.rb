@@ -24,7 +24,7 @@ class WorkerActivityTracker
     end
 
     [ status, headers, response ]
-  rescue => e
+  rescue StandardError => e
     # Log error if worker was involved
     if worker
       duration = ((Time.current - start_time) * 1000).round(2)
@@ -79,7 +79,7 @@ class WorkerActivityTracker
       user_agent: request.env["HTTP_USER_AGENT"],
       performed_at: Time.current
     )
-  rescue => e
+  rescue StandardError => e
     # Log error but don't fail the request
     Rails.logger.error "Failed to log worker activity: #{e.message}"
   end
@@ -103,7 +103,7 @@ class WorkerActivityTracker
       user_agent: request.env["HTTP_USER_AGENT"],
       performed_at: Time.current
     )
-  rescue => e
+  rescue StandardError => e
     # Log error but don't fail the request
     Rails.logger.error "Failed to log worker error activity: #{e.message}"
   end

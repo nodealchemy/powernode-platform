@@ -162,6 +162,14 @@ export interface DelegationRequest {
   };
 }
 
+export interface CreateDelegationData {
+  delegated_user_email: string;
+  role_id: string;
+  permission_ids: string[];
+  expires_at: string;
+  notes: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -276,8 +284,7 @@ export const delegationApi = {
 
 
   // Create delegation request (placeholder - implement based on backend)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async createDelegationRequest(data: any): Promise<{ request: DelegationRequest }> {
+  async createDelegationRequest(data: CreateDelegationData): Promise<{ request: DelegationRequest }> {
     return apiRequest('/api/v1/delegation-requests', {
       method: 'POST',
       body: JSON.stringify(data),

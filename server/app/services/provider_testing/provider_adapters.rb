@@ -209,7 +209,7 @@ module ProviderTesting
         error_message = error_data.dig("error", "message") || "Authentication failed"
         { success: false, error: error_message, error_code: "AUTHENTICATION_FAILED" }
       end
-    rescue => e
+    rescue StandardError => e
       { success: false, error: "Anthropic connection error: #{e.message}", error_code: "CONNECTION_ERROR" }
     end
 
@@ -251,7 +251,7 @@ module ProviderTesting
           end
           { success: false, error: error_message, error_code: "API_ERROR" }
         end
-      rescue => e
+      rescue StandardError => e
         { success: false, error: "x.ai connection error: #{e.message}", error_code: "CONNECTION_ERROR" }
       end
     end

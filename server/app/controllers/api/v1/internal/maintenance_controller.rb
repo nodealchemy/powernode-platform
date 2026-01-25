@@ -251,7 +251,7 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
       else
         failed_count += 1
       end
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to delete backup #{backup.id}: #{e.message}"
       failed_count += 1
     end
@@ -312,7 +312,7 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
     # Use the fugit gem to parse cron expressions
     cron = Fugit::Cron.parse(cron_expression)
     cron&.next_time&.to_t || 1.day.from_now
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to parse cron expression: #{e.message}"
     1.day.from_now
   end

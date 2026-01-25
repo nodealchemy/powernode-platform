@@ -36,7 +36,7 @@ module ProviderTesting
       Ai::ProviderTestService::ResponseWrapper.new(response)
     rescue Timeout::Error, Net::OpenTimeout, Net::ReadTimeout, Errno::ETIMEDOUT => e
       raise e
-    rescue => e
+    rescue StandardError => e
       Ai::ProviderTestService::ResponseWrapper.new(nil, error: e.message)
     end
 

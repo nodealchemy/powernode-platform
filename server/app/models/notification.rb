@@ -118,7 +118,7 @@ class Notification < ApplicationRecord
         methods: [ :read? ]
       )
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to broadcast notification: #{e.message}"
   end
 end

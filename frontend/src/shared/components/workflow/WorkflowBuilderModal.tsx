@@ -87,7 +87,6 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
       const response = await workflowsApi.getWorkflow(workflowId);
       setWorkflow(response);
     } catch (error) {
-      console.error('Failed to load workflow:', error);
       addNotification({
         type: 'error',
         title: 'Error',
@@ -141,7 +140,6 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
       onSuccess?.(response);
 
     } catch (error) {
-      console.error('Failed to save workflow:', error);
       addNotification({
         type: 'error',
         title: 'Save Failed',
@@ -191,7 +189,6 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
         warnings
       };
     } catch (error) {
-      console.error('Validation error:', error);
       addNotification({
         type: 'error',
         title: 'Validation Error',

@@ -106,7 +106,7 @@ module System
             long_queries_count: long_queries.count,
             last_check: Time.current.iso8601
           }
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Database health check failed: #{e.message}"
           {
             status: "critical",
@@ -139,7 +139,7 @@ module System
             response_time: response_time,
             last_check: Time.current.iso8601
           }
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Redis health check failed: #{e.message}"
           {
             status: "critical",
@@ -167,7 +167,7 @@ module System
             available_space: get_available_space,
             last_check: Time.current.iso8601
           }
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Storage health check failed: #{e.message}"
           {
             status: "critical",
@@ -195,7 +195,7 @@ module System
             available_memory: get_available_memory,
             last_check: Time.current.iso8601
           }
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Memory health check failed: #{e.message}"
           {
             status: "critical",
@@ -279,7 +279,7 @@ module System
             dead_count: sidekiq_stats.dead_size,
             queues: get_queue_stats
           }
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Background job metrics failed: #{e.message}"
           { error: e.message }
         end
@@ -320,14 +320,14 @@ module System
         used_space = total_space - free_space
 
         (used_space.to_f / total_space * 100).round(2)
-      rescue
+      rescue StandardError
         0
       end
 
       def get_available_space
         stat = File.statvfs(Rails.root.to_s)
         (stat.bavail * stat.fragment_size / 1024 / 1024).round(2) # MB
-      rescue
+      rescue StandardError
         0
       end
 
@@ -342,7 +342,7 @@ module System
         else
           0
         end
-      rescue
+      rescue StandardError
         0
       end
 
@@ -353,7 +353,7 @@ module System
         else
           0
         end
-      rescue
+      rescue StandardError
         0
       end
 
@@ -366,19 +366,19 @@ module System
         else
           0
         end
-      rescue
+      rescue StandardError
         0
       end
 
       def get_load_average
         File.read("/proc/loadavg").split[0..2].map(&:to_f) if File.exist?("/proc/loadavg")
-      rescue
+      rescue StandardError
         [ 0, 0, 0 ]
       end
 
       def get_process_count
         Dir["/proc/[0-9]*"].count
-      rescue
+      rescue StandardError
         0
       end
 
@@ -392,7 +392,7 @@ module System
         else
           { seconds: 0, human: "Unknown" }
         end
-      rescue
+      rescue StandardError
         { seconds: 0, human: "Unknown" }
       end
 
@@ -428,7 +428,7 @@ module System
             application: row["application_name"]
           }
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to get long-running queries: #{e.message}"
         []
       end
@@ -438,14 +438,14 @@ module System
         sql = "SELECT pg_database_size(current_database()) as size"
         result = ActiveRecord::Base.connection.execute(sql).first
         (result["size"].to_f / 1024 / 1024).round(2) # Convert to MB
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to get database size: #{e.message}"
         0
       end
 
       def get_table_count
         ActiveRecord::Base.connection.tables.count
-      rescue
+      rescue StandardError
         0
       end
 
@@ -479,7 +479,7 @@ module System
           unused_indexes: unused_indexes,
           total_index_scans: total_scans
         }
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to get index usage stats: #{e.message}"
         {}
       end
@@ -497,7 +497,7 @@ module System
 
         Rails.cache.write(cache_key, avg, expires_in: 5.minutes)
         avg
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to get average response time: #{e.message}"
         0
       end
@@ -518,7 +518,7 @@ module System
 
         Rails.cache.write(cache_key, throughput, expires_in: 1.minute)
         throughput
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to get request throughput: #{e.message}"
         0
       end
@@ -546,7 +546,7 @@ module System
 
         Rails.cache.write(cache_key, error_rate, expires_in: 5.minutes)
         error_rate
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to get error rate: #{e.message}"
         0
       end
@@ -564,7 +564,7 @@ module System
           return 100.0 if total.zero?
 
           ((hits.to_f / total) * 100).round(2)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to get cache hit ratio: #{e.message}"
           0
         end
@@ -587,7 +587,7 @@ module System
         else
           0
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to get network stats: #{e.message}"
         0
       end
@@ -602,7 +602,7 @@ module System
 
         result = ActiveRecord::Base.connection.execute(sql).first
         result["count"].to_i
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to get active connections: #{e.message}"
         0
       end
@@ -612,7 +612,7 @@ module System
         start_time = Time.current
         ActiveRecord::Base.connection.execute("SELECT 1")
         ((Time.current - start_time) * 1000).round(2) # Convert to milliseconds
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to measure network latency: #{e.message}"
         0
       end
@@ -622,7 +622,7 @@ module System
           action: "login_failed",
           created_at: 1.hour.ago..Time.current
         ).count
-      rescue
+      rescue StandardError
         0
       end
 
@@ -631,7 +631,7 @@ module System
           action: [ "suspicious_activity", "security_violation" ],
           created_at: 1.hour.ago..Time.current
         ).count
-      rescue
+      rescue StandardError
         0
       end
 
@@ -651,7 +651,7 @@ module System
             latency: queue.latency
           }
         end
-      rescue
+      rescue StandardError
         []
       end
 
@@ -682,7 +682,7 @@ module System
             processed: stats.processed,
             failed: failed_jobs
           }
-        rescue => e
+        rescue StandardError => e
           {
             status: "critical",
             error: e.message
@@ -698,7 +698,7 @@ module System
             status: "healthy",
             last_heartbeat: Time.current.iso8601
           }
-        rescue => e
+        rescue StandardError => e
           {
             status: "critical",
             error: e.message
@@ -708,7 +708,7 @@ module System
 
       def get_process_memory_usage
         `ps -o rss= -p #{Process.pid}`.to_i / 1024 # MB
-      rescue
+      rescue StandardError
         0
       end
     end

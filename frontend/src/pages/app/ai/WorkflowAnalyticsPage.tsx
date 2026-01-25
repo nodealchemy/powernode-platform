@@ -14,22 +14,14 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card, CardTitle, CardContent } from '@/shared/components/ui/Card';
 import { Select } from '@/shared/components/ui/Select';
 import { DateRangePicker } from '@/shared/components/ui/DateRangePicker';
-import { workflowsApi } from '@/shared/services/ai';
+import { workflowsApi, WorkflowStatistics } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { WorkflowExecutionStats } from '@/shared/types/workflow';
 
 interface AnalyticsData {
-  statistics: {
-    totalWorkflows: number;
-    activeWorkflows: number;
-    draftWorkflows: number;
-    totalRuns: number;
-    successfulRuns: number;
-    averageExecutionTime: number;
-    recentActivity: Record<string, number>;
-  };
+  statistics: WorkflowStatistics;
   executionMetrics: {
     metrics: WorkflowExecutionStats;
     period: {
@@ -101,7 +93,7 @@ export const WorkflowAnalyticsPage: React.FC = () => {
       }
 
       setAnalyticsData({
-        statistics: statisticsResponse.statistics as any,
+        statistics: statisticsResponse.statistics,
         executionMetrics: metricsResponse
       });
     } catch (error) {

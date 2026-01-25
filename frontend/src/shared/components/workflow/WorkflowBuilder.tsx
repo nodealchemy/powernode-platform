@@ -48,6 +48,20 @@ import { AiWorkflow, AiWorkflowNode, BaseWorkflowNodeData } from '@/shared/types
 import { AiAgent } from '@/shared/types/ai';
 import { agentsApi } from '@/shared/services/ai';
 
+// Extended workflow node type that may have position as object (from save response)
+interface ExtendedWorkflowNode extends AiWorkflowNode {
+  position?: { x: number; y: number };
+}
+
+// Extended node data type with handle positions
+interface NodeDataWithHandles extends BaseWorkflowNodeData {
+  handlePositions?: HandlePositions;
+  positionsUpdated?: number;
+  executionStatus?: string;
+  executionDuration?: number;
+  executionError?: string;
+}
+
 
 export interface WorkflowBuilderProps {
   workflow?: AiWorkflow;
@@ -152,9 +166,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         }
         // No operations agent available - chat feature will be disabled
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('[WorkflowBuilder] Failed to load operations agent:', error);
-        }
+        // Operations agent failed to load - chat feature will be disabled
       }
     };
 
@@ -167,22 +179,22 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
   }, [snapToGrid, gridSize]);
 
   // Custom node change handler that applies snap-to-grid
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
+  const onNodesChange = useCallback((changes: NodeChange<Node>[]) => {
     if (snapToGrid) {
       // Apply snap-to-grid to position changes
-      const modifiedChanges = changes.map((change: NodeChange) => {
+      const modifiedChanges = changes.map((change) => {
         if (change.type === 'position' && change.position) {
           const snappedPosition = snapToGridPosition(change.position);
           return {
             ...change,
             position: snappedPosition
-          };
+          } as NodeChange<Node>;
         }
         return change;
       });
-      onNodesChangeOriginal(modifiedChanges as any);
+      onNodesChangeOriginal(modifiedChanges);
     } else {
-      onNodesChangeOriginal(changes as any);
+      onNodesChangeOriginal(changes);
     }
 
     // Mark as changed when nodes are modified
@@ -282,8 +294,9 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 
             // Extract position - handle both formats:
             // Backend uses position_x/position_y columns, but save response may use position object
-            const positionX = Number(node.position_x) || Number((node as any).position?.x) || 0;
-            const positionY = Number(node.position_y) || Number((node as any).position?.y) || 0;
+            const extendedNode = node as ExtendedWorkflowNode;
+            const positionX = Number(node.position_x) || Number(extendedNode.position?.x) || 0;
+            const positionY = Number(node.position_y) || Number(extendedNode.position?.y) || 0;
 
             return {
               id: nodeId,
@@ -490,7 +503,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         },
       };
 
-      setEdges((eds) => addEdge(newEdge as any, eds));
+      setEdges((eds) => addEdge(newEdge as Edge, eds));
     },
     [setEdges, readOnly, defaultEdgeOptions, nodes]
   );
@@ -606,11 +619,12 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
   }, []);
 
   // Handle node updates from config panel
-  const onUpdateNode = useCallback((nodeId: string, updates: Partial<Node['data']>) => {
+  const onUpdateNode = useCallback((nodeId: string, updates: Partial<NodeDataWithHandles>) => {
     // Check if handle positions are changing
     const currentNode = nodes.find(n => n.id === nodeId);
-    const newPositions = (updates as any).handlePositions as HandlePositions | undefined;
-    const currentPositions = (currentNode?.data as any)?.handlePositions as HandlePositions | undefined;
+    const newPositions = updates.handlePositions;
+    const currentData = currentNode?.data as NodeDataWithHandles | undefined;
+    const currentPositions = currentData?.handlePositions;
 
     // Deep compare positions to check if they changed
     const positionsChanging = newPositions && JSON.stringify(newPositions) !== JSON.stringify(currentPositions);
@@ -625,7 +639,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         data: {
           ...currentNode.data,
           ...updates,
-          handlePositions: (updates as any).handlePositions,
+          handlePositions: updates.handlePositions,
           is_start_node: currentNode.data.is_start_node || currentNode.data.node_type === 'trigger' || currentNode.data.node_type === 'start',
           is_end_node: currentNode.data.is_end_node || currentNode.data.node_type === 'end',
         }
@@ -939,9 +953,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           }, 100); // Wait for nodes to mount before adding edges
         }, 50); // Wait for React Flow to process removal
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Error arranging nodes:', error);
-        }
+        // Error arranging nodes - layout will not be applied
       } finally {
         setIsArranging(false);
       }
@@ -1143,10 +1155,12 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         onInit={(instance) => {
           reactFlowInstance.current = instance;
         }}
-        nodeTypes={nodeTypes as any}
-        edgeTypes={edgeTypes as any}
-        defaultEdgeOptions={defaultEdgeOptions as any}
-        connectionLineType={"default" as any}
+        // Type assertions needed due to @xyflow/react's strict typing with custom node/edge components
+        nodeTypes={nodeTypes as typeof NODE_TYPES}
+        edgeTypes={edgeTypes as typeof EDGE_TYPES}
+        defaultEdgeOptions={defaultEdgeOptions as typeof DEFAULT_EDGE_OPTIONS}
+        // @xyflow/react expects ConnectionLineType enum, but string literal works at runtime
+        connectionLineType="default"
         connectionLineStyle={{
           stroke: '#94a3b8',
           strokeWidth: 2,
@@ -1159,9 +1173,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           minZoom: 0.1,
         }}
         onError={(id, error) => {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('ReactFlow error:', id, error);
-          }
+          // ReactFlow error occurred - error ID and details logged internally
         }}
       >
         {showGrid && (

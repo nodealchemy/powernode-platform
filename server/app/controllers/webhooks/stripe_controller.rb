@@ -37,7 +37,7 @@ class Webhooks::StripeController < ApplicationController
   rescue JSON::ParserError, Stripe::SignatureVerificationError => e
     Rails.logger.error "Stripe webhook signature verification failed: #{e.message}"
     render json: { error: "Invalid signature" }, status: 400
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Stripe webhook processing error: #{e.message}"
     render json: { error: "Webhook processing failed" }, status: 500
   end

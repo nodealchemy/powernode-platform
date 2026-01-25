@@ -60,6 +60,14 @@ const timeRanges: TimeRange[] = [
   { label: 'Last 90 Days', value: '90d', days: 90 }
 ];
 
+type TabKey = 'overview' | 'security' | 'compliance' | 'risk';
+
+interface AnalyticsTab {
+  key: TabKey;
+  label: string;
+  icon: React.ReactNode;
+}
+
 export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
   metrics,
   chartData,
@@ -70,7 +78,7 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
   refreshData
 }) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>(timeRanges[1]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'security' | 'compliance' | 'risk'>('overview');
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
   // Handle time range changes
   const handleTimeRangeChange = (timeRange: TimeRange) => {
@@ -96,7 +104,7 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
     uniqueIps: metrics?.uniqueIps ?? 0
   };
 
-  const tabs = [
+  const tabs: AnalyticsTab[] = [
     { key: 'overview', label: 'Overview', icon: <Activity className="w-4 h-4" /> },
     { key: 'security', label: 'Security', icon: <Shield className="w-4 h-4" /> },
     { key: 'compliance', label: 'Compliance', icon: <Eye className="w-4 h-4" /> },
@@ -152,7 +160,7 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
             {tabs.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as any)}
+                onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                   activeTab === tab.key
                     ? 'border-theme-interactive-primary text-theme-interactive-primary'

@@ -67,7 +67,7 @@ module KnowledgeBase
 
     def can_be_moderated_by?(moderator)
       return false unless moderator
-      moderator.permissions.include?("kb.manage")
+      moderator.has_permission?("kb.manage")
     end
 
     def replies_count

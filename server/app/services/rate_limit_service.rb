@@ -5,11 +5,11 @@ class RateLimitService
     # Get current rate limit statistics
     def get_statistics
       {
-        enabled: SystemSettingsService.rate_limiting_enabled?,
+        enabled: System::SettingsService.rate_limiting_enabled?,
         current_violations: count_current_violations,
         active_limits: count_active_limits,
         configuration: get_current_configuration,
-        tier_statistics: TieredRateLimitService.tier_statistics
+        tier_statistics: RateLimiting::TieredService.tier_statistics
       }
     end
 
@@ -20,22 +20,22 @@ class RateLimitService
       {
         account_id: account.id,
         account_name: account.name,
-        tier_info: TieredRateLimitService.account_usage(account),
-        rate_limited: TieredRateLimitService.account_rate_limited?(account),
-        limits: TieredRateLimitService.tier_config(
-          TieredRateLimitService.tier_for_account(account)
+        tier_info: RateLimiting::TieredService.account_usage(account),
+        rate_limited: RateLimiting::TieredService.account_rate_limited?(account),
+        limits: RateLimiting::TieredService.tier_config(
+          RateLimiting::TieredService.tier_for_account(account)
         )
       }
     end
 
     # Override tier for an account
     def override_account_tier(account, tier, duration: nil)
-      TieredRateLimitService.override_tier(account, tier, duration: duration)
+      RateLimiting::TieredService.override_tier(account, tier, duration: duration)
     end
 
     # Clear tier override for an account
     def clear_account_tier_override(account)
-      TieredRateLimitService.clear_tier_override(account)
+      RateLimiting::TieredService.clear_tier_override(account)
     end
 
     # Clear rate limits for a specific IP or user
@@ -138,20 +138,20 @@ class RateLimitService
         violations += 1 if limit && current_count >= limit
       end
       violations
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Error counting rate limit violations: #{e.message}"
       0
     end
 
     def count_active_limits
       Rails.cache.redis.keys("rate_limit:*").count
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Error counting active limits: #{e.message}"
       0
     end
 
     def get_current_configuration
-      settings = SystemSettingsService.load_settings
+      settings = System::SettingsService.load_settings
       rate_limiting_config = settings.dig(:rate_limiting) || {}
 
       {
@@ -176,7 +176,7 @@ class RateLimitService
 
       controller_name = parts[1]
       limit_type = determine_limit_type_for_controller(controller_name)
-      SystemSettingsService.rate_limit_setting(limit_type)
+      System::SettingsService.rate_limit_setting(limit_type)
     end
 
     def determine_limit_type_for_controller(controller_name)

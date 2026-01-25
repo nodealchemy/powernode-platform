@@ -15,13 +15,18 @@ export const isTokenInvalidError = (error: unknown): boolean => {
   if (error instanceof Error) {
     errorMessage = error.message;
   } else if (error && typeof error === 'object') {
-    // Handle axios-style errors
-    if ('response' in error && error.response && typeof error.response === 'object') {
-      const response = error.response as any;
-      if ('status' in response) statusCode = response.status;
+    // Handle axios-style errors with type-safe property access
+    const errorObj = error as Record<string, unknown>;
+    if ('response' in errorObj && errorObj.response && typeof errorObj.response === 'object') {
+      const response = errorObj.response as Record<string, unknown>;
+      if ('status' in response && typeof response.status === 'number') {
+        statusCode = response.status;
+      }
       if ('data' in response && response.data && typeof response.data === 'object') {
-        const responseData = response.data as any;
-        errorMessage = responseData.error || responseData.message || errorMessage;
+        const responseData = response.data as Record<string, unknown>;
+        errorMessage = (typeof responseData.error === 'string' ? responseData.error : null) ||
+                       (typeof responseData.message === 'string' ? responseData.message : null) ||
+                       errorMessage;
       }
     }
   }

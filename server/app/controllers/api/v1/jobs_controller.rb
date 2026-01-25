@@ -72,7 +72,7 @@ class Api::V1::JobsController < ApplicationController
       enqueued_at: Time.current.iso8601,
       status: "enqueued"
     }
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to enqueue job to Redis: #{e.message}"
     raise e
   end

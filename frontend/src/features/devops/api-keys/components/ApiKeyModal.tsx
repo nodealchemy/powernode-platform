@@ -53,8 +53,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
         }));
         setAvailableScopes(scopes);
       }
-    } catch (error) {
-      console.error('Failed to load scopes:', error);
+    } catch {
+      // Silently fail - will use empty scopes list
     }
   };
 

@@ -153,7 +153,7 @@ class Api::V1::Admin::UsersController < ApplicationController
           unless audit_log.persisted?
             Rails.logger.error "Failed to create audit log: #{audit_log.errors.full_messages.join(', ')}"
           end
-        rescue => e
+        rescue StandardError => e
           return render_error(
             "Failed to update roles: #{e.message}",
             :unprocessable_content
@@ -180,7 +180,7 @@ class Api::V1::Admin::UsersController < ApplicationController
         unless general_audit_log.persisted?
           Rails.logger.error "Failed to create general user audit log: #{general_audit_log.errors.full_messages.join(', ')}"
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to create audit log: #{e.message}"
         # Don't fail the request if audit logging fails
       end
@@ -195,7 +195,7 @@ class Api::V1::Admin::UsersController < ApplicationController
           data: user_data,
           message: "User updated successfully"
         )
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to generate user summary: #{e.message}"
         render_success(
           data: { id: @user.id, email: @user.email },
@@ -282,7 +282,7 @@ class Api::V1::Admin::UsersController < ApplicationController
         e.http_status,
         details: { code: e.error_code }
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Impersonation error: #{e.message}"
       Rails.logger.error e.backtrace.join("\n")
 

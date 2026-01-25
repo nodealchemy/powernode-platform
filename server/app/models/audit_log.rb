@@ -194,7 +194,7 @@ class AuditLog < ApplicationRecord
   # Apply cryptographic integrity hash for immutable audit chain
   def apply_integrity_hash
     Audit::LogIntegrityService.apply_integrity(self)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to apply integrity hash to audit log: #{e.message}"
     # Don't block audit log creation if integrity service fails
   end

@@ -99,13 +99,21 @@ export const PlanCard: React.FC<PlanCardProps> = ({
   };
 
   const getLimitsDisplay = () => {
+    // Type for plan features with known limit properties
+    interface PlanFeatureLimits {
+      max_users?: number;
+      storage_gb?: number;
+      api_access?: boolean;
+      advanced_analytics?: boolean;
+      custom_integrations?: boolean;
+    }
+
     if (plan.features && typeof plan.features === 'object') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const features = plan.features as any;
+      const features = plan.features as PlanFeatureLimits;
 
       const users = features.max_users === 9999 ? 'Unlimited' : `${features.max_users || 2}`;
       const storage = features.storage_gb === 10000 ? 'Unlimited' :
-                     features.storage_gb >= 1000 ? `${Math.floor(features.storage_gb / 1000)}TB` :
+                     (features.storage_gb ?? 0) >= 1000 ? `${Math.floor((features.storage_gb ?? 0) / 1000)}TB` :
                      `${features.storage_gb || 1}GB`;
 
       let apiRequests = '1k';
@@ -149,17 +157,17 @@ export const PlanCard: React.FC<PlanCardProps> = ({
 
   // PUBLIC VARIANT - Completely separate render for public pages
   if (isPublic) {
-    // Define all colors inline to avoid CSS override issues
+    // Use CSS custom properties for theme-aware colors in inline styles
     const cardBg = isSelected
-      ? 'linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%)'
+      ? 'linear-gradient(135deg, var(--color-theme-primary-dark) 0%, var(--color-theme-surface) 100%)'
       : featured
-        ? 'linear-gradient(135deg, #312e81 0%, #1e1b4b 100%)'
-        : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)';
-    const titleColor = isSelected ? '#93c5fd' : '#f8fafc';
-    const descColor = '#94a3b8';
-    const priceColor = displayPrice === 0 ? '#4ade80' : (isSelected ? '#93c5fd' : '#f8fafc');
-    const featureColor = isSelected ? '#93c5fd' : '#e2e8f0';
-    const limitValueColor = isSelected ? '#93c5fd' : '#f8fafc';
+        ? 'linear-gradient(135deg, var(--color-theme-interactive-primary) 0%, var(--color-theme-background) 100%)'
+        : 'linear-gradient(135deg, var(--color-theme-surface) 0%, var(--color-theme-background) 100%)';
+    const titleColor = isSelected ? 'var(--color-theme-link)' : 'var(--color-theme-primary)';
+    const descColor = 'var(--color-theme-secondary)';
+    const priceColor = displayPrice === 0 ? 'var(--color-theme-success)' : (isSelected ? 'var(--color-theme-link)' : 'var(--color-theme-primary)');
+    const featureColor = isSelected ? 'var(--color-theme-link)' : 'var(--color-theme-secondary)';
+    const limitValueColor = isSelected ? 'var(--color-theme-link)' : 'var(--color-theme-primary)';
 
     // Use unique ID for scoped CSS styling
     const cardId = `plan-card-${plan.id}`;
@@ -180,12 +188,12 @@ export const PlanCard: React.FC<PlanCardProps> = ({
         transition: all 0.3s ease !important;
         transform: ${isSelected ? 'scale(1.05)' : 'scale(1)'} !important;
         background: ${cardBg} !important;
-        background-color: ${isSelected ? '#1e3a5f' : featured ? '#312e81' : '#1e293b'} !important;
-        border: ${isSelected ? '3px solid #3b82f6' : featured ? '2px solid #6366f1' : '2px solid rgba(100, 116, 139, 0.5)'} !important;
-        box-shadow: ${isSelected ? '0 25px 50px -12px rgba(59, 130, 246, 0.4), 0 0 0 4px rgba(59, 130, 246, 0.1)' : featured ? '0 20px 40px -10px rgba(99, 102, 241, 0.3)' : '0 10px 40px -10px rgba(0, 0, 0, 0.5)'} !important;
+        background-color: ${isSelected ? 'var(--color-theme-primary-dark)' : featured ? 'var(--color-theme-interactive-primary)' : 'var(--color-theme-surface)'} !important;
+        border: ${isSelected ? '3px solid var(--color-theme-primary)' : featured ? '2px solid var(--color-theme-interactive-primary)' : '2px solid var(--color-theme-border)'} !important;
+        box-shadow: ${isSelected ? '0 25px 50px -12px rgba(var(--color-theme-primary-rgb), 0.4), 0 0 0 4px rgba(var(--color-theme-primary-rgb), 0.1)' : featured ? '0 20px 40px -10px rgba(var(--color-theme-interactive-primary-rgb), 0.3)' : '0 10px 40px -10px rgba(0, 0, 0, 0.5)'} !important;
         z-index: ${isSelected ? 20 : 1} !important;
         animation-delay: ${(index + 1) * 0.1}s !important;
-        color: #f8fafc !important;
+        color: var(--color-theme-primary) !important;
       }
     `;
 
@@ -202,26 +210,26 @@ export const PlanCard: React.FC<PlanCardProps> = ({
         <div style={{ position: 'absolute', top: '-1rem', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '0.5rem', zIndex: 30 }}>
           {featured && (
             <span style={{
-              background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-              color: '#ffffff',
+              background: 'linear-gradient(135deg, var(--color-theme-primary), var(--color-theme-info))',
+              color: 'var(--color-white)',
               padding: '0.5rem 1rem',
               borderRadius: '9999px',
               fontSize: '0.875rem',
               fontWeight: '700',
-              boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)'
+              boxShadow: '0 4px 15px rgba(var(--color-theme-primary-rgb), 0.4)'
             }}>
               ⭐ Most Popular
             </span>
           )}
           {displayPrice === 0 && (
             <span style={{
-              background: '#22c55e',
-              color: '#ffffff',
+              background: 'var(--color-theme-success)',
+              color: 'var(--color-white)',
               padding: '0.375rem 0.75rem',
               borderRadius: '9999px',
               fontSize: '0.75rem',
               fontWeight: '700',
-              boxShadow: '0 4px 10px rgba(34, 197, 94, 0.3)'
+              boxShadow: '0 4px 10px rgba(var(--color-theme-success-rgb), 0.3)'
             }}>
               🎯 Free
             </span>
@@ -270,7 +278,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                     marginLeft: '0.5rem',
                     fontSize: '1rem',
                     fontWeight: '600',
-                    color: '#64748b',
+                    color: 'var(--color-theme-tertiary)',
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer'
@@ -284,8 +292,8 @@ export const PlanCard: React.FC<PlanCardProps> = ({
             {billingPeriod === 'annually' && plan.has_annual_discount && plan.annual_discount_percent && displayPrice > 0 && (
               <div style={{ marginTop: '0.5rem' }}>
                 <span style={{
-                  background: 'rgba(34, 197, 94, 0.2)',
-                  color: '#4ade80',
+                  background: 'rgba(var(--color-theme-success-rgb), 0.2)',
+                  color: 'var(--color-theme-success)',
                   padding: '0.25rem 0.75rem',
                   borderRadius: '9999px',
                   fontSize: '0.875rem',
@@ -299,8 +307,8 @@ export const PlanCard: React.FC<PlanCardProps> = ({
             {plan.trial_days > 0 && displayPrice > 0 && (
               <div style={{ marginTop: '0.5rem' }}>
                 <span style={{
-                  background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
-                  color: '#ffffff',
+                  background: 'linear-gradient(135deg, var(--color-theme-info), var(--color-theme-interactive-primary))',
+                  color: 'var(--color-white)',
                   padding: '0.25rem 0.75rem',
                   borderRadius: '9999px',
                   fontSize: '0.75rem',
@@ -318,15 +326,15 @@ export const PlanCard: React.FC<PlanCardProps> = ({
           marginBottom: '1rem',
           padding: '0.75rem',
           borderRadius: '0.75rem',
-          background: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(71, 85, 105, 0.3)',
-          border: isSelected ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(100, 116, 139, 0.2)'
+          background: isSelected ? 'rgba(var(--color-theme-primary-rgb), 0.15)' : 'rgba(var(--color-theme-surface-rgb), 0.3)',
+          border: isSelected ? '1px solid rgba(var(--color-theme-primary-rgb), 0.3)' : '1px solid var(--color-theme-border)'
         }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', textAlign: 'center' }}>
             <div>
               <div style={{ fontSize: '1rem', fontWeight: '800', color: limitValueColor, textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>
                 {limits.users}
               </div>
-              <div style={{ fontSize: '0.625rem', fontWeight: '600', textTransform: 'uppercase', color: '#94a3b8' }}>
+              <div style={{ fontSize: '0.625rem', fontWeight: '600', textTransform: 'uppercase', color: 'var(--color-theme-secondary)' }}>
                 Users
               </div>
             </div>
@@ -334,7 +342,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
               <div style={{ fontSize: '1rem', fontWeight: '800', color: limitValueColor, textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>
                 {limits.storage}
               </div>
-              <div style={{ fontSize: '0.625rem', fontWeight: '600', textTransform: 'uppercase', color: '#94a3b8' }}>
+              <div style={{ fontSize: '0.625rem', fontWeight: '600', textTransform: 'uppercase', color: 'var(--color-theme-secondary)' }}>
                 Storage
               </div>
             </div>
@@ -342,7 +350,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
               <div style={{ fontSize: '1rem', fontWeight: '800', color: limitValueColor, textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>
                 {limits.apiRequests}
               </div>
-              <div style={{ fontSize: '0.625rem', fontWeight: '600', textTransform: 'uppercase', color: '#94a3b8' }}>
+              <div style={{ fontSize: '0.625rem', fontWeight: '600', textTransform: 'uppercase', color: 'var(--color-theme-secondary)' }}>
                 API
               </div>
             </div>
@@ -364,14 +372,14 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                   width: '1rem',
                   height: '1rem',
                   borderRadius: '9999px',
-                  background: isSelected ? 'rgba(56, 189, 248, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                  background: isSelected ? 'rgba(var(--color-theme-info-rgb), 0.2)' : 'rgba(var(--color-theme-success-rgb), 0.2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexShrink: 0,
                   marginTop: '0.125rem'
                 }}>
-                  <CheckIcon style={{ width: '0.625rem', height: '0.625rem', color: isSelected ? '#38bdf8' : '#22c55e' }} />
+                  <CheckIcon style={{ width: '0.625rem', height: '0.625rem', color: isSelected ? 'var(--color-theme-info)' : 'var(--color-theme-success)' }} />
                 </div>
                 <span style={{
                   color: featureColor,
@@ -400,8 +408,8 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                 padding: '0.5rem',
                 background: 'none',
                 border: 'none',
-                borderTop: '1px solid rgba(100, 116, 139, 0.3)',
-                color: isSelected ? '#38bdf8' : '#22c55e',
+                borderTop: '1px solid var(--color-theme-border)',
+                color: isSelected ? 'var(--color-theme-info)' : 'var(--color-theme-success)',
                 fontSize: '0.75rem',
                 fontWeight: '600',
                 cursor: 'pointer'
@@ -432,8 +440,8 @@ export const PlanCard: React.FC<PlanCardProps> = ({
               textAlign: 'center',
               padding: '1rem 1.5rem',
               borderRadius: '0.75rem',
-              background: 'rgba(51, 65, 85, 0.5)',
-              color: '#94a3b8',
+              background: 'rgba(var(--color-theme-surface-rgb), 0.5)',
+              color: 'var(--color-theme-secondary)',
               fontWeight: '700'
             }}>
               Current Plan
@@ -460,19 +468,19 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                 gap: '0.5rem',
                 transition: 'all 0.2s ease',
                 background: isSelected
-                  ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)'
+                  ? 'linear-gradient(135deg, var(--color-theme-primary), var(--color-theme-info))'
                   : featured
-                    ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                    ? 'linear-gradient(135deg, var(--color-theme-interactive-primary), var(--color-theme-info))'
                     : displayPrice === 0
-                      ? 'linear-gradient(135deg, #22c55e, #16a34a)'
-                      : 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                color: '#ffffff',
+                      ? 'linear-gradient(135deg, var(--color-theme-success), var(--color-theme-success-dark))'
+                      : 'linear-gradient(135deg, var(--color-theme-primary), var(--color-theme-primary-dark))',
+                color: 'var(--color-white)',
                 border: 'none',
                 boxShadow: isSelected
-                  ? '0 10px 25px -5px rgba(59, 130, 246, 0.5)'
+                  ? '0 10px 25px -5px rgba(var(--color-theme-primary-rgb), 0.5)'
                   : displayPrice === 0
-                    ? '0 8px 20px -5px rgba(34, 197, 94, 0.4)'
-                    : '0 8px 20px -5px rgba(59, 130, 246, 0.4)'
+                    ? '0 8px 20px -5px rgba(var(--color-theme-success-rgb), 0.4)'
+                    : '0 8px 20px -5px rgba(var(--color-theme-primary-rgb), 0.4)'
               }}
             >
               <span>

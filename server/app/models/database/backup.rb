@@ -75,7 +75,7 @@ module Database
           description: description
         }
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to log backup creation: #{e.message}"
     end
 
@@ -95,7 +95,7 @@ module Database
           error_message: error_message
         }
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to log backup status change: #{e.message}"
     end
   end

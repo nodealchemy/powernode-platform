@@ -39,11 +39,15 @@ export const calculatePlanPrice = (plan: Plan, cycle: 'monthly' | 'yearly'): str
 
   let priceCents = plan.price_cents;
 
-  // Apply discounts based on what badge is being shown (matches badge logic)
-  if (cycle === 'yearly' && plan.billing_cycle === 'monthly' && plan.has_annual_discount) {
-    // When viewing yearly, apply annual discount
-    const discountPercent = plan.annual_discount_percent ? parseFloat(plan.annual_discount_percent.toString()) : 0;
-    priceCents = priceCents * 12 * (1 - discountPercent / 100);
+  // Convert between billing cycles
+  if (cycle === 'yearly' && plan.billing_cycle === 'monthly') {
+    // When viewing yearly for a monthly-priced plan, multiply by 12
+    priceCents = priceCents * 12;
+    // Apply annual discount if available
+    if (plan.has_annual_discount) {
+      const discountPercent = plan.annual_discount_percent ? parseFloat(plan.annual_discount_percent.toString()) : 0;
+      priceCents = priceCents * (1 - discountPercent / 100);
+    }
   } else if (cycle === 'monthly' && plan.billing_cycle === 'yearly') {
     priceCents = priceCents / 12;
   }

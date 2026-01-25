@@ -4,7 +4,7 @@ import {
   Zap, RefreshCw, Trash2, HardDrive, Database, 
   Clock, AlertTriangle, CheckCircle, Loader
 } from 'lucide-react';
-import { performanceApi, OptimizationAction } from '@/shared/services/performanceApi';
+import { performanceApi, OptimizationAction } from '@/shared/services/system/performanceApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface PerformanceOptimizationPanelProps {

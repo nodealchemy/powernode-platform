@@ -84,7 +84,7 @@ export const WorkflowRecoveryModal: React.FC<WorkflowRecoveryModalProps> = ({
         setSelectedStrategy('restart');
       }
     } catch (error) {
-      console.error('Failed to load recovery options:', error);
+      // Error handled silently - recovery options will show error state
     } finally {
       setLoading(false);
     }
@@ -97,7 +97,6 @@ export const WorkflowRecoveryModal: React.FC<WorkflowRecoveryModalProps> = ({
       onRecoveryInitiated?.('checkpoint');
       onClose();
     } catch (error) {
-      console.error('Failed to recover from checkpoint:', error);
       addNotification({ type: 'error', message: 'Failed to recover from checkpoint. Please try again.' });
     } finally {
       setRecovering(null);
@@ -110,7 +109,6 @@ export const WorkflowRecoveryModal: React.FC<WorkflowRecoveryModalProps> = ({
       await api.post(`/ai/workflow_runs/${workflowRunId}/recovery/nodes/${nodeExecutionId}/retry`);
       await loadRecoveryOptions(); // Refresh to show updated state
     } catch (error) {
-      console.error('Failed to retry node:', error);
       addNotification({ type: 'error', message: 'Failed to retry node. Please try again.' });
     } finally {
       setRecovering(null);
@@ -129,7 +127,6 @@ export const WorkflowRecoveryModal: React.FC<WorkflowRecoveryModalProps> = ({
       onRecoveryInitiated?.('restart');
       onClose();
     } catch (error) {
-      console.error('Failed to restart workflow:', error);
       addNotification({ type: 'error', message: 'Failed to restart workflow. Please try again.' });
     } finally {
       setRecovering(null);

@@ -48,7 +48,7 @@ export default function KnowledgeBaseArticlePage() {
       setRelatedArticles(response.data.data.related_articles || []);
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'status' in error.response) {
-        const status = (error.response as any).status;
+        const status = (error.response as { status: number }).status;
         if (status === 404) {
           setError('Article not found');
         } else if (status === 403) {

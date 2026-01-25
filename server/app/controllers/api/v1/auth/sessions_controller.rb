@@ -137,8 +137,9 @@ class Api::V1::Auth::SessionsController < ApplicationController
       }
       )
     rescue StandardError => e
-      Rails.logger.error "Token refresh error: #{e.message}"
-      Rails.logger.error "Token refresh backtrace: #{e.backtrace.join("\n")}"
+      # Log error class and sanitized message (no token data)
+      Rails.logger.error "Token refresh failed: #{e.class.name}"
+      Rails.logger.error e.backtrace.first(5).join("\n") if Rails.env.development?
 
       # Check if this is a permissions change that requires re-login
       if e.message.include?("Permissions changed")
@@ -163,7 +164,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
       if params[:refresh_token].present?
         Security::JwtService.blacklist_token(params[:refresh_token], reason: "logout", user_id: current_user.id)
       end
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Error blacklisting tokens: #{e.message}"
       # Continue with logout even if blacklisting fails
     end
@@ -255,7 +256,8 @@ class Api::V1::Auth::SessionsController < ApplicationController
         }.merge(response_data[:warning] ? { warning: response_data[:warning] } : {})
       )
     rescue StandardError => e
-      Rails.logger.error "2FA verification error: #{e.message}"
+      # Log error class only - no token/code data
+      Rails.logger.error "2FA verification failed: #{e.class.name}"
       render_error(
         "Authentication verification failed",
         :unauthorized

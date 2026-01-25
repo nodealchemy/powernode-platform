@@ -78,8 +78,7 @@ class Api::V1::PaymentMethodsController < ApplicationController
       message: "Setup intent created successfully"
     )
   rescue StandardError => e
-    Rails.logger.error "Failed to create setup intent: #{e.message}"
-    render_error("Failed to create setup intent: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to create setup intent", exception: e)
   end
 
   # POST /api/v1/payment_methods/:id/confirm
@@ -105,8 +104,7 @@ class Api::V1::PaymentMethodsController < ApplicationController
       data: payment_method_data(@payment_method)
     )
   rescue StandardError => e
-    Rails.logger.error "Failed to confirm payment method: #{e.message}"
-    render_error("Failed to confirm payment method: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to confirm payment method", exception: e)
   end
 
   # POST /api/v1/payment_methods/:id/set_default
@@ -122,8 +120,7 @@ class Api::V1::PaymentMethodsController < ApplicationController
       data: payment_method_data(@payment_method)
     )
   rescue StandardError => e
-    Rails.logger.error "Failed to set default payment method: #{e.message}"
-    render_error("Failed to set default payment method: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to set default payment method", exception: e)
   end
 
   private

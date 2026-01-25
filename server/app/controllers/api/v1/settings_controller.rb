@@ -218,7 +218,7 @@ class Api::V1::SettingsController < ApplicationController
         timestamp: Time.current.iso8601
       }
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to broadcast settings update: #{e.message}"
   end
 

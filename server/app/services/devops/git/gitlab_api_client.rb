@@ -13,17 +13,17 @@ module Devops
     # Authentication & User
 
     def test_connection
-      result = get("/user")
-      {
-        success: true,
-        username: result["username"],
-        user_id: result["id"].to_s,
-        avatar_url: result["avatar_url"],
-        email: result["email"],
-        scopes: []
-      }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        result = get("/user")
+        {
+          success: true,
+          username: result["username"],
+          user_id: result["id"].to_s,
+          avatar_url: result["avatar_url"],
+          email: result["email"],
+          scopes: []
+        }
+      end
     end
 
     def current_user
@@ -143,39 +143,35 @@ module Devops
     end
 
     def create_webhook(repository, secret)
-      project_path = "#{repository.owner}/#{repository.name}"
-
-      payload = {
-        url: webhook_callback_url,
-        push_events: true,
-        merge_requests_events: true,
-        issues_events: true,
-        note_events: true,
-        tag_push_events: true,
-        pipeline_events: true,
-        job_events: true,
-        deployment_events: true,
-        releases_events: true,
-        token: secret,
-        enable_ssl_verification: true
-      }
-
-      result = post("/projects/#{CGI.escape(project_path)}/hooks", payload)
-      { success: true, webhook_id: result["id"].to_s }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        project_path = "#{repository.owner}/#{repository.name}"
+        payload = {
+          url: webhook_callback_url,
+          push_events: true,
+          merge_requests_events: true,
+          issues_events: true,
+          note_events: true,
+          tag_push_events: true,
+          pipeline_events: true,
+          job_events: true,
+          deployment_events: true,
+          releases_events: true,
+          token: secret,
+          enable_ssl_verification: true
+        }
+        result = post("/projects/#{CGI.escape(project_path)}/hooks", payload)
+        { success: true, webhook_id: result["id"].to_s }
+      end
     end
 
     def delete_webhook(repository)
       return { success: false, error: "No webhook configured" } unless repository.webhook_id
 
-      project_path = "#{repository.owner}/#{repository.name}"
-      delete("/projects/#{CGI.escape(project_path)}/hooks/#{repository.webhook_id}")
-      { success: true }
-    rescue NotFoundError
-      { success: true }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling(default_on_not_found: { success: true }) do
+        project_path = "#{repository.owner}/#{repository.name}"
+        delete("/projects/#{CGI.escape(project_path)}/hooks/#{repository.webhook_id}")
+        { success: true }
+      end
     end
 
     # CI/CD Pipelines
@@ -213,30 +209,29 @@ module Devops
     end
 
     def trigger_workflow(owner, repo, _workflow_id, ref, inputs = {})
-      project_path = "#{owner}/#{repo}"
-      payload = { ref: ref }
-      payload[:variables] = inputs.map { |k, v| { key: k.to_s, value: v.to_s } } if inputs.present?
-
-      pipeline = post("/projects/#{CGI.escape(project_path)}/pipeline", payload)
-      { success: true, pipeline_id: pipeline["id"] }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        project_path = "#{owner}/#{repo}"
+        payload = { ref: ref }
+        payload[:variables] = inputs.map { |k, v| { key: k.to_s, value: v.to_s } } if inputs.present?
+        pipeline = post("/projects/#{CGI.escape(project_path)}/pipeline", payload)
+        { success: true, pipeline_id: pipeline["id"] }
+      end
     end
 
     def cancel_workflow_run(owner, repo, run_id)
-      project_path = "#{owner}/#{repo}"
-      post("/projects/#{CGI.escape(project_path)}/pipelines/#{run_id}/cancel")
-      { success: true }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        project_path = "#{owner}/#{repo}"
+        post("/projects/#{CGI.escape(project_path)}/pipelines/#{run_id}/cancel")
+        { success: true }
+      end
     end
 
     def rerun_workflow(owner, repo, run_id)
-      project_path = "#{owner}/#{repo}"
-      pipeline = post("/projects/#{CGI.escape(project_path)}/pipelines/#{run_id}/retry")
-      { success: true, pipeline_id: pipeline["id"] }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        project_path = "#{owner}/#{repo}"
+        pipeline = post("/projects/#{CGI.escape(project_path)}/pipelines/#{run_id}/retry")
+        { success: true, pipeline_id: pipeline["id"] }
+      end
     end
 
     # Commit Statuses
@@ -248,17 +243,16 @@ module Devops
     end
 
     def create_commit_status(owner, repo, sha, state, options = {})
-      project_path = "#{owner}/#{repo}"
-      payload = { state: gitlab_commit_state(state) }
-      payload[:target_url] = options[:target_url] if options[:target_url]
-      payload[:description] = options[:description] if options[:description]
-      payload[:name] = options[:context] || "default"
-      payload[:ref] = options[:ref] if options[:ref]
-
-      result = post("/projects/#{CGI.escape(project_path)}/statuses/#{sha}", payload)
-      { success: true, id: result["id"], state: result["status"] }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        project_path = "#{owner}/#{repo}"
+        payload = { state: gitlab_commit_state(state) }
+        payload[:target_url] = options[:target_url] if options[:target_url]
+        payload[:description] = options[:description] if options[:description]
+        payload[:name] = options[:context] || "default"
+        payload[:ref] = options[:ref] if options[:ref]
+        result = post("/projects/#{CGI.escape(project_path)}/statuses/#{sha}", payload)
+        { success: true, id: result["id"], state: result["status"] }
+      end
     end
 
     # Branch Protection
@@ -272,37 +266,34 @@ module Devops
     end
 
     def update_branch_protection(owner, repo, branch, options = {})
-      project_path = "#{owner}/#{repo}"
+      with_error_handling do
+        project_path = "#{owner}/#{repo}"
 
-      # GitLab requires deleting and recreating protection
-      begin
-        delete("/projects/#{CGI.escape(project_path)}/protected_branches/#{CGI.escape(branch)}")
-      rescue NotFoundError
-        # Ignore if not protected
+        # GitLab requires deleting and recreating protection
+        begin
+          delete("/projects/#{CGI.escape(project_path)}/protected_branches/#{CGI.escape(branch)}")
+        rescue NotFoundError
+          # Ignore if not protected
+        end
+
+        payload = {
+          name: branch,
+          push_access_level: options[:push_access_level] || 40,      # Maintainers by default
+          merge_access_level: options[:merge_access_level] || 40,    # Maintainers by default
+          allow_force_push: options[:allow_force_push] || false,
+          code_owner_approval_required: options[:code_owner_approval_required] || false
+        }
+        result = post("/projects/#{CGI.escape(project_path)}/protected_branches", payload)
+        { success: true, protection: normalize_branch_protection(result) }
       end
-
-      payload = {
-        name: branch,
-        push_access_level: options[:push_access_level] || 40,      # Maintainers by default
-        merge_access_level: options[:merge_access_level] || 40,    # Maintainers by default
-        allow_force_push: options[:allow_force_push] || false,
-        code_owner_approval_required: options[:code_owner_approval_required] || false
-      }
-
-      result = post("/projects/#{CGI.escape(project_path)}/protected_branches", payload)
-      { success: true, protection: normalize_branch_protection(result) }
-    rescue ApiError => e
-      { success: false, error: e.message }
     end
 
     def delete_branch_protection(owner, repo, branch)
-      project_path = "#{owner}/#{repo}"
-      delete("/projects/#{CGI.escape(project_path)}/protected_branches/#{CGI.escape(branch)}")
-      { success: true }
-    rescue NotFoundError
-      { success: true } # Already unprotected
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling(default_on_not_found: { success: true }) do
+        project_path = "#{owner}/#{repo}"
+        delete("/projects/#{CGI.escape(project_path)}/protected_branches/#{CGI.escape(branch)}")
+        { success: true }
+      end
     end
 
     def list_protected_branches(owner, repo)
@@ -326,27 +317,20 @@ module Devops
     end
 
     def create_deploy_key(owner, repo, title, key, options = {})
-      project_path = "#{owner}/#{repo}"
-      payload = {
-        title: title,
-        key: key,
-        can_push: options[:read_only] == false
-      }
-
-      result = post("/projects/#{CGI.escape(project_path)}/deploy_keys", payload)
-      { success: true, key: normalize_deploy_key(result) }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        project_path = "#{owner}/#{repo}"
+        payload = { title: title, key: key, can_push: options[:read_only] == false }
+        result = post("/projects/#{CGI.escape(project_path)}/deploy_keys", payload)
+        { success: true, key: normalize_deploy_key(result) }
+      end
     end
 
     def delete_deploy_key(owner, repo, key_id)
-      project_path = "#{owner}/#{repo}"
-      delete("/projects/#{CGI.escape(project_path)}/deploy_keys/#{key_id}")
-      { success: true }
-    rescue NotFoundError
-      { success: true } # Already deleted
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling(default_on_not_found: { success: true }) do
+        project_path = "#{owner}/#{repo}"
+        delete("/projects/#{CGI.escape(project_path)}/deploy_keys/#{key_id}")
+        { success: true }
+      end
     end
 
     # Commit Viewing - Comprehensive Git View Capabilities
@@ -791,7 +775,7 @@ module Devops
         deletions: deletions,
         changes: additions + deletions,
         previous_filename: file["renamed_file"] ? file["old_path"] : nil,
-        hunks: parse_gitlab_patch_hunks(patch),
+        hunks: parse_patch_hunks(patch),
         is_binary: file["diff"].blank? && !file["new_file"] && !file["deleted_file"],
         is_large: false,
         truncated: false,
@@ -799,63 +783,7 @@ module Devops
       }
     end
 
-    def parse_gitlab_patch_hunks(patch)
-      return [] if patch.blank?
-
-      hunks = []
-      current_hunk = nil
-      old_line = 0
-      new_line = 0
-
-      patch.lines.each do |line|
-        if line.start_with?("@@")
-          match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/)
-          if match
-            current_hunk = {
-              header: line.chomp,
-              old_start: match[1].to_i,
-              old_lines: match[2]&.to_i || 1,
-              new_start: match[3].to_i,
-              new_lines: match[4]&.to_i || 1,
-              lines: []
-            }
-            hunks << current_hunk
-            old_line = current_hunk[:old_start]
-            new_line = current_hunk[:new_start]
-          end
-        elsif current_hunk
-          line_type = case line[0]
-                      when "+" then "addition"
-                      when "-" then "deletion"
-                      when " " then "context"
-                      else "context"
-                      end
-
-          diff_line = {
-            type: line_type,
-            content: line[1..].to_s.chomp
-          }
-
-          case line_type
-          when "deletion"
-            diff_line[:old_line_number] = old_line
-            old_line += 1
-          when "addition"
-            diff_line[:new_line_number] = new_line
-            new_line += 1
-          when "context"
-            diff_line[:old_line_number] = old_line
-            diff_line[:new_line_number] = new_line
-            old_line += 1
-            new_line += 1
-          end
-
-          current_hunk[:lines] << diff_line
-        end
-      end
-
-      hunks
-    end
+    # parse_patch_hunks is now inherited from ApiClient base class
 
     def normalize_gitlab_comparison(comparison)
       return nil unless comparison

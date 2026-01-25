@@ -12,7 +12,7 @@ import {
   FeatureFormData,
   LimitFormData,
   PlanComparison
-} from '@/shared/services/planFeaturesApi';
+} from '@/shared/services/billing/planFeaturesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { FeatureModal } from './FeatureModal';

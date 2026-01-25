@@ -46,10 +46,8 @@ class Api::V1::ActivitiesController < ApplicationController
           permissions: @worker.all_permissions
         }
       })
-    rescue => e
-      Rails.logger.error "Activities controller error: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
-      render_error("Failed to load activities: #{e.message}", status: :internal_server_error)
+    rescue StandardError => e
+      render_internal_error("Failed to load activities", exception: e)
     end
   end
 

@@ -110,7 +110,7 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
         end
 
         results[:success] += 1
-      rescue => e
+      rescue StandardError => e
         results[:errors] << "Review #{review.id}: #{e.message}"
         results[:failed] += 1
       end

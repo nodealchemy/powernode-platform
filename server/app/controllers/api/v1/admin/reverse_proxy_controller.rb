@@ -33,7 +33,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
       service_templates: AdminSetting.service_templates,
       health_status: AdminSetting.proxy_health_status
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to fetch reverse proxy config: #{e.message}"
     render_error("Failed to fetch reverse proxy configuration", status: :internal_server_error)
   end
@@ -55,7 +55,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
 
     Rails.logger.info "Reverse proxy config updated by user #{current_user.email}"
     render_success({ message: "Reverse proxy configuration updated successfully" })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to update reverse proxy config: #{e.message}"
     render_error("Failed to update reverse proxy configuration", status: :internal_server_error)
   end
@@ -95,7 +95,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
         status: "started",
         message: "Configuration test started. Use job_id to check progress."
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to start configuration test: #{e.message}"
       render_error("Failed to start configuration test", status: :internal_server_error)
     end
@@ -138,7 +138,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
         proxy_type: proxy_type,
         message: "#{proxy_type.capitalize} configuration generation started. Use job_id to check progress."
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to start config generation: #{e.message}"
       render_error("Failed to start config generation", status: :internal_server_error)
     end
@@ -149,7 +149,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     begin
       health_status = AdminSetting.proxy_health_status
       render_success(health_status)
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Health check failed: #{e.message}"
       render_error("Health check failed", status: :internal_server_error)
     end
@@ -166,7 +166,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
         services_configured: config.dig("environments", config["current_environment"])&.keys || [],
         last_updated: AdminSetting.find_by(key: "reverse_proxy_config")&.updated_at
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Status check failed: #{e.message}"
       render_error("Status check failed", status: :internal_server_error)
     end
@@ -182,7 +182,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
 
     Rails.logger.info "URL mapping created: #{mapping_data['pattern']} -> #{mapping_data['target_service']}"
     render_success({ message: "URL mapping created successfully", mapping: mapping_data })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to create URL mapping: #{e.message}"
     render_error("Failed to create URL mapping", status: :internal_server_error)
   end
@@ -196,7 +196,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
 
     Rails.logger.info "URL mapping updated: #{mapping_id}"
     render_success({ message: "URL mapping updated successfully" })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to update URL mapping: #{e.message}"
     render_error("Failed to update URL mapping", status: :internal_server_error)
   end
@@ -209,7 +209,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
 
     Rails.logger.info "URL mapping removed: #{mapping_id}"
     render_success({ message: "URL mapping removed successfully" })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to remove URL mapping: #{e.message}"
     render_error("Failed to remove URL mapping", status: :internal_server_error)
   end
@@ -223,7 +223,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
 
     Rails.logger.info "URL mapping #{enabled ? 'enabled' : 'disabled'}: #{mapping_id}"
     render_success({ message: "URL mapping #{enabled ? 'enabled' : 'disabled'} successfully" })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to toggle URL mapping: #{e.message}"
     render_error("Failed to toggle URL mapping", status: :internal_server_error)
   end
@@ -255,7 +255,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     ]
 
     render_success(discovered)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to get discovered services: #{e.message}"
     render_error("Failed to retrieve discovered services", status: :internal_server_error)
   end
@@ -293,7 +293,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
         methods: config["methods"],
         message: "Service discovery started. Use job_id to check progress and results."
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to start service discovery: #{e.message}"
       render_error("Failed to start service discovery", status: :internal_server_error)
     end
@@ -322,7 +322,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     render_success({
       message: "Service #{service_data[:name]} added to configuration"
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to add discovered service: #{e.message}"
     render_error("Failed to add service to configuration", status: :internal_server_error)
   end
@@ -355,7 +355,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
       timeframe: "Last #{hours} hours",
       data_points: data_points.reverse
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to get health history: #{e.message}"
     render_error("Failed to retrieve health history", status: :internal_server_error)
   end
@@ -371,7 +371,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     render_success({
       message: "Health check configuration updated for #{service_name}"
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to update health config: #{e.message}"
     render_error("Failed to update health check configuration", status: :internal_server_error)
   end
@@ -411,7 +411,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
         response_time: response_time,
         error: error
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Service test failed: #{e.message}"
       render_success({
         status: "unreachable",
@@ -573,7 +573,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     render_success({
       message: "Service #{service_name} duplicated as #{new_name}"
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to duplicate service: #{e.message}"
     render_error("Failed to duplicate service", status: :internal_server_error)
   end
@@ -632,7 +632,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
       errors: errors,
       message: "Import completed: #{imported_count} imported, #{skipped_count} skipped"
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to import services: #{e.message}"
     render_error("Failed to import services", status: :internal_server_error)
   end
@@ -747,7 +747,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
           response_time_ms: response_time,
           url: health_url
         }
-      rescue => e
+      rescue StandardError => e
         results[service_name] = {
           status: "unreachable",
           error: e.message,

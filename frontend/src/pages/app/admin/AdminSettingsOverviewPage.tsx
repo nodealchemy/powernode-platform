@@ -180,7 +180,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <SystemStatusCard
           title="System Health"
-          status={metrics.system_health as any}
+          status={metrics.system_health}
           value={metrics.system_health === 'healthy' ? 'Operational' : 
                  metrics.system_health === 'warning' ? 'Warnings' : 'Critical'}
           description={`Uptime: ${adminSettingsApi.formatUptime(metrics.uptime)}`}
@@ -544,7 +544,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                           <p className="text-sm text-theme-secondary truncate">{user.email}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-xs bg-theme-background px-2 py-1 rounded text-theme-secondary">
-                              {Array.isArray(user.roles) && user.roles.length > 0 ? (typeof user.roles[0] === 'object' ? (user.roles[0] as any)?.display_name || (user.roles[0] as any)?.name : user.roles[0]) : 'N/A'}
+                              {Array.isArray(user.roles) && user.roles.length > 0 ? (typeof user.roles[0] === 'object' ? (user.roles[0] as { display_name?: string; name?: string })?.display_name || (user.roles[0] as { display_name?: string; name?: string })?.name : user.roles[0]) : 'N/A'}
                             </span>
                             <span className="text-xs text-theme-tertiary">
                               {adminSettingsApi.formatRelativeTime(user.created_at)}

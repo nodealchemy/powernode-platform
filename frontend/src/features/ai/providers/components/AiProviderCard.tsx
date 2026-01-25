@@ -61,9 +61,6 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
           });
           onUpdate();
         } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Failed to delete provider:', error);
-          }
           addNotification({
             type: 'error',
             title: 'Delete Failed',
@@ -94,7 +91,6 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
         onUpdate();
       }
     } catch (error) {
-      console.error('Failed to test connection:', error);
       addNotification({
         type: 'error',
         title: 'Test Failed',
@@ -118,7 +114,6 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       
       onUpdate();
     } catch (error) {
-      console.error('Failed to sync models:', error);
       addNotification({
         type: 'error',
         title: 'Sync Failed',

@@ -24,7 +24,7 @@ export const PlanStickyCta: React.FC<PlanStickyCtaProps> = ({
           {/* Plan Summary */}
           <div className="flex items-center space-x-6">
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br from-green-500 to-green-600">
                 <CheckIcon className="h-6 w-6 text-white" />
               </div>
               <div>
@@ -59,11 +59,7 @@ export const PlanStickyCta: React.FC<PlanStickyCtaProps> = ({
             <button
               onClick={onContinue}
               data-testid="continue-to-registration"
-              className="inline-flex items-center justify-center space-x-3 text-white font-semibold px-8 py-4 rounded-xl transition-all duration-200 transform hover:scale-105 min-w-[200px]"
-              style={{
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.5)',
-              }}
+              className="inline-flex items-center justify-center space-x-3 text-white font-semibold px-8 py-4 rounded-xl transition-all duration-200 transform hover:scale-105 min-w-[200px] bg-gradient-to-br from-blue-500 to-violet-500 shadow-lg shadow-blue-500/50"
             >
               <span>Get Started</span>
               <ArrowRightIcon className="h-5 w-5" />

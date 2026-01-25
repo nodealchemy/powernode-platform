@@ -175,7 +175,7 @@ class Ai::WorkflowAutoFixService
 
     log_fix("missing_start_node", "Marked '#{start_node.name}' as start node")
     true
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to fix missing_start_node: #{e.message}")
     false
   end
@@ -209,7 +209,7 @@ class Ai::WorkflowAutoFixService
 
     log_fix(issue[:code], "Set timeout to #{recommended_timeout}s for '#{node.name}'")
     true
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to fix #{issue[:code]}: #{e.message}")
     false
   end
@@ -228,7 +228,7 @@ class Ai::WorkflowAutoFixService
 
     log_fix("missing_max_iterations", "Set max_iterations to #{recommended_max} for '#{node.name}'")
     true
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to fix missing_max_iterations: #{e.message}")
     false
   end
@@ -257,7 +257,7 @@ class Ai::WorkflowAutoFixService
 
     log_fix("orphaned_node", "Connected '#{orphaned_node.name}' to '#{start_node.name}'")
     true
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to fix orphaned_node: #{e.message}")
     false
   end
@@ -274,7 +274,7 @@ class Ai::WorkflowAutoFixService
 
     log_fix("missing_configuration", "Applied default configuration for '#{node.name}'")
     true
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to fix missing_configuration: #{e.message}")
     false
   end

@@ -21,7 +21,7 @@ class Api::V1::TwoFactorsController < ApplicationController
           backup_codes: current_user.two_factor_backup_codes
         }
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "2FA enable error: #{e.message}"
       render_error(
         "Failed to enable two-factor authentication",

@@ -179,7 +179,8 @@ module Api
             p99: calculate_percentile(RequestMetric.where("created_at >= ?", since).pluck(:duration_ms), 99),
             data_points: data_points
           }
-        rescue
+        rescue StandardError => e
+          Rails.logger.error "Failed to fetch response time metrics: #{e.message}"
           { current: nil, average: nil, p95: nil, p99: nil, data_points: {} }
         end
 
@@ -193,7 +194,8 @@ module Api
             rate_per_minute: RequestMetric.where("created_at >= ?", 1.minute.ago).count,
             data_points: data_points
           }
-        rescue
+        rescue StandardError => e
+          Rails.logger.error "Failed to fetch request count metrics: #{e.message}"
           { total: 0, rate_per_minute: 0, data_points: {} }
         end
 
@@ -206,7 +208,8 @@ module Api
             error_count: errors,
             total_requests: total
           }
-        rescue
+        rescue StandardError => e
+          Rails.logger.error "Failed to fetch error rate metrics: #{e.message}"
           { rate: 0, error_count: 0, total_requests: 0 }
         end
 

@@ -33,7 +33,6 @@ import type {
   ImagePolicy,
   PolicyType,
   EnforcementLevel,
-  Severity as ContainerSeverity,
   VulnerabilityScan,
   ContainerImageDetail,
 } from '../types/container';
@@ -63,7 +62,6 @@ import type {
 import type {
   Alert,
   ActivityItem,
-  SupplyChainDashboard,
   Pagination,
   ApiResponse,
   PaginatedResponse,

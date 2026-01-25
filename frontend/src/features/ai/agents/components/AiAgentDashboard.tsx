@@ -94,12 +94,9 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
         success_rate: Math.round(avgSuccessRate)
       });
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load dashboard data:', error);
-      }
-
       // Check if it's an authentication error
-      const isAuthError = (error as any)?.response?.status === 401;
+      const httpError = error as { response?: { status?: number } };
+      const isAuthError = httpError?.response?.status === 401;
       const errorMessage = isAuthError
         ? 'Please log in to view AI agents data'
         : 'Failed to load AI agents from server';
@@ -182,7 +179,6 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
       }
       loadDashboardData(); // Refresh the list
     } catch (error) {
-      console.error('Failed to toggle agent status:', error);
       addNotification({
         type: 'error',
         title: 'Error',

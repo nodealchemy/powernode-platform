@@ -25,7 +25,7 @@ module Security
         # Log blacklist action
         Rails.logger.info "JWT token blacklisted: #{jti[0..7]}... (reason: #{reason})"
         true
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to blacklist JWT token #{jti}: #{e.message}"
         false
       end
@@ -39,7 +39,7 @@ module Security
         else
           blacklisted_in_database?(jti)
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Error checking JWT blacklist for #{jti}: #{e.message}"
         # Fail open - if we can't check blacklist, allow the token
         false
@@ -54,7 +54,7 @@ module Security
         end
 
         Rails.logger.info "All JWT tokens blacklisted for user #{user_id} (reason: #{reason})"
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to blacklist user tokens for #{user_id}: #{e.message}"
         false
       end
@@ -66,7 +66,7 @@ module Security
         else
           cleanup_expired_database
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to cleanup expired JWT blacklist entries: #{e.message}"
       end
 
@@ -77,7 +77,7 @@ module Security
         else
           statistics_database
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to get JWT blacklist statistics: #{e.message}"
         { total: 0, error: e.message }
       end

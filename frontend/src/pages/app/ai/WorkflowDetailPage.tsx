@@ -58,7 +58,6 @@ export const WorkflowDetailPage: React.FC = () => {
         const response = await workflowsApi.getWorkflow(id);
         setWorkflow(response);
       } catch (error) {
-        console.error('Failed to load workflow:', error);
         addNotification({
           type: 'error',
           title: 'Error',
@@ -82,7 +81,7 @@ export const WorkflowDetailPage: React.FC = () => {
       const response = await workflowsApi.getRuns(id, { workflow_id: id });
       setWorkflowRuns(response.items);
     } catch (error) {
-      console.error('Failed to load workflow runs:', error);
+      // Error handled silently - runs may not be available
     } finally {
       setRunsLoading(false);
     }
@@ -196,7 +195,6 @@ export const WorkflowDetailPage: React.FC = () => {
       // Navigate to execution monitoring
       navigate(`/app/ai/workflows/${workflow.id}/runs/${response.run_id}`);
     } catch (error) {
-      console.error('Failed to execute workflow:', error);
       addNotification({
         type: 'error',
         title: 'Execution Failed',
@@ -226,7 +224,6 @@ export const WorkflowDetailPage: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to validate workflow:', error);
       addNotification({
         type: 'error',
         title: 'Validation Failed',
@@ -259,7 +256,6 @@ export const WorkflowDetailPage: React.FC = () => {
         message: 'Workflow has been exported successfully.'
       });
     } catch (error) {
-      console.error('Failed to export workflow:', error);
       addNotification({
         type: 'error',
         title: 'Export Failed',
@@ -295,9 +291,6 @@ export const WorkflowDetailPage: React.FC = () => {
       const response = await workflowsApi.getWorkflow(workflow.id);
       setWorkflow(response);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to convert to template:', error);
-      }
       addNotification({
         type: 'error',
         title: 'Conversion Failed',
@@ -323,9 +316,6 @@ export const WorkflowDetailPage: React.FC = () => {
       const response = await workflowsApi.getWorkflow(workflow.id);
       setWorkflow(response);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to convert to workflow:', error);
-      }
       addNotification({
         type: 'error',
         title: 'Conversion Failed',

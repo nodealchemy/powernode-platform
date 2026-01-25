@@ -105,7 +105,7 @@ class Api::V1::AppWebhooksController < ApplicationController
           payload: @app_webhook.build_payload(test_event_data)
         }
       )
-    rescue => e
+    rescue StandardError => e
       render_error(
         "Failed to test webhook",
         :unprocessable_content,

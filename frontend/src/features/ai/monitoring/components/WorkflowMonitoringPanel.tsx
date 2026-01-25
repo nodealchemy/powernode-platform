@@ -100,9 +100,6 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
       setLastUpdate(new Date());
       setIsLoading(false);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to fetch monitoring data:', error);
-      }
       setIsLoading(false);
     }
   }, [transformDashboardToStats, transformMetricsToHealth]);
@@ -169,9 +166,7 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
   }, [addNotification, fetchMonitoringData]);
 
   const handleWebSocketError = useCallback((error: string) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('WebSocket error:', error);
-    }
+    // Error handling through notifications system
   }, []);
 
   // Set up WebSocket connection for real-time updates

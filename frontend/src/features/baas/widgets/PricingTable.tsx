@@ -42,16 +42,14 @@ export const PricingTable: React.FC<PricingTableProps> = ({
   const isDark = theme === 'dark';
 
   const baseClasses = isDark
-    ? 'bg-gray-900 text-white'
-    : 'bg-white text-gray-900';
+    ? 'bg-theme-background text-white'
+    : 'bg-white text-theme-primary';
 
-  const cardClasses = isDark
-    ? 'bg-gray-800 border-gray-700'
-    : 'bg-white border-gray-200';
+  const cardClasses = 'bg-theme-surface border-theme-border';
 
   const highlightClasses = isDark
-    ? 'ring-2 ring-blue-500 bg-gray-750'
-    : 'ring-2 ring-blue-500 shadow-lg';
+    ? 'ring-2 ring-theme-info bg-theme-surface-alt'
+    : 'ring-2 ring-theme-info shadow-lg';
 
   return (
     <div className={`p-6 ${baseClasses}`}>
@@ -65,7 +63,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({
           >
             {plan.highlighted && (
               <div className="text-center mb-4">
-                <span className="px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full">
+                <span className="px-3 py-1 bg-theme-info text-white text-xs font-medium rounded-full">
                   Most Popular
                 </span>
               </div>
@@ -74,7 +72,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({
             <div className="text-center mb-6">
               <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
               {plan.description && (
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className="text-sm text-theme-muted">
                   {plan.description}
                 </p>
               )}
@@ -84,7 +82,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({
               <span className="text-4xl font-bold">
                 {formatPrice(plan.price, plan.currency)}
               </span>
-              <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              <span className="text-sm text-theme-muted">
                 /{plan.interval}
               </span>
             </div>
@@ -93,7 +91,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({
               {plan.features.map((feature, index) => (
                 <li key={index} className="flex items-start gap-2">
                   <svg
-                    className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5"
+                    className="w-5 h-5 text-theme-success flex-shrink-0 mt-0.5"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -103,7 +101,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <span className="text-sm text-theme-secondary">
                     {feature}
                   </span>
                 </li>
@@ -115,12 +113,10 @@ export const PricingTable: React.FC<PricingTableProps> = ({
               disabled={currentPlanId === plan.id}
               className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
                 currentPlanId === plan.id
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ? 'bg-theme-disabled text-theme-muted cursor-not-allowed'
                   : plan.highlighted
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : isDark
-                  ? 'bg-gray-700 text-white hover:bg-gray-600'
-                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  ? 'bg-theme-info text-white hover:bg-theme-info-hover'
+                  : 'bg-theme-surface text-theme-primary hover:bg-theme-border'
               }`}
             >
               {currentPlanId === plan.id

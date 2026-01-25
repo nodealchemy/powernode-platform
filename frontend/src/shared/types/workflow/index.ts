@@ -1,18 +1,37 @@
-// Workflow types barrel export
-// Re-exports all workflow types for backwards compatibility
+/**
+ * Workflow types index - Re-exports all workflow type modules
+ */
 
 // Core workflow types
 export type {
-  AiWorkflow,
-  WorkflowType,
   WorkflowNodeType,
   HandlePosition,
   HandlePositions,
+  WorkflowRunStatus,
+  AiWorkflow,
   AiWorkflowNode,
   AiWorkflowEdge,
   AiWorkflowTrigger,
-  AiWorkflowVariable
-} from './workflow-core';
+  AiWorkflowVariable,
+  WorkflowTemplate,
+  WorkflowFilters,
+  WorkflowExecutionFilters,
+} from './core';
+
+// Node configuration types
+export type {
+  ParameterMapping,
+  KbArticleAction,
+  KbArticleNodeConfiguration,
+  PageAction,
+  PageNodeConfiguration,
+  McpOperationType,
+  McpOperationNodeConfiguration,
+  McpServerForWorkflowBuilder,
+  McpToolForWorkflowBuilder,
+  McpResourceForWorkflowBuilder,
+  McpPromptForWorkflowBuilder,
+} from './configuration';
 
 // Node data types
 export type {
@@ -24,9 +43,6 @@ export type {
   DataProcessorNodeData,
   DatabaseNodeData,
   DelayNodeData,
-  DevopsGetLogsNodeData,
-  DevopsTriggerNodeData,
-  DevopsWaitStatusNodeData,
   EmailNodeData,
   EndNodeData,
   FileNodeData,
@@ -46,6 +62,9 @@ export type {
   TriggerNodeData,
   ValidatorNodeData,
   WebhookNodeData,
+  DevopsTriggerNodeData,
+  DevopsWaitStatusNodeData,
+  DevopsGetLogsNodeData,
   WorkflowNodeData,
   // ReactFlow node types
   AiAgentNode,
@@ -54,9 +73,6 @@ export type {
   DataProcessorNode,
   DatabaseNode,
   DelayNode,
-  DevopsGetLogsNode,
-  DevopsTriggerNode,
-  DevopsWaitStatusNode,
   EmailNode,
   EndNode,
   FileNode,
@@ -76,58 +92,34 @@ export type {
   TriggerNode,
   ValidatorNode,
   WebhookNode,
-  WorkflowNode
-} from './workflow-node-data';
+  DevopsTriggerNode,
+  DevopsWaitStatusNode,
+  DevopsGetLogsNode,
+  WorkflowNode,
+} from './nodes';
 
 // Execution types
 export type {
-  WorkflowRunStatus,
   AiWorkflowRun,
   AiWorkflowNodeExecution,
   WorkflowExecutionStats,
-  WorkflowExecutionFilters
-} from './workflow-execution';
-
-// Template and filter types
-export type {
-  WorkflowTemplate,
-  WorkflowFilters
-} from './workflow-templates';
+} from './execution';
 
 // Monitoring types
 export type {
   WorkflowMonitoringData,
   WorkflowHealthData,
-  WorkflowCostData
-} from './workflow-monitoring';
-
-// WebSocket message types
-export type {
+  WorkflowCostData,
   WorkflowRunUpdateMessage,
   MetricsUpdateMessage,
   CircuitBreakerMessage,
   AIOrchestrationMessage,
-  NodeOutputData
-} from './workflow-messages';
+} from './monitoring';
 
 // Validation types
 export type {
+  NodeOutputData,
   ValidationIssue,
   WorkflowValidationResult,
-  ValidationRule
-} from './workflow-validation';
-
-// MCP configuration types
-export type {
-  ParameterMapping,
-  KbArticleAction,
-  KbArticleNodeConfiguration,
-  PageAction,
-  PageNodeConfiguration,
-  McpOperationType,
-  McpOperationNodeConfiguration,
-  McpServerForWorkflowBuilder,
-  McpToolForWorkflowBuilder,
-  McpResourceForWorkflowBuilder,
-  McpPromptForWorkflowBuilder
-} from './workflow-mcp-config';
+  ValidationRule,
+} from './validation';

@@ -128,7 +128,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
             {['details', 'users', 'activity'].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab as any)}
+                onClick={() => setActiveTab(tab as typeof activeTab)}
                 className={`pb-3 px-1 font-medium text-sm transition-colors ${
                   activeTab === tab
                     ? 'text-theme-primary border-b-2 border-theme-interactive-primary'

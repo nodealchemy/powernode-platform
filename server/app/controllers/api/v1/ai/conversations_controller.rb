@@ -213,7 +213,7 @@ module Api
 
           render_success({ stats: stats })
         rescue StandardError => e
-          render_error("Failed to retrieve conversation stats: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to retrieve conversation stats", exception: e)
         end
 
         private

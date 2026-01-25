@@ -7,9 +7,9 @@ export const UnauthorizedPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-theme-background-secondary relative overflow-hidden">
       {/* Decorative Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-red-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-orange-500/5 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-yellow-500/5 rounded-full blur-2xl" />
+        <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-theme-danger/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-theme-warning/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-theme-warning/5 rounded-full blur-2xl" />
       </div>
 
       <div className="text-center max-w-md mx-auto px-4">

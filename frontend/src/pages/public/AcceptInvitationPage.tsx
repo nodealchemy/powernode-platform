@@ -35,8 +35,8 @@ export const AcceptInvitationPage: React.FC = () => {
       
       if (response.success) {
         setInvitation(response.data);
-        if ((response.data as any).status !== 'pending') {
-          setError(`This invitation has been ${(response.data as any).status}`);
+        if (response.data.status !== 'pending') {
+          setError(`This invitation has been ${response.data.status}`);
         }
       } else {
         setError(response.message || 'Invitation not found or expired');

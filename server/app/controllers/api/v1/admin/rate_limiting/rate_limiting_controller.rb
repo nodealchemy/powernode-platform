@@ -11,7 +11,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
       stats = RateLimiting::BaseService.get_statistics
 
       render_success(stats)
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to get rate limiting statistics: #{e.message}"
       render_error("Failed to retrieve rate limiting statistics", status: :internal_server_error)
     end
@@ -26,7 +26,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
         violations: violations,
         total_count: violations.count
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to get rate limiting violations: #{e.message}"
       render_error("Failed to retrieve rate limiting violations", status: :internal_server_error)
     end
@@ -47,7 +47,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
         identifier: identifier,
         limits: limits
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to get rate limits for #{identifier}: #{e.message}"
       render_error("Failed to retrieve rate limits", status: :internal_server_error)
     end
@@ -74,7 +74,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
       })
     rescue ArgumentError => e
       render_error(e.message, status: :bad_request)
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to clear rate limits for #{identifier}: #{e.message}"
       render_error("Failed to clear rate limits", status: :internal_server_error)
     end
@@ -99,7 +99,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
         disabled_until: (Time.current + duration_minutes.minutes).iso8601,
         duration_minutes: duration_minutes
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to disable rate limiting: #{e.message}"
       render_error("Failed to disable rate limiting", status: :internal_server_error)
     end
@@ -117,7 +117,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
         message: "Rate limiting has been re-enabled",
         enabled_at: Time.current.iso8601
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to re-enable rate limiting: #{e.message}"
       render_error("Failed to re-enable rate limiting", status: :internal_server_error)
     end
@@ -146,7 +146,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
       end
 
       render_success(status_info)
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to get rate limiting status: #{e.message}"
       render_error("Failed to retrieve rate limiting status", status: :internal_server_error)
     end
@@ -313,7 +313,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
           }
         end
       end
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Error getting violations: #{e.message}"
     end
 

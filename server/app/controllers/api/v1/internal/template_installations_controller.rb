@@ -30,8 +30,7 @@ class Api::V1::Internal::TemplateInstallationsController < ApplicationController
   rescue ActiveRecord::RecordNotFound => e
     render_error("Installation not found", status: :not_found)
   rescue StandardError => e
-    Rails.logger.error "Template installation update error: #{e.message}"
-    render_error("Update failed: #{e.message}", status: :internal_server_error)
+    render_internal_error("Update failed", exception: e)
   end
 
   private

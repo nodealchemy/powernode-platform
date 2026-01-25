@@ -19,7 +19,7 @@ export * from './settings/SettingsComponents';
 export { CreateUserModal } from './users/CreateUserModal';
 export { ImpersonateUserModal } from './users/ImpersonateUserModal';
 export { ImpersonationBanner } from './ImpersonationBanner';
-export { ImpersonationHistory } from './ImpersonationHistory';
+export { ImpersonationHistory } from './users/ImpersonationHistory';
 export { SystemUserManagement } from './users/SystemUserManagement';
 
 // System Components

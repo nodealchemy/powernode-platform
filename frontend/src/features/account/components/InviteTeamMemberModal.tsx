@@ -2,7 +2,7 @@ import React from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
-import { invitationsApi, InviteUserRequest } from '@/shared/services/invitationsApi';
+import { invitationsApi, InviteUserRequest } from '@/shared/services/account/invitationsApi';
 import { useForm, FormValidationRules } from '@/shared/hooks/useForm';
 import { Send, UserPlus } from 'lucide-react';
 

@@ -101,9 +101,6 @@ export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = (
       const data = await onLoadMetrics();
       setInternalMetrics(data);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load circuit breaker metrics:', error);
-      }
       addNotification({
         type: 'error',
         title: 'Load Failed',

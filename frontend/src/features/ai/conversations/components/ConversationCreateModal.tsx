@@ -77,7 +77,6 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
         }));
       }
     } catch (error) {
-      console.error('Failed to load agents:', error);
       addNotification({
         type: 'error',
         title: 'Error',

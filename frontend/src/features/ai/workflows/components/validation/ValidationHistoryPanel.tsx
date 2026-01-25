@@ -40,9 +40,6 @@ export const ValidationHistoryPanel: React.FC<ValidationHistoryPanelProps> = ({
       const response = await validationApi.getValidationHistory(workflowId, 20);
       setHistory(response.validations);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load validation history:', error);
-      }
       addNotification({
         type: 'error',
         title: 'Failed to Load History',

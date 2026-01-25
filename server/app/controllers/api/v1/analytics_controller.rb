@@ -66,7 +66,7 @@ class Api::V1::AnalyticsController < ApplicationController
 
     # Trigger analytics notifications check in background
     schedule_analytics_notification_check(data)
-  rescue => e
+  rescue StandardError => e
     render_internal_error("Live analytics error", exception: e)
   end
 
@@ -126,8 +126,8 @@ class Api::V1::AnalyticsController < ApplicationController
     }
 
     render_success(data)
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to retrieve revenue analytics", exception: e)
   end
 
   # GET /api/v1/analytics/growth
@@ -201,8 +201,8 @@ class Api::V1::AnalyticsController < ApplicationController
     }
 
     render_success(data)
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to retrieve growth analytics", exception: e)
   end
 
   # GET /api/v1/analytics/churn
@@ -264,8 +264,8 @@ class Api::V1::AnalyticsController < ApplicationController
     }
 
     render_success(data)
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to retrieve churn analytics", exception: e)
   end
 
   # GET /api/v1/analytics/cohorts
@@ -351,8 +351,8 @@ class Api::V1::AnalyticsController < ApplicationController
     }
 
     render_success(data)
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to retrieve cohort analytics", exception: e)
   end
 
   # GET /api/v1/analytics/customers
@@ -409,8 +409,8 @@ class Api::V1::AnalyticsController < ApplicationController
     }
 
     render_success(data)
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to retrieve customer analytics", exception: e)
   end
 
   # GET/POST /api/v1/analytics/export
@@ -477,8 +477,8 @@ class Api::V1::AnalyticsController < ApplicationController
     else
       render_error("Unsupported export format", status: :bad_request)
     end
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to export analytics", exception: e)
   end
 
   private
@@ -674,7 +674,7 @@ class Api::V1::AnalyticsController < ApplicationController
         data: data
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to broadcast analytics update: #{e.message}"
   end
 
@@ -700,7 +700,7 @@ class Api::V1::AnalyticsController < ApplicationController
         account_id: @account_scope&.id,
         metrics_data: data
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.warn "Failed to schedule analytics notification check: #{e.message}"
       # Don't fail the main request if background job scheduling fails
     end

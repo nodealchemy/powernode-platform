@@ -54,7 +54,8 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
   const [success, setSuccess] = useState<string | null>(null);
   const [showSecretToken, setShowSecretToken] = useState(false);
   const [showTestModal, setShowTestModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'deliveries' | 'test'>('overview');
+  type WebhookTabKey = 'overview' | 'deliveries' | 'test';
+  const [activeTab, setActiveTab] = useState<WebhookTabKey>('overview');
   
   const [deliveryFilters, setDeliveryFilters] = useState({
     status: 'all',
@@ -327,7 +328,7 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
             { id: 'deliveries', label: 'Delivery History', icon: Activity },
             { id: 'test', label: 'Test Webhook', icon: TestTube }
           ].map(tab => (
-            <Button variant="outline" onClick={() => setActiveTab(tab.id as any)}
+            <Button variant="outline" onClick={() => setActiveTab(tab.id as WebhookTabKey)}
               className={`flex items-center gap-2 px-6 py-3 font-medium transition-all duration-200 ${
                 activeTab === tab.id
                   ? 'bg-theme-interactive-primary text-white border-b-2 border-theme-interactive-primary'

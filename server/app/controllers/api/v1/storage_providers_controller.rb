@@ -128,8 +128,7 @@ module Api
           )
         end
       rescue StandardError => e
-        Rails.logger.error "[StorageProvidersController] Connection test failed: #{e.message}"
-        render_error("Connection test failed: #{e.message}", status: :internal_server_error)
+        render_internal_error("Connection test failed", exception: e)
       end
 
       # GET /api/v1/storage_providers/:id/health
@@ -143,8 +142,7 @@ module Api
           checked_at: Time.current.iso8601
         })
       rescue StandardError => e
-        Rails.logger.error "[StorageProvidersController] Health check failed: #{e.message}"
-        render_error("Health check failed: #{e.message}", status: :internal_server_error)
+        render_internal_error("Health check failed", exception: e)
       end
 
       # POST /api/v1/storage_providers/:id/set_default
@@ -197,8 +195,7 @@ module Api
           render_error("Failed to initialize storage backend", status: :unprocessable_content)
         end
       rescue StandardError => e
-        Rails.logger.error "[StorageProvidersController] Initialize failed: #{e.message}"
-        render_error("Initialization failed: #{e.message}", status: :internal_server_error)
+        render_internal_error("Initialization failed", exception: e)
       end
 
       # GET /api/v1/storage_providers/:id/files
@@ -217,8 +214,7 @@ module Api
           count: files.count
         })
       rescue StandardError => e
-        Rails.logger.error "[StorageProvidersController] List files failed: #{e.message}"
-        render_error("Failed to list files: #{e.message}", status: :internal_server_error)
+        render_internal_error("Failed to list files", exception: e)
       end
 
       # GET /api/v1/storage_providers/stats

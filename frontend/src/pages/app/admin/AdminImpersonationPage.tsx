@@ -7,7 +7,7 @@ import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
-import { ImpersonationHistory } from '@/features/admin/components/ImpersonationHistory';
+import { ImpersonationHistory } from '@/features/admin/components';
 import { ImpersonateUserModal } from '@/features/admin/components/users/ImpersonateUserModal';
 import {
   RefreshCw,

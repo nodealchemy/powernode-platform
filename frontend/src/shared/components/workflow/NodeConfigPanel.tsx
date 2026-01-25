@@ -213,13 +213,25 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       setAgents(prev => {
         const existingAgent = prev.find(a => a.id === agentId);
         if (existingAgent) return prev;
-        return [...prev, {
+        // Create a minimal error-state agent that satisfies the AiAgent interface
+        const errorAgent: AiAgent = {
           id: agentId,
           name: 'Agent details unavailable',
-          status: 'unknown',
-          error: 'Failed to load agent details'
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any];
+          description: 'Failed to load agent details',
+          agent_type: 'assistant',
+          ai_provider: { id: '', name: 'Unknown', slug: '', provider_type: '' },
+          mcp_tool_manifest: { name: '', description: '', type: '', version: '' },
+          mcp_capabilities: [],
+          mcp_input_schema: {},
+          mcp_output_schema: {},
+          mcp_metadata: {},
+          status: 'error',
+          metadata: { error: 'Failed to load agent details' },
+          is_active: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        return [...prev, errorAgent];
       });
     } finally {
       loadingAgentsRef.current = false;

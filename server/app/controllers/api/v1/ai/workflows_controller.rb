@@ -192,9 +192,7 @@ module Api
         rescue WorkerJobService::WorkerServiceError => e
           render_error("Failed to start workflow execution: #{e.message}", status: :service_unavailable)
         rescue StandardError => e
-          Rails.logger.error "Workflow execution error: #{e.class}: #{e.message}"
-          Rails.logger.error e.backtrace.first(10).join("\n")
-          render_error("Failed to start workflow execution: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to start workflow execution", exception: e)
         end
 
         # POST /api/v1/ai/workflows/:id/duplicate
@@ -826,9 +824,7 @@ module Api
               )
             end
           rescue StandardError => e
-            Rails.logger.error "Workflow processing error: #{e.message}"
-            Rails.logger.error e.backtrace.first(10).join("\n")
-            render_error("Workflow processing failed: #{e.message}", status: :internal_server_error)
+            render_internal_error("Workflow processing failed", exception: e)
           end
         end
 

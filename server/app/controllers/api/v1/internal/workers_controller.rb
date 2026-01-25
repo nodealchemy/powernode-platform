@@ -33,8 +33,7 @@ class Api::V1::Internal::WorkersController < ApplicationController
   rescue ActiveRecord::RecordNotFound
     render_error("Worker not found", status: :not_found)
   rescue StandardError => e
-    Rails.logger.error "Failed to record test results for worker #{params[:id]}: #{e.message}"
-    render_error("Failed to record test results: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to record test results", exception: e)
   end
 
   # POST /api/v1/internal/workers/:id/ping
@@ -61,8 +60,7 @@ class Api::V1::Internal::WorkersController < ApplicationController
   rescue ActiveRecord::RecordNotFound
     render_error("Worker not found", status: :not_found)
   rescue StandardError => e
-    Rails.logger.error "Failed to record worker ping for #{params[:id]}: #{e.message}"
-    render_error("Failed to record ping: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to record ping", exception: e)
   end
 
   private

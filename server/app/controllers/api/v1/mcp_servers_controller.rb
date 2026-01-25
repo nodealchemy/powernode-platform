@@ -18,18 +18,21 @@ class Api::V1::McpServersController < ApplicationController
     # Filter by connection_type if provided
     servers = servers.where(connection_type: params[:connection_type]) if params[:connection_type].present?
 
+    # Use single aggregation query to avoid N+1
+    status_counts = current_user.account.mcp_servers.group(:status).count
+
     render_success({
       mcp_servers: servers.map { |server| serialize_mcp_server(server) },
       meta: {
         total: servers.count,
-        connected_count: current_user.account.mcp_servers.where(status: "connected").count,
-        disconnected_count: current_user.account.mcp_servers.where(status: "disconnected").count,
-        error_count: current_user.account.mcp_servers.where(status: "error").count
+        connected_count: status_counts["connected"] || 0,
+        disconnected_count: status_counts["disconnected"] || 0,
+        error_count: status_counts["error"] || 0
       }
     })
 
     log_audit_event("mcp.servers.read", current_user.account)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to list MCP servers: #{e.message}"
     render_error("Failed to list MCP servers", status: :internal_server_error)
   end
@@ -41,7 +44,7 @@ class Api::V1::McpServersController < ApplicationController
     })
 
     log_audit_event("mcp.servers.read", @mcp_server)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to get MCP server: #{e.message}"
     render_error("Failed to get MCP server", status: :internal_server_error)
   end
@@ -60,7 +63,7 @@ class Api::V1::McpServersController < ApplicationController
     else
       render_validation_error(server.errors)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to create MCP server: #{e.message}"
     render_error("Failed to create MCP server", status: :internal_server_error)
   end
@@ -77,7 +80,7 @@ class Api::V1::McpServersController < ApplicationController
     else
       render_validation_error(@mcp_server.errors)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to update MCP server: #{e.message}"
     render_error("Failed to update MCP server", status: :internal_server_error)
   end
@@ -91,7 +94,7 @@ class Api::V1::McpServersController < ApplicationController
     })
 
     log_audit_event("mcp.servers.delete", @mcp_server)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to delete MCP server: #{e.message}"
     render_error("Failed to delete MCP server", status: :internal_server_error)
   end
@@ -146,9 +149,9 @@ class Api::V1::McpServersController < ApplicationController
       })
 
       log_audit_event("mcp.servers.health_check", @mcp_server)
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Health check failed: #{e.message}"
-      render_error("Health check failed: #{e.message}", status: :internal_server_error)
+      render_internal_error("Health check failed", exception: e)
     end
   end
 
@@ -188,7 +191,7 @@ class Api::V1::McpServersController < ApplicationController
     })
 
     log_audit_event("mcp.servers.workflow_builder_read", current_user.account)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to load MCP servers for workflow builder: #{e.message}"
     render_error("Failed to load MCP servers", status: :internal_server_error)
   end

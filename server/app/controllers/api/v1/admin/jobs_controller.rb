@@ -24,7 +24,7 @@ class Api::V1::Admin::JobsController < ApplicationController
     })
   rescue ActiveRecord::RecordNotFound
     render_error("Job not found", status: :not_found)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to get job status: #{e.message}"
     render_error("Failed to get job status", status: :internal_server_error)
   end
@@ -58,7 +58,7 @@ class Api::V1::Admin::JobsController < ApplicationController
         limit: 50
       }
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to list jobs: #{e.message}"
     render_error("Failed to list jobs", status: :internal_server_error)
   end

@@ -1,18 +1,24 @@
 import { api } from '@/shared/services/api';
 
+// Type for API error response data
+interface ApiErrorResponseData {
+  message?: string;
+  errors?: string[] | null;
+}
+
 // Helper function to safely extract error information
 const getErrorInfo = (error: unknown, defaultMessage: string) => {
   let errorMessage = defaultMessage;
-  let errors = null;
-  
-  if (error && typeof error === 'object' && 'response' in error && error.response && 
+  let errors: string[] | null = null;
+
+  if (error && typeof error === 'object' && 'response' in error && error.response &&
       typeof error.response === 'object' && 'data' in error.response && error.response.data &&
       typeof error.response.data === 'object') {
-    const responseData = error.response.data as any;
+    const responseData = error.response.data as ApiErrorResponseData;
     errorMessage = responseData.message || errorMessage;
-    errors = responseData.errors;
+    errors = responseData.errors || null;
   }
-  
+
   return { errorMessage, errors };
 };
 
@@ -59,17 +65,8 @@ class InvitationsApi {
         data: response.data
       };
     } catch (error: unknown) {
-      let errorMessage = 'Failed to fetch invitations';
-      let errors = null;
-      
-      if (error && typeof error === 'object' && 'response' in error && error.response && 
-          typeof error.response === 'object' && 'data' in error.response && error.response.data &&
-          typeof error.response.data === 'object') {
-        const responseData = error.response.data as any;
-        errorMessage = responseData.message || errorMessage;
-        errors = responseData.errors;
-      }
-      
+      const { errorMessage, errors } = getErrorInfo(error, 'Failed to fetch invitations');
+
       return {
         success: false,
         data: [],
@@ -157,7 +154,7 @@ class InvitationsApi {
     last_name: string;
     password: string;
     password_confirmation: string;
-  }): Promise<InvitationsApiResponse<any>> {
+  }): Promise<InvitationsApiResponse<{ user: { id: string; email: string } } | null>> {
     try {
       const response = await api.post(`/api/v1/invitations/${token}/accept`, userData);
       return {

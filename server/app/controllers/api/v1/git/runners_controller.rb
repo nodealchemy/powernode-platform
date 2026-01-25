@@ -210,7 +210,7 @@ module Api
           end
 
           synced
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to sync runners for credential #{credential.id}: #{e.message}"
           0
         end
@@ -231,7 +231,7 @@ module Api
               )
               synced += 1
             end
-          rescue => e
+          rescue StandardError => e
             Rails.logger.warn "Admin runner sync not available for credential #{credential.id}: #{e.message}"
           end
 
@@ -263,7 +263,7 @@ module Api
           end
 
           synced
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to sync runners for repository #{repository.id}: #{e.message}"
           0
         end

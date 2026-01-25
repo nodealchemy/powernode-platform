@@ -324,7 +324,7 @@ module Api
           header = header.split(" ").last
 
           begin
-            payload = JwtService.decode(header)
+            payload = Security::JwtService.decode(header)
 
             case payload[:type]
             when "access"

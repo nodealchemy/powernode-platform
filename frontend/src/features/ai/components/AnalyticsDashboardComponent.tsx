@@ -126,9 +126,6 @@ export const AnalyticsDashboardComponent: React.FC = () => {
       setAnalyticsData(transformedData);
 
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load analytics data:', error);
-      }
       addNotification({
         type: 'error',
         title: 'Analytics Error',
@@ -173,9 +170,6 @@ export const AnalyticsDashboardComponent: React.FC = () => {
       }
 
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to export data:', error);
-      }
       addNotification({
         type: 'error',
         title: 'Export Failed',

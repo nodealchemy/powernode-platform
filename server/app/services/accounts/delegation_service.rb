@@ -97,7 +97,7 @@ module Accounts
         else
           { success: false, errors: delegation.errors.full_messages }
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Account::DelegationService#create_delegation failed: #{e.message}"
         { success: false, errors: ["Failed to create delegation: #{e.message}"] }
       end
@@ -177,7 +177,7 @@ module Accounts
         else
           { success: false, errors: delegation.errors.full_messages }
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Account::DelegationService#update_delegation failed: #{e.message}"
         { success: false, errors: ["Failed to update delegation: #{e.message}"] }
       end
@@ -203,7 +203,7 @@ module Accounts
         else
           { success: false, errors: delegation.errors.full_messages }
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Account::DelegationService#activate_delegation failed: #{e.message}"
         { success: false, errors: ["Failed to activate delegation: #{e.message}"] }
       end
@@ -225,7 +225,7 @@ module Accounts
         else
           { success: false, errors: delegation.errors.full_messages }
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Account::DelegationService#deactivate_delegation failed: #{e.message}"
         { success: false, errors: ["Failed to deactivate delegation: #{e.message}"] }
       end
@@ -247,7 +247,7 @@ module Accounts
         else
           { success: false, errors: delegation.errors.full_messages }
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Account::DelegationService#revoke_delegation failed: #{e.message}"
         { success: false, errors: ["Failed to revoke delegation: #{e.message}"] }
       end
@@ -311,7 +311,7 @@ module Accounts
         else
           { success: false, errors: ["Permission already assigned or invalid"] }
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Account::DelegationService#add_permission_to_delegation failed: #{e.message}"
         { success: false, errors: ["Failed to add permission: #{e.message}"] }
       end
@@ -338,7 +338,7 @@ module Accounts
         })
 
         { success: true, delegation: delegation }
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Account::DelegationService#remove_permission_from_delegation failed: #{e.message}"
         { success: false, errors: ["Failed to remove permission: #{e.message}"] }
       end
@@ -365,7 +365,7 @@ module Accounts
         ip_address: delegator&.current_sign_in_ip,
         user_agent: "Account::DelegationService"
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.warn "Failed to create audit log for #{action}: #{e.message}"
     end
   end

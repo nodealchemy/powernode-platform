@@ -200,14 +200,16 @@ class MarketplaceListing < ApplicationRecord
   def view_count
     return 0 unless ActiveRecord::Base.connection.table_exists?("app_analytics")
     app.app_analytics.where(metric_name: "listing_view").sum(:metric_value)
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Failed to get view count for listing #{id}: #{e.message}"
     0
   end
 
   def subscription_count
     return 0 unless ActiveRecord::Base.connection.table_exists?("app_subscriptions")
     app.subscription_count
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Failed to get subscription count for listing #{id}: #{e.message}"
     0
   end
 
@@ -221,14 +223,16 @@ class MarketplaceListing < ApplicationRecord
   def average_rating
     return 0.0 unless app.respond_to?(:average_rating)
     app.average_rating
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Failed to get average rating for listing #{id}: #{e.message}"
     0.0
   end
 
   def review_count
     return 0 unless app.respond_to?(:total_reviews)
     app.total_reviews
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Failed to get review count for listing #{id}: #{e.message}"
     0
   end
 

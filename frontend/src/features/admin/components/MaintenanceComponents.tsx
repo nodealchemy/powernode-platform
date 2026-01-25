@@ -14,14 +14,14 @@ import {
   CheckCircle,
   Info
 } from 'lucide-react';
-import { 
-  maintenanceApi, 
-  BackupInfo, 
-  SystemHealth, 
-  CleanupStats, 
+import {
+  maintenanceApi,
+  BackupInfo,
+  SystemHealth,
+  CleanupStats,
   MaintenanceSystemMetrics,
   MaintenanceStatus
-} from '@/shared/services/maintenanceApi';
+} from '@/shared/services/admin/maintenanceApi';
 import { SettingsCard, ToggleSwitch } from './SettingsComponents';
 import { FormField } from '@/shared/components/ui/FormField';
 import { useNotifications } from '@/shared/hooks/useNotifications';

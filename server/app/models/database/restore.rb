@@ -56,7 +56,7 @@ module Database
           backup_type: database_backup.backup_type
         }
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to log restore creation: #{e.message}"
     end
 
@@ -75,7 +75,7 @@ module Database
           error_message: error_message
         }
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to log restore status change: #{e.message}"
     end
   end

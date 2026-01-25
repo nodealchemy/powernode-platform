@@ -41,8 +41,8 @@ export const ProxySettingsTab: React.FC = () => {
     try {
       const data = await proxySettingsApi.getCurrentDetection();
       setDetection(data);
-    } catch (error) {
-      console.error('Failed to load detection status:', error);
+    } catch {
+      // Silently fail - detection status is non-critical
     }
   };
 

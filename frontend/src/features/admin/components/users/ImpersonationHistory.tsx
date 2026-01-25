@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { impersonationApi, ImpersonationSession } from '@/shared/services/impersonationApi';
+import { impersonationApi, ImpersonationSession } from '@/shared/services/account/impersonationApi';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 
@@ -129,7 +129,7 @@ export const ImpersonationHistory: React.FC = () => {
           <div className="flex space-x-2">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
               className="border-theme rounded-md shadow-sm focus:ring-theme-interactive-primary focus:border-theme-focus"
             >
               <option value="all">All Status</option>

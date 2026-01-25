@@ -148,8 +148,9 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
       }
 
       if (executionResponse.status === 'fulfilled') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const nodeExecs = (executionResponse.value as any).node_executions || [];
+        type RunDetailsResponse = { workflow_run: AiWorkflowRun; node_executions: AiWorkflowNodeExecution[] };
+        const runDetails = executionResponse.value as RunDetailsResponse;
+        const nodeExecs = runDetails.node_executions || [];
         setNodeExecutions(nodeExecs);
       } else if (executionResponse.status === 'rejected') {
         const executionError = executionResponse.reason;

@@ -246,8 +246,8 @@ export const CodeSamples: React.FC = () => {
                   {copiedSample === sample.id ? 'Copied!' : 'Copy'}
                 </Button>
               </div>
-              <pre className="p-4 overflow-x-auto text-sm bg-gray-900">
-                <code className="text-gray-100">{SAMPLES[sample.id][selectedLanguage]}</code>
+              <pre className="p-4 overflow-x-auto text-sm bg-theme-background">
+                <code className="text-theme-inverse">{SAMPLES[sample.id][selectedLanguage]}</code>
               </pre>
             </div>
           ))}

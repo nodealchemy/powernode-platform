@@ -41,15 +41,12 @@ export const PlanSelectionPage: React.FC = () => {
       setPlansLoading(true);
       const response = await plansApi.getPublicPlans();
       if (response.success) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setAvailablePlans((response.data as any).plans);
+        const { plans } = response.data;
+        setAvailablePlans(plans);
         // Auto-select the first plan or a featured plan
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((response.data as any).plans.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const featuredPlan = (response.data as any).plans.find((plan: any) => plan.name.toLowerCase().includes('pro') || plan.name.toLowerCase().includes('standard'));
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setSelectedPlanId(featuredPlan?.id || (response.data as any).plans[0].id);
+        if (plans.length > 0) {
+          const featuredPlan = plans.find((plan) => plan.name.toLowerCase().includes('pro') || plan.name.toLowerCase().includes('standard'));
+          setSelectedPlanId(featuredPlan?.id || plans[0].id);
         }
       }
     } catch (error: unknown) {

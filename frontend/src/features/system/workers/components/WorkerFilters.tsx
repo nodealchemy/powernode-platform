@@ -103,7 +103,7 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
           {/* Status Filter */}
           <select
             value={filters.status}
-            onChange={(e) => onChange({ status: e.target.value as any })}
+            onChange={(e) => onChange({ status: e.target.value as WorkerFiltersState['status'] })}
             className="px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
           >
             <option value="all">📊 All Status</option>
@@ -115,7 +115,7 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
           {/* Role Type Filter */}
           <select
             value={filters.roleType}
-            onChange={(e) => onChange({ roleType: e.target.value as any })}
+            onChange={(e) => onChange({ roleType: e.target.value as WorkerFiltersState['roleType'] })}
             className="px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
           >
             <option value="all">🔄 All Types</option>
@@ -210,7 +210,7 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
             <label className="text-sm font-medium text-theme-primary">Sort by:</label>
             <select
               value={filters.sortBy}
-              onChange={(e) => onChange({ sortBy: e.target.value as any })}
+              onChange={(e) => onChange({ sortBy: e.target.value as WorkerFiltersState['sortBy'] })}
               className="px-3 py-1 border border-theme rounded bg-theme-background text-theme-primary text-sm"
             >
               <option value="name">Name</option>
@@ -220,7 +220,7 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
             </select>
             <select
               value={filters.sortOrder}
-              onChange={(e) => onChange({ sortOrder: e.target.value as any })}
+              onChange={(e) => onChange({ sortOrder: e.target.value as WorkerFiltersState['sortOrder'] })}
               className="px-3 py-1 border border-theme rounded bg-theme-background text-theme-primary text-sm"
             >
               <option value="asc">Ascending</option>

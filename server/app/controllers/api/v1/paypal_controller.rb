@@ -41,7 +41,7 @@ class Api::V1::PaypalController < ApplicationController
     else
       render_error(result[:error], :unprocessable_content, details: result[:details])
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal payment creation error: #{e.message}"
     render_error("Failed to create PayPal payment", status: :internal_server_error)
   end
@@ -72,7 +72,7 @@ class Api::V1::PaypalController < ApplicationController
     else
       render_error(result[:error], status: :unprocessable_content)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal payment execution error: #{e.message}"
     render_error("Failed to execute PayPal payment", status: :internal_server_error)
   end
@@ -102,7 +102,7 @@ class Api::V1::PaypalController < ApplicationController
     else
       render_error(result[:error], :unprocessable_content, details: result[:details])
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription plan creation error: #{e.message}"
     render_error("Failed to create PayPal subscription plan", status: :internal_server_error)
   end
@@ -149,7 +149,7 @@ class Api::V1::PaypalController < ApplicationController
     else
       render_error(result[:error], :unprocessable_content, details: result[:details])
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription creation error: #{e.message}"
     render_error("Failed to create PayPal subscription", status: :internal_server_error)
   end
@@ -181,7 +181,7 @@ class Api::V1::PaypalController < ApplicationController
     else
       render_error(result[:error], :unprocessable_content, details: result[:details])
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription execution error: #{e.message}"
     render_error("Failed to execute PayPal subscription", status: :internal_server_error)
   end
@@ -215,7 +215,7 @@ class Api::V1::PaypalController < ApplicationController
     else
       render_error(result[:error], :unprocessable_content, details: result[:details])
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription cancellation error: #{e.message}"
     render_error("Failed to cancel PayPal subscription", status: :internal_server_error)
   end
@@ -247,7 +247,7 @@ class Api::V1::PaypalController < ApplicationController
     else
       render_error(result[:error], :unprocessable_content, details: result[:details])
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal refund creation error: #{e.message}"
     render_error("Failed to create PayPal refund", status: :internal_server_error)
   end

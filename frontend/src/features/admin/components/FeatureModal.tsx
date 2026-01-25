@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Save, AlertTriangle } from 'lucide-react';
-import { planFeaturesApi, PlanFeature, FeatureFormData } from '@/shared/services/planFeaturesApi';
+import { planFeaturesApi, PlanFeature, FeatureFormData } from '@/shared/services/billing/planFeaturesApi';
 
 export interface FeatureModalProps {
   isOpen: boolean;

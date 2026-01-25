@@ -52,7 +52,7 @@ module DataManagement
           cutoff_date: cutoff_date.iso8601,
           remaining_count: AuditLog.count
         }
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to cleanup audit logs: #{e.message}"
         { error: e.message, cleaned_count: 0 }
       end
@@ -71,7 +71,7 @@ module DataManagement
           cleaned_count += cleanup_custom_sessions
 
           Rails.logger.info "Cleaned up #{cleaned_count} expired sessions"
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to cleanup sessions: #{e.message}"
           return { error: e.message, cleaned_count: 0 }
         end
@@ -104,7 +104,7 @@ module DataManagement
               File.delete(file)
               cleaned_count += 1
               cleaned_size += file_size
-            rescue => e
+            rescue StandardError => e
               Rails.logger.warn "Failed to delete temp file #{file}: #{e.message}"
             end
           end
@@ -117,7 +117,7 @@ module DataManagement
           cleaned_size: cleaned_size,
           cleaned_size_human: format_file_size(cleaned_size)
         }
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to cleanup temp files: #{e.message}"
         { error: e.message, cleaned_count: 0, cleaned_size: 0 }
       end
@@ -136,7 +136,7 @@ module DataManagement
           cleared_entries += clear_custom_caches
 
           Rails.logger.info "Cleared #{cleared_entries} cache entries"
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to clear cache: #{e.message}"
           return { error: e.message, cleared_entries: 0 }
         end
@@ -152,7 +152,7 @@ module DataManagement
           ActiveRecord::Base.connection.execute("VACUUM ANALYZE")
           Rails.logger.info "Database vacuum completed"
           { success: true, message: "Database vacuum completed" }
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Database vacuum failed: #{e.message}"
           { success: false, error: e.message }
         end
@@ -163,7 +163,7 @@ module DataManagement
           ActiveRecord::Base.connection.execute("REINDEX DATABASE powernode_development")
           Rails.logger.info "Database reindex completed"
           { success: true, message: "Database reindex completed" }
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Database reindex failed: #{e.message}"
           { success: false, error: e.message }
         end
@@ -204,7 +204,7 @@ module DataManagement
           count += Dir.glob(File.join(dir, "**", "*")).count { |f| File.file?(f) && temp_file?(f) }
         end
         count
-      rescue
+      rescue StandardError
         0
       end
 
@@ -225,14 +225,14 @@ module DataManagement
           end
         end
         size
-      rescue
+      rescue StandardError
         0
       end
 
       def temp_file?(file_path)
         # Consider files older than 1 day as temp files that can be cleaned
         File.mtime(file_path) < 1.day.ago
-      rescue
+      rescue StandardError
         false
       end
 
@@ -244,7 +244,7 @@ module DataManagement
         Dir.glob(File.join(cache_dir, "**", "*")).sum do |file|
           File.file?(file) ? File.size(file) : 0
         end
-      rescue
+      rescue StandardError
         0
       end
 
@@ -254,7 +254,7 @@ module DataManagement
         return 0 unless Dir.exist?(cache_dir)
 
         Dir.glob(File.join(cache_dir, "**", "*")).count { |f| File.file?(f) }
-      rescue
+      rescue StandardError
         0
       end
 
@@ -264,7 +264,7 @@ module DataManagement
             "SELECT pg_database_size(current_database())"
           )
           result.first["pg_database_size"].to_i
-        rescue
+        rescue StandardError
           0
         end
       end
@@ -285,7 +285,7 @@ module DataManagement
           SQL
 
           result.any? { |row| row["dead_ratio"].to_f > 0.1 }
-        rescue
+        rescue StandardError
           false
         end
       end

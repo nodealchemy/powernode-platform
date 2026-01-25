@@ -23,7 +23,7 @@ class Api::V1::SiteSettingsController < ApplicationController
       render_success({
         footer: footer_data
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Footer API error: #{e.message}"
       Rails.logger.error e.backtrace.join("\n")
 
@@ -162,7 +162,7 @@ class Api::V1::SiteSettingsController < ApplicationController
           is_public: value[:is_public] || false
         )
         updated_settings[key] = setting.parsed_value
-      rescue => e
+      rescue StandardError => e
         errors << "#{key}: #{e.message}"
       end
     end

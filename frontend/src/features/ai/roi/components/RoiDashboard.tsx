@@ -59,9 +59,6 @@ export const RoiDashboard: React.FC = () => {
       setComparison(comparisonData);
 
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load ROI data:', error);
-      }
       addNotification({
         type: 'error',
         title: 'ROI Error',

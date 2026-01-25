@@ -60,7 +60,7 @@ module Api
           })
 
           log_audit_event("ai.workflow_validations.read", @workflow)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to list workflow validations: #{e.message}"
           render_error("Failed to list workflow validations", status: :internal_server_error)
         end
@@ -76,7 +76,7 @@ module Api
           })
 
           log_audit_event("ai.workflow_validations.read", @validation)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to get workflow validation: #{e.message}"
           render_error("Failed to get workflow validation", status: :internal_server_error)
         end
@@ -100,7 +100,7 @@ module Api
           log_audit_event("ai.workflow_validations.create", validation)
         rescue ActiveRecord::RecordInvalid => e
           render_validation_error(e.record.errors)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to create workflow validation: #{e.message}"
           render_error("Failed to create workflow validation", status: :internal_server_error)
         end
@@ -129,7 +129,7 @@ module Api
           end
 
           log_audit_event("ai.workflow_validations.read", @workflow)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to get latest workflow validation: #{e.message}"
           render_error("Failed to get latest workflow validation", status: :internal_server_error)
         end
@@ -161,7 +161,7 @@ module Api
             fixed_count: result[:fixed_count],
             fixes: result[:fixes_applied].map { |f| f[:code] }
           })
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to auto-fix workflow: #{e.message}"
           render_error("Failed to apply automatic fixes", status: :internal_server_error)
         end
@@ -197,9 +197,8 @@ module Api
           else
             render_error(result[:message], status: :unprocessable_content)
           end
-        rescue => e
-          Rails.logger.error "Failed to fix issue #{issue_code}: #{e.message}"
-          render_error("Failed to fix issue: #{e.message}", status: :internal_server_error)
+        rescue StandardError => e
+          render_internal_error("Failed to fix issue", exception: e)
         end
 
         # GET /api/v1/ai/workflows/:workflow_id/validations/preview_fixes
@@ -218,7 +217,7 @@ module Api
           })
 
           log_audit_event("ai.workflow_validations.preview_fixes", @workflow)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to preview fixes: #{e.message}"
           render_error("Failed to preview fixes", status: :internal_server_error)
         end

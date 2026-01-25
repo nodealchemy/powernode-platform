@@ -34,7 +34,7 @@ module AuditLogging
       source: (respond_to?(:current_worker) && current_worker&.active?) ? "worker" : "api",
       **options
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log audit event '#{action}': #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
     # Re-raise in test environment to surface audit logging errors
@@ -81,7 +81,7 @@ module AuditLogging
       account: user&.account,
       **options
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log authentication event '#{action}': #{e.message}"
   end
 
@@ -99,7 +99,7 @@ module AuditLogging
       request_id: request.request_id,
       **options
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log admin action '#{action}': #{e.message}"
   end
 
@@ -118,7 +118,7 @@ module AuditLogging
       request_id: request.request_id,
       **options
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log security event '#{action}': #{e.message}"
   end
 
@@ -137,7 +137,7 @@ module AuditLogging
       request_id: request.request_id,
       **options
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log data access event '#{action}': #{e.message}"
   end
 
@@ -156,7 +156,7 @@ module AuditLogging
       request_id: request.request_id,
       **options
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log compliance event '#{action}': #{e.message}"
   end
 

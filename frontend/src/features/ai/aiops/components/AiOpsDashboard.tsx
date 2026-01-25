@@ -50,9 +50,6 @@ export const AiOpsDashboard: React.FC = () => {
       setRealTimeData(realTime);
 
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load AIOps data:', error);
-      }
       addNotification({
         type: 'error',
         title: 'AIOps Error',

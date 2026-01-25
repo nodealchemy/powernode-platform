@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
-import { useForm, FormValidationRules } from '@/shared/hooks/useForm';
+import { useForm, FormValidationRules, UseFormReturn } from '@/shared/hooks/useForm';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { paymentGatewaysApi, PaymentGatewayConfig } from '../services/paymentGatewaysApi';
 import { Settings, Save } from 'lucide-react';
@@ -14,7 +14,7 @@ interface GatewayConfigModalProps {
   onConfigured: () => void;
 }
 
-interface StripeConfig {
+interface StripeFormValues {
   publishable_key: string;
   secret_key: string;
   endpoint_secret: string;
@@ -23,7 +23,7 @@ interface StripeConfig {
   test_mode: boolean;
 }
 
-interface PayPalConfig {
+interface PayPalFormValues {
   client_id: string;
   client_secret: string;
   webhook_id: string;
@@ -32,7 +32,12 @@ interface PayPalConfig {
   test_mode: boolean;
 }
 
-type GatewayConfig = StripeConfig | PayPalConfig;
+// Error types for form validation
+type StripeFormErrors = Record<keyof StripeFormValues, string | undefined>;
+type PayPalFormErrors = Record<keyof PayPalFormValues, string | undefined>;
+
+// Union type for gateway-agnostic form handling
+type GatewayFormValues = StripeFormValues | PayPalFormValues;
 
 export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
   isOpen,
@@ -45,7 +50,7 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
   const [showSecrets, setShowSecrets] = useState(false);
 
   // Memoize default values to prevent unnecessary re-renders
-  const defaultValues = useMemo((): GatewayConfig => {
+  const defaultValues = useMemo((): GatewayFormValues => {
     if (gateway === 'stripe') {
       return {
         publishable_key: '',  // Don't pre-fill sensitive keys for security
@@ -54,16 +59,16 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
         webhook_tolerance: 300,
         enabled: currentConfig?.enabled ?? false,
         test_mode: currentConfig?.test_mode ?? true
-      } as StripeConfig;
+      } satisfies StripeFormValues;
     } else {
       return {
         client_id: '',  // Don't pre-fill sensitive keys for security
         client_secret: '',
         webhook_id: '',
-        mode: (currentConfig as any)?.mode || 'sandbox',
+        mode: currentConfig?.mode ?? 'sandbox',
         enabled: currentConfig?.enabled ?? false,
         test_mode: currentConfig?.test_mode ?? true
-      } as PayPalConfig;
+      } satisfies PayPalFormValues;
     }
   }, [gateway, currentConfig]);
 
@@ -136,7 +141,7 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
   }, [gateway]);
 
   // Handle form submission
-  const handleConfigSubmit = async (formData: GatewayConfig) => {
+  const handleConfigSubmit = async (formData: GatewayFormValues) => {
     try {
       // Only send non-empty values
       const configToSend: Record<string, unknown> = {};
@@ -189,14 +194,23 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
     }
   };
 
-  const form = useForm({
+  // Create typed form - use generic type assertion for the specific gateway
+  const form = useForm<GatewayFormValues>({
     initialValues: defaultValues,
     validationRules: validationRules,
     onSubmit: handleConfigSubmit,
     enableRealTimeValidation: false, // Disable real-time validation to prevent premature errors
     showSuccessNotification: false, // We handle success notification manually
     resetAfterSubmit: true,
-  }) as any; // Type assertion to handle union type complexity
+  });
+
+  // Type-safe accessors for gateway-specific forms
+  const stripeForm = form as UseFormReturn<StripeFormValues>;
+  const paypalForm = form as UseFormReturn<PayPalFormValues>;
+
+  // Get typed errors based on gateway
+  const stripeErrors = form.errors as StripeFormErrors;
+  const paypalErrors = form.errors as PayPalFormErrors;
 
   // Reset form when modal opens or closes
   useEffect(() => {
@@ -210,13 +224,18 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
     if (currentConfig && isOpen) {
       // Update the checkbox states based on current config
       // Note: Don't set text field values to avoid triggering validation on empty fields
-      form.setValue('enabled', currentConfig.enabled ?? false);
-      form.setValue('test_mode', currentConfig.test_mode ?? true);
-      if (gateway === 'paypal' && (currentConfig as any).mode) {
-        form.setValue('mode', (currentConfig as any).mode);
-      }
-      if (gateway === 'stripe' && (currentConfig as any).webhook_tolerance && (currentConfig as any).webhook_tolerance !== 300) {
-        form.setValue('webhook_tolerance', (currentConfig as any).webhook_tolerance);
+      if (gateway === 'stripe') {
+        stripeForm.setValue('enabled', currentConfig.enabled ?? false);
+        stripeForm.setValue('test_mode', currentConfig.test_mode ?? true);
+        if (currentConfig.webhook_tolerance && currentConfig.webhook_tolerance !== 300) {
+          stripeForm.setValue('webhook_tolerance', currentConfig.webhook_tolerance);
+        }
+      } else {
+        paypalForm.setValue('enabled', currentConfig.enabled ?? false);
+        paypalForm.setValue('test_mode', currentConfig.test_mode ?? true);
+        if (currentConfig.mode) {
+          paypalForm.setValue('mode', currentConfig.mode);
+        }
       }
     }
   }, [currentConfig, isOpen, gateway]); // Remove form.setValue to prevent infinite loop
@@ -227,41 +246,41 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
   };
 
   const renderStripeForm = () => {
-    const stripeConfig = form.values as StripeConfig;
-    
+    const stripeValues = stripeForm.values;
+
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-6">
           <div>
             <label className="label-theme flex items-center gap-2">
               Publishable Key
-              {(currentConfig as any)?.publishable_key_present && (
+              {currentConfig?.publishable_key_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
                   Configured
                 </span>
               )}
-              {!(currentConfig as any)?.publishable_key_present && (
+              {!currentConfig?.publishable_key_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-warning-subtle text-theme-warning-emphasis rounded">
                   Not Configured
                 </span>
               )}
             </label>
             <input
-              {...form.getFieldProps('publishable_key')}
+              {...stripeForm.getFieldProps('publishable_key')}
               type="text"
-              className={`input-theme ${(form.errors as any).publishable_key ? 'border-theme-error' : ''}`}
+              className={`input-theme ${stripeErrors.publishable_key ? 'border-theme-error' : ''}`}
               placeholder={
-                (currentConfig as any)?.publishable_key_present 
-                  ? "Leave blank to keep current key, or enter new key to update" 
+                currentConfig?.publishable_key_present
+                  ? "Leave blank to keep current key, or enter new key to update"
                   : "pk_test_51ABC...xyz123 (starts with pk_test_ or pk_live_)"
               }
               disabled={form.isSubmitting}
             />
-            {(form.errors as any).publishable_key && (
-              <p className="text-theme-error text-sm mt-1">{(form.errors as any).publishable_key}</p>
+            {stripeErrors.publishable_key && (
+              <p className="text-theme-error text-sm mt-1">{stripeErrors.publishable_key}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              {(currentConfig as any)?.publishable_key_present
+              {currentConfig?.publishable_key_present
                 ? "A publishable key is already configured. Leave blank to keep current key, or enter a new key to update it."
                 : "Your Stripe publishable key (starts with pk_). Leave blank if not updating."}
             </p>
@@ -270,12 +289,12 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
           <div>
             <label className="label-theme flex items-center gap-2">
               Secret Key
-              {(currentConfig as any)?.secret_key_present && (
+              {currentConfig?.secret_key_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
                   Configured
                 </span>
               )}
-              {!(currentConfig as any)?.secret_key_present && (
+              {!currentConfig?.secret_key_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-warning-subtle text-theme-warning-emphasis rounded">
                   Not Configured
                 </span>
@@ -283,11 +302,11 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
             </label>
             <div className="relative">
               <input
-                {...form.getFieldProps('secret_key')}
+                {...stripeForm.getFieldProps('secret_key')}
                 type={showSecrets ? "text" : "password"}
-                className={`input-theme pr-10 ${(form.errors as any).secret_key ? 'border-theme-error' : ''}`}
+                className={`input-theme pr-10 ${stripeErrors.secret_key ? 'border-theme-error' : ''}`}
                 placeholder={
-                  (currentConfig as any)?.secret_key_present
+                  currentConfig?.secret_key_present
                     ? "Leave blank to keep current key, or enter new key to update"
                     : "sk_test_51ABC...xyz123 (starts with sk_test_ or sk_live_)"
                 }
@@ -301,11 +320,11 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
                 {showSecrets ? '🙈' : '👁️'}
               </button>
             </div>
-            {(form.errors as any).secret_key && (
-              <p className="text-theme-error text-sm mt-1">{(form.errors as any).secret_key}</p>
+            {stripeErrors.secret_key && (
+              <p className="text-theme-error text-sm mt-1">{stripeErrors.secret_key}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              {(currentConfig as any)?.secret_key_present
+              {currentConfig?.secret_key_present
                 ? "A secret key is already configured. Leave blank to keep current key, or enter a new key to update it."
                 : "Your Stripe secret key (starts with sk_). Leave blank if not updating."}
             </p>
@@ -314,33 +333,33 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
           <div>
             <label className="label-theme flex items-center gap-2">
               Webhook Endpoint Secret
-              {(currentConfig as any)?.endpoint_secret_present && (
+              {currentConfig?.endpoint_secret_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
                   Configured
                 </span>
               )}
-              {!(currentConfig as any)?.endpoint_secret_present && (
+              {!currentConfig?.endpoint_secret_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-info-subtle text-theme-info-emphasis rounded">
                   Optional
                 </span>
               )}
             </label>
             <input
-              {...form.getFieldProps('endpoint_secret')}
+              {...stripeForm.getFieldProps('endpoint_secret')}
               type={showSecrets ? "text" : "password"}
-              className={`input-theme ${(form.errors as any).endpoint_secret ? 'border-theme-error' : ''}`}
+              className={`input-theme ${stripeErrors.endpoint_secret ? 'border-theme-error' : ''}`}
               placeholder={
-                (currentConfig as any)?.endpoint_secret_present
+                currentConfig?.endpoint_secret_present
                   ? "Enter new webhook secret to update"
                   : "whsec_1234567890abcdef (starts with whsec_)"
               }
               disabled={form.isSubmitting}
             />
-            {(form.errors as any).endpoint_secret && (
-              <p className="text-theme-error text-sm mt-1">{(form.errors as any).endpoint_secret}</p>
+            {stripeErrors.endpoint_secret && (
+              <p className="text-theme-error text-sm mt-1">{stripeErrors.endpoint_secret}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              {(currentConfig as any)?.endpoint_secret_present
+              {currentConfig?.endpoint_secret_present
                 ? "A webhook secret is already configured. Enter a new secret to update it."
                 : "Webhook endpoint secret from your Stripe dashboard (optional)"}
             </p>
@@ -351,15 +370,15 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
               Webhook Tolerance (seconds)
             </label>
             <input
-              {...form.getFieldProps('webhook_tolerance')}
+              {...stripeForm.getFieldProps('webhook_tolerance')}
               type="number"
               min="1"
               max="3600"
-              className={`input-theme ${(form.errors as any).webhook_tolerance ? 'border-theme-error' : ''}`}
+              className={`input-theme ${stripeErrors.webhook_tolerance ? 'border-theme-error' : ''}`}
               disabled={form.isSubmitting}
             />
-            {(form.errors as any).webhook_tolerance && (
-              <p className="text-theme-error text-sm mt-1">{(form.errors as any).webhook_tolerance}</p>
+            {stripeErrors.webhook_tolerance && (
+              <p className="text-theme-error text-sm mt-1">{stripeErrors.webhook_tolerance}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
               Webhook timestamp tolerance (default: 300 seconds)
@@ -372,19 +391,19 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
             <label className="flex items-center">
               <input
                 type="checkbox"
-                checked={stripeConfig.enabled}
-                onChange={(e) => (form.setValue as any)('enabled', e.target.checked)}
+                checked={stripeValues.enabled}
+                onChange={(e) => stripeForm.setValue('enabled', e.target.checked)}
                 className="rounded border-theme text-theme-link focus:ring-theme-link"
                 disabled={form.isSubmitting}
               />
               <span className="ml-2 text-sm text-theme-primary">Enable Stripe payments</span>
             </label>
-            
+
             <label className="flex items-center">
               <input
                 type="checkbox"
-                checked={stripeConfig.test_mode}
-                onChange={(e) => (form.setValue as any)('test_mode', e.target.checked)}
+                checked={stripeValues.test_mode}
+                onChange={(e) => stripeForm.setValue('test_mode', e.target.checked)}
                 className="rounded border-theme text-theme-link focus:ring-theme-link"
                 disabled={form.isSubmitting}
               />
@@ -397,41 +416,41 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
   };
 
   const renderPayPalForm = () => {
-    const paypalConfig = form.values as PayPalConfig;
-    
+    const paypalValues = paypalForm.values;
+
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-6">
           <div>
             <label className="label-theme flex items-center gap-2">
               Client ID
-              {(currentConfig as any)?.client_id_present && (
+              {currentConfig?.client_id_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
                   Configured
                 </span>
               )}
-              {!(currentConfig as any)?.client_id_present && (
+              {!currentConfig?.client_id_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-warning-subtle text-theme-warning-emphasis rounded">
                   Not Configured
                 </span>
               )}
             </label>
             <input
-              {...form.getFieldProps('client_id')}
+              {...paypalForm.getFieldProps('client_id')}
               type="text"
-              className={`input-theme ${(form.errors as any).client_id ? 'border-theme-error' : ''}`}
+              className={`input-theme ${paypalErrors.client_id ? 'border-theme-error' : ''}`}
               placeholder={
-                (currentConfig as any)?.client_id_present
+                currentConfig?.client_id_present
                   ? "Leave blank to keep current ID, or enter new ID to update"
                   : "Your PayPal client ID"
               }
               disabled={form.isSubmitting}
             />
-            {(form.errors as any).client_id && (
-              <p className="text-theme-error text-sm mt-1">{(form.errors as any).client_id}</p>
+            {paypalErrors.client_id && (
+              <p className="text-theme-error text-sm mt-1">{paypalErrors.client_id}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              {(currentConfig as any)?.client_id_present
+              {currentConfig?.client_id_present
                 ? "A client ID is already configured. Leave blank to keep current ID, or enter a new ID to update it."
                 : "Your PayPal application client ID. Leave blank if not updating."}
             </p>
@@ -440,12 +459,12 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
           <div>
             <label className="label-theme flex items-center gap-2">
               Client Secret
-              {(currentConfig as any)?.client_secret_present && (
+              {currentConfig?.client_secret_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
                   Configured
                 </span>
               )}
-              {!(currentConfig as any)?.client_secret_present && (
+              {!currentConfig?.client_secret_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-warning-subtle text-theme-warning-emphasis rounded">
                   Not Configured
                 </span>
@@ -453,11 +472,11 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
             </label>
             <div className="relative">
               <input
-                {...form.getFieldProps('client_secret')}
+                {...paypalForm.getFieldProps('client_secret')}
                 type={showSecrets ? "text" : "password"}
-                className={`input-theme pr-10 ${(form.errors as any).client_secret ? 'border-theme-error' : ''}`}
+                className={`input-theme pr-10 ${paypalErrors.client_secret ? 'border-theme-error' : ''}`}
                 placeholder={
-                  (currentConfig as any)?.client_secret_present
+                  currentConfig?.client_secret_present
                     ? "Leave blank to keep current secret, or enter new secret to update"
                     : "Your PayPal client secret"
                 }
@@ -471,11 +490,11 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
                 {showSecrets ? '🙈' : '👁️'}
               </button>
             </div>
-            {(form.errors as any).client_secret && (
-              <p className="text-theme-error text-sm mt-1">{(form.errors as any).client_secret}</p>
+            {paypalErrors.client_secret && (
+              <p className="text-theme-error text-sm mt-1">{paypalErrors.client_secret}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              {(currentConfig as any)?.client_secret_present
+              {currentConfig?.client_secret_present
                 ? "A client secret is already configured. Leave blank to keep current secret, or enter a new secret to update it."
                 : "Your PayPal application client secret. Leave blank if not updating."}
             </p>
@@ -484,33 +503,33 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
           <div>
             <label className="label-theme flex items-center gap-2">
               Webhook ID
-              {(currentConfig as any)?.webhook_id_present && (
+              {currentConfig?.webhook_id_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
                   Configured
                 </span>
               )}
-              {!(currentConfig as any)?.webhook_id_present && (
+              {!currentConfig?.webhook_id_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-info-subtle text-theme-info-emphasis rounded">
                   Optional
                 </span>
               )}
             </label>
             <input
-              {...form.getFieldProps('webhook_id')}
+              {...paypalForm.getFieldProps('webhook_id')}
               type="text"
-              className={`input-theme ${(form.errors as any).webhook_id ? 'border-theme-error' : ''}`}
+              className={`input-theme ${paypalErrors.webhook_id ? 'border-theme-error' : ''}`}
               placeholder={
-                (currentConfig as any)?.webhook_id_present
+                currentConfig?.webhook_id_present
                   ? "Enter new webhook ID to update"
                   : "Your PayPal webhook ID"
               }
               disabled={form.isSubmitting}
             />
-            {(form.errors as any).webhook_id && (
-              <p className="text-theme-error text-sm mt-1">{(form.errors as any).webhook_id}</p>
+            {paypalErrors.webhook_id && (
+              <p className="text-theme-error text-sm mt-1">{paypalErrors.webhook_id}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              {(currentConfig as any)?.webhook_id_present
+              {currentConfig?.webhook_id_present
                 ? "A webhook ID is already configured. Enter a new ID to update it."
                 : "PayPal webhook ID for event notifications (optional)"}
             </p>
@@ -521,16 +540,16 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
               Environment Mode
             </label>
             <select
-              value={paypalConfig.mode}
-              onChange={(e) => (form.setValue as any)('mode', e.target.value as 'sandbox' | 'live')}
-              className={`select-theme ${(form.errors as any).mode ? 'border-theme-error' : ''}`}
+              value={paypalValues.mode}
+              onChange={(e) => paypalForm.setValue('mode', e.target.value as 'sandbox' | 'live')}
+              className={`select-theme ${paypalErrors.mode ? 'border-theme-error' : ''}`}
               disabled={form.isSubmitting}
             >
               <option value="sandbox">Sandbox (Testing)</option>
               <option value="live">Live (Production)</option>
             </select>
-            {(form.errors as any).mode && (
-              <p className="text-theme-error text-sm mt-1">{(form.errors as any).mode}</p>
+            {paypalErrors.mode && (
+              <p className="text-theme-error text-sm mt-1">{paypalErrors.mode}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
               Choose sandbox for testing or live for production
@@ -543,19 +562,19 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
             <label className="flex items-center">
               <input
                 type="checkbox"
-                checked={paypalConfig.enabled}
-                onChange={(e) => (form.setValue as any)('enabled', e.target.checked)}
+                checked={paypalValues.enabled}
+                onChange={(e) => paypalForm.setValue('enabled', e.target.checked)}
                 className="rounded border-theme text-theme-link focus:ring-theme-link"
                 disabled={form.isSubmitting}
               />
               <span className="ml-2 text-sm text-theme-primary">Enable PayPal payments</span>
             </label>
-            
+
             <label className="flex items-center">
               <input
                 type="checkbox"
-                checked={paypalConfig.test_mode}
-                onChange={(e) => (form.setValue as any)('test_mode', e.target.checked)}
+                checked={paypalValues.test_mode}
+                onChange={(e) => paypalForm.setValue('test_mode', e.target.checked)}
                 className="rounded border-theme text-theme-link focus:ring-theme-link"
                 disabled={form.isSubmitting}
               />

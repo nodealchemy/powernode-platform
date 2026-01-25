@@ -117,7 +117,7 @@ module Api
             send_data csv_content, filename: "attributions-#{Date.current}.csv", type: "text/csv"
           when "spdx"
             spdx_content = generate_spdx(attributions)
-            render json: spdx_content
+            render_success(spdx_content)
           else
             render_error("Unsupported format: #{format}", status: :unprocessable_entity)
           end

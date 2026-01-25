@@ -131,7 +131,7 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
       setMessages(messages.reverse()); // Reverse to show oldest first
       scrollToBottom();
     } catch (error) {
-      console.error('Error loading messages:', error);
+      // Error loading messages - will display empty state
     }
   }, [scrollToBottom]);
 
@@ -194,8 +194,7 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
             return null;
           }
         } catch (availabilityError) {
-          console.error('Error checking provider availability:', availabilityError);
-          // Continue with conversation creation - let backend validation handle it
+          // Error checking provider availability - continue with conversation creation
         }
       }
 
@@ -339,7 +338,6 @@ Position: (${node.position_x}, ${node.position_y})`;
       setMessages(prev => prev.filter(m => m.id !== userMessage.id));
       loadMessages(operationsAgent.id, activeConversation.id);
     } catch (error) {
-      console.error('Error sending message:', error);
       addNotification({
         type: 'error',
         title: 'Chat Error',

@@ -141,8 +141,7 @@ module Api
         rescue Liquid::SyntaxError => e
           render_error("Template syntax error: #{e.message}", status: :unprocessable_content)
         rescue StandardError => e
-          Rails.logger.error "Failed to preview prompt template: #{e.message}"
-          render_error("Failed to preview template: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to preview template", exception: e)
         end
 
         # POST /api/v1/ai/prompt_templates/:id/duplicate

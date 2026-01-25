@@ -27,7 +27,7 @@ class Rack::Attack
 
   # Helper method to check if rate limiting is enabled at runtime
   def self.rate_limiting_enabled?
-    SystemSettingsService.rate_limiting_enabled?
+    System::SettingsService.rate_limiting_enabled?
   rescue StandardError
     ENV["DISABLE_RATE_LIMITING"] != "true"
   end

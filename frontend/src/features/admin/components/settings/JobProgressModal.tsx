@@ -21,9 +21,10 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
   onComplete,
   onError
 }) => {
-  const [status, setStatus] = useState<'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled'>('pending');
+  type JobStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
+  const [status, setStatus] = useState<JobStatus>('pending');
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [polling, setPolling] = useState(false);
@@ -41,7 +42,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
           (currentStatus, currentProgress, currentResult) => {
             if (!isMounted) return;
             
-            setStatus(currentStatus as any);
+            setStatus(currentStatus as JobStatus);
             setProgress(currentProgress);
             
             if (currentResult) {

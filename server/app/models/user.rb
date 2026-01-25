@@ -349,7 +349,7 @@ class User < ApplicationRecord
 
       true
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Password reset failed: #{e.message}"
     errors.add(:base, "Password reset failed: #{e.message}")
     false
@@ -476,7 +476,7 @@ class User < ApplicationRecord
     @role_cache_key = nil
     cache_key_pattern = "user:#{id}:permission_names:*"
     Rails.cache.delete_matched(cache_key_pattern)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.warn "Failed to clear permission cache for user #{id}: #{e.message}"
   end
 end

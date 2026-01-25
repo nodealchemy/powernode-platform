@@ -48,9 +48,6 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
       });
       setData(response);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load execution history:', error);
-      }
       addNotification({
         type: 'error',
         title: 'Load Failed',

@@ -160,7 +160,7 @@ module Api
           if @export_request.file_path.present?
             begin
               FileUtils.rm_rf(@export_request.file_path)
-            rescue => e
+            rescue StandardError => e
               Rails.logger.warn "Failed to delete export file: #{e.message}"
             end
           end

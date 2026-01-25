@@ -110,7 +110,7 @@ class AIOrchestrationMonitor {
           const data = JSON.parse(event.data);
           this.handleMessage(data);
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
+          // Error parsing WebSocket message - handled silently
         }
       };
 
@@ -124,11 +124,10 @@ class AIOrchestrationMonitor {
       };
 
       this.ws.onerror = (error) => {
-        console.error('AI Orchestration monitor error:', error);
+        // WebSocket connection error - reconnect will be attempted
       };
 
     } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
       this.scheduleReconnect();
     }
   }
@@ -192,7 +191,7 @@ class AIOrchestrationMonitor {
       try {
         handler(event);
       } catch (error) {
-        console.error('Error in event handler:', error);
+        // Error in event handler - handled silently
       }
     });
   }
@@ -202,7 +201,7 @@ class AIOrchestrationMonitor {
       try {
         handler(metrics);
       } catch (error) {
-        console.error('Error in metrics handler:', error);
+        // Error in metrics handler - handled silently
       }
     });
   }

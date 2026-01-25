@@ -32,7 +32,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
         unhealthy_count: Monitoring::CircuitBreaker.unhealthy.count
       }
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to list circuit breakers: #{e.message}"
     render_error("Failed to list circuit breakers", status: :internal_server_error)
   end
@@ -42,7 +42,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
     render_success({
       circuit_breaker: serialize_circuit_breaker(@circuit_breaker, include_events: true)
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to get circuit breaker: #{e.message}"
     render_error("Failed to get circuit breaker", status: :internal_server_error)
   end
@@ -59,7 +59,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
     else
       render_validation_error(breaker.errors)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to create circuit breaker: #{e.message}"
     render_error("Failed to create circuit breaker", status: :internal_server_error)
   end
@@ -74,7 +74,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
     else
       render_validation_error(@circuit_breaker.errors)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to update circuit breaker: #{e.message}"
     render_error("Failed to update circuit breaker", status: :internal_server_error)
   end
@@ -86,7 +86,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
     render_success({
       message: "Circuit breaker deleted successfully"
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to delete circuit breaker: #{e.message}"
     render_error("Failed to delete circuit breaker", status: :internal_server_error)
   end
@@ -99,7 +99,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
       circuit_breaker: serialize_circuit_breaker(@circuit_breaker),
       message: "Circuit breaker reset successfully"
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to reset circuit breaker: #{e.message}"
     render_error("Failed to reset circuit breaker", status: :internal_server_error)
   end
@@ -112,7 +112,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
       circuit_breaker_id: @circuit_breaker.id,
       health_metrics: metrics
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to get health metrics: #{e.message}"
     render_error("Failed to get health metrics", status: :internal_server_error)
   end
@@ -130,7 +130,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
         limit: limit
       }
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to get circuit breaker events: #{e.message}"
     render_error("Failed to get circuit breaker events", status: :internal_server_error)
   end

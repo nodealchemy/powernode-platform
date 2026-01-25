@@ -7,6 +7,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { AlertTriangle, CheckCircle2, ShieldAlert, Eye } from 'lucide-react';
 import { useLicenseViolations, useResolveViolation, useGrantViolationException } from '../hooks/useLicenseCompliance';
 import { SeverityBadge } from '../components/shared/SeverityBadge';
+import type { LicenseViolation } from '../types/license';
 
 type ViolationStatus = 'open' | 'resolved' | 'exception_granted';
 
@@ -75,7 +76,7 @@ export const LicenseViolationsPage: React.FC = () => {
     {
       key: 'component',
       header: 'Component',
-      render: (violation: any) => (
+      render: (violation: LicenseViolation) => (
         <div>
           <div className="font-medium text-theme-primary">{violation.component_name}</div>
           <div className="text-sm text-theme-tertiary">{violation.component_version}</div>
@@ -85,7 +86,7 @@ export const LicenseViolationsPage: React.FC = () => {
     {
       key: 'license',
       header: 'License',
-      render: (violation: any) => (
+      render: (violation: LicenseViolation) => (
         <div>
           <div className="text-theme-primary">{violation.license_name}</div>
           {violation.license_spdx_id && (
@@ -97,22 +98,22 @@ export const LicenseViolationsPage: React.FC = () => {
     {
       key: 'violation_type',
       header: 'Type',
-      render: (violation: any) => getViolationTypeBadge(violation.violation_type),
+      render: (violation: LicenseViolation) => getViolationTypeBadge(violation.violation_type),
     },
     {
       key: 'severity',
       header: 'Severity',
-      render: (violation: any) => <SeverityBadge severity={violation.severity} />,
+      render: (violation: LicenseViolation) => <SeverityBadge severity={violation.severity} />,
     },
     {
       key: 'status',
       header: 'Status',
-      render: (violation: any) => getStatusBadge(violation.status),
+      render: (violation: LicenseViolation) => getStatusBadge(violation.status),
     },
     {
       key: 'created_at',
       header: 'Created',
-      render: (violation: any) => (
+      render: (violation: LicenseViolation) => (
         <span className="text-theme-tertiary">
           {new Date(violation.created_at).toLocaleDateString()}
         </span>
@@ -121,7 +122,7 @@ export const LicenseViolationsPage: React.FC = () => {
     {
       key: 'actions',
       header: 'Actions',
-      render: (violation: any) => {
+      render: (violation: LicenseViolation) => {
         return (
           <div className="flex gap-2 items-center">
             <button

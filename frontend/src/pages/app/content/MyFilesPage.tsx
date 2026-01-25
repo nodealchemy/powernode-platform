@@ -63,9 +63,6 @@ const MyFilesPage: React.FC = () => {
       setFiles(response.files);
     } catch (error) {
       dispatch(addNotification({ type: 'error', message: 'Failed to load files' }));
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error loading files:', error);
-      }
     } finally {
       setLoading(false);
     }
@@ -85,7 +82,7 @@ const MyFilesPage: React.FC = () => {
         setSelectedStorageId(defaultProvider.id);
       }
     } catch (error) {
-      console.error('Error loading storage providers:', error);
+      // Storage provider loading failed - continue with default settings
     }
   };
 
@@ -95,7 +92,7 @@ const MyFilesPage: React.FC = () => {
       const stats = await filesApi.getStats();
       setFileStats(stats);
     } catch (error) {
-      console.error('Error loading file stats:', error);
+      // File stats loading failed - continue without stats
     }
   };
 

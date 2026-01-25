@@ -351,8 +351,7 @@ module Api
 
           log_audit_event("ai.roi.calculate", current_user.account)
         rescue StandardError => e
-          Rails.logger.error "ROI calculation failed: #{e.message}"
-          render_error("Calculation failed: #{e.message}", status: :internal_server_error)
+          render_internal_error("Calculation failed", exception: e)
         end
 
         # POST /api/v1/ai/roi/aggregate
@@ -380,8 +379,7 @@ module Api
             metadata: { period_type: period_type, period_date: period_date }
           )
         rescue StandardError => e
-          Rails.logger.error "ROI aggregation failed: #{e.message}"
-          render_error("Aggregation failed: #{e.message}", status: :internal_server_error)
+          render_internal_error("Aggregation failed", exception: e)
         end
 
         private

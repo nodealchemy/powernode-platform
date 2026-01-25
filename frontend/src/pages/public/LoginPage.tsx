@@ -19,6 +19,10 @@ import { TwoFactorVerification } from '@/features/account/auth/components/TwoFac
 import { DomainChangeNotice } from '@/shared/components/ui/DomainChangeNotice';
 
 
+interface LocationState {
+  from?: { pathname: string };
+}
+
 export const LoginPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
@@ -64,7 +68,7 @@ export const LoginPage: React.FC = () => {
     loadCopyright();
   }, []);
 
-  const from = (location.state as any)?.from?.pathname || '/app';
+  const from = (location.state as LocationState | null)?.from?.pathname || '/app';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -161,8 +165,8 @@ export const LoginPage: React.FC = () => {
     <div className="bg-theme-background min-h-screen relative overflow-hidden">
       {/* Decorative Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-theme-info/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-theme-interactive-primary/10 rounded-full blur-3xl" />
         <div className="absolute top-3/4 left-1/2 w-64 h-64 bg-indigo-500/5 rounded-full blur-2xl" />
       </div>
 

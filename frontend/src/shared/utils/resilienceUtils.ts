@@ -395,6 +395,19 @@ export function isNetworkError(error: unknown): boolean {
   return networkErrorPatterns.some(pattern => pattern.test(error.message));
 }
 
+// Type guard for errors that have an HTTP response attached
+interface ErrorWithResponse extends Error {
+  response?: {
+    status?: number;
+  };
+}
+
+function hasHttpResponse(error: Error): error is ErrorWithResponse {
+  return 'response' in error &&
+         typeof (error as ErrorWithResponse).response === 'object' &&
+         (error as ErrorWithResponse).response !== null;
+}
+
 export function isRetryableError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
 
@@ -402,9 +415,8 @@ export function isRetryableError(error: unknown): boolean {
   if (isNetworkError(error)) return true;
 
   // Check for HTTP status codes (if error has response)
-  const errorWithResponse = error as any;
-  if (errorWithResponse.response?.status) {
-    const status = errorWithResponse.response.status;
+  if (hasHttpResponse(error) && error.response?.status) {
+    const status = error.response.status;
     // Retry on 5xx server errors and some 4xx errors
     return status >= 500 || status === 408 || status === 429;
   }

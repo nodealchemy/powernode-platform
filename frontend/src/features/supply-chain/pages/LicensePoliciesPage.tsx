@@ -7,6 +7,7 @@ import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Plus, Shield, Eye, Edit, Trash2 } from 'lucide-react';
 import { useLicensePolicies, useDeleteLicensePolicy, useToggleLicensePolicyActive } from '../hooks/useLicenseCompliance';
+import type { LicensePolicy } from '../types/license';
 
 export const LicensePoliciesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -82,24 +83,24 @@ export const LicensePoliciesPage: React.FC = () => {
     {
       key: 'name',
       header: 'Name',
-      render: (policy: any) => (
+      render: (policy: LicensePolicy) => (
         <div className="font-medium text-theme-primary">{policy.name}</div>
       ),
     },
     {
       key: 'policy_type',
       header: 'Type',
-      render: (policy: any) => getPolicyTypeBadge(policy.policy_type),
+      render: (policy: LicensePolicy) => getPolicyTypeBadge(policy.policy_type),
     },
     {
       key: 'enforcement_level',
       header: 'Enforcement',
-      render: (policy: any) => getEnforcementBadge(policy.enforcement_level),
+      render: (policy: LicensePolicy) => getEnforcementBadge(policy.enforcement_level),
     },
     {
       key: 'is_active',
       header: 'Active',
-      render: (policy: any) => (
+      render: (policy: LicensePolicy) => (
         <label className="relative inline-flex items-center cursor-pointer">
           <input
             type="checkbox"
@@ -114,7 +115,7 @@ export const LicensePoliciesPage: React.FC = () => {
     {
       key: 'copyleft_rules',
       header: 'Copyleft Rules',
-      render: (policy: any) => (
+      render: (policy: LicensePolicy) => (
         <div className="flex gap-2">
           {policy.block_copyleft && (
             <Badge variant="warning" size="xs">Block Copyleft</Badge>
@@ -131,7 +132,7 @@ export const LicensePoliciesPage: React.FC = () => {
     {
       key: 'actions',
       header: 'Actions',
-      render: (policy: any) => (
+      render: (policy: LicensePolicy) => (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={(e) => {

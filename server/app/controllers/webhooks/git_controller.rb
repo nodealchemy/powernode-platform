@@ -1,5 +1,12 @@
 # frozen_string_literal: true
 
+# External webhook controller for Git provider events (GitHub, GitLab, Gitea).
+# Note: Uses raw JSON responses instead of ApiResponse concern methods because
+# external Git providers expect specific response formats for webhook acknowledgment.
+# See:
+#   - https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks
+#   - https://docs.gitlab.com/ee/user/project/integrations/webhooks.html
+#   - https://docs.gitea.com/usage/webhooks
 module Webhooks
   class GitController < ApplicationController
     skip_before_action :authenticate_request

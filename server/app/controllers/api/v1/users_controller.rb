@@ -99,12 +99,8 @@ class Api::V1::UsersController < ApplicationController
   private
 
   def set_user
-    @user = User.find(params[:id])
-
-    # First check if user is in a different account (account isolation)
-    if @user.account != current_account
-      return render_error("Access denied", status: :forbidden)
-    end
+    # Scope query to current_account first to prevent IDOR
+    @user = current_account.users.find(params[:id])
 
     # Users can only access their own data unless they have users.read permission
     if @user != current_user && !current_user.has_permission?("users.read")

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Save } from 'lucide-react';
-import { planFeaturesApi, Plan, PlanFeature, PlanLimit, LimitFormData } from '@/shared/services/planFeaturesApi';
+import { planFeaturesApi, Plan, PlanFeature, PlanLimit, LimitFormData } from '@/shared/services/billing/planFeaturesApi';
 
 export interface LimitModalProps {
   isOpen: boolean;

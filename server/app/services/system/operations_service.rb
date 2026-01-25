@@ -64,7 +64,7 @@ module System
             started_at: Time.current.iso8601,
             message: "Database reindex initiated successfully"
           }
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Database reindex failed: #{e.message}"
           log_system_operation("database_reindex", { success: false, error: e.message })
 
@@ -100,7 +100,7 @@ module System
             started_at: Time.current.iso8601,
             message: "Database optimization completed successfully"
           }
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Database optimization failed: #{e.message}"
           log_system_operation("database_optimize", { success: false, error: e.message })
 
@@ -128,7 +128,7 @@ module System
             operation: "reload_configuration",
             message: "Configuration reloaded successfully"
           }
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Configuration reload failed: #{e.message}"
           log_system_operation("reload_configuration", { success: false, error: e.message })
 
@@ -175,7 +175,7 @@ module System
             total_size_cleared: total_size_cleared,
             message: "System logs cleared successfully"
           }
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Log clearing failed: #{e.message}"
           log_system_operation("clear_logs", { success: false, error: e.message })
 
@@ -210,7 +210,7 @@ module System
             last_heartbeat: Time.current.iso8601,
             jobs_processed: get_worker_jobs_processed
           }
-        rescue => e
+        rescue StandardError => e
           {
             status: "error",
             error: e.message
@@ -229,7 +229,7 @@ module System
             busy: stats.workers_size,
             enqueued: stats.enqueued
           }
-        rescue => e
+        rescue StandardError => e
           {
             status: "error",
             error: e.message
@@ -249,7 +249,7 @@ module System
             action: "restart",
             message: "Web service restart initiated"
           }
-        rescue => e
+        rescue StandardError => e
           {
             success: false,
             service: "web",
@@ -269,7 +269,7 @@ module System
             action: "restart",
             message: "Worker service restart initiated"
           }
-        rescue => e
+        rescue StandardError => e
           {
             success: false,
             service: "worker",
@@ -289,7 +289,7 @@ module System
             action: "restart",
             message: "Background jobs restart initiated"
           }
-        rescue => e
+        rescue StandardError => e
           {
             success: false,
             service: "background_jobs",
@@ -372,7 +372,7 @@ module System
         else
           { seconds: 0, human: "Unknown" }
         end
-      rescue
+      rescue StandardError
         { seconds: 0, human: "Unknown" }
       end
 
@@ -382,13 +382,13 @@ module System
         else
           [ 0, 0, 0 ]
         end
-      rescue
+      rescue StandardError
         [ 0, 0, 0 ]
       end
 
       def get_process_memory_usage
         `ps -o rss= -p #{Process.pid}`.to_i / 1024 # MB
-      rescue
+      rescue StandardError
         0
       end
 
@@ -399,7 +399,7 @@ module System
         boot_time = File.read("/proc/stat").lines.find { |line| line.start_with?("btime") }.split[1].to_i
         process_start = boot_time + start_time
         Time.current.to_i - process_start
-      rescue
+      rescue StandardError
         0
       end
 
@@ -418,7 +418,7 @@ module System
           SQL
 
           result.first["tables_needing_vacuum"].to_i > 0
-        rescue
+        rescue StandardError
           false
         end
       end
@@ -439,7 +439,7 @@ module System
             "SELECT pg_database_size(current_database())"
           )
           result.first["pg_database_size"].to_i
-        rescue
+        rescue StandardError
           0
         end
       end
@@ -458,7 +458,7 @@ module System
           resource_type: "System",
           details: details.merge(timestamp: Time.current.iso8601)
         )
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to log system operation: #{e.message}"
       end
     end

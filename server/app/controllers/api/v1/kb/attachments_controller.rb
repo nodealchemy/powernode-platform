@@ -36,8 +36,7 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
       render_validation_error(attachment)
     end
   rescue StandardError => e
-    Rails.logger.error "Attachment upload failed: #{e.message}"
-    render_error("Upload failed: #{e.message}", status: :internal_server_error)
+    render_internal_error("Upload failed", exception: e)
   end
 
   # DELETE /api/v1/kb/attachments/:id

@@ -87,7 +87,6 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
       // Load existing credentials
       await loadCredentials();
     } catch (error) {
-      console.error('Failed to load provider:', error);
       addNotification({
         type: 'error',
         title: 'Loading Failed',
@@ -112,7 +111,6 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
       }
       setCredentials(credentialsData);
     } catch (error) {
-      console.error('Failed to load credentials:', error);
       // Don't show error notification for credentials - it's not critical
     }
   };
@@ -224,7 +222,6 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Failed to update provider:', error);
       addNotification({
         type: 'error',
         title: 'Update Failed',
@@ -325,7 +322,6 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
       // Reload credentials to update test status
       await loadCredentials();
     } catch (error) {
-      console.error('Failed to test credential:', error);
       addNotification({
         type: 'error',
         title: 'Test Failed',
@@ -389,7 +385,6 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
 
       handleCancelEditCredential();
     } catch (error) {
-      console.error('Failed to update credential:', error);
       addNotification({
         type: 'error',
         title: 'Update Failed',
@@ -412,7 +407,6 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
         message: 'Credential is now the default for this provider'
       });
     } catch (error) {
-      console.error('Failed to make credential default:', error);
       addNotification({
         type: 'error',
         title: 'Update Failed',

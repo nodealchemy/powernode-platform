@@ -87,7 +87,7 @@ class TaskExecution < ApplicationRecord
         triggered_by_user: user&.email
       }
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log execution creation: #{e.message}"
   end
 
@@ -109,7 +109,7 @@ class TaskExecution < ApplicationRecord
         output_preview: output&.truncate(200)
       }
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log execution status change: #{e.message}"
   end
 end

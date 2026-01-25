@@ -184,7 +184,7 @@ class ScheduledTaskService
 
       Rails.logger.info "Deleted scheduled task: #{task.name}"
       { success: true }
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to delete task: #{e.message}"
       { success: false, error: e.message }
     end
@@ -215,7 +215,7 @@ class ScheduledTaskService
           triggered_by: "manual"
         }
       }
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to execute task: #{e.message}"
       { success: false, error: e.message }
     end
@@ -251,7 +251,7 @@ class ScheduledTaskService
 
         Rails.logger.info "Task execution #{execution.id} completed with status: #{execution.status}"
         result
-      rescue => e
+      rescue StandardError => e
         execution.update!(
           status: "failed",
           completed_at: Time.current,
@@ -273,7 +273,7 @@ class ScheduledTaskService
 
       # More sophisticated validation would go here
       true
-    rescue
+    rescue StandardError
       false
     end
 
@@ -281,7 +281,7 @@ class ScheduledTaskService
       # This would use a gem like 'cron_parser' to calculate next run time
       # For now, return a placeholder
       1.day.from_now.iso8601
-    rescue
+    rescue StandardError
       nil
     end
 
@@ -414,7 +414,7 @@ class ScheduledTaskService
         # Default to 1 day from now if we can't parse
         1.day.from_now
       end
-    rescue => e
+    rescue StandardError => e
       Rails.logger.warn "Failed to calculate next run time for cron '#{cron_schedule}': #{e.message}"
       1.day.from_now
     end
@@ -503,7 +503,7 @@ class ScheduledTaskService
           output: output.truncate(10_000),
           error: status.success? ? nil : "Command failed with exit code #{status.exitstatus}"
         }
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Custom command execution error: #{e.message}"
         {
           success: false,

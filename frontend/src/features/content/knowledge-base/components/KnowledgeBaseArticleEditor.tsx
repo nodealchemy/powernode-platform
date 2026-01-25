@@ -101,9 +101,8 @@ export function KnowledgeBaseArticleEditor() {
       try {
         const response = await knowledgeBaseAdminApi.getCategories({ per_page: 100 });
         setCategories(response.data.data);
-      } catch (error) {
+      } catch {
         dispatch(addNotification({ type: 'error', message: 'Failed to load categories' }));
-        console.error('Categories loading error:', error);
       }
     };
 
@@ -129,9 +128,8 @@ export function KnowledgeBaseArticleEditor() {
           meta_description: article.meta_description || article.metadata?.meta_description || '',
           sort_order: article.sort_order || article.metadata?.sort_order || 0
         });
-      } catch (error) {
+      } catch {
         dispatch(addNotification({ type: 'error', message: 'Failed to load article' }));
-        console.error('Article loading error:', error);
         navigate('/app/content/kb');
       } finally {
         setIsLoading(false);

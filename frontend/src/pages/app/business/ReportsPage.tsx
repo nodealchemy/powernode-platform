@@ -402,7 +402,7 @@ export const ReportsPage: React.FC = () => {
                               name="format"
                               value={format}
                               checked={reportConfig.format === format}
-                              onChange={(e) => setReportConfig(prev => ({ ...prev, format: e.target.value as any }))}
+                              onChange={(e) => setReportConfig(prev => ({ ...prev, format: e.target.value as typeof reportConfig.format }))}
                               className="mr-2"
                             />
                             <span className="text-theme-primary">{format.toUpperCase()}</span>
@@ -812,7 +812,7 @@ export const ReportsPage: React.FC = () => {
                   </label>
                   <select
                     value={reportConfig.format}
-                    onChange={(e) => setReportConfig(prev => ({ ...prev, format: e.target.value as any }))}
+                    onChange={(e) => setReportConfig(prev => ({ ...prev, format: e.target.value as typeof reportConfig.format }))}
                     className="input-theme w-full"
                   >
                     {selectedTemplate.formats.map((format) => (

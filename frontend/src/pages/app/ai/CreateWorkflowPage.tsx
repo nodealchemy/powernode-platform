@@ -20,7 +20,7 @@ import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
 import { WorkflowBuilderProvider } from '@/shared/components/workflow/WorkflowBuilder';
-import { workflowsApi } from '@/shared/services/ai';
+import { workflowsApi, CreateWorkflowRequest } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
@@ -253,7 +253,7 @@ export const CreateWorkflowPage: React.FC = () => {
     try {
       setIsSubmitting(true);
 
-      const requestData = {
+      const requestData: CreateWorkflowRequest = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         status: saveAs,
@@ -270,7 +270,7 @@ export const CreateWorkflowPage: React.FC = () => {
         edges: formData.edges
       };
 
-      const response = await workflowsApi.createWorkflow(requestData as any);
+      const response = await workflowsApi.createWorkflow(requestData);
 
       addNotification({
         type: 'success',

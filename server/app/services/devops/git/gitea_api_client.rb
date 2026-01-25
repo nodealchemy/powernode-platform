@@ -13,17 +13,17 @@ module Devops
     # Authentication & User
 
     def test_connection
-      result = get("/user")
-      {
-        success: true,
-        username: result["login"] || result["username"],
-        user_id: result["id"].to_s,
-        avatar_url: result["avatar_url"],
-        email: result["email"],
-        scopes: []
-      }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        result = get("/user")
+        {
+          success: true,
+          username: result["login"] || result["username"],
+          user_id: result["id"].to_s,
+          avatar_url: result["avatar_url"],
+          email: result["email"],
+          scopes: []
+        }
+      end
     end
 
     def current_user
@@ -54,75 +54,69 @@ module Devops
     end
 
     def create_repository(name, options = {})
-      payload = {
-        name: name,
-        description: options[:description] || "",
-        private: options[:private] || false,
-        auto_init: options[:auto_init] != false,
-        default_branch: options[:default_branch] || "master",
-        gitignores: options[:gitignores],
-        license: options[:license],
-        readme: options[:readme] || "Default"
-      }.compact
-
-      result = post("/user/repos", payload)
-      normalize_repository(result)
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = {
+          name: name,
+          description: options[:description] || "",
+          private: options[:private] || false,
+          auto_init: options[:auto_init] != false,
+          default_branch: options[:default_branch] || "master",
+          gitignores: options[:gitignores],
+          license: options[:license],
+          readme: options[:readme] || "Default"
+        }.compact
+        result = post("/user/repos", payload)
+        normalize_repository(result)
+      end
     end
 
     def create_org_repository(org, name, options = {})
-      payload = {
-        name: name,
-        description: options[:description] || "",
-        private: options[:private] || false,
-        auto_init: options[:auto_init] != false,
-        default_branch: options[:default_branch] || "master",
-        gitignores: options[:gitignores],
-        license: options[:license],
-        readme: options[:readme] || "Default"
-      }.compact
-
-      result = post("/orgs/#{org}/repos", payload)
-      normalize_repository(result)
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = {
+          name: name,
+          description: options[:description] || "",
+          private: options[:private] || false,
+          auto_init: options[:auto_init] != false,
+          default_branch: options[:default_branch] || "master",
+          gitignores: options[:gitignores],
+          license: options[:license],
+          readme: options[:readme] || "Default"
+        }.compact
+        result = post("/orgs/#{org}/repos", payload)
+        normalize_repository(result)
+      end
     end
 
     def delete_repository(owner, repo)
-      delete("/repos/#{owner}/#{repo}")
-      { success: true }
-    rescue NotFoundError
-      { success: true } # Already deleted
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling(default_on_not_found: { success: true }) do
+        delete("/repos/#{owner}/#{repo}")
+        { success: true }
+      end
     end
 
     def create_file(owner, repo, path, content, options = {})
-      payload = {
-        content: Base64.strict_encode64(content),
-        message: options[:message] || "Create #{path}",
-        branch: options[:branch]
-      }.compact
-
-      result = post("/repos/#{owner}/#{repo}/contents/#{path}", payload)
-      { success: true, content: result }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = {
+          content: Base64.strict_encode64(content),
+          message: options[:message] || "Create #{path}",
+          branch: options[:branch]
+        }.compact
+        result = post("/repos/#{owner}/#{repo}/contents/#{path}", payload)
+        { success: true, content: result }
+      end
     end
 
     def update_file(owner, repo, path, content, sha, options = {})
-      payload = {
-        content: Base64.strict_encode64(content),
-        message: options[:message] || "Update #{path}",
-        sha: sha,
-        branch: options[:branch]
-      }.compact
-
-      result = put("/repos/#{owner}/#{repo}/contents/#{path}", payload)
-      { success: true, content: result }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = {
+          content: Base64.strict_encode64(content),
+          message: options[:message] || "Update #{path}",
+          sha: sha,
+          branch: options[:branch]
+        }.compact
+        result = put("/repos/#{owner}/#{repo}/contents/#{path}", payload)
+        { success: true, content: result }
+      end
     end
 
     def list_branches(owner, repo, options = {})
@@ -185,32 +179,29 @@ module Devops
     end
 
     def create_webhook(repository, secret)
-      payload = {
-        type: "gitea",
-        active: true,
-        events: webhook_events,
-        config: {
-          url: webhook_callback_url,
-          content_type: "json",
-          secret: secret
+      with_error_handling do
+        payload = {
+          type: "gitea",
+          active: true,
+          events: webhook_events,
+          config: {
+            url: webhook_callback_url,
+            content_type: "json",
+            secret: secret
+          }
         }
-      }
-
-      result = post("/repos/#{repository.owner}/#{repository.name}/hooks", payload)
-      { success: true, webhook_id: result["id"].to_s }
-    rescue ApiError => e
-      { success: false, error: e.message }
+        result = post("/repos/#{repository.owner}/#{repository.name}/hooks", payload)
+        { success: true, webhook_id: result["id"].to_s }
+      end
     end
 
     def delete_webhook(repository)
       return { success: false, error: "No webhook configured" } unless repository.webhook_id
 
-      delete("/repos/#{repository.owner}/#{repository.name}/hooks/#{repository.webhook_id}")
-      { success: true }
-    rescue NotFoundError
-      { success: true }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling(default_on_not_found: { success: true }) do
+        delete("/repos/#{repository.owner}/#{repository.name}/hooks/#{repository.webhook_id}")
+        { success: true }
+      end
     end
 
     # Gitea Actions (Act Runner CI/CD)
@@ -255,29 +246,25 @@ module Devops
     end
 
     def trigger_workflow(owner, repo, workflow_file, ref, inputs = {})
-      payload = {
-        ref: ref,
-        inputs: inputs
-      }
-
-      post("/repos/#{owner}/#{repo}/actions/workflows/#{workflow_file}/dispatches", payload)
-      { success: true }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = { ref: ref, inputs: inputs }
+        post("/repos/#{owner}/#{repo}/actions/workflows/#{workflow_file}/dispatches", payload)
+        { success: true }
+      end
     end
 
     def cancel_workflow_run(owner, repo, run_id)
-      post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/cancel")
-      { success: true }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/cancel")
+        { success: true }
+      end
     end
 
     def rerun_workflow(owner, repo, run_id)
-      post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/rerun")
-      { success: true }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/rerun")
+        { success: true }
+      end
     end
 
     # Act Runner Management
@@ -319,22 +306,17 @@ module Devops
              end
 
       result = post(path)
-      {
-        token: result["token"],
-        expires_at: nil # Gitea doesn't provide expiry
-      }
+      { token: result["token"], expires_at: nil }
     rescue ApiError => e
       Rails.logger.error "Failed to get runner registration token: #{e.message}"
       { success: false, error: e.message }
     end
 
     def delete_runner(runner_id)
-      delete("/admin/actions/runners/#{runner_id}")
-      { success: true }
-    rescue NotFoundError
-      { success: true } # Already deleted
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling(default_on_not_found: { success: true }) do
+        delete("/admin/actions/runners/#{runner_id}")
+        { success: true }
+      end
     end
 
     def runner_removal_token(scope = :repo, owner = nil, repo = nil)
@@ -344,19 +326,14 @@ module Devops
     end
 
     def update_runner_labels(runner_id, labels)
-      # Gitea requires updating the full runner object
-      # First get the runner, then update with new labels
       runner = get_runner(runner_id)
       return { success: false, error: "Runner not found" } unless runner
 
-      payload = { labels: labels }
-      result = patch("/admin/actions/runners/#{runner_id}", payload)
-      {
-        success: true,
-        labels: (result["labels"] || []).map { |l| l.is_a?(Hash) ? l["name"] : l }
-      }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = { labels: labels }
+        result = patch("/admin/actions/runners/#{runner_id}", payload)
+        { success: true, labels: (result["labels"] || []).map { |l| l.is_a?(Hash) ? l["name"] : l } }
+      end
     end
 
     # Commit Statuses
@@ -375,17 +352,16 @@ module Devops
     end
 
     def create_commit_status(owner, repo, sha, state, options = {})
-      payload = {
-        state: gitea_commit_state(state),
-        target_url: options[:target_url],
-        description: options[:description],
-        context: options[:context] || "default"
-      }.compact
-
-      result = post("/repos/#{owner}/#{repo}/statuses/#{sha}", payload)
-      { success: true, id: result["id"], state: result["status"] }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = {
+          state: gitea_commit_state(state),
+          target_url: options[:target_url],
+          description: options[:description],
+          context: options[:context] || "default"
+        }.compact
+        result = post("/repos/#{owner}/#{repo}/statuses/#{sha}", payload)
+        { success: true, id: result["id"], state: result["status"] }
+      end
     end
 
     # Branch Protection
@@ -398,47 +374,45 @@ module Devops
     end
 
     def update_branch_protection(owner, repo, branch, options = {})
-      payload = {
-        branch_name: branch,
-        enable_push: options[:enable_push] != false,
-        enable_push_whitelist: options[:enable_push_whitelist] || false,
-        push_whitelist_usernames: options[:push_whitelist_usernames] || [],
-        push_whitelist_teams: options[:push_whitelist_teams] || [],
-        enable_merge_whitelist: options[:enable_merge_whitelist] || false,
-        merge_whitelist_usernames: options[:merge_whitelist_usernames] || [],
-        merge_whitelist_teams: options[:merge_whitelist_teams] || [],
-        enable_status_check: options[:enable_status_check] || false,
-        status_check_contexts: options[:status_check_contexts] || [],
-        required_approvals: options[:required_approvals] || 0,
-        enable_approvals_whitelist: options[:enable_approvals_whitelist] || false,
-        approvals_whitelist_usernames: options[:approvals_whitelist_usernames] || [],
-        approvals_whitelist_teams: options[:approvals_whitelist_teams] || [],
-        block_on_rejected_reviews: options[:block_on_rejected_reviews] || false,
-        block_on_outdated_branch: options[:block_on_outdated_branch] || false,
-        dismiss_stale_approvals: options[:dismiss_stale_approvals] || false,
-        require_signed_commits: options[:require_signed_commits] || false,
-        protected_file_patterns: options[:protected_file_patterns] || ""
-      }
+      with_error_handling do
+        payload = {
+          branch_name: branch,
+          enable_push: options[:enable_push] != false,
+          enable_push_whitelist: options[:enable_push_whitelist] || false,
+          push_whitelist_usernames: options[:push_whitelist_usernames] || [],
+          push_whitelist_teams: options[:push_whitelist_teams] || [],
+          enable_merge_whitelist: options[:enable_merge_whitelist] || false,
+          merge_whitelist_usernames: options[:merge_whitelist_usernames] || [],
+          merge_whitelist_teams: options[:merge_whitelist_teams] || [],
+          enable_status_check: options[:enable_status_check] || false,
+          status_check_contexts: options[:status_check_contexts] || [],
+          required_approvals: options[:required_approvals] || 0,
+          enable_approvals_whitelist: options[:enable_approvals_whitelist] || false,
+          approvals_whitelist_usernames: options[:approvals_whitelist_usernames] || [],
+          approvals_whitelist_teams: options[:approvals_whitelist_teams] || [],
+          block_on_rejected_reviews: options[:block_on_rejected_reviews] || false,
+          block_on_outdated_branch: options[:block_on_outdated_branch] || false,
+          dismiss_stale_approvals: options[:dismiss_stale_approvals] || false,
+          require_signed_commits: options[:require_signed_commits] || false,
+          protected_file_patterns: options[:protected_file_patterns] || ""
+        }
 
-      # Try to update existing, or create new
-      begin
-        result = patch("/repos/#{owner}/#{repo}/branch_protections/#{branch}", payload)
-      rescue NotFoundError
-        result = post("/repos/#{owner}/#{repo}/branch_protections", payload)
+        # Try to update existing, or create new
+        begin
+          result = patch("/repos/#{owner}/#{repo}/branch_protections/#{branch}", payload)
+        rescue NotFoundError
+          result = post("/repos/#{owner}/#{repo}/branch_protections", payload)
+        end
+
+        { success: true, protection: normalize_branch_protection(result) }
       end
-
-      { success: true, protection: normalize_branch_protection(result) }
-    rescue ApiError => e
-      { success: false, error: e.message }
     end
 
     def delete_branch_protection(owner, repo, branch)
-      delete("/repos/#{owner}/#{repo}/branch_protections/#{branch}")
-      { success: true }
-    rescue NotFoundError
-      { success: true } # Already unprotected
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling(default_on_not_found: { success: true }) do
+        delete("/repos/#{owner}/#{repo}/branch_protections/#{branch}")
+        { success: true }
+      end
     end
 
     def list_protected_branches(owner, repo)
@@ -461,25 +435,18 @@ module Devops
     end
 
     def create_deploy_key(owner, repo, title, key, options = {})
-      payload = {
-        title: title,
-        key: key,
-        read_only: options[:read_only] != false
-      }
-
-      result = post("/repos/#{owner}/#{repo}/keys", payload)
-      { success: true, key: normalize_deploy_key(result) }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = { title: title, key: key, read_only: options[:read_only] != false }
+        result = post("/repos/#{owner}/#{repo}/keys", payload)
+        { success: true, key: normalize_deploy_key(result) }
+      end
     end
 
     def delete_deploy_key(owner, repo, key_id)
-      delete("/repos/#{owner}/#{repo}/keys/#{key_id}")
-      { success: true }
-    rescue NotFoundError
-      { success: true } # Already deleted
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling(default_on_not_found: { success: true }) do
+        delete("/repos/#{owner}/#{repo}/keys/#{key_id}")
+        { success: true }
+      end
     end
 
     # Commit Viewing - Comprehensive Git View Capabilities
@@ -851,71 +818,15 @@ module Devops
 
       files << current_file if current_file
 
-      # Parse hunks for each file
+      # Parse hunks for each file using inherited method from ApiClient
       files.each do |file|
-        file[:hunks] = parse_gitea_patch_hunks(file[:raw_patch])
+        file[:hunks] = parse_patch_hunks(file[:raw_patch])
       end
 
       files
     end
 
-    def parse_gitea_patch_hunks(patch)
-      return [] if patch.blank?
-
-      hunks = []
-      current_hunk = nil
-      old_line = 0
-      new_line = 0
-
-      patch.lines.each do |line|
-        if line.start_with?("@@")
-          match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/)
-          if match
-            current_hunk = {
-              header: line.chomp,
-              old_start: match[1].to_i,
-              old_lines: match[2]&.to_i || 1,
-              new_start: match[3].to_i,
-              new_lines: match[4]&.to_i || 1,
-              lines: []
-            }
-            hunks << current_hunk
-            old_line = current_hunk[:old_start]
-            new_line = current_hunk[:new_start]
-          end
-        elsif current_hunk && !line.start_with?("diff --git", "---", "+++", "index ", "new file", "deleted file", "rename")
-          line_type = case line[0]
-                      when "+" then "addition"
-                      when "-" then "deletion"
-                      when " " then "context"
-                      else next # Skip other lines
-                      end
-
-          diff_line = {
-            type: line_type,
-            content: line[1..].to_s.chomp
-          }
-
-          case line_type
-          when "deletion"
-            diff_line[:old_line_number] = old_line
-            old_line += 1
-          when "addition"
-            diff_line[:new_line_number] = new_line
-            new_line += 1
-          when "context"
-            diff_line[:old_line_number] = old_line
-            diff_line[:new_line_number] = new_line
-            old_line += 1
-            new_line += 1
-          end
-
-          current_hunk[:lines] << diff_line
-        end
-      end
-
-      hunks
-    end
+    # parse_patch_hunks is now inherited from ApiClient base class
 
     def normalize_gitea_comparison(comparison)
       return nil unless comparison

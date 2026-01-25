@@ -40,7 +40,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     end
 
     render_success(message: "Invoice payment processed")
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Stripe invoice payment processing failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
   end
@@ -88,7 +88,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     end
 
     render_success(message: "Invoice payment failure processed")
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Stripe invoice failure processing failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
   end
@@ -123,7 +123,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     end
 
     render_success(message: "Subscription synchronized")
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Stripe subscription update failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
   end
@@ -154,7 +154,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     end
 
     render_success(message: "Subscription cancellation processed")
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Stripe subscription cancellation failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
   end
@@ -170,7 +170,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     end
 
     render_success(message: "Payment success processed")
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Stripe payment success processing failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
   end
@@ -186,7 +186,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     end
 
     render_success(message: "Payment failure processed")
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Stripe payment failure processing failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
   end
@@ -360,7 +360,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
         processed_at: Time.current.iso8601
       }
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log webhook processing: #{e.message}"
   end
 

@@ -128,7 +128,7 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
           <Select
             id="team_type"
             value={formData.team_type}
-            onChange={(value) => handleChange('team_type', value as any)}
+            onChange={(value) => handleChange('team_type', value as CreateTeamParams['team_type'])}
             options={teamTypeOptions}
             required
           />
@@ -142,7 +142,7 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
           <Select
             id="coordination_strategy"
             value={formData.coordination_strategy}
-            onChange={(value) => handleChange('coordination_strategy', value as any)}
+            onChange={(value) => handleChange('coordination_strategy', value as CreateTeamParams['coordination_strategy'])}
             options={coordinationOptions}
             required
           />
@@ -156,7 +156,7 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
           <Select
             id="status"
             value={formData.status || 'active'}
-            onChange={(value) => handleChange('status', value as any)}
+            onChange={(value) => handleChange('status', value as CreateTeamParams['status'])}
             options={statusOptions}
           />
         </div>

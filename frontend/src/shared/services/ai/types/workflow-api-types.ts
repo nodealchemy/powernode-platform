@@ -4,11 +4,13 @@ import type {
   AiWorkflowRun,
   AiWorkflowNodeExecution,
   AiWorkflowTrigger,
+  AiWorkflowNode,
+  AiWorkflowEdge,
   WorkflowTemplate
 } from '../../../types/workflow';
 
 // Re-export workflow types for convenience
-export type { AiWorkflow, AiWorkflowRun, AiWorkflowNodeExecution, AiWorkflowTrigger, WorkflowTemplate };
+export type { AiWorkflow, AiWorkflowRun, AiWorkflowNodeExecution, AiWorkflowTrigger, AiWorkflowNode, AiWorkflowEdge, WorkflowTemplate };
 
 // Workflow schedule type (pending full backend type definition)
 export interface WorkflowSchedule {
@@ -155,26 +157,9 @@ export interface CreateWorkflowRequest {
   metadata?: Record<string, unknown>;
   input_schema?: Record<string, unknown>;
   output_schema?: Record<string, unknown>;
-  nodes?: Array<{
-    node_id: string;
-    node_type: string;
-    name: string;
-    description?: string;
-    position_x: number;
-    position_y: number;
-    configuration?: Record<string, unknown>;
-    metadata?: Record<string, unknown>;
-  }>;
-  edges?: Array<{
-    edge_id: string;
-    source_node_id: string;
-    target_node_id: string;
-    source_handle?: string;
-    target_handle?: string;
-    condition_type?: string;
-    condition_value?: unknown;
-    metadata?: Record<string, unknown>;
-  }>;
+  // Accept full AiWorkflowNode/AiWorkflowEdge types - backend uses only the fields it needs
+  nodes?: AiWorkflowNode[];
+  edges?: AiWorkflowEdge[];
 }
 
 export interface ExecuteWorkflowRequest {

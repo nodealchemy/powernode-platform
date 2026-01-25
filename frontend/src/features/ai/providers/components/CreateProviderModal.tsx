@@ -83,7 +83,6 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
         status_url: ''
       });
     } catch (error) {
-      console.error('Failed to create provider:', error);
       addNotification({
         type: 'error',
         title: 'Creation Failed',

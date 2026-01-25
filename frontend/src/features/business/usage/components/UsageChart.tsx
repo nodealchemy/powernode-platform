@@ -63,7 +63,7 @@ export const UsageChart: React.FC<UsageChartProps> = ({ trends, title = 'Usage T
               className="relative flex-1 group"
             >
               <div
-                className="w-full bg-blue-500 hover:bg-blue-600 rounded-t transition-all cursor-pointer"
+                className="w-full bg-theme-interactive-primary hover:bg-theme-interactive-primary-hover rounded-t transition-all cursor-pointer"
                 style={{ height: `${Math.max(point.height, 2)}%` }}
               />
 

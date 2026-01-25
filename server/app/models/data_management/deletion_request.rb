@@ -306,7 +306,7 @@ module DataManagement
             completed_at: completed_at&.iso8601
           }
         )
-      rescue => e
+      rescue StandardError => e
         Rails.logger.warn "Could not create in-app notification for deletion completion: #{e.message}"
       end
 

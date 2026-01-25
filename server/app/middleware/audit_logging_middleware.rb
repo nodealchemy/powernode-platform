@@ -24,7 +24,7 @@ class AuditLoggingMiddleware
       log_api_request(request, status, start_time) if status < 400
 
       [ status, headers, response ]
-    rescue => error
+    rescue StandardError => error
       # Log failed API requests
       log_api_error(request, error, start_time)
 
@@ -161,7 +161,7 @@ class AuditLoggingMiddleware
     end
 
     nil
-  rescue => e
+  rescue StandardError => e
     Rails.logger.debug "Failed to extract user from request: #{e.message}"
     nil
   end
