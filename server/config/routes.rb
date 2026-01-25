@@ -1793,6 +1793,12 @@ Rails.application.routes.draw do
         post "marketplace/search", controller: "marketplace", action: :search
         get "marketplace/recommendations", controller: "marketplace", action: :recommendations
         post "marketplace/compare", controller: "marketplace", action: :compare
+        # Short routes for featured/popular/categories/tags/statistics (without templates/ prefix)
+        get "marketplace/featured", controller: "marketplace", action: :featured
+        get "marketplace/popular", controller: "marketplace", action: :popular
+        get "marketplace/categories", controller: "marketplace", action: :categories
+        get "marketplace/tags", controller: "marketplace", action: :tags
+        get "marketplace/statistics", controller: "marketplace", action: :statistics
 
         # Installations - Note: Controller uses custom action names (installations_index, installation_show, etc.)
         get "marketplace/installations", controller: "marketplace", action: :installations_index, as: :installations_index
@@ -1917,27 +1923,13 @@ Rails.application.routes.draw do
         # - Enterprise: Unlimited + custom topologies ($999/mo)
         # ===================================================================
         scope :teams, controller: "teams" do
-          # Teams
-          get "/", action: :index
-          get "/:id", action: :show
-          post "/", action: :create
-          patch "/:id", action: :update
-          delete "/:id", action: :destroy
+          # Templates (before /:id to avoid matching "templates" as an id)
+          get "/templates", action: :list_templates
+          get "/templates/:id", action: :show_template
+          post "/templates", action: :create_template
+          post "/templates/:id/publish", action: :publish_template
 
-          # Roles
-          get "/:team_id/roles", action: :list_roles
-          post "/:team_id/roles", action: :create_role
-          patch "/:team_id/roles/:id", action: :update_role
-          delete "/:team_id/roles/:id", action: :delete_role
-          post "/:team_id/roles/:id/assign_agent", action: :assign_agent_to_role
-
-          # Channels
-          get "/:team_id/channels", action: :list_channels
-          post "/:team_id/channels", action: :create_channel
-
-          # Executions
-          get "/:team_id/executions", action: :list_executions
-          post "/:team_id/executions", action: :start_execution
+          # Executions (before /:id to avoid matching "executions" as an id)
           get "/executions/:id", action: :show_execution
           post "/executions/:id/pause", action: :pause_execution
           post "/executions/:id/resume", action: :resume_execution
@@ -1960,11 +1952,27 @@ Rails.application.routes.draw do
           post "/executions/:execution_id/messages", action: :send_message
           post "/executions/:execution_id/messages/:id/reply", action: :reply_to_message
 
-          # Templates
-          get "/templates", action: :list_templates
-          get "/templates/:id", action: :show_template
-          post "/templates", action: :create_template
-          post "/templates/:id/publish", action: :publish_template
+          # Teams
+          get "/", action: :index
+          get "/:id", action: :show
+          post "/", action: :create
+          patch "/:id", action: :update
+          delete "/:id", action: :destroy
+
+          # Roles
+          get "/:team_id/roles", action: :list_roles
+          post "/:team_id/roles", action: :create_role
+          patch "/:team_id/roles/:id", action: :update_role
+          delete "/:team_id/roles/:id", action: :delete_role
+          post "/:team_id/roles/:id/assign_agent", action: :assign_agent_to_role
+
+          # Channels
+          get "/:team_id/channels", action: :list_channels
+          post "/:team_id/channels", action: :create_channel
+
+          # Executions (team-specific)
+          get "/:team_id/executions", action: :list_executions
+          post "/:team_id/executions", action: :start_execution
 
           # Analytics
           get "/:team_id/analytics", action: :analytics

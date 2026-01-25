@@ -289,7 +289,10 @@ module Permissions
     "devops.integrations.credentials.read" => "View DevOps integration credentials",
     "devops.integrations.credentials.create" => "Create DevOps integration credentials",
     "devops.integrations.credentials.update" => "Update DevOps integration credentials",
-    "devops.integrations.credentials.delete" => "Delete DevOps integration credentials"
+    "devops.integrations.credentials.delete" => "Delete DevOps integration credentials",
+
+    # DevOps AI Configuration
+    "devops.ai.manage" => "Manage DevOps AI configurations (models, prompts, settings)"
   }.freeze
 
   # Admin Permissions - Administrative operations
@@ -692,6 +695,7 @@ module Permissions
         "devops.integrations.delete", "devops.integrations.execute",
         "devops.integrations.credentials.read", "devops.integrations.credentials.create",
         "devops.integrations.credentials.update", "devops.integrations.credentials.delete",
+        "devops.ai.manage",
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",
@@ -915,6 +919,7 @@ module Permissions
         "devops.integrations.delete", "devops.integrations.execute",
         "devops.integrations.credentials.read", "devops.integrations.credentials.create",
         "devops.integrations.credentials.update", "devops.integrations.credentials.delete",
+        "devops.ai.manage",
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",
