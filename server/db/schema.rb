@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_29_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_30_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -64,8 +64,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_29_000001) do
     t.index ["account_id", "status"], name: "index_account_git_webhooks_on_account_status"
     t.index ["account_id"], name: "index_account_git_webhook_configs_on_account_id"
     t.index ["created_by_id"], name: "index_account_git_webhook_configs_on_created_by_id"
-    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying, 'exact'::character varying, 'wildcard'::character varying, 'regex'::character varying]::text[])", name: "account_git_webhook_configs_branch_filter_type_check"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying]::text[])", name: "account_git_webhook_configs_status_check"
+    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying::text, 'exact'::character varying::text, 'wildcard'::character varying::text, 'regex'::character varying::text])", name: "account_git_webhook_configs_branch_filter_type_check"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text])", name: "account_git_webhook_configs_status_check"
   end
 
   create_table "account_terminations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1177,6 +1177,58 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_29_000001) do
     t.index ["uploaded_by_id"], name: "index_ai_documents_on_uploaded_by_id"
     t.check_constraint "source_type::text = ANY (ARRAY['upload'::character varying::text, 'url'::character varying::text, 'api'::character varying::text, 'database'::character varying::text, 'cloud_storage'::character varying::text, 'git'::character varying::text])", name: "check_document_source_type"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'indexed'::character varying::text, 'failed'::character varying::text, 'archived'::character varying::text])", name: "check_document_status"
+  end
+
+  create_table "ai_execution_trace_spans", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "completed_at"
+    t.decimal "cost", precision: 10, scale: 6, default: "0.0"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.text "error"
+    t.jsonb "events", default: []
+    t.uuid "execution_trace_id", null: false
+    t.jsonb "input_data"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.jsonb "output_data"
+    t.string "parent_span_id"
+    t.string "span_id", null: false
+    t.string "span_type", null: false
+    t.datetime "started_at"
+    t.string "status", default: "running", null: false
+    t.jsonb "tokens", default: {}
+    t.datetime "updated_at", null: false
+    t.index ["execution_trace_id", "span_type"], name: "idx_on_execution_trace_id_span_type_aefca8363e"
+    t.index ["execution_trace_id", "started_at"], name: "idx_on_execution_trace_id_started_at_6b3179fd72"
+    t.index ["execution_trace_id", "status"], name: "idx_on_execution_trace_id_status_cedcb0e2ef"
+    t.index ["execution_trace_id"], name: "index_ai_execution_trace_spans_on_execution_trace_id"
+    t.index ["parent_span_id"], name: "index_ai_execution_trace_spans_on_parent_span_id"
+    t.index ["span_id"], name: "index_ai_execution_trace_spans_on_span_id", unique: true
+  end
+
+  create_table "ai_execution_traces", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.text "error"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.jsonb "output"
+    t.string "root_span_id"
+    t.datetime "started_at"
+    t.string "status", default: "running", null: false
+    t.decimal "total_cost", precision: 10, scale: 6, default: "0.0"
+    t.integer "total_tokens", default: 0
+    t.string "trace_id", null: false
+    t.string "trace_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "started_at"], name: "index_ai_execution_traces_on_account_id_and_started_at"
+    t.index ["account_id", "status"], name: "index_ai_execution_traces_on_account_id_and_status"
+    t.index ["account_id", "trace_type"], name: "index_ai_execution_traces_on_account_id_and_trace_type"
+    t.index ["account_id"], name: "index_ai_execution_traces_on_account_id"
+    t.index ["root_span_id"], name: "index_ai_execution_traces_on_root_span_id"
+    t.index ["trace_id"], name: "index_ai_execution_traces_on_trace_id", unique: true
   end
 
   create_table "ai_knowledge_bases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -4426,7 +4478,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_29_000001) do
     t.index ["owner"], name: "index_git_repositories_on_owner"
     t.index ["topics"], name: "index_git_repositories_on_topics", using: :gin
     t.index ["webhook_configured"], name: "index_git_repositories_on_webhook_configured"
-    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying, 'exact'::character varying, 'wildcard'::character varying, 'regex'::character varying]::text[])", name: "git_repositories_branch_filter_type_check"
+    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying::text, 'exact'::character varying::text, 'wildcard'::character varying::text, 'regex'::character varying::text])", name: "git_repositories_branch_filter_type_check"
   end
 
   create_table "git_runners", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -7020,7 +7072,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_29_000001) do
     t.index ["tier"], name: "index_webhook_endpoints_on_tier"
     t.check_constraint "content_type::text = ANY (ARRAY['application/json'::character varying::text, 'application/x-www-form-urlencoded'::character varying::text])", name: "valid_webhook_content_type"
     t.check_constraint "failure_count >= 0", name: "valid_webhook_failure_count"
-    t.check_constraint "payload_detail_level::text = ANY (ARRAY['full'::character varying, 'minimal'::character varying, 'ids_only'::character varying]::text[])", name: "webhook_endpoints_payload_detail_level_check"
+    t.check_constraint "payload_detail_level::text = ANY (ARRAY['full'::character varying::text, 'minimal'::character varying::text, 'ids_only'::character varying::text])", name: "webhook_endpoints_payload_detail_level_check"
     t.check_constraint "retry_backoff::text = ANY (ARRAY['linear'::character varying::text, 'exponential'::character varying::text])", name: "valid_webhook_retry_backoff"
     t.check_constraint "retry_limit >= 0 AND retry_limit <= 10", name: "valid_webhook_retry_limit"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'suspended'::character varying::text])", name: "valid_webhook_status"
@@ -7228,6 +7280,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_29_000001) do
   add_foreign_key "ai_document_chunks", "ai_knowledge_bases", column: "knowledge_base_id"
   add_foreign_key "ai_documents", "ai_knowledge_bases", column: "knowledge_base_id"
   add_foreign_key "ai_documents", "users", column: "uploaded_by_id"
+  add_foreign_key "ai_execution_trace_spans", "ai_execution_traces", column: "execution_trace_id"
+  add_foreign_key "ai_execution_traces", "accounts"
   add_foreign_key "ai_knowledge_bases", "accounts"
   add_foreign_key "ai_knowledge_bases", "users", column: "created_by_id"
   add_foreign_key "ai_marketplace_categories", "ai_marketplace_categories", column: "parent_id"

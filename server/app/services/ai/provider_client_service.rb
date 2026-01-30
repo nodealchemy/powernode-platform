@@ -582,21 +582,22 @@ class Ai::ProviderClientService
 
   def openai_stream_text(prompt, model, **options, &block)
     url = "/chat/completions"
+    messages = options[:messages] || [ { role: "user", content: prompt } ]
 
     body = {
       model: model,
-      messages: [ { role: "user", content: prompt } ],
+      messages: messages.map { |m| { role: m[:role] || m["role"], content: m[:content] || m["content"] } },
       max_tokens: options[:max_tokens] || 2000,
       temperature: options[:temperature] || 0.7,
-      stream: true
+      stream: true,
+      stream_options: { include_usage: true }
     }
 
-    # Streaming implementation would require special handling
-    # This is a simplified version
-    response = self.class.post(url, headers: @headers, body: body.to_json)
-    result = handle_response(response)
-    block.call(result) if block
-    result
+    # Add optional parameters
+    body[:system] = options[:system_prompt] if options[:system_prompt].present?
+
+    full_url = "#{provider.api_base_url}#{url}"
+    stream_response_with_sse(full_url, body, :openai, &block)
   end
 
   def openai_generate_image(prompt, model, **options)
@@ -634,8 +635,29 @@ class Ai::ProviderClientService
   end
 
   def anthropic_stream_text(prompt, model, **options, &block)
-    # Similar to OpenAI but with Anthropic's streaming format
-    anthropic_generate_text(prompt, model, **options)
+    url = "/messages"
+    messages = options[:messages] || [ { role: "user", content: prompt } ]
+
+    # Separate system messages from other messages for Anthropic
+    system_content = messages.select { |m| (m[:role] || m["role"]) == "system" }
+                            .map { |m| m[:content] || m["content"] }
+                            .join("\n")
+
+    user_messages = messages.reject { |m| (m[:role] || m["role"]) == "system" }
+
+    body = {
+      model: model,
+      messages: user_messages.map { |m| { role: m[:role] || m["role"], content: m[:content] || m["content"] } },
+      max_tokens: options[:max_tokens] || 2000,
+      stream: true
+    }
+
+    body[:system] = system_content if system_content.present?
+    body[:system] = options[:system_prompt] if options[:system_prompt].present? && body[:system].blank?
+    body[:temperature] = options[:temperature] if options[:temperature]
+
+    full_url = "#{provider.api_base_url}#{url}"
+    stream_response_with_sse(full_url, body, :anthropic, &block)
   end
 
   # Ollama implementations
@@ -689,8 +711,20 @@ class Ai::ProviderClientService
   end
 
   def ollama_stream_text(prompt, model, **options, &block)
-    # Ollama streaming implementation
-    ollama_generate_text(prompt, model, **options)
+    url = "/api/chat"
+    messages = options[:messages] || [ { role: "user", content: prompt } ]
+
+    body = {
+      model: model,
+      messages: messages.map { |m| { role: m[:role] || m["role"], content: m[:content] || m["content"] } },
+      stream: true
+    }
+
+    # Ollama uses different base URI
+    base_url = credentials_data["base_url"] || "http://localhost:11434"
+    full_url = "#{base_url}#{url}"
+
+    stream_response_with_ndjson(full_url, body, &block)
   end
 
   # Stability AI implementations
@@ -861,5 +895,286 @@ class Ai::ProviderClientService
         cost: result[:cost] || 0
       }
     end
+  end
+
+  # Stream response using Server-Sent Events (SSE) for OpenAI/Anthropic
+  # @param url [String] Full URL to send request to
+  # @param body [Hash] Request body
+  # @param provider_type [Symbol] :openai or :anthropic for parsing
+  # @yieldparam chunk [Hash] Parsed chunk with :type, :content, :done, :usage
+  def stream_response_with_sse(url, body, provider_type, &block)
+    raise ArgumentError, "Block required for streaming" unless block_given?
+
+    require "net/http"
+    require "uri"
+
+    uri = URI.parse(url)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = uri.scheme == "https"
+    http.read_timeout = 120
+    http.open_timeout = 30
+
+    request = Net::HTTP::Post.new(uri.request_uri)
+    @headers.each { |k, v| request[k] = v }
+    request.body = body.to_json
+
+    accumulated_content = ""
+    usage_data = {}
+    stream_id = SecureRandom.uuid
+
+    begin
+      http.request(request) do |response|
+        unless response.is_a?(Net::HTTPSuccess)
+          error_body = response.body
+          yield({
+            type: :error,
+            error: "HTTP #{response.code}: #{error_body}",
+            stream_id: stream_id
+          })
+          return {
+            success: false,
+            error: "HTTP #{response.code}",
+            status_code: response.code.to_i
+          }
+        end
+
+        # Yield stream start event
+        yield({
+          type: :stream_start,
+          stream_id: stream_id,
+          timestamp: Time.current.iso8601
+        })
+
+        buffer = ""
+        response.read_body do |chunk|
+          buffer += chunk
+
+          # Process complete SSE events (separated by double newlines)
+          while (event_end = buffer.index("\n\n"))
+            event_data = buffer[0...event_end]
+            buffer = buffer[(event_end + 2)..]
+
+            # Parse SSE format: "data: {...}"
+            event_data.split("\n").each do |line|
+              next unless line.start_with?("data: ")
+
+              json_str = line[6..] # Remove "data: " prefix
+              next if json_str == "[DONE]"
+
+              begin
+                parsed = JSON.parse(json_str)
+                chunk_result = parse_sse_chunk(parsed, provider_type)
+
+                if chunk_result[:content]
+                  accumulated_content += chunk_result[:content]
+                  yield({
+                    type: :content_delta,
+                    content: chunk_result[:content],
+                    accumulated_content: accumulated_content,
+                    stream_id: stream_id,
+                    timestamp: Time.current.iso8601
+                  })
+                end
+
+                if chunk_result[:usage]
+                  usage_data = chunk_result[:usage]
+                end
+
+                if chunk_result[:done]
+                  yield({
+                    type: :stream_end,
+                    content: accumulated_content,
+                    usage: usage_data,
+                    stream_id: stream_id,
+                    timestamp: Time.current.iso8601
+                  })
+                end
+              rescue JSON::ParserError => e
+                Rails.logger.warn "[STREAMING] Failed to parse SSE chunk: #{e.message}"
+              end
+            end
+          end
+        end
+      end
+
+      {
+        success: true,
+        content: accumulated_content,
+        usage: usage_data,
+        stream_id: stream_id
+      }
+    rescue Net::OpenTimeout, Net::ReadTimeout => e
+      yield({
+        type: :error,
+        error: "Timeout: #{e.message}",
+        stream_id: stream_id
+      })
+      { success: false, error: e.message }
+    rescue StandardError => e
+      Rails.logger.error "[STREAMING] Stream error: #{e.message}"
+      yield({
+        type: :error,
+        error: e.message,
+        stream_id: stream_id
+      })
+      { success: false, error: e.message }
+    end
+  end
+
+  # Stream response using newline-delimited JSON (NDJSON) for Ollama
+  # @param url [String] Full URL to send request to
+  # @param body [Hash] Request body
+  # @yieldparam chunk [Hash] Parsed chunk with :type, :content, :done
+  def stream_response_with_ndjson(url, body, &block)
+    raise ArgumentError, "Block required for streaming" unless block_given?
+
+    require "net/http"
+    require "uri"
+
+    uri = URI.parse(url)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = uri.scheme == "https"
+    http.read_timeout = 300 # Ollama can be slow for large models
+    http.open_timeout = 30
+
+    request = Net::HTTP::Post.new(uri.request_uri)
+    request["Content-Type"] = "application/json"
+    request.body = body.to_json
+
+    accumulated_content = ""
+    stream_id = SecureRandom.uuid
+
+    begin
+      http.request(request) do |response|
+        unless response.is_a?(Net::HTTPSuccess)
+          yield({
+            type: :error,
+            error: "HTTP #{response.code}",
+            stream_id: stream_id
+          })
+          return { success: false, error: "HTTP #{response.code}" }
+        end
+
+        yield({
+          type: :stream_start,
+          stream_id: stream_id,
+          timestamp: Time.current.iso8601
+        })
+
+        buffer = ""
+        response.read_body do |chunk|
+          buffer += chunk
+
+          # Process complete JSON lines
+          while (line_end = buffer.index("\n"))
+            json_line = buffer[0...line_end].strip
+            buffer = buffer[(line_end + 1)..]
+
+            next if json_line.empty?
+
+            begin
+              parsed = JSON.parse(json_line)
+
+              if parsed["message"] && parsed["message"]["content"]
+                content = parsed["message"]["content"]
+                accumulated_content += content
+                yield({
+                  type: :content_delta,
+                  content: content,
+                  accumulated_content: accumulated_content,
+                  stream_id: stream_id,
+                  timestamp: Time.current.iso8601
+                })
+              end
+
+              if parsed["done"]
+                yield({
+                  type: :stream_end,
+                  content: accumulated_content,
+                  usage: {
+                    prompt_tokens: parsed["prompt_eval_count"],
+                    completion_tokens: parsed["eval_count"],
+                    total_tokens: (parsed["prompt_eval_count"] || 0) + (parsed["eval_count"] || 0)
+                  },
+                  stream_id: stream_id,
+                  timestamp: Time.current.iso8601
+                })
+              end
+            rescue JSON::ParserError => e
+              Rails.logger.warn "[STREAMING] Failed to parse NDJSON: #{e.message}"
+            end
+          end
+        end
+      end
+
+      { success: true, content: accumulated_content, stream_id: stream_id }
+    rescue StandardError => e
+      Rails.logger.error "[STREAMING] Ollama stream error: #{e.message}"
+      yield({ type: :error, error: e.message, stream_id: stream_id })
+      { success: false, error: e.message }
+    end
+  end
+
+  # Parse SSE chunk based on provider type
+  # @param parsed [Hash] Parsed JSON from SSE data line
+  # @param provider_type [Symbol] :openai or :anthropic
+  # @return [Hash] Normalized chunk with :content, :done, :usage
+  def parse_sse_chunk(parsed, provider_type)
+    case provider_type
+    when :openai
+      parse_openai_sse_chunk(parsed)
+    when :anthropic
+      parse_anthropic_sse_chunk(parsed)
+    else
+      { content: nil, done: false }
+    end
+  end
+
+  def parse_openai_sse_chunk(parsed)
+    result = { content: nil, done: false, usage: nil }
+
+    # OpenAI streaming format: { choices: [{ delta: { content: "..." } }] }
+    if parsed["choices"]&.first
+      choice = parsed["choices"].first
+      delta = choice["delta"]
+
+      result[:content] = delta["content"] if delta && delta["content"]
+      result[:done] = choice["finish_reason"].present?
+    end
+
+    # Usage data comes in the final chunk with stream_options: include_usage
+    if parsed["usage"]
+      result[:usage] = {
+        prompt_tokens: parsed["usage"]["prompt_tokens"],
+        completion_tokens: parsed["usage"]["completion_tokens"],
+        total_tokens: parsed["usage"]["total_tokens"]
+      }
+    end
+
+    result
+  end
+
+  def parse_anthropic_sse_chunk(parsed)
+    result = { content: nil, done: false, usage: nil }
+
+    # Anthropic streaming events: content_block_delta, message_delta, message_stop
+    case parsed["type"]
+    when "content_block_delta"
+      if parsed["delta"] && parsed["delta"]["type"] == "text_delta"
+        result[:content] = parsed["delta"]["text"]
+      end
+    when "message_delta"
+      if parsed["usage"]
+        result[:usage] = {
+          prompt_tokens: parsed["usage"]["input_tokens"],
+          completion_tokens: parsed["usage"]["output_tokens"],
+          total_tokens: (parsed["usage"]["input_tokens"] || 0) + (parsed["usage"]["output_tokens"] || 0)
+        }
+      end
+    when "message_stop"
+      result[:done] = true
+    end
+
+    result
   end
 end

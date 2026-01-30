@@ -1735,6 +1735,20 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # 5.5 EXECUTION TRACES - Debugging & tracing
+        # ===================================================================
+        resources :execution_traces, only: [:index, :show] do
+          member do
+            get :spans
+            get :timeline
+          end
+
+          collection do
+            get :summary
+          end
+        end
+
+        # ===================================================================
         # 6. ANALYTICS CONTROLLER - Consolidated analytics & reporting
         # ===================================================================
         resource :analytics, only: [] do

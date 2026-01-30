@@ -11,6 +11,7 @@ export { useSubscriptionWebSocket } from './useSubscriptionWebSocket';
 export { useMcpWebSocket } from './useMcpWebSocket';
 export { useAiOrchestrationWebSocket } from './useAiOrchestrationWebSocket';
 export { useAiMonitoringWebSocket } from './useAiMonitoringWebSocket';
+export { useAiStreamingWebSocket } from './useAiStreamingWebSocket';
 export { useNotificationWebSocket } from './useNotificationWebSocket';
 export { usePageWebSocket } from './usePageWebSocket';
 export { useTabBreadcrumb } from './useTabBreadcrumb';
@@ -81,3 +82,14 @@ export type {
 
 // Notification WebSocket types
 export type { WebSocketNotification } from './useNotificationWebSocket';
+
+// AI Streaming WebSocket types
+export type {
+  StreamEventType,
+  StreamStartEvent,
+  TokenEvent,
+  StreamEndEvent,
+  StreamErrorEvent,
+  StreamEvent,
+  StreamingState
+} from './useAiStreamingWebSocket';
