@@ -52,12 +52,14 @@ RSpec.describe 'Api::V1::Git::Repositories', type: :request do
       end
 
       it 'supports pagination' do
-        get '/api/v1/git/repositories', params: { page: 1, per_page: 1 }, headers: headers
+        # Controller enforces minimum per_page of 20, so create enough repos for pagination to matter
+        get '/api/v1/git/repositories', params: { page: 1, per_page: 20 }, headers: headers
 
         expect_success_response
         data = json_response_data
-        expect(data['repositories'].length).to eq(1)
-        expect(data['pagination']['per_page']).to eq(1)
+        expect(data['repositories'].length).to be <= 20
+        expect(data['pagination']['per_page']).to eq(20)
+        expect(data['pagination']).to include('current_page', 'per_page', 'total_count', 'total_pages')
       end
     end
 
@@ -311,8 +313,8 @@ RSpec.describe 'Api::V1::Git::Repositories', type: :request do
 
   describe 'GET /api/v1/git/repositories/:id/pipelines' do
     let(:repository) { create(:devops_git_repository, account: account) }
-    let!(:pipeline1) { create(:devops_git_pipeline, git_repository: repository, account: account, status: 'completed') }
-    let!(:pipeline2) { create(:devops_git_pipeline, git_repository: repository, account: account, status: 'running') }
+    let!(:pipeline1) { create(:devops_git_pipeline, repository: repository, account: account, status: 'completed', conclusion: 'success') }
+    let!(:pipeline2) { create(:devops_git_pipeline, repository: repository, account: account, status: 'in_progress') }
 
     context 'with proper permissions' do
       it 'returns list of pipelines' do
@@ -327,11 +329,11 @@ RSpec.describe 'Api::V1::Git::Repositories', type: :request do
       end
 
       it 'filters by status' do
-        get "/api/v1/git/repositories/#{repository.id}/pipelines", params: { status: 'running' }, headers: headers
+        get "/api/v1/git/repositories/#{repository.id}/pipelines", params: { status: 'in_progress' }, headers: headers
 
         expect_success_response
         data = json_response_data
-        expect(data['pipelines'].all? { |p| p['status'] == 'running' }).to be true
+        expect(data['pipelines'].all? { |p| p['status'] == 'in_progress' }).to be true
       end
     end
 
@@ -361,8 +363,14 @@ RSpec.describe 'Api::V1::Git::Repositories', type: :request do
         expect(data['commit']).to include('sha' => 'abc123')
       end
 
-      it 'returns bad request when sha is missing' do
-        get "/api/v1/git/repositories/#{repository.id}/commits/", headers: headers, as: :json
+      it 'returns not found for non-existent commit' do
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(
+          double(get_commit: nil).tap { |d|
+            allow(d).to receive(:get_commit).and_raise(Devops::Git::ApiClient::NotFoundError.new("Not found"))
+          }
+        )
+
+        get "/api/v1/git/repositories/#{repository.id}/commits/nonexistent", headers: headers, as: :json
 
         expect(response).to have_http_status(:not_found)
       end

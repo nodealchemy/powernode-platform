@@ -8,7 +8,7 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
   let(:headers) { auth_headers_for(user) }
 
   let(:mcp_server) do
-    create(:mcp_server, account: account, auth_type: 'oauth2', oauth_state: SecureRandom.hex(16))
+    create(:mcp_server, :oauth2, account: account, oauth_state: SecureRandom.hex(16))
   end
   let(:oauth_service) { instance_double(Mcp::OauthService) }
 
@@ -24,7 +24,7 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
         allow(oauth_service).to receive(:generate_authorization_url)
           .and_return(authorization_url)
 
-        post "/api/v1/mcp_servers/#{mcp_server.id}/oauth/authorize", headers: headers, as: :json
+        post "/api/v1/mcp_servers/#{mcp_server.id}/oauth", headers: headers, as: :json
 
         expect_success_response
         expect(json_response_data).to include(
@@ -38,7 +38,7 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
           .with(redirect_uri: 'https://custom.example.com/callback')
           .and_return('https://oauth.example.com/authorize')
 
-        post "/api/v1/mcp_servers/#{mcp_server.id}/oauth/authorize",
+        post "/api/v1/mcp_servers/#{mcp_server.id}/oauth",
              params: { redirect_uri: 'https://custom.example.com/callback' },
              headers: headers, as: :json
 
@@ -50,7 +50,7 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
       let(:non_oauth_server) { create(:mcp_server, account: account, auth_type: 'api_key') }
 
       it 'returns error' do
-        post "/api/v1/mcp_servers/#{non_oauth_server.id}/oauth/authorize", headers: headers, as: :json
+        post "/api/v1/mcp_servers/#{non_oauth_server.id}/oauth", headers: headers, as: :json
 
         expect_error_response('Server is not configured for OAuth authentication', 422)
       end
@@ -61,7 +61,7 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
         allow(oauth_service).to receive(:generate_authorization_url)
           .and_raise(Mcp::OauthService::ConfigurationError.new('Missing client_id'))
 
-        post "/api/v1/mcp_servers/#{mcp_server.id}/oauth/authorize", headers: headers, as: :json
+        post "/api/v1/mcp_servers/#{mcp_server.id}/oauth", headers: headers, as: :json
 
         expect_error_response('OAuth configuration error: Missing client_id', 422)
       end
@@ -80,17 +80,14 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
           expires_in: 3600
         }
 
-        allow(McpServer).to receive_message_chain(:where, :where, :find_by)
-          .and_return(mcp_server)
         allow(oauth_service).to receive(:exchange_code_for_tokens)
           .and_return(token_response)
-        allow(mcp_server).to receive(:reload).and_return(mcp_server)
-        allow(mcp_server).to receive(:oauth_connected?).and_return(true)
-        allow(mcp_server).to receive(:oauth_token_expires_at).and_return(1.hour.from_now)
+        allow_any_instance_of(McpServer).to receive(:oauth_connected?).and_return(true)
+        allow_any_instance_of(McpServer).to receive(:oauth_token_expires_at).and_return(1.hour.from_now)
 
         get '/api/v1/mcp/oauth/callback',
             params: { code: code, state: state },
-            headers: headers, as: :json
+            headers: headers
 
         expect_success_response
         expect(json_response_data).to include(
@@ -104,7 +101,7 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
       it 'returns error message' do
         get '/api/v1/mcp/oauth/callback',
             params: { error: 'access_denied', error_description: 'User denied access', state: state },
-            headers: headers, as: :json
+            headers: headers
 
         expect_error_response('OAuth authorization failed: User denied access', 422)
       end
@@ -114,7 +111,7 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
       it 'returns error when code is missing' do
         get '/api/v1/mcp/oauth/callback',
             params: { state: state },
-            headers: headers, as: :json
+            headers: headers
 
         expect_error_response('Missing required OAuth parameters (code and state)', 400)
       end
@@ -122,7 +119,7 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
       it 'returns error when state is missing' do
         get '/api/v1/mcp/oauth/callback',
             params: { code: code },
-            headers: headers, as: :json
+            headers: headers
 
         expect_error_response('Missing required OAuth parameters (code and state)', 400)
       end
@@ -130,12 +127,9 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
 
     context 'with invalid state' do
       it 'returns error' do
-        allow(McpServer).to receive_message_chain(:where, :where, :find_by)
-          .and_return(nil)
-
         get '/api/v1/mcp/oauth/callback',
             params: { code: code, state: 'invalid_state' },
-            headers: headers, as: :json
+            headers: headers
 
         expect_error_response('Invalid or expired OAuth state', 400)
       end
@@ -143,14 +137,12 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
 
     context 'with authorization error' do
       it 'handles authorization errors' do
-        allow(McpServer).to receive_message_chain(:where, :where, :find_by)
-          .and_return(mcp_server)
         allow(oauth_service).to receive(:exchange_code_for_tokens)
           .and_raise(Mcp::OauthService::AuthorizationError.new('Invalid code'))
 
         get '/api/v1/mcp/oauth/callback',
             params: { code: code, state: state },
-            headers: headers, as: :json
+            headers: headers
 
         expect_error_response('OAuth authorization failed: Invalid code', 422)
       end
@@ -161,17 +153,20 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
     it 'returns OAuth status' do
       oauth_status = {
         connected: true,
-        expires_at: 1.hour.from_now,
+        expires_at: 1.hour.from_now.as_json,
         has_refresh_token: true
       }
-      allow(mcp_server).to receive(:oauth_status).and_return(oauth_status)
+      allow_any_instance_of(McpServer).to receive(:oauth_status).and_return(oauth_status)
 
       get "/api/v1/mcp_servers/#{mcp_server.id}/oauth/status", headers: headers, as: :json
 
       expect_success_response
       expect(json_response_data).to include(
-        'mcp_server_id' => mcp_server.id,
-        'oauth_status' => oauth_status
+        'mcp_server_id' => mcp_server.id
+      )
+      expect(json_response_data['oauth_status']).to include(
+        'connected' => true,
+        'has_refresh_token' => true
       )
     end
 
@@ -186,9 +181,8 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
 
   describe 'DELETE /api/v1/mcp_servers/:id/oauth/disconnect' do
     let(:oauth_configured_server) do
-      create(:mcp_server,
+      create(:mcp_server, :oauth2,
              account: account,
-             auth_type: 'oauth2',
              oauth_access_token: 'token_123',
              oauth_refresh_token: 'refresh_123')
     end
@@ -222,9 +216,8 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
 
   describe 'POST /api/v1/mcp_servers/:id/oauth/refresh' do
     let(:oauth_server_with_refresh) do
-      create(:mcp_server,
+      create(:mcp_server, :oauth2,
              account: account,
-             auth_type: 'oauth2',
              oauth_access_token: 'old_token',
              oauth_refresh_token: 'refresh_123')
     end
@@ -232,9 +225,8 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
     context 'with valid refresh token' do
       it 'refreshes token successfully' do
         allow(oauth_service).to receive(:refresh_token!)
-        allow(oauth_server_with_refresh).to receive(:reload).and_return(oauth_server_with_refresh)
-        allow(oauth_server_with_refresh).to receive(:oauth_connected?).and_return(true)
-        allow(oauth_server_with_refresh).to receive(:oauth_token_expires_at).and_return(1.hour.from_now)
+        allow_any_instance_of(McpServer).to receive(:oauth_connected?).and_return(true)
+        allow_any_instance_of(McpServer).to receive(:oauth_token_expires_at).and_return(1.hour.from_now)
 
         post "/api/v1/mcp_servers/#{oauth_server_with_refresh.id}/oauth/refresh",
              headers: headers, as: :json
@@ -260,9 +252,8 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
 
     context 'without refresh token' do
       let(:oauth_server_no_refresh) do
-        create(:mcp_server,
+        create(:mcp_server, :oauth2,
                account: account,
-               auth_type: 'oauth2',
                oauth_access_token: 'token',
                oauth_refresh_token: nil)
       end
@@ -293,7 +284,7 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
     let(:no_perm_headers) { auth_headers_for(user_without_permission) }
 
     it 'requires mcp.servers.write permission for authorize' do
-      post "/api/v1/mcp_servers/#{mcp_server.id}/oauth/authorize", headers: no_perm_headers, as: :json
+      post "/api/v1/mcp_servers/#{mcp_server.id}/oauth", headers: no_perm_headers, as: :json
 
       expect_error_response('Insufficient permissions to manage MCP server OAuth', 403)
     end
@@ -313,7 +304,7 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
 
   describe 'authentication' do
     it 'requires authentication for all endpoints' do
-      post "/api/v1/mcp_servers/#{mcp_server.id}/oauth/authorize", as: :json
+      post "/api/v1/mcp_servers/#{mcp_server.id}/oauth", as: :json
 
       expect_error_response('Access token required', 401)
     end

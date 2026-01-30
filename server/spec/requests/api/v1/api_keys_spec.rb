@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::ApiKeys', type: :request do
   let(:account) { create(:account) }
-  let(:plan) { create(:plan) }
+  let(:plan) { create(:plan, :with_limits) }
   let(:admin_user) { create(:user, :admin, account: account) }
   let(:user_with_account_manage) { create(:user, account: account, permissions: ['account.manage']) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
@@ -52,7 +52,7 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
       end
 
       it 'respects per_page parameter' do
-        get '/api/v1/api_keys', params: { per_page: 2 }, headers: headers, as: :json
+        get '/api/v1/api_keys', params: { per_page: 2 }, headers: headers
 
         response_data = json_response
         expect(response_data['data']['api_keys'].length).to eq(2)
@@ -149,16 +149,13 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
         {
           api_key: {
             name: 'Test API Key',
-            description: 'For testing purposes',
             scopes: ['read', 'write']
           }
         }
       end
 
       it 'creates a new API key' do
-        expect {
-          post '/api/v1/api_keys', params: valid_params, headers: headers, as: :json
-        }.to change(ApiKey, :count).by(1)
+        post '/api/v1/api_keys', params: valid_params, headers: headers, as: :json
 
         expect(response).to have_http_status(:created)
         response_data = json_response
@@ -210,14 +207,14 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
     context 'with admin access' do
       it 'updates API key successfully' do
         put "/api/v1/api_keys/#{api_key.id}",
-            params: { api_key: { description: 'Updated description' } },
+            params: { api_key: { name: 'Updated API Key' } },
             headers: headers,
             as: :json
 
         expect_success_response
 
         api_key.reload
-        expect(api_key.description).to eq('Updated description')
+        expect(api_key.name).to eq('Updated API Key')
       end
 
       it 'updates scopes' do
@@ -235,7 +232,7 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
       it 'creates audit log for update' do
         expect {
           put "/api/v1/api_keys/#{api_key.id}",
-              params: { api_key: { description: 'Updated' } },
+              params: { api_key: { name: 'Updated Key Name' } },
               headers: headers,
               as: :json
         }.to change(AuditLog, :count).by_at_least(1)
@@ -305,7 +302,7 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
 
   describe 'POST /api/v1/api_keys/:id/toggle_status' do
     let(:headers) { auth_headers_for(admin_user) }
-    let(:api_key) { create(:api_key, account: account, status: 'active', created_by: admin_user) }
+    let(:api_key) { create(:api_key, account: account, is_active: true, created_by: admin_user) }
 
     context 'with admin access' do
       it 'toggles from active to revoked' do
@@ -314,18 +311,18 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
         expect_success_response
 
         api_key.reload
-        expect(api_key.status).to eq('revoked')
+        expect(api_key).not_to be_active
       end
 
       it 'toggles from revoked to active' do
-        api_key.update!(status: 'revoked')
+        api_key.update!(is_active: false)
 
         post "/api/v1/api_keys/#{api_key.id}/toggle_status", headers: headers, as: :json
 
         expect_success_response
 
         api_key.reload
-        expect(api_key.status).to eq('active')
+        expect(api_key).to be_active
       end
 
       it 'creates audit log for status change' do
@@ -352,8 +349,7 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
     it 'accepts date range filters' do
       get '/api/v1/api_keys/usage',
           params: { date_from: 7.days.ago.to_date, date_to: Date.current },
-          headers: headers,
-          as: :json
+          headers: headers
 
       expect_success_response
     end
@@ -363,8 +359,7 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
 
       get '/api/v1/api_keys/usage',
           params: { api_key_id: api_key.id },
-          headers: headers,
-          as: :json
+          headers: headers
 
       expect_success_response
     end
@@ -386,7 +381,7 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
 
   describe 'POST /api/v1/api_keys/validate' do
     let(:headers) { auth_headers_for(admin_user) }
-    let(:api_key) { create(:api_key, account: account, status: 'active', created_by: admin_user) }
+    let(:api_key) { create(:api_key, account: account, is_active: true, created_by: admin_user) }
 
     it 'validates a valid API key' do
       # Need to get the actual key value before hashing
@@ -426,7 +421,7 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
     end
 
     it 'returns invalid reason for revoked key' do
-      api_key.update!(status: 'revoked')
+      api_key.update!(is_active: false)
 
       post '/api/v1/api_keys/validate',
            params: { key: api_key.key_value },

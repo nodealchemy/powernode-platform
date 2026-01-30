@@ -162,8 +162,9 @@ RSpec.describe 'Api::V1::Settings', type: :request do
 
     context 'with invalid params' do
       it 'returns error when update fails' do
-        allow(user).to receive(:update).and_return(false)
-        allow(user).to receive(:errors).and_return(double(full_messages: ['Error']))
+        # Create the user first, then set up stub
+        user # trigger let
+        allow_any_instance_of(User).to receive(:update).with(hash_including(:notification_preferences)).and_return(false)
 
         put '/api/v1/settings/notifications', params: notification_params, headers: headers, as: :json
 
@@ -210,8 +211,9 @@ RSpec.describe 'Api::V1::Settings', type: :request do
 
     context 'with invalid params' do
       it 'returns error when update fails' do
-        allow(user).to receive(:update).and_return(false)
-        allow(user).to receive(:errors).and_return(double(full_messages: ['Error']))
+        # Create the user first, then set up stub
+        user # trigger let
+        allow_any_instance_of(User).to receive(:update).with(hash_including(:preferences)).and_return(false)
 
         put '/api/v1/settings/preferences', params: preference_params, headers: headers, as: :json
 

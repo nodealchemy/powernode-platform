@@ -16,22 +16,17 @@ RSpec.describe 'Api::V1::SupplyChain::BuildProvenance', type: :request do
   let(:other_headers) { auth_headers_for(other_user) }
 
   describe 'GET /api/v1/supply_chain/build_provenance' do
-    let!(:repository) { create(:devops_repository, account: account) }
-    let!(:attestation) { create(:supply_chain_attestation, account: account) }
     let!(:provenance1) do
       create(:supply_chain_build_provenance,
              account: account,
-             repository: repository,
-             attestation: attestation,
-             build_type: 'github-actions',
-             verified: true,
+             builder_id: 'https://github.com/actions/runner',
              reproducible: true)
     end
     let!(:provenance2) do
       create(:supply_chain_build_provenance,
              account: account,
-             build_type: 'gitlab-ci',
-             verified: false)
+             builder_id: 'https://gitlab.com/gitlab-runner',
+             reproducible: false)
     end
     let!(:other_provenance) { create(:supply_chain_build_provenance, account: other_account) }
 
@@ -44,28 +39,18 @@ RSpec.describe 'Api::V1::SupplyChain::BuildProvenance', type: :request do
         expect(data['build_provenances']).to be_an(Array)
         expect(data['build_provenances'].length).to eq(2)
         expect(data['build_provenances'].none? { |p| p['id'] == other_provenance.id }).to be true
-        expect(data['meta']).to have_key('total')
+        expect(json_response['meta']).to be_present
       end
 
-      it 'filters by build_type' do
+      it 'filters by builder_id' do
         get '/api/v1/supply_chain/build_provenance',
-            params: { build_type: 'github-actions' },
+            params: { builder_id: 'https://github.com/actions/runner' },
             headers: headers
 
         expect_success_response
         data = json_response_data
         expect(data['build_provenances'].length).to eq(1)
-        expect(data['build_provenances'].first['build_type']).to eq('github-actions')
-      end
-
-      it 'filters by verified status' do
-        get '/api/v1/supply_chain/build_provenance',
-            params: { verified: 'true' },
-            headers: headers
-
-        expect_success_response
-        data = json_response_data
-        expect(data['build_provenances'].all? { |p| p['verified'] == true }).to be true
+        expect(data['build_provenances'].first['builder_id']).to eq('https://github.com/actions/runner')
       end
 
       it 'filters by reproducible status' do
@@ -78,14 +63,14 @@ RSpec.describe 'Api::V1::SupplyChain::BuildProvenance', type: :request do
         expect(data['build_provenances'].all? { |p| p['reproducible'] == true }).to be true
       end
 
-      it 'filters by repository_id' do
+      it 'filters by source_repository' do
         get '/api/v1/supply_chain/build_provenance',
-            params: { repository_id: repository.id },
+            params: { source_repository: provenance1.source_repository },
             headers: headers
 
         expect_success_response
         data = json_response_data
-        expect(data['build_provenances'].all? { |p| p['repository']['id'] == repository.id }).to be true
+        expect(data['build_provenances'].all? { |p| p['source_repository'] == provenance1.source_repository }).to be true
       end
     end
 
@@ -107,13 +92,9 @@ RSpec.describe 'Api::V1::SupplyChain::BuildProvenance', type: :request do
   end
 
   describe 'GET /api/v1/supply_chain/build_provenance/:id' do
-    let(:repository) { create(:devops_repository, account: account) }
-    let(:attestation) { create(:supply_chain_attestation, account: account) }
     let(:provenance) do
       create(:supply_chain_build_provenance,
              account: account,
-             repository: repository,
-             attestation: attestation,
              build_config: { 'steps' => ['build', 'test'] },
              materials: [{ 'uri' => 'git+https://github.com/test/repo' }],
              environment: { 'os' => 'linux' })
@@ -128,12 +109,9 @@ RSpec.describe 'Api::V1::SupplyChain::BuildProvenance', type: :request do
         data = json_response_data
         expect(data['build_provenance']).to include(
           'id' => provenance.id,
-          'provenance_id' => provenance.provenance_id,
-          'build_type' => provenance.build_type,
-          'verified' => provenance.verified,
+          'builder_id' => provenance.builder_id,
           'reproducible' => provenance.reproducible
         )
-        expect(data['build_provenance']['repository']).to be_present
         expect(data['build_provenance']['build_config']).to be_present
         expect(data['build_provenance']['materials']).to be_present
         expect(data['build_provenance']['environment']).to be_present
@@ -159,7 +137,7 @@ RSpec.describe 'Api::V1::SupplyChain::BuildProvenance', type: :request do
     let(:provenance) do
       create(:supply_chain_build_provenance,
              account: account,
-             reproducibility_status: 'not_verified')
+             metadata: { 'reproducibility_status' => 'not_verified' })
     end
 
     context 'with proper permissions' do
@@ -173,14 +151,13 @@ RSpec.describe 'Api::V1::SupplyChain::BuildProvenance', type: :request do
         expect_success_response
         data = json_response_data
         expect(data['build_provenance']['reproducibility_status']).to eq('verifying')
-        expect(data['message']).to eq('Reproducibility verification started')
 
         expect(::SupplyChain::ReproducibilityVerificationJob)
           .to have_received(:perform_later).with(provenance.id, user.id)
       end
 
       it 'returns error when verification already in progress' do
-        provenance.update!(reproducibility_status: 'verifying')
+        provenance.update!(metadata: { 'reproducibility_status' => 'verifying' })
 
         post "/api/v1/supply_chain/build_provenance/#{provenance.id}/verify_reproducibility",
              headers: headers,

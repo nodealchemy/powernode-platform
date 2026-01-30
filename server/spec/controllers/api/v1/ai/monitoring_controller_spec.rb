@@ -2,10 +2,11 @@
 
 require 'rails_helper'
 
-# Stub for AiMonitoringHealthCheckJob (referenced in controller but not yet implemented)
-class AiMonitoringHealthCheckJob
-  def self.perform_async(_account_id)
-    # Stub implementation
+# Ensure the namespaced job class exists for stubbing
+# The controller uses Ai::MonitoringHealthCheckJob.perform_later
+unless defined?(Ai::MonitoringHealthCheckJob)
+  module Ai
+    class MonitoringHealthCheckJob < ApplicationJob; end
   end
 end
 
@@ -50,6 +51,9 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
     })
 
     allow_any_instance_of(Monitoring::UnifiedService).to receive(:check_and_trigger_alerts).and_return([])
+
+    # Mock Ai::MonitoringHealthService#determine_health_status (used by overview action)
+    allow_any_instance_of(Ai::MonitoringHealthService).to receive(:determine_health_status).and_return('healthy')
   end
 
   # =============================================================================
@@ -271,6 +275,17 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
   end
 
   describe 'GET #health_detailed' do
+    before do
+      allow_any_instance_of(Redis).to receive(:ping).and_return('PONG')
+      allow_any_instance_of(Redis).to receive(:info).and_return({
+        'redis_version' => '7.0',
+        'used_memory_human' => '10M',
+        'used_memory_peak_human' => '15M',
+        'connected_clients' => '5',
+        'uptime_in_days' => '30'
+      })
+    end
+
     context 'with valid permissions' do
       before { sign_in monitoring_read_user }
 
@@ -323,6 +338,10 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
   describe 'GET #health_connectivity' do
     before do
       allow_any_instance_of(Redis).to receive(:ping).and_return('PONG')
+      allow_any_instance_of(Redis).to receive(:info).and_return({
+        'used_memory_human' => '10M',
+        'connected_clients' => '5'
+      })
     end
 
     context 'with valid permissions' do
@@ -555,7 +574,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
         expect(json['success']).to be true
-        expect(json['data']['message']).to include('reset')
+        expect(json['message']).to include('reset')
       end
 
       it 'returns updated circuit breaker state' do
@@ -599,7 +618,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
-        expect(json['data']['message']).to include('opened')
+        expect(json['message']).to include('opened')
       end
     end
   end
@@ -626,7 +645,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
-        expect(json['data']['message']).to include('closed')
+        expect(json['message']).to include('closed')
       end
     end
   end
@@ -653,7 +672,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
         expect(json['success']).to be true
-        expect(json['data']['message']).to include('All circuit breakers reset')
+        expect(json['message']).to include('All circuit breakers reset')
       end
 
       it 'returns updated summary' do
@@ -705,7 +724,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
-        expect(json['data']['message']).to include('reset for category: providers')
+        expect(json['message']).to include('reset for category: providers')
       end
     end
   end
@@ -774,7 +793,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
         expect(json['success']).to be true
-        expect(json['data']['message']).to include('broadcasted successfully')
+        expect(json['message']).to include('broadcasted successfully')
       end
 
       it 'returns error when account not found' do
@@ -797,7 +816,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
   describe 'POST #start_monitoring' do
     before do
-      allow(AiMonitoringHealthCheckJob).to receive(:perform_async)
+      allow(Ai::MonitoringHealthCheckJob).to receive(:perform_later)
     end
 
     context 'with valid permissions' do
@@ -811,7 +830,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
         expect(json['success']).to be true
-        expect(json['data']['message']).to include('monitoring started')
+        expect(json['message']).to include('monitoring started')
       end
 
       it 'handles job scheduling errors' do
@@ -836,7 +855,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
         expect(json['success']).to be true
-        expect(json['data']['message']).to include('stop requested')
+        expect(json['message']).to include('stop requested')
       end
     end
   end

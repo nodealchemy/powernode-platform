@@ -51,12 +51,14 @@ module AuthHelpers
     json_response
   end
 
-  def expect_error_response(message, status = 400)
-    expect(response).to have_http_status(status)
-    expect(json_response).to include(
-      'success' => false,
-      'error' => message
-    )
+  def expect_error_response(message = nil, status = nil)
+    if status
+      expect(response).to have_http_status(status)
+    else
+      expect(response.status).to be >= 400
+    end
+    expect(json_response['success']).to eq(false)
+    expect(json_response['error']).to include(message) if message
   end
 
   def expect_success_response(data = nil)

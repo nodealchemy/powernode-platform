@@ -30,7 +30,7 @@ RSpec.describe 'Api::V1::Resellers', type: :request do
       end
 
       it 'supports filtering by status' do
-        get '/api/v1/resellers', params: { status: 'active' }, headers: admin_headers, as: :json
+        get '/api/v1/resellers?status=active', headers: admin_headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -138,7 +138,13 @@ RSpec.describe 'Api::V1::Resellers', type: :request do
 
       expect_success_response
       data = json_response_data
-      expect(data['contact_email']).to eq('newemail@example.com')
+      # The update action uses reseller_data without include_details, so contact_email is not in the response
+      # Verify the reseller was updated by checking the basic response fields
+      expect(data['id']).to eq(reseller.id)
+      expect(data['company_name']).to eq(reseller.company_name)
+      # Verify the update actually persisted
+      reseller.reload
+      expect(reseller.contact_email).to eq('newemail@example.com')
     end
   end
 
@@ -218,7 +224,20 @@ RSpec.describe 'Api::V1::Resellers', type: :request do
     let(:reseller) { create(:reseller, account: account) }
 
     before do
-      create_list(:reseller_commission, 5, reseller: reseller)
+      # Create commissions directly since factory is not available
+      5.times do
+        ResellerCommission.create!(
+          reseller: reseller,
+          referred_account: create(:account),
+          commission_type: 'recurring',
+          source_type: 'subscription',
+          gross_amount: 100.0,
+          commission_percentage: 10.0,
+          commission_amount: 10.0,
+          status: 'pending',
+          earned_at: Time.current
+        )
+      end
     end
 
     it 'returns reseller commissions' do
@@ -231,8 +250,7 @@ RSpec.describe 'Api::V1::Resellers', type: :request do
     end
 
     it 'filters by status' do
-      get "/api/v1/resellers/#{reseller.id}/commissions",
-          params: { status: 'pending' },
+      get "/api/v1/resellers/#{reseller.id}/commissions?status=pending",
           headers: headers,
           as: :json
 
@@ -244,7 +262,16 @@ RSpec.describe 'Api::V1::Resellers', type: :request do
     let(:reseller) { create(:reseller, account: account) }
 
     before do
-      create_list(:reseller_referral, 3, reseller: reseller)
+      # Create referrals directly since factory is not available
+      3.times do
+        ResellerReferral.create!(
+          reseller: reseller,
+          referred_account: create(:account),
+          referral_code_used: reseller.referral_code,
+          status: 'active',
+          referred_at: Time.current
+        )
+      end
     end
 
     it 'returns reseller referrals' do
@@ -261,7 +288,20 @@ RSpec.describe 'Api::V1::Resellers', type: :request do
     let(:reseller) { create(:reseller, account: account) }
 
     before do
-      create_list(:reseller_payout, 2, reseller: reseller)
+      # Create payouts directly since factory is not available
+      2.times do |i|
+        ResellerPayout.create!(
+          reseller: reseller,
+          amount: 100.0,
+          fee: 2.0,
+          net_amount: 98.0,
+          currency: 'USD',
+          status: 'pending',
+          payout_method: 'bank_transfer',
+          payout_reference: "PAY-#{SecureRandom.hex(8)}",
+          requested_at: Time.current
+        )
+      end
     end
 
     it 'returns reseller payouts' do
@@ -343,7 +383,20 @@ RSpec.describe 'Api::V1::Resellers', type: :request do
   end
 
   describe 'POST /api/v1/resellers/payouts/:payout_id/process' do
-    let(:payout) { create(:reseller_payout, status: 'pending') }
+    let(:payout_reseller) { create(:reseller) }
+    let(:payout) do
+      ResellerPayout.create!(
+        reseller: payout_reseller,
+        amount: 100.0,
+        fee: 2.0,
+        net_amount: 98.0,
+        currency: 'USD',
+        status: 'pending',
+        payout_method: 'bank_transfer',
+        payout_reference: "PAY-#{SecureRandom.hex(8)}",
+        requested_at: Time.current
+      )
+    end
 
     context 'with resellers.manage permission' do
       before do
@@ -366,7 +419,7 @@ RSpec.describe 'Api::V1::Resellers', type: :request do
 
   describe 'GET /api/v1/resellers/me' do
     context 'with reseller profile' do
-      let(:reseller) { create(:reseller, account: account) }
+      let!(:reseller) { create(:reseller, account: account) }
 
       it 'returns current user reseller profile' do
         get '/api/v1/resellers/me', headers: headers, as: :json

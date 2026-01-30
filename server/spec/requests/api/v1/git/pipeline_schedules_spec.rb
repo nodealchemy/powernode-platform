@@ -17,8 +17,8 @@ RSpec.describe 'Api::V1::Git::PipelineSchedules', type: :request do
   let(:other_repository) { create(:devops_git_repository, account: other_account) }
 
   describe 'GET /api/v1/git/repositories/:repository_id/schedules' do
-    let!(:schedule1) { create(:devops_git_pipeline_schedule, git_repository: repository, account: account, is_active: true) }
-    let!(:schedule2) { create(:devops_git_pipeline_schedule, git_repository: repository, account: account, is_active: false) }
+    let!(:schedule1) { create(:devops_git_pipeline_schedule, repository: repository, account: account, is_active: true) }
+    let!(:schedule2) { create(:devops_git_pipeline_schedule, repository: repository, account: account, is_active: false) }
 
     context 'with proper permissions' do
       it 'returns list of pipeline schedules for repository' do
@@ -84,8 +84,8 @@ RSpec.describe 'Api::V1::Git::PipelineSchedules', type: :request do
   end
 
   describe 'GET /api/v1/git/pipeline_schedules/:id' do
-    let(:schedule) { create(:devops_git_pipeline_schedule, git_repository: repository, account: account) }
-    let(:other_schedule) { create(:devops_git_pipeline_schedule, git_repository: other_repository, account: other_account) }
+    let(:schedule) { create(:devops_git_pipeline_schedule, repository: repository, account: account) }
+    let(:other_schedule) { create(:devops_git_pipeline_schedule, repository: other_repository, account: other_account) }
 
     context 'with proper permissions' do
       it 'returns schedule details' do
@@ -182,7 +182,7 @@ RSpec.describe 'Api::V1::Git::PipelineSchedules', type: :request do
   end
 
   describe 'PUT /api/v1/git/pipeline_schedules/:id' do
-    let(:schedule) { create(:devops_git_pipeline_schedule, git_repository: repository, account: account) }
+    let(:schedule) { create(:devops_git_pipeline_schedule, repository: repository, account: account) }
     let(:update_params) do
       {
         schedule: {
@@ -230,7 +230,7 @@ RSpec.describe 'Api::V1::Git::PipelineSchedules', type: :request do
   end
 
   describe 'DELETE /api/v1/git/pipeline_schedules/:id' do
-    let!(:schedule) { create(:devops_git_pipeline_schedule, git_repository: repository, account: account) }
+    let!(:schedule) { create(:devops_git_pipeline_schedule, repository: repository, account: account) }
 
     context 'with proper permissions' do
       it 'deletes the pipeline schedule' do
@@ -253,7 +253,7 @@ RSpec.describe 'Api::V1::Git::PipelineSchedules', type: :request do
   end
 
   describe 'POST /api/v1/git/pipeline_schedules/:id/trigger' do
-    let(:schedule) { create(:devops_git_pipeline_schedule, git_repository: repository, account: account) }
+    let(:schedule) { create(:devops_git_pipeline_schedule, repository: repository, account: account) }
 
     context 'with proper permissions' do
       before do
@@ -290,7 +290,7 @@ RSpec.describe 'Api::V1::Git::PipelineSchedules', type: :request do
   end
 
   describe 'POST /api/v1/git/pipeline_schedules/:id/pause' do
-    let(:schedule) { create(:devops_git_pipeline_schedule, git_repository: repository, account: account, is_active: true) }
+    let(:schedule) { create(:devops_git_pipeline_schedule, repository: repository, account: account, is_active: true) }
 
     context 'with proper permissions' do
       before do
@@ -316,7 +316,7 @@ RSpec.describe 'Api::V1::Git::PipelineSchedules', type: :request do
   end
 
   describe 'POST /api/v1/git/pipeline_schedules/:id/resume' do
-    let(:schedule) { create(:devops_git_pipeline_schedule, git_repository: repository, account: account, is_active: false) }
+    let(:schedule) { create(:devops_git_pipeline_schedule, repository: repository, account: account, is_active: false) }
 
     context 'with proper permissions' do
       before do

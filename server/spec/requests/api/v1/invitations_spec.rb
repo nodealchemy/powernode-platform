@@ -241,8 +241,8 @@ RSpec.describe 'API::V1::Invitations', type: :request do
     let(:accept_params) do
       {
         token: invitation.token,
-        password: 'NewSecureP@ssw0rd!',
-        password_confirmation: 'NewSecureP@ssw0rd!'
+        password: TestUsers::PASSWORD,
+        password_confirmation: TestUsers::PASSWORD
       }
     end
 

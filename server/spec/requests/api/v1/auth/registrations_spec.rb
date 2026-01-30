@@ -9,20 +9,20 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
     allow(System::SettingsService).to receive(:get_setting).and_return({})
   end
 
-  describe 'POST /api/v1/auth/registrations' do
+  describe 'POST /api/v1/auth/register' do
     let(:valid_params) do
       {
         account_name: 'Test Company',
         name: 'John Doe',
         email: 'john@example.com',
-        password: 'SecurePassword123!'
+        password: TestUsers::PASSWORD
       }
     end
 
     context 'with valid registration data' do
       it 'creates new account and user successfully' do
         expect {
-          post '/api/v1/auth/registrations',
+          post '/api/v1/auth/register',
                params: valid_params,
                as: :json
         }.to change(Account, :count).by(1)
@@ -40,7 +40,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'auto-generates subdomain from account name' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params,
              as: :json
 
@@ -51,7 +51,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'assigns owner role to first user' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params,
              as: :json
 
@@ -64,7 +64,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       it 'sends verification email when required' do
         allow(System::SettingsService).to receive(:email_verification_required?).and_return(true)
 
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params,
              as: :json
 
@@ -75,7 +75,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       it 'includes verification warning in response' do
         allow(System::SettingsService).to receive(:email_verification_required?).and_return(true)
 
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params,
              as: :json
 
@@ -92,7 +92,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
 
       it 'creates subscription with trial period' do
         expect {
-          post '/api/v1/auth/registrations',
+          post '/api/v1/auth/register',
                params: params_with_plan,
                as: :json
         }.to change(Subscription, :count).by(1)
@@ -109,7 +109,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
         inactive_plan = create(:plan, status: 'inactive', is_public: true)
 
         expect {
-          post '/api/v1/auth/registrations',
+          post '/api/v1/auth/register',
                params: valid_params.merge(plan_id: inactive_plan.id),
                as: :json
         }.not_to change(Subscription, :count)
@@ -124,7 +124,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
         private_plan = create(:plan, status: 'active', is_public: false)
 
         expect {
-          post '/api/v1/auth/registrations',
+          post '/api/v1/auth/register',
                params: valid_params.merge(plan_id: private_plan.id),
                as: :json
         }.not_to change(Subscription, :count)
@@ -138,13 +138,13 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
 
     context 'with firstName and lastName parameters' do
       it 'combines firstName and lastName' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: {
                account_name: 'Test Company',
                firstName: 'Jane',
                lastName: 'Smith',
                email: 'jane@example.com',
-               password: 'SecurePassword123!'
+               password: TestUsers::PASSWORD
              },
              as: :json
 
@@ -155,13 +155,13 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'handles snake_case variants' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: {
                account_name: 'Test Company',
                first_name: 'Bob',
                last_name: 'Jones',
                email: 'bob@example.com',
-               password: 'SecurePassword123!'
+               password: TestUsers::PASSWORD
              },
              as: :json
 
@@ -174,12 +174,12 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
 
     context 'with camelCase parameter variants' do
       it 'accepts accountName instead of account_name' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: {
                accountName: 'CamelCase Company',
                name: 'Test User',
                email: 'camel@example.com',
-               password: 'SecurePassword123!'
+               password: TestUsers::PASSWORD
              },
              as: :json
 
@@ -196,7 +196,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'generates unique subdomain by appending counter' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params,
              as: :json
 
@@ -213,7 +213,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'returns validation error' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params,
              as: :json
 
@@ -227,7 +227,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
 
     context 'with missing required fields' do
       it 'returns validation error for missing email' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params.except(:email),
              as: :json
 
@@ -235,7 +235,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'returns validation error for missing password' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params.except(:password),
              as: :json
 
@@ -243,7 +243,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'returns validation error for missing name' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params.except(:name),
              as: :json
 
@@ -253,7 +253,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
 
     context 'with invalid email format' do
       it 'returns validation error' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params.merge(email: 'invalid-email'),
              as: :json
 
@@ -263,7 +263,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
 
     context 'with weak password' do
       it 'returns validation error' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params.merge(password: 'weak'),
              as: :json
 
@@ -277,7 +277,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'auto-verifies user email' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params,
              as: :json
 
@@ -288,7 +288,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'does not include warning in response' do
-        post '/api/v1/auth/registrations',
+        post '/api/v1/auth/register',
              params: valid_params,
              as: :json
 
@@ -306,7 +306,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
 
       it 'still completes registration successfully' do
         expect {
-          post '/api/v1/auth/registrations',
+          post '/api/v1/auth/register',
                params: valid_params,
                as: :json
         }.to change(User, :count).by(1)

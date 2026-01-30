@@ -31,9 +31,11 @@ RSpec.describe 'Api::V1::Internal::Emails', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        # render_success(message: "Review notification email queued")
+        # produces { success: true, data: { message: "..." } }
+        data = json_response_data
 
-        expect(response_data['message']).to include('Review notification email queued')
+        expect(data['message']).to include('Review notification email queued')
       end
     end
 
@@ -69,9 +71,11 @@ RSpec.describe 'Api::V1::Internal::Emails', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        # render_success(message: "Security alert email queued")
+        # produces { success: true, data: { message: "..." } }
+        data = json_response_data
 
-        expect(response_data['message']).to include('Security alert email queued')
+        expect(data['message']).to include('Security alert email queued')
       end
     end
 

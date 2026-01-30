@@ -252,8 +252,11 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
     before do
       # Mock WorkerJobService
       allow(WorkerJobService).to receive(:enqueue_ai_workflow_execution).and_return(true)
-      # Mock ProviderAvailabilityService to allow execution
-      allow(ProviderAvailabilityService).to receive(:validate_workflow_providers!).and_return(true)
+      # Stub provider validation in ExecutionService to bypass provider lookups
+      # The ExecutionService.validate_providers checks ai_agent nodes for provider_id
+      # and looks up Ai::Provider records, which don't exist in test
+      allow_any_instance_of(Ai::Workflows::ExecutionService).to receive(:validate_providers)
+        .and_return(Ai::Workflows::ExecutionService::Result.success)
     end
 
     context 'with valid workflow' do
@@ -292,11 +295,11 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
           .and_raise(WorkerJobService::WorkerServiceError.new('Worker unavailable'))
       end
 
-      it 'returns service unavailable error' do
+      it 'returns error when execution fails' do
         post :execute, params: { id: workflow.id }
 
-        expect(response).to have_http_status(:service_unavailable)
-        expect(json_response['error']).to include('Worker unavailable')
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['error']).to include('Failed to enqueue execution')
       end
     end
   end
@@ -495,8 +498,8 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
     describe 'POST #run_cancel' do
       before do
         workflow_run.update!(status: 'running')
-        allow_any_instance_of(Ai::WorkflowRun).to receive(:can_cancel?).and_return(true)
-        allow_any_instance_of(Ai::WorkflowRun).to receive(:cancel!).and_return(true)
+        mock_result = Ai::Workflows::RunManagementService::Result.success(run: workflow_run)
+        allow_any_instance_of(Ai::Workflows::RunManagementService).to receive(:cancel_run).and_return(mock_result)
       end
 
       it 'cancels running workflow run' do
@@ -512,16 +515,16 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
     end
 
     describe 'POST #run_retry' do
+      let(:new_run) { create(:ai_workflow_run, workflow: workflow, account: account, triggered_by_user: user) }
+
       before do
         workflow_run.update!(
           status: 'failed',
           completed_at: Time.current,
           error_details: { message: 'Test error' }
         )
-        allow_any_instance_of(Ai::WorkflowRun).to receive(:can_retry?).and_return(true)
-        allow_any_instance_of(Ai::WorkflowRun).to receive(:retry!).and_return(
-          create(:ai_workflow_run, workflow: workflow, account: account, triggered_by_user: user)
-        )
+        mock_result = Ai::Workflows::RunManagementService::Result.success(run: new_run, original_run: workflow_run)
+        allow_any_instance_of(Ai::Workflows::RunManagementService).to receive(:retry_run).and_return(mock_result)
       end
 
       it 'retries failed workflow run' do

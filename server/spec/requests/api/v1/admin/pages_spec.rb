@@ -4,8 +4,13 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Admin::Pages', type: :request do
   let(:account) { create(:account) }
-  let(:admin_user) { create(:user, :admin, account: account) }
+  let(:admin_user) { create(:user, account: account, permissions: ['admin.access']) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
+
+  # For GET requests, remove Content-Type: application/json to prevent Rails
+  # from wrapping an empty JSON body under the 'page' resource key (parameter wrapping),
+  # which conflicts with pagination_params expecting params[:page] to be an integer/nil.
+  let(:get_headers) { headers.except('Content-Type').merge('Accept' => 'application/json') }
 
   describe 'GET /api/v1/admin/pages' do
     let(:headers) { auth_headers_for(admin_user) }
@@ -16,35 +21,35 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
     context 'with admin.access permission' do
       it 'returns paginated list of pages' do
-        get '/api/v1/admin/pages', headers: headers, as: :json
+        get '/api/v1/admin/pages', headers: get_headers
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']).to be_an(Array)
-        expect(response_data['data'].length).to eq(5)
+        expect(data).to be_an(Array)
+        expect(data.length).to eq(5)
       end
 
       it 'includes page details' do
-        get '/api/v1/admin/pages', headers: headers, as: :json
+        get '/api/v1/admin/pages', headers: get_headers
 
-        response_data = json_response
-        first_page = response_data['data'].first
+        data = json_response_data
+        first_page = data.first
 
         expect(first_page).to include('id', 'title', 'slug', 'status')
       end
 
       it 'includes author information' do
-        get '/api/v1/admin/pages', headers: headers, as: :json
+        get '/api/v1/admin/pages', headers: get_headers
 
-        response_data = json_response
-        first_page = response_data['data'].first
+        data = json_response_data
+        first_page = data.first
 
         expect(first_page['author']).to include('id', 'name', 'email')
       end
 
       it 'includes pagination metadata' do
-        get '/api/v1/admin/pages', headers: headers, as: :json
+        get '/api/v1/admin/pages', headers: get_headers
 
         response_data = json_response
         expect(response_data['meta']).to include('current_page', 'total_count', 'total_pages')
@@ -55,29 +60,27 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
         get '/api/v1/admin/pages',
             params: { status: 'published' },
-            headers: headers,
-            as: :json
+            headers: get_headers
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        statuses = response_data['data'].map { |p| p['status'] }
+        statuses = data.map { |p| p['status'] }
         expect(statuses.uniq).to eq(['published'])
       end
 
       it 'filters by author_id' do
-        other_user = create(:user, account: account)
+        other_user = create(:user, account: account, permissions: ['admin.access'])
         create(:page, user: other_user)
 
         get '/api/v1/admin/pages',
             params: { author_id: other_user.id },
-            headers: headers,
-            as: :json
+            headers: get_headers
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        author_ids = response_data['data'].map { |p| p['author']['id'] }
+        author_ids = data.map { |p| p['author']['id'] }
         expect(author_ids.uniq).to eq([other_user.id])
       end
 
@@ -86,14 +89,13 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
         get '/api/v1/admin/pages',
             params: { search: 'Unique Search Term' },
-            headers: headers,
-            as: :json
+            headers: get_headers
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data'].length).to eq(1)
-        expect(response_data['data'].first['title']).to include('Unique Search Term')
+        expect(data.length).to eq(1)
+        expect(data.first['title']).to include('Unique Search Term')
       end
     end
 
@@ -101,7 +103,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
       let(:headers) { auth_headers_for(regular_user) }
 
       it 'returns forbidden error' do
-        get '/api/v1/admin/pages', headers: headers, as: :json
+        get '/api/v1/admin/pages', headers: get_headers
 
         expect(response).to have_http_status(:forbidden)
       end
@@ -109,9 +111,9 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
     context 'without authentication' do
       it 'returns unauthorized error' do
-        get '/api/v1/admin/pages', as: :json
+        get '/api/v1/admin/pages', headers: { 'Accept' => 'application/json' }
 
-        expect_error_response('Access token required', 401)
+        expect(response).to have_http_status(:unauthorized)
       end
     end
   end
@@ -122,12 +124,12 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
     context 'with admin.access permission' do
       it 'returns page details' do
-        get "/api/v1/admin/pages/#{page.id}", headers: headers, as: :json
+        get "/api/v1/admin/pages/#{page.id}", headers: get_headers
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']).to include(
+        expect(data).to include(
           'id' => page.id,
           'title' => page.title,
           'slug' => page.slug
@@ -135,24 +137,24 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
       end
 
       it 'includes content and rendered_content' do
-        get "/api/v1/admin/pages/#{page.id}", headers: headers, as: :json
+        get "/api/v1/admin/pages/#{page.id}", headers: get_headers
 
-        response_data = json_response
-        expect(response_data['data']).to have_key('content')
-        expect(response_data['data']).to have_key('rendered_content')
+        data = json_response_data
+        expect(data).to have_key('content')
+        expect(data).to have_key('rendered_content')
       end
 
       it 'includes SEO data' do
-        get "/api/v1/admin/pages/#{page.id}", headers: headers, as: :json
+        get "/api/v1/admin/pages/#{page.id}", headers: get_headers
 
-        response_data = json_response
-        expect(response_data['data']).to have_key('seo')
+        data = json_response_data
+        expect(data).to have_key('seo')
       end
     end
 
     context 'when page does not exist' do
       it 'returns not found error' do
-        get '/api/v1/admin/pages/nonexistent-id', headers: headers, as: :json
+        get '/api/v1/admin/pages/nonexistent-id', headers: get_headers
 
         expect(response).to have_http_status(:not_found)
       end
@@ -181,16 +183,16 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
         }.to change(Page, :count).by(1)
 
         expect(response).to have_http_status(:created)
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['title']).to eq('New Test Page')
+        expect(data['title']).to eq('New Test Page')
       end
 
       it 'sets current user as author' do
         post '/api/v1/admin/pages', params: valid_params, headers: headers, as: :json
 
-        response_data = json_response
-        expect(response_data['data']['author']['id']).to eq(admin_user.id)
+        data = json_response_data
+        expect(data['author']['id']).to eq(admin_user.id)
       end
     end
 
@@ -288,7 +290,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
   describe 'POST /api/v1/admin/pages/:id/duplicate' do
     let(:headers) { auth_headers_for(admin_user) }
-    let(:page) { create(:page, :published, user: admin_user, title: 'Original Page') }
+    let!(:page) { create(:page, :published, user: admin_user, title: 'Original Page') }
 
     context 'with admin.access permission' do
       it 'creates a duplicate of the page' do
@@ -297,17 +299,17 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
         }.to change(Page, :count).by(1)
 
         expect(response).to have_http_status(:created)
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['title']).to eq('Original Page (Copy)')
-        expect(response_data['data']['status']).to eq('draft')
+        expect(data['title']).to eq('Original Page (Copy)')
+        expect(data['status']).to eq('draft')
       end
 
       it 'sets current user as author of duplicate' do
         post "/api/v1/admin/pages/#{page.id}/duplicate", headers: headers, as: :json
 
-        response_data = json_response
-        expect(response_data['data']['author']['id']).to eq(admin_user.id)
+        data = json_response_data
+        expect(data['author']['id']).to eq(admin_user.id)
       end
     end
   end

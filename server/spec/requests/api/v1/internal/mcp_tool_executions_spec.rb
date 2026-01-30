@@ -27,9 +27,9 @@ RSpec.describe 'Api::V1::Internal::McpToolExecutions', type: :request do
             as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        execution = response_data['data']['data']['mcp_tool_execution']
+        execution = data['mcp_tool_execution']
         expect(execution['id']).to eq(mcp_tool_execution.id)
         expect(execution['status']).to eq(mcp_tool_execution.status)
       end
@@ -40,9 +40,9 @@ RSpec.describe 'Api::V1::Internal::McpToolExecutions', type: :request do
             as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        execution = response_data['data']['data']['mcp_tool_execution']
+        execution = data['mcp_tool_execution']
         expect(execution['mcp_tool']).to be_present
         expect(execution['mcp_tool']['id']).to eq(mcp_tool.id)
         expect(execution['mcp_tool']['mcp_server']).to be_present
@@ -55,9 +55,9 @@ RSpec.describe 'Api::V1::Internal::McpToolExecutions', type: :request do
             as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        execution = response_data['data']['data']['mcp_tool_execution']
+        execution = data['mcp_tool_execution']
         expect(execution).to have_key('parameters')
         expect(execution).to have_key('result')
         expect(execution).to have_key('error_message')
@@ -94,10 +94,10 @@ RSpec.describe 'Api::V1::Internal::McpToolExecutions', type: :request do
               as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['mcp_tool_execution']['status']).to eq('running')
-        expect(response_data['data']['message']).to eq('Execution status updated successfully')
+        expect(data['mcp_tool_execution']['status']).to eq('running')
+        expect(data['message']).to eq('Execution status updated successfully')
 
         execution.reload
         expect(execution.status).to eq('running')
@@ -114,9 +114,9 @@ RSpec.describe 'Api::V1::Internal::McpToolExecutions', type: :request do
               as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['mcp_tool_execution']['status']).to eq('completed')
+        expect(data['mcp_tool_execution']['status']).to eq('completed')
 
         execution.reload
         expect(execution.status).to eq('completed')
@@ -134,9 +134,9 @@ RSpec.describe 'Api::V1::Internal::McpToolExecutions', type: :request do
               as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['mcp_tool_execution']['status']).to eq('failed')
+        expect(data['mcp_tool_execution']['status']).to eq('failed')
 
         execution.reload
         expect(execution.status).to eq('failed')
@@ -153,9 +153,9 @@ RSpec.describe 'Api::V1::Internal::McpToolExecutions', type: :request do
               as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['mcp_tool_execution']['status']).to eq('cancelled')
+        expect(data['mcp_tool_execution']['status']).to eq('cancelled')
 
         execution.reload
         expect(execution.status).to eq('cancelled')

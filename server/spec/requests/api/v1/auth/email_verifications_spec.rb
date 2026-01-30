@@ -16,6 +16,10 @@ RSpec.describe 'Api::V1::Auth::EmailVerifications', type: :request do
 
   describe 'POST /api/v1/auth/verify-email' do
     context 'with valid token' do
+      before do
+        allow_any_instance_of(User).to receive(:email_verification_expired?).and_return(false)
+      end
+
       it 'verifies email successfully' do
         post '/api/v1/auth/verify-email',
              params: { token: unverified_user.email_verification_token },

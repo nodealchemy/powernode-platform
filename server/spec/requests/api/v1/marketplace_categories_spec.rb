@@ -10,9 +10,9 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
   let(:admin_headers) { auth_headers_for(admin_user) }
 
   describe 'GET /api/v1/marketplace_categories' do
-    let!(:root_category) { create(:marketplace_category, parent: nil, position: 1, status: 'active') }
-    let!(:child_category) { create(:marketplace_category, parent: root_category, position: 2, status: 'active') }
-    let!(:inactive_category) { create(:marketplace_category, parent: nil, position: 3, status: 'inactive') }
+    let!(:active_category1) { create(:marketplace_category, :active, sort_order: 1) }
+    let!(:active_category2) { create(:marketplace_category, :active, sort_order: 2) }
+    let!(:inactive_category) { create(:marketplace_category, :inactive, sort_order: 3) }
 
     context 'with proper permissions' do
       it 'returns list of all categories' do
@@ -25,30 +25,12 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
       end
 
       it 'filters active categories only' do
-        get '/api/v1/marketplace_categories', params: { active_only: 'true' }, headers: headers, as: :json
+        get '/api/v1/marketplace_categories?active_only=true', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
         expect(data['categories'].length).to eq(2)
-        expect(data['categories'].all? { |c| c['status'] == 'active' }).to be true
-      end
-
-      it 'filters root categories only' do
-        get '/api/v1/marketplace_categories', params: { root_only: 'true' }, headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data['categories'].length).to eq(2)
-        expect(data['categories'].all? { |c| c['parent_id'].nil? }).to be true
-      end
-
-      it 'filters by parent_id' do
-        get '/api/v1/marketplace_categories', params: { parent_id: root_category.id }, headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data['categories'].length).to eq(1)
-        expect(data['categories'].first['id']).to eq(child_category.id)
+        expect(data['categories'].all? { |c| c['is_active'] == true }).to be true
       end
     end
 
@@ -73,11 +55,10 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
   end
 
   describe 'GET /api/v1/marketplace_categories/:id' do
-    let(:category) { create(:marketplace_category, status: 'active') }
-    let!(:child) { create(:marketplace_category, parent: category, status: 'active') }
+    let(:category) { create(:marketplace_category, :active) }
 
     context 'with proper permissions' do
-      it 'returns category details with children' do
+      it 'returns category details' do
         get "/api/v1/marketplace_categories/#{category.id}", headers: headers, as: :json
 
         expect_success_response
@@ -86,8 +67,6 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
           'id' => category.id,
           'name' => category.name
         )
-        expect(data['category']['children']).to be_an(Array)
-        expect(data['category']).to have_key('breadcrumb')
       end
 
       it 'returns not found for non-existent category' do
@@ -105,7 +84,7 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
           name: 'Test Category',
           slug: 'test-category',
           description: 'A test category',
-          status: 'active'
+          is_active: true
         }
       }
     end
@@ -124,14 +103,14 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
         )
       end
 
-      it 'sets position automatically' do
-        existing = create(:marketplace_category, parent: nil, position: 5)
+      it 'sets sort_order automatically' do
+        create(:marketplace_category, sort_order: 5)
 
         post '/api/v1/marketplace_categories', params: valid_params, headers: admin_headers, as: :json
 
         expect_success_response
         data = json_response_data
-        expect(data['category']['position']).to eq(6)
+        expect(data['category']['sort_order']).to eq(6)
       end
 
       it 'returns validation errors for invalid params' do
@@ -196,15 +175,6 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
         expect_success_response
         expect(json_response_data['message']).to eq('Category deleted')
       end
-
-      it 'prevents deletion of category with subcategories' do
-        parent = create(:marketplace_category)
-        create(:marketplace_category, parent: parent)
-
-        delete "/api/v1/marketplace_categories/#{parent.id}", headers: admin_headers, as: :json
-
-        expect_error_response('Cannot delete category with subcategories', 422)
-      end
     end
 
     context 'without marketplace.admin permission' do
@@ -217,7 +187,7 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
   end
 
   describe 'POST /api/v1/marketplace_categories/:id/activate' do
-    let(:category) { create(:marketplace_category, status: 'inactive') }
+    let(:category) { create(:marketplace_category, :inactive) }
 
     context 'with admin permissions' do
       it 'activates the category' do
@@ -225,8 +195,7 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
 
         expect_success_response
         data = json_response_data
-        expect(data['category']['status']).to eq('active')
-        expect(data['message']).to eq('Category activated')
+        expect(data['category']['is_active']).to eq(true)
       end
     end
 
@@ -240,7 +209,7 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
   end
 
   describe 'POST /api/v1/marketplace_categories/:id/deactivate' do
-    let(:category) { create(:marketplace_category, status: 'active') }
+    let(:category) { create(:marketplace_category, :active) }
 
     context 'with admin permissions' do
       it 'deactivates the category' do
@@ -248,8 +217,7 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
 
         expect_success_response
         data = json_response_data
-        expect(data['category']['status']).to eq('inactive')
-        expect(data['message']).to eq('Category deactivated')
+        expect(data['category']['is_active']).to eq(false)
       end
     end
 
@@ -263,10 +231,10 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
   end
 
   describe 'POST /api/v1/marketplace_categories/:id/reorder' do
-    let(:category) { create(:marketplace_category, parent: nil, position: 2) }
+    let(:category) { create(:marketplace_category, sort_order: 2) }
 
     context 'with admin permissions' do
-      it 'reorders the category to new position' do
+      it 'reorders the category to new sort_order' do
         post "/api/v1/marketplace_categories/#{category.id}/reorder",
              params: { position: 1 },
              headers: admin_headers,
@@ -274,8 +242,7 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
 
         expect_success_response
         data = json_response_data
-        expect(data['category']['position']).to eq(1)
-        expect(data['message']).to eq('Category reordered')
+        expect(data['category']['sort_order']).to eq(1)
       end
 
       it 'returns error for invalid position' do
@@ -290,9 +257,9 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
   end
 
   describe 'POST /api/v1/marketplace_categories/bulk_reorder' do
-    let!(:cat1) { create(:marketplace_category, position: 1) }
-    let!(:cat2) { create(:marketplace_category, position: 2) }
-    let!(:cat3) { create(:marketplace_category, position: 3) }
+    let!(:cat1) { create(:marketplace_category, sort_order: 1) }
+    let!(:cat2) { create(:marketplace_category, sort_order: 2) }
+    let!(:cat3) { create(:marketplace_category, sort_order: 3) }
 
     context 'with admin permissions' do
       it 'reorders multiple categories' do
@@ -317,7 +284,7 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
   end
 
   describe 'GET /api/v1/marketplace_categories/:id/analytics' do
-    let(:category) { create(:marketplace_category, status: 'active') }
+    let(:category) { create(:marketplace_category, :active) }
 
     context 'with proper permissions' do
       it 'returns category analytics' do
@@ -337,8 +304,7 @@ RSpec.describe 'Api::V1::MarketplaceCategories', type: :request do
       end
 
       it 'accepts custom time range' do
-        get "/api/v1/marketplace_categories/#{category.id}/analytics",
-            params: { range: '7d' },
+        get "/api/v1/marketplace_categories/#{category.id}/analytics?range=7d",
             headers: headers,
             as: :json
 

@@ -21,17 +21,19 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
         account: account,
         status: 'pending',
         reason: 'user_requested',
-        scheduled_at: 2.days.from_now
+        requested_at: Time.current,
+        grace_period_ends_at: 2.days.from_now
       )
     end
 
-    let!(:in_progress_termination) do
+    let!(:processing_termination) do
       Account::Termination.create!(
         account: create(:account),
-        status: 'in_progress',
+        status: 'processing',
         reason: 'payment_failure',
-        scheduled_at: 1.day.ago,
-        progress: 50
+        grace_period_ends_at: 1.day.ago,
+        requested_at: 2.days.ago,
+        processing_started_at: 1.hour.ago
       )
     end
 
@@ -40,13 +42,14 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
         account: create(:account),
         status: 'completed',
         reason: 'user_requested',
-        scheduled_at: 5.days.ago,
+        requested_at: 10.days.ago,
+        grace_period_ends_at: 5.days.ago,
         completed_at: 3.days.ago
       )
     end
 
     context 'with service token authentication' do
-      it 'returns pending and in_progress terminations' do
+      it 'returns active terminations (pending, grace_period, processing)' do
         get '/api/v1/internal/account_terminations', headers: internal_headers, as: :json
 
         expect_success_response
@@ -54,17 +57,17 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
 
         expect(response_data['data'].size).to eq(2)
         termination_ids = response_data['data'].map { |t| t['id'] }
-        expect(termination_ids).to include(pending_termination.id, in_progress_termination.id)
+        expect(termination_ids).to include(pending_termination.id, processing_termination.id)
         expect(termination_ids).not_to include(completed_termination.id)
       end
 
-      it 'returns terminations ordered by scheduled_at ascending' do
+      it 'returns terminations ordered by grace_period_ends_at ascending' do
         get '/api/v1/internal/account_terminations', headers: internal_headers, as: :json
 
         response_data = json_response
         terminations = response_data['data']
 
-        expect(terminations.first['id']).to eq(in_progress_termination.id)
+        expect(terminations.first['id']).to eq(processing_termination.id)
         expect(terminations.last['id']).to eq(pending_termination.id)
       end
 
@@ -79,10 +82,9 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
           'account_id',
           'status',
           'reason',
-          'scheduled_at',
+          'grace_period_ends_at',
           'completed_at',
-          'progress',
-          'error_message',
+          'requested_at',
           'created_at',
           'updated_at'
         )
@@ -104,7 +106,8 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
         account: account,
         status: 'pending',
         reason: 'user_requested',
-        scheduled_at: 2.days.from_now
+        requested_at: Time.current,
+        grace_period_ends_at: 2.days.from_now
       )
     end
 
@@ -125,13 +128,13 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
         )
       end
 
-      it 'includes scheduled_at timestamp' do
+      it 'includes grace_period_ends_at timestamp' do
         get "/api/v1/internal/account_terminations/#{termination.id}",
             headers: internal_headers,
             as: :json
 
         response_data = json_response
-        expect(response_data['data']['scheduled_at']).to be_present
+        expect(response_data['data']['grace_period_ends_at']).to be_present
       end
     end
 
@@ -160,35 +163,31 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
         account: account,
         status: 'pending',
         reason: 'user_requested',
-        scheduled_at: 2.days.from_now
+        requested_at: Time.current,
+        grace_period_ends_at: 2.days.from_now
       )
     end
 
     context 'with service token authentication' do
-      it 'updates termination status to in_progress' do
+      it 'updates termination status to grace_period' do
         patch "/api/v1/internal/account_terminations/#{termination.id}",
-              params: { status: 'in_progress', progress: 25 },
+              params: { status: 'grace_period' },
               headers: internal_headers,
               as: :json
 
         expect_success_response
         response_data = json_response
 
-        expect(response_data['data']).to include(
-          'status' => 'in_progress',
-          'progress' => 25
-        )
+        expect(response_data['data']['status']).to eq('grace_period')
 
         termination.reload
-        expect(termination.status).to eq('in_progress')
-        expect(termination.progress).to eq(25)
+        expect(termination.status).to eq('grace_period')
       end
 
       it 'updates termination status to completed with completion timestamp' do
         patch "/api/v1/internal/account_terminations/#{termination.id}",
               params: {
                 status: 'completed',
-                progress: 100,
                 completed_at: Time.current.iso8601
               },
               headers: internal_headers,
@@ -205,45 +204,26 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
         expect(termination.completed_at).to be_present
       end
 
-      it 'updates termination with error message on failure' do
+      it 'updates termination status to cancelled' do
         patch "/api/v1/internal/account_terminations/#{termination.id}",
-              params: {
-                status: 'failed',
-                error_message: 'Database connection timeout'
-              },
+              params: { status: 'cancelled' },
               headers: internal_headers,
               as: :json
 
         expect_success_response
         response_data = json_response
 
-        expect(response_data['data']).to include(
-          'status' => 'failed',
-          'error_message' => 'Database connection timeout'
-        )
+        expect(response_data['data']['status']).to eq('cancelled')
 
         termination.reload
-        expect(termination.status).to eq('failed')
-        expect(termination.error_message).to eq('Database connection timeout')
-      end
-
-      it 'updates progress percentage' do
-        patch "/api/v1/internal/account_terminations/#{termination.id}",
-              params: { progress: 75 },
-              headers: internal_headers,
-              as: :json
-
-        expect_success_response
-
-        termination.reload
-        expect(termination.progress).to eq(75)
+        expect(termination.status).to eq('cancelled')
       end
     end
 
     context 'when termination does not exist' do
       it 'returns not found error' do
         patch '/api/v1/internal/account_terminations/nonexistent-id',
-              params: { status: 'completed' },
+              params: { status: 'cancelled' },
               headers: internal_headers,
               as: :json
 
@@ -260,7 +240,7 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
         )
 
         patch "/api/v1/internal/account_terminations/#{termination.id}",
-              params: { status: 'completed' },
+              params: { status: 'cancelled' },
               headers: { 'Authorization' => "Bearer #{invalid_token}" },
               as: :json
 

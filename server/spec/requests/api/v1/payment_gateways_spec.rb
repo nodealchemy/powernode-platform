@@ -12,7 +12,7 @@ RSpec.describe 'Api::V1::PaymentGateways', type: :request do
 
   before do
     # Grant admin payment permission
-    admin_user.roles.first.permissions.create!(name: 'admin.settings.payment')
+    admin_user.grant_permission('admin.settings.payment')
   end
 
   describe 'GET /api/v1/payment_gateways' do
@@ -262,11 +262,14 @@ RSpec.describe 'Api::V1::PaymentGateways', type: :request do
       it 'returns webhook events for gateway' do
         # Create webhook events
         WebhookEvent.create!(
+          account: account,
           provider: 'stripe',
+          event_id: SecureRandom.uuid,
           event_type: 'payment_intent.succeeded',
           status: 'processed',
-          external_id: 'evt_test_123',
-          payload: {}
+          external_id: "evt_test_#{SecureRandom.hex(8)}",
+          payload: { type: 'payment_intent.succeeded', data: { id: 'pi_test' } },
+          occurred_at: Time.current
         )
 
         get '/api/v1/payment_gateways/stripe/webhook_events',
@@ -280,8 +283,7 @@ RSpec.describe 'Api::V1::PaymentGateways', type: :request do
       end
 
       it 'paginates webhook events' do
-        get '/api/v1/payment_gateways/stripe/webhook_events',
-            params: { page: 1, per_page: 10 },
+        get '/api/v1/payment_gateways/stripe/webhook_events?page=1&per_page=10',
             headers: admin_headers,
             as: :json
 
@@ -307,8 +309,7 @@ RSpec.describe 'Api::V1::PaymentGateways', type: :request do
       end
 
       it 'paginates transactions' do
-        get '/api/v1/payment_gateways/stripe/transactions',
-            params: { page: 1, per_page: 5 },
+        get '/api/v1/payment_gateways/stripe/transactions?page=1&per_page=5',
             headers: admin_headers,
             as: :json
 

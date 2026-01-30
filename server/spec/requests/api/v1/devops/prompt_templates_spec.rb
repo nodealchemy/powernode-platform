@@ -12,7 +12,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
 
     before do
-      create_list(:shared_prompt_template, 3, account: account, domain: 'devops', created_by: user_with_read_permission)
+      create_list(:shared_prompt_template, 3, account: account, domain: 'cicd', created_by: user_with_read_permission)
     end
 
     context 'with devops.prompt_templates.read permission' do
@@ -34,39 +34,30 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
       end
 
       it 'filters by category' do
-        create(:shared_prompt_template, account: account, domain: 'devops', category: 'testing', created_by: user_with_read_permission)
+        create(:shared_prompt_template, account: account, domain: 'cicd', category: 'deploy', created_by: user_with_read_permission)
 
-        get '/api/v1/devops/prompt_templates',
-            params: { category: 'testing' },
-            headers: headers,
-            as: :json
+        get '/api/v1/devops/prompt_templates?category=deploy', headers: headers, as: :json
 
         expect_success_response
         response_data = json_response
 
         categories = response_data['data']['prompt_templates'].map { |t| t['category'] }
-        expect(categories.uniq).to eq(['testing'])
+        expect(categories.uniq).to eq(['deploy'])
       end
 
       it 'filters by is_active' do
-        create(:shared_prompt_template, account: account, domain: 'devops', is_active: false, created_by: user_with_read_permission)
+        create(:shared_prompt_template, account: account, domain: 'cicd', is_active: false, created_by: user_with_read_permission)
 
-        get '/api/v1/devops/prompt_templates',
-            params: { is_active: false },
-            headers: headers,
-            as: :json
+        get '/api/v1/devops/prompt_templates?is_active=false', headers: headers, as: :json
 
         expect_success_response
       end
 
       it 'filters root templates only' do
-        parent = create(:shared_prompt_template, account: account, domain: 'devops', created_by: user_with_read_permission)
-        create(:shared_prompt_template, account: account, domain: 'devops', parent_template: parent, created_by: user_with_read_permission)
+        parent = create(:shared_prompt_template, account: account, domain: 'cicd', created_by: user_with_read_permission)
+        create(:shared_prompt_template, account: account, domain: 'cicd', parent_template: parent, created_by: user_with_read_permission)
 
-        get '/api/v1/devops/prompt_templates',
-            params: { root_only: 'true' },
-            headers: headers,
-            as: :json
+        get '/api/v1/devops/prompt_templates?root_only=true', headers: headers, as: :json
 
         expect_success_response
       end
@@ -93,7 +84,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
 
   describe 'GET /api/v1/devops/prompt_templates/:id' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
-    let(:prompt_template) { create(:shared_prompt_template, account: account, domain: 'devops', created_by: user_with_read_permission) }
+    let(:prompt_template) { create(:shared_prompt_template, account: account, domain: 'cicd', created_by: user_with_read_permission) }
 
     context 'with devops.prompt_templates.read permission' do
       it 'returns prompt template details' do
@@ -106,10 +97,9 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
       end
 
       it 'includes versions when requested' do
-        create_list(:shared_prompt_template, 2, account: account, domain: 'devops', parent_template: prompt_template, created_by: user_with_read_permission)
+        create_list(:shared_prompt_template, 2, account: account, domain: 'cicd', parent_template: prompt_template, created_by: user_with_read_permission)
 
-        get "/api/v1/devops/prompt_templates/#{prompt_template.id}",
-            params: { include_versions: true },
+        get "/api/v1/devops/prompt_templates/#{prompt_template.id}?include_versions=true",
             headers: headers,
             as: :json
 
@@ -130,7 +120,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
 
     context 'when accessing other account template' do
       let(:other_account) { create(:account) }
-      let(:other_template) { create(:shared_prompt_template, account: other_account, domain: 'devops') }
+      let(:other_template) { create(:shared_prompt_template, account: other_account, domain: 'cicd') }
 
       it 'returns not found error' do
         get "/api/v1/devops/prompt_templates/#{other_template.id}", headers: headers, as: :json
@@ -149,7 +139,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
           prompt_template: {
             name: 'Test Prompt Template',
             description: 'A test template',
-            category: 'testing',
+            category: 'custom',
             content: 'Test content with {{ variable }}',
             is_active: true,
             variables: { variable: 'string' }
@@ -179,7 +169,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
         post '/api/v1/devops/prompt_templates', params: valid_params, headers: headers, as: :json
 
         template = Shared::PromptTemplate.last
-        expect(template.domain).to eq('devops')
+        expect(template.domain).to eq('cicd')
       end
     end
 
@@ -215,7 +205,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
 
   describe 'PATCH /api/v1/devops/prompt_templates/:id' do
     let(:headers) { auth_headers_for(user_with_write_permission) }
-    let(:prompt_template) { create(:shared_prompt_template, account: account, domain: 'devops', created_by: user_with_write_permission) }
+    let(:prompt_template) { create(:shared_prompt_template, account: account, domain: 'cicd', created_by: user_with_write_permission) }
 
     context 'with devops.prompt_templates.write permission' do
       it 'updates prompt template successfully' do
@@ -246,7 +236,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
 
   describe 'DELETE /api/v1/devops/prompt_templates/:id' do
     let(:headers) { auth_headers_for(user_with_write_permission) }
-    let(:prompt_template) { create(:shared_prompt_template, account: account, domain: 'devops', created_by: user_with_write_permission) }
+    let(:prompt_template) { create(:shared_prompt_template, account: account, domain: 'cicd', created_by: user_with_write_permission) }
 
     context 'with devops.prompt_templates.write permission' do
       it 'deletes prompt template successfully' do
@@ -259,7 +249,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
       end
 
       it 'prevents deletion when in use by pipeline steps' do
-        allow_any_instance_of(Shared::PromptTemplate).to receive_message_chain(:devops_pipeline_steps, :exists?).and_return(true)
+        allow_any_instance_of(Shared::PromptTemplate).to receive_message_chain(:ci_cd_pipeline_steps, :exists?).and_return(true)
 
         delete "/api/v1/devops/prompt_templates/#{prompt_template.id}", headers: headers, as: :json
 
@@ -270,9 +260,15 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
 
   describe 'POST /api/v1/devops/prompt_templates/:id/preview' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
-    let(:prompt_template) { create(:shared_prompt_template, account: account, domain: 'devops', content: 'Hello {{ name }}!', created_by: user_with_read_permission) }
+    let(:prompt_template) { create(:shared_prompt_template, account: account, domain: 'cicd', content: 'Hello {{ name }}!', created_by: user_with_read_permission) }
 
     context 'with devops.prompt_templates.read permission' do
+      before do
+        allow_any_instance_of(Shared::PromptTemplate).to receive(:validate_syntax).and_return({ valid: true, errors: [] })
+        allow_any_instance_of(Shared::PromptTemplate).to receive(:render).and_return('Hello World!')
+        allow_any_instance_of(Shared::PromptTemplate).to receive(:extract_variables).and_return(['name'])
+      end
+
       it 'previews template with variables' do
         post "/api/v1/devops/prompt_templates/#{prompt_template.id}/preview",
              params: { variables: { name: 'World' } },
@@ -298,26 +294,28 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
       end
 
       it 'handles syntax errors' do
-        bad_template = create(:shared_prompt_template, account: account, domain: 'devops', content: '{{ invalid', created_by: user_with_read_permission)
+        allow_any_instance_of(Shared::PromptTemplate).to receive(:validate_syntax).and_return({ valid: false, errors: ['Liquid syntax error'] })
+
+        bad_template = create(:shared_prompt_template, account: account, domain: 'cicd', content: '{{ invalid', created_by: user_with_read_permission)
 
         post "/api/v1/devops/prompt_templates/#{bad_template.id}/preview",
              params: { variables: {} },
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end
 
   describe 'POST /api/v1/devops/prompt_templates/:id/duplicate' do
     let(:headers) { auth_headers_for(user_with_write_permission) }
-    let(:prompt_template) { create(:shared_prompt_template, account: account, domain: 'devops', name: 'Original Template', created_by: user_with_write_permission) }
+    let(:prompt_template) { create(:shared_prompt_template, account: account, domain: 'cicd', name: 'Original Template', created_by: user_with_write_permission) }
 
     context 'with devops.prompt_templates.write permission' do
       it 'duplicates template successfully' do
         allow_any_instance_of(Shared::PromptTemplate).to receive(:duplicate).and_return(
-          create(:shared_prompt_template, account: account, domain: 'devops', name: 'Original Template (Copy)', created_by: user_with_write_permission)
+          create(:shared_prompt_template, account: account, domain: 'cicd', name: 'Original Template (Copy)', created_by: user_with_write_permission)
         )
 
         post "/api/v1/devops/prompt_templates/#{prompt_template.id}/duplicate", headers: headers, as: :json

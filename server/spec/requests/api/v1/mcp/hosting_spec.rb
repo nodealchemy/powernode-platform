@@ -38,7 +38,7 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
         .with(hash_including(status: 'running'))
         .and_return(servers_list)
 
-      get '/api/v1/mcp/hosting/servers', params: { status: 'running' }, headers: headers, as: :json
+      get '/api/v1/mcp/hosting/servers?status=running', headers: headers, as: :json
 
       expect_success_response
     end
@@ -48,7 +48,7 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
         .with(hash_including(limit: 20, offset: 10))
         .and_return(servers_list)
 
-      get '/api/v1/mcp/hosting/servers', params: { limit: 20, offset: 10 }, headers: headers, as: :json
+      get '/api/v1/mcp/hosting/servers?limit=20&offset=10', headers: headers, as: :json
 
       expect_success_response
     end
@@ -223,9 +223,7 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
         .with(server_id, limit: 10)
         .and_return(deployments)
 
-      get "/api/v1/mcp/hosting/servers/#{server_id}/deployments",
-          params: { limit: 10 },
-          headers: headers, as: :json
+      get "/api/v1/mcp/hosting/servers/#{server_id}/deployments?limit=10", headers: headers, as: :json
 
       expect_success_response
     end
@@ -291,9 +289,7 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
         .with(server_id, hash_including(period: 48.hours, granularity: 'daily'))
         .and_return(metrics_data)
 
-      get "/api/v1/mcp/hosting/servers/#{server_id}/metrics",
-          params: { period_hours: 48, granularity: 'daily' },
-          headers: headers, as: :json
+      get "/api/v1/mcp/hosting/servers/#{server_id}/metrics?period_hours=48&granularity=daily", headers: headers, as: :json
 
       expect_success_response
     end
@@ -374,9 +370,7 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
         .with(hash_including(category: 'productivity', search: 'test'))
         .and_return(marketplace_results)
 
-      get '/api/v1/mcp/hosting/marketplace',
-          params: { category: 'productivity', search: 'test' },
-          headers: headers, as: :json
+      get '/api/v1/mcp/hosting/marketplace?category=productivity&search=test', headers: headers, as: :json
 
       expect_success_response
     end
@@ -434,9 +428,7 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
         .with(hash_including(status: 'active'))
         .and_return(subscriptions_list)
 
-      get '/api/v1/mcp/hosting/subscriptions',
-          params: { status: 'active' },
-          headers: headers, as: :json
+      get '/api/v1/mcp/hosting/subscriptions?status=active', headers: headers, as: :json
 
       expect_success_response
     end

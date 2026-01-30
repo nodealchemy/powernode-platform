@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::Internal::Git::Repositories', type: :request do
   let(:account) { create(:account) }
   let(:git_provider) { create(:git_provider, :github) }
-  let(:credential) { create(:git_provider_credential, account: account, git_provider: git_provider) }
+  let(:credential) { create(:git_provider_credential, account: account, provider: git_provider) }
   let(:repository) { create(:git_repository, credential: credential, account: account) }
 
   let(:internal_headers) do
@@ -98,7 +98,8 @@ RSpec.describe 'Api::V1::Internal::Git::Repositories', type: :request do
 
         expect(response).to have_http_status(:ok)
         repo = Devops::GitRepository.last
-        expect(repo.languages).to eq({ 'Ruby' => 80, 'JavaScript' => 20 })
+        # Language values come back as strings from params processing
+        expect(repo.languages).to eq({ 'Ruby' => '80', 'JavaScript' => '20' })
       end
     end
 
@@ -207,17 +208,21 @@ RSpec.describe 'Api::V1::Internal::Git::Repositories', type: :request do
 
         expect(response).to have_http_status(:ok)
         repository.reload
-        expect(repository.languages).to eq({ 'Ruby' => 70, 'JavaScript' => 30 })
+        # Language values come back as strings from params processing
+        expect(repository.languages).to eq({ 'Ruby' => '70', 'JavaScript' => '30' })
         expect(repository.topics).to eq(['api', 'rails', 'backend'])
       end
     end
 
     context 'with validation errors' do
       it 'returns validation error' do
+        # Eagerly create repository before stubbing
+        repo_record = repository
+
         allow_any_instance_of(Devops::GitRepository).to receive(:update).and_return(false)
         allow_any_instance_of(Devops::GitRepository).to receive_message_chain(:errors, :full_messages).and_return(['Validation failed'])
 
-        patch api_v1_internal_git_repository_path(repository),
+        patch api_v1_internal_git_repository_path(repo_record),
               params: { stars_count: -1 },
               headers: internal_headers
 

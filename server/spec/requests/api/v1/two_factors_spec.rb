@@ -81,7 +81,7 @@ RSpec.describe 'Api::V1::TwoFactors', type: :request do
              as: :json
 
         expect_success_response
-        expect(json_response['message']).to include('verified successfully')
+        expect(json_response['data']['message']).to include('verified successfully')
       end
     end
 
@@ -132,7 +132,7 @@ RSpec.describe 'Api::V1::TwoFactors', type: :request do
         delete '/api/v1/two_factor/disable', headers: headers, as: :json
 
         expect_success_response
-        expect(json_response['message']).to include('disabled')
+        expect(json_response['data']['message']).to include('disabled')
 
         user.reload
         expect(user.two_factor_enabled?).to be false

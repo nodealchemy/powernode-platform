@@ -11,10 +11,10 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
     allow(WorkerJobService).to receive(:enqueue_password_reset_email).and_return(true)
   end
 
-  describe 'POST /api/v1/auth/passwords/forgot' do
+  describe 'POST /api/v1/auth/forgot-password' do
     context 'with valid email for active verified user' do
       it 'returns success message without revealing user existence' do
-        post '/api/v1/auth/passwords/forgot',
+        post '/api/v1/auth/forgot-password',
              params: { email: user.email },
              as: :json
 
@@ -27,7 +27,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
 
       it 'generates reset token for user' do
         expect {
-          post '/api/v1/auth/passwords/forgot',
+          post '/api/v1/auth/forgot-password',
                params: { email: user.email },
                as: :json
         }.to change { user.reload.reset_token_digest }.from(nil)
@@ -36,7 +36,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
 
     context 'with non-existent email' do
       it 'returns success message to prevent enumeration' do
-        post '/api/v1/auth/passwords/forgot',
+        post '/api/v1/auth/forgot-password',
              params: { email: 'nonexistent@example.com' },
              as: :json
 
@@ -52,7 +52,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
       let(:inactive_user) { create(:user, account: account, status: 'inactive', email_verified_at: Time.current) }
 
       it 'returns success message without sending email' do
-        post '/api/v1/auth/passwords/forgot',
+        post '/api/v1/auth/forgot-password',
              params: { email: inactive_user.email },
              as: :json
 
@@ -65,7 +65,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
       let(:unverified_user) { create(:user, account: account, email_verified_at: nil) }
 
       it 'returns success message without sending email' do
-        post '/api/v1/auth/passwords/forgot',
+        post '/api/v1/auth/forgot-password',
              params: { email: unverified_user.email },
              as: :json
 
@@ -76,7 +76,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
 
     context 'without email parameter' do
       it 'returns bad request error' do
-        post '/api/v1/auth/passwords/forgot',
+        post '/api/v1/auth/forgot-password',
              params: {},
              as: :json
 
@@ -86,7 +86,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
 
     context 'with case-insensitive email' do
       it 'finds user by downcased email' do
-        post '/api/v1/auth/passwords/forgot',
+        post '/api/v1/auth/forgot-password',
              params: { email: user.email.upcase },
              as: :json
 
@@ -96,7 +96,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
     end
   end
 
-  describe 'POST /api/v1/auth/passwords/reset' do
+  describe 'POST /api/v1/auth/reset-password' do
     let(:reset_token) { 'valid-reset-token' }
 
     before do
@@ -113,8 +113,8 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
       it 'resets password successfully' do
         allow_any_instance_of(User).to receive(:reset_password!).and_return(true)
 
-        post '/api/v1/auth/passwords/reset',
-             params: { token: @stored_token, password: 'NewSecurePassword123!' },
+        post '/api/v1/auth/reset-password',
+             params: { token: @stored_token, password: TestUsers::PASSWORD },
              as: :json
 
         expect_success_response
@@ -126,8 +126,8 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
 
     context 'with invalid reset token' do
       it 'returns unauthorized error' do
-        post '/api/v1/auth/passwords/reset',
-             params: { token: 'invalid-token', password: 'NewSecurePassword123!' },
+        post '/api/v1/auth/reset-password',
+             params: { token: 'invalid-token', password: TestUsers::PASSWORD },
              as: :json
 
         expect_error_response('Invalid reset token', 401)
@@ -136,8 +136,8 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
 
     context 'without reset token' do
       it 'returns bad request error' do
-        post '/api/v1/auth/passwords/reset',
-             params: { password: 'NewSecurePassword123!' },
+        post '/api/v1/auth/reset-password',
+             params: { password: TestUsers::PASSWORD },
              as: :json
 
         expect_error_response('Reset token is required', 400)
@@ -146,7 +146,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
 
     context 'without password' do
       it 'returns bad request error' do
-        post '/api/v1/auth/passwords/reset',
+        post '/api/v1/auth/reset-password',
              params: { token: @stored_token },
              as: :json
 
@@ -161,7 +161,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
           double(full_messages: ['Password is too weak'])
         )
 
-        post '/api/v1/auth/passwords/reset',
+        post '/api/v1/auth/reset-password',
              params: { token: @stored_token, password: 'weak' },
              as: :json
 
@@ -170,15 +170,15 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
     end
   end
 
-  describe 'PUT /api/v1/auth/passwords/change' do
+  describe 'PUT /api/v1/auth/change-password' do
     context 'with valid current password' do
       it 'changes password successfully' do
-        post '/api/v1/auth/passwords/change',
+        put '/api/v1/auth/change-password',
              params: {
                password: {
-                 current_password: 'Password123!',
-                 new_password: 'NewPassword123!',
-                 password_confirmation: 'NewPassword123!'
+                 current_password: TestUsers::PASSWORD,
+                 new_password: 'NewStr0ngP@ssw0rd!#',
+                 password_confirmation: 'NewStr0ngP@ssw0rd!#'
                }
              },
              headers: headers,
@@ -193,12 +193,12 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
 
     context 'with incorrect current password' do
       it 'returns unauthorized error' do
-        post '/api/v1/auth/passwords/change',
+        put '/api/v1/auth/change-password',
              params: {
                password: {
                  current_password: 'WrongPassword',
-                 new_password: 'NewPassword123!',
-                 password_confirmation: 'NewPassword123!'
+                 new_password: 'NewStr0ngP@ssw0rd!#',
+                 password_confirmation: 'NewStr0ngP@ssw0rd!#'
                }
              },
              headers: headers,
@@ -210,11 +210,11 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
 
     context 'with mismatched password confirmation' do
       it 'returns validation error' do
-        post '/api/v1/auth/passwords/change',
+        put '/api/v1/auth/change-password',
              params: {
                password: {
-                 current_password: 'Password123!',
-                 new_password: 'NewPassword123!',
+                 current_password: TestUsers::PASSWORD,
+                 new_password: 'NewStr0ngP@ssw0rd!#',
                  password_confirmation: 'DifferentPassword123!'
                }
              },
@@ -227,12 +227,12 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
 
     context 'without authentication' do
       it 'returns unauthorized error' do
-        post '/api/v1/auth/passwords/change',
+        put '/api/v1/auth/change-password',
              params: {
                password: {
-                 current_password: 'Password123!',
-                 new_password: 'NewPassword123!',
-                 password_confirmation: 'NewPassword123!'
+                 current_password: TestUsers::PASSWORD,
+                 new_password: 'NewStr0ngP@ssw0rd!#',
+                 password_confirmation: 'NewStr0ngP@ssw0rd!#'
                }
              },
              as: :json

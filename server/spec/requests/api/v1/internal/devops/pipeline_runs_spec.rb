@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::Internal::Devops::PipelineRuns', type: :request do
   let(:account) { create(:account) }
   let(:pipeline) { create(:ci_cd_pipeline, account: account) }
-  let(:pipeline_run) { create(:ci_cd_pipeline_run, pipeline: pipeline, account: account) }
+  let(:pipeline_run) { create(:ci_cd_pipeline_run, pipeline: pipeline) }
   let(:pipeline_step) { create(:ci_cd_pipeline_step, pipeline: pipeline) }
 
   let(:internal_headers) do
@@ -118,7 +118,7 @@ RSpec.describe 'Api::V1::Internal::Devops::PipelineRuns', type: :request do
         patch api_v1_internal_devops_pipeline_run_path(pipeline_run),
               params: {
                 pipeline_run: {
-                  status: 'failed',
+                  status: 'failure',
                   error_message: 'Build failed'
                 }
               },

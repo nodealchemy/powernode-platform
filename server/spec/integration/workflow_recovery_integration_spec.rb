@@ -360,7 +360,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
   end
 
   describe 'WebSocket event broadcasting' do
-    it 'broadcasts retry events', :focus do
+    it 'broadcasts retry events' do
       workflow_run = create(:ai_workflow_run, workflow: workflow, account: account)
 
       # Create node with retry enabled
@@ -401,7 +401,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       retry_service.execute_retry
     end
 
-    it 'broadcasts checkpoint events', :focus do
+    it 'broadcasts checkpoint events' do
       workflow_run = create(:ai_workflow_run, workflow: workflow, account: account)
 
       expect(ActionCable.server).to receive(:broadcast).with(
@@ -416,7 +416,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       checkpoint_service.create_checkpoint(type: 'manual_checkpoint', node_id: 'test-node')
     end
 
-    it 'broadcasts circuit breaker events', :focus do
+    it 'broadcasts circuit breaker events' do
       service_name = 'broadcast_test_service'
 
       expect(ActionCable.server).to receive(:broadcast).with(

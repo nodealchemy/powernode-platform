@@ -130,7 +130,7 @@ RSpec.describe 'Api::V1::Git::Runners', type: :request do
 
   describe 'DELETE /api/v1/git/runners/:id' do
     let(:repository) { create(:devops_git_repository, account: account) }
-    let(:runner) { create(:devops_git_runner, account: account, git_repository: repository, runner_scope: 'repository') }
+    let!(:runner) { create(:devops_git_runner, account: account, repository: repository, runner_scope: 'repository') }
 
     context 'with proper permissions' do
       before do
@@ -218,7 +218,7 @@ RSpec.describe 'Api::V1::Git::Runners', type: :request do
 
   describe 'POST /api/v1/git/runners/:id/registration_token' do
     let(:repository) { create(:devops_git_repository, account: account) }
-    let(:runner) { create(:devops_git_runner, account: account, git_repository: repository, runner_scope: 'repository') }
+    let(:runner) { create(:devops_git_runner, account: account, repository: repository, runner_scope: 'repository') }
 
     context 'with proper permissions' do
       before do
@@ -256,7 +256,7 @@ RSpec.describe 'Api::V1::Git::Runners', type: :request do
 
   describe 'POST /api/v1/git/runners/:id/removal_token' do
     let(:repository) { create(:devops_git_repository, account: account) }
-    let(:runner) { create(:devops_git_runner, account: account, git_repository: repository, runner_scope: 'repository') }
+    let(:runner) { create(:devops_git_runner, account: account, repository: repository, runner_scope: 'repository') }
 
     context 'with proper permissions' do
       before do
@@ -285,7 +285,7 @@ RSpec.describe 'Api::V1::Git::Runners', type: :request do
 
   describe 'PUT /api/v1/git/runners/:id/labels' do
     let(:repository) { create(:devops_git_repository, account: account) }
-    let(:runner) { create(:devops_git_runner, account: account, git_repository: repository, runner_scope: 'repository') }
+    let(:runner) { create(:devops_git_runner, account: account, repository: repository, runner_scope: 'repository') }
 
     context 'with proper permissions' do
       before do

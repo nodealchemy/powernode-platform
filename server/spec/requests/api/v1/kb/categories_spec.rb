@@ -60,7 +60,7 @@ RSpec.describe 'Api::V1::Kb::Categories', type: :request do
 
     context 'admin view' do
       it 'returns all categories when admin flag set' do
-        get '/api/v1/kb/categories', params: { admin: 'true' }, headers: headers, as: :json
+        get '/api/v1/kb/categories?admin=true', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -69,7 +69,7 @@ RSpec.describe 'Api::V1::Kb::Categories', type: :request do
       end
 
       it 'searches categories by name' do
-        get '/api/v1/kb/categories', params: { admin: 'true', search: 'Public' }, headers: headers, as: :json
+        get '/api/v1/kb/categories?admin=true&search=Public', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -77,7 +77,7 @@ RSpec.describe 'Api::V1::Kb::Categories', type: :request do
       end
 
       it 'supports pagination' do
-        get '/api/v1/kb/categories', params: { admin: 'true', page: 1, per_page: 10 }, headers: headers, as: :json
+        get '/api/v1/kb/categories?admin=true&page=1&per_page=10', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -87,7 +87,7 @@ RSpec.describe 'Api::V1::Kb::Categories', type: :request do
 
     context 'without manage permissions' do
       it 'returns public view even with admin flag' do
-        get '/api/v1/kb/categories', params: { admin: 'true' }, headers: read_only_headers, as: :json
+        get '/api/v1/kb/categories?admin=true', headers: read_only_headers, as: :json
 
         expect(response).to have_http_status(:success)
         data = json_response
@@ -164,7 +164,7 @@ RSpec.describe 'Api::V1::Kb::Categories', type: :request do
 
     context 'admin view' do
       it 'returns detailed category info for admin' do
-        get "/api/v1/kb/categories/#{public_category.id}", params: { admin: 'true' }, headers: headers, as: :json
+        get "/api/v1/kb/categories/#{public_category.id}?admin=true", headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -178,7 +178,7 @@ RSpec.describe 'Api::V1::Kb::Categories', type: :request do
       end
 
       it 'returns forbidden for non-manager' do
-        get "/api/v1/kb/categories/#{public_category.id}", params: { admin: 'true' }, headers: editor_headers, as: :json
+        get "/api/v1/kb/categories/#{public_category.id}?admin=true", headers: editor_headers, as: :json
 
         expect_error_response('Access denied', 403)
       end

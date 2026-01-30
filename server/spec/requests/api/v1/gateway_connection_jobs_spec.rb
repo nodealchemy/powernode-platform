@@ -19,11 +19,11 @@ RSpec.describe 'Api::V1::GatewayConnectionJobs', type: :request do
   end
 
   describe 'GET /api/v1/gateway_connection_jobs/:id' do
-    let!(:job) { GatewayConnectionJob.create!(gateway: 'stripe', status: 'pending') }
+    let!(:job) { GatewayConnectionJob.create!(gateway: 'stripe', status: 'pending', operation: 'test_connection') }
 
     context 'with admin permission' do
       before do
-        admin_user.roles.first.permissions.create!(name: 'admin.settings.payment')
+        admin_user.grant_permission('admin.settings.payment')
       end
 
       it 'returns job details' do
@@ -63,7 +63,7 @@ RSpec.describe 'Api::V1::GatewayConnectionJobs', type: :request do
   end
 
   describe 'PATCH /api/v1/gateway_connection_jobs/:id' do
-    let!(:job) { GatewayConnectionJob.create!(gateway: 'stripe', status: 'pending') }
+    let!(:job) { GatewayConnectionJob.create!(gateway: 'stripe', status: 'pending', operation: 'test_connection') }
 
     context 'with service token' do
       it 'updates job status to completed' do
@@ -128,7 +128,7 @@ RSpec.describe 'Api::V1::GatewayConnectionJobs', type: :request do
 
     context 'with admin user permission' do
       before do
-        admin_user.roles.first.permissions.create!(name: 'admin.settings.payment')
+        admin_user.grant_permission('admin.settings.payment')
       end
 
       it 'allows admin user to update job' do

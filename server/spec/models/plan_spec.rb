@@ -221,6 +221,7 @@ RSpec.describe Plan, type: :model do
         expect(plan.features).to eq({})
         expect(plan.limits).to eq({
           'max_api_keys' => 5,
+          'max_repositories' => 10,
           'max_users' => 2,
           'max_webhooks' => 5,
           'max_workers' => 3

@@ -36,9 +36,9 @@ RSpec.describe 'Api::V1::Kb::Tags', type: :request do
 
   let!(:tag3) do
     KnowledgeBase::Tag.create!(
-      name: 'JavaScript',
-      slug: 'javascript',
-      description: 'JavaScript programming language',
+      name: 'Python',
+      slug: 'python',
+      description: 'Python programming language',
       color: '#F7DF1E'
     )
   end
@@ -66,18 +66,18 @@ RSpec.describe 'Api::V1::Kb::Tags', type: :request do
         get '/api/v1/kb/tags', as: :json
 
         expect(response).to have_http_status(:success)
-        data = json_response
-        expect(data['data']).to be_an(Array)
-        expect(data['data'].length).to be <= 50
-        expect(data['data'].first).to include('id', 'name', 'slug', 'description', 'color', 'usage_count')
+        data = json_response_data
+        expect(data).to be_an(Array)
+        expect(data.length).to be <= 50
+        expect(data.first).to include('id', 'name', 'slug', 'description', 'color', 'usage_count')
       end
 
       it 'includes tag metadata' do
         get '/api/v1/kb/tags', as: :json
 
         expect(response).to have_http_status(:success)
-        data = json_response
-        tag = data['data'].first
+        data = json_response_data
+        tag = data.first
         expect(tag).to have_key('color')
         expect(tag).to have_key('usage_count')
       end
@@ -111,7 +111,7 @@ RSpec.describe 'Api::V1::Kb::Tags', type: :request do
       end
 
       it 'supports pagination' do
-        get "/api/v1/kb/tags/#{tag1.id}/articles", params: { page: 1, per_page: 10 }, as: :json
+        get "/api/v1/kb/tags/#{tag1.id}/articles?page=1&per_page=10", as: :json
 
         expect(response).to have_http_status(:success)
         data = json_response_data
@@ -150,7 +150,7 @@ RSpec.describe 'Api::V1::Kb::Tags', type: :request do
 
         expect(response).to have_http_status(:success)
         data = json_response_data
-        expect(data['tag']['name']).to eq('JavaScript')
+        expect(data['tag']['name']).to eq('Python')
         expect(data['articles']).to be_an(Array)
         expect(data['articles'].length).to eq(0)
       end

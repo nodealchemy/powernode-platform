@@ -38,16 +38,13 @@ RSpec.describe 'Api::V1::Devops::AiConfigs', type: :request do
         get '/api/v1/devops/ai_configs', headers: headers, as: :json
 
         response_data = json_response
-        expect(response_data['data']['meta']).to include('current_page', 'per_page', 'total_count')
+        expect(response_data['meta']).to include('current_page', 'per_page', 'total_count')
       end
 
       it 'filters by status' do
         create(:devops_ai_config, account: account, status: 'inactive', created_by: user_with_permission)
 
-        get '/api/v1/devops/ai_configs',
-            params: { status: 'inactive' },
-            headers: headers,
-            as: :json
+        get '/api/v1/devops/ai_configs?status=inactive', headers: headers, as: :json
 
         expect_success_response
         response_data = json_response
@@ -59,10 +56,7 @@ RSpec.describe 'Api::V1::Devops::AiConfigs', type: :request do
       it 'filters by type' do
         create(:devops_ai_config, account: account, config_type: 'chat', created_by: user_with_permission)
 
-        get '/api/v1/devops/ai_configs',
-            params: { type: 'chat' },
-            headers: headers,
-            as: :json
+        get '/api/v1/devops/ai_configs?type=chat', headers: headers, as: :json
 
         expect_success_response
         response_data = json_response
@@ -74,10 +68,7 @@ RSpec.describe 'Api::V1::Devops::AiConfigs', type: :request do
       it 'filters by provider' do
         create(:devops_ai_config, account: account, provider: 'anthropic', created_by: user_with_permission)
 
-        get '/api/v1/devops/ai_configs',
-            params: { provider: 'anthropic' },
-            headers: headers,
-            as: :json
+        get '/api/v1/devops/ai_configs?provider=anthropic', headers: headers, as: :json
 
         expect_success_response
         response_data = json_response

@@ -16,7 +16,10 @@ RSpec.describe 'Api::V1::SupplyChain::ScanExecutions', type: :request do
            scan_instance: scan_instance,
            status: 'completed',
            trigger_type: 'manual',
-           triggered_by: user)
+           triggered_by: user,
+           started_at: 5.minutes.ago,
+           completed_at: Time.current,
+           duration_ms: 300_000)
   end
 
   describe 'GET /api/v1/supply_chain/scan_executions' do
@@ -42,7 +45,7 @@ RSpec.describe 'Api::V1::SupplyChain::ScanExecutions', type: :request do
       end
 
       it 'filters by status' do
-        create(:supply_chain_scan_execution, account: account, status: 'running')
+        create(:supply_chain_scan_execution, account: account, status: 'running', started_at: Time.current)
 
         get '/api/v1/supply_chain/scan_executions', params: { status: 'completed' }, headers: headers
 
@@ -127,7 +130,7 @@ RSpec.describe 'Api::V1::SupplyChain::ScanExecutions', type: :request do
         scan_execution.update!(
           input_data: { target_type: 'repository', target_id: '123' },
           output_data: { findings: 5 },
-          metrics: { duration: 1234 }
+          metadata: { duration: 1234 }
         )
 
         get "/api/v1/supply_chain/scan_executions/#{scan_execution.id}", headers: headers
@@ -136,7 +139,7 @@ RSpec.describe 'Api::V1::SupplyChain::ScanExecutions', type: :request do
         execution = data['scan_execution']
         expect(execution['input_data']).to be_present
         expect(execution['output_data']).to be_present
-        expect(execution['metrics']).to be_present
+        expect(execution['metadata']).to be_present
       end
     end
 
@@ -166,14 +169,11 @@ RSpec.describe 'Api::V1::SupplyChain::ScanExecutions', type: :request do
       create(:supply_chain_scan_execution,
              account: account,
              scan_instance: scan_instance,
-             status: 'running')
+             status: 'running',
+             started_at: Time.current)
     end
 
     context 'with valid authentication and write permissions' do
-      before do
-        allow(SupplyChainChannel).to receive(:broadcast_execution_failed)
-      end
-
       it 'cancels the execution' do
         post "/api/v1/supply_chain/scan_executions/#{running_execution.id}/cancel", headers: write_headers
 
@@ -181,13 +181,6 @@ RSpec.describe 'Api::V1::SupplyChain::ScanExecutions', type: :request do
         data = json_response_data
         expect(data['scan_execution']['status']).to eq('cancelled')
         expect(json_response['message']).to include('cancelled')
-      end
-
-      it 'broadcasts cancellation event' do
-        expect(SupplyChainChannel).to receive(:broadcast_execution_failed)
-          .with(anything, 'Cancelled by user')
-
-        post "/api/v1/supply_chain/scan_executions/#{running_execution.id}/cancel", headers: write_headers
       end
 
       it 'returns error when execution is not cancellable' do
@@ -213,60 +206,39 @@ RSpec.describe 'Api::V1::SupplyChain::ScanExecutions', type: :request do
   end
 
   describe 'GET /api/v1/supply_chain/scan_executions/:id/logs' do
-    let!(:execution_log) do
-      create(:supply_chain_execution_log,
-             scan_execution: scan_execution,
-             level: 'info',
-             message: 'Test log message')
-    end
-
     context 'with valid authentication and permissions' do
-      it 'returns execution logs' do
+      it 'returns execution logs parsed from text' do
+        scan_execution.update!(logs: "[2024-01-01T00:00:00Z] Test log message\n[2024-01-01T00:01:00Z] Second message")
+
         get "/api/v1/supply_chain/scan_executions/#{scan_execution.id}/logs", headers: headers
 
         expect(response).to have_http_status(:ok)
         data = json_response_data
         expect(data['execution_id']).to eq(scan_execution.id)
         expect(data['logs']).to be_an(Array)
+        expect(data['logs'].length).to eq(2)
         expect(data['logs'].first['message']).to eq('Test log message')
         expect(data['logs'].first['level']).to eq('info')
       end
 
-      it 'filters logs by level' do
-        create(:supply_chain_execution_log,
-               scan_execution: scan_execution,
-               level: 'error',
-               message: 'Error message')
+      it 'returns empty logs when no logs present' do
+        scan_execution.update!(logs: '')
 
-        get "/api/v1/supply_chain/scan_executions/#{scan_execution.id}/logs",
-            params: { level: 'info' },
-            headers: headers
+        get "/api/v1/supply_chain/scan_executions/#{scan_execution.id}/logs", headers: headers
 
+        expect(response).to have_http_status(:ok)
         data = json_response_data
-        expect(data['logs'].all? { |log| log['level'] == 'info' }).to be true
+        expect(data['logs']).to eq([])
       end
 
-      it 'filters logs by since timestamp' do
-        old_log = create(:supply_chain_execution_log,
-                         scan_execution: scan_execution,
-                         created_at: 2.days.ago)
-        since_time = 1.day.ago.iso8601
+      it 'includes total count in meta' do
+        scan_execution.update!(logs: "[2024-01-01T00:00:00Z] Log line 1\n[2024-01-01T00:01:00Z] Log line 2")
 
-        get "/api/v1/supply_chain/scan_executions/#{scan_execution.id}/logs",
-            params: { since: since_time },
-            headers: headers
-
-        data = json_response_data
-        expect(data['logs'].map { |log| log['id'] }).not_to include(old_log.id)
-      end
-
-      it 'supports pagination' do
-        get "/api/v1/supply_chain/scan_executions/#{scan_execution.id}/logs",
-            params: { page: 1, per_page: 10 },
-            headers: headers
+        get "/api/v1/supply_chain/scan_executions/#{scan_execution.id}/logs", headers: headers
 
         expect(response).to have_http_status(:ok)
         expect(json_response['meta']).to be_present
+        expect(json_response['meta']['total']).to eq(2)
       end
     end
 

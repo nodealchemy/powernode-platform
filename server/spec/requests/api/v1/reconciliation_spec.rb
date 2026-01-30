@@ -14,11 +14,13 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
     let(:account) { create(:account) }
     let(:subscription) { create(:subscription, account: account) }
     let(:invoice) { create(:invoice, subscription: subscription, account: account) }
+    let(:payment_method1) { create(:payment_method, account: account, gateway: 'stripe', payment_type: 'card') }
+    let(:payment_method2) { create(:payment_method, account: account, gateway: 'stripe', payment_type: 'bank') }
     let!(:payment1) do
       create(:payment,
              account: account,
              invoice: invoice,
-             payment_method: 'stripe_card',
+             payment_method: payment_method1,
              status: 'succeeded',
              created_at: 2.days.ago)
     end
@@ -26,7 +28,7 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
       create(:payment,
              account: account,
              invoice: invoice,
-             payment_method: 'stripe_bank',
+             payment_method: payment_method2,
              status: 'succeeded',
              created_at: 1.day.ago)
     end
@@ -40,7 +42,7 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
 
     context 'with valid service token' do
       it 'returns Stripe payments for reconciliation' do
-        get '/api/v1/reconciliation/stripe_payments', params: date_params, headers: headers, as: :json
+        get "/api/v1/reconciliation/stripe_payments?start_date=#{date_params[:start_date]}&end_date=#{date_params[:end_date]}", headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -54,7 +56,7 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
       let(:invalid_headers) { { 'X-Service-Token' => 'invalid-token' } }
 
       it 'returns unauthorized error' do
-        get '/api/v1/reconciliation/stripe_payments', params: date_params, headers: invalid_headers, as: :json
+        get "/api/v1/reconciliation/stripe_payments?start_date=#{date_params[:start_date]}&end_date=#{date_params[:end_date]}", headers: invalid_headers, as: :json
 
         expect(response).to have_http_status(:unauthorized)
         expect_error_response('Unauthorized service request')
@@ -66,11 +68,12 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
     let(:account) { create(:account) }
     let(:subscription) { create(:subscription, account: account) }
     let(:invoice) { create(:invoice, subscription: subscription, account: account) }
+    let(:paypal_payment_method) { create(:payment_method, :paypal, account: account) }
     let!(:payment) do
       create(:payment,
              account: account,
              invoice: invoice,
-             payment_method: 'paypal',
+             payment_method: paypal_payment_method,
              status: 'succeeded',
              created_at: 1.day.ago)
     end
@@ -84,7 +87,7 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
 
     context 'with valid service token' do
       it 'returns PayPal payments for reconciliation' do
-        get '/api/v1/reconciliation/paypal_payments', params: date_params, headers: headers, as: :json
+        get "/api/v1/reconciliation/paypal_payments?start_date=#{date_params[:start_date]}&end_date=#{date_params[:end_date]}", headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -99,7 +102,10 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
     let(:report_params) do
       {
         reconciliation_date: Date.current.to_s,
-        reconciliation_type: 'stripe',
+        reconciliation_type: 'daily',
+        gateway: 'stripe',
+        report_date: Date.current.to_s,
+        report_type: 'daily',
         date_range: {
           start: 1.week.ago.to_s,
           end: Time.current.to_s
@@ -125,26 +131,82 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
   end
 
   describe 'POST /api/v1/reconciliation/corrections' do
+    let!(:account) { create(:account) }
+    let(:subscription) { create(:subscription, account: account) }
+    let(:invoice) { create(:invoice, subscription: subscription, account: account) }
+    let(:payment_method) { create(:payment_method, account: account, gateway: 'stripe', payment_type: 'card') }
+
     let(:correction_params) do
       {
         type: 'create_missing_payment',
         provider: 'stripe',
-        provider_payment_id: 'STRIPE-123',
+        provider_payment_id: 'pi_test_123',
         amount: 5000,
         currency: 'USD'
       }
     end
 
     context 'with create_missing_payment type' do
-      it 'creates a missing payment log' do
-        expect {
-          post '/api/v1/reconciliation/corrections', params: correction_params, headers: headers, as: :json
-        }.to change { MissingPaymentLog.count }.by(1)
+      context 'when account can be determined from existing payment' do
+        let!(:existing_payment) do
+          create(:payment,
+                 account: account,
+                 invoice: invoice,
+                 payment_method: payment_method,
+                 status: 'succeeded',
+                 metadata: { 'stripe_payment_intent_id' => 'pi_test_123' })
+        end
 
-        expect_success_response
-        data = json_response_data
-        expect(data['message']).to eq('Missing payment logged for manual review')
-        expect(data).to have_key('data')
+        it 'creates a missing payment log using account from existing payment' do
+          expect {
+            post '/api/v1/reconciliation/corrections', params: correction_params, headers: headers, as: :json
+          }.to change { MissingPaymentLog.count }.by(1)
+
+          expect_success_response
+          data = json_response_data
+          expect(data).to have_key('log_id')
+
+          log = MissingPaymentLog.find(data['log_id'])
+          expect(log.account_id).to eq(account.id)
+        end
+      end
+
+      context 'when account_id is explicitly provided' do
+        let(:correction_params_with_account) do
+          correction_params.merge(account_id: account.id)
+        end
+
+        it 'creates a missing payment log using explicit account_id' do
+          expect {
+            post '/api/v1/reconciliation/corrections', params: correction_params_with_account, headers: headers, as: :json
+          }.to change { MissingPaymentLog.count }.by(1)
+
+          expect_success_response
+          data = json_response_data
+          expect(data).to have_key('log_id')
+
+          log = MissingPaymentLog.find(data['log_id'])
+          expect(log.account_id).to eq(account.id)
+        end
+      end
+
+      context 'when account cannot be determined' do
+        let(:orphan_correction_params) do
+          {
+            type: 'create_missing_payment',
+            provider: 'stripe',
+            provider_payment_id: 'pi_unknown_orphan',
+            amount: 5000,
+            currency: 'USD'
+          }
+        end
+
+        it 'returns unprocessable entity error' do
+          post '/api/v1/reconciliation/corrections', params: orphan_correction_params, headers: headers, as: :json
+
+          expect(response).to have_http_status(:unprocessable_entity)
+          expect_error_response('Cannot determine account for missing payment')
+        end
       end
     end
 
@@ -161,15 +223,16 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
   end
 
   describe 'POST /api/v1/reconciliation/flags' do
+    let(:reconciliation_report) { create(:reconciliation_report) }
+
     let(:flag_params) do
       {
         type: 'amount_mismatch',
-        provider: 'paypal',
-        local_payment_id: SecureRandom.uuid,
-        external_id: 'PAYPAL-123',
-        requires_manual_review: true,
-        local_amount: 5000,
-        provider_amount: 5050
+        reconciliation_report_id: reconciliation_report.id,
+        description: 'Amount mismatch detected for PayPal payment',
+        severity: 'high',
+        transaction_id: 'PAYPAL-123',
+        amount_cents: 50.0
       }
     end
 
@@ -187,15 +250,23 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
   end
 
   describe 'POST /api/v1/reconciliation/investigations' do
+    let(:account) { create(:account) }
+    let(:user) { create(:user, account: account) }
+    let(:reconciliation_report) { create(:reconciliation_report) }
+    let(:reconciliation_flag) do
+      ReconciliationFlag.create!(
+        reconciliation_report: reconciliation_report,
+        flag_type: 'amount_mismatch',
+        description: 'Test flag for investigation',
+        severity: 'high'
+      )
+    end
+
     let(:investigation_params) do
       {
-        type: 'amount_discrepancy',
-        local_payment_id: SecureRandom.uuid,
-        provider_payment_id: 'PROVIDER-123',
-        local_amount: 5000,
-        provider_amount: 5050,
-        difference: 50,
-        requires_investigation: true
+        reconciliation_flag_id: reconciliation_flag.id,
+        investigator_id: user.id,
+        notes: 'Investigating amount discrepancy'
       }
     end
 

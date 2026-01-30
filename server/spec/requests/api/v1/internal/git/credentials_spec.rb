@@ -8,7 +8,7 @@ RSpec.describe 'Api::V1::Internal::Git::Credentials', type: :request do
   let(:credential) do
     create(:git_provider_credential,
            account: account,
-           git_provider: git_provider,
+           provider: git_provider,
            is_active: true)
   end
   let(:repository) { create(:git_repository, credential: credential, account: account) }
@@ -25,7 +25,8 @@ RSpec.describe 'Api::V1::Internal::Git::Credentials', type: :request do
   describe 'GET /api/v1/internal/git/credentials' do
     context 'with valid internal authentication' do
       it 'returns all credentials' do
-        credential2 = create(:git_provider_credential, account: account, git_provider: git_provider)
+        credential # eagerly create the first credential
+        credential2 = create(:git_provider_credential, account: account, provider: git_provider)
 
         get api_v1_internal_git_credentials_path, headers: internal_headers
 
@@ -36,8 +37,9 @@ RSpec.describe 'Api::V1::Internal::Git::Credentials', type: :request do
       end
 
       it 'filters by account_id when provided' do
+        credential # eagerly create
         other_account = create(:account)
-        create(:git_provider_credential, account: other_account, git_provider: git_provider)
+        create(:git_provider_credential, account: other_account, provider: git_provider)
 
         get api_v1_internal_git_credentials_path,
             params: { account_id: account.id },
@@ -51,7 +53,7 @@ RSpec.describe 'Api::V1::Internal::Git::Credentials', type: :request do
       it 'filters by active status when provided' do
         inactive_cred = create(:git_provider_credential,
                                account: account,
-                               git_provider: git_provider,
+                               provider: git_provider,
                                is_active: false)
 
         get api_v1_internal_git_credentials_path,
@@ -63,6 +65,7 @@ RSpec.describe 'Api::V1::Internal::Git::Credentials', type: :request do
       end
 
       it 'includes provider information' do
+        credential # eagerly create
         get api_v1_internal_git_credentials_path, headers: internal_headers
 
         json = JSON.parse(response.body)
@@ -151,6 +154,7 @@ RSpec.describe 'Api::V1::Internal::Git::Credentials', type: :request do
       end
 
       it 'includes repository details' do
+        repository # eagerly create
         get repositories_api_v1_internal_git_credential_path(credential),
             headers: internal_headers
 

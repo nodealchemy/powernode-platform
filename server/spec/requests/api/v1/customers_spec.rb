@@ -106,7 +106,7 @@ RSpec.describe 'Api::V1::Customers', type: :request do
 
     context 'with status filter' do
       before do
-        create(:account, status: 'inactive')
+        create(:account, status: 'cancelled')
       end
 
       it 'filters by active status' do
@@ -118,8 +118,8 @@ RSpec.describe 'Api::V1::Customers', type: :request do
         expect(customers_data.all? { |c| c['status'] == 'active' }).to be true
       end
 
-      it 'filters by inactive status' do
-        get '/api/v1/customers?status=inactive', headers: auth_headers_for(user), as: :json
+      it 'filters by cancelled status' do
+        get '/api/v1/customers?status=cancelled', headers: auth_headers_for(user), as: :json
 
         expect_success_response
       end
@@ -225,10 +225,13 @@ RSpec.describe 'Api::V1::Customers', type: :request do
 
     context 'with authentication' do
       it 'creates a new customer' do
+        # Ensure user is created before count check
+        headers = auth_headers_for(user)
+
         expect {
           post '/api/v1/customers',
                params: valid_params,
-               headers: auth_headers_for(user),
+               headers: headers,
                as: :json
         }.to change(Account, :count).by(1)
 
@@ -237,10 +240,12 @@ RSpec.describe 'Api::V1::Customers', type: :request do
       end
 
       it 'creates subscription when plan provided' do
+        headers = auth_headers_for(user)
+
         expect {
           post '/api/v1/customers',
                params: valid_params,
-               headers: auth_headers_for(user),
+               headers: headers,
                as: :json
         }.to change(Subscription, :count).by(1)
 
@@ -248,10 +253,13 @@ RSpec.describe 'Api::V1::Customers', type: :request do
       end
 
       it 'creates primary user' do
+        # Ensure user is created before count check
+        headers = auth_headers_for(user)
+
         expect {
           post '/api/v1/customers',
                params: valid_params,
-               headers: auth_headers_for(user),
+               headers: headers,
                as: :json
         }.to change(User, :count).by(1)
 
@@ -307,7 +315,7 @@ RSpec.describe 'Api::V1::Customers', type: :request do
         subscription_params = {
           customer: {
             subscription_attributes: {
-              status: 'cancelled'
+              status: 'canceled'
             }
           }
         }
@@ -354,12 +362,16 @@ RSpec.describe 'Api::V1::Customers', type: :request do
         delete "/api/v1/customers/#{customer.id}", headers: auth_headers_for(user), as: :json
 
         expect_success_response
-        expect(customer.reload.status).to eq('inactive')
+        expect(customer.reload.status).to eq('cancelled')
       end
 
       it 'does not permanently delete' do
+        # Ensure user (and its account) are created before count check
+        headers = auth_headers_for(user)
+        customer_id = customer.id
+
         expect {
-          delete "/api/v1/customers/#{customer.id}", headers: auth_headers_for(user), as: :json
+          delete "/api/v1/customers/#{customer_id}", headers: headers, as: :json
         }.not_to change(Account, :count)
       end
     end
@@ -373,10 +385,12 @@ RSpec.describe 'Api::V1::Customers', type: :request do
     end
   end
 
-  describe 'GET /api/v1/customers/stats' do
+  describe 'GET /api/v1/customers/:id/stats' do
+    let(:customer) { customers.first }
+
     context 'with authentication' do
       it 'returns customer statistics' do
-        get '/api/v1/customers/stats', headers: auth_headers_for(user), as: :json
+        get "/api/v1/customers/#{customer.id}/stats", headers: auth_headers_for(user), as: :json
 
         expect_success_response
         stats = json_response['data']

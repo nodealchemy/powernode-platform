@@ -23,33 +23,35 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
       end
 
       it 'returns all MCP servers' do
+        mcp_server # force creation of the let variable
         get '/api/v1/internal/mcp_servers', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        response_data = json_response_data
 
-        expect(response_data['data']['data']['mcp_servers']).to be_an(Array)
-        expect(response_data['data']['data']['mcp_servers'].length).to eq(4) # 3 + initial server
+        expect(response_data['mcp_servers']).to be_an(Array)
+        expect(response_data['mcp_servers'].length).to eq(4) # 3 + initial server
       end
 
       it 'filters by status when provided' do
-        create(:mcp_server, account: account, status: 'active')
-        create(:mcp_server, account: account, status: 'error')
+        connected_server = create(:mcp_server, account: account, status: 'connected')
+        error_server = create(:mcp_server, account: account, status: 'error')
 
-        get '/api/v1/internal/mcp_servers', headers: internal_headers, params: { status: 'active' }, as: :json
+        get '/api/v1/internal/mcp_servers?status=connected', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        response_data = json_response_data
 
-        servers = response_data['data']['data']['mcp_servers']
-        expect(servers.all? { |s| s['status'] == 'active' }).to be true
+        servers = response_data['mcp_servers']
+        expect(servers.length).to be >= 1
+        expect(servers.all? { |s| s['status'] == 'connected' }).to be true
       end
 
       it 'includes server attributes' do
         get '/api/v1/internal/mcp_servers', headers: internal_headers, as: :json
 
-        response_data = json_response
-        first_server = response_data['data']['data']['mcp_servers'].first
+        response_data = json_response_data
+        first_server = response_data['mcp_servers'].first
 
         expect(first_server).to include(
           'id', 'name', 'status', 'connection_type', 'account_id'
@@ -72,9 +74,9 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
         get "/api/v1/internal/mcp_servers/#{mcp_server.id}", headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        response_data = json_response_data
 
-        expect(response_data['data']['data']['mcp_server']).to include(
+        expect(response_data['mcp_server']).to include(
           'id' => mcp_server.id,
           'name' => mcp_server.name,
           'status' => mcp_server.status
@@ -84,8 +86,8 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
       it 'includes config when requested' do
         get "/api/v1/internal/mcp_servers/#{mcp_server.id}", headers: internal_headers, as: :json
 
-        response_data = json_response
-        server = response_data['data']['data']['mcp_server']
+        response_data = json_response_data
+        server = response_data['mcp_server']
 
         expect(server).to have_key('env')
         expect(server).to have_key('config')
@@ -110,27 +112,27 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
               as: :json
 
         expect_success_response
-        response_data = json_response
+        response_data = json_response_data
 
-        expect(response_data['data']['data']['mcp_server']['status']).to eq('error')
-        expect(response_data['data']['message']).to eq('MCP server updated successfully')
+        expect(response_data['mcp_server']['status']).to eq('error')
+        expect(response_data['message']).to eq('MCP server updated successfully')
 
         mcp_server.reload
         expect(mcp_server.status).to eq('error')
         expect(mcp_server.last_error).to eq('Connection failed')
       end
 
-      it 'updates last_connected_at timestamp' do
+      it 'updates last_health_check timestamp' do
         new_time = 1.hour.ago
         patch "/api/v1/internal/mcp_servers/#{mcp_server.id}",
               headers: internal_headers,
-              params: { last_connected_at: new_time },
+              params: { last_health_check: new_time },
               as: :json
 
         expect_success_response
 
         mcp_server.reload
-        expect(mcp_server.last_connected_at).to be_within(1.second).of(new_time)
+        expect(mcp_server.last_health_check).to be_within(1.second).of(new_time)
       end
     end
 
@@ -155,10 +157,10 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        response_data = json_response_data
 
-        expect(response_data['data']['data']['updated']).to be true
-        expect(response_data['data']['data']['status']).to eq(mcp_server.reload.status)
+        expect(response_data['updated']).to be true
+        expect(response_data['status']).to eq(mcp_server.reload.status)
 
         mcp_server.reload
         expect(mcp_server.capabilities['last_latency_ms']).to eq(45.5)
@@ -174,9 +176,9 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        response_data = json_response_data
 
-        expect(response_data['data']['data']['status']).to eq('error')
+        expect(response_data['status']).to eq('error')
       end
     end
 
@@ -206,10 +208,10 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        response_data = json_response_data
 
-        expect(response_data['data']['data']['tools_registered']).to eq(2)
-        expect(response_data['data']['data']['total_tools']).to eq(2)
+        expect(response_data['tools_registered']).to eq(2)
+        expect(response_data['total_tools']).to eq(2)
 
         expect(mcp_server.mcp_tools.count).to eq(2)
       end

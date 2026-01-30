@@ -38,8 +38,9 @@ RSpec.describe 'Api::V1::Kb::Attachments', type: :request do
       filename: 'test-file.pdf',
       content_type: 'application/pdf',
       file_size: 1024,
-      uploader: user,
-      attachable: published_article
+      file_path: '/uploads/kb/test-file.pdf',
+      uploaded_by: user,
+      article: published_article
     )
   end
 
@@ -76,8 +77,9 @@ RSpec.describe 'Api::V1::Kb::Attachments', type: :request do
           filename: 'draft-file.pdf',
           content_type: 'application/pdf',
           file_size: 1024,
-          uploader: user,
-          attachable: draft_article
+          file_path: '/uploads/kb/draft-file.pdf',
+          uploaded_by: user,
+          article: draft_article
         )
       end
 
@@ -110,7 +112,7 @@ RSpec.describe 'Api::V1::Kb::Attachments', type: :request do
 
     context 'with kb.update permission' do
       it 'uploads a new attachment' do
-        params = { file: file }
+        params = { file: file, article_id: published_article.id }
 
         expect {
           post '/api/v1/kb/attachments', params: params, headers: editor_headers
@@ -123,7 +125,7 @@ RSpec.describe 'Api::V1::Kb::Attachments', type: :request do
       end
 
       it 'assigns current user as uploader' do
-        params = { file: file }
+        params = { file: file, article_id: published_article.id }
 
         post '/api/v1/kb/attachments', params: params, headers: editor_headers
 
@@ -143,7 +145,7 @@ RSpec.describe 'Api::V1::Kb::Attachments', type: :request do
 
     context 'without kb.update permission' do
       it 'returns forbidden error' do
-        params = { file: file }
+        params = { file: file, article_id: published_article.id }
 
         post '/api/v1/kb/attachments', params: params, headers: read_only_headers
 
@@ -153,7 +155,7 @@ RSpec.describe 'Api::V1::Kb::Attachments', type: :request do
 
     context 'without authentication' do
       it 'returns unauthorized error' do
-        params = { file: file }
+        params = { file: file, article_id: published_article.id }
 
         post '/api/v1/kb/attachments', params: params
 

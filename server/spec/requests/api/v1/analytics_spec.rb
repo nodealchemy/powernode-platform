@@ -343,7 +343,7 @@ RSpec.describe 'Api::V1::Analytics', type: :request do
       end
 
       it 'respects format parameter' do
-        get '/api/v1/analytics/export?format=csv',
+        get '/api/v1/analytics/export?export_format=csv',
             headers: auth_headers_for(analytics_exporter),
             as: :json
 
@@ -372,7 +372,7 @@ RSpec.describe 'Api::V1::Analytics', type: :request do
       it 'returns forbidden error' do
         get '/api/v1/analytics/export', headers: auth_headers_for(regular_user), as: :json
 
-        expect_error_response('Export permission required', 403)
+        expect_error_response('Analytics permission required', 403)
       end
     end
   end

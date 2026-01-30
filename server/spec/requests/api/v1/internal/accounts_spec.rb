@@ -16,8 +16,9 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
     { 'Authorization' => "Bearer #{token}" }
   end
 
+  # owner is simply a user belonging to this account
   before do
-    account.update!(owner: owner)
+    owner # ensure the owner user is created
   end
 
   describe 'GET /api/v1/internal/accounts/:id' do
@@ -26,9 +27,9 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         get "/api/v1/internal/accounts/#{account.id}", headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['account']).to include(
+        expect(data['account']).to include(
           'id' => account.id,
           'name' => account.name
         )
@@ -37,15 +38,15 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
       it 'includes owner information' do
         get "/api/v1/internal/accounts/#{account.id}", headers: internal_headers, as: :json
 
-        response_data = json_response
-        expect(response_data['data']['data']['account']).to have_key('owner_email')
+        data = json_response_data
+        expect(data['account']).to have_key('owner_email')
       end
 
       it 'includes subscription status' do
         get "/api/v1/internal/accounts/#{account.id}", headers: internal_headers, as: :json
 
-        response_data = json_response
-        expect(response_data['data']['data']['account']).to have_key('status')
+        data = json_response_data
+        expect(data['account']).to have_key('status')
       end
     end
 
@@ -76,17 +77,17 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         get "/api/v1/internal/accounts/#{account.id}/users", headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']).to be_an(Array)
-        expect(response_data['data']['data'].length).to eq(4) # 3 + owner
+        expect(data).to be_an(Array)
+        expect(data.length).to eq(4) # 3 + owner
       end
 
       it 'includes user details' do
         get "/api/v1/internal/accounts/#{account.id}/users", headers: internal_headers, as: :json
 
-        response_data = json_response
-        first_user = response_data['data']['data'].first
+        data = json_response_data
+        first_user = data.first
 
         expect(first_user).to include('id', 'email', 'name')
       end
@@ -103,9 +104,9 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         patch "/api/v1/internal/accounts/#{account.id}/anonymize_audit_logs", headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['message']).to include('Anonymized')
+        expect(data['message']).to include('Anonymized')
 
         # Verify audit logs are anonymized
         account.reload
@@ -125,16 +126,16 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         patch "/api/v1/internal/accounts/#{account.id}/anonymize_payments", headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['message']).to include('Anonymized')
+        expect(data['message']).to include('Anonymized')
       end
     end
   end
 
   describe 'DELETE /api/v1/internal/accounts/:account_id/api_keys' do
     before do
-      create_list(:api_key, 3, account: account, user: owner)
+      create_list(:api_key, 3, account: account, created_by: owner)
     end
 
     context 'with internal authentication' do
@@ -142,9 +143,9 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         delete "/api/v1/internal/accounts/#{account.id}/api_keys", headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['message']).to include('Deleted')
+        expect(data['message']).to include('Deleted')
         expect(account.api_keys.count).to eq(0)
       end
     end
@@ -160,9 +161,9 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         delete "/api/v1/internal/accounts/#{account.id}/webhooks", headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['message']).to include('Deleted')
+        expect(data['message']).to include('Deleted')
       end
     end
   end
@@ -173,9 +174,9 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         delete "/api/v1/internal/accounts/#{account.id}/data_export_requests", headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['message']).to include('Deleted')
+        expect(data['message']).to include('Deleted')
       end
     end
   end
@@ -186,9 +187,9 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         delete "/api/v1/internal/accounts/#{account.id}/data_deletion_requests", headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['message']).to include('Deleted')
+        expect(data['message']).to include('Deleted')
       end
     end
   end

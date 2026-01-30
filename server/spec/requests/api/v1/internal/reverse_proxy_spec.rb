@@ -37,10 +37,10 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['valid']).to be true
-        expect(response_data['data']['data']['errors']).to be_empty
+        expect(data['valid']).to be true
+        expect(data['errors']).to be_empty
       end
 
       it 'detects missing enabled field' do
@@ -53,10 +53,10 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['valid']).to be false
-        expect(response_data['data']['data']['errors']).to include('Missing enabled field')
+        expect(data['valid']).to be false
+        expect(data['errors']).to include('Missing enabled field')
       end
 
       it 'detects missing environments configuration' do
@@ -69,10 +69,10 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['valid']).to be false
-        expect(response_data['data']['data']['errors']).to include('Missing environments configuration')
+        expect(data['valid']).to be false
+        expect(data['errors']).to include('Missing environments configuration')
       end
 
       it 'detects missing url_mappings configuration' do
@@ -85,10 +85,10 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['valid']).to be false
-        expect(response_data['data']['data']['errors']).to include('Missing url_mappings configuration')
+        expect(data['valid']).to be false
+        expect(data['errors']).to include('Missing url_mappings configuration')
       end
     end
 
@@ -112,10 +112,10 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']).to have_key('frontend')
-        expect(response_data['data']['data']).to have_key('backend')
+        expect(data).to have_key('frontend')
+        expect(data).to have_key('backend')
       end
     end
   end
@@ -129,11 +129,11 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['config']).to include('upstream')
-        expect(response_data['data']['data']['filename']).to eq('powernode_nginx.conf')
-        expect(response_data['data']['data']['instructions']).to be_present
+        expect(data['config']).to include('upstream')
+        expect(data['filename']).to eq('powernode_nginx.conf')
+        expect(data['instructions']).to be_present
       end
 
       it 'returns error for unsupported proxy type' do
@@ -152,9 +152,9 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['config']).to include('Apache configuration generation not implemented')
+        expect(data['config']).to include('Apache configuration generation not implemented')
       end
 
       it 'includes traefik placeholder for traefik type' do
@@ -164,9 +164,9 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['config']).to include('Traefik configuration generation not implemented')
+        expect(data['config']).to include('Traefik configuration generation not implemented')
       end
     end
   end
@@ -197,11 +197,11 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        services = response_data['data']['data']['services']
+        services = data['services']
         expect(services).to be_an(Array)
-        expect(services.any? { |s| s[:discovered_method] == 'dns' }).to be true
+        expect(services.any? { |s| s['discovered_method'] == 'dns' }).to be true
       end
 
       it 'discovers services via consul' do
@@ -217,10 +217,10 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        services = response_data['data']['data']['services']
-        expect(services.any? { |s| s[:discovered_method] == 'consul' }).to be true
+        services = data['services']
+        expect(services.any? { |s| s['discovered_method'] == 'consul' }).to be true
       end
 
       it 'discovers services via port scan' do
@@ -239,10 +239,10 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        services = response_data['data']['data']['services']
-        expect(services.any? { |s| s[:discovered_method] == 'port_scan' }).to be true
+        services = data['services']
+        expect(services.any? { |s| s['discovered_method'] == 'port_scan' }).to be true
       end
 
       it 'discovers services via kubernetes' do
@@ -258,10 +258,10 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        services = response_data['data']['data']['services']
-        expect(services.any? { |s| s[:discovered_method] == 'kubernetes' }).to be true
+        services = data['services']
+        expect(services.any? { |s| s['discovered_method'] == 'kubernetes' }).to be true
       end
     end
   end
@@ -269,7 +269,7 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
   describe 'POST /api/v1/internal/reverse_proxy/health_check' do
     context 'with internal authentication' do
       before do
-        allow(AdminSetting).to receive(:reverse_proxy_config).and_return(valid_config)
+        allow(AdminSetting).to receive(:reverse_proxy_config).and_return(valid_config.deep_stringify_keys)
       end
 
       it 'checks health of all services in environment' do
@@ -279,10 +279,10 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['services']).to be_a(Hash)
-        expect(response_data['data']['data']['environment']).to eq('development')
+        expect(data['services']).to be_a(Hash)
+        expect(data['environment']).to eq('development')
       end
 
       it 'checks health of specific service' do
@@ -292,10 +292,9 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        services = response_data['data']['data']['services']
-        expect(services).to have_key('frontend')
+        expect(data['services']).to have_key('frontend')
       end
     end
   end
@@ -314,9 +313,9 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        validations = response_data['data']['data']['validations']
+        validations = data['validations']
         expect(validations).to have_key('frontend')
         expect(validations).to have_key('backend')
         expect(validations['frontend']['valid']).to be true
@@ -334,9 +333,9 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        validation = response_data['data']['data']['validations']['invalid']
+        validation = data['validations']['invalid']
         expect(validation['valid']).to be false
         expect(validation['errors']).to include('Host is required')
       end
@@ -352,9 +351,9 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        validation = response_data['data']['data']['validations']['invalid']
+        validation = data['validations']['invalid']
         expect(validation['valid']).to be false
         expect(validation['errors']).to include('Port must be between 1 and 65535')
       end
@@ -370,9 +369,9 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        validation = response_data['data']['data']['validations']['invalid']
+        validation = data['validations']['invalid']
         expect(validation['valid']).to be false
         expect(validation['errors']).to be_present
       end

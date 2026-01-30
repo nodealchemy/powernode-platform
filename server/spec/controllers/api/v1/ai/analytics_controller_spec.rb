@@ -20,6 +20,274 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
   before do
     @request.headers['Content-Type'] = 'application/json'
     @request.headers['Accept'] = 'application/json'
+
+    # ==========================================================================
+    # SERVICE STUBS - Mock analytics services to return expected response shapes
+    # ==========================================================================
+
+    # --- DashboardService stubs ---
+    allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate).and_return({
+      summary: {
+        total_workflows: 5,
+        total_agents: 3,
+        total_executions: 7,
+        success_rate: 0.714,
+        total_cost: 10.50,
+        workflows: { total: 5, active: 3, executions: 7, success_rate: 0.714 },
+        agents: { total: 3, active: 2, executions: 5, success_rate: 0.8 },
+        conversations: { total: 2, active: 1, messages: 10 },
+        cost: { total: 10.50, trend: nil, budget_utilization: nil }
+      },
+      trends: [
+        { date: Date.current.to_s, executions: 3, cost: 5.0 }
+      ],
+      highlights: { top_workflows: [], recent_failures: [] },
+      quick_stats: {
+        today: { executions: 2, cost: 3.0, messages: 5 },
+        yesterday: { executions: 1, cost: 2.0, messages: 3 },
+        this_week: { executions: 5, cost: 8.0, messages: 12 }
+      },
+      workflows: [
+        { id: 'w1', name: 'Test Workflow', executions: 7 }
+      ],
+      resource_usage: { providers: {}, models: {}, tokens: { total_input_tokens: 0, total_output_tokens: 0, total_tokens: 0 } },
+      recent_activity: []
+    })
+
+    allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_summary_metrics).and_return({
+      workflows: { total: 5, active: 3, executions: 7, success_rate: 0.714 },
+      agents: { total: 3, active: 2, executions: 5, success_rate: 0.8 },
+      conversations: { total: 2, active: 1, messages: 10 },
+      cost: { total: 10.50, trend: nil, budget_utilization: nil }
+    })
+
+    allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_trend_data).and_return({
+      executions_by_day: { Date.current.to_s => 3 },
+      cost_by_day: { Date.current.to_s => 5.0 },
+      success_rate_by_day: { Date.current.to_s => 71.4 },
+      messages_by_day: { Date.current.to_s => 10 }
+    })
+
+    allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_highlights).and_return({
+      top_workflows: [],
+      top_agents: [],
+      recent_failures: [],
+      cost_leaders: []
+    })
+
+    allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:generate_quick_stats).and_return({
+      executions_24h: 5,
+      success_rate_24h: 80.0,
+      cost_24h: 3.50,
+      active_runs: 1,
+      today: { executions: 2, cost: 3.0, messages: 5 },
+      yesterday: { executions: 1, cost: 2.0, messages: 3 },
+      this_week: { executions: 5, cost: 8.0, messages: 12 }
+    })
+
+    allow_any_instance_of(Ai::Analytics::DashboardService).to receive(:real_time_metrics).and_return({
+      active_executions: 2,
+      recent_executions: 10,
+      success_rate: 85.0,
+      average_response_time: 1500.0,
+      active_conversations: 1,
+      queue_depth: 0,
+      error_rate_last_hour: 0.0,
+      avg_response_time_last_hour: 1500.0,
+      timestamp: Time.current.iso8601
+    })
+
+    # --- MetricsService stubs ---
+    allow_any_instance_of(Ai::Analytics::MetricsService).to receive(:all_metrics).and_return({
+      workflows: {
+        total: 5,
+        active: 3,
+        inactive: 2,
+        total_workflows: 5,
+        active_workflows: 3,
+        total_executions: 7,
+        success_rate: 0.714
+      },
+      agents: {
+        total: 3,
+        active: 2,
+        total_executions: 5,
+        success_rate: 0.8
+      },
+      providers: {
+        total_providers: 1,
+        active_providers: 1,
+        providers: []
+      },
+      executions: {
+        total: 7,
+        completed: 5,
+        failed: 2,
+        success_rate: 0.714,
+        total_node_executions: 10,
+        avg_nodes_per_workflow: 2.0
+      },
+      performance: {
+        throughput: { executions_per_hour: 0.29, executions_per_day: 7.0 },
+        latency: { p50_ms: nil, p90_ms: nil, p95_ms: nil, p99_ms: nil },
+        availability: 99.9,
+        error_budget: { target_slo: 99.9, actual_success_rate: 71.4, remaining_budget: -28.5, budget_consumed: 100 }
+      }
+    })
+
+    allow_any_instance_of(Ai::Analytics::MetricsService).to receive(:workflow_specific_metrics) do |_service, wf|
+      {
+        workflow: { id: wf.id, name: wf.name },
+        workflow_id: wf.id,
+        workflow_name: wf.name,
+        runs: { total: 7, completed: 5, failed: 2 },
+        total_executions: 7,
+        successful_executions: 5,
+        failed_executions: 2,
+        performance: { avg_duration_ms: 5000.0 },
+        costs: { total: 10.50, average_per_run: 1.50 },
+        success_rate: 71.4,
+        average_duration: 5000.0,
+        average_duration_ms: 5000.0,
+        total_cost: 10.50,
+        average_cost_per_execution: 1.50
+      }
+    end
+
+    allow_any_instance_of(Ai::Analytics::MetricsService).to receive(:agent_specific_metrics) do |_service, ag|
+      {
+        agent: { id: ag.id, name: ag.name },
+        agent_id: ag.id,
+        agent_name: ag.name,
+        executions: { total: 5, completed: 4, failed: 1 },
+        total_executions: 5,
+        successful_executions: 4,
+        failed_executions: 1,
+        performance: { avg_response_time_ms: 1200.0 },
+        costs: { total: 5.0, average_per_execution: 1.0 },
+        success_rate: 80.0
+      }
+    end
+
+    # --- CostAnalysisService stubs ---
+    allow_any_instance_of(Ai::Analytics::CostAnalysisService).to receive(:full_analysis).and_return({
+      total_cost: 10.50,
+      cost_trend: { current_period_cost: 10.50, previous_period_cost: 8.0, change_percentage: 31.25 },
+      cost_by_provider: [],
+      cost_by_agent: [],
+      cost_by_workflow: [{ workflow_id: 'w1', workflow_name: 'Test', total_cost: 10.50 }],
+      cost_by_model: [],
+      daily_costs: {},
+      budget_status: {},
+      optimization_potential: {
+        current_cost: 10.50,
+        potential_savings: 2.10,
+        optimization_areas: ['Use cheaper models for simple tasks'],
+        total_potential_savings: 2.10,
+        opportunities: []
+      },
+      budget_forecast: {
+        daily_average: 0.35,
+        weekly_forecast: 2.45,
+        monthly_forecast: 10.50,
+        yearly_forecast: 126.0,
+        average_daily_cost: 0.35,
+        daily_trend: 0.01,
+        forecast_next_7_days: 2.45,
+        forecast_next_30_days: 10.50,
+        forecast_month_end: 5.25,
+        confidence_level: 'low'
+      },
+      anomalies: []
+    })
+
+    allow_any_instance_of(Ai::Analytics::CostAnalysisService).to receive(:estimate_cost_savings).and_return({
+      total_potential_savings: 2.10,
+      opportunities: []
+    })
+
+    # --- PerformanceAnalysisService stubs ---
+    allow_any_instance_of(Ai::Analytics::PerformanceAnalysisService).to receive(:full_analysis).and_return({
+      response_times: {
+        count: 5,
+        average_ms: 5000.0,
+        avg_ms: 5000.0,
+        median_ms: 4500.0,
+        p75_ms: 5500.0,
+        p90_ms: 6000.0,
+        p95_ms: 6500.0,
+        p99_ms: 7000.0,
+        min_ms: 3000.0,
+        max_ms: 7000.0,
+        std_dev_ms: 1200.0,
+        by_hour: {},
+        by_workflow: []
+      },
+      success_rates: {
+        total_executions: 7,
+        successful: 5,
+        failed: 2,
+        cancelled: 0,
+        success_rate: 71.43,
+        failure_rate: 28.57,
+        cancellation_rate: 0.0
+      },
+      throughput: {
+        total_executions: 7,
+        executions_per_hour: 0.29,
+        executions_per_day: 7.0
+      },
+      error_rates: {
+        total_errors: 2,
+        error_rate: 28.57,
+        by_error_type: {},
+        by_workflow: [],
+        by_node_type: {},
+        recent_errors: []
+      },
+      resource_utilization: {
+        provider_utilization: {},
+        model_utilization: {},
+        token_utilization: { total_tokens: 0 },
+        queue_metrics: { avg_queue_time_ms: 0 }
+      },
+      bottlenecks: {
+        slow_workflows: [],
+        recommendations: ['Consider optimizing long-running workflows']
+      },
+      sla_compliance: {},
+      performance_trends: {}
+    })
+
+    allow_any_instance_of(Ai::Analytics::PerformanceAnalysisService).to receive(:identify_bottlenecks).and_return({
+      bottlenecks: [],
+      slow_workflows: [],
+      recommendations: []
+    })
+
+    allow_any_instance_of(Ai::Analytics::PerformanceAnalysisService).to receive(:analyze_error_rates).and_return({
+      total_errors: 2,
+      error_rate: 0.0,
+      by_error_type: {},
+      by_workflow: [],
+      by_node_type: {},
+      recent_errors: []
+    })
+
+    # --- ReportService stubs ---
+    allow_any_instance_of(Ai::Analytics::ReportService).to receive(:available_reports).and_return([
+      { id: 'executive_summary', name: 'Executive Summary', description: 'High-level overview', category: 'summary', formats: ['json', 'csv', 'pdf'] },
+      { id: 'cost_analysis', name: 'Cost Analysis', description: 'Detailed cost breakdown', category: 'cost', formats: ['json', 'csv'] },
+      { id: 'performance_analysis', name: 'Performance Analysis', description: 'Performance metrics', category: 'performance', formats: ['json', 'csv'] }
+    ])
+
+    allow_any_instance_of(Ai::Analytics::ReportService).to receive(:generate).and_return({
+      report_type: 'executive_summary',
+      generated_at: Time.current.iso8601,
+      data: { title: 'Executive Summary Report', highlights: [] }
+    })
+
+    allow_any_instance_of(Ai::Analytics::ReportService).to receive(:export).and_return('exported_data')
   end
 
   # =============================================================================
@@ -789,7 +1057,7 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       end
 
       it 'handles export errors gracefully' do
-        allow_any_instance_of(Api::V1::Ai::AnalyticsController).to receive(:generate_export_data).and_raise(StandardError)
+        allow_any_instance_of(Api::V1::Ai::AnalyticsController).to receive(:generate_report_for_export).and_raise(StandardError.new("test error"))
 
         post :export, params: { format: 'json' }
 

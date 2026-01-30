@@ -67,10 +67,11 @@ RSpec.describe Ai::Workflow, type: :model do
     end
 
     context 'configuration validation' do
-      it 'validates configuration is present' do
+      it 'validates configuration must be a hash' do
         workflow = build(:ai_workflow)
-        workflow.configuration = nil
+        workflow.configuration = "not a hash"
         expect(workflow).not_to be_valid
+        expect(workflow.errors[:configuration]).to include('must be a hash')
       end
 
       it 'validates execution_mode if present' do

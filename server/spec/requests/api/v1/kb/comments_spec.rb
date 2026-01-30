@@ -34,21 +34,24 @@ RSpec.describe 'Api::V1::Kb::Comments', type: :request do
   end
 
   let!(:approved_comment) do
-    KnowledgeBase::Comment.create!(
+    comment = KnowledgeBase::Comment.create!(
       content: 'This is an approved comment',
-      status: 'approved',
       article: published_article,
       author: regular_user
     )
+    # Override the before_create callback that sets status based on permissions
+    comment.update_column(:status, 'approved')
+    comment
   end
 
   let!(:pending_comment) do
-    KnowledgeBase::Comment.create!(
+    comment = KnowledgeBase::Comment.create!(
       content: 'This is a pending comment',
-      status: 'pending',
       article: published_article,
       author: regular_user
     )
+    # regular_user has no permissions, so callback already sets status to 'pending'
+    comment
   end
 
   describe 'GET /api/v1/kb/articles/:article_id/comments' do
@@ -67,11 +70,11 @@ RSpec.describe 'Api::V1::Kb::Comments', type: :request do
       it 'includes approved replies' do
         reply = KnowledgeBase::Comment.create!(
           content: 'This is a reply',
-          status: 'approved',
           article: published_article,
           author: regular_user,
           parent: approved_comment
         )
+        reply.update_column(:status, 'approved')
 
         get "/api/v1/kb/articles/#{published_article.id}/comments", as: :json
 
@@ -82,7 +85,7 @@ RSpec.describe 'Api::V1::Kb::Comments', type: :request do
       end
 
       it 'supports pagination' do
-        get "/api/v1/kb/articles/#{published_article.id}/comments", params: { page: 1, per_page: 10 }, as: :json
+        get "/api/v1/kb/articles/#{published_article.id}/comments?page=1&per_page=10", as: :json
 
         expect(response).to have_http_status(:success)
         data = json_response_data
@@ -166,11 +169,11 @@ RSpec.describe 'Api::V1::Kb::Comments', type: :request do
       it 'returns comment details with replies' do
         reply = KnowledgeBase::Comment.create!(
           content: 'Reply',
-          status: 'approved',
           article: published_article,
           author: regular_user,
           parent: approved_comment
         )
+        reply.update_column(:status, 'approved')
 
         get "/api/v1/kb/comments/#{approved_comment.id}", as: :json
 
@@ -213,7 +216,7 @@ RSpec.describe 'Api::V1::Kb::Comments', type: :request do
       end
 
       it 'filters by status' do
-        get '/api/v1/kb/comments/moderate', params: { status: 'pending' }, headers: moderator_headers, as: :json
+        get '/api/v1/kb/comments/moderate?status=pending', headers: moderator_headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -221,7 +224,7 @@ RSpec.describe 'Api::V1::Kb::Comments', type: :request do
       end
 
       it 'filters by article' do
-        get '/api/v1/kb/comments/moderate', params: { article_id: published_article.id }, headers: moderator_headers, as: :json
+        get "/api/v1/kb/comments/moderate?article_id=#{published_article.id}", headers: moderator_headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -229,7 +232,7 @@ RSpec.describe 'Api::V1::Kb::Comments', type: :request do
       end
 
       it 'searches by content' do
-        get '/api/v1/kb/comments/moderate', params: { search: 'approved' }, headers: moderator_headers, as: :json
+        get '/api/v1/kb/comments/moderate?search=approved', headers: moderator_headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -237,7 +240,7 @@ RSpec.describe 'Api::V1::Kb::Comments', type: :request do
       end
 
       it 'sorts comments' do
-        get '/api/v1/kb/comments/moderate', params: { sort: 'oldest' }, headers: moderator_headers, as: :json
+        get '/api/v1/kb/comments/moderate?sort=oldest', headers: moderator_headers, as: :json
 
         expect_success_response
         data = json_response_data

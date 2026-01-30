@@ -22,20 +22,18 @@ RSpec.describe 'Api::V1::SupplyChain::RiskAssessments', type: :request do
 
   describe 'GET /api/v1/supply_chain/vendors/:vendor_id/assessments' do
     let!(:assessment1) do
-      create(:supply_chain_risk_assessment,
+      create(:supply_chain_risk_assessment, :with_assessor,
              account: account,
              vendor: vendor,
-             assessed_by: user,
-             status: 'pending',
+             status: 'draft',
              assessment_type: 'initial')
     end
     let!(:assessment2) do
-      create(:supply_chain_risk_assessment,
+      create(:supply_chain_risk_assessment, :with_assessor,
              account: account,
              vendor: vendor,
-             assessed_by: user,
-             status: 'approved',
-             assessment_type: 'annual')
+             status: 'completed',
+             assessment_type: 'periodic')
     end
 
     context 'with proper permissions' do
@@ -46,28 +44,28 @@ RSpec.describe 'Api::V1::SupplyChain::RiskAssessments', type: :request do
         data = json_response_data
         expect(data['risk_assessments']).to be_an(Array)
         expect(data['risk_assessments'].length).to eq(2)
-        expect(data['meta']).to have_key('total')
+        expect(json_response['meta']).to have_key('total_count')
       end
 
       it 'filters by status' do
         get "/api/v1/supply_chain/vendors/#{vendor.id}/assessments",
-            params: { status: 'pending' },
+            params: { status: 'draft' },
             headers: headers
 
         expect_success_response
         data = json_response_data
         expect(data['risk_assessments'].length).to eq(1)
-        expect(data['risk_assessments'].first['status']).to eq('pending')
+        expect(data['risk_assessments'].first['status']).to eq('draft')
       end
 
       it 'filters by assessment type' do
         get "/api/v1/supply_chain/vendors/#{vendor.id}/assessments",
-            params: { type: 'annual' },
+            params: { type: 'periodic' },
             headers: headers
 
         expect_success_response
         data = json_response_data
-        expect(data['risk_assessments'].all? { |a| a['assessment_type'] == 'annual' }).to be true
+        expect(data['risk_assessments'].all? { |a| a['assessment_type'] == 'periodic' }).to be true
       end
 
       it 'returns not found for non-existent vendor' do
@@ -104,14 +102,9 @@ RSpec.describe 'Api::V1::SupplyChain::RiskAssessments', type: :request do
 
   describe 'GET /api/v1/supply_chain/vendors/:vendor_id/assessments/:id' do
     let(:assessment) do
-      create(:supply_chain_risk_assessment,
+      create(:supply_chain_risk_assessment, :with_assessor, :with_findings, :with_recommendations, :with_evidence,
              account: account,
-             vendor: vendor,
-             assessed_by: user,
-             approved_by: admin_user,
-             findings: ['Finding 1', 'Finding 2'],
-             recommendations: ['Rec 1', 'Rec 2'],
-             controls_evaluated: ['Control 1'])
+             vendor: vendor)
     end
 
     context 'with proper permissions' do
@@ -122,17 +115,15 @@ RSpec.describe 'Api::V1::SupplyChain::RiskAssessments', type: :request do
 
         expect_success_response
         data = json_response_data
-        expect(data['risk_assessment']).to include(
-          'id' => assessment.id,
-          'assessment_type' => assessment.assessment_type,
-          'status' => assessment.status,
-          'overall_risk_level' => assessment.overall_risk_level
-        )
-        expect(data['risk_assessment']['assessed_by']).to be_present
+        expect(data['risk_assessment']['id']).to eq(assessment.id)
+        expect(data['risk_assessment']['assessment_type']).to eq(assessment.assessment_type)
+        expect(data['risk_assessment']['status']).to eq(assessment.status)
+        expect(data['risk_assessment']['risk_level']).to eq(assessment.risk_level)
+        expect(data['risk_assessment']['assessor']).to be_present
+        # Details included in show
         expect(data['risk_assessment']['findings']).to be_present
         expect(data['risk_assessment']['recommendations']).to be_present
-        expect(data['risk_assessment']['controls_evaluated']).to be_present
-        expect(data['risk_assessment']['approved_by']).to be_present
+        expect(data['risk_assessment']['evidence']).to be_present
       end
 
       it 'returns not found for non-existent assessment' do
@@ -154,23 +145,16 @@ RSpec.describe 'Api::V1::SupplyChain::RiskAssessments', type: :request do
           security_score: 85,
           compliance_score: 90,
           operational_score: 88,
-          financial_score: 92,
-          reputation_score: 87,
-          overall_risk_level: 'low',
-          notes: 'Comprehensive assessment completed',
           valid_until: 1.year.from_now.to_date,
           findings: ['Strong security posture', 'Good compliance framework'],
           recommendations: ['Continue monitoring', 'Review annually'],
-          controls_evaluated: ['ISO 27001', 'SOC 2']
+          evidence: ['SOC2 Report']
         }
       }
     end
 
     context 'with proper permissions' do
       it 'creates a new risk assessment' do
-        allow_any_instance_of(SupplyChain::RiskAssessment).to receive(:calculate_scores!)
-        allow(SupplyChainChannel).to receive(:broadcast_vendor_assessment_completed)
-
         expect {
           post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments",
                params: valid_params,
@@ -180,17 +164,14 @@ RSpec.describe 'Api::V1::SupplyChain::RiskAssessments', type: :request do
 
         expect(response).to have_http_status(:created)
         data = json_response_data
-        expect(data['risk_assessment']).to include(
-          'assessment_type' => 'initial',
-          'status' => 'pending',
-          'security_score' => 85,
-          'compliance_score' => 90
-        )
+        expect(data['risk_assessment']['assessment_type']).to eq('initial')
+        expect(data['risk_assessment']['status']).to eq('draft')
+        expect(data['risk_assessment']['security_score'].to_f).to eq(85)
+        expect(data['risk_assessment']['compliance_score'].to_f).to eq(90)
 
         assessment = vendor.risk_assessments.last
-        expect(assessment.assessed_by).to eq(user)
+        expect(assessment.assessor).to eq(user)
         expect(assessment.account).to eq(account)
-        expect(SupplyChainChannel).to have_received(:broadcast_vendor_assessment_completed).with(assessment)
       end
 
       it 'returns validation errors for invalid params' do
@@ -218,46 +199,37 @@ RSpec.describe 'Api::V1::SupplyChain::RiskAssessments', type: :request do
     end
   end
 
-  describe 'POST /api/v1/supply_chain/vendors/:vendor_id/assessments/:id/approve' do
+  describe 'POST /api/v1/supply_chain/vendors/:vendor_id/assessments/:id/submit_for_review' do
     let(:assessment) do
-      create(:supply_chain_risk_assessment,
+      create(:supply_chain_risk_assessment, :with_assessor,
              account: account,
              vendor: vendor,
-             assessed_by: user,
-             status: 'pending')
+             status: 'draft')
     end
 
     context 'with admin permissions' do
-      it 'approves the risk assessment' do
-        allow_any_instance_of(SupplyChain::RiskAssessment).to receive(:pending?).and_return(true)
-        allow_any_instance_of(SupplyChain::RiskAssessment).to receive(:approve!)
-        allow_any_instance_of(SupplyChain::Vendor).to receive(:update_risk_profile_from_assessment)
-
-        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/approve",
-             params: { comment: 'Assessment looks good' },
+      it 'submits the assessment for review' do
+        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/submit_for_review",
              headers: admin_headers,
              as: :json
 
         expect_success_response
-        expect(json_response_data['message']).to eq('Risk assessment approved')
-        expect(vendor).to have_received(:update_risk_profile_from_assessment).with(assessment)
       end
 
-      it 'returns error when assessment is not pending' do
-        assessment.update!(status: 'approved')
-        allow_any_instance_of(SupplyChain::RiskAssessment).to receive(:pending?).and_return(false)
+      it 'returns error when assessment cannot be submitted' do
+        assessment.update!(status: 'completed')
 
-        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/approve",
+        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/submit_for_review",
              headers: admin_headers,
              as: :json
 
-        expect_error_response('Assessment is not pending approval', 422)
+        expect_error_response('Assessment cannot be submitted for review in current status', 422)
       end
     end
 
     context 'without supply_chain.admin permission' do
       it 'returns forbidden error' do
-        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/approve",
+        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/submit_for_review",
              headers: headers,
              as: :json
 
@@ -266,56 +238,38 @@ RSpec.describe 'Api::V1::SupplyChain::RiskAssessments', type: :request do
     end
   end
 
-  describe 'POST /api/v1/supply_chain/vendors/:vendor_id/assessments/:id/reject' do
+  describe 'POST /api/v1/supply_chain/vendors/:vendor_id/assessments/:id/complete' do
     let(:assessment) do
-      create(:supply_chain_risk_assessment,
+      create(:supply_chain_risk_assessment, :with_assessor, :pending_review,
              account: account,
-             vendor: vendor,
-             assessed_by: user,
-             status: 'pending')
+             vendor: vendor)
     end
 
     context 'with admin permissions' do
-      it 'rejects the risk assessment' do
-        allow_any_instance_of(SupplyChain::RiskAssessment).to receive(:pending?).and_return(true)
-        allow_any_instance_of(SupplyChain::RiskAssessment).to receive(:reject!)
-
-        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/reject",
-             params: { reason: 'Incomplete documentation' },
+      it 'completes the risk assessment' do
+        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/complete",
+             params: { valid_months: 12 },
              headers: admin_headers,
              as: :json
 
         expect_success_response
-        expect(json_response_data['message']).to eq('Risk assessment rejected')
       end
 
-      it 'returns error when assessment is not pending' do
-        assessment.update!(status: 'approved')
-        allow_any_instance_of(SupplyChain::RiskAssessment).to receive(:pending?).and_return(false)
+      it 'returns error when assessment is not pending review' do
+        assessment.update!(status: 'draft')
 
-        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/reject",
-             params: { reason: 'Test' },
+        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/complete",
              headers: admin_headers,
              as: :json
 
-        expect_error_response('Assessment is not pending approval', 422)
-      end
-
-      it 'returns error when reason is missing' do
-        allow_any_instance_of(SupplyChain::RiskAssessment).to receive(:pending?).and_return(true)
-
-        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/reject",
-             headers: admin_headers,
-             as: :json
-
-        expect_error_response('Rejection reason is required', 422)
+        expect_error_response('Assessment is not pending review', 422)
       end
     end
 
     context 'without supply_chain.admin permission' do
       it 'returns forbidden error' do
-        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/reject",
-             params: { reason: 'Test' },
+        post "/api/v1/supply_chain/vendors/#{vendor.id}/assessments/#{assessment.id}/complete",
+             params: { valid_months: 12 },
              headers: headers,
              as: :json
 

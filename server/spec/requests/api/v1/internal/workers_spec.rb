@@ -15,6 +15,10 @@ RSpec.describe 'Api::V1::Internal::Workers', type: :request do
   before do
     # Ensure worker token is configured
     allow(Rails.application.config).to receive(:worker_token).and_return('test-worker-token')
+    # Stub AuditLog.create! so auth failure logging doesn't raise RecordInvalid
+    # (the controller creates AuditLog with account_id: nil and action: 'worker_auth_failed'
+    #  which fails validation since account is required and action is not in allowed list)
+    allow(AuditLog).to receive(:create!).and_return(AuditLog.new)
   end
 
   describe 'POST /api/v1/internal/workers/:id/test_results' do
@@ -39,9 +43,9 @@ RSpec.describe 'Api::V1::Internal::Workers', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']).to include(
+        expect(data).to include(
           'worker_id' => worker.id,
           'test_status' => 'passed'
         )
@@ -104,9 +108,9 @@ RSpec.describe 'Api::V1::Internal::Workers', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']).to include(
+        expect(data).to include(
           'worker_id' => worker.id,
           'worker_name' => worker.name
         )
@@ -131,8 +135,8 @@ RSpec.describe 'Api::V1::Internal::Workers', type: :request do
              headers: worker_service_headers,
              as: :json
 
-        response_data = json_response
-        expect(response_data['data']).to have_key('timestamp')
+        data = json_response_data
+        expect(data).to have_key('timestamp')
       end
     end
 

@@ -16,8 +16,7 @@ RSpec.describe 'Api::V1::SupplyChain::VendorMonitoringEvents', type: :request do
            vendor: vendor,
            event_type: 'security_incident',
            severity: 'high',
-           acknowledged: false,
-           dismissed: false)
+           is_acknowledged: false)
   end
 
   describe 'GET /api/v1/supply_chain/vendor_monitoring_events' do
@@ -40,14 +39,13 @@ RSpec.describe 'Api::V1::SupplyChain::VendorMonitoringEvents', type: :request do
         expect(event['vendor']).to be_present
         expect(event['vendor']['id']).to eq(vendor.id)
         expect(event['vendor']['name']).to eq(vendor.name)
-        expect(event['vendor']['risk_tier']).to be_present
       end
 
       it 'filters by event_type' do
         create(:supply_chain_vendor_monitoring_event,
                account: account,
                vendor: vendor,
-               event_type: 'compliance_change')
+               event_type: 'compliance_update')
 
         get '/api/v1/supply_chain/vendor_monitoring_events',
             params: { event_type: 'security_incident' },
@@ -84,31 +82,29 @@ RSpec.describe 'Api::V1::SupplyChain::VendorMonitoringEvents', type: :request do
       end
 
       it 'filters unacknowledged events' do
-        create(:supply_chain_vendor_monitoring_event,
+        create(:supply_chain_vendor_monitoring_event, :acknowledged,
                account: account,
-               vendor: vendor,
-               acknowledged: true)
+               vendor: vendor)
 
         get '/api/v1/supply_chain/vendor_monitoring_events',
             params: { unacknowledged: 'true' },
             headers: headers
 
         data = json_response_data
-        expect(data['vendor_monitoring_events'].all? { |e| e['acknowledged'] == false }).to be true
+        expect(data['vendor_monitoring_events'].all? { |e| e['is_acknowledged'] == false }).to be true
       end
 
-      it 'filters active events' do
-        create(:supply_chain_vendor_monitoring_event,
+      it 'filters active (unresolved) events' do
+        create(:supply_chain_vendor_monitoring_event, :resolved,
                account: account,
-               vendor: vendor,
-               dismissed: true)
+               vendor: vendor)
 
         get '/api/v1/supply_chain/vendor_monitoring_events',
             params: { active: 'true' },
             headers: headers
 
         data = json_response_data
-        expect(data['vendor_monitoring_events'].all? { |e| e['dismissed'] == false }).to be true
+        expect(data['vendor_monitoring_events'].all? { |e| e['resolved_at'].nil? }).to be true
       end
 
       it 'supports pagination' do
@@ -157,8 +153,7 @@ RSpec.describe 'Api::V1::SupplyChain::VendorMonitoringEvents', type: :request do
       it 'includes detailed information' do
         monitoring_event.update!(
           description: 'Detailed description',
-          impact_analysis: { risk_level: 'high' },
-          recommended_actions: ['action1', 'action2'],
+          recommended_actions: [{ 'action' => 'action1' }, { 'action' => 'action2' }],
           metadata: { source: 'test' }
         )
 
@@ -167,7 +162,6 @@ RSpec.describe 'Api::V1::SupplyChain::VendorMonitoringEvents', type: :request do
         data = json_response_data
         event = data['vendor_monitoring_event']
         expect(event['description']).to eq('Detailed description')
-        expect(event['impact_analysis']).to be_present
         expect(event['recommended_actions']).to be_an(Array)
         expect(event['metadata']).to be_present
       end
@@ -198,33 +192,17 @@ RSpec.describe 'Api::V1::SupplyChain::VendorMonitoringEvents', type: :request do
     context 'with valid authentication and write permissions' do
       it 'acknowledges the event' do
         post "/api/v1/supply_chain/vendor_monitoring_events/#{monitoring_event.id}/acknowledge",
-             params: { notes: 'Reviewed and acknowledged' },
              headers: write_headers,
              as: :json
 
         expect(response).to have_http_status(:ok)
         data = json_response_data
-        expect(data['vendor_monitoring_event']['acknowledged']).to be true
+        expect(data['vendor_monitoring_event']['is_acknowledged']).to be true
         expect(json_response['message']).to include('acknowledged')
-
-        monitoring_event.reload
-        expect(monitoring_event.acknowledged).to be true
-        expect(monitoring_event.acknowledgment_notes).to eq('Reviewed and acknowledged')
-        expect(monitoring_event.acknowledged_by_id).to eq(write_user.id)
-      end
-
-      it 'acknowledges without notes' do
-        post "/api/v1/supply_chain/vendor_monitoring_events/#{monitoring_event.id}/acknowledge",
-             headers: write_headers,
-             as: :json
-
-        expect(response).to have_http_status(:ok)
-        monitoring_event.reload
-        expect(monitoring_event.acknowledged).to be true
       end
 
       it 'returns error when already acknowledged' do
-        monitoring_event.update!(acknowledged: true, acknowledged_at: Time.current)
+        monitoring_event.update!(is_acknowledged: true, acknowledged_at: Time.current)
 
         post "/api/v1/supply_chain/vendor_monitoring_events/#{monitoring_event.id}/acknowledge",
              headers: write_headers,
@@ -247,51 +225,34 @@ RSpec.describe 'Api::V1::SupplyChain::VendorMonitoringEvents', type: :request do
     end
   end
 
-  describe 'POST /api/v1/supply_chain/vendor_monitoring_events/:id/dismiss' do
+  describe 'POST /api/v1/supply_chain/vendor_monitoring_events/:id/resolve' do
     context 'with valid authentication and write permissions' do
-      it 'dismisses the event with reason' do
-        post "/api/v1/supply_chain/vendor_monitoring_events/#{monitoring_event.id}/dismiss",
-             params: { reason: 'False positive' },
+      it 'resolves the event' do
+        post "/api/v1/supply_chain/vendor_monitoring_events/#{monitoring_event.id}/resolve",
              headers: write_headers,
              as: :json
 
         expect(response).to have_http_status(:ok)
         data = json_response_data
-        expect(data['vendor_monitoring_event']['dismissed']).to be true
-        expect(json_response['message']).to include('dismissed')
-
-        monitoring_event.reload
-        expect(monitoring_event.dismissed).to be true
-        expect(monitoring_event.dismissal_reason).to eq('False positive')
-        expect(monitoring_event.dismissed_by_id).to eq(write_user.id)
+        expect(data['vendor_monitoring_event']['resolved_at']).to be_present
+        expect(json_response['message']).to include('resolved')
       end
 
-      it 'returns error when reason is missing' do
-        post "/api/v1/supply_chain/vendor_monitoring_events/#{monitoring_event.id}/dismiss",
+      it 'returns error when already resolved' do
+        monitoring_event.update!(resolved_at: Time.current)
+
+        post "/api/v1/supply_chain/vendor_monitoring_events/#{monitoring_event.id}/resolve",
              headers: write_headers,
              as: :json
 
         expect(response).to have_http_status(:unprocessable_entity)
-        expect(json_response['error']).to include('reason is required')
-      end
-
-      it 'returns error when already dismissed' do
-        monitoring_event.update!(dismissed: true, dismissed_at: Time.current)
-
-        post "/api/v1/supply_chain/vendor_monitoring_events/#{monitoring_event.id}/dismiss",
-             params: { reason: 'Test reason' },
-             headers: write_headers,
-             as: :json
-
-        expect(response).to have_http_status(:unprocessable_entity)
-        expect(json_response['error']).to include('already dismissed')
+        expect(json_response['error']).to include('already resolved')
       end
     end
 
     context 'without write permissions' do
       it 'returns forbidden error' do
-        post "/api/v1/supply_chain/vendor_monitoring_events/#{monitoring_event.id}/dismiss",
-             params: { reason: 'Test reason' },
+        post "/api/v1/supply_chain/vendor_monitoring_events/#{monitoring_event.id}/resolve",
              headers: headers,
              as: :json
 

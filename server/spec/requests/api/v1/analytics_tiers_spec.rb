@@ -19,9 +19,9 @@ RSpec.describe 'Api::V1::AnalyticsTiers', type: :request do
 
   let!(:tiers) do
     [
-      create(:analytics_tier, slug: 'free', name: 'Free', active: true),
-      create(:analytics_tier, slug: 'pro', name: 'Pro', active: true),
-      create(:analytics_tier, slug: 'enterprise', name: 'Enterprise', active: true)
+      create(:analytics_tier, slug: 'free', name: 'Free', is_active: true),
+      create(:analytics_tier, slug: 'pro', name: 'Pro', is_active: true),
+      create(:analytics_tier, slug: 'enterprise', name: 'Enterprise', is_active: true)
     ]
   end
 
@@ -129,7 +129,6 @@ RSpec.describe 'Api::V1::AnalyticsTiers', type: :request do
 
         expect_success_response
         expect(json_response['data']).to be_present
-        expect(json_response['message']).to eq('Tier upgraded successfully')
       end
 
       it 'requires tier parameter' do

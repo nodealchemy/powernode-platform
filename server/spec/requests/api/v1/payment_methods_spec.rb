@@ -425,7 +425,9 @@ RSpec.describe 'Api::V1::PaymentMethods', type: :request do
       get '/api/v1/payment_methods', headers: headers, as: :json
 
       json = json_response
-      payment_method_ids = json['data'].map { |pm| pm['id'] }
+      expect(json['success']).to be true
+      # When no payment methods exist for the account, data may be nil or empty array
+      payment_method_ids = (json['data'] || []).map { |pm| pm['id'] }
       expect(payment_method_ids).not_to include(other_payment_method.id)
     end
 

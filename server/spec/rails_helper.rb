@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # This file is copied to spec/ when you run 'rails generate rspec:install'
 require 'spec_helper'
 ENV['RAILS_ENV'] ||= 'test'
@@ -56,16 +58,47 @@ RSpec.configure do |config|
   # FactoryBot configuration
   config.include FactoryBot::Syntax::Methods
 
+  # Time travel helpers (travel_to, freeze_time, etc.)
+  config.include ActiveSupport::Testing::TimeHelpers
+
   # Database cleaner configuration
   config.before(:suite) do
-    DatabaseCleaner.clean_with(:truncation)
+    # Small random delay to reduce deadlocks when multiple rspec processes start concurrently
+    sleep(rand * 2)
+
+    # Clean the database. Retry on deadlock/transient errors.
+    retries = 0
+    begin
+      DatabaseCleaner.clean_with(:truncation, except: %w[ar_internal_metadata schema_migrations])
+    rescue ActiveRecord::Deadlocked, ActiveRecord::StatementInvalid => e
+      retries += 1
+      if retries <= 5
+        sleep(retries + rand * 2)
+        ActiveRecord::Base.connection.reconnect!
+        retry
+      else
+        raise e
+      end
+    end
 
     # Load permissions configuration
     require Rails.root.join('config', 'permissions')
 
     # Sync all roles from the Permissions module configuration
     # This ensures all standardized roles exist in test database
-    Role.sync_from_config!
+    sync_retries = 0
+    begin
+      Role.sync_from_config!
+    rescue ActiveRecord::Deadlocked, ActiveRecord::InvalidForeignKey, ActiveRecord::StatementInvalid, ActiveRecord::RecordNotFound, ActiveRecord::RecordNotUnique => e
+      sync_retries += 1
+      if sync_retries <= 5
+        sleep(sync_retries + rand * 2)
+        ActiveRecord::Base.connection.reconnect!
+        retry
+      else
+        raise e
+      end
+    end
   end
 
   config.before(:each) do

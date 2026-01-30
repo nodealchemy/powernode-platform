@@ -13,7 +13,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
     let(:instance) { create(:devops_integration_instance, account: account) }
 
     before do
-      create_list(:devops_integration_execution, 3, account: account, integration_instance: instance)
+      create_list(:devops_integration_execution, 3, account: account, instance: instance)
     end
 
     context 'with devops.integrations.read permission' do
@@ -36,12 +36,11 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
 
       it 'filters by instance_id' do
         other_instance = create(:devops_integration_instance, account: account)
-        create(:devops_integration_execution, account: account, integration_instance: other_instance)
+        create(:devops_integration_execution, account: account, instance: other_instance)
 
         get '/api/v1/devops/integration_executions',
             params: { instance_id: instance.id },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
         response_data = json_response
@@ -50,12 +49,11 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
       end
 
       it 'filters by status' do
-        create(:devops_integration_execution, account: account, integration_instance: instance, status: 'failed')
+        create(:devops_integration_execution, account: account, instance: instance, status: 'failed')
 
         get '/api/v1/devops/integration_executions',
             params: { status: 'failed' },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
         response_data = json_response
@@ -87,7 +85,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
   describe 'GET /api/v1/devops/integration_executions/:id' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
     let(:instance) { create(:devops_integration_instance, account: account) }
-    let(:execution) { create(:devops_integration_execution, account: account, integration_instance: instance) }
+    let(:execution) { create(:devops_integration_execution, account: account, instance: instance) }
 
     context 'with devops.integrations.read permission' do
       it 'returns execution details' do
@@ -111,7 +109,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
     context 'when accessing other account execution' do
       let(:other_account) { create(:account) }
       let(:other_instance) { create(:devops_integration_instance, account: other_account) }
-      let(:other_execution) { create(:devops_integration_execution, account: other_account, integration_instance: other_instance) }
+      let(:other_execution) { create(:devops_integration_execution, account: other_account, instance: other_instance) }
 
       it 'returns not found error' do
         get "/api/v1/devops/integration_executions/#{other_execution.id}", headers: headers, as: :json
@@ -124,7 +122,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
   describe 'POST /api/v1/devops/integration_executions/:id/retry' do
     let(:headers) { auth_headers_for(user_with_execute_permission) }
     let(:instance) { create(:devops_integration_instance, account: account) }
-    let(:execution) { create(:devops_integration_execution, account: account, integration_instance: instance, status: 'failed') }
+    let(:execution) { create(:devops_integration_execution, account: account, instance: instance, status: 'failed') }
 
     context 'with devops.integrations.execute permission' do
       it 'retries execution successfully' do
@@ -162,7 +160,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
   describe 'POST /api/v1/devops/integration_executions/:id/cancel' do
     let(:headers) { auth_headers_for(user_with_execute_permission) }
     let(:instance) { create(:devops_integration_instance, account: account) }
-    let(:execution) { create(:devops_integration_execution, account: account, integration_instance: instance, status: 'running') }
+    let(:execution) { create(:devops_integration_execution, account: account, instance: instance, status: 'running') }
 
     context 'with devops.integrations.execute permission' do
       it 'cancels execution successfully' do
@@ -192,8 +190,8 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
     let(:instance) { create(:devops_integration_instance, account: account) }
 
     before do
-      create_list(:devops_integration_execution, 2, account: account, integration_instance: instance, status: 'completed')
-      create(:devops_integration_execution, account: account, integration_instance: instance, status: 'failed')
+      create_list(:devops_integration_execution, 2, account: account, instance: instance, status: 'completed')
+      create(:devops_integration_execution, account: account, instance: instance, status: 'failed')
     end
 
     context 'with devops.integrations.read permission' do
@@ -216,8 +214,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
       it 'filters stats by instance_id' do
         get '/api/v1/devops/integration_executions/stats',
             params: { instance_id: instance.id },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
       end
@@ -225,8 +222,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
       it 'accepts period parameter' do
         get '/api/v1/devops/integration_executions/stats',
             params: { period: 7 },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
       end

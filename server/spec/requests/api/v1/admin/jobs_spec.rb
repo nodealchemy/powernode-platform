@@ -4,7 +4,6 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Admin::Jobs', type: :request do
   let(:account) { create(:account) }
-  let(:admin_user) { create(:user, :admin, account: account) }
   let(:user_with_settings_update) { create(:user, account: account, permissions: ['admin.settings.update']) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
@@ -18,7 +17,7 @@ RSpec.describe 'Api::V1::Admin::Jobs', type: :request do
           job_id: SecureRandom.uuid,
           job_type: 'TestJob',
           status: 'completed',
-          parameters: { test: true },
+          arguments: { test: true },
           created_at: i.hours.ago
         )
       end
@@ -56,13 +55,12 @@ RSpec.describe 'Api::V1::Admin::Jobs', type: :request do
           job_id: SecureRandom.uuid,
           job_type: 'TestJob',
           status: 'pending',
-          parameters: {}
+          arguments: {}
         )
 
         get '/api/v1/admin/jobs',
             params: { status: 'pending' },
-            headers: headers,
-            as: :json
+            headers: headers.merge('Accept' => 'application/json')
 
         expect_success_response
         response_data = json_response
@@ -76,13 +74,12 @@ RSpec.describe 'Api::V1::Admin::Jobs', type: :request do
           job_id: SecureRandom.uuid,
           job_type: 'SpecialJob',
           status: 'completed',
-          parameters: {}
+          arguments: {}
         )
 
         get '/api/v1/admin/jobs',
             params: { job_type: 'SpecialJob' },
-            headers: headers,
-            as: :json
+            headers: headers.merge('Accept' => 'application/json')
 
         expect_success_response
         response_data = json_response
@@ -106,7 +103,7 @@ RSpec.describe 'Api::V1::Admin::Jobs', type: :request do
       it 'returns unauthorized error' do
         get '/api/v1/admin/jobs', as: :json
 
-        expect_error_response('Access token required', 401)
+        expect(response).to have_http_status(:unauthorized)
       end
     end
   end
@@ -118,12 +115,10 @@ RSpec.describe 'Api::V1::Admin::Jobs', type: :request do
         job_id: SecureRandom.uuid,
         job_type: 'TestJob',
         status: 'completed',
-        progress_percentage: 100,
-        parameters: { input: 'test' },
-        result: { output: 'success' },
+        arguments: { input: 'test' },
         created_at: 1.hour.ago,
         started_at: 59.minutes.ago,
-        completed_at: 55.minutes.ago
+        finished_at: 55.minutes.ago
       )
     end
 

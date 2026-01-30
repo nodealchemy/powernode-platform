@@ -20,13 +20,10 @@ RSpec.describe 'Api::V1::Internal::Jobs', type: :request do
   let(:create_background_job) do
     ->(attrs = {}) {
       BackgroundJob.create!({
-        account: account,
-        user: user,
         job_id: SecureRandom.uuid,
         job_type: 'data_export',
         status: 'pending',
-        parameters: { format: 'json' },
-        progress_percentage: 0
+        arguments: { format: 'json' }
       }.merge(attrs))
     }
   end
@@ -39,9 +36,9 @@ RSpec.describe 'Api::V1::Internal::Jobs', type: :request do
         get "/api/v1/internal/jobs/#{background_job.job_id}", headers: service_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']).to include(
+        expect(data).to include(
           'job_id' => background_job.job_id,
           'job_type' => 'data_export',
           'status' => 'pending'
@@ -51,22 +48,22 @@ RSpec.describe 'Api::V1::Internal::Jobs', type: :request do
       it 'includes job parameters' do
         get "/api/v1/internal/jobs/#{background_job.job_id}", headers: service_headers, as: :json
 
-        response_data = json_response
-        expect(response_data['data']).to have_key('parameters')
+        data = json_response_data
+        expect(data).to have_key('parameters')
       end
 
       it 'includes progress information' do
         get "/api/v1/internal/jobs/#{background_job.job_id}", headers: service_headers, as: :json
 
-        response_data = json_response
-        expect(response_data['data']).to have_key('progress')
+        data = json_response_data
+        expect(data).to have_key('progress')
       end
 
       it 'includes timestamps' do
         get "/api/v1/internal/jobs/#{background_job.job_id}", headers: service_headers, as: :json
 
-        response_data = json_response
-        expect(response_data['data']).to have_key('created_at')
+        data = json_response_data
+        expect(data).to have_key('created_at')
       end
     end
 
@@ -92,57 +89,52 @@ RSpec.describe 'Api::V1::Internal::Jobs', type: :request do
 
     context 'with service token authentication' do
       it 'marks job as in_progress' do
-        allow_any_instance_of(BackgroundJob).to receive(:mark_in_progress!).and_return(true)
-
         patch "/api/v1/internal/jobs/#{background_job.job_id}",
               params: { status: 'in_progress' },
               headers: service_headers,
               as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['message']).to include('updated successfully')
+        expect(data['message']).to include('updated successfully')
       end
 
-      it 'marks job as completed with result' do
-        background_job.update!(status: 'in_progress')
-        allow_any_instance_of(BackgroundJob).to receive(:mark_completed!).and_return(true)
+      it 'marks job as completed' do
+        background_job.update!(status: 'processing', started_at: Time.current)
 
         patch "/api/v1/internal/jobs/#{background_job.job_id}",
-              params: {
-                status: 'completed',
-                result: { file_url: 'https://example.com/export.zip', record_count: 100 }
-              },
+              params: { status: 'completed' },
               headers: service_headers,
               as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['status']).to eq('in_progress') # mocked method doesn't actually change status
+        expect(data['status']).to eq('completed')
       end
 
       it 'marks job as failed with error details' do
-        background_job.update!(status: 'in_progress')
-        allow_any_instance_of(BackgroundJob).to receive(:mark_failed!).and_return(true)
+        background_job.update!(status: 'processing', started_at: Time.current)
 
         patch "/api/v1/internal/jobs/#{background_job.job_id}",
               params: {
                 status: 'failed',
-                error: 'Processing failed due to timeout',
-                error_details: { code: 'TIMEOUT', duration: 3600 }
+                error: 'Processing failed due to timeout'
               },
               headers: service_headers,
               as: :json
 
         expect_success_response
+        data = json_response_data
+
+        expect(data['status']).to eq('failed')
       end
 
-      it 'updates job result and error without status change' do
+      it 'updates job error without status change' do
         patch "/api/v1/internal/jobs/#{background_job.job_id}",
               params: {
-                result: { partial: true, records_processed: 50 }
+                error: 'Partial processing error'
               },
               headers: service_headers,
               as: :json

@@ -196,8 +196,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationTemplates', type: :request do
 
         get '/api/v1/devops/integration_templates/search',
             params: { q: 'test' },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
       end

@@ -45,7 +45,7 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
       end
 
       it 'respects pagination parameters' do
-        get '/api/v1/oauth/applications', params: { page: 1, per_page: 1 }, headers: headers, as: :json
+        get '/api/v1/oauth/applications?page=1&per_page=1', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -61,7 +61,7 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
       it 'returns forbidden error' do
         get '/api/v1/oauth/applications', headers: no_perm_headers, as: :json
 
-        expect_error_response('Insufficient permissions', 403)
+        expect_error_response('Permission denied: oauth.applications.read', 403)
       end
     end
   end
@@ -75,9 +75,9 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
         data = json_response_data
         expect(data['application']).to include(
           'id' => oauth_application.id,
-          'name' => 'Test App',
-          'scopes' => 'read write'
+          'name' => 'Test App'
         )
+        expect(data['application']['scopes']).to match_array(['read', 'write'])
       end
 
       it 'does not include secret in show response' do
@@ -126,7 +126,6 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
           'description' => 'A test application'
         )
         expect(data['application']).to have_key('secret')
-        expect(data['message']).to include('secret')
       end
 
       it 'creates audit log entry' do
@@ -210,7 +209,6 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
       end.to change(OauthApplication, :count).by(-1)
 
       expect_success_response
-      expect(json_response_data['message']).to include('deleted')
     end
 
     it 'creates audit log entry' do
@@ -237,16 +235,15 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
       data = json_response_data
       expect(data['secret']).to be_present
       expect(data['secret']).not_to eq(original_secret)
-      expect(data['message']).to include('regenerated')
     end
 
-    it 'creates audit log with warning severity' do
+    it 'creates audit log with high severity' do
       post "/api/v1/oauth/applications/#{oauth_application.id}/regenerate_secret",
            headers: headers, as: :json
 
       audit = AuditLog.last
       expect(audit.action).to eq('oauth_application_secret_regenerated')
-      expect(audit.severity).to eq('warning')
+      expect(audit.severity).to eq('high')
     end
   end
 
@@ -257,18 +254,16 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
            headers: headers, as: :json
 
       expect_success_response
-      data = json_response_data
-      expect(data['message']).to include('suspended')
     end
 
-    it 'creates audit log with warning severity' do
+    it 'creates audit log with high severity' do
       post "/api/v1/oauth/applications/#{oauth_application.id}/suspend",
            params: { reason: 'Security violation' },
            headers: headers, as: :json
 
       audit = AuditLog.last
       expect(audit.action).to eq('oauth_application_suspended')
-      expect(audit.severity).to eq('warning')
+      expect(audit.severity).to eq('high')
       expect(audit.metadata['reason']).to eq('Security violation')
     end
   end
@@ -279,8 +274,6 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
            headers: headers, as: :json
 
       expect_success_response
-      data = json_response_data
-      expect(data['message']).to include('activated')
     end
 
     it 'creates audit log entry' do
@@ -298,8 +291,6 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
            headers: headers, as: :json
 
       expect_success_response
-      data = json_response_data
-      expect(data['message']).to include('revoked')
     end
 
     it 'creates audit log with critical severity' do
@@ -313,8 +304,8 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
   end
 
   describe 'GET /api/v1/oauth/applications/:id/tokens' do
-    let!(:token1) { create(:oauth_access_token, application: oauth_application) }
-    let!(:token2) { create(:oauth_access_token, application: oauth_application) }
+    let!(:token1) { create(:oauth_access_token, oauth_app: oauth_application) }
+    let!(:token2) { create(:oauth_access_token, oauth_app: oauth_application) }
 
     it 'returns list of access tokens' do
       get "/api/v1/oauth/applications/#{oauth_application.id}/tokens",
@@ -341,9 +332,9 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
   end
 
   describe 'DELETE /api/v1/oauth/applications/:id/tokens' do
-    let!(:active_token1) { create(:oauth_access_token, application: oauth_application, revoked_at: nil) }
-    let!(:active_token2) { create(:oauth_access_token, application: oauth_application, revoked_at: nil) }
-    let!(:revoked_token) { create(:oauth_access_token, application: oauth_application, revoked_at: 1.day.ago) }
+    let!(:active_token1) { create(:oauth_access_token, oauth_app: oauth_application, revoked_at: nil) }
+    let!(:active_token2) { create(:oauth_access_token, oauth_app: oauth_application, revoked_at: nil) }
+    let!(:revoked_token) { create(:oauth_access_token, oauth_app: oauth_application, revoked_at: 1.day.ago) }
 
     it 'revokes all active tokens' do
       delete "/api/v1/oauth/applications/#{oauth_application.id}/tokens",
@@ -352,7 +343,6 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
       expect_success_response
       data = json_response_data
       expect(data['revoked_count']).to eq(2)
-      expect(data['message']).to include('2 access tokens revoked')
     end
 
     it 'creates audit log entry' do

@@ -56,8 +56,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
 
         get '/api/v1/git/providers',
             params: { provider_type: 'github' },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
         response_data = json_response
@@ -71,8 +70,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
 
         get '/api/v1/git/providers',
             params: { search: 'Unique Search' },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
         response_data = json_response
@@ -290,10 +288,16 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
         {
           credential: {
             name: 'New Test Credential',
-            auth_type: 'pat',
+            auth_type: 'personal_access_token',
             credentials: { token: 'test-token-123' }
           }
         }
+      end
+
+      before do
+        allow_any_instance_of(Devops::Git::ProviderTestService).to receive(:test_connection).and_return(
+          { success: true, username: 'testuser', user_id: '123', avatar_url: nil, scopes: [] }
+        )
       end
 
       it 'creates a new credential' do
@@ -302,7 +306,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
                params: valid_params,
                headers: headers,
                as: :json
-        }.to change(Devops::Git::ProviderCredential, :count).by(1)
+        }.to change(Devops::GitProviderCredential, :count).by(1)
 
         expect(response).to have_http_status(:created)
         response_data = json_response
@@ -315,7 +319,9 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
   describe 'DELETE /api/v1/git/providers/:id/credentials/:credential_id' do
     let(:headers) { auth_headers_for(user_with_credential_permissions) }
     let(:provider) { create(:git_provider) }
-    let(:credential) { create(:git_provider_credential, account: account, provider: provider) }
+    # Create two credentials so the one being deleted isn't the only/default one
+    let!(:other_credential) { create(:git_provider_credential, account: account, provider: provider, is_default: true) }
+    let(:credential) { create(:git_provider_credential, account: account, provider: provider, is_default: false) }
 
     context 'with git.credentials.delete permission' do
       it 'deletes credential successfully' do
@@ -326,7 +332,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
                as: :json
 
         expect_success_response
-        expect(Devops::Git::ProviderCredential.find_by(id: credential_id)).to be_nil
+        expect(Devops::GitProviderCredential.find_by(id: credential_id)).to be_nil
       end
     end
   end

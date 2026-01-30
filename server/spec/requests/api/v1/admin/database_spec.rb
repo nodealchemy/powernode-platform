@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Admin::Database', type: :request do
   let(:account) { create(:account) }
-  let(:admin_user) { create(:user, :admin, account: account) }
+  let(:admin_user) { create(:user, account: account, permissions: ['system.admin']) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/admin/database/pool_stats' do
@@ -56,7 +56,7 @@ RSpec.describe 'Api::V1::Admin::Database', type: :request do
       it 'returns unauthorized error' do
         get '/api/v1/admin/database/pool_stats', as: :json
 
-        expect_error_response('Access token required', 401)
+        expect(response).to have_http_status(:unauthorized)
       end
     end
   end

@@ -4,119 +4,176 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::SupplyChain::LicenseDetections', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['supply_chain.read', 'supply_chain.write']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['supply_chain.read']) }
+  let(:user) { create(:user, account: account, permissions: ['supply_chain.read']) }
+  let(:write_user) { create(:user, account: account, permissions: ['supply_chain.write']) }
   let(:unauthorized_user) { create(:user, account: account, permissions: []) }
-  let(:other_account) { create(:account) }
-  let(:other_user) { create(:user, account: other_account, permissions: ['supply_chain.read']) }
-
   let(:headers) { auth_headers_for(user) }
-  let(:read_only_headers) { auth_headers_for(read_only_user) }
+  let(:write_headers) { auth_headers_for(write_user) }
   let(:unauthorized_headers) { auth_headers_for(unauthorized_user) }
-  let(:other_headers) { auth_headers_for(other_user) }
+
+  let(:sbom_component) { create(:supply_chain_sbom_component, account: account) }
+  let(:license) { create(:supply_chain_license) }
+
+  let!(:detection) do
+    create(:supply_chain_license_detection,
+           account: account,
+           sbom_component: sbom_component,
+           license: license,
+           detected_license_id: 'MIT',
+           detected_license_name: 'MIT License',
+           detection_source: 'manifest',
+           confidence_score: 0.95,
+           is_primary: true,
+           requires_review: false)
+  end
 
   describe 'GET /api/v1/supply_chain/license_detections' do
-    let!(:component) { create(:supply_chain_component, account: account) }
-    let!(:license1) { create(:supply_chain_license, spdx_id: 'MIT') }
-    let!(:license2) { create(:supply_chain_license, spdx_id: 'Apache-2.0') }
-    let!(:detection1) do
-      create(:supply_chain_license_detection,
-             account: account,
-             component: component,
-             license: license1,
-             detection_method: 'file_scan',
-             confidence_level: 'high',
-             overridden: false)
-    end
-    let!(:detection2) do
-      create(:supply_chain_license_detection,
-             account: account,
-             component: component,
-             license: license2,
-             detection_method: 'package_metadata',
-             confidence_level: 'medium',
-             overridden: true,
-             overridden_by: user)
-    end
-    let!(:other_detection) { create(:supply_chain_license_detection, account: other_account) }
-
-    context 'with proper permissions' do
-      it 'returns list of license detections for current account' do
-        get '/api/v1/supply_chain/license_detections', headers: headers, as: :json
+    context 'with valid authentication and permissions' do
+      it 'returns list of license detections' do
+        get '/api/v1/supply_chain/license_detections', headers: headers
 
         expect_success_response
         data = json_response_data
         expect(data['license_detections']).to be_an(Array)
-        expect(data['license_detections'].length).to eq(2)
-        expect(data['license_detections'].none? { |d| d['id'] == other_detection.id }).to be true
-        expect(data['meta']).to have_key('total')
+        expect(data['license_detections'].first['id']).to eq(detection.id)
+        expect(data['license_detections'].first['detected_license_id']).to eq('MIT')
+        expect(data['license_detections'].first['detected_license_name']).to eq('MIT License')
       end
 
-      it 'filters by detection method' do
-        get '/api/v1/supply_chain/license_detections',
-            params: { method: 'file_scan' },
-            headers: headers
+      it 'includes detection metadata' do
+        get '/api/v1/supply_chain/license_detections', headers: headers
 
-        expect_success_response
         data = json_response_data
-        expect(data['license_detections'].length).to eq(1)
-        expect(data['license_detections'].first['detection_method']).to eq('file_scan')
+        det = data['license_detections'].first
+        expect(det['detection_source']).to eq('manifest')
+        expect(det['confidence_score'].to_f).to eq(0.95)
+        expect(det['is_primary']).to be true
+        expect(det['requires_review']).to be false
       end
 
-      it 'filters by confidence level' do
-        get '/api/v1/supply_chain/license_detections',
-            params: { confidence: 'high' },
-            headers: headers
+      it 'includes sbom_component details' do
+        get '/api/v1/supply_chain/license_detections', headers: headers
 
-        expect_success_response
         data = json_response_data
-        expect(data['license_detections'].all? { |d| d['confidence_level'] == 'high' }).to be true
+        det = data['license_detections'].first
+        expect(det['sbom_component']).to be_present
+        expect(det['sbom_component']['id']).to eq(sbom_component.id)
+        expect(det['sbom_component']['version']).to eq(sbom_component.version)
       end
 
-      it 'filters by overridden status (true)' do
-        get '/api/v1/supply_chain/license_detections',
-            params: { overridden: 'true' },
-            headers: headers
+      it 'includes license details' do
+        get '/api/v1/supply_chain/license_detections', headers: headers
 
-        expect_success_response
         data = json_response_data
-        expect(data['license_detections'].all? { |d| d['overridden'] == true }).to be true
+        det = data['license_detections'].first
+        expect(det['license']).to be_present
+        expect(det['license']['id']).to eq(license.id)
+        expect(det['license']['spdx_id']).to eq(license.spdx_id)
+        expect(det['license']['name']).to eq(license.name)
       end
 
-      it 'filters by overridden status (false)' do
+      it 'includes effective license information' do
+        get '/api/v1/supply_chain/license_detections', headers: headers
+
+        data = json_response_data
+        det = data['license_detections'].first
+        expect(det['effective_license_id']).to be_present
+        expect(det['effective_license_name']).to be_present
+      end
+
+      it 'filters by source (detection_source)' do
+        create(:supply_chain_license_detection,
+               account: account,
+               detection_source: 'file')
+
         get '/api/v1/supply_chain/license_detections',
-            params: { overridden: 'false' },
+            params: { source: 'manifest' },
             headers: headers
 
-        expect_success_response
         data = json_response_data
-        expect(data['license_detections'].all? { |d| d['overridden'] == false }).to be true
+        expect(data['license_detections'].all? { |d| d['detection_source'] == 'manifest' }).to be true
+      end
+
+      it 'filters by requires_review true' do
+        create(:supply_chain_license_detection,
+               account: account,
+               requires_review: true)
+
+        get '/api/v1/supply_chain/license_detections',
+            params: { requires_review: 'true' },
+            headers: headers
+
+        data = json_response_data
+        expect(data['license_detections'].all? { |d| d['requires_review'] == true }).to be true
+      end
+
+      it 'filters by requires_review false' do
+        create(:supply_chain_license_detection,
+               account: account,
+               requires_review: true)
+
+        get '/api/v1/supply_chain/license_detections',
+            params: { requires_review: 'false' },
+            headers: headers
+
+        data = json_response_data
+        expect(data['license_detections'].all? { |d| d['requires_review'] == false }).to be true
+      end
+
+      it 'filters by primary' do
+        create(:supply_chain_license_detection,
+               account: account,
+               is_primary: false)
+
+        get '/api/v1/supply_chain/license_detections',
+            params: { primary: 'true' },
+            headers: headers
+
+        data = json_response_data
+        expect(data['license_detections'].all? { |d| d['is_primary'] == true }).to be true
       end
 
       it 'filters by license_id' do
+        other_license = create(:supply_chain_license)
+        create(:supply_chain_license_detection,
+               account: account,
+               license: other_license)
+
         get '/api/v1/supply_chain/license_detections',
-            params: { license_id: license1.id },
+            params: { license_id: license.id },
             headers: headers
 
-        expect_success_response
         data = json_response_data
-        expect(data['license_detections'].all? { |d| d['detected_license']['id'] == license1.id }).to be true
+        expect(data['license_detections'].all? { |d| d['license']['id'] == license.id }).to be true
       end
 
-      it 'filters by component_id' do
+      it 'filters by sbom_component_id' do
+        other_component = create(:supply_chain_sbom_component, account: account)
+        create(:supply_chain_license_detection,
+               account: account,
+               sbom_component: other_component)
+
         get '/api/v1/supply_chain/license_detections',
-            params: { component_id: component.id },
+            params: { sbom_component_id: sbom_component.id },
+            headers: headers
+
+        data = json_response_data
+        expect(data['license_detections'].all? { |d| d['sbom_component']['id'] == sbom_component.id }).to be true
+      end
+
+      it 'supports pagination' do
+        get '/api/v1/supply_chain/license_detections',
+            params: { page: 1, per_page: 10 },
             headers: headers
 
         expect_success_response
-        data = json_response_data
-        expect(data['license_detections'].all? { |d| d['component']['id'] == component.id }).to be true
+        expect(json_response['meta']).to be_present
       end
     end
 
-    context 'without supply_chain.read permission' do
+    context 'without proper permissions' do
       it 'returns forbidden error' do
-        get '/api/v1/supply_chain/license_detections', headers: unauthorized_headers, as: :json
+        get '/api/v1/supply_chain/license_detections', headers: unauthorized_headers
 
         expect_error_response('Insufficient permissions to view supply chain data', 403)
       end
@@ -124,124 +181,105 @@ RSpec.describe 'Api::V1::SupplyChain::LicenseDetections', type: :request do
 
     context 'without authentication' do
       it 'returns unauthorized error' do
-        get '/api/v1/supply_chain/license_detections', as: :json
+        get '/api/v1/supply_chain/license_detections'
 
-        expect_error_response('Access token required', 401)
+        expect(response).to have_http_status(:unauthorized)
       end
     end
   end
 
   describe 'GET /api/v1/supply_chain/license_detections/:id' do
-    let(:component) { create(:supply_chain_component, account: account) }
-    let(:license) { create(:supply_chain_license) }
-    let(:override_license) { create(:supply_chain_license, spdx_id: 'GPL-3.0') }
-    let(:detection) do
-      create(:supply_chain_license_detection,
-             account: account,
-             component: component,
-             license: license,
-             overridden: true,
-             override_license: override_license,
-             override_reason: 'Manual review',
-             overridden_by: user,
-             source_file: 'package.json',
-             match_text: 'MIT License')
-    end
-    let(:other_detection) { create(:supply_chain_license_detection, account: other_account) }
-
-    context 'with proper permissions' do
+    context 'with valid authentication and permissions' do
       it 'returns license detection details' do
-        get "/api/v1/supply_chain/license_detections/#{detection.id}", headers: headers, as: :json
+        get "/api/v1/supply_chain/license_detections/#{detection.id}", headers: headers
 
         expect_success_response
         data = json_response_data
-        expect(data['license_detection']).to include(
-          'id' => detection.id,
-          'detection_method' => detection.detection_method,
-          'confidence_level' => detection.confidence_level,
-          'overridden' => true
-        )
-        expect(data['license_detection']['component']).to be_present
-        expect(data['license_detection']['detected_license']).to be_present
-        expect(data['license_detection']['effective_license']['id']).to eq(override_license.id)
-        expect(data['license_detection']['source_file']).to be_present
-        expect(data['license_detection']['match_text']).to be_present
-        expect(data['license_detection']['override_reason']).to be_present
-        expect(data['license_detection']['overridden_by']).to be_present
+        expect(data['license_detection']['id']).to eq(detection.id)
+        expect(data['license_detection']['detected_license_id']).to eq('MIT')
+        expect(data['license_detection']['detected_license_name']).to eq('MIT License')
+        expect(data['license_detection']['detection_source']).to eq('manifest')
       end
 
-      it 'returns not found for non-existent detection' do
-        get "/api/v1/supply_chain/license_detections/#{SecureRandom.uuid}", headers: headers, as: :json
+      it 'includes detailed information' do
+        detection.update!(
+          file_path: 'package.json',
+          ai_interpretation: { model: 'gpt-4', reasoning: 'test' },
+          metadata: { detection_time_ms: 100 }
+        )
+
+        get "/api/v1/supply_chain/license_detections/#{detection.id}", headers: headers
+
+        data = json_response_data
+        det = data['license_detection']
+        expect(det['file_path']).to eq('package.json')
+        expect(det['ai_interpretation']).to be_present
+        expect(det['metadata']).to be_present
+      end
+
+      it 'includes sbom_component and license details' do
+        get "/api/v1/supply_chain/license_detections/#{detection.id}", headers: headers
+
+        data = json_response_data
+        det = data['license_detection']
+        expect(det['sbom_component']).to be_present
+        expect(det['sbom_component']['id']).to eq(sbom_component.id)
+        expect(det['license']).to be_present
+        expect(det['license']['id']).to eq(license.id)
+      end
+    end
+
+    context 'with non-existent detection' do
+      it 'returns not found error' do
+        get "/api/v1/supply_chain/license_detections/#{SecureRandom.uuid}", headers: headers
 
         expect_error_response('License detection not found', 404)
       end
     end
 
-    context 'accessing detection from different account' do
-      it 'returns not found error' do
-        get "/api/v1/supply_chain/license_detections/#{other_detection.id}", headers: headers, as: :json
+    context 'without proper permissions' do
+      it 'returns forbidden error' do
+        get "/api/v1/supply_chain/license_detections/#{detection.id}", headers: unauthorized_headers
 
-        expect_error_response('License detection not found', 404)
+        expect_error_response('Insufficient permissions to view supply chain data', 403)
       end
     end
   end
 
-  describe 'POST /api/v1/supply_chain/license_detections/:id/override' do
-    let(:component) { create(:supply_chain_component, account: account) }
-    let(:original_license) { create(:supply_chain_license, spdx_id: 'MIT') }
-    let(:new_license) { create(:supply_chain_license, spdx_id: 'Apache-2.0') }
-    let(:detection) do
-      create(:supply_chain_license_detection,
-             account: account,
-             component: component,
-             license: original_license,
-             overridden: false)
-    end
-
-    context 'with proper permissions' do
-      it 'overrides the license detection' do
-        post "/api/v1/supply_chain/license_detections/#{detection.id}/override",
-             params: { license_id: new_license.id, reason: 'Manual verification' },
-             headers: headers,
+  describe 'POST /api/v1/supply_chain/license_detections/:id/mark_review' do
+    context 'with valid authentication and write permissions' do
+      it 'marks the detection for review' do
+        post "/api/v1/supply_chain/license_detections/#{detection.id}/mark_review",
+             params: { reason: 'Needs manual verification' },
+             headers: write_headers,
              as: :json
 
         expect_success_response
         data = json_response_data
-        expect(data['license_detection']['overridden']).to be true
-        expect(data['license_detection']['effective_license']['id']).to eq(new_license.id)
-        expect(data['message']).to eq('License detection overridden')
+        expect(data['license_detection']['requires_review']).to be true
+        expect(json_response['message']).to include('marked for review')
 
         detection.reload
-        expect(detection.override_license_id).to eq(new_license.id)
-        expect(detection.override_reason).to eq('Manual verification')
-        expect(detection.overridden_by).to eq(user)
-        expect(detection.overridden_at).to be_present
+        expect(detection.requires_review).to be true
+        expect(detection.metadata['review_reason']).to eq('Needs manual verification')
       end
 
-      it 'returns error when license_id is missing' do
-        post "/api/v1/supply_chain/license_detections/#{detection.id}/override",
-             params: { reason: 'Test' },
-             headers: headers,
+      it 'marks for review without reason' do
+        post "/api/v1/supply_chain/license_detections/#{detection.id}/mark_review",
+             headers: write_headers,
              as: :json
 
-        expect_error_response('license_id is required for override', 422)
-      end
-
-      it 'returns error when license not found' do
-        post "/api/v1/supply_chain/license_detections/#{detection.id}/override",
-             params: { license_id: SecureRandom.uuid, reason: 'Test' },
-             headers: headers,
-             as: :json
-
-        expect_error_response('License not found', 404)
+        expect_success_response
+        detection.reload
+        expect(detection.requires_review).to be true
       end
     end
 
-    context 'without supply_chain.write permission' do
+    context 'without write permissions' do
       it 'returns forbidden error' do
-        post "/api/v1/supply_chain/license_detections/#{detection.id}/override",
-             params: { license_id: new_license.id, reason: 'Test' },
-             headers: read_only_headers,
+        post "/api/v1/supply_chain/license_detections/#{detection.id}/mark_review",
+             params: { reason: 'Test' },
+             headers: headers,
              as: :json
 
         expect_error_response('Insufficient permissions to manage supply chain data', 403)

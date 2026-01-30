@@ -116,25 +116,23 @@ RSpec.describe 'Api::V1::Auth::Permissions', type: :request do
         get '/api/v1/auth/permissions',
             as: :json
 
-        expect_error_response('Authentication required', 401)
+        expect(response).to have_http_status(:unauthorized)
       end
     end
   end
 
   describe 'GET /api/v1/auth/permissions/check' do
-    let(:user_with_permissions) do
-      create(:user, account: account).tap do |u|
-        allow(u).to receive(:permission_names).and_return(['users.read', 'users.create'])
-      end
-    end
+    let(:user_with_permissions) { create(:user, account: account) }
     let(:perm_headers) { auth_headers_for(user_with_permissions) }
+
+    before do
+      allow_any_instance_of(User).to receive(:permission_names).and_return(['users.read', 'users.create'])
+    end
 
     context 'checking single permission' do
       it 'returns granted status for permission user has' do
-        get '/api/v1/auth/permissions/check',
-            params: { permissions: 'users.read' },
-            headers: perm_headers,
-            as: :json
+        get '/api/v1/auth/permissions/check?permissions=users.read',
+            headers: perm_headers
 
         expect_success_response
         response_data = json_response
@@ -147,10 +145,8 @@ RSpec.describe 'Api::V1::Auth::Permissions', type: :request do
       end
 
       it 'returns not granted status for permission user lacks' do
-        get '/api/v1/auth/permissions/check',
-            params: { permissions: 'users.delete' },
-            headers: perm_headers,
-            as: :json
+        get '/api/v1/auth/permissions/check?permissions=users.delete',
+            headers: perm_headers
 
         expect_success_response
         response_data = json_response
@@ -164,10 +160,8 @@ RSpec.describe 'Api::V1::Auth::Permissions', type: :request do
 
     context 'checking multiple permissions' do
       it 'returns status for all checked permissions' do
-        get '/api/v1/auth/permissions/check',
-            params: { permissions: ['users.read', 'users.create', 'users.delete'] },
-            headers: perm_headers,
-            as: :json
+        get '/api/v1/auth/permissions/check?permissions[]=users.read&permissions[]=users.create&permissions[]=users.delete',
+            headers: perm_headers
 
         expect_success_response
         response_data = json_response
@@ -205,10 +199,8 @@ RSpec.describe 'Api::V1::Auth::Permissions', type: :request do
       end
 
       it 'returns granted for all checked permissions' do
-        get '/api/v1/auth/permissions/check',
-            params: { permissions: ['users.read', 'users.delete', 'accounts.manage'] },
-            headers: service_headers,
-            as: :json
+        get '/api/v1/auth/permissions/check?permissions[]=users.read&permissions[]=users.delete&permissions[]=accounts.manage',
+            headers: service_headers
 
         expect_success_response
         response_data = json_response
@@ -222,25 +214,17 @@ RSpec.describe 'Api::V1::Auth::Permissions', type: :request do
     context 'without permissions parameter' do
       it 'returns error' do
         get '/api/v1/auth/permissions/check',
-            headers: perm_headers,
-            as: :json
+            headers: perm_headers
 
         expect_error_response('Permissions parameter required', 400)
       end
     end
 
     context 'without authentication' do
-      it 'returns empty permissions list' do
-        get '/api/v1/auth/permissions/check',
-            params: { permissions: 'users.read' },
-            as: :json
+      it 'returns unauthorized' do
+        get '/api/v1/auth/permissions/check?permissions=users.read'
 
-        expect_success_response
-        response_data = json_response
-
-        expect(response_data['data']['permissions'].first['granted']).to be false
-        expect(response_data['data']['has_all']).to be false
-        expect(response_data['data']['has_any']).to be false
+        expect(response).to have_http_status(:unauthorized)
       end
     end
   end

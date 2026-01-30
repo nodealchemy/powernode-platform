@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::Users', type: :request do
   let(:account) { create(:account) }
   let(:other_account) { create(:account) }
-  let(:admin_user) { create(:user, :admin, account: account) }
+  let(:admin_user) { create(:user, account: account, permissions: ['admin.user.read', 'admin.user.create', 'admin.user.delete', 'users.read', 'users.update']) }
   let(:regular_user) { create(:user, account: account) }
   let(:plan) { create(:plan) }
 
@@ -17,8 +17,10 @@ RSpec.describe 'Api::V1::Users', type: :request do
   describe 'GET /api/v1/users' do
     let(:headers) { auth_headers_for(admin_user) }
 
-    context 'with admin.user.view permission' do
+    context 'with admin.user.read permission' do
       before do
+        # Force regular_user creation so it's counted
+        regular_user
         create_list(:user, 3, account: account)
       end
 
@@ -36,7 +38,7 @@ RSpec.describe 'Api::V1::Users', type: :request do
       end
 
       it 'respects per_page parameter' do
-        get '/api/v1/users', params: { per_page: 2 }, headers: headers, as: :json
+        get '/api/v1/users?per_page=2', headers: headers, as: :json
 
         expect_success_response
         response_data = json_response
@@ -46,7 +48,7 @@ RSpec.describe 'Api::V1::Users', type: :request do
       end
 
       it 'respects page parameter' do
-        get '/api/v1/users', params: { page: 2, per_page: 2 }, headers: headers, as: :json
+        get '/api/v1/users?page=2&per_page=2', headers: headers, as: :json
 
         expect_success_response
         response_data = json_response
@@ -55,7 +57,7 @@ RSpec.describe 'Api::V1::Users', type: :request do
       end
 
       it 'enforces maximum per_page limit' do
-        get '/api/v1/users', params: { per_page: 500 }, headers: headers, as: :json
+        get '/api/v1/users?per_page=500', headers: headers, as: :json
 
         expect_success_response
         response_data = json_response
@@ -74,7 +76,7 @@ RSpec.describe 'Api::V1::Users', type: :request do
       end
     end
 
-    context 'without admin.user.view permission' do
+    context 'without admin.user.read permission' do
       let(:user_without_permission) { create(:user, account: account, permissions: []) }
       let(:headers) { auth_headers_for(user_without_permission) }
 
@@ -170,11 +172,13 @@ RSpec.describe 'Api::V1::Users', type: :request do
           user: {
             email: 'newuser@example.com',
             name: 'New User',
-            password: 'SecurePassword123!',
-            password_confirmation: 'SecurePassword123!'
+            password: TestUsers::PASSWORD,
+            password_confirmation: TestUsers::PASSWORD
           }
         }
       end
+
+      before { admin_user } # Force creation before expect block
 
       it 'creates a new user successfully' do
         expect {
@@ -264,8 +268,8 @@ RSpec.describe 'Api::V1::Users', type: :request do
               params: {
                 user: {
                   current_password: current_password,
-                  password: 'NewPassword123!',
-                  password_confirmation: 'NewPassword123!'
+                  password: 'NewStr0ngP@ssw0rd!#',
+                  password_confirmation: 'NewStr0ngP@ssw0rd!#'
                 }
               },
               headers: headers,
@@ -274,12 +278,13 @@ RSpec.describe 'Api::V1::Users', type: :request do
         expect_success_response
 
         target_user.reload
-        expect(target_user.authenticate('NewPassword123!')).to be_truthy
+        # Use BCrypt directly to avoid authenticate's record_successful_login! side effect
+        expect(BCrypt::Password.new(target_user.password_digest).is_password?('NewStr0ngP@ssw0rd!#')).to be true
       end
     end
 
     context 'when updating another user with users.update permission' do
-      let(:user_with_permission) { create(:user, account: account, permissions: ['users.update']) }
+      let(:user_with_permission) { create(:user, account: account, permissions: ['users.read', 'users.update']) }
       let(:headers) { auth_headers_for(user_with_permission) }
 
       it 'updates the other user successfully' do
@@ -334,12 +339,14 @@ RSpec.describe 'Api::V1::Users', type: :request do
     let(:headers) { auth_headers_for(admin_user) }
 
     before do
+      # Force regular_user creation so it's counted
+      regular_user
       create_list(:user, 2, account: account)
       create(:user, :suspended, account: account)
       create(:user, :unverified, account: account)
     end
 
-    context 'with admin.user.view permission' do
+    context 'with admin.user.read permission' do
       it 'returns user statistics' do
         get '/api/v1/users/stats', headers: headers, as: :json
 

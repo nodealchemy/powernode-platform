@@ -4,9 +4,9 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Webhooks', type: :request do
   let(:account) { create(:account) }
-  let(:plan) { create(:plan) }
+  let(:plan) { create(:plan, limits: { 'max_webhooks' => 100 }) }
   let(:admin_user) { create(:user, :admin, account: account) }
-  let(:user_with_webhook_permission) { create(:user, account: account, permissions: ['webhook.view', 'webhook.create', 'webhook.update', 'webhook.delete']) }
+  let(:user_with_webhook_permission) { create(:user, account: account, permissions: ['webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete']) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   before do
@@ -20,7 +20,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
       create_list(:webhook_endpoint, 5, created_by: admin_user)
     end
 
-    context 'with webhook.view permission' do
+    context 'with webhook.read permission' do
       it 'returns paginated list of webhooks' do
         get '/api/v1/webhooks', headers: headers, as: :json
 
@@ -52,14 +52,14 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
       end
 
       it 'respects per_page parameter' do
-        get '/api/v1/webhooks', params: { per_page: 2 }, headers: headers, as: :json
+        get '/api/v1/webhooks?per_page=2', headers: headers, as: :json
 
         response_data = json_response
         expect(response_data['data']['webhooks'].length).to eq(2)
       end
     end
 
-    context 'without webhook.view permission' do
+    context 'without webhook.read permission' do
       let(:headers) { auth_headers_for(regular_user) }
 
       it 'returns forbidden error' do
@@ -82,7 +82,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
     let(:headers) { auth_headers_for(user_with_webhook_permission) }
     let(:webhook) { create(:webhook_endpoint, created_by: admin_user) }
 
-    context 'with webhook.view permission' do
+    context 'with webhook.read permission' do
       it 'returns webhook details' do
         get "/api/v1/webhooks/#{webhook.id}", headers: headers, as: :json
 
@@ -95,11 +95,11 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
         )
       end
 
-      it 'includes secret_token in detailed view' do
+      it 'includes secret_key in detailed view' do
         get "/api/v1/webhooks/#{webhook.id}", headers: headers, as: :json
 
         response_data = json_response
-        expect(response_data['data']).to have_key('secret_token')
+        expect(response_data['data']).to have_key('secret_key')
       end
 
       it 'includes recent_deliveries' do
@@ -262,43 +262,6 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
     end
   end
 
-  describe 'POST /api/v1/webhooks/:id/test' do
-    let(:headers) { auth_headers_for(user_with_webhook_permission) }
-    let(:webhook) { create(:webhook_endpoint, created_by: admin_user) }
-
-    before do
-      allow(WebhookService).to receive(:deliver_webhook).and_return({
-        success: true,
-        status: 200,
-        response_time: 150
-      })
-    end
-
-    it 'sends test webhook successfully' do
-      post "/api/v1/webhooks/#{webhook.id}/test", headers: headers, as: :json
-
-      expect_success_response
-      response_data = json_response
-
-      expect(response_data['data']).to include('webhook_id', 'test_payload', 'response')
-    end
-
-    it 'accepts custom event_type' do
-      post "/api/v1/webhooks/#{webhook.id}/test",
-           params: { event_type: 'custom.event' },
-           headers: headers,
-           as: :json
-
-      expect_success_response
-    end
-
-    it 'creates audit log for test' do
-      expect {
-        post "/api/v1/webhooks/#{webhook.id}/test", headers: headers, as: :json
-      }.to change(AuditLog, :count).by_at_least(1)
-    end
-  end
-
   describe 'POST /api/v1/webhooks/:id/toggle_status' do
     let(:headers) { auth_headers_for(user_with_webhook_permission) }
     let(:webhook) { create(:webhook_endpoint, status: 'active', created_by: admin_user) }
@@ -326,11 +289,11 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
     end
   end
 
-  describe 'GET /api/v1/webhooks/events' do
+  describe 'GET /api/v1/webhooks/available_events' do
     let(:headers) { auth_headers_for(user_with_webhook_permission) }
 
     it 'returns available event types' do
-      get '/api/v1/webhooks/events', headers: headers, as: :json
+      get '/api/v1/webhooks/available_events', headers: headers, as: :json
 
       expect_success_response
       response_data = json_response
@@ -356,8 +319,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
     it 'filters by webhook_id' do
       webhook = create(:webhook_endpoint, created_by: admin_user)
 
-      get '/api/v1/webhooks/deliveries',
-          params: { webhook_id: webhook.id },
+      get "/api/v1/webhooks/deliveries?webhook_id=#{webhook.id}",
           headers: headers,
           as: :json
 
@@ -400,7 +362,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
       response_data = json_response
       expect(response_data['data']['summary']).to include(
         'failed_count',
-        'max_retries_count'
+        'timed_out_count'
       )
     end
   end

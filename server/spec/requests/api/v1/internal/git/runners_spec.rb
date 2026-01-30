@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
   let(:account) { create(:account) }
   let(:git_provider) { create(:git_provider, :github) }
-  let(:credential) { create(:git_provider_credential, account: account, git_provider: git_provider) }
+  let(:credential) { create(:git_provider_credential, account: account, provider: git_provider) }
   let(:repository) { create(:git_repository, credential: credential, account: account) }
   let(:runner) { create(:git_runner, credential: credential, account: account) }
 
@@ -148,7 +148,7 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
       it 'updates runner status successfully' do
         last_seen = Time.current
 
-        put update_status_api_v1_internal_git_runner_path(runner),
+        put status_api_v1_internal_git_runner_path(runner),
             params: {
               status: 'offline',
               busy: false,
@@ -170,7 +170,7 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
 
       it 'defaults last_seen_at to current time if not provided' do
         freeze_time do
-          put update_status_api_v1_internal_git_runner_path(runner),
+          put status_api_v1_internal_git_runner_path(runner),
               params: { status: 'online', busy: true },
               headers: internal_headers
 
@@ -181,8 +181,8 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
       end
 
       it 'updates busy status independently' do
-        put update_status_api_v1_internal_git_runner_path(runner),
-            params: { busy: true },
+        put status_api_v1_internal_git_runner_path(runner),
+            params: { status: runner.status, busy: true },
             headers: internal_headers
 
         expect(response).to have_http_status(:ok)
@@ -193,7 +193,7 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
 
     context 'with non-existent runner' do
       it 'returns not found' do
-        put update_status_api_v1_internal_git_runner_path(SecureRandom.uuid),
+        put status_api_v1_internal_git_runner_path(SecureRandom.uuid),
             params: { status: 'online' },
             headers: internal_headers
 
@@ -205,7 +205,7 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
 
     context 'without authentication' do
       it 'returns unauthorized' do
-        put update_status_api_v1_internal_git_runner_path(runner),
+        put status_api_v1_internal_git_runner_path(runner),
             params: { status: 'online' }
 
         expect(response).to have_http_status(:unauthorized)
@@ -246,8 +246,8 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
         expect_any_instance_of(Devops::GitRunner).to receive(:record_failure!)
 
         post job_completed_api_v1_internal_git_runner_path(runner),
-             params: { success: false },
-             headers: internal_headers
+             params: { success: false }.to_json,
+             headers: internal_headers.merge('Content-Type' => 'application/json')
 
         expect(response).to have_http_status(:ok)
         json = JSON.parse(response.body)
@@ -256,8 +256,8 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
 
       it 'updates failure metrics' do
         post job_completed_api_v1_internal_git_runner_path(runner),
-             params: { success: false },
-             headers: internal_headers
+             params: { success: false }.to_json,
+             headers: internal_headers.merge('Content-Type' => 'application/json')
 
         expect(response).to have_http_status(:ok)
         runner.reload

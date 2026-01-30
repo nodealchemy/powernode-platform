@@ -4,13 +4,13 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
   let(:account) { create(:account) }
-  let(:password) { 'Password123!' }
+  let(:password) { TestUsers::PASSWORD }
   let(:user) { create(:user, account: account, password: password, email_verified_at: Time.current) }
 
-  describe 'POST /api/v1/auth/sessions' do
+  describe 'POST /api/v1/auth/login' do
     context 'with valid credentials' do
       it 'returns user data and tokens' do
-        post '/api/v1/auth/sessions',
+        post '/api/v1/auth/login',
              params: { email: user.email, password: password },
              as: :json
 
@@ -26,7 +26,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
       it 'creates audit log entry' do
         expect {
-          post '/api/v1/auth/sessions',
+          post '/api/v1/auth/login',
                params: { email: user.email, password: password },
                as: :json
         }.to change(AuditLog, :count).by(1)
@@ -38,7 +38,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
       it 'records login timestamp' do
         expect {
-          post '/api/v1/auth/sessions',
+          post '/api/v1/auth/login',
                params: { email: user.email, password: password },
                as: :json
         }.to change { user.reload.last_login_at }
@@ -47,7 +47,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
     context 'with nested session parameters' do
       it 'accepts session[email] and session[password]' do
-        post '/api/v1/auth/sessions',
+        post '/api/v1/auth/login',
              params: { session: { email: user.email, password: password } },
              as: :json
 
@@ -57,7 +57,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
     context 'with case-insensitive email' do
       it 'finds user by downcased email' do
-        post '/api/v1/auth/sessions',
+        post '/api/v1/auth/login',
              params: { email: user.email.upcase, password: password },
              as: :json
 
@@ -72,7 +72,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       let(:unverified_user) { create(:user, account: account, password: password, email_verified_at: nil) }
 
       it 'allows login but includes warning' do
-        post '/api/v1/auth/sessions',
+        post '/api/v1/auth/login',
              params: { email: unverified_user.email, password: password },
              as: :json
 
@@ -94,7 +94,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       end
 
       it 'returns 2FA requirement instead of full tokens' do
-        post '/api/v1/auth/sessions',
+        post '/api/v1/auth/login',
              params: { email: two_fa_user.email, password: password },
              as: :json
 
@@ -108,7 +108,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
       it 'creates partial audit log for 2FA requirement' do
         expect {
-          post '/api/v1/auth/sessions',
+          post '/api/v1/auth/login',
                params: { email: two_fa_user.email, password: password },
                as: :json
         }.to change(AuditLog, :count).by(1)
@@ -120,7 +120,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
     context 'with invalid password' do
       it 'returns unauthorized error' do
-        post '/api/v1/auth/sessions',
+        post '/api/v1/auth/login',
              params: { email: user.email, password: 'WrongPassword' },
              as: :json
 
@@ -130,7 +130,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
     context 'with non-existent email' do
       it 'returns unauthorized error' do
-        post '/api/v1/auth/sessions',
+        post '/api/v1/auth/login',
              params: { email: 'nonexistent@example.com', password: password },
              as: :json
 
@@ -142,7 +142,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       let(:inactive_user) { create(:user, account: account, password: password, status: 'inactive') }
 
       it 'returns unauthorized error' do
-        post '/api/v1/auth/sessions',
+        post '/api/v1/auth/login',
              params: { email: inactive_user.email, password: password },
              as: :json
 
@@ -154,7 +154,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       let(:suspended_user) { create(:user, account: account, password: password, status: 'suspended') }
 
       it 'returns unauthorized error' do
-        post '/api/v1/auth/sessions',
+        post '/api/v1/auth/login',
              params: { email: suspended_user.email, password: password },
              as: :json
 
@@ -170,20 +170,20 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       end
 
       it 'returns locked error before authentication' do
-        post '/api/v1/auth/sessions',
+        post '/api/v1/auth/login',
              params: { email: locked_user.email, password: password },
              as: :json
 
-        expect_error_response('temporarily locked', 401)
+        expect_error_response('Your account is temporarily locked due to multiple failed login attempts. Please try again later.', 401)
       end
     end
 
     context 'with inactive account' do
-      let(:inactive_account) { create(:account, status: 'inactive') }
+      let(:inactive_account) { create(:account, status: 'suspended') }
       let(:user_inactive_account) { create(:user, account: inactive_account, password: password) }
 
       it 'returns unauthorized error' do
-        post '/api/v1/auth/sessions',
+        post '/api/v1/auth/login',
              params: { email: user_inactive_account.email, password: password },
              as: :json
 
@@ -192,7 +192,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
     end
   end
 
-  describe 'POST /api/v1/auth/sessions/refresh' do
+  describe 'POST /api/v1/auth/refresh' do
     let(:refresh_token) { 'valid-refresh-token' }
 
     context 'with valid refresh token' do
@@ -207,7 +207,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       end
 
       it 'returns new tokens' do
-        post '/api/v1/auth/sessions/refresh',
+        post '/api/v1/auth/refresh',
              params: { refresh_token: refresh_token },
              as: :json
 
@@ -228,7 +228,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       end
 
       it 'returns unauthorized error' do
-        post '/api/v1/auth/sessions/refresh',
+        post '/api/v1/auth/refresh',
              params: { refresh_token: 'invalid-token' },
              as: :json
 
@@ -244,7 +244,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       end
 
       it 'returns re-login required error' do
-        post '/api/v1/auth/sessions/refresh',
+        post '/api/v1/auth/refresh',
              params: { refresh_token: refresh_token },
              as: :json
 
@@ -254,7 +254,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
     context 'without refresh token' do
       it 'returns bad request error' do
-        post '/api/v1/auth/sessions/refresh',
+        post '/api/v1/auth/refresh',
              params: {},
              as: :json
 
@@ -263,7 +263,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
     end
   end
 
-  describe 'DELETE /api/v1/auth/sessions' do
+  describe 'POST /api/v1/auth/logout' do
     let(:headers) { auth_headers_for(user) }
 
     before do
@@ -272,7 +272,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
     context 'with valid authentication' do
       it 'logs out successfully' do
-        delete '/api/v1/auth/sessions',
+        post '/api/v1/auth/logout',
                headers: headers,
                as: :json
 
@@ -283,7 +283,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       end
 
       it 'blacklists access token' do
-        delete '/api/v1/auth/sessions',
+        post '/api/v1/auth/logout',
                headers: headers,
                as: :json
 
@@ -295,7 +295,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
       it 'creates audit log entry' do
         expect {
-          delete '/api/v1/auth/sessions',
+          post '/api/v1/auth/logout',
                  headers: headers,
                  as: :json
         }.to change(AuditLog, :count).by(1)
@@ -308,7 +308,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
     context 'with refresh token provided' do
       it 'blacklists both access and refresh tokens' do
-        delete '/api/v1/auth/sessions',
+        post '/api/v1/auth/logout',
                params: { refresh_token: 'some-refresh-token' },
                headers: headers,
                as: :json
@@ -323,7 +323,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       end
 
       it 'still logs out successfully' do
-        delete '/api/v1/auth/sessions',
+        post '/api/v1/auth/logout',
                headers: headers,
                as: :json
 
@@ -333,7 +333,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
     context 'without authentication' do
       it 'returns unauthorized error' do
-        delete '/api/v1/auth/sessions',
+        post '/api/v1/auth/logout',
                as: :json
 
         expect(response).to have_http_status(:unauthorized)
@@ -341,12 +341,12 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
     end
   end
 
-  describe 'GET /api/v1/auth/sessions/current' do
+  describe 'GET /api/v1/auth/me' do
     let(:headers) { auth_headers_for(user) }
 
     context 'with valid authentication' do
       it 'returns current user data' do
-        get '/api/v1/auth/sessions/current',
+        get '/api/v1/auth/me',
             headers: headers,
             as: :json
 
@@ -361,7 +361,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
     context 'without authentication' do
       it 'returns unauthorized error' do
-        get '/api/v1/auth/sessions/current',
+        get '/api/v1/auth/me',
             as: :json
 
         expect(response).to have_http_status(:unauthorized)
@@ -369,7 +369,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
     end
   end
 
-  describe 'POST /api/v1/auth/sessions/verify-2fa' do
+  describe 'POST /api/v1/auth/verify-2fa' do
     let(:verification_token) { 'verification-token' }
     let(:two_factor_code) { '123456' }
 
@@ -386,7 +386,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       end
 
       it 'returns full authentication tokens' do
-        post '/api/v1/auth/sessions/verify-2fa',
+        post '/api/v1/auth/verify-2fa',
              params: { verification_token: verification_token, code: two_factor_code },
              as: :json
 
@@ -400,7 +400,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
       it 'creates audit log entry' do
         expect {
-          post '/api/v1/auth/sessions/verify-2fa',
+          post '/api/v1/auth/verify-2fa',
                params: { verification_token: verification_token, code: two_factor_code },
                as: :json
         }.to change(AuditLog, :count).by(1)
@@ -419,7 +419,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       end
 
       it 'returns unauthorized error' do
-        post '/api/v1/auth/sessions/verify-2fa',
+        post '/api/v1/auth/verify-2fa',
              params: { verification_token: verification_token, code: 'wrong-code' },
              as: :json
 
@@ -429,7 +429,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
     context 'without verification token' do
       it 'returns bad request error' do
-        post '/api/v1/auth/sessions/verify-2fa',
+        post '/api/v1/auth/verify-2fa',
              params: { code: two_factor_code },
              as: :json
 
@@ -439,7 +439,7 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
     context 'without 2FA code' do
       it 'returns bad request error' do
-        post '/api/v1/auth/sessions/verify-2fa',
+        post '/api/v1/auth/verify-2fa',
              params: { verification_token: verification_token },
              as: :json
 

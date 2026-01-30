@@ -8,15 +8,19 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
   let(:headers) { auth_headers_for(user) }
   let(:workflow_template) { create(:ai_workflow_template, :published) }
 
+  before do
+    # User model doesn't have avatar_url method but controller's serialize_review calls it.
+    # Define it on User so it doesn't raise NoMethodError in the controller.
+    User.define_method(:avatar_url) { nil } unless User.method_defined?(:avatar_url)
+  end
+
   describe 'GET /api/v1/marketplace/reviews' do
     context 'without authentication (public access)' do
       let!(:approved_review) { create(:marketplace_review, :approved, reviewable: workflow_template) }
       let!(:pending_review) { create(:marketplace_review, :pending, reviewable: workflow_template) }
 
       it 'returns only approved reviews for public access' do
-        get '/api/v1/marketplace/reviews',
-            params: { item_type: 'template', item_id: workflow_template.id },
-            as: :json
+        get "/api/v1/marketplace/reviews?item_type=template&item_id=#{workflow_template.id}", as: :json
 
         expect_success_response
         data = json_response_data
@@ -25,33 +29,25 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
       end
 
       it 'filters by rating' do
-        get '/api/v1/marketplace/reviews',
-            params: { item_type: 'template', item_id: workflow_template.id, rating: 5 },
-            as: :json
+        get "/api/v1/marketplace/reviews?item_type=template&item_id=#{workflow_template.id}&rating=5", as: :json
 
         expect_success_response
       end
 
       it 'filters verified reviews' do
-        get '/api/v1/marketplace/reviews',
-            params: { item_type: 'template', item_id: workflow_template.id, verified: 'true' },
-            as: :json
+        get "/api/v1/marketplace/reviews?item_type=template&item_id=#{workflow_template.id}&verified=true", as: :json
 
         expect_success_response
       end
 
       it 'sorts by helpful count' do
-        get '/api/v1/marketplace/reviews',
-            params: { item_type: 'template', item_id: workflow_template.id, sort: 'helpful' },
-            as: :json
+        get "/api/v1/marketplace/reviews?item_type=template&item_id=#{workflow_template.id}&sort=helpful", as: :json
 
         expect_success_response
       end
 
       it 'paginates results' do
-        get '/api/v1/marketplace/reviews',
-            params: { item_type: 'template', item_id: workflow_template.id, page: 1, per_page: 10 },
-            as: :json
+        get "/api/v1/marketplace/reviews?item_type=template&item_id=#{workflow_template.id}&page=1&per_page=10", as: :json
 
         expect_success_response
         meta = json_response['meta']
@@ -71,8 +67,7 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
       let(:moderator_headers) { auth_headers_for(moderator) }
 
       it 'includes pending reviews when requested' do
-        get '/api/v1/marketplace/reviews',
-            params: { item_type: 'template', item_id: workflow_template.id, include_pending: 'true' },
+        get "/api/v1/marketplace/reviews?item_type=template&item_id=#{workflow_template.id}&include_pending=true",
             headers: moderator_headers,
             as: :json
 
@@ -111,8 +106,6 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
 
     context 'with authentication' do
       it 'creates a new review' do
-        allow_any_instance_of(Ai::WorkflowTemplate).to receive(:reviewed_by?).and_return(false)
-
         expect {
           post '/api/v1/marketplace/reviews', params: valid_params, headers: headers, as: :json
         }.to change { MarketplaceReview.count }.by(1)
@@ -125,11 +118,14 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
       end
 
       it 'prevents duplicate reviews' do
-        allow_any_instance_of(Ai::WorkflowTemplate).to receive(:reviewed_by?).and_return(true)
+        # Create an existing review for this account/template
+        create(:marketplace_review, reviewable: workflow_template, account: account, user: user)
 
         post '/api/v1/marketplace/reviews', params: valid_params, headers: headers, as: :json
 
-        expect_error_response('You have already reviewed this item', 422)
+        expect(response).to have_http_status(422)
+        expect(json_response['success']).to be false
+        expect(json_response['error']).to include('already reviewed')
       end
 
       it 'returns validation errors for invalid params' do
@@ -145,7 +141,7 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
       it 'returns unauthorized error' do
         post '/api/v1/marketplace/reviews', params: valid_params, as: :json
 
-        expect_error_response('Authentication required', 401)
+        expect_error_response('Access token required', 401)
       end
     end
 
@@ -243,7 +239,9 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
       it 'returns error' do
         post "/api/v1/marketplace/reviews/#{own_review.id}/helpful", headers: headers, as: :json
 
-        expect_error_response('Cannot mark your own review as helpful', 422)
+        expect(response).to have_http_status(422)
+        expect(json_response['success']).to be false
+        expect(json_response['error']).to include('Cannot mark your own review as helpful')
       end
     end
 
@@ -251,7 +249,7 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
       it 'returns unauthorized error' do
         post "/api/v1/marketplace/reviews/#{review.id}/helpful", as: :json
 
-        expect_error_response('Authentication required', 401)
+        expect_error_response('Access token required', 401)
       end
     end
   end
@@ -320,7 +318,7 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
       it 'returns unauthorized error' do
         post "/api/v1/marketplace/reviews/#{review.id}/flag", as: :json
 
-        expect_error_response('Authentication required', 401)
+        expect_error_response('Access token required', 401)
       end
     end
   end

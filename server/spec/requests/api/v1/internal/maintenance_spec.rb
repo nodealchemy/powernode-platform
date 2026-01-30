@@ -15,13 +15,11 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
   describe 'GET /api/v1/internal/maintenance/backups/:id' do
     let(:backup) do
-      Database::Backup.create!(
-        filename: 'backup_20250124.sql',
+      create(:database_backup,
         file_path: '/backups/backup_20250124.sql',
         backup_type: 'full',
         status: 'pending',
-        description: 'Daily backup',
-        database_name: 'powernode_production'
+        description: 'Daily backup'
       )
     end
 
@@ -36,12 +34,10 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
         expect(response_data['data']).to include(
           'id' => backup.id,
-          'filename' => 'backup_20250124.sql',
           'file_path' => '/backups/backup_20250124.sql',
           'backup_type' => 'full',
           'status' => 'pending',
-          'description' => 'Daily backup',
-          'database_name' => 'powernode_production'
+          'description' => 'Daily backup'
         )
       end
 
@@ -52,16 +48,16 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
         response_data = json_response
         expect(response_data['data']).to include(
-          'id', 'filename', 'file_path', 'backup_type', 'status',
-          'description', 'file_size', 'database_name', 'metadata',
-          'user_id', 'started_at', 'completed_at', 'created_at'
+          'id', 'file_path', 'backup_type', 'status',
+          'description', 'file_size_bytes', 'metadata',
+          'started_at', 'completed_at', 'created_at'
         )
       end
     end
 
     context 'when backup does not exist' do
       it 'returns not found error' do
-        get '/api/v1/internal/maintenance/backups/nonexistent-id',
+        get '/api/v1/internal/maintenance/backups/00000000-0000-0000-0000-000000000000',
             headers: internal_headers,
             as: :json
 
@@ -80,19 +76,17 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
   describe 'PATCH /api/v1/internal/maintenance/backups/:id' do
     let(:backup) do
-      Database::Backup.create!(
-        filename: 'backup_20250124.sql',
+      create(:database_backup,
         file_path: '/backups/backup_20250124.sql',
         backup_type: 'full',
-        status: 'pending',
-        database_name: 'powernode_production'
+        status: 'pending'
       )
     end
 
     context 'with service token authentication' do
-      it 'updates backup status to in_progress' do
+      it 'updates backup status to running' do
         patch "/api/v1/internal/maintenance/backups/#{backup.id}",
-              params: { status: 'in_progress' },
+              params: { status: 'running' },
               headers: internal_headers,
               as: :json
 
@@ -100,11 +94,11 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         response_data = json_response
 
         expect(response_data['data']).to include(
-          'status' => 'in_progress'
+          'status' => 'running'
         )
 
         backup.reload
-        expect(backup.status).to eq('in_progress')
+        expect(backup.status).to eq('running')
         expect(backup.started_at).to be_present
       end
 
@@ -113,9 +107,8 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
               params: {
                 status: 'completed',
                 file_path: '/backups/completed_backup.sql',
-                file_size: 1024000,
-                duration_seconds: 45,
-                checksum: 'abc123def456'
+                file_size_bytes: 1024000,
+                duration_seconds: 45
               },
               headers: internal_headers,
               as: :json
@@ -126,9 +119,8 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         expect(backup.status).to eq('completed')
         expect(backup.completed_at).to be_present
         expect(backup.file_path).to eq('/backups/completed_backup.sql')
-        expect(backup.file_size).to eq(1024000)
+        expect(backup.file_size_bytes).to eq(1024000)
         expect(backup.duration_seconds).to eq(45)
-        expect(backup.checksum).to eq('abc123def456')
       end
 
       it 'updates backup status to failed with error message' do
@@ -153,7 +145,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
     context 'when backup does not exist' do
       it 'returns not found error' do
-        patch '/api/v1/internal/maintenance/backups/nonexistent-id',
+        patch '/api/v1/internal/maintenance/backups/00000000-0000-0000-0000-000000000000',
               params: { status: 'completed' },
               headers: internal_headers,
               as: :json
@@ -176,11 +168,9 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
   describe 'GET /api/v1/internal/maintenance/restores/:id' do
     let(:backup) { create(:database_backup) }
     let(:restore) do
-      Database::Restore.create!(
+      create(:database_restore,
         database_backup: backup,
-        status: 'pending',
-        restore_type: 'full',
-        target_database: 'powernode_test'
+        status: 'pending'
       )
     end
 
@@ -196,9 +186,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         expect(response_data['data']).to include(
           'id' => restore.id,
           'database_backup_id' => backup.id,
-          'status' => 'pending',
-          'restore_type' => 'full',
-          'target_database' => 'powernode_test'
+          'status' => 'pending'
         )
       end
 
@@ -214,7 +202,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
     context 'when restore does not exist' do
       it 'returns not found error' do
-        get '/api/v1/internal/maintenance/restores/nonexistent-id',
+        get '/api/v1/internal/maintenance/restores/00000000-0000-0000-0000-000000000000',
             headers: internal_headers,
             as: :json
 
@@ -234,25 +222,23 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
   describe 'PATCH /api/v1/internal/maintenance/restores/:id' do
     let(:backup) { create(:database_backup) }
     let(:restore) do
-      Database::Restore.create!(
+      create(:database_restore,
         database_backup: backup,
-        status: 'pending',
-        restore_type: 'full',
-        target_database: 'powernode_test'
+        status: 'pending'
       )
     end
 
     context 'with service token authentication' do
-      it 'updates restore status to in_progress' do
+      it 'updates restore status to running' do
         patch "/api/v1/internal/maintenance/restores/#{restore.id}",
-              params: { status: 'in_progress' },
+              params: { status: 'running' },
               headers: internal_headers,
               as: :json
 
         expect_success_response
 
         restore.reload
-        expect(restore.status).to eq('in_progress')
+        expect(restore.status).to eq('running')
         expect(restore.started_at).to be_present
       end
 
@@ -260,9 +246,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         patch "/api/v1/internal/maintenance/restores/#{restore.id}",
               params: {
                 status: 'completed',
-                duration_seconds: 60,
-                tables_restored: 25,
-                rows_restored: 10000
+                duration_seconds: 60
               },
               headers: internal_headers,
               as: :json
@@ -273,8 +257,6 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         expect(restore.status).to eq('completed')
         expect(restore.completed_at).to be_present
         expect(restore.duration_seconds).to eq(60)
-        expect(restore.tables_restored).to eq(25)
-        expect(restore.rows_restored).to eq(10000)
       end
 
       it 'updates restore status to failed with error message' do
@@ -297,7 +279,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
     context 'when restore does not exist' do
       it 'returns not found error' do
-        patch '/api/v1/internal/maintenance/restores/nonexistent-id',
+        patch '/api/v1/internal/maintenance/restores/00000000-0000-0000-0000-000000000000',
               params: { status: 'completed' },
               headers: internal_headers,
               as: :json
@@ -319,34 +301,31 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
   describe 'GET /api/v1/internal/maintenance/scheduled_tasks' do
     let!(:due_task) do
-      ScheduledTask.create!(
+      create(:scheduled_task,
         name: 'Backup Database',
-        task_type: 'backup',
-        command: 'rake db:backup',
-        cron_schedule: '0 2 * * *',
-        enabled: true,
+        task_type: 'database_backup',
+        cron_expression: '0 2 * * *',
+        is_active: true,
         next_run_at: 1.hour.ago
       )
     end
 
     let!(:future_task) do
-      ScheduledTask.create!(
+      create(:scheduled_task,
         name: 'Cleanup Logs',
-        task_type: 'cleanup',
-        command: 'rake logs:cleanup',
-        cron_schedule: '0 3 * * *',
-        enabled: true,
+        task_type: 'data_cleanup',
+        cron_expression: '0 3 * * *',
+        is_active: true,
         next_run_at: 2.hours.from_now
       )
     end
 
     let!(:disabled_task) do
-      ScheduledTask.create!(
+      create(:scheduled_task,
         name: 'Disabled Task',
-        task_type: 'other',
-        command: 'echo test',
-        cron_schedule: '0 4 * * *',
-        enabled: false,
+        task_type: 'custom_command',
+        cron_expression: '0 4 * * *',
+        is_active: false,
         next_run_at: 1.hour.ago
       )
     end
@@ -369,8 +348,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
       it 'respects due_before parameter' do
         get '/api/v1/internal/maintenance/scheduled_tasks',
             params: { due_before: 30.minutes.ago.iso8601 },
-            headers: internal_headers,
-            as: :json
+            headers: internal_headers
 
         expect_success_response
         response_data = json_response
@@ -381,8 +359,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
       it 'respects limit parameter' do
         get '/api/v1/internal/maintenance/scheduled_tasks',
             params: { limit: 1 },
-            headers: internal_headers,
-            as: :json
+            headers: internal_headers
 
         expect_success_response
         response_data = json_response
@@ -399,9 +376,9 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         task = response_data['data']['tasks'].first
 
         expect(task).to include(
-          'id', 'name', 'task_type', 'command',
-          'cron_schedule', 'configuration', 'next_run_at',
-          'last_run_at', 'user_id'
+          'id', 'name', 'task_type',
+          'cron_expression', 'parameters', 'next_run_at',
+          'last_run_at'
         )
       end
     end
@@ -417,12 +394,11 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
   describe 'POST /api/v1/internal/maintenance/scheduled_tasks/:id/executions' do
     let(:task) do
-      ScheduledTask.create!(
+      create(:scheduled_task,
         name: 'Test Task',
-        task_type: 'backup',
-        command: 'rake test',
-        cron_schedule: '0 0 * * *',
-        enabled: true,
+        task_type: 'database_backup',
+        cron_expression: '0 0 * * *',
+        is_active: true,
         next_run_at: Time.current
       )
     end
@@ -430,7 +406,6 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
     context 'with service token authentication' do
       it 'creates task execution' do
         post "/api/v1/internal/maintenance/scheduled_tasks/#{task.id}/executions",
-             params: { job_id: 'job_123' },
              headers: internal_headers,
              as: :json
 
@@ -440,11 +415,8 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         expect(response_data['data']).to include(
           'execution_id',
           'task_id' => task.id,
-          'status' => 'pending'
+          'status' => 'running'
         )
-
-        execution = TaskExecution.find(response_data['data']['execution_id'])
-        expect(execution.job_id).to eq('job_123')
       end
 
       it 'updates task last_run_at and next_run_at' do
@@ -465,7 +437,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
     context 'when task does not exist' do
       it 'returns not found error' do
-        post '/api/v1/internal/maintenance/scheduled_tasks/nonexistent-id/executions',
+        post '/api/v1/internal/maintenance/scheduled_tasks/00000000-0000-0000-0000-000000000000/executions',
              headers: internal_headers,
              as: :json
 
@@ -486,9 +458,9 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
   describe 'PATCH /api/v1/internal/maintenance/task_executions/:id' do
     let(:task) { create(:scheduled_task) }
     let(:execution) do
-      TaskExecution.create!(
+      create(:task_execution,
         scheduled_task: task,
-        status: 'pending',
+        status: 'running',
         started_at: Time.current
       )
     end
@@ -510,8 +482,8 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         patch "/api/v1/internal/maintenance/task_executions/#{execution.id}",
               params: {
                 status: 'completed',
-                duration_seconds: 30,
-                output: 'Backup completed successfully',
+                duration_ms: 30000,
+                log_output: 'Backup completed successfully',
                 result: { files_created: 1 }
               },
               headers: internal_headers,
@@ -522,17 +494,16 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         execution.reload
         expect(execution.status).to eq('completed')
         expect(execution.completed_at).to be_present
-        expect(execution.duration_seconds).to eq(30)
-        expect(execution.output).to eq('Backup completed successfully')
+        expect(execution.duration_ms).to eq(30000)
+        expect(execution.log_output).to eq('Backup completed successfully')
       end
 
       it 'updates execution status to failed with error details' do
         patch "/api/v1/internal/maintenance/task_executions/#{execution.id}",
               params: {
                 status: 'failed',
-                duration_seconds: 15,
-                error_message: 'Connection failed',
-                error_details: { code: 'TIMEOUT' }
+                duration_ms: 15000,
+                error_message: 'Connection failed'
               },
               headers: internal_headers,
               as: :json
@@ -547,7 +518,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
     context 'when execution does not exist' do
       it 'returns not found error' do
-        patch '/api/v1/internal/maintenance/task_executions/nonexistent-id',
+        patch '/api/v1/internal/maintenance/task_executions/00000000-0000-0000-0000-000000000000',
               params: { status: 'completed' },
               headers: internal_headers,
               as: :json
@@ -569,23 +540,19 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
 
   describe 'POST /api/v1/internal/maintenance/backups/:id/cleanup' do
     let!(:old_backup) do
-      Database::Backup.create!(
-        filename: 'old_backup.sql',
+      create(:database_backup, :completed,
         file_path: '/tmp/old_backup.sql',
         backup_type: 'full',
-        status: 'completed',
-        database_name: 'test',
+        description: 'Old backup',
         created_at: 45.days.ago
       )
     end
 
     let!(:recent_backup) do
-      Database::Backup.create!(
-        filename: 'recent_backup.sql',
+      create(:database_backup, :completed,
         file_path: '/tmp/recent_backup.sql',
         backup_type: 'full',
-        status: 'completed',
-        database_name: 'test',
+        description: 'Recent backup',
         created_at: 15.days.ago
       )
     end

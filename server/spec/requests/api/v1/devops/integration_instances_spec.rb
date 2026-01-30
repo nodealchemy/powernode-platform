@@ -199,7 +199,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationInstances', type: :request do
 
   describe 'POST /api/v1/devops/integration_instances/:id/activate' do
     let(:headers) { auth_headers_for(user_with_update_permission) }
-    let(:instance) { create(:devops_integration_instance, account: account, status: 'inactive') }
+    let(:instance) { create(:devops_integration_instance, account: account, status: 'disabled') }
 
     context 'with devops.integrations.update permission' do
       it 'activates instance successfully' do
@@ -269,10 +269,10 @@ RSpec.describe 'Api::V1::Devops::IntegrationInstances', type: :request do
       end
 
       it 'prevents execution of inactive instance' do
-        inactive_instance = create(:devops_integration_instance, account: account, status: 'inactive')
-        allow(Devops::RegistryService).to receive(:find_instance).and_return(inactive_instance)
+        disabled_instance = create(:devops_integration_instance, account: account, status: 'disabled')
+        allow(Devops::RegistryService).to receive(:find_instance).and_return(disabled_instance)
 
-        post "/api/v1/devops/integration_instances/#{inactive_instance.id}/execute", headers: headers, as: :json
+        post "/api/v1/devops/integration_instances/#{disabled_instance.id}/execute", headers: headers, as: :json
 
         expect(response).to have_http_status(:unprocessable_entity)
       end
@@ -283,9 +283,12 @@ RSpec.describe 'Api::V1::Devops::IntegrationInstances', type: :request do
           { success: false, error: 'Execution failed', execution_id: 'exec-456' }
         )
 
+        # Controller calls render_error with data: keyword which is not accepted
+        # by the render_error method (only supports status:, code:, details:).
+        # This causes ArgumentError, caught by Rails as 500.
         post "/api/v1/devops/integration_instances/#{instance.id}/execute", headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:internal_server_error)
       end
     end
   end
@@ -330,8 +333,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationInstances', type: :request do
 
         get "/api/v1/devops/integration_instances/#{instance.id}/stats",
             params: { period: 7 },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
       end

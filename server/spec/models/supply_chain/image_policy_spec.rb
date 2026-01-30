@@ -456,7 +456,15 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
     end
 
     describe "#evaluate" do
-      let(:policy) { create(:supply_chain_image_policy, account: account, name: "Test Policy") }
+      let(:policy) do
+        create(:supply_chain_image_policy,
+               account: account,
+               name: "Test Policy",
+               policy_type: "registry_allowlist",
+               enforcement_level: "warn",
+               require_signature: false,
+               rules: { "allowed_registries" => ["gcr.io", "docker.io"] })
+      end
       let(:image) do
         build(:supply_chain_container_image,
               registry: "gcr.io",
@@ -469,8 +477,8 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
         expect(result).to include(
           policy_id: policy.id,
           policy_name: "Test Policy",
-          policy_type: policy.policy_type,
-          enforcement_level: policy.enforcement_level,
+          policy_type: "registry_allowlist",
+          enforcement_level: "warn",
           passed: true,
           violations: []
         )

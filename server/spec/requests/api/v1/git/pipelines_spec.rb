@@ -54,8 +54,7 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
 
         get '/api/v1/git/pipelines',
             params: { repository_id: other_repo.id },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
         response_data = json_response
@@ -69,8 +68,7 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
 
         get '/api/v1/git/pipelines',
             params: { status: 'running' },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
         response_data = json_response
@@ -84,8 +82,7 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
 
         get '/api/v1/git/pipelines',
             params: { conclusion: 'failure' },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
         response_data = json_response
@@ -177,11 +174,13 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
     let(:pipeline) { create(:git_pipeline, :running, account: account, repository: repository) }
 
     context 'with git.pipelines.cancel permission' do
-      it 'cancels running pipeline' do
-        allow_any_instance_of(Devops::Git::ApiClient).to receive(:cancel_workflow_run).and_return(
-          { success: true }
-        )
+      before do
+        allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
+        client_double = double('api_client', cancel_workflow_run: { success: true })
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(client_double)
+      end
 
+      it 'cancels running pipeline' do
         post "/api/v1/git/pipelines/#{pipeline.id}/cancel", headers: headers, as: :json
 
         expect_success_response
@@ -215,11 +214,14 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
     let(:pipeline) { create(:git_pipeline, :failure, account: account, repository: repository) }
 
     context 'with git.pipelines.trigger permission' do
-      it 'retries failed pipeline' do
-        allow_any_instance_of(Devops::Git::ApiClient).to receive(:rerun_workflow).and_return(
-          { success: true, pipeline_id: 'new-pipeline-123' }
-        )
+      before do
+        allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
+        client_double = double('api_client', rerun_workflow: { success: true, pipeline_id: 'new-pipeline-123' })
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(client_double)
+        allow_any_instance_of(WorkerApiClient).to receive(:queue_git_pipeline_sync).and_return(true)
+      end
 
+      it 'retries failed pipeline' do
         post "/api/v1/git/pipelines/#{pipeline.id}/retry", headers: headers, as: :json
 
         expect(response).to have_http_status(:accepted)
@@ -272,7 +274,7 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
 
     before do
-      create_list(:git_pipeline, :success, 3, account: account, repository: repository)
+      create_list(:git_pipeline, 3, :success, account: account, repository: repository)
       create(:git_pipeline, :failure, account: account, repository: repository)
     end
 
@@ -296,8 +298,7 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
       it 'filters stats by repository_id' do
         get '/api/v1/git/pipelines/stats',
             params: { repository_id: repository.id },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
         response_data = json_response

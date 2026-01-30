@@ -5,13 +5,12 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::Internal::Devops::StepExecutions', type: :request do
   let(:account) { create(:account) }
   let(:pipeline) { create(:ci_cd_pipeline, account: account) }
-  let(:pipeline_run) { create(:ci_cd_pipeline_run, pipeline: pipeline, account: account) }
+  let(:pipeline_run) { create(:ci_cd_pipeline_run, pipeline: pipeline) }
   let(:pipeline_step) { create(:ci_cd_pipeline_step, pipeline: pipeline) }
   let(:step_execution) do
     create(:ci_cd_step_execution,
            pipeline_run: pipeline_run,
-           pipeline_step: pipeline_step,
-           account: account)
+           pipeline_step: pipeline_step)
   end
 
   let(:internal_headers) do
@@ -186,7 +185,7 @@ RSpec.describe 'Api::V1::Internal::Devops::StepExecutions', type: :request do
 
         step_execution.reload
         expect(step_execution.status).to eq('running')
-        expect(step_execution.outputs['progress']).to eq(50)
+        expect(step_execution.outputs['progress'].to_i).to eq(50)
       end
 
       it 'updates completion status' do
@@ -210,7 +209,7 @@ RSpec.describe 'Api::V1::Internal::Devops::StepExecutions', type: :request do
         patch api_v1_internal_devops_step_execution_path(step_execution),
               params: {
                 step_execution: {
-                  status: 'failed',
+                  status: 'failure',
                   error_message: 'Step execution failed'
                 }
               },

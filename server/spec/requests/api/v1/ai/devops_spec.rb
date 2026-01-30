@@ -322,7 +322,7 @@ RSpec.describe 'Api::V1::Ai::Devops', type: :request do
       end
 
       it 'filters by status' do
-        get '/api/v1/ai/devops/reviews', params: { status: 'completed' }, headers: headers, as: :json
+        get '/api/v1/ai/devops/reviews?status=completed', headers: headers, as: :json
 
         expect_success_response
       end

@@ -18,7 +18,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
   end
 
   let!(:admin_billing_view_permission) do
-    Permission.find_or_create_by!(name: 'admin.billing.view') do |p|
+    Permission.find_or_create_by!(name: 'admin.billing.read') do |p|
       p.resource = 'admin.billing'
       p.action = 'view'
       p.category = 'admin'
@@ -33,7 +33,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
     user
   end
 
-  # User with admin.billing.view permission
+  # User with admin.billing.read permission
   let(:billing_viewer_user) do
     user = create(:user, account: account)
     user.permissions = [admin_billing_view_permission]
@@ -188,7 +188,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
       end
     end
 
-    context 'with admin.billing.view permission' do
+    context 'with admin.billing.read permission' do
       it 'returns all plans' do
         get '/api/v1/plans', headers: auth_headers_for(billing_viewer_user), as: :json
 
@@ -336,7 +336,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
       end
     end
 
-    context 'with admin.billing.view permission' do
+    context 'with admin.billing.read permission' do
       it 'allows plan creation' do
         expect {
           post '/api/v1/plans', params: valid_params, headers: auth_headers_for(billing_viewer_user), as: :json

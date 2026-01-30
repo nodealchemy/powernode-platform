@@ -113,8 +113,7 @@ RSpec.describe 'Api::V1::Workers', type: :request do
       {
         worker: {
           name: 'Test Worker',
-          description: 'A test worker',
-          roles: ['api_worker']
+          description: 'A test worker'
         }
       }
     end
@@ -140,12 +139,13 @@ RSpec.describe 'Api::V1::Workers', type: :request do
 
         post '/api/v1/workers', params: valid_params, headers: headers, as: :json
 
-        expect_error_response('Worker limit reached for your current plan', 200)
+        expect_error_response('Worker limit reached for your current plan', 400)
       end
     end
 
     context 'with invalid params' do
       it 'returns validation error' do
+        allow(Billing::UsageLimitService).to receive(:can_create_worker?).and_return(true)
         invalid_params = { worker: { name: nil } }
 
         post '/api/v1/workers', params: invalid_params, headers: headers, as: :json
@@ -246,14 +246,14 @@ RSpec.describe 'Api::V1::Workers', type: :request do
     end
   end
 
-  describe 'POST /api/v1/workers/:id/test' do
+  describe 'POST /api/v1/workers/:id/test_worker' do
     let(:worker) { create(:worker, account: account) }
 
     context 'when test job is enqueued successfully' do
       it 'returns success' do
         allow(WorkerJobService).to receive(:enqueue_test_worker_job).and_return(true)
 
-        post "/api/v1/workers/#{worker.id}/test", headers: headers, as: :json
+        post "/api/v1/workers/#{worker.id}/test_worker", headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -268,7 +268,7 @@ RSpec.describe 'Api::V1::Workers', type: :request do
           WorkerJobService::WorkerServiceError, 'Service unavailable'
         )
 
-        post "/api/v1/workers/#{worker.id}/test", headers: headers, as: :json
+        post "/api/v1/workers/#{worker.id}/test_worker", headers: headers, as: :json
 
         expect_error_response('Failed to enqueue test job: Service unavailable', 503)
       end

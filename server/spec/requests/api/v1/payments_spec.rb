@@ -12,7 +12,7 @@ RSpec.describe 'Api::V1::Payments', type: :request do
   let(:other_headers) { auth_headers_for(other_user) }
 
   describe 'GET /api/v1/payments' do
-    let(:plan) { create(:plan, account: account) }
+    let(:plan) { create(:plan) }
     let(:subscription) { create(:subscription, account: account, plan: plan) }
     let(:invoice) { create(:invoice, account: account, subscription: subscription) }
     let!(:payment1) { create(:payment, :succeeded, account: account, invoice: invoice) }
@@ -46,8 +46,7 @@ RSpec.describe 'Api::V1::Payments', type: :request do
     end
 
     it 'paginates results' do
-      get '/api/v1/payments',
-          params: { page: 1, per_page: 1 },
+      get '/api/v1/payments?page=1&per_page=1',
           headers: headers,
           as: :json
 
@@ -60,8 +59,7 @@ RSpec.describe 'Api::V1::Payments', type: :request do
     end
 
     it 'limits maximum per_page to 100' do
-      get '/api/v1/payments',
-          params: { per_page: 500 },
+      get '/api/v1/payments?per_page=500',
           headers: headers,
           as: :json
 

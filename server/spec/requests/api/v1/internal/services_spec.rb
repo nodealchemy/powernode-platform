@@ -19,30 +19,29 @@ RSpec.describe 'Api::V1::Internal::Services', type: :request do
         post '/api/v1/internal/services/health_check', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        health_status = response_data['data']['data']
-        expect(health_status).to have_key('database')
-        expect(health_status).to have_key('redis')
-        expect(health_status).to have_key('timestamp')
+        expect(data).to have_key('database')
+        expect(data).to have_key('redis')
+        expect(data).to have_key('timestamp')
       end
 
       it 'includes database health status' do
         post '/api/v1/internal/services/health_check', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['database']).to be_in(['healthy', 'unhealthy'])
+        expect(data['database']).to be_in(['healthy', 'unhealthy'])
       end
 
       it 'includes redis health status' do
         post '/api/v1/internal/services/health_check', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['redis']).to be_in(['healthy', 'unhealthy'])
+        expect(data['redis']).to be_in(['healthy', 'unhealthy'])
       end
 
       it 'includes timestamp of health check' do
@@ -50,9 +49,9 @@ RSpec.describe 'Api::V1::Internal::Services', type: :request do
           post '/api/v1/internal/services/health_check', headers: internal_headers, as: :json
 
           expect_success_response
-          response_data = json_response
+          data = json_response_data
 
-          expect(Time.parse(response_data['data']['data']['timestamp'])).to be_within(1.second).of(Time.current)
+          expect(Time.parse(data['timestamp'])).to be_within(1.second).of(Time.current)
         end
       end
     end
@@ -72,42 +71,40 @@ RSpec.describe 'Api::V1::Internal::Services', type: :request do
         post '/api/v1/internal/services/generate_config', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        config = response_data['data']['data']
-        expect(config).to have_key('api_version')
-        expect(config).to have_key('environment')
-        expect(config).to have_key('services')
-        expect(config).to have_key('timestamp')
+        expect(data).to have_key('api_version')
+        expect(data).to have_key('environment')
+        expect(data).to have_key('services')
+        expect(data).to have_key('timestamp')
       end
 
       it 'includes API version' do
         post '/api/v1/internal/services/generate_config', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['api_version']).to eq('v1')
+        expect(data['api_version']).to eq('v1')
       end
 
       it 'includes current environment' do
         post '/api/v1/internal/services/generate_config', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['environment']).to eq(Rails.env)
+        expect(data['environment']).to eq(Rails.env)
       end
 
       it 'includes available services' do
         post '/api/v1/internal/services/generate_config', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        services = response_data['data']['data']['services']
-        expect(services).to be_an(Array)
-        expect(services.length).to be > 0
+        expect(data['services']).to be_an(Array)
+        expect(data['services'].length).to be > 0
       end
     end
   end
@@ -118,24 +115,24 @@ RSpec.describe 'Api::V1::Internal::Services', type: :request do
         post '/api/v1/internal/services/service_discovery', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']).to have_key('services')
-        expect(response_data['data']['data']['services']).to be_an(Array)
+        expect(data).to have_key('services')
+        expect(data['services']).to be_an(Array)
       end
 
       it 'includes service details' do
         post '/api/v1/internal/services/service_discovery', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        services = response_data['data']['data']['services']
+        services = data['services']
         first_service = services.first
 
-        expect(first_service).to have_key(:name)
-        expect(first_service).to have_key(:url)
-        expect(first_service).to have_key(:status)
+        expect(first_service).to have_key('name')
+        expect(first_service).to have_key('url')
+        expect(first_service).to have_key('status')
       end
     end
   end
@@ -146,20 +143,20 @@ RSpec.describe 'Api::V1::Internal::Services', type: :request do
         post '/api/v1/internal/services/validate', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']).to have_key('valid')
-        expect(response_data['data']['data']).to have_key('errors')
+        expect(data).to have_key('valid')
+        expect(data).to have_key('errors')
       end
 
       it 'returns valid status' do
         post '/api/v1/internal/services/validate', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']['valid']).to be true
-        expect(response_data['data']['data']['errors']).to be_empty
+        expect(data['valid']).to be true
+        expect(data['errors']).to be_empty
       end
     end
   end
@@ -170,40 +167,37 @@ RSpec.describe 'Api::V1::Internal::Services', type: :request do
         post '/api/v1/internal/services/test_connectivity', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        results = response_data['data']['data']
-        expect(results).to have_key('database')
-        expect(results).to have_key('redis')
+        expect(data).to have_key('database')
+        expect(data).to have_key('redis')
       end
 
       it 'includes database connectivity test result' do
         post '/api/v1/internal/services/test_connectivity', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        db_result = response_data['data']['data']['database']
-        expect(db_result).to have_key('connected')
+        expect(data['database']).to have_key('connected')
       end
 
       it 'includes redis connectivity test result' do
         post '/api/v1/internal/services/test_connectivity', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        redis_result = response_data['data']['data']['redis']
-        expect(redis_result).to have_key('connected')
+        expect(data['redis']).to have_key('connected')
       end
 
       it 'includes latency metrics for successful connections' do
         post '/api/v1/internal/services/test_connectivity', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        redis_result = response_data['data']['data']['redis']
+        redis_result = data['redis']
         if redis_result['connected']
           expect(redis_result).to have_key('latency_ms')
           expect(redis_result['latency_ms']).to be_a(Numeric)
@@ -218,33 +212,33 @@ RSpec.describe 'Api::V1::Internal::Services', type: :request do
         post '/api/v1/internal/services/validate_services', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        expect(response_data['data']['data']).to have_key('validations')
-        expect(response_data['data']['data']['validations']).to be_an(Array)
+        expect(data).to have_key('validations')
+        expect(data['validations']).to be_an(Array)
       end
 
       it 'includes validation status for each service' do
         post '/api/v1/internal/services/validate_services', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        validations = response_data['data']['data']['validations']
+        validations = data['validations']
         first_validation = validations.first
 
-        expect(first_validation).to have_key(:name)
-        expect(first_validation).to have_key(:valid)
+        expect(first_validation).to have_key('name')
+        expect(first_validation).to have_key('valid')
       end
 
       it 'marks all services as valid' do
         post '/api/v1/internal/services/validate_services', headers: internal_headers, as: :json
 
         expect_success_response
-        response_data = json_response
+        data = json_response_data
 
-        validations = response_data['data']['data']['validations']
-        expect(validations.all? { |v| v[:valid] }).to be true
+        validations = data['validations']
+        expect(validations.all? { |v| v['valid'] }).to be true
       end
     end
   end

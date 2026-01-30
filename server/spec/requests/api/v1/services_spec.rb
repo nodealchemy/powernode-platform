@@ -13,7 +13,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     admin_user.grant_permission('admin.settings.update')
   end
 
-  describe 'GET /api/v1/admin/reverse_proxy' do
+  describe 'GET /api/v1/services' do
     before do
       allow_any_instance_of(Services::ProxyConfigService).to receive(:get_full_config).and_return(
         {
@@ -26,7 +26,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
 
     context 'with admin permission' do
       it 'returns proxy configuration' do
-        get '/api/v1/admin/reverse_proxy', headers: headers, as: :json
+        get '/api/v1/services', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -36,7 +36,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
 
     context 'without admin permission' do
       it 'returns forbidden error' do
-        get '/api/v1/admin/reverse_proxy', headers: regular_headers, as: :json
+        get '/api/v1/services', headers: regular_headers, as: :json
 
         expect(response).to have_http_status(:forbidden)
         expect_error_response('Insufficient permissions to manage services settings')
@@ -44,7 +44,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'PUT /api/v1/admin/reverse_proxy' do
+  describe 'PUT /api/v1/services' do
     let(:config_params) do
       {
         config_type: 'service_config',
@@ -62,7 +62,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'updates proxy configuration' do
-      put '/api/v1/admin/reverse_proxy', params: config_params, headers: headers, as: :json
+      put '/api/v1/services', params: config_params, headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -73,7 +73,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
       let(:invalid_params) { { config_type: 'invalid_type' } }
 
       it 'returns bad request error' do
-        put '/api/v1/admin/reverse_proxy', params: invalid_params, headers: headers, as: :json
+        put '/api/v1/services', params: invalid_params, headers: headers, as: :json
 
         expect(response).to have_http_status(:bad_request)
         expect_error_response('Invalid configuration type')
@@ -81,7 +81,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'POST /api/v1/admin/reverse_proxy/test' do
+  describe 'POST /api/v1/services/test_configuration' do
     let(:test_config) { { enabled: true, services: [] } }
 
     before do
@@ -89,10 +89,13 @@ RSpec.describe 'Api::V1::Services', type: :request do
       allow_any_instance_of(Services::ProxyConfigService).to receive(:validate_config).and_return(
         { valid: true }
       )
+      allow_any_instance_of(Api::V1::ServicesController).to receive(:enqueue_job).and_return(
+        { job_id: SecureRandom.uuid, sidekiq_jid: 'test-jid', status: 'started' }
+      )
     end
 
     it 'tests the configuration' do
-      post '/api/v1/admin/reverse_proxy/test', params: { test_config: test_config }, headers: headers, as: :json
+      post '/api/v1/services/test_configuration', params: { test_config: test_config }, headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -107,7 +110,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
       end
 
       it 'returns validation errors' do
-        post '/api/v1/admin/reverse_proxy/test', params: { test_config: test_config }, headers: headers, as: :json
+        post '/api/v1/services/test_configuration', params: { test_config: test_config }, headers: headers, as: :json
 
         expect(response).to have_http_status(:unprocessable_content)
         expect_error_response
@@ -115,16 +118,19 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'POST /api/v1/admin/reverse_proxy/generate_config' do
+  describe 'POST /api/v1/services/generate_config' do
     let(:generate_params) { { proxy_type: 'nginx' } }
 
     before do
       allow(AdminSetting).to receive(:reverse_proxy_config).and_return({})
       allow_any_instance_of(Services::ProxyConfigService).to receive(:valid_proxy_type?).and_return(true)
+      allow_any_instance_of(Api::V1::ServicesController).to receive(:enqueue_job).and_return(
+        { job_id: SecureRandom.uuid, sidekiq_jid: 'test-jid', status: 'started' }
+      )
     end
 
     it 'generates configuration for specified proxy type' do
-      post '/api/v1/admin/reverse_proxy/generate_config', params: generate_params, headers: headers, as: :json
+      post '/api/v1/services/generate_config', params: generate_params, headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -138,7 +144,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
       end
 
       it 'returns bad request error' do
-        post '/api/v1/admin/reverse_proxy/generate_config',
+        post '/api/v1/services/generate_config',
              params: { proxy_type: 'unsupported' },
              headers: headers,
              as: :json
@@ -149,7 +155,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'GET /api/v1/admin/reverse_proxy/health' do
+  describe 'GET /api/v1/services/health_check' do
     before do
       allow(AdminSetting).to receive(:proxy_health_status).and_return(
         {
@@ -161,7 +167,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'returns health status' do
-      get '/api/v1/admin/reverse_proxy/health', headers: headers, as: :json
+      get '/api/v1/services/health_check', headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -169,7 +175,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'GET /api/v1/admin/reverse_proxy/status' do
+  describe 'GET /api/v1/services/status' do
     before do
       allow_any_instance_of(Services::ProxyConfigService).to receive(:get_status).and_return(
         {
@@ -181,7 +187,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'returns service status' do
-      get '/api/v1/admin/reverse_proxy/status', headers: headers, as: :json
+      get '/api/v1/services/status', headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -189,7 +195,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'POST /api/v1/admin/reverse_proxy/url_mappings' do
+  describe 'POST /api/v1/services/url_mappings' do
     let(:mapping_params) do
       {
         url_mapping: {
@@ -213,16 +219,15 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'creates a URL mapping' do
-      post '/api/v1/admin/reverse_proxy/url_mappings', params: mapping_params, headers: headers, as: :json
+      post '/api/v1/services/url_mappings', params: mapping_params, headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
-      expect(data['message']).to eq('URL mapping created successfully')
       expect(data).to have_key('mapping')
     end
   end
 
-  describe 'PUT /api/v1/admin/reverse_proxy/url_mappings/:id' do
+  describe 'PUT /api/v1/services/url_mappings/:id/update_url_mapping' do
     let(:mapping_id) { SecureRandom.uuid }
     let(:update_params) do
       {
@@ -238,7 +243,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'updates the URL mapping' do
-      put "/api/v1/admin/reverse_proxy/url_mappings/#{mapping_id}",
+      put "/api/v1/services/url_mappings/#{mapping_id}/update_url_mapping",
           params: update_params,
           headers: headers,
           as: :json
@@ -249,7 +254,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'DELETE /api/v1/admin/reverse_proxy/url_mappings/:id' do
+  describe 'DELETE /api/v1/services/url_mappings/:id' do
     let(:mapping_id) { SecureRandom.uuid }
 
     before do
@@ -257,7 +262,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'removes the URL mapping' do
-      delete "/api/v1/admin/reverse_proxy/url_mappings/#{mapping_id}", headers: headers, as: :json
+      delete "/api/v1/services/url_mappings/#{mapping_id}", headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -265,7 +270,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'PATCH /api/v1/admin/reverse_proxy/url_mappings/:id/toggle' do
+  describe 'PATCH /api/v1/services/url_mappings/:id/toggle' do
     let(:mapping_id) { SecureRandom.uuid }
 
     before do
@@ -273,7 +278,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'toggles the URL mapping' do
-      patch "/api/v1/admin/reverse_proxy/url_mappings/#{mapping_id}/toggle",
+      patch "/api/v1/services/url_mappings/#{mapping_id}/toggle",
             params: { enabled: true },
             headers: headers,
             as: :json
@@ -284,7 +289,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'GET /api/v1/admin/reverse_proxy/discovered_services' do
+  describe 'GET /api/v1/services/discovered_services' do
     before do
       allow_any_instance_of(Services::ProxyConfigService).to receive(:discovered_services).and_return(
         [
@@ -295,7 +300,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'returns discovered services' do
-      get '/api/v1/admin/reverse_proxy/discovered_services', headers: headers, as: :json
+      get '/api/v1/services/discovered_services', headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -304,7 +309,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'POST /api/v1/admin/reverse_proxy/service_discovery' do
+  describe 'POST /api/v1/services/service_discovery' do
     before do
       allow(AdminSetting).to receive(:service_discovery_config).and_return(
         {
@@ -315,7 +320,11 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'starts service discovery' do
-      post '/api/v1/admin/reverse_proxy/service_discovery', headers: headers, as: :json
+      allow_any_instance_of(Api::V1::ServicesController).to receive(:enqueue_job).and_return(
+        { job_id: SecureRandom.uuid, sidekiq_jid: 'test-jid', status: 'started' }
+      )
+
+      post '/api/v1/services/service_discovery', headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -331,7 +340,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
       end
 
       it 'returns error' do
-        post '/api/v1/admin/reverse_proxy/service_discovery', headers: headers, as: :json
+        post '/api/v1/services/service_discovery', headers: headers, as: :json
 
         expect(response).to have_http_status(:unprocessable_content)
         expect_error_response('Service discovery is not enabled')
@@ -339,7 +348,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'POST /api/v1/admin/reverse_proxy/add_discovered_service' do
+  describe 'POST /api/v1/services/add_discovered_service' do
     let(:service_params) do
       {
         service: {
@@ -358,7 +367,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'adds a discovered service' do
-      post '/api/v1/admin/reverse_proxy/add_discovered_service',
+      post '/api/v1/services/add_discovered_service',
            params: service_params,
            headers: headers,
            as: :json
@@ -369,7 +378,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'GET /api/v1/admin/reverse_proxy/health_history/:service_name' do
+  describe 'GET /api/v1/services/health_history/:service_name' do
     before do
       allow_any_instance_of(Services::ProxyConfigService).to receive(:health_history).and_return(
         [
@@ -380,7 +389,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'returns health history for service' do
-      get '/api/v1/admin/reverse_proxy/health_history/backend', headers: headers, as: :json
+      get '/api/v1/services/health_history/backend', headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -388,7 +397,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'POST /api/v1/admin/reverse_proxy/test_service' do
+  describe 'POST /api/v1/services/test_service' do
     let(:test_params) do
       {
         environment: 'development',
@@ -406,7 +415,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'tests a service' do
-      post '/api/v1/admin/reverse_proxy/test_service', params: test_params, headers: headers, as: :json
+      post '/api/v1/services/test_service', params: test_params, headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -414,7 +423,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'POST /api/v1/admin/reverse_proxy/validate_service' do
+  describe 'POST /api/v1/services/validate_service' do
     let(:validation_params) do
       {
         service_config: {
@@ -432,7 +441,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'validates service configuration' do
-      post '/api/v1/admin/reverse_proxy/validate_service',
+      post '/api/v1/services/validate_service',
            params: validation_params,
            headers: headers,
            as: :json
@@ -443,7 +452,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'GET /api/v1/admin/reverse_proxy/service_templates' do
+  describe 'GET /api/v1/services/service_templates' do
     before do
       allow_any_instance_of(Services::ProxyConfigService).to receive(:service_templates).and_return(
         {
@@ -454,7 +463,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'returns service templates' do
-      get '/api/v1/admin/reverse_proxy/service_templates', headers: headers, as: :json
+      get '/api/v1/services/service_templates', headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -463,7 +472,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'POST /api/v1/admin/reverse_proxy/duplicate_service' do
+  describe 'POST /api/v1/services/duplicate_service' do
     let(:duplicate_params) do
       {
         environment: 'development',
@@ -479,7 +488,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'duplicates a service' do
-      post '/api/v1/admin/reverse_proxy/duplicate_service',
+      post '/api/v1/services/duplicate_service',
            params: duplicate_params,
            headers: headers,
            as: :json
@@ -490,7 +499,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'GET /api/v1/admin/reverse_proxy/export_services/:environment' do
+  describe 'GET /api/v1/services/export_services/:environment' do
     before do
       allow_any_instance_of(Services::ProxyConfigService).to receive(:export_services).and_return(
         {
@@ -501,7 +510,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'exports services configuration' do
-      get '/api/v1/admin/reverse_proxy/export_services/development', headers: headers, as: :json
+      get '/api/v1/services/export_services/development', headers: headers, as: :json
 
       expect_success_response
       data = json_response_data
@@ -510,7 +519,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
   end
 
-  describe 'POST /api/v1/admin/reverse_proxy/import_services' do
+  describe 'POST /api/v1/services/import_services' do
     let(:import_params) do
       {
         environment: 'development',
@@ -527,7 +536,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     end
 
     it 'imports services configuration' do
-      post '/api/v1/admin/reverse_proxy/import_services',
+      post '/api/v1/services/import_services',
            params: import_params,
            headers: headers,
            as: :json

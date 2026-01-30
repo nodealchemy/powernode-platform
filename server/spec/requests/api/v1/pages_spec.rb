@@ -69,7 +69,7 @@ RSpec.describe 'Api::V1::Pages', type: :request do
       end
 
       it 'paginates results' do
-        get '/api/v1/pages', params: { page: 1, per_page: 1 }, as: :json
+        get '/api/v1/pages?page=1&per_page=1', as: :json
 
         response_data = json_response
 
