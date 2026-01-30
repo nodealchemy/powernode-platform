@@ -1572,4 +1572,906 @@ end
 
 puts "    ✅ Webhook and Integration Management"
 
-puts "  ✅ DevOps articles created (4 articles)"
+# Article 28: Managing Pipeline Runners
+runners_content = <<~MARKDOWN
+# Managing Pipeline Runners
+
+Configure and manage self-hosted runners for CI/CD pipeline execution with full control over your build environment.
+
+## What Are Runners?
+
+### Runner Overview
+
+Runners are agents that execute CI/CD pipeline jobs:
+
+- **Hosted Runners** - Managed by Powernode, ready to use
+- **Self-Hosted Runners** - Your infrastructure, your control
+
+### Why Self-Hosted?
+
+| Benefit | Description |
+|---------|-------------|
+| **Security** | Keep builds in your network |
+| **Compliance** | Meet data residency requirements |
+| **Performance** | Dedicated resources |
+| **Customization** | Custom software and tools |
+| **Cost** | Reduce usage-based costs |
+
+## Accessing Runners
+
+Navigate to **DevOps > Runners** to:
+- View registered runners
+- Add new runners
+- Monitor runner status
+- Configure runner settings
+
+## Runner Dashboard
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Pipeline Runners                    [Add Runner]   │
+├─────────────────────────────────────────────────────┤
+│  Runner           │ Status │ Jobs │ Labels         │
+├───────────────────┼────────┼──────┼────────────────┤
+│  linux-build-01   │ ✅ Idle │  234 │ linux, docker  │
+│  linux-build-02   │ 🔄 Busy │  189 │ linux, docker  │
+│  macos-build-01   │ ✅ Idle │   45 │ macos, ios     │
+│  windows-build    │ ⚠️ Offline │ 67 │ windows, .net │
+│  gpu-runner-01    │ ✅ Idle │   12 │ linux, gpu     │
+└───────────────────┴────────┴──────┴────────────────┘
+```
+
+## Setting Up Self-Hosted Runners
+
+### Prerequisites
+
+Before setting up a runner:
+
+```yaml
+System Requirements:
+  OS: Linux, macOS, or Windows
+  CPU: 2+ cores recommended
+  RAM: 4GB minimum, 8GB recommended
+  Storage: 20GB+ free space
+  Network: Outbound HTTPS access
+
+Software:
+  - Docker (recommended)
+  - Git
+  - Required build tools
+```
+
+### Installation Steps
+
+#### 1. Generate Registration Token
+
+```bash
+# Via Dashboard
+1. Navigate to DevOps > Runners
+2. Click "Add Runner"
+3. Copy the registration token
+
+# Via API
+curl -X POST https://api.powernode.org/api/v1/devops/runners/token \\
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+#### 2. Download Runner Agent
+
+```bash
+# Linux/macOS
+curl -L https://powernode.org/runner/download/linux-amd64 -o powernode-runner
+chmod +x powernode-runner
+
+# Windows (PowerShell)
+Invoke-WebRequest -Uri https://powernode.org/runner/download/windows-amd64 \\
+  -OutFile powernode-runner.exe
+```
+
+#### 3. Register Runner
+
+```bash
+./powernode-runner register \\
+  --url https://api.powernode.org \\
+  --token YOUR_REGISTRATION_TOKEN \\
+  --name "linux-build-01" \\
+  --labels "linux,docker,nodejs" \\
+  --executor docker
+```
+
+#### 4. Start Runner
+
+```bash
+# Interactive mode
+./powernode-runner run
+
+# As a service (Linux)
+sudo ./powernode-runner service install
+sudo ./powernode-runner service start
+```
+
+### Docker Installation
+
+Run runner as Docker container:
+
+```bash
+docker run -d \\
+  --name powernode-runner \\
+  --restart unless-stopped \\
+  -v /var/run/docker.sock:/var/run/docker.sock \\
+  -e POWERNODE_URL=https://api.powernode.org \\
+  -e POWERNODE_TOKEN=YOUR_TOKEN \\
+  -e RUNNER_NAME=docker-runner-01 \\
+  -e RUNNER_LABELS=docker,linux \\
+  powernode/runner:latest
+```
+
+### Kubernetes Installation
+
+Deploy runners in Kubernetes:
+
+```yaml
+# runner-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: powernode-runner
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: powernode-runner
+  template:
+    metadata:
+      labels:
+        app: powernode-runner
+    spec:
+      containers:
+        - name: runner
+          image: powernode/runner:latest
+          env:
+            - name: POWERNODE_URL
+              value: "https://api.powernode.org"
+            - name: POWERNODE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: runner-secrets
+                  key: token
+            - name: RUNNER_LABELS
+              value: "kubernetes,docker"
+```
+
+## Runner Configuration
+
+### Configuration File
+
+```yaml
+# config.yaml
+runner:
+  name: linux-build-01
+  url: https://api.powernode.org
+  token: ${RUNNER_TOKEN}
+
+  labels:
+    - linux
+    - docker
+    - nodejs
+
+  executor: docker
+  docker:
+    image: node:20
+    privileged: false
+    volumes:
+      - /cache:/cache
+
+  concurrency: 4
+  check_interval: 5s
+
+  cache:
+    path: /cache
+    max_size: 10GB
+```
+
+### Executor Types
+
+| Executor | Description | Use Case |
+|----------|-------------|----------|
+| **docker** | Run jobs in containers | Most workloads |
+| **shell** | Run directly on host | Custom environments |
+| **kubernetes** | Run in K8s pods | Scalable builds |
+| **virtualbox** | Run in VMs | Isolation needs |
+
+### Docker Executor Options
+
+```yaml
+docker:
+  image: ubuntu:22.04
+  privileged: false
+  cap_add:
+    - NET_ADMIN
+  volumes:
+    - /cache:/cache:rw
+    - /certs:/certs:ro
+  network_mode: bridge
+  dns:
+    - 8.8.8.8
+  extra_hosts:
+    - "internal.server:10.0.0.1"
+  memory: 4g
+  cpus: 2
+```
+
+## Runner Labels
+
+### Using Labels
+
+Labels help route jobs to specific runners:
+
+```yaml
+# Pipeline configuration
+jobs:
+  build:
+    runner:
+      labels: [linux, docker, nodejs]
+    steps:
+      - run: npm build
+
+  ios-build:
+    runner:
+      labels: [macos, ios, xcode]
+    steps:
+      - run: xcodebuild
+```
+
+### Common Labels
+
+| Label | Purpose |
+|-------|---------|
+| `linux`, `macos`, `windows` | Operating system |
+| `docker` | Docker available |
+| `gpu`, `cuda` | GPU computing |
+| `nodejs`, `python`, `java` | Language runtime |
+| `high-mem`, `high-cpu` | Resource specs |
+
+## Monitoring Runners
+
+### Status Monitoring
+
+```yaml
+Runner Status:
+  Name: linux-build-01
+  Status: Online
+  Last Seen: 2 seconds ago
+
+  Current Job: pipeline-123 / build
+  Queue: 0 jobs waiting
+
+  System:
+    CPU: 45%
+    Memory: 6.2GB / 16GB
+    Disk: 45GB / 100GB
+
+  Statistics (24h):
+    Jobs Completed: 156
+    Jobs Failed: 3
+    Avg Duration: 4m 32s
+```
+
+### Health Checks
+
+```yaml
+Health Check Configuration:
+  interval: 30s
+  timeout: 10s
+  unhealthy_threshold: 3
+
+  Checks:
+    - type: disk_space
+      min_percent: 10
+
+    - type: docker
+      enabled: true
+
+    - type: connectivity
+      url: https://api.powernode.org
+```
+
+### Alerts
+
+Configure runner alerts:
+
+```yaml
+Alert Rules:
+  - name: Runner Offline
+    condition: status == offline
+    duration: 5m
+    notify: ops-team
+
+  - name: High Queue
+    condition: queue_length > 10
+    duration: 15m
+    notify: devops-team
+
+  - name: Disk Space Low
+    condition: disk_free < 20%
+    notify: ops-team
+```
+
+## Security
+
+### Runner Security
+
+```yaml
+Security Configuration:
+  Token Rotation:
+    Interval: 30 days
+    Auto-rotate: true
+
+  Network:
+    Allowed IPs: [internal only]
+    TLS: required
+    Verify Certs: true
+
+  Execution:
+    Privileged Mode: disabled
+    Root User: disabled
+    Secrets Masking: enabled
+```
+
+### Secret Management
+
+```yaml
+Secrets Available to Runners:
+  Environment Variables:
+    - Injected at job start
+    - Masked in logs
+
+  Files:
+    - Mounted as volumes
+    - Cleaned after job
+
+  Best Practices:
+    - Never log secrets
+    - Use short-lived tokens
+    - Rotate regularly
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Runner Not Connecting**
+```yaml
+Checklist:
+  - Verify token is valid
+  - Check network connectivity
+  - Confirm firewall rules
+  - Review runner logs
+```
+
+**Jobs Stuck in Queue**
+```yaml
+Checklist:
+  - Check runner status
+  - Verify label matching
+  - Review runner capacity
+  - Check for resource constraints
+```
+
+**Build Failures**
+```yaml
+Checklist:
+  - Review job logs
+  - Check Docker image availability
+  - Verify environment setup
+  - Test commands locally
+```
+
+### Runner Logs
+
+```bash
+# View runner logs
+./powernode-runner --log-level debug run
+
+# Docker logs
+docker logs -f powernode-runner
+
+# Service logs (Linux)
+journalctl -u powernode-runner -f
+```
+
+## Best Practices
+
+### Setup
+
+1. **Right-Size Resources**
+   - Match to workload needs
+   - Plan for peak usage
+   - Monitor and adjust
+
+2. **Use Labels Effectively**
+   - Meaningful categorization
+   - Avoid over-labeling
+   - Document label meanings
+
+3. **Implement Redundancy**
+   - Multiple runners per label
+   - Geographic distribution
+   - Auto-scaling where possible
+
+### Operations
+
+1. **Regular Maintenance**
+   - Update runner software
+   - Clean up disk space
+   - Rotate tokens
+
+2. **Monitoring**
+   - Track performance metrics
+   - Set up alerts
+   - Review logs regularly
+
+## Related Articles
+
+- [DevOps Overview](/kb/devops-overview)
+- [Creating CI/CD Pipelines](/kb/creating-cicd-pipelines)
+- [API Key Management](/kb/api-key-management)
+
+---
+
+Need help with runners? Contact devops-support@powernode.org
+MARKDOWN
+
+KnowledgeBase::Article.find_or_create_by!(slug: "managing-pipeline-runners") do |article|
+  article.title = "Managing Pipeline Runners"
+  article.category = devops_cat
+  article.author = author
+  article.status = "published"
+  article.is_public = true
+  article.is_featured = false
+  article.excerpt = "Configure self-hosted runners for CI/CD pipeline execution with Docker, Kubernetes, labels, monitoring, and security best practices."
+  article.content = runners_content
+  article.views_count = 0
+  article.likes_count = 0
+  article.published_at = Time.current
+end
+
+puts "    ✅ Managing Pipeline Runners"
+
+# Article 29: API Key Management
+api_keys_content = <<~MARKDOWN
+# API Key Management
+
+Create, manage, and secure API keys for programmatic access to Powernode's features and integrations.
+
+## API Keys Overview
+
+### What Are API Keys?
+
+API keys provide:
+- **Authentication** for API requests
+- **Authorization** scoped to specific permissions
+- **Tracking** of API usage
+- **Security** controls for access
+
+### Accessing API Keys
+
+Navigate to **DevOps > API Keys** to:
+- View existing keys
+- Create new keys
+- Manage permissions
+- Monitor usage
+
+## API Keys Dashboard
+
+```
+┌─────────────────────────────────────────────────────┐
+│  API Keys                            [Create Key]   │
+├─────────────────────────────────────────────────────┤
+│  Name           │ Permissions │ Last Used │ Status  │
+├─────────────────┼─────────────┼───────────┼─────────┤
+│  CI/CD Key      │ 5 scopes    │ 2 min ago │ Active  │
+│  Integration    │ 3 scopes    │ 1 hour    │ Active  │
+│  Read Only      │ 2 scopes    │ 3 days    │ Active  │
+│  Legacy Key     │ Full Access │ 30 days   │ ⚠️ Review│
+└─────────────────┴─────────────┴───────────┴─────────┘
+```
+
+## Creating API Keys
+
+### Via Dashboard
+
+1. Navigate to **DevOps > API Keys**
+2. Click **Create Key**
+3. Configure key settings:
+
+```yaml
+Key Configuration:
+  Name: CI/CD Pipeline Key
+  Description: Key for GitHub Actions integration
+
+  Permissions:
+    ✅ pipelines.trigger
+    ✅ pipelines.read
+    ✅ deployments.create
+    ✅ artifacts.read
+    ⬜ admin.settings
+
+  Restrictions:
+    IP Allowlist:
+      - 192.30.252.0/22  # GitHub Actions
+      - 185.199.108.0/22
+    Expires: 90 days
+    Rate Limit: 1000/hour
+
+  Environment: Production
+```
+
+4. Click **Create**
+5. **Copy the key immediately** (shown only once)
+
+### Via API
+
+```bash
+curl -X POST https://api.powernode.org/api/v1/api-keys \\
+  -H "Authorization: Bearer YOUR_ADMIN_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "CI/CD Pipeline Key",
+    "description": "Key for GitHub Actions",
+    "permissions": [
+      "pipelines.trigger",
+      "pipelines.read",
+      "deployments.create"
+    ],
+    "expires_in_days": 90,
+    "ip_allowlist": ["192.30.252.0/22"]
+  }'
+```
+
+## Key Permissions
+
+### Permission Scopes
+
+| Scope | Description | Use Case |
+|-------|-------------|----------|
+| `api.read` | Read API resources | Read-only integrations |
+| `api.write` | Write API resources | Full integrations |
+| `pipelines.*` | Pipeline operations | CI/CD systems |
+| `deployments.*` | Deployment operations | Release automation |
+| `webhooks.*` | Webhook management | Event subscriptions |
+| `ai.*` | AI operations | AI integrations |
+| `admin.*` | Administrative access | Management tools |
+
+### Scope Hierarchy
+
+```yaml
+Scope Hierarchy:
+  api.read:
+    - Read all non-admin resources
+
+  api.write:
+    - Includes api.read
+    - Create/update resources
+
+  pipelines.trigger:
+    - Start pipeline runs
+
+  pipelines.read:
+    - View pipeline status
+    - Download artifacts
+
+  admin.settings:
+    - Modify system settings
+    - Manage other keys
+```
+
+### Minimum Permissions
+
+Follow least-privilege principle:
+
+```yaml
+# Good: Specific permissions
+permissions:
+  - pipelines.trigger
+  - pipelines.read
+
+# Avoid: Broad permissions
+permissions:
+  - api.write  # Too broad
+  - admin.*    # Too powerful
+```
+
+## Key Security
+
+### Best Practices
+
+1. **Use Meaningful Names**
+   ```yaml
+   Good: "GitHub Actions - Production Deploy"
+   Bad: "API Key 1"
+   ```
+
+2. **Set Expiration**
+   ```yaml
+   Recommended Expiration:
+     Development: 30 days
+     CI/CD: 90 days
+     Production: 180 days
+     Maximum: 365 days
+   ```
+
+3. **Restrict IP Addresses**
+   ```yaml
+   IP Allowlist:
+     # GitHub Actions
+     - 192.30.252.0/22
+     - 185.199.108.0/22
+     # Your CI servers
+     - 10.0.0.0/8
+   ```
+
+4. **Minimum Permissions**
+   - Only grant needed scopes
+   - Review periodically
+   - Remove unused permissions
+
+### Storing Keys Securely
+
+```yaml
+DO:
+  - Use secret management (Vault, AWS Secrets)
+  - Store in CI/CD secrets
+  - Encrypt at rest
+  - Rotate regularly
+
+DON'T:
+  - Commit to version control
+  - Share via email/chat
+  - Log in applications
+  - Embed in client code
+```
+
+### Environment Variables
+
+```bash
+# Set as environment variable
+export POWERNODE_API_KEY="pk_live_abc123..."
+
+# Use in applications
+api_key = os.environ.get('POWERNODE_API_KEY')
+```
+
+## Using API Keys
+
+### Request Authentication
+
+```bash
+# Header authentication (recommended)
+curl -X GET https://api.powernode.org/api/v1/pipelines \\
+  -H "Authorization: Bearer pk_live_abc123..."
+
+# Query parameter (use only when necessary)
+curl "https://api.powernode.org/api/v1/pipelines?api_key=pk_live_abc123..."
+```
+
+### SDK Usage
+
+```javascript
+// JavaScript SDK
+const powernode = require('@powernode/sdk');
+
+const client = new powernode.Client({
+  apiKey: process.env.POWERNODE_API_KEY
+});
+
+const pipelines = await client.pipelines.list();
+```
+
+```python
+# Python SDK
+import powernode
+
+client = powernode.Client(api_key=os.environ['POWERNODE_API_KEY'])
+pipelines = client.pipelines.list()
+```
+
+## Key Rotation
+
+### Why Rotate?
+
+- Limit exposure from compromised keys
+- Meet compliance requirements
+- Maintain security hygiene
+
+### Rotation Process
+
+1. **Create New Key**
+   - Same permissions as old key
+   - Add descriptive name with date
+
+2. **Update Applications**
+   - Deploy with new key
+   - Verify functionality
+
+3. **Monitor Old Key**
+   - Watch for any remaining usage
+   - Identify missed updates
+
+4. **Revoke Old Key**
+   - Disable after transition
+   - Delete after confirmation
+
+### Automated Rotation
+
+```yaml
+Rotation Policy:
+  Interval: 90 days
+  Warning: 14 days before expiry
+  Grace Period: 7 days
+  Auto-create: true
+
+Notifications:
+  - Email key owner
+  - Slack #security
+  - Create ticket
+```
+
+## Monitoring Usage
+
+### Usage Dashboard
+
+```yaml
+Key Usage: CI/CD Pipeline Key
+
+Last 24 Hours:
+  Requests: 1,234
+  Success Rate: 99.8%
+  Avg Latency: 145ms
+
+By Endpoint:
+  /pipelines/trigger: 450
+  /pipelines/status: 680
+  /artifacts/download: 104
+
+By IP:
+  192.30.252.45: 800
+  192.30.252.46: 434
+
+Rate Limit:
+  Current: 450/hour
+  Limit: 1000/hour
+```
+
+### Usage Alerts
+
+```yaml
+Alert Rules:
+  - name: High Usage
+    condition: requests > 800/hour
+    notify: devops-team
+
+  - name: Failed Requests
+    condition: error_rate > 5%
+    notify: security-team
+
+  - name: New IP Detected
+    condition: ip NOT IN allowlist
+    notify: security-team
+```
+
+## Troubleshooting
+
+### Common Errors
+
+**401 Unauthorized**
+```yaml
+Causes:
+  - Invalid or expired key
+  - Key revoked
+  - Wrong key for environment
+
+Solution:
+  - Verify key is correct
+  - Check key status in dashboard
+  - Ensure using right environment
+```
+
+**403 Forbidden**
+```yaml
+Causes:
+  - Insufficient permissions
+  - IP not in allowlist
+  - Resource access denied
+
+Solution:
+  - Review key permissions
+  - Check IP restrictions
+  - Verify resource ownership
+```
+
+**429 Rate Limited**
+```yaml
+Causes:
+  - Exceeded rate limit
+
+Solution:
+  - Implement backoff
+  - Request limit increase
+  - Optimize request patterns
+```
+
+### Debug Mode
+
+```bash
+# Enable debug headers
+curl -X GET https://api.powernode.org/api/v1/pipelines \\
+  -H "Authorization: Bearer pk_live_abc123..." \\
+  -H "X-Debug: true" \\
+  -v
+
+# Response headers include:
+# X-RateLimit-Remaining: 950
+# X-RateLimit-Reset: 1642345678
+# X-Request-Id: req_abc123
+```
+
+## Administrative Actions
+
+### Revoking Keys
+
+```yaml
+Revoke Scenarios:
+  - Employee departure
+  - Suspected compromise
+  - Project completion
+  - Key rotation
+
+Process:
+  1. Navigate to API Keys
+  2. Select key to revoke
+  3. Click "Revoke"
+  4. Confirm action
+  5. Monitor for failed requests
+```
+
+### Bulk Management
+
+```bash
+# List all keys via API
+curl -X GET https://api.powernode.org/api/v1/api-keys \\
+  -H "Authorization: Bearer ADMIN_KEY"
+
+# Revoke expired keys
+curl -X POST https://api.powernode.org/api/v1/api-keys/revoke-expired \\
+  -H "Authorization: Bearer ADMIN_KEY"
+```
+
+## Related Articles
+
+- [DevOps Overview](/kb/devops-overview)
+- [Managing Pipeline Runners](/kb/managing-pipeline-runners)
+- [API & Integrations Overview](/kb/api-overview)
+
+---
+
+Need help with API keys? Contact devops-support@powernode.org
+MARKDOWN
+
+KnowledgeBase::Article.find_or_create_by!(slug: "api-key-management") do |article|
+  article.title = "API Key Management"
+  article.category = devops_cat
+  article.author = author
+  article.status = "published"
+  article.is_public = true
+  article.is_featured = false
+  article.excerpt = "Create, manage, and secure API keys with scoped permissions, IP restrictions, rotation policies, and usage monitoring."
+  article.content = api_keys_content
+  article.views_count = 0
+  article.likes_count = 0
+  article.published_at = Time.current
+end
+
+puts "    ✅ API Key Management"
+
+puts "  ✅ DevOps articles created (6 articles)"

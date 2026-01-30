@@ -96,6 +96,7 @@ KB_ARTICLE_FILES = %w[
   getting_started_articles
   billing_articles
   business_analytics_articles
+  business_articles
   account_management_articles
   content_management_articles
   marketplace_articles
