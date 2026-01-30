@@ -31,59 +31,13 @@ export const defaultNavigationConfig: NavigationConfig = {
       order: 2
     }
   ],
-  
+
   sections: [
-    // Account section - personal and team management
-    {
-      id: 'account',
-      name: 'Account',
-      items: [
-        {
-          id: 'profile',
-          name: 'My Profile',
-          href: '/app/profile',
-          icon: User,
-          description: 'Personal information and preferences',
-          permissions: [],
-          order: 1
-        },
-        {
-          id: 'users',
-          name: 'Users',
-          href: '/app/users',
-          icon: Users,
-          description: 'Manage your team members',
-          permissions: ['team.read'],
-          order: 2
-        },
-        {
-          id: 'billing',
-          name: 'Billing',
-          href: '/app/account/billing',
-          icon: CreditCard,
-          description: 'Invoices and payment processing',
-          permissions: ['admin.billing.read'],
-          order: 3
-        }
-      ],
-      collapsible: true,
-      defaultExpanded: true,
-      order: 3
-    },
-    // Business section - core business operations
+    // Business section - core business operations (most frequently used)
     {
       id: 'business',
       name: 'Business',
       items: [
-        {
-          id: 'analytics',
-          name: 'Analytics',
-          href: '/app/business/analytics',
-          icon: BarChart3,
-          description: 'Revenue and growth metrics',
-          permissions: [],
-          order: 1
-        },
         {
           id: 'customers',
           name: 'Customers',
@@ -91,7 +45,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Users,
           description: 'Customer management and insights',
           permissions: [],
-          order: 2
+          order: 1
         },
         {
           id: 'plans',
@@ -99,6 +53,15 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/business/plans',
           icon: Package,
           description: 'Manage pricing and subscription tiers',
+          permissions: [],
+          order: 2
+        },
+        {
+          id: 'analytics',
+          name: 'Analytics',
+          href: '/app/business/analytics',
+          icon: BarChart3,
+          description: 'Revenue and growth metrics',
           permissions: [],
           order: 3
         },
@@ -140,13 +103,22 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 2
         },
         {
+          id: 'ai-agent-teams',
+          name: 'Agent Teams',
+          href: '/app/ai/agent-teams',
+          icon: Users,
+          description: 'CrewAI-style multi-agent team orchestration',
+          permissions: ['ai.agents.read'],
+          order: 3
+        },
+        {
           id: 'ai-conversations',
           name: 'Conversations',
           href: '/app/ai/conversations',
           icon: MessageSquare,
           description: 'AI-powered conversations',
           permissions: ['ai.conversations.read'],
-          order: 3
+          order: 4
         },
         {
           id: 'ai-workflows',
@@ -155,7 +127,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Workflow,
           description: 'Visual AI orchestration and flow builder',
           permissions: ['ai.workflows.read'],
-          order: 4
+          order: 5
         },
         {
           id: 'ai-prompts',
@@ -164,7 +136,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: MessageSquare,
           description: 'Reusable prompt templates for AI workflows',
           permissions: ['ai.prompt_templates.read'],
-          order: 5
+          order: 6
         },
         {
           id: 'ai-contexts',
@@ -173,15 +145,6 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: BookOpen,
           description: 'Persistent contexts and memory for AI agents',
           permissions: ['ai.context.read'],
-          order: 6
-        },
-        {
-          id: 'ai-analytics',
-          name: 'AI Analytics',
-          href: '/app/ai/analytics',
-          icon: BarChart3,
-          description: 'AI performance, usage insights, and monitoring',
-          permissions: ['ai.analytics.read'],
           order: 7
         },
         {
@@ -194,22 +157,13 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 8
         },
         {
-          id: 'ai-agent-teams',
-          name: 'Agent Teams',
-          href: '/app/ai/agent-teams',
-          icon: Users,
-          description: 'CrewAI-style multi-agent team orchestration',
-          permissions: ['ai.agents.read'],
-          order: 9
-        },
-        {
           id: 'ai-mcp',
           name: 'MCP Servers',
           href: '/app/ai/mcp',
           icon: Server,
           description: 'Model Context Protocol servers and tools',
           permissions: ['mcp.servers.read'],
-          order: 10
+          order: 9
         },
         {
           id: 'ai-monitoring',
@@ -217,6 +171,15 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/ai/monitoring',
           icon: Activity,
           description: 'Real-time AI system monitoring and metrics',
+          permissions: ['ai.analytics.read'],
+          order: 10
+        },
+        {
+          id: 'ai-analytics',
+          name: 'AI Analytics',
+          href: '/app/ai/analytics',
+          icon: BarChart3,
+          description: 'AI performance, usage insights, and monitoring',
           permissions: ['ai.analytics.read'],
           order: 11
         },
@@ -268,21 +231,21 @@ export const defaultNavigationConfig: NavigationConfig = {
       name: 'Content',
       items: [
         {
-          id: 'pages',
-          name: 'Pages',
-          href: '/app/content/pages',
-          icon: FileText,
-          description: 'Manage content pages and documentation',
-          permissions: ['page.read'],
-          order: 1
-        },
-        {
           id: 'knowledge-base',
           name: 'Knowledge Base',
           href: '/app/content/kb',
           icon: HelpCircle,
           description: 'Browse articles, guides, and documentation',
           permissions: ['kb.read'],
+          order: 1
+        },
+        {
+          id: 'pages',
+          name: 'Pages',
+          href: '/app/content/pages',
+          icon: FileText,
+          description: 'Manage content pages and documentation',
+          permissions: ['page.read'],
           order: 2
         },
         {
@@ -299,6 +262,43 @@ export const defaultNavigationConfig: NavigationConfig = {
       collapsible: true,
       defaultExpanded: true,
       order: 15
+    },
+    // Account section - personal and team management (less frequent access)
+    {
+      id: 'account',
+      name: 'Account',
+      items: [
+        {
+          id: 'users',
+          name: 'Users',
+          href: '/app/users',
+          icon: Users,
+          description: 'Manage your team members',
+          permissions: ['team.read'],
+          order: 1
+        },
+        {
+          id: 'profile',
+          name: 'My Profile',
+          href: '/app/profile',
+          icon: User,
+          description: 'Personal information and preferences',
+          permissions: [],
+          order: 2
+        },
+        {
+          id: 'billing',
+          name: 'Billing',
+          href: '/app/account/billing',
+          icon: CreditCard,
+          description: 'Invoices and payment processing',
+          permissions: ['admin.billing.read'],
+          order: 3
+        }
+      ],
+      collapsible: true,
+      defaultExpanded: false,
+      order: 18
     },
   ],
   
@@ -405,7 +405,7 @@ export const adminNavigationOverrides = {
           icon: Server,
           description: 'DevOps dashboard and quick access',
           permissions: [],
-          order: 0
+          order: 1
         },
         {
           id: 'git-providers',
@@ -414,7 +414,7 @@ export const adminNavigationOverrides = {
           icon: GitBranch,
           description: 'GitHub, GitLab, Gitea, and other git providers',
           permissions: ['git.providers.read'],
-          order: 1
+          order: 2
         },
         {
           id: 'repositories',
@@ -423,7 +423,7 @@ export const adminNavigationOverrides = {
           icon: FolderGit2,
           description: 'Synced Git repositories from all providers',
           permissions: ['git.repositories.read'],
-          order: 2
+          order: 3
         },
         {
           id: 'pipelines',
@@ -432,7 +432,7 @@ export const adminNavigationOverrides = {
           icon: Workflow,
           description: 'DevOps pipelines for automated deployments',
           permissions: ['devops.pipelines.read'],
-          order: 3
+          order: 4
         },
         {
           id: 'runners',
@@ -441,7 +441,7 @@ export const adminNavigationOverrides = {
           icon: Server,
           description: 'Self-hosted workflow execution agents',
           permissions: ['cicd.runners.read', 'git.runners.read'],
-          order: 4
+          order: 5
         },
         {
           id: 'webhooks',
@@ -450,7 +450,7 @@ export const adminNavigationOverrides = {
           icon: '🔗',
           description: 'Manage webhook endpoints and events',
           permissions: ['webhook.read'],
-          order: 5
+          order: 6
         },
         {
           id: 'integrations',
@@ -459,7 +459,7 @@ export const adminNavigationOverrides = {
           icon: Puzzle,
           description: 'Third-party service integrations and webhooks',
           permissions: ['integrations.read'],
-          order: 6
+          order: 7
         },
         {
           id: 'api-keys',
@@ -468,13 +468,13 @@ export const adminNavigationOverrides = {
           icon: Key,
           description: 'API keys and authentication tokens',
           permissions: ['api.manage_keys'],
-          order: 7
+          order: 8
         }
       ],
       permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys'],
       collapsible: true,
       defaultExpanded: false,
-      order: 20  // After Content (15)
+      order: 20
     },
     // Supply Chain section - software supply chain security
     {
@@ -539,9 +539,9 @@ export const adminNavigationOverrides = {
       permissions: ['supply_chain.read'],
       collapsible: true,
       defaultExpanded: false,
-      order: 22  // After DevOps (20), before System (25)
+      order: 22
     },
-    // System section - infrastructure only
+    // System section - infrastructure management
     {
       id: 'system',
       name: 'System',
@@ -586,7 +586,7 @@ export const adminNavigationOverrides = {
       permissions: ['admin.settings.update', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'admin.audit.read'],
       collapsible: true,
       defaultExpanded: false,
-      order: 25  // After DevOps (20)
+      order: 25
     },
     // Administration section - super admin features (always last)
     {
@@ -612,31 +612,22 @@ export const adminNavigationOverrides = {
           order: 2
         },
         {
-          id: 'admin-marketplace',
-          name: 'Marketplace',
-          href: '/app/admin/marketplace',
-          icon: Store,
-          description: 'Manage marketplace listings and plugins',
-          permissions: ['admin.marketplace.read'],
-          order: 3
-        },
-        {
           id: 'impersonation-admin',
           name: 'Impersonation',
           href: '/app/admin/impersonation',
           icon: UserCog,
           description: 'User impersonation for support and debugging',
           permissions: ['admin.impersonation.read'],
-          order: 4
+          order: 3
         },
         {
-          id: 'maintenance',
-          name: 'Maintenance',
-          href: '/app/admin/maintenance',
-          icon: '🔧',
-          description: 'System maintenance and health monitoring',
-          permissions: ['admin.maintenance.backup', 'admin.maintenance.cleanup'],
-          order: 5
+          id: 'admin-marketplace',
+          name: 'Marketplace',
+          href: '/app/admin/marketplace',
+          icon: Store,
+          description: 'Manage marketplace listings and plugins',
+          permissions: ['admin.marketplace.read'],
+          order: 4
         },
         {
           id: 'settings',
@@ -645,13 +636,22 @@ export const adminNavigationOverrides = {
           icon: Settings,
           description: 'Platform configuration and settings',
           permissions: ['admin.settings.read'],
+          order: 5
+        },
+        {
+          id: 'maintenance',
+          name: 'Maintenance',
+          href: '/app/admin/maintenance',
+          icon: '🔧',
+          description: 'System maintenance and health monitoring',
+          permissions: ['admin.maintenance.backup', 'admin.maintenance.cleanup'],
           order: 6
         }
       ],
       permissions: ['admin.access'],
       collapsible: true,
       defaultExpanded: false,
-      order: 30  // Always last
+      order: 30
     }
   ]
 };
