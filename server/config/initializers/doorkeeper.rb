@@ -68,8 +68,8 @@ Doorkeeper.configure do
   # Token Format & Security
   # ===================================================================
 
-  # Use secure random tokens (not JWT by default)
-  access_token_generator "::Doorkeeper::JWT"
+  # Use secure random tokens (default generator)
+  # access_token_generator "::Doorkeeper::JWT"  # Requires doorkeeper-jwt gem
 
   # Hash tokens before storing in database
   hash_token_secrets fallback: :plain

@@ -67,7 +67,7 @@ Rails.application.configure do
   config.assume_ssl = true if Rails.env.production?
 
   # Rate limiting configuration (if using rack-attack)
-  if defined?(Rack::Attack)
+  if defined?(Rack::Attack) && !Rails.env.test?
     # Throttle payment endpoints more aggressively
     Rack::Attack.throttle("payment_api", limit: 10, period: 1.minute) do |req|
       req.ip if req.path.start_with?("/api/v1/payment", "/api/v1/billing")

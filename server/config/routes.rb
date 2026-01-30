@@ -177,7 +177,7 @@ Rails.application.routes.draw do
         end
 
         # Reverse proxy internal operations
-        namespace :reverse_proxy do
+        scope :reverse_proxy do
           post :validate, to: "reverse_proxy#validate_config"
           post :test_connectivity, to: "reverse_proxy#test_connectivity"
           post :generate_config, to: "reverse_proxy#generate_config"
@@ -237,11 +237,11 @@ Rails.application.routes.draw do
         end
 
         # Maintenance internal endpoints (for worker service)
-        namespace :maintenance do
+        scope :maintenance do
           # Database backups
           get "backups/:id", to: "maintenance#show_backup"
           patch "backups/:id", to: "maintenance#update_backup"
-          post "backups/:id/cleanup", to: "maintenance#cleanup_old_backups"
+          post "backups/cleanup", to: "maintenance#cleanup_old_backups"
 
           # Database restores
           get "restores/:id", to: "maintenance#show_restore"
@@ -322,7 +322,7 @@ Rails.application.routes.draw do
         # Notifications for worker service
         resources :notifications, only: [ :create ] do
           collection do
-            post :send
+            post :send, action: :send_notification
             post :security_alert
           end
         end
@@ -442,14 +442,14 @@ Rails.application.routes.draw do
 
       # Worker file processing endpoints (for worker service)
       namespace :worker do
-        resources :files, only: [ :show, :update ], controller: "worker/worker_files" do
+        resources :files, only: [ :show, :update ], controller: "worker_files" do
           member do
             get :download
             post :processed
           end
         end
 
-        resources :processing_jobs, only: [ :show, :update ], controller: "worker/processing_jobs"
+        resources :processing_jobs, only: [ :show, :update ], controller: "processing_jobs"
       end
 
       # Knowledge Base endpoints (public access + editing for authorized users)
@@ -596,11 +596,13 @@ Rails.application.routes.draw do
         get :health, on: :member
 
         # Security configuration endpoints
-        get :security, on: :member
+        get :security, on: :member, action: :security_config
         put :security, on: :member, action: :update_security_config
         post "security/test", on: :member, action: :test_security_config
         post "security/regenerate_jwt_secret", on: :member, action: :regenerate_jwt_secret
         delete "security/blacklisted_tokens", on: :member, action: :clear_blacklisted_tokens
+        get "security/blacklist_stats", on: :member, action: :blacklist_statistics
+        get "security/audit_summary", on: :member, action: :security_audit_summary
       end
 
       # Services Configuration (system-level)
@@ -625,9 +627,9 @@ Rails.application.routes.draw do
         get "export_services/:environment", to: "services#export_services", on: :member
         post :import_services, on: :member
 
-        resources :url_mappings, only: [ :create, :destroy ] do
-          put :update_url_mapping, on: :member
-          patch :toggle, on: :member
+        resources :url_mappings, only: [ :create, :destroy ], controller: "services" do
+          put :update_url_mapping, on: :member, controller: "services"
+          patch :toggle, on: :member, controller: "services"
         end
       end
 
@@ -739,7 +741,7 @@ Rails.application.routes.draw do
         end
 
         # Review Moderation
-        resource :review_moderation, only: [] do
+        resource :review_moderation, only: [], controller: "review_moderation" do
           collection do
             get :queue
             post :bulk_action
@@ -844,7 +846,7 @@ Rails.application.routes.draw do
       resources :payments, only: [ :index, :show ]
 
       # PayPal integration endpoints
-      resource :paypal, only: [] do
+      resource :paypal, only: [], controller: "paypal" do
         collection do
           post :create_payment, path: "payments"
           post :execute_payment, path: "payments/:id/execute"
@@ -870,8 +872,10 @@ Rails.application.routes.draw do
         post :recalculate
         post :update_revenue_snapshots
         post :update_metrics
+      end
 
-        # Analytics tiers
+      # Analytics tiers (controller is Api::V1::AnalyticsTiersController, not under analytics namespace)
+      scope "analytics" do
         resources :tiers, only: [:index, :show], controller: "analytics_tiers", param: :slug do
           collection do
             get :current
@@ -1035,6 +1039,7 @@ Rails.application.routes.draw do
       patch "reports/requests/:id", to: "reports#update_request"
       delete "reports/requests/:id", to: "reports#cancel_request"
       get "reports/requests/:id/download", to: "reports#download_request"
+      delete "reports/scheduled/:id", to: "reports#destroy_scheduled"
 
       # Pages management
       resources :pages, only: [ :index, :show ], param: :slug
@@ -1119,10 +1124,10 @@ Rails.application.routes.draw do
           post :activate
           post :deactivate
           post :reorder
+          get :analytics
         end
 
         collection do
-          get :analytics
           post :bulk_reorder
         end
       end
@@ -1209,7 +1214,7 @@ Rails.application.routes.draw do
           post :discover_tools
 
           # OAuth endpoints for MCP server authentication
-          namespace :oauth do
+          scope :oauth, as: :oauth do
             post "/", to: "mcp_oauth#authorize", as: :authorize
             get :status, to: "mcp_oauth#status"
             delete :disconnect, to: "mcp_oauth#disconnect"
@@ -2710,7 +2715,7 @@ Rails.application.routes.draw do
 
         resources :license_detections, only: [:index, :show] do
           member do
-            post :override
+            post :mark_review
           end
         end
 
@@ -2751,8 +2756,8 @@ Rails.application.routes.draw do
           # Nested assessments
           resources :assessments, controller: "risk_assessments", only: [:index, :show, :create] do
             member do
-              post :approve
-              post :reject
+              post :submit_for_review
+              post :complete
             end
           end
 
@@ -2797,7 +2802,7 @@ Rails.application.routes.draw do
         resources :vendor_monitoring_events, only: [:index, :show] do
           member do
             post :acknowledge
-            post :dismiss
+            post :resolve
           end
         end
 
