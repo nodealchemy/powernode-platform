@@ -64,4 +64,35 @@ export const webhooksApi = {
     }>>(`/git/webhook_events/${id}/retry`);
     return response.data.data;
   },
+
+  /**
+   * Redeliver a webhook event (creates a new event with the same payload)
+   */
+  redeliverWebhookEvent: async (
+    id: string
+  ): Promise<{
+    message: string;
+    original_event: GitWebhookEvent;
+    new_event: GitWebhookEvent;
+  }> => {
+    const response = await apiClient.post<ApiResponse<{
+      message: string;
+      original_event: GitWebhookEvent;
+      new_event: GitWebhookEvent;
+    }>>(`/git/webhook_events/${id}/redeliver`);
+    return response.data.data;
+  },
+
+  /**
+   * Get webhook event statistics
+   */
+  getWebhookStats: async (params?: {
+    provider_id?: string;
+    days?: number;
+  }): Promise<WebhookEventStats> => {
+    const response = await apiClient.get<ApiResponse<{
+      stats: WebhookEventStats;
+    }>>('/git/webhook_events/stats', { params });
+    return response.data.data.stats;
+  },
 };

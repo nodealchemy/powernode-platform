@@ -274,7 +274,7 @@ describe('gitProvidersApi', () => {
 
       const result = await gitProvidersApi.configureWebhook('repo-1');
 
-      expect(mockApiClient.post).toHaveBeenCalledWith('/git/repositories/repo-1/webhook/configure');
+      expect(mockApiClient.post).toHaveBeenCalledWith('/git/repositories/repo-1/configure_webhook', undefined);
       expect(result.repository.webhook_configured).toBe(true);
     });
   });
@@ -293,7 +293,7 @@ describe('gitProvidersApi', () => {
 
       const result = await gitProvidersApi.removeWebhook('repo-1');
 
-      expect(mockApiClient.delete).toHaveBeenCalledWith('/git/repositories/repo-1/webhook');
+      expect(mockApiClient.delete).toHaveBeenCalledWith('/git/repositories/repo-1/remove_webhook');
       expect(result.repository.webhook_configured).toBe(false);
     });
   });

@@ -79,6 +79,12 @@ module Git
       event_type = event["event_type"]
       payload = event["payload"] || {}
 
+      # Check branch filter before processing (skip for ping events)
+      if event_type != "ping"
+        filter_result = check_branch_filter(event, payload)
+        return filter_result if filter_result[:filtered]
+      end
+
       case event_type
       when "push"
         handle_push_event(event, payload)
@@ -97,6 +103,100 @@ module Git
       else
         handle_generic_event(event, payload)
       end
+    end
+
+    # Check if event should be filtered based on branch filter configuration
+    def check_branch_filter(event, payload)
+      repository = event["repository"]
+      return { filtered: false } unless repository
+
+      branch_filter_type = repository["branch_filter_type"]
+      branch_filter = repository["branch_filter"]
+
+      # Skip filtering if not configured
+      return { filtered: false } if branch_filter_type.blank? || branch_filter_type == "none"
+
+      # Extract branch name from event
+      branch_name = extract_branch_name(event, payload)
+
+      # If we can't determine the branch, allow the event through
+      return { filtered: false } if branch_name.blank?
+
+      # Check if branch matches the filter
+      matches = branch_matches_filter?(branch_name, branch_filter_type, branch_filter)
+
+      if matches
+        { filtered: false }
+      else
+        log_info "Event filtered by branch filter",
+                 branch: branch_name,
+                 filter_type: branch_filter_type,
+                 filter_pattern: branch_filter
+
+        {
+          filtered: true,
+          success: true,
+          action: "filtered_by_branch",
+          reason: "branch_filter",
+          branch: branch_name,
+          filter_type: branch_filter_type,
+          filter_pattern: branch_filter
+        }
+      end
+    end
+
+    def extract_branch_name(event, payload)
+      # Try to get branch from event ref
+      ref = event["ref"] || payload["ref"]
+
+      if ref.present?
+        # Convert refs/heads/branch-name to branch-name
+        return ref.sub(%r{^refs/heads/}, "")
+      end
+
+      # For pull requests, get the head branch
+      if event["event_type"] == "pull_request"
+        return payload.dig("pull_request", "head", "ref")
+      end
+
+      # For workflow events, try to get the branch
+      if event["event_type"].start_with?("workflow_")
+        workflow_ref = payload.dig("workflow_run", "head_branch") ||
+                       payload.dig("workflow_job", "head_branch")
+        return workflow_ref if workflow_ref.present?
+      end
+
+      nil
+    end
+
+    def branch_matches_filter?(branch_name, filter_type, filter_pattern)
+      case filter_type
+      when "exact"
+        branch_name == filter_pattern
+      when "wildcard"
+        wildcard_match?(branch_name, filter_pattern)
+      when "regex"
+        regex_match?(branch_name, filter_pattern)
+      else
+        true
+      end
+    end
+
+    def wildcard_match?(branch_name, pattern)
+      # Convert wildcard pattern to regex: ** becomes .*, * becomes [^/]*
+      regex_pattern = Regexp.escape(pattern)
+                            .gsub('\*\*', '.*')  # ** matches any path including /
+                            .gsub('\*', '[^/]*') # * matches anything except /
+                            .gsub('\?', '.')     # ? matches single char
+      Regexp.new("\\A#{regex_pattern}\\z").match?(branch_name)
+    rescue RegexpError
+      false
+    end
+
+    def regex_match?(branch_name, pattern)
+      Regexp.new(pattern).match?(branch_name)
+    rescue RegexpError
+      false
     end
 
     def handle_push_event(event, payload)

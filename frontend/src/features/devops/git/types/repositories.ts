@@ -9,6 +9,8 @@ export interface PaginationInfo {
   total_count: number;
 }
 
+export type BranchFilterType = 'none' | 'exact' | 'wildcard' | 'regex';
+
 export interface GitRepository {
   id: string;
   name: string;
@@ -21,6 +23,9 @@ export interface GitRepository {
   is_fork: boolean;
   is_archived: boolean;
   webhook_configured: boolean;
+  branch_filter?: string;
+  branch_filter_type?: BranchFilterType;
+  branch_filter_enabled?: boolean;
   stars_count: number;
   forks_count: number;
   open_issues_count: number;
@@ -101,4 +106,9 @@ export interface ImportRepositoriesResult {
 export interface GitRepositoriesResponse {
   repositories: GitRepository[];
   pagination: PaginationInfo;
+}
+
+export interface WebhookConfigFormData {
+  branch_filter?: string;
+  branch_filter_type?: BranchFilterType;
 }

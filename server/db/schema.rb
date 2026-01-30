@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_29_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -36,6 +36,36 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
     t.index ["role_id"], name: "index_account_delegations_on_role_id"
     t.index ["status"], name: "index_account_delegations_on_status"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'revoked'::character varying::text])", name: "valid_delegation_status"
+  end
+
+  create_table "account_git_webhook_configs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "branch_filter"
+    t.string "branch_filter_type", default: "none"
+    t.string "content_type", default: "application/json", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.jsonb "custom_headers", default: {}, null: false
+    t.text "description"
+    t.jsonb "event_types", default: [], null: false
+    t.integer "failure_count", default: 0, null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_delivery_at"
+    t.string "name", null: false
+    t.string "retry_backoff", default: "exponential", null: false
+    t.integer "retry_limit", default: 3, null: false
+    t.string "secret_key", null: false
+    t.string "signature_secret"
+    t.string "status", default: "active", null: false
+    t.integer "success_count", default: 0, null: false
+    t.integer "timeout_seconds", default: 30, null: false
+    t.datetime "updated_at", null: false
+    t.string "url", null: false
+    t.index ["account_id", "status"], name: "index_account_git_webhooks_on_account_status"
+    t.index ["account_id"], name: "index_account_git_webhook_configs_on_account_id"
+    t.index ["created_by_id"], name: "index_account_git_webhook_configs_on_created_by_id"
+    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying, 'exact'::character varying, 'wildcard'::character varying, 'regex'::character varying]::text[])", name: "account_git_webhook_configs_branch_filter_type_check"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying]::text[])", name: "account_git_webhook_configs_status_check"
   end
 
   create_table "account_terminations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -4352,6 +4382,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
 
   create_table "git_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.string "branch_filter", comment: "Branch filter pattern for webhooks"
+    t.string "branch_filter_type", default: "none", comment: "Filter type: none, exact, wildcard, regex"
     t.string "clone_url", limit: 500
     t.datetime "created_at", null: false
     t.string "default_branch", limit: 255, default: "main"
@@ -4394,6 +4426,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
     t.index ["owner"], name: "index_git_repositories_on_owner"
     t.index ["topics"], name: "index_git_repositories_on_topics", using: :gin
     t.index ["webhook_configured"], name: "index_git_repositories_on_webhook_configured"
+    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying, 'exact'::character varying, 'wildcard'::character varying, 'regex'::character varying]::text[])", name: "git_repositories_branch_filter_type_check"
   end
 
   create_table "git_runners", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6906,6 +6939,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
     t.text "response_body"
     t.jsonb "response_headers", default: {}
     t.integer "response_status"
+    t.integer "response_time_ms", comment: "Response time in milliseconds"
     t.string "status", default: "pending"
     t.datetime "updated_at", null: false
     t.uuid "webhook_endpoint_id", null: false
@@ -6942,9 +6976,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
 
   create_table "webhook_endpoints", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.integer "circuit_break_threshold", default: 5, null: false, comment: "Number of consecutive failures before circuit break"
+    t.datetime "circuit_broken_at"
+    t.datetime "circuit_cooldown_until"
+    t.integer "consecutive_failures", default: 0, null: false
     t.string "content_type", limit: 100, default: "application/json", null: false
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
+    t.jsonb "custom_headers", default: {}, null: false
     t.integer "daily_count", default: 0, null: false
     t.datetime "daily_count_reset_at"
     t.integer "daily_limit", default: 100, null: false
@@ -6956,6 +6995,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
     t.datetime "last_delivery_at", precision: nil
     t.integer "max_retries", default: 3
     t.jsonb "metadata", default: {}
+    t.string "payload_detail_level", default: "full", null: false, comment: "full, minimal, or ids_only"
     t.string "retry_backoff", limit: 20, default: "exponential", null: false
     t.integer "retry_limit", default: 3, null: false
     t.string "secret_key"
@@ -6968,6 +7008,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
     t.string "url", limit: 1000, null: false
     t.index ["account_id"], name: "idx_webhook_endpoints_on_account_id"
     t.index ["account_id"], name: "index_webhook_endpoints_on_account_id"
+    t.index ["circuit_broken_at"], name: "index_webhook_endpoints_on_circuit_broken", where: "(circuit_broken_at IS NOT NULL)"
     t.index ["content_type"], name: "idx_webhook_endpoints_on_content_type"
     t.index ["created_by_id"], name: "idx_webhook_endpoints_on_created_by"
     t.index ["created_by_id"], name: "index_webhook_endpoints_on_created_by_id"
@@ -6979,6 +7020,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
     t.index ["tier"], name: "index_webhook_endpoints_on_tier"
     t.check_constraint "content_type::text = ANY (ARRAY['application/json'::character varying::text, 'application/x-www-form-urlencoded'::character varying::text])", name: "valid_webhook_content_type"
     t.check_constraint "failure_count >= 0", name: "valid_webhook_failure_count"
+    t.check_constraint "payload_detail_level::text = ANY (ARRAY['full'::character varying, 'minimal'::character varying, 'ids_only'::character varying]::text[])", name: "webhook_endpoints_payload_detail_level_check"
     t.check_constraint "retry_backoff::text = ANY (ARRAY['linear'::character varying::text, 'exponential'::character varying::text])", name: "valid_webhook_retry_backoff"
     t.check_constraint "retry_limit >= 0 AND retry_limit <= 10", name: "valid_webhook_retry_limit"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'suspended'::character varying::text])", name: "valid_webhook_status"
@@ -7092,6 +7134,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
   add_foreign_key "account_delegations", "users", column: "delegated_by_id"
   add_foreign_key "account_delegations", "users", column: "delegated_user_id"
   add_foreign_key "account_delegations", "users", column: "revoked_by_id"
+  add_foreign_key "account_git_webhook_configs", "accounts"
+  add_foreign_key "account_git_webhook_configs", "users", column: "created_by_id"
   add_foreign_key "account_terminations", "accounts"
   add_foreign_key "account_terminations", "data_export_requests"
   add_foreign_key "account_terminations", "users", column: "cancelled_by_id"

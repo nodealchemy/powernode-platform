@@ -93,13 +93,70 @@ class WebhookEndpoint < ApplicationRecord
     ]
   end
 
+  # Payload detail level options
+  PAYLOAD_DETAIL_LEVELS = %w[full minimal ids_only].freeze
+
   # Instance methods
   def active?
-    status == "active" && is_active?
+    status == "active" && is_active? && !circuit_broken?
   end
 
   def inactive?
     !active?
+  end
+
+  # Circuit Breaker Methods
+
+  def circuit_broken?
+    circuit_broken_at.present? && circuit_cooldown_until.present? && circuit_cooldown_until > Time.current
+  end
+
+  def circuit_break!
+    update!(
+      circuit_broken_at: Time.current,
+      circuit_cooldown_until: calculate_circuit_cooldown
+    )
+    Rails.logger.warn "Circuit breaker triggered for webhook endpoint #{id} (#{url})"
+  end
+
+  def circuit_reset!
+    update!(
+      consecutive_failures: 0,
+      circuit_broken_at: nil,
+      circuit_cooldown_until: nil
+    )
+    Rails.logger.info "Circuit breaker reset for webhook endpoint #{id}"
+  end
+
+  def record_success!
+    if consecutive_failures > 0 || circuit_broken_at.present?
+      circuit_reset!
+    end
+    increment_success_count!
+  end
+
+  def record_failure!
+    new_consecutive = consecutive_failures + 1
+    update_column(:consecutive_failures, new_consecutive)
+
+    if new_consecutive >= (circuit_break_threshold || 5)
+      circuit_break!
+    end
+    increment_failure_count!
+  end
+
+  def circuit_status
+    return "closed" unless circuit_broken_at.present?
+    return "open" if circuit_cooldown_until.present? && circuit_cooldown_until > Time.current
+
+    "half_open"
+  end
+
+  def time_until_circuit_reset
+    return nil unless circuit_cooldown_until.present?
+    return 0 if circuit_cooldown_until <= Time.current
+
+    (circuit_cooldown_until - Time.current).to_i
   end
 
   def success_rate
@@ -203,7 +260,21 @@ class WebhookEndpoint < ApplicationRecord
   end
 
   def can_deliver?
-    active? && !rate_limited?
+    active? && !rate_limited? && !circuit_broken?
+  end
+
+  # Payload trimming based on detail level
+  def trim_payload(payload)
+    return payload if payload_detail_level == "full"
+
+    case payload_detail_level
+    when "minimal"
+      trim_payload_minimal(payload)
+    when "ids_only"
+      trim_payload_ids_only(payload)
+    else
+      payload
+    end
   end
 
   def increment_daily_count!
@@ -267,7 +338,58 @@ class WebhookEndpoint < ApplicationRecord
     WebhookDeliveryStat.aggregate_for_endpoint(self, days: days)
   end
 
+  # Custom headers validation
+  def validate_custom_headers
+    return if custom_headers.blank?
+
+    if custom_headers.is_a?(Hash) && custom_headers.keys.length > 20
+      errors.add(:custom_headers, "cannot exceed 20 headers")
+    end
+  end
+
   private
+
+  def calculate_circuit_cooldown
+    # Exponential backoff for circuit breaker: 1min, 5min, 15min, 1hr, 4hr (max)
+    base_minutes = [1, 5, 15, 60, 240]
+    # Use consecutive failures to determine cooldown duration
+    failures_over_threshold = [consecutive_failures - (circuit_break_threshold || 5), 0].max
+    cooldown_index = [failures_over_threshold, base_minutes.length - 1].min
+    base_minutes[cooldown_index].minutes.from_now
+  end
+
+  def trim_payload_minimal(payload)
+    return {} unless payload.is_a?(Hash)
+
+    {
+      event_type: payload[:event_type] || payload["event_type"],
+      timestamp: payload[:timestamp] || payload["timestamp"] || Time.current.iso8601,
+      id: payload[:id] || payload["id"],
+      action: payload[:action] || payload["action"],
+      account_id: payload[:account_id] || payload["account_id"]
+    }.compact
+  end
+
+  def trim_payload_ids_only(payload)
+    return {} unless payload.is_a?(Hash)
+
+    extract_ids(payload)
+  end
+
+  def extract_ids(obj, prefix = "")
+    result = {}
+    return result unless obj.is_a?(Hash)
+
+    obj.each do |key, value|
+      full_key = prefix.empty? ? key.to_s : "#{prefix}_#{key}"
+      if key.to_s.end_with?("_id") || key.to_s == "id"
+        result[full_key] = value
+      elsif value.is_a?(Hash)
+        result.merge!(extract_ids(value, full_key))
+      end
+    end
+    result
+  end
 
   def set_defaults
     self.status ||= "active"

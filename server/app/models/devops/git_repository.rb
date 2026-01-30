@@ -23,12 +23,17 @@ module Devops
     # Delegations
     delegate :provider_type, to: :provider, allow_nil: true
 
+    # Constants
+    BRANCH_FILTER_TYPES = %w[none exact wildcard regex].freeze
+
     # Validations
     validates :external_id, presence: true
     validates :name, presence: true, length: { maximum: 255 }
     validates :full_name, presence: true, length: { maximum: 500 }
     validates :owner, presence: true, length: { maximum: 255 }
     validates :full_name, uniqueness: { scope: :account_id, message: "repository already synced for this account" }
+    validates :branch_filter_type, inclusion: { in: BRANCH_FILTER_TYPES }, allow_nil: true
+    validates :branch_filter, presence: true, if: -> { branch_filter_type.present? && branch_filter_type != "none" }
 
     # Scopes
     scope :with_webhook, -> { where(webhook_configured: true) }
@@ -136,7 +141,36 @@ module Devops
       webhook_events.order(created_at: :desc).limit(limit)
     end
 
-    # Backwards compatibility aliases
+    # Branch Filtering Methods
+
+    def branch_filter_enabled?
+      branch_filter_type.present? && branch_filter_type != "none" && branch_filter.present?
+    end
+
+    def branch_matches_filter?(branch_name)
+      return true unless branch_filter_enabled?
+      return true if branch_name.blank?
+
+      case branch_filter_type
+      when "exact"
+        branch_name == branch_filter
+      when "wildcard"
+        wildcard_match?(branch_name, branch_filter)
+      when "regex"
+        regex_match?(branch_name, branch_filter)
+      else
+        true
+      end
+    end
+
+    def update_branch_filter!(filter_type:, filter_pattern: nil)
+      update!(
+        branch_filter_type: filter_type,
+        branch_filter: filter_type == "none" ? nil : filter_pattern
+      )
+    end
+
+    # Backwards compatibility aliases (must be public for controller access)
     def git_provider_credential
       credential
     end
@@ -166,5 +200,23 @@ module Devops
     def generate_webhook_secret
       self.webhook_secret ||= SecureRandom.hex(32)
     end
+
+    def wildcard_match?(branch_name, pattern)
+      # Convert wildcard pattern to regex: * becomes .*, ? becomes .
+      regex_pattern = Regexp.escape(pattern)
+                            .gsub('\*\*', '.*')  # ** matches any path including /
+                            .gsub('\*', '[^/]*') # * matches anything except /
+                            .gsub('\?', '.')     # ? matches single char
+      Regexp.new("\\A#{regex_pattern}\\z").match?(branch_name)
+    rescue RegexpError
+      false
+    end
+
+    def regex_match?(branch_name, pattern)
+      Regexp.new(pattern).match?(branch_name)
+    rescue RegexpError
+      false
+    end
+
   end
 end

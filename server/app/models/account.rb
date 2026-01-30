@@ -111,6 +111,7 @@ class Account < ApplicationRecord
   has_many :git_provider_credentials, class_name: "Devops::GitProviderCredential", dependent: :destroy
   has_many :git_repositories, class_name: "Devops::GitRepository", dependent: :destroy
   has_many :git_webhook_events, class_name: "Devops::GitWebhookEvent", dependent: :destroy
+  has_many :account_git_webhook_configs, class_name: "Devops::AccountGitWebhookConfig", dependent: :destroy
   has_many :git_pipelines, class_name: "Devops::GitPipeline", dependent: :destroy
   has_many :git_pipeline_jobs, class_name: "Devops::GitPipelineJob", dependent: :destroy
   has_many :git_pipeline_approvals, class_name: "Devops::GitPipelineApproval", dependent: :destroy

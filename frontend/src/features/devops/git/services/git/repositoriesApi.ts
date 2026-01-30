@@ -70,12 +70,33 @@ export const repositoriesApi = {
    * Configure webhook for a repository
    */
   configureWebhook: async (
-    id: string
+    id: string,
+    config?: {
+      branch_filter?: string;
+      branch_filter_type?: 'none' | 'exact' | 'wildcard' | 'regex';
+    }
   ): Promise<{ repository: GitRepository; message: string }> => {
     const response = await apiClient.post<ApiResponse<{
       repository: GitRepository;
       message: string;
-    }>>(`/git/repositories/${id}/webhook/configure`);
+    }>>(`/git/repositories/${id}/configure_webhook`, config);
+    return response.data.data;
+  },
+
+  /**
+   * Update webhook configuration for a repository
+   */
+  updateWebhookConfig: async (
+    id: string,
+    config: {
+      branch_filter?: string;
+      branch_filter_type?: 'none' | 'exact' | 'wildcard' | 'regex';
+    }
+  ): Promise<{ repository: GitRepository; message: string }> => {
+    const response = await apiClient.patch<ApiResponse<{
+      repository: GitRepository;
+      message: string;
+    }>>(`/git/repositories/${id}/update_webhook_config`, config);
     return response.data.data;
   },
 
@@ -88,7 +109,7 @@ export const repositoriesApi = {
     const response = await apiClient.delete<ApiResponse<{
       repository: GitRepository;
       message: string;
-    }>>(`/git/repositories/${id}/webhook`);
+    }>>(`/git/repositories/${id}/remove_webhook`);
     return response.data.data;
   },
 

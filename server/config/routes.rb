@@ -141,6 +141,14 @@ Rails.application.routes.draw do
           end
         end
 
+        # Webhook endpoints (for circuit breaker management)
+        resources :webhook_endpoints, only: [ :show ] do
+          member do
+            post :record_success
+            post :record_failure
+          end
+        end
+
         # Review notifications
         resources :review_notifications, only: [ :show, :update ]
 
@@ -1344,6 +1352,7 @@ Rails.application.routes.draw do
 
           member do
             post :configure_webhook
+            patch :update_webhook_config
             delete :remove_webhook
             get :branches
             get :commits
@@ -1392,6 +1401,20 @@ Rails.application.routes.draw do
 
           member do
             post :retry
+            post :redeliver
+          end
+        end
+
+        # Account-level Git Webhooks (organization-wide webhook configs)
+        resources :account_webhooks, controller: "account_webhooks" do
+          collection do
+            get :available_events
+          end
+
+          member do
+            post :test
+            post :toggle_status
+            post :regenerate_secret
           end
         end
 
