@@ -38,23 +38,25 @@ class Role < ApplicationRecord
   class << self
     def sync_from_config!
       Permissions::ROLES.each do |name, config|
-        role = find_or_create_by!(name: name) do |r|
-          r.display_name = config[:display_name]
-          r.description = config[:description]
-          r.role_type = config[:role_type]
-          r.is_system = config[:is_system] || config[:role_type] == "system"
-          r.immutable = config[:immutable] || false
-        end
+        role = find_or_initialize_by(name: name)
+        attrs = {
+          display_name: config[:display_name],
+          description: config[:description],
+          role_type: config[:role_type],
+          is_system: config[:is_system] || config[:role_type] == "system",
+          immutable: config[:immutable] || false
+        }
 
-        # Update attributes if they've changed (skip immutable roles)
-        unless role.immutable?
-          role.update!(
-            display_name: config[:display_name],
-            description: config[:description],
-            role_type: config[:role_type],
-            is_system: config[:is_system] || config[:role_type] == "system",
-            immutable: config[:immutable] || false
-          )
+        if role.new_record?
+          role.assign_attributes(attrs)
+          begin
+            role.save!
+          rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
+            role = find_by!(name: name)
+            role.update!(attrs) unless role.immutable?
+          end
+        elsif !role.immutable?
+          role.update!(attrs)
         end
 
         # Sync permissions
@@ -115,16 +117,29 @@ class Role < ApplicationRecord
   def sync_permissions!(permission_names)
     return unless permission_names.is_a?(Array)
 
-    # Get or create all permissions
-    new_permissions = permission_names.uniq.map do |name|
+    # Deduplicate permission names first, then get or create all permissions
+    new_permissions = permission_names.uniq.filter_map do |name|
       Permission.find_or_create_from_name!(
         name,
         Permissions::ALL_PERMISSIONS[name]
       )
     end
 
-    # Replace all permissions (remove duplicates from array)
-    self.permissions = new_permissions.uniq
+    # Get unique permission IDs we want
+    desired_ids = new_permissions.map(&:id).uniq
+    current_ids = role_permissions.pluck(:permission_id)
+
+    # Remove permissions no longer needed
+    ids_to_remove = current_ids - desired_ids
+    role_permissions.where(permission_id: ids_to_remove).delete_all if ids_to_remove.any?
+
+    # Add new permissions not yet assigned
+    ids_to_add = desired_ids - current_ids
+    ids_to_add.each do |pid|
+      role_permissions.find_or_create_by!(permission_id: pid)
+    rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
+      # Already exists (caught by DB constraint or model validation), ignore
+    end
   end
 
   def grant_to_user(user, granted_by = nil)

@@ -2,7 +2,6 @@
 
 class ScheduledTask < ApplicationRecord
   # Associations
-  belongs_to :user
   has_many :task_executions, dependent: :destroy
 
   # Validations
@@ -10,12 +9,12 @@ class ScheduledTask < ApplicationRecord
   validates :task_type, presence: true, inclusion: {
     in: %w[database_backup data_cleanup system_health_check report_generation custom_command]
   }
-  validates :cron_schedule, presence: true
-  validates :enabled, inclusion: { in: [ true, false ] }
+  validates :cron_expression, presence: true
+  validates :is_active, inclusion: { in: [ true, false ] }
 
   # Scopes
-  scope :enabled, -> { where(enabled: true) }
-  scope :disabled, -> { where(enabled: false) }
+  scope :enabled, -> { where(is_active: true) }
+  scope :disabled, -> { where(is_active: false) }
   scope :by_type, ->(type) { where(task_type: type) }
   scope :recent, -> { order(created_at: :desc) }
 
@@ -25,11 +24,11 @@ class ScheduledTask < ApplicationRecord
   after_destroy :log_task_deletion
 
   def enabled?
-    enabled
+    is_active
   end
 
   def disabled?
-    !enabled
+    !is_active
   end
 
   def last_execution
@@ -60,58 +59,25 @@ class ScheduledTask < ApplicationRecord
   end
 
   def currently_running?
-    task_executions.where(status: [ "pending", "running" ]).exists?
+    task_executions.where(status: "running").exists?
   end
 
   private
 
   def log_task_creation
-    AuditLog.create!(
-      user: user,
-      account: user.account,
-      action: "scheduled_task_created",
-      resource_type: "ScheduledTask",
-      resource_id: id,
-      details: {
-        name: name,
-        task_type: task_type,
-        cron_schedule: cron_schedule,
-        enabled: enabled,
-        description: description
-      }
-    )
+    Rails.logger.info "Scheduled task created: #{name} (#{task_type})"
   rescue StandardError => e
     Rails.logger.error "Failed to log task creation: #{e.message}"
   end
 
   def log_task_update
-    AuditLog.create!(
-      user: user,
-      account: user.account,
-      action: "scheduled_task_updated",
-      resource_type: "ScheduledTask",
-      resource_id: id,
-      details: {
-        name: name,
-        changes: saved_changes.except("updated_at")
-      }
-    )
+    Rails.logger.info "Scheduled task updated: #{name} (changes: #{saved_changes.except('updated_at').keys.join(', ')})"
   rescue StandardError => e
     Rails.logger.error "Failed to log task update: #{e.message}"
   end
 
   def log_task_deletion
-    AuditLog.create!(
-      user: user,
-      account: user.account,
-      action: "scheduled_task_deleted",
-      resource_type: "ScheduledTask",
-      resource_id: id,
-      details: {
-        name: name,
-        task_type: task_type
-      }
-    )
+    Rails.logger.info "Scheduled task deleted: #{name} (#{task_type})"
   rescue StandardError => e
     Rails.logger.error "Failed to log task deletion: #{e.message}"
   end

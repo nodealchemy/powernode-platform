@@ -7,7 +7,7 @@ module Review
     include AuditLogging
 
     # Associations
-    belongs_to :app
+    belongs_to :app, class_name: "Marketplace::Definition", foreign_key: "app_id"
 
     # Validations
     validates :app_id, uniqueness: true

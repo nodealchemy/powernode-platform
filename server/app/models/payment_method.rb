@@ -68,6 +68,6 @@ class PaymentMethod < ApplicationRecord
   end
 
   def deactivate!
-    update!(is_default: false)
+    update!(is_default: false, is_active: false)
   end
 end

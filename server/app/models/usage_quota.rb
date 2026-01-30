@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class UsageQuota < ApplicationRecord
+  self.table_name = "usage_quotas"
+
   # Associations
   belongs_to :account
   belongs_to :usage_meter

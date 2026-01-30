@@ -105,6 +105,3 @@ module Marketplace
     end
   end
 end
-
-# Backward compatibility alias
-AppEndpointCall = Marketplace::EndpointCall unless defined?(AppEndpointCall)

@@ -3,37 +3,38 @@
 class ReconciliationFlag < ApplicationRecord
   include AASM
 
-  belongs_to :payment, optional: true, foreign_key: :local_payment_id
+  belongs_to :reconciliation_report
+  belongs_to :resolved_by, class_name: "User", optional: true
 
   validates :flag_type, presence: true, inclusion: {
-    in: %w[missing_provider_payment missing_local_payment amount_mismatch duplicate_payment]
+    in: %w[missing_payment duplicate_payment amount_mismatch status_mismatch unknown_transaction]
   }
-  validates :provider, presence: true, inclusion: { in: %w[stripe paypal] }
+  validates :description, presence: true
   validates :status, presence: true
+  validates :severity, inclusion: { in: %w[low medium high critical] }, allow_nil: true
 
-  scope :pending, -> { where(status: "pending") }
+  scope :pending, -> { where(status: "open") }
   scope :resolved, -> { where(status: "resolved") }
-  scope :requires_review, -> { where(requires_manual_review: true) }
 
   aasm column: :status do
-    state :pending, initial: true
+    state :open, initial: true
     state :investigating
     state :resolved
     state :dismissed
 
     event :start_investigation do
-      transitions from: :pending, to: :investigating
+      transitions from: :open, to: :investigating
     end
 
     event :resolve do
-      transitions from: [ :pending, :investigating ], to: :resolved
+      transitions from: [ :open, :investigating ], to: :resolved
       after do
         self.resolved_at = Time.current
       end
     end
 
     event :dismiss do
-      transitions from: [ :pending, :investigating ], to: :dismissed
+      transitions from: [ :open, :investigating ], to: :dismissed
       after do
         self.resolved_at = Time.current
       end
@@ -41,10 +42,6 @@ class ReconciliationFlag < ApplicationRecord
   end
 
   def high_priority?
-    %w[missing_provider_payment amount_mismatch].include?(flag_type)
-  end
-
-  def requires_immediate_attention?
-    high_priority? && requires_manual_review?
+    %w[missing_payment amount_mismatch].include?(flag_type)
   end
 end

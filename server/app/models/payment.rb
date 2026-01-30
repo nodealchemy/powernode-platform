@@ -5,7 +5,7 @@ class Payment < ApplicationRecord
 
   # Associations
   belongs_to :account
-  belongs_to :invoice
+  belongs_to :invoice, optional: true
   belongs_to :payment_method, optional: true
 
   # Delegated associations for convenience
@@ -43,6 +43,20 @@ class Payment < ApplicationRecord
   scope :by_gateway, ->(gateway) { where(gateway: gateway) }
   scope :stripe_payments, -> { where(gateway: "stripe") }
   scope :paypal_payments, -> { where(gateway: "paypal") }
+
+  # Class methods for finding payments by provider payment ID
+  def self.find_by_provider_payment_id(provider, payment_id)
+    return nil unless payment_id.present?
+
+    case provider.to_s.downcase
+    when "stripe"
+      where("metadata->>'stripe_payment_intent_id' = ? OR metadata->>'stripe_charge_id' = ?", payment_id, payment_id).first
+    when "paypal"
+      where("metadata->>'paypal_order_id' = ? OR metadata->>'paypal_capture_id' = ?", payment_id, payment_id).first
+    else
+      nil
+    end
+  end
 
   # Callbacks
   before_validation :normalize_currency

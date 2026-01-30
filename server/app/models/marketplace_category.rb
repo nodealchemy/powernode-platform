@@ -4,7 +4,7 @@ class MarketplaceCategory < ApplicationRecord
   include AuditLogging
 
   # Associations
-  has_many :apps, foreign_key: :category, primary_key: :slug
+  has_many :apps, class_name: "Marketplace::Definition", foreign_key: :category, primary_key: :slug
   has_many :marketplace_listings, foreign_key: :category, primary_key: :slug
 
   # Validations
@@ -19,7 +19,7 @@ class MarketplaceCategory < ApplicationRecord
   scope :inactive, -> { where(is_active: false) }
   scope :ordered, -> { order(:sort_order, :name) }
   scope :with_apps, -> { joins(:apps).distinct }
-  scope :with_published_apps, -> { joins(:apps).where(apps: { status: "published" }).distinct }
+  scope :with_published_apps, -> { joins(:apps).merge(Marketplace::Definition.published).distinct }
 
   # Callbacks
   before_validation :generate_slug, if: :name_changed?
@@ -72,7 +72,7 @@ class MarketplaceCategory < ApplicationRecord
   # Popular apps in category
   def popular_apps(limit = 10)
     apps.published
-        .joins(:app_subscriptions)
+        .joins(:subscriptions)
         .group("apps.id")
         .order("COUNT(app_subscriptions.id) DESC")
         .limit(limit)
@@ -107,7 +107,7 @@ class MarketplaceCategory < ApplicationRecord
   end
 
   def total_category_revenue
-    Marketplace::Subscription.joins(:app, :app_plan)
+    Marketplace::Subscription.joins(:app, :plan)
                    .where(apps: { category: slug, status: "published" })
                    .where(status: "active")
                    .sum("app_plans.price_cents") / 100.0
@@ -164,7 +164,7 @@ class MarketplaceCategory < ApplicationRecord
 
   def self.with_minimum_apps(count = 1)
     joins(:apps)
-      .where(apps: { status: "published" })
+      .merge(Marketplace::Definition.published)
       .group("marketplace_categories.id")
       .having("COUNT(apps.id) >= ?", count)
   end
@@ -249,7 +249,7 @@ class MarketplaceCategory < ApplicationRecord
   def generate_slug
     return if slug.present? && !name_changed?
 
-    base_slug = name.downcase.gsub(/[^a-z0-9]+/, "-").gsub(/-{2,}/, "-").strip("-")
+    base_slug = name.downcase.gsub(/[^a-z0-9]+/, "-").gsub(/-{2,}/, "-").gsub(/\A-|-\z/, "")
     candidate_slug = base_slug
     counter = 1
 

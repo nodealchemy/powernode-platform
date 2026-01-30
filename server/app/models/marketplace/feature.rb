@@ -329,21 +329,21 @@ module Marketplace
     end
 
     def log_feature_creation
-      Rails.logger.info "App Feature created: #{name} (#{id}) for App #{app.name}"
+      Rails.logger.info "Marketplace::Feature created: #{name} (#{id}) for #{app.name}"
     end
 
     def log_feature_updates
       return unless saved_changes.any?
 
-      Rails.logger.info "App Feature updated: #{name} (#{id}) - Changes: #{saved_changes.keys.join(', ')}"
+      Rails.logger.info "Marketplace::Feature updated: #{name} (#{id}) - Changes: #{saved_changes.keys.join(', ')}"
     end
 
     def log_default_enabled
-      Rails.logger.info "App Feature enabled by default: #{name} (#{id})"
+      Rails.logger.info "Marketplace::Feature enabled by default: #{name} (#{id})"
     end
 
     def log_default_disabled
-      Rails.logger.info "App Feature disabled by default: #{name} (#{id})"
+      Rails.logger.info "Marketplace::Feature disabled by default: #{name} (#{id})"
     end
 
     def configuration_is_valid_json
@@ -361,6 +361,3 @@ module Marketplace
     end
   end
 end
-
-# Backward compatibility alias
-AppFeature = Marketplace::Feature unless defined?(AppFeature)

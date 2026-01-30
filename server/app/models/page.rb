@@ -2,7 +2,7 @@
 
 class Page < ApplicationRecord
   # Associations
-  belongs_to :user, foreign_key: "author_id"
+  belongs_to :user, foreign_key: "author_id", optional: true
 
   # Polymorphic association to file objects (images attached to this page)
   has_many :file_objects, as: :attachable, class_name: "FileManagement::Object", dependent: :nullify

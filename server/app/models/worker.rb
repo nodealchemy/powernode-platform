@@ -400,7 +400,7 @@ class Worker < ApplicationRecord
       resource_id: id,
       source: "system",
       new_values: {
-        token_regenerated_at: token_regenerated_at.iso8601
+        token_regenerated_at: Time.current.iso8601
       },
       metadata: {
         token_regeneration: true

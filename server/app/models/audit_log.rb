@@ -511,5 +511,7 @@ class AuditLog < ApplicationRecord
     self.old_values ||= {}
     self.new_values ||= {}
     self.metadata ||= {}
+    self.severity ||= "low"
+    self.risk_level ||= "low"
   end
 end

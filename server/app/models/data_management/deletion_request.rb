@@ -56,6 +56,31 @@ module DataManagement
       legal_agreements
     ].freeze
 
+    # Status query methods
+    def pending?
+      status == "pending"
+    end
+
+    def approved?
+      status == "approved"
+    end
+
+    def processing?
+      status == "processing"
+    end
+
+    def completed?
+      status == "completed"
+    end
+
+    def rejected?
+      status == "rejected"
+    end
+
+    def cancelled?
+      status == "cancelled"
+    end
+
     # Instance methods
     def approve!(processor)
       update!(

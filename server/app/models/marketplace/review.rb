@@ -252,31 +252,31 @@ module Marketplace
     end
 
     def log_review_created
-      Rails.logger.info "App review created: #{rating} stars for #{app.name} by account #{account_id}"
+      Rails.logger.info "Marketplace::Review created: #{rating} stars for #{app.name} by account #{account_id}"
     end
 
     def log_review_updated
-      Rails.logger.info "App review updated: #{id} - Changes: #{saved_changes.keys.join(', ')}"
+      Rails.logger.info "Marketplace::Review updated: #{id} - Changes: #{saved_changes.keys.join(', ')}"
     end
 
     def log_marked_helpful
-      Rails.logger.info "App review marked helpful: #{id} (now #{helpful_count} helpful votes)"
+      Rails.logger.info "Marketplace::Review marked helpful: #{id} (now #{helpful_count} helpful votes)"
     end
 
     def log_marked_unhelpful
-      Rails.logger.info "App review marked unhelpful: #{id} (now #{helpful_count} helpful votes)"
+      Rails.logger.info "Marketplace::Review marked unhelpful: #{id} (now #{helpful_count} helpful votes)"
     end
 
     def log_flagged_for_review(reason)
-      Rails.logger.info "App review flagged: #{id} - Reason: #{reason}"
+      Rails.logger.info "Marketplace::Review flagged: #{id} - Reason: #{reason}"
     end
 
     def log_approved_after_review
-      Rails.logger.info "App review approved after moderation: #{id}"
+      Rails.logger.info "Marketplace::Review approved after moderation: #{id}"
     end
 
     def log_removed_after_review(reason)
-      Rails.logger.info "App review removed after moderation: #{id} - Reason: #{reason}"
+      Rails.logger.info "Marketplace::Review removed after moderation: #{id} - Reason: #{reason}"
     end
 
     # Media and response methods
@@ -297,7 +297,7 @@ module Marketplace
     end
 
     def log_review_restored(moderator)
-      Rails.logger.info "App review restored: #{id} by moderator #{moderator.id}"
+      Rails.logger.info "Marketplace::Review restored: #{id} by moderator #{moderator.id}"
     end
 
     def check_verification_status
@@ -377,6 +377,3 @@ module Marketplace
     end
   end
 end
-
-# Backward compatibility alias
-AppReview = Marketplace::Review unless defined?(AppReview)

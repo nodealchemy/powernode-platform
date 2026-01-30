@@ -239,30 +239,28 @@ module Marketplace
     end
 
     def log_app_creation
-      Rails.logger.info "App created: #{name} (#{id}) by Account #{account_id}"
+      Rails.logger.info "Marketplace::Definition created: #{name} (#{id}) by Account #{account_id}"
     end
 
     def log_app_updates
       return unless saved_changes.any?
 
-      Rails.logger.info "App updated: #{name} (#{id}) - Changes: #{saved_changes.keys.join(', ')}"
+      Rails.logger.info "Marketplace::Definition updated: #{name} (#{id}) - Changes: #{saved_changes.keys.join(', ')}"
     end
 
     def log_app_submission
-      Rails.logger.info "App submitted for review: #{name} (#{id})"
+      Rails.logger.info "Marketplace::Definition submitted for review: #{name} (#{id})"
     end
 
     def log_app_publication
-      Rails.logger.info "App published: #{name} (#{id})"
+      Rails.logger.info "Marketplace::Definition published: #{name} (#{id})"
       record_metric("publication", 1, { published_at: published_at })
     end
 
     def log_app_rejection(reason)
-      Rails.logger.info "App rejected: #{name} (#{id}) - Reason: #{reason}"
+      Rails.logger.info "Marketplace::Definition rejected: #{name} (#{id}) - Reason: #{reason}"
       record_metric("rejection", 1, { reason: reason })
     end
   end
 end
 
-# Backward compatibility alias
-App = Marketplace::Definition unless defined?(App)

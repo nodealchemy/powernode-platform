@@ -13,7 +13,6 @@ class McpTool < ApplicationRecord
   # ==========================================
   validates :name, presence: true
   validates :name, uniqueness: { scope: :mcp_server_id }
-  validates :input_schema, presence: true
   validates :permission_level, inclusion: { in: %w[public account admin] }
 
   validate :validate_input_schema_format
@@ -29,7 +28,7 @@ class McpTool < ApplicationRecord
   # ==========================================
   # Callbacks
   # ==========================================
-  before_validation :set_default_values, on: :create
+  before_validation :set_default_values
 
   # ==========================================
   # Public Methods

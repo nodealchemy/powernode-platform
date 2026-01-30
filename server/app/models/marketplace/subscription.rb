@@ -45,6 +45,9 @@ module Marketplace
 
     # Legacy scopes for backward compatibility
     scope :for_apps, -> { where(subscribable_type: "Marketplace::Definition") }
+    scope :for_plugins, -> { none }
+    scope :for_templates, -> { for_workflow_templates }
+    scope :for_integrations, -> { for_integration_templates }
 
     scope :for_type, ->(type) {
       case type.to_s
@@ -532,5 +535,3 @@ module Marketplace
   end
 end
 
-# Backward compatibility alias
-AppSubscription = Marketplace::Subscription unless defined?(AppSubscription)

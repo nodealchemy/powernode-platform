@@ -125,14 +125,11 @@ module Marketplace
     end
 
     def log_endpoint_creation
-      Rails.logger.info "AppEndpoint created: #{id} - #{method_and_path} for app #{app.name}"
+      Rails.logger.info "Marketplace::Endpoint created: #{id} - #{method_and_path} for app #{app.name}"
     end
 
     def log_endpoint_updates
-      Rails.logger.info "AppEndpoint updated: #{id} - #{method_and_path}"
+      Rails.logger.info "Marketplace::Endpoint updated: #{id} - #{method_and_path}"
     end
   end
 end
-
-# Backward compatibility alias
-AppEndpoint = Marketplace::Endpoint unless defined?(AppEndpoint)

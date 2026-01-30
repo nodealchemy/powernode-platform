@@ -53,6 +53,10 @@ module SupplyChain
       build_started_at.present? && build_finished_at.nil?
     end
 
+    def verification_in_progress?
+      metadata&.dig("reproducibility_status") == "verifying"
+    end
+
     def formatted_duration
       return nil unless build_duration_ms.present?
 

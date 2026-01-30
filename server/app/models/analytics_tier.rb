@@ -75,7 +75,7 @@ class AnalyticsTier < ApplicationRecord
 
   def api_calls_display
     return "N/A" if api_calls_per_day == 0
-    unlimited_api_calls? ? "Unlimited" : "#{api_calls_per_day.to_s(:delimited)}/day"
+    unlimited_api_calls? ? "Unlimited" : "#{ActiveSupport::NumberHelper.number_to_delimited(api_calls_per_day)}/day"
   end
 
   def price_display

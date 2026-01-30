@@ -16,7 +16,7 @@ module KnowledgeBase
     # Validations
     validates :content, presence: true, length: { maximum: 2000 }
     validates :status, inclusion: { in: %w[pending approved rejected spam] }
-    validates :likes_count, numericality: { greater_than_or_equal_to: 0 }
+    validates :helpful_count, numericality: { greater_than_or_equal_to: 0 }
 
     # Scopes
     scope :approved, -> { where(status: "approved") }
@@ -26,7 +26,7 @@ module KnowledgeBase
     scope :recent, -> { order(created_at: :desc) }
 
     # Callbacks
-    before_create :set_default_status
+    before_validation :set_default_status, on: :create
 
     # Methods
     def approved?
@@ -77,8 +77,10 @@ module KnowledgeBase
     private
 
     def set_default_status
+      return if %w[pending approved rejected spam].include?(status)
+
       # Auto-approve comments from users with kb.update permission
-      if author.has_permission?("kb.manage") || author.has_permission?("kb.update")
+      if author&.has_permission?("kb.manage") || author&.has_permission?("kb.update")
         self.status = "approved"
       else
         self.status = "pending"

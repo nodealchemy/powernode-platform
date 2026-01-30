@@ -19,6 +19,7 @@ module AuditActions
   USER_ACTIONS = %w[
     user_created user_updated user_deleted
     user_login user_logout user_registration login_failed password_reset
+    login_2fa_required
     account_locked account_unlocked account_switch password_changed email_verified
     two_factor_enabled two_factor_disabled backup_codes_generated
   ].freeze
@@ -53,15 +54,28 @@ module AuditActions
     payment_completed payment_failed payment_refunded payment_disputed
     invoice_generated invoice_sent invoice_paid invoice_overdue
     webhook_received webhook_failed webhook_retry
+    webhook_created webhook_updated webhook_deleted
+    webhook_test webhook_test_failed webhook_status_changed
+    webhook_delivery_retry webhook_health_test
   ].freeze
 
   # =============================================================================
   # API & INTEGRATION ACTIONS
   # =============================================================================
   API_ACTIONS = %w[
-    api_key_created api_key_revoked api_access_denied
+    api_key_created api_key_updated api_key_deleted api_key_regenerated
+    api_key_revoked api_key_status_changed api_access_denied
     api_request api_request_failed
     integration_connected integration_disconnected
+  ].freeze
+
+  # =============================================================================
+  # OAUTH APPLICATION ACTIONS
+  # =============================================================================
+  OAUTH_ACTIONS = %w[
+    oauth_application_created oauth_application_updated oauth_application_deleted
+    oauth_application_secret_regenerated oauth_application_suspended
+    oauth_application_activated oauth_application_revoked oauth_tokens_bulk_revoked
   ].freeze
 
   # =============================================================================
@@ -72,6 +86,9 @@ module AuditActions
     system_maintenance system_backup system_restore
     audit_log_cleanup audit_log_export
     audit_logging_error error_occurred
+    database_restore_created database_restore_status_changed
+    scheduled_task_created scheduled_task_updated scheduled_task_deleted
+    task_execution_created task_execution_status_changed
     job_enqueue notification_send billing_operation webhook_process
     analytics_request report_generation health_check email_configuration
   ].freeze
@@ -263,6 +280,13 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # SITE SETTING ACTIONS
+  # =============================================================================
+  SITE_SETTING_ACTIONS = %w[
+    create_site_setting update_site_setting delete_site_setting bulk_update_site_settings
+  ].freeze
+
+  # =============================================================================
   # SUPPLY CHAIN ACTIONS
   # =============================================================================
   SUPPLY_CHAIN_ACTIONS = %w[
@@ -306,6 +330,7 @@ module AuditActions
     SUBSCRIPTION_ACTIONS,
     PAYMENT_ACTIONS,
     API_ACTIONS,
+    OAUTH_ACTIONS,
     SYSTEM_ACTIONS,
     SECURITY_ACTIONS,
     COMPLIANCE_ACTIONS,
@@ -325,6 +350,7 @@ module AuditActions
     DEVOPS_ACTIONS,
     MCP_ACTIONS,
     INVITATION_ACTIONS,
+    SITE_SETTING_ACTIONS,
     SUPPLY_CHAIN_ACTIONS,
     LEGACY_ACTIONS
   ].flatten.uniq.freeze
@@ -402,6 +428,7 @@ module AuditActions
       when 'devops' then DEVOPS_ACTIONS
       when 'mcp' then MCP_ACTIONS
       when 'invitation' then INVITATION_ACTIONS
+      when 'site_setting' then SITE_SETTING_ACTIONS
       when 'supply_chain' then SUPPLY_CHAIN_ACTIONS
       else []
       end

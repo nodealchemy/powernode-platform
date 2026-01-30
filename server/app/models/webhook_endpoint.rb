@@ -5,7 +5,7 @@ class WebhookEndpoint < ApplicationRecord
   belongs_to :account
   belongs_to :created_by, class_name: "User", optional: true
   has_many :webhook_deliveries, dependent: :destroy
-  has_many :webhook_events, dependent: :destroy
+  has_many :webhook_events, through: :webhook_deliveries
   has_many :delivery_stats, class_name: "WebhookDeliveryStat", dependent: :destroy
 
   # Validations
@@ -125,17 +125,19 @@ class WebhookEndpoint < ApplicationRecord
   end
 
   def average_response_time
-    successful_deliveries = webhook_deliveries.successful.where.not(response_time_ms: nil)
+    successful_deliveries = webhook_deliveries.successful.where.not(attempted_at: nil)
     return 0 if successful_deliveries.empty?
-    successful_deliveries.average(:response_time_ms)&.round(2) || 0
+    avg_seconds = successful_deliveries.average(Arel.sql("EXTRACT(EPOCH FROM (attempted_at - created_at))"))
+    return 0 unless avg_seconds
+    (avg_seconds * 1000).round(2) # Convert to milliseconds
   end
 
   def last_success_at
-    webhook_deliveries.successful.maximum(:completed_at)
+    webhook_deliveries.successful.maximum(:attempted_at)
   end
 
   def last_failure_at
-    webhook_deliveries.failed.maximum(:completed_at)
+    webhook_deliveries.failed.maximum(:attempted_at)
   end
 
   def can_receive_event?(event_type)
@@ -272,6 +274,9 @@ class WebhookEndpoint < ApplicationRecord
     self.is_active = true if is_active.nil?
     self.timeout_seconds ||= 30
     self.max_retries ||= 3
+    self.retry_limit ||= 3
+    self.retry_backoff ||= "exponential"
+    self.content_type ||= "application/json"
     self.event_types ||= []
     self.headers ||= {}
   end

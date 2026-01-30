@@ -94,7 +94,14 @@ class OauthApplication < ApplicationRecord
   end
 
   def regenerate_secret!
-    self.secret = Doorkeeper.config.application_secret_generator.call
+    # Generate a new secret using Doorkeeper's method or fallback to SecureRandom
+    generator = Doorkeeper.config.application_secret_generator
+    self.secret = if generator.respond_to?(:call)
+                    generator.call
+                  else
+                    # Default to Doorkeeper's UniqueToken generator
+                    Doorkeeper::OAuth::Helpers::UniqueToken.generate
+                  end
     save!
     secret
   end

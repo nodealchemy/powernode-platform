@@ -42,6 +42,7 @@ class Subscription < ApplicationRecord
     state :incomplete
     state :incomplete_expired
     state :paused
+    state :suspended
 
     event :activate do
       transitions from: [ :trialing, :past_due, :unpaid, :paused ], to: :active
@@ -72,6 +73,10 @@ class Subscription < ApplicationRecord
 
     event :resume do
       transitions from: :paused, to: :active
+    end
+
+    event :suspend do
+      transitions from: [ :active, :past_due, :trialing ], to: :suspended
     end
 
     event :expire do

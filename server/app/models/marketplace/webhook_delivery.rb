@@ -167,6 +167,3 @@ module Marketplace
     end
   end
 end
-
-# Backward compatibility alias
-AppWebhookDelivery = Marketplace::WebhookDelivery unless defined?(AppWebhookDelivery)

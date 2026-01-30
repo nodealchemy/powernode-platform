@@ -203,14 +203,11 @@ module Marketplace
     end
 
     def log_webhook_creation
-      Rails.logger.info "AppWebhook created: #{id} - #{event_type} for app #{app.name}"
+      Rails.logger.info "Marketplace::Webhook created: #{id} - #{event_type} for app #{app.name}"
     end
 
     def log_webhook_updates
-      Rails.logger.info "AppWebhook updated: #{id} - #{event_type}"
+      Rails.logger.info "Marketplace::Webhook updated: #{id} - #{event_type}"
     end
   end
 end
-
-# Backward compatibility alias
-AppWebhook = Marketplace::Webhook unless defined?(AppWebhook)

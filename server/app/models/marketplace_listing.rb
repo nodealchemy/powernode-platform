@@ -4,7 +4,7 @@ class MarketplaceListing < ApplicationRecord
   include Auditable
 
   # Associations
-  belongs_to :app
+  belongs_to :app, class_name: "Marketplace::Definition", foreign_key: "app_id", optional: true
 
   # Validations
   validates :title, presence: true, length: { minimum: 2, maximum: 255 }
@@ -28,8 +28,8 @@ class MarketplaceListing < ApplicationRecord
   scope :by_category, ->(category) { where(category: category) }
   scope :recent, -> { order(published_at: :desc, created_at: :desc) }
   scope :popular, -> {
-    if ActiveRecord::Base.connection.table_exists?("app_subscriptions")
-      joins(app: :app_subscriptions).group("marketplace_listings.id").order("COUNT(app_subscriptions.id) DESC")
+    if ActiveRecord::Base.connection.table_exists?("marketplace_subscriptions")
+      joins(app: :subscriptions).group("marketplace_listings.id").order("COUNT(marketplace_subscriptions.id) DESC")
     else
       order(created_at: :desc)
     end
@@ -73,7 +73,7 @@ class MarketplaceListing < ApplicationRecord
         review_notes: notes,
         published_at: Time.current
       )
-      app.publish! if app.under_review?
+      app&.publish! if app&.under_review?
       log_approval(reviewer)
     end
     true
@@ -90,7 +90,7 @@ class MarketplaceListing < ApplicationRecord
         review_notes: notes,
         published_at: nil
       )
-      app.reject!(notes) if app.under_review?
+      app&.reject!(notes) if app&.under_review?
       log_rejection(reviewer, notes)
     end
     true
@@ -198,7 +198,7 @@ class MarketplaceListing < ApplicationRecord
 
   # Analytics methods
   def view_count
-    return 0 unless ActiveRecord::Base.connection.table_exists?("app_analytics")
+    return 0 unless app && ActiveRecord::Base.connection.table_exists?("app_analytics")
     app.app_analytics.where(metric_name: "listing_view").sum(:metric_value)
   rescue StandardError => e
     Rails.logger.error "Failed to get view count for listing #{id}: #{e.message}"
@@ -206,7 +206,7 @@ class MarketplaceListing < ApplicationRecord
   end
 
   def subscription_count
-    return 0 unless ActiveRecord::Base.connection.table_exists?("app_subscriptions")
+    return 0 unless app && ActiveRecord::Base.connection.table_exists?("marketplace_subscriptions")
     app.subscription_count
   rescue StandardError => e
     Rails.logger.error "Failed to get subscription count for listing #{id}: #{e.message}"
@@ -221,7 +221,7 @@ class MarketplaceListing < ApplicationRecord
   end
 
   def average_rating
-    return 0.0 unless app.respond_to?(:average_rating)
+    return 0.0 unless app&.respond_to?(:average_rating)
     app.average_rating
   rescue StandardError => e
     Rails.logger.error "Failed to get average rating for listing #{id}: #{e.message}"
@@ -229,7 +229,7 @@ class MarketplaceListing < ApplicationRecord
   end
 
   def review_count
-    return 0 unless app.respond_to?(:total_reviews)
+    return 0 unless app&.respond_to?(:total_reviews)
     app.total_reviews
   rescue StandardError => e
     Rails.logger.error "Failed to get review count for listing #{id}: #{e.message}"

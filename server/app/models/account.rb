@@ -173,11 +173,15 @@ class Account < ApplicationRecord
   has_many :supply_chain_vendor_monitoring_events, class_name: "SupplyChain::VendorMonitoringEvent", dependent: :destroy
   has_many :supply_chain_scan_templates, class_name: "SupplyChain::ScanTemplate", dependent: :destroy
   has_many :supply_chain_scan_instances, class_name: "SupplyChain::ScanInstance", dependent: :destroy
+  has_many :supply_chain_scan_executions, class_name: "SupplyChain::ScanExecution", dependent: :destroy
   has_many :supply_chain_reports, class_name: "SupplyChain::Report", dependent: :destroy
+  has_many :supply_chain_attributions, class_name: "SupplyChain::Attribution", dependent: :destroy
+  has_many :supply_chain_license_detections, class_name: "SupplyChain::LicenseDetection", dependent: :destroy
+  has_many :supply_chain_build_provenances, class_name: "SupplyChain::BuildProvenance", dependent: :destroy
 
   # Subscription-related associations
   has_many :invoices, through: :subscription
-  has_many :payments, through: :invoices
+  has_many :payments
 
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }

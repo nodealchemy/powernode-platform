@@ -80,7 +80,7 @@ module KnowledgeBase
     def editable_by?(user)
       return false unless user
       return true if author_id == user.id
-      user.has_permission?("kb.manage")
+      user.has_permission?("kb.manage") || user.has_permission?("kb.update")
     end
 
     def record_view!(user: nil, session_id: nil, ip_address: nil, user_agent: nil)

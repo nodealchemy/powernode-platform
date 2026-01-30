@@ -119,8 +119,8 @@ class Account::Termination < ApplicationRecord
         termination_log: termination_log + [{ event: "completed", by: processor&.id, at: Time.current.iso8601 }]
       )
 
-      # Mark account as terminated
-      account.update!(status: "terminated", terminated_at: Time.current)
+      # Mark account as cancelled (terminated)
+      account.update!(status: "cancelled")
 
       log_status_change("completed")
       notify_completion
@@ -203,7 +203,7 @@ class Account::Termination < ApplicationRecord
 
       case status
       when "grace_period"
-        account.update!(status: "terminating")
+        account.update!(status: "suspended")
       when "cancelled"
         account.update!(status: "active")
       end

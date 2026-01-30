@@ -46,7 +46,7 @@ module KnowledgeBase
       for_period(period.ago, Time.current)
         .joins(:article)
         .group("knowledge_base_articles.id, knowledge_base_articles.title")
-        .order("COUNT(*) DESC")
+        .order(Arel.sql("COUNT(*) DESC"))
         .limit(limit)
         .count
     end

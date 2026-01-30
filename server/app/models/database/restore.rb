@@ -6,10 +6,10 @@ module Database
 
     # Associations
     belongs_to :database_backup, class_name: "Database::Backup", foreign_key: "database_backup_id"
-    belongs_to :user
+    belongs_to :initiated_by, class_name: "User"
 
     # Validations
-    validates :status, presence: true, inclusion: { in: %w[pending in_progress completed failed] }
+    validates :status, presence: true, inclusion: { in: %w[pending running completed failed] }
 
     # Scopes
     scope :completed, -> { where(status: "completed") }
@@ -29,7 +29,7 @@ module Database
     end
 
     def in_progress?
-      status == "in_progress"
+      status == "running"
     end
 
     def pending?
@@ -45,14 +45,13 @@ module Database
 
     def log_restore_creation
       AuditLog.create!(
-        user: user,
-        account: user.account,
+        user: initiated_by,
+        account: initiated_by.account,
         action: "database_restore_created",
         resource_type: "Database::Restore",
         resource_id: id,
         details: {
           backup_id: database_backup.id,
-          backup_filename: database_backup.filename,
           backup_type: database_backup.backup_type
         }
       )
@@ -62,15 +61,14 @@ module Database
 
     def log_restore_status_change
       AuditLog.create!(
-        user: user,
-        account: user.account,
+        user: initiated_by,
+        account: initiated_by.account,
         action: "database_restore_status_changed",
         resource_type: "Database::Restore",
         resource_id: id,
         details: {
           previous_status: status_before_last_save,
           new_status: status,
-          backup_filename: database_backup.filename,
           duration_seconds: duration_seconds,
           error_message: error_message
         }

@@ -33,7 +33,16 @@ class WorkerActivity < ApplicationRecord
     service_activated: "service_activated",
     service_revoked: "service_revoked",
     ping_test: "ping_test",
-    job_processing_test: "job_processing_test"
+    job_processing_test: "job_processing_test",
+    worker_updated: "worker_updated",
+    worker_deleted: "worker_deleted",
+    worker_suspended: "worker_suspended",
+    worker_activated: "worker_activated",
+    worker_revoked: "worker_revoked",
+    test_completed: "test_completed",
+    token_accessed: "token_accessed",
+    config_updated: "config_updated",
+    config_reset: "config_reset"
   }, prefix: :activity_type
 
   # Scopes

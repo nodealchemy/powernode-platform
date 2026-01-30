@@ -282,24 +282,22 @@ module Marketplace
     end
 
     def log_plan_creation
-      Rails.logger.info "App Plan created: #{name} (#{id}) for App #{app.name}"
+      Rails.logger.info "Marketplace::Plan created: #{name} (#{id}) for #{app.name}"
     end
 
     def log_plan_updates
       return unless saved_changes.any?
 
-      Rails.logger.info "App Plan updated: #{name} (#{id}) - Changes: #{saved_changes.keys.join(', ')}"
+      Rails.logger.info "Marketplace::Plan updated: #{name} (#{id}) - Changes: #{saved_changes.keys.join(', ')}"
     end
 
     def log_plan_activation
-      Rails.logger.info "App Plan activated: #{name} (#{id})"
+      Rails.logger.info "Marketplace::Plan activated: #{name} (#{id})"
     end
 
     def log_plan_deactivation
-      Rails.logger.info "App Plan deactivated: #{name} (#{id})"
+      Rails.logger.info "Marketplace::Plan deactivated: #{name} (#{id})"
     end
   end
 end
 
-# Backward compatibility alias
-AppPlan = Marketplace::Plan unless defined?(AppPlan)

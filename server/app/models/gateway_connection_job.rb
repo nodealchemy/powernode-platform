@@ -1,11 +1,17 @@
 # frozen_string_literal: true
 
 class GatewayConnectionJob < ApplicationRecord
+  # Alias: DB column is "response" but code/API uses "result"
+  alias_attribute :result, :response
+  # Alias: DB column is "payload" but code/API uses "config_data"
+  alias_attribute :config_data, :payload
+
   validates :gateway, presence: true, inclusion: { in: %w[stripe paypal] }
-  validates :status, presence: true, inclusion: { in: %w[pending running completed failed] }
+  validates :status, presence: true, inclusion: { in: %w[pending processing completed failed] }
+  validates :operation, presence: true
 
   scope :pending, -> { where(status: "pending") }
-  scope :running, -> { where(status: "running") }
+  scope :processing, -> { where(status: "processing") }
   scope :completed, -> { where(status: "completed") }
   scope :failed, -> { where(status: "failed") }
   scope :finished, -> { where(status: %w[completed failed]) }
