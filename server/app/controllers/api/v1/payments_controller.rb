@@ -46,8 +46,8 @@ class Api::V1::PaymentsController < ApplicationController
       currency: payment.currency,
       status: payment.status,
       provider: payment.provider,
-      provider_payment_id: payment.provider_payment_id,
-      payment_method_last4: payment.payment_method_last4,
+      provider_payment_id: payment.external_id,
+      payment_method_last4: payment.payment_method&.last_four,
       processed_at: payment.processed_at,
       failed_at: payment.failed_at,
       failure_reason: payment.failure_reason,
@@ -56,7 +56,7 @@ class Api::V1::PaymentsController < ApplicationController
       invoice: payment.invoice ? {
         id: payment.invoice.id,
         invoice_number: payment.invoice.invoice_number,
-        total_amount: payment.invoice.total_amount
+        total_amount: payment.invoice.total_cents
       } : nil,
       subscription: payment.subscription ? {
         id: payment.subscription.id,

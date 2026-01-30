@@ -11,7 +11,6 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     subscription.update!(
       current_period_start: Time.current,
       current_period_end: calculate_period_end(subscription),
-      last_billing_date: Time.current,
       status: params[:status] || "active"
     )
 
@@ -45,8 +44,9 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
       retried_at: Time.current
     }
 
-    # Record the retry attempt
-    subscription.increment!(:payment_retry_count) if subscription.respond_to?(:payment_retry_count)
+    # Record the retry attempt in metadata
+    retry_count = (subscription.metadata["payment_retry_count"] || 0).to_i + 1
+    subscription.update!(metadata: subscription.metadata.merge("payment_retry_count" => retry_count))
 
     log_billing_action("retry_payment", subscription, { invoice_id: invoice&.id })
 
@@ -63,18 +63,22 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
   def process_payment
     invoice = Invoice.find(params[:invoice_id])
 
+    payment_status = params[:status] || "pending"
+
     # Create payment record
     payment = invoice.payments.create!(
       account: invoice.account,
-      amount: invoice.amount_due,
-      status: params[:status] || "completed",
+      amount_cents: invoice.total_cents,
+      currency: invoice.currency,
+      status: payment_status,
       payment_method_id: params[:payment_method_id],
-      processed_at: Time.current,
+      gateway: params[:gateway] || "stripe",
+      processed_at: payment_status == "succeeded" ? Time.current : nil,
       metadata: params[:metadata] || {}
     )
 
     # Update invoice status
-    if payment.status == "completed"
+    if payment.succeeded?
       invoice.update!(status: "paid", paid_at: Time.current)
     end
 
@@ -85,7 +89,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
         payment_id: payment.id,
         invoice_id: invoice.id,
         status: payment.status,
-        amount: payment.amount
+        amount_cents: payment.amount_cents
       },
       message: "Payment processed"
     )
@@ -100,18 +104,36 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
   # Generate invoice from worker service
   def generate_invoice
     subscription = Subscription.find(params[:subscription_id])
+    plan = subscription.plan
+    price_cents = plan&.price_cents || 0
+    quantity = subscription.quantity || 1
+    subtotal = price_cents * quantity
 
-    invoice = subscription.invoices.create!(
+    invoice = subscription.invoices.build(
       account: subscription.account,
-      invoice_number: generate_invoice_number,
-      status: "pending",
-      amount_due: subscription.plan&.price || 0,
-      invoice_type: params[:invoice_type] || "subscription",
-      description: params[:description] || "Subscription invoice",
-      due_date: 30.days.from_now,
-      billing_period_start: subscription.current_period_start,
-      billing_period_end: subscription.current_period_end
+      status: "open",
+      due_at: 30.days.from_now,
+      tax_rate: 0.0,
+      metadata: {
+        invoice_type: params[:invoice_type] || "subscription",
+        description: params[:description] || "Subscription invoice",
+        billing_period_start: subscription.current_period_start&.iso8601,
+        billing_period_end: subscription.current_period_end&.iso8601
+      }.compact
     )
+
+    # Add subscription line item so calculate_totals computes correctly
+    invoice.invoice_line_items.build(
+      description: params[:description] || "#{plan&.name} subscription",
+      line_type: "subscription",
+      quantity: quantity,
+      unit_amount_cents: price_cents,
+      total_amount_cents: subtotal,
+      period_start: subscription.current_period_start,
+      period_end: subscription.current_period_end
+    )
+
+    invoice.save!
 
     log_billing_action("generate_invoice", subscription, { invoice_id: invoice.id })
 
@@ -119,9 +141,9 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
       data: {
         id: invoice.id,
         invoice_number: invoice.invoice_number,
-        amount_due: invoice.amount_due,
+        total_cents: invoice.total_cents,
         status: invoice.status,
-        due_date: invoice.due_date
+        due_at: invoice.due_at
       },
       message: "Invoice generated"
     )
@@ -137,19 +159,22 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
   def suspend_subscription
     subscription = Subscription.find(params[:subscription_id])
 
+    reason = params[:reason] || "payment_failure"
     subscription.update!(
       status: "suspended",
-      suspended_at: Time.current,
-      suspension_reason: params[:reason] || "payment_failure"
+      metadata: (subscription.metadata || {}).merge(
+        "suspended_at" => Time.current.iso8601,
+        "suspension_reason" => reason
+      )
     )
 
-    log_billing_action("suspend_subscription", subscription, { reason: params[:reason] })
+    log_billing_action("suspend_subscription", subscription, { reason: reason })
 
     render_success(
       data: {
         subscription_id: subscription.id,
         status: subscription.status,
-        suspended_at: subscription.suspended_at
+        suspended_at: subscription.metadata["suspended_at"]
       },
       message: "Subscription suspended"
     )
@@ -165,19 +190,22 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
   def cancel_subscription
     subscription = Subscription.find(params[:subscription_id])
 
+    reason = params[:reason] || "billing_failure"
     subscription.update!(
-      status: "cancelled",
-      cancelled_at: Time.current,
-      cancellation_reason: params[:reason] || "billing_failure"
+      status: "canceled",
+      canceled_at: Time.current,
+      metadata: (subscription.metadata || {}).merge(
+        "cancellation_reason" => reason
+      )
     )
 
-    log_billing_action("cancel_subscription", subscription, { reason: params[:reason] })
+    log_billing_action("cancel_subscription", subscription, { reason: reason })
 
     render_success(
       data: {
         subscription_id: subscription.id,
         status: subscription.status,
-        cancelled_at: subscription.cancelled_at
+        cancelled_at: subscription.canceled_at
       },
       message: "Subscription cancelled"
     )
@@ -211,8 +239,8 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
   # Report billing system health from worker service
   def health_report
     report = {
-      pending_invoices_count: Invoice.where(status: "pending").count,
-      overdue_invoices_count: Invoice.where(status: "pending").where("due_date < ?", Time.current).count,
+      pending_invoices_count: Invoice.where(status: "open").count,
+      overdue_invoices_count: Invoice.where(status: "open").where("due_at < ?", Time.current).count,
       suspended_subscriptions_count: Subscription.where(status: "suspended").count,
       failed_payments_24h: Payment.where(status: "failed").where("created_at > ?", 24.hours.ago).count,
       processing_queue_size: params[:queue_size] || 0,
@@ -275,9 +303,9 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
   end
 
   def archive_stale_invoices
-    Invoice.where(status: "pending")
+    Invoice.where(status: "draft")
            .where("created_at < ?", 90.days.ago)
-           .update_all(status: "archived", archived_at: Time.current)
+           .update_all(status: "void")
   end
 
   def process_expired_trials
@@ -294,8 +322,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
   def reactivate_subscription(subscription)
     subscription.update!(
       status: "active",
-      suspended_at: nil,
-      suspension_reason: nil
+      metadata: (subscription.metadata || {}).except("suspended_at", "suspension_reason")
     )
     log_billing_action("reactivate_subscription", subscription)
   end
@@ -304,7 +331,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     # Find suspended subscriptions with recent successful payments
     eligible = Subscription.where(status: "suspended")
                            .joins(:payments)
-                           .where("payments.status = ? AND payments.created_at > ?", "completed", 24.hours.ago)
+                           .where("payments.status = ? AND payments.created_at > ?", "succeeded", 24.hours.ago)
                            .distinct
 
     eligible.each { |sub| reactivate_subscription(sub) }

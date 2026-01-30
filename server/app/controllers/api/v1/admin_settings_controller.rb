@@ -14,7 +14,7 @@
 class Api::V1::AdminSettingsController < ApplicationController
   include AuditLogging
 
-  before_action -> { require_permission("admin.settings.view") }
+  before_action -> { require_permission("admin.settings.read") }
 
   # =============================================================================
   # OVERVIEW & METRICS

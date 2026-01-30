@@ -48,7 +48,7 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
 
   # DELETE /api/v1/internal/users/:user_id/consents
   def delete_consents
-    count = Consent.where(user_id: @user.id).delete_all
+    count = UserConsent.where(user_id: @user.id).delete_all
     render_success(message: "Deleted #{count} consent records")
   end
 

@@ -6,8 +6,8 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
 
   # GET /api/v1/internal/account_terminations
   def index
-    terminations = Account::Termination.where(status: [ "pending", "in_progress" ])
-                                     .order(scheduled_at: :asc)
+    terminations = Account::Termination.active
+                                     .order(grace_period_ends_at: :asc)
 
     render_success(data: terminations.map { |t| termination_data(t) })
   end
@@ -35,7 +35,7 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
   end
 
   def termination_params
-    params.permit(:status, :progress, :completed_at, :error_message, :metadata)
+    params.permit(:status, :completed_at)
   end
 
   def termination_data(termination)
@@ -44,10 +44,9 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
       account_id: termination.account_id,
       status: termination.status,
       reason: termination.reason,
-      scheduled_at: termination.scheduled_at,
+      grace_period_ends_at: termination.grace_period_ends_at,
       completed_at: termination.completed_at,
-      progress: termination.progress,
-      error_message: termination.error_message,
+      requested_at: termination.requested_at,
       created_at: termination.created_at,
       updated_at: termination.updated_at
     }

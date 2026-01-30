@@ -9,7 +9,7 @@ module Api
         # GET /api/v1/marketplace/subscriptions
         # Lists all subscriptions for the current account
         def index
-          subscriptions = current_account.subscriptions
+          subscriptions = current_account.marketplace_subscriptions
 
           # Filter by type
           subscriptions = subscriptions.for_type(params[:type]) if params[:type].present?
@@ -147,7 +147,7 @@ module Api
         private
 
         def set_subscription
-          @subscription = current_account.subscriptions.find_by(id: params[:id])
+          @subscription = current_account.marketplace_subscriptions.find_by(id: params[:id])
           render_error("Subscription not found", :not_found) unless @subscription
         end
 
@@ -226,18 +226,18 @@ module Api
 
         def subscription_counts_by_type
           {
-            app: current_account.subscriptions.for_apps.count,
-            plugin: current_account.subscriptions.for_plugins.count,
-            template: current_account.subscriptions.for_templates.count,
-            integration: current_account.subscriptions.for_integrations.count
+            app: current_account.marketplace_subscriptions.for_apps.count,
+            plugin: current_account.marketplace_subscriptions.for_plugins.count,
+            template: current_account.marketplace_subscriptions.for_templates.count,
+            integration: current_account.marketplace_subscriptions.for_integrations.count
           }
         end
 
         def subscription_counts_by_status
           {
-            active: current_account.subscriptions.active.count,
-            paused: current_account.subscriptions.paused.count,
-            cancelled: current_account.subscriptions.cancelled.count
+            active: current_account.marketplace_subscriptions.active.count,
+            paused: current_account.marketplace_subscriptions.paused.count,
+            cancelled: current_account.marketplace_subscriptions.cancelled.count
           }
         end
       end

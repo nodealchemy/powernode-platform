@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::RolesController < ApplicationController
-  before_action -> { require_permission("admin.role.view") }, only: [ :index, :show, :users ]
+  before_action -> { require_permission("admin.role.read") }, only: [ :index, :show, :users ]
   before_action -> { require_permission("admin.role.create") }, only: [ :create ]
   before_action -> { require_permission("admin.role.update") }, only: [ :update ]
   before_action -> { require_permission("admin.role.delete") }, only: [ :destroy ]

@@ -38,7 +38,7 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
 
   # GET /api/v1/internal/users/:user_id/export/consents
   def user_consents
-    consents = Consent.where(user_id: params[:user_id])
+    consents = UserConsent.where(user_id: params[:user_id])
 
     render_success(data: consents.map { |c| consent_data(c) })
   end

@@ -7,7 +7,7 @@ module Api
         skip_before_action :authenticate_request, only: [ :index, :show ]
         before_action :authenticate_optional, only: [ :index, :show ]
         before_action :set_reviewable, only: [ :index, :create ]
-        before_action :set_review, only: [ :show, :update, :destroy, :mark_helpful ]
+        before_action :set_review, only: [ :show, :update, :destroy, :helpful ]
 
         # GET /api/v1/marketplace/reviews
         # Lists reviews for a specific item or all reviews
@@ -112,7 +112,7 @@ module Api
         end
 
         # POST /api/v1/marketplace/reviews/:id/helpful
-        def mark_helpful
+        def helpful
           return render_error("Authentication required", :unauthorized) unless current_user
           return render_error("Cannot mark your own review as helpful", :unprocessable_content) if @review.user_id == current_user.id
 

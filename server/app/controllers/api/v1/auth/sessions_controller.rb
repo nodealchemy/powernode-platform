@@ -4,7 +4,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
   # Rate limiting is now included in ApplicationController
   include UserSerialization
 
-  skip_before_action :authenticate_request, only: [ :create, :refresh ]
+  skip_before_action :authenticate_request, only: [ :create, :refresh, :verify_2fa ]
 
   # POST /api/v1/sessions
   def create

@@ -3,7 +3,7 @@
 # Worker Activities Controller
 # Manages activity tracking and viewing for workers
 class Api::V1::ActivitiesController < ApplicationController
-  before_action -> { require_permission("system.workers.view") }
+  before_action -> { require_permission("system.workers.read") }
   before_action :set_worker
   before_action :set_activity, only: [ :show ]
 

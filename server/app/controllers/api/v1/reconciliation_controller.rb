@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::ReconciliationController < ApplicationController
+  skip_before_action :authenticate_request
   before_action :authenticate_service_request
 
   # Get Stripe payments for reconciliation
@@ -9,7 +10,8 @@ class Api::V1::ReconciliationController < ApplicationController
     end_date = Time.parse(params[:end_date])
 
     payments = Payment.joins(invoice: :subscription)
-                     .where(payment_method: [ "stripe_card", "stripe_bank" ])
+                     .joins(:payment_method)
+                     .where(payment_methods: { gateway: "stripe" })
                      .where(created_at: start_date..end_date)
                      .where(status: "succeeded")
                      .includes(invoice: [ :subscription, :account ])
@@ -36,7 +38,8 @@ class Api::V1::ReconciliationController < ApplicationController
     end_date = Time.parse(params[:end_date])
 
     payments = Payment.joins(invoice: :subscription)
-                     .where(payment_method: "paypal")
+                     .joins(:payment_method)
+                     .where(payment_methods: { gateway: "paypal" })
                      .where(created_at: start_date..end_date)
                      .where(status: "succeeded")
                      .includes(invoice: [ :subscription, :account ])
@@ -62,23 +65,15 @@ class Api::V1::ReconciliationController < ApplicationController
     reconciliation_report = ReconciliationReport.create!(
       reconciliation_date: Date.parse(params[:reconciliation_date]),
       reconciliation_type: params[:reconciliation_type],
+      gateway: params[:gateway],
+      report_date: Date.parse(params[:report_date]),
+      report_type: params[:report_type],
       date_range_start: Time.parse(params[:date_range][:start]),
       date_range_end: Time.parse(params[:date_range][:end]),
-      summary: params[:summary],
+      summary: params[:summary].to_json,
       discrepancies_count: params[:discrepancies_count],
       high_severity_count: params[:high_severity_count],
       medium_severity_count: params[:medium_severity_count]
-    )
-
-    # Log the reconciliation report
-    AuditLog.log_action(
-      action: "reconciliation_report_created",
-      resource: reconciliation_report,
-      source: "worker_service",
-      metadata: {
-        reconciliation_type: params[:reconciliation_type],
-        discrepancies_found: params[:discrepancies_count]
-      }
     )
 
     render_success({ report_id: reconciliation_report.id })
@@ -99,13 +94,13 @@ class Api::V1::ReconciliationController < ApplicationController
   # Handle reconciliation flags for manual review
   def flags
     reconciliation_flag = ReconciliationFlag.create!(
+      reconciliation_report_id: params[:reconciliation_report_id],
       flag_type: params[:type],
-      provider: params[:provider],
-      local_payment_id: params[:local_payment_id],
-      external_id: params[:external_id],
-      requires_manual_review: params[:requires_manual_review],
-      metadata: params.except(:type, :provider, :local_payment_id, :external_id, :requires_manual_review),
-      status: "pending"
+      description: params[:description] || "#{params[:type]} detected",
+      severity: params[:severity] || "medium",
+      transaction_id: params[:transaction_id],
+      amount_cents: params[:amount_cents],
+      metadata: params[:metadata] || {}
     )
 
     render_success({ flag_id: reconciliation_flag.id })
@@ -114,14 +109,11 @@ class Api::V1::ReconciliationController < ApplicationController
   # Handle reconciliation investigations
   def investigations
     reconciliation_investigation = ReconciliationInvestigation.create!(
-      investigation_type: params[:type],
-      local_payment_id: params[:local_payment_id],
-      provider_payment_id: params[:provider_payment_id],
-      local_amount: params[:local_amount],
-      provider_amount: params[:provider_amount],
-      amount_difference: params[:difference],
-      requires_investigation: params[:requires_investigation],
-      status: "pending"
+      reconciliation_flag_id: params[:reconciliation_flag_id],
+      investigator_id: params[:investigator_id],
+      started_at: params[:started_at] || Time.current,
+      notes: params[:notes],
+      findings: params[:findings] || {}
     )
 
     render_success({ investigation_id: reconciliation_investigation.id })
@@ -130,25 +122,49 @@ class Api::V1::ReconciliationController < ApplicationController
   private
 
   def handle_create_missing_payment(params)
-    # Find the associated invoice/account for this payment
-    # This would require looking up by provider payment ID
     provider_payment_id = params[:provider_payment_id]
     provider = params[:provider]
 
-    # For now, log the missing payment for manual review
+    # Try to find the account via existing payment with same provider ID
+    account = find_account_for_missing_payment(provider, provider_payment_id, params[:account_id])
+
+    unless account
+      return render_error(
+        "Cannot determine account for missing payment. Provide account_id or ensure a related payment exists.",
+        status: :unprocessable_entity
+      )
+    end
+
+    # Log the missing payment for manual review
     missing_payment_log = MissingPaymentLog.create!(
-      provider: provider,
-      provider_payment_id: provider_payment_id,
+      account: account,
+      gateway: provider,
+      external_payment_id: provider_payment_id,
       amount_cents: params[:amount],
       currency: params[:currency],
-      status: "pending_creation",
-      discovered_at: Time.current
+      status: "pending",
+      detected_at: Time.current
     )
 
     render_success(
       message: "Missing payment logged for manual review",
       data: { log_id: missing_payment_log.id }
     )
+  end
+
+  def find_account_for_missing_payment(provider, provider_payment_id, explicit_account_id)
+    # First, try explicit account_id if provided
+    if explicit_account_id.present?
+      return Account.find_by(id: explicit_account_id)
+    end
+
+    # Try to find account via existing payment with same provider ID
+    existing_payment = Payment.find_by_provider_payment_id(provider, provider_payment_id)
+    return existing_payment.account if existing_payment
+
+    # Try to find account via subscription ID in metadata if this is a recurring payment
+    # PayPal and Stripe often include subscription references
+    nil
   end
 
   def authenticate_service_request

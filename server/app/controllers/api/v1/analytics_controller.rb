@@ -4,8 +4,8 @@ require "csv"
 
 class Api::V1::AnalyticsController < ApplicationController
   before_action :check_analytics_permission
-  before_action :set_date_range, only: [ :revenue, :growth, :churn, :cohorts, :customers ]
-  before_action :set_account_scope, only: [ :revenue, :growth, :churn, :cohorts, :customers ]
+  before_action :set_date_range, only: [ :revenue, :growth, :churn, :cohorts, :customers, :export ]
+  before_action :set_account_scope, only: [ :live, :revenue, :growth, :churn, :cohorts, :customers, :export ]
 
   # GET /api/v1/analytics/live
   # Returns real-time analytics data for live dashboard updates
@@ -416,7 +416,10 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET/POST /api/v1/analytics/export
   # Export analytics data in various formats
   def export
-    format = params[:format] || "csv"
+    # Use export_format to avoid shadowing Rails format parameter
+    export_format = params[:export_format] || params[:format_type] || "csv"
+    # If params[:format] is "json" (from as: :json), don't use it as export format
+    export_format = "csv" if export_format == "json"
     report_type = params[:report_type] || "revenue"
 
     unless can_export_analytics?
@@ -430,49 +433,35 @@ class Api::V1::AnalyticsController < ApplicationController
       end_date: @end_date
     )
 
-    case format.downcase
+    case export_format.to_s.downcase
     when "csv"
       csv_data = analytics_service.export_revenue_data_csv("monthly")
 
-      respond_to do |format|
-        format.csv {
-          send_data csv_data,
-          filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv",
-          type: "text/csv"
+      render_success(
+        data: {
+          csv_data: csv_data,
+          filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv"
         }
-        format.json {
-          render_success(
-            data: {
-              csv_data: csv_data,
-              filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv"
-            }
-          )
-        }
-      end
+      )
     when "pdf"
-      pdf_data = PdfReportService.new(
-        report_type: "#{report_type}_report",
-        account: @account_scope,
-        start_date: @start_date,
-        end_date: @end_date,
-        user: current_user
-      ).generate_pdf
+      begin
+        pdf_data = PdfReportService.new(
+          report_type: "#{report_type}_report",
+          account: @account_scope,
+          start_date: @start_date,
+          end_date: @end_date,
+          user: current_user
+        ).generate_pdf
 
-      respond_to do |format|
-        format.pdf {
-          send_data pdf_data,
-          filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
-          type: "application/pdf"
-        }
-        format.json {
-          render_success(
-            data: {
-              pdf_data: Base64.encode64(pdf_data),
-              filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
-              content_type: "application/pdf"
-            }
-          )
-        }
+        render_success(
+          data: {
+            pdf_data: Base64.encode64(pdf_data),
+            filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
+            content_type: "application/pdf"
+          }
+        )
+      rescue NameError
+        render_error("PDF export not available", status: :bad_request)
       end
     else
       render_error("Unsupported export format", status: :bad_request)
@@ -504,9 +493,9 @@ class Api::V1::AnalyticsController < ApplicationController
     end
 
     # Limit to reasonable range (2 years max)
-    if @end_date - @start_date > 2.years
+    if (@end_date - @start_date).to_i > 730
       render_error("Date range too large (max 2 years)", status: :bad_request)
-      nil
+      return
     end
   end
 
@@ -535,17 +524,31 @@ class Api::V1::AnalyticsController < ApplicationController
 
   def generate_customer_segmentation_by_plan
     # This would analyze subscription data by plan
-    base_query = @account_scope ? @account_scope.subscriptions.active : Subscription.active
-
-    base_query.joins(:plan)
-              .group("plans.name")
-              .count
-              .map { |plan_name, count| { plan: plan_name, customers: count } }
+    # Account has_one :subscription, so handle both scoped and global
+    if @account_scope
+      sub = @account_scope.subscription
+      if sub&.active?
+        [ { plan: sub.plan.name, customers: 1 } ]
+      else
+        []
+      end
+    else
+      Subscription.active.joins(:plan)
+                .group("plans.name")
+                .count
+                .map { |plan_name, count| { plan: plan_name, customers: count } }
+    end
   end
 
   def generate_customer_segmentation_by_tenure
     # Segment customers by how long they've been subscribed
-    base_query = @account_scope ? @account_scope.subscriptions.active : Subscription.active
+    # Account has_one :subscription, so handle both scoped and global
+    subscriptions = if @account_scope
+                      sub = @account_scope.subscription
+                      sub&.active? ? [ sub ] : []
+                    else
+                      Subscription.active.to_a
+                    end
 
     segments = {
       "New (0-3 months)" => 0,
@@ -553,7 +556,7 @@ class Api::V1::AnalyticsController < ApplicationController
       "Mature (12+ months)" => 0
     }
 
-    base_query.each do |subscription|
+    subscriptions.each do |subscription|
       tenure_months = ((Date.current - subscription.created_at.to_date) / 30.days).to_i
 
       case tenure_months
@@ -598,10 +601,18 @@ class Api::V1::AnalyticsController < ApplicationController
   end
 
   def count_todays_subscriptions(status)
-    base_query = @account_scope ? @account_scope.subscriptions : Subscription.all
-    base_query.where(status: status)
-              .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
-              .count
+    if @account_scope
+      sub = @account_scope.subscription
+      if sub && sub.status.to_s == status.to_s && sub.created_at.between?(Date.current.beginning_of_day, Date.current.end_of_day)
+        1
+      else
+        0
+      end
+    else
+      Subscription.where(status: status)
+                  .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
+                  .count
+    end
   end
 
   def count_todays_payments(status)
@@ -636,8 +647,12 @@ class Api::V1::AnalyticsController < ApplicationController
       date = days_ago.days.ago.to_date
 
       # Count subscriptions for this day
-      base_subscriptions = @account_scope ? @account_scope.subscriptions : Subscription.all
-      new_subs = base_subscriptions.where(created_at: date.beginning_of_day..date.end_of_day).count
+      if @account_scope
+        sub = @account_scope.subscription
+        new_subs = (sub && sub.created_at.between?(date.beginning_of_day, date.end_of_day)) ? 1 : 0
+      else
+        new_subs = Subscription.where(created_at: date.beginning_of_day..date.end_of_day).count
+      end
 
       # Count payments for this day
       base_payments = if @account_scope

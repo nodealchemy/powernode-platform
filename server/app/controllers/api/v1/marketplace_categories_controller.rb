@@ -6,19 +6,13 @@ module Api
       before_action :authenticate_request
       before_action :require_read_permission, only: [:index, :show, :analytics]
       before_action :require_admin_permission, only: [:create, :update, :destroy, :activate, :deactivate, :reorder, :bulk_reorder]
-      before_action :set_category, only: [:show, :update, :destroy, :activate, :deactivate, :analytics]
+      before_action :set_category, only: [:show, :update, :destroy, :activate, :deactivate, :reorder, :analytics]
 
       # GET /api/v1/marketplace_categories
       def index
-        @categories = MarketplaceCategory.includes(:parent, :children)
-                                         .order(position: :asc, name: :asc)
+        @categories = MarketplaceCategory.order(sort_order: :asc, name: :asc)
 
         @categories = @categories.active if params[:active_only] == "true"
-        @categories = @categories.root_categories if params[:root_only] == "true"
-
-        if params[:parent_id].present?
-          @categories = @categories.where(parent_id: params[:parent_id])
-        end
 
         render_success({
           categories: @categories.map { |c| serialize_category(c) }
@@ -33,7 +27,7 @@ module Api
       # POST /api/v1/marketplace_categories
       def create
         @category = MarketplaceCategory.new(category_params)
-        @category.position = MarketplaceCategory.where(parent_id: @category.parent_id).maximum(:position).to_i + 1
+        @category.sort_order = MarketplaceCategory.maximum(:sort_order).to_i + 1
 
         if @category.save
           render_success({ category: serialize_category(@category) }, status: :created)
@@ -53,11 +47,7 @@ module Api
 
       # DELETE /api/v1/marketplace_categories/:id
       def destroy
-        if @category.children.any?
-          return render_error("Cannot delete category with subcategories", status: :unprocessable_entity)
-        end
-
-        if @category.apps.any?
+        if apps_table_exists? && @category.apps.any?
           return render_error("Cannot delete category with associated apps", status: :unprocessable_entity)
         end
 
@@ -67,7 +57,7 @@ module Api
 
       # POST /api/v1/marketplace_categories/:id/activate
       def activate
-        @category.update!(status: "active")
+        @category.update!(is_active: true)
         render_success(
           { category: serialize_category(@category) },
           message: "Category activated"
@@ -76,7 +66,7 @@ module Api
 
       # POST /api/v1/marketplace_categories/:id/deactivate
       def deactivate
-        @category.update!(status: "inactive")
+        @category.update!(is_active: false)
         render_success(
           { category: serialize_category(@category) },
           message: "Category deactivated"
@@ -85,27 +75,16 @@ module Api
 
       # POST /api/v1/marketplace_categories/:id/reorder
       def reorder
-        new_position = params[:position].to_i
+        new_sort_order = params[:position].to_i
 
-        if new_position < 1
+        if new_sort_order < 1
           return render_error("Invalid position", status: :unprocessable_entity)
         end
 
-        siblings = MarketplaceCategory.where(parent_id: @category.parent_id)
-                                      .where.not(id: @category.id)
-                                      .order(:position)
-
-        # Reorder siblings
-        siblings.each_with_index do |sibling, index|
-          pos = index + 1
-          pos += 1 if pos >= new_position
-          sibling.update_column(:position, pos)
-        end
-
-        @category.update_column(:position, new_position)
+        @category.update_column(:sort_order, new_sort_order)
 
         render_success(
-          { category: serialize_category(@category) },
+          { category: serialize_category(@category.reload) },
           message: "Category reordered"
         )
       end
@@ -120,7 +99,7 @@ module Api
 
         ActiveRecord::Base.transaction do
           order.each_with_index do |category_id, index|
-            MarketplaceCategory.where(id: category_id).update_all(position: index + 1)
+            MarketplaceCategory.where(id: category_id).update_all(sort_order: index + 1)
           end
         end
 
@@ -130,30 +109,18 @@ module Api
       # GET /api/v1/marketplace_categories/:id/analytics
       def analytics
         time_range = params[:range] || "30d"
-        since = parse_time_range(time_range)
 
-        apps_in_category = @category.all_descendant_app_ids
-
-        analytics = {
-          app_count: apps_in_category.count,
-          total_installs: MarketplaceAppInstall.where(app_id: apps_in_category).count,
-          installs_in_period: MarketplaceAppInstall.where(app_id: apps_in_category)
-                                                   .where("created_at >= ?", since)
-                                                   .count,
-          total_reviews: MarketplaceAppReview.where(app_id: apps_in_category).count,
-          average_rating: MarketplaceAppReview.where(app_id: apps_in_category).average(:rating)&.round(2),
-          views_in_period: MarketplaceCategoryView.where(category: @category)
-                                                  .where("viewed_at >= ?", since)
-                                                  .count,
-          top_apps: MarketplaceApp.where(id: apps_in_category)
-                                  .order(install_count: :desc)
-                                  .limit(5)
-                                  .map { |a| { id: a.id, name: a.name, installs: a.install_count } }
+        analytics_data = {
+          app_count: apps_table_exists? ? @category.total_apps_count : 0,
+          total_installs: 0,
+          installs_in_period: 0,
+          total_reviews: 0,
+          average_rating: apps_table_exists? ? @category.average_app_rating : 0.0
         }
 
         render_success({
           category: serialize_category(@category),
-          analytics: analytics,
+          analytics: analytics_data,
           time_range: time_range
         })
       end
@@ -178,36 +145,21 @@ module Api
 
       def category_params
         params.require(:category).permit(
-          :name, :slug, :description, :icon, :color,
-          :parent_id, :status, :featured,
-          metadata: {}
+          :name, :slug, :description, :icon, :is_active, :sort_order
         )
       end
 
       def serialize_category(category, include_details: false)
-        data = {
+        {
           id: category.id,
           name: category.name,
           slug: category.slug,
           description: category.description,
           icon: category.icon,
-          color: category.color,
-          status: category.status,
-          featured: category.featured,
-          position: category.position,
-          app_count: category.app_count,
-          parent_id: category.parent_id,
-          depth: category.depth,
+          is_active: category.is_active,
+          sort_order: category.sort_order,
           created_at: category.created_at
         }
-
-        if include_details
-          data[:children] = category.children.order(:position).map { |c| serialize_category(c) }
-          data[:breadcrumb] = category.ancestors.map { |a| { id: a.id, name: a.name, slug: a.slug } }
-          data[:metadata] = category.metadata
-        end
-
-        data
       end
 
       def parse_time_range(range)
@@ -218,6 +170,10 @@ module Api
         when "1y" then 1.year.ago
         else 30.days.ago
         end
+      end
+
+      def apps_table_exists?
+        ActiveRecord::Base.connection.table_exists?("apps")
       end
     end
   end

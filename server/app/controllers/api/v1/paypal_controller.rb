@@ -17,15 +17,15 @@ class Api::V1::PaypalController < ApplicationController
     if result[:success]
       # Create local payment record
       payment = current_account.payments.create!(
-        user: current_user,
         amount_cents: params[:amount_cents].to_i,
         currency: params[:currency] || "USD",
-        payment_method: "paypal",
+        gateway: "paypal",
         status: "pending",
-        paypal_payment_id: result[:payment_id],
+        external_id: result[:payment_id],
         metadata: {
           description: params[:description],
-          invoice_number: params[:invoice_number]
+          invoice_number: params[:invoice_number],
+          paypal_payment_id: result[:payment_id]
         }
       )
 
@@ -79,7 +79,7 @@ class Api::V1::PaypalController < ApplicationController
 
   # POST /api/v1/paypal/subscriptions/plans
   def create_subscription_plan
-    plan = current_account.plans.find(params[:plan_id]) if params[:plan_id]
+    plan = Plan.find_by(id: params[:plan_id]) if params[:plan_id]
 
     unless plan
       return render_error("Plan not found", status: :not_found)
@@ -109,7 +109,7 @@ class Api::V1::PaypalController < ApplicationController
 
   # POST /api/v1/paypal/subscriptions
   def create_subscription
-    plan = current_account.plans.find(params[:plan_id]) if params[:plan_id]
+    plan = Plan.find_by(id: params[:plan_id]) if params[:plan_id]
 
     unless plan&.paypal_plan_id
       return render_error("PayPal plan not found", status: :not_found)
@@ -125,9 +125,8 @@ class Api::V1::PaypalController < ApplicationController
     if result[:success]
       # Create local subscription record
       subscription = current_account.build_subscription(
-        user: current_user,
         plan: plan,
-        status: "pending",
+        status: "incomplete",
         paypal_agreement_id: result[:agreement_id],
         current_period_start: Date.current,
         current_period_end: 1.send(plan.billing_cycle.singularize).from_now.to_date
@@ -168,8 +167,7 @@ class Api::V1::PaypalController < ApplicationController
 
     if result[:success]
       subscription.update!(
-        status: result[:status] == "Active" ? "active" : result[:status].downcase,
-        activated_at: Time.current
+        status: result[:status] == "Active" ? "active" : result[:status].downcase
       )
 
       render_success(
@@ -203,7 +201,7 @@ class Api::V1::PaypalController < ApplicationController
       subscription.update!(
         status: "cancelled",
         canceled_at: Time.current,
-        cancellation_reason: params[:reason]
+        metadata: (subscription.metadata || {}).merge(cancellation_reason: params[:reason])
       )
 
       render_success(
@@ -224,7 +222,7 @@ class Api::V1::PaypalController < ApplicationController
   def create_refund
     payment = current_account.payments.find(params[:id])
 
-    unless payment.paypal_transaction_id
+    unless payment.external_id.present?
       return render_error("PayPal transaction ID not found", status: :not_found)
     end
 
@@ -255,6 +253,6 @@ class Api::V1::PaypalController < ApplicationController
   private
 
   def set_paypal_service
-    @paypal_service = PaypalService.new(account: current_account, user: current_user)
+    @paypal_service = Billing::PaypalService.new(account: current_account, user: current_user)
   end
 end

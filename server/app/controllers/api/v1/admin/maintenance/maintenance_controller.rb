@@ -10,10 +10,10 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     render_success({
 
         enabled: maintenance_mode_enabled?,
-        message: Rails.application.config.maintenance_message || "System is under maintenance",
-        enabled_at: Rails.application.config.maintenance_enabled_at,
-        estimated_completion: Rails.application.config.maintenance_estimated_completion,
-        bypass_ips: Rails.application.config.maintenance_bypass_ips || []
+        message: safe_config(:maintenance_message) || "System is under maintenance",
+        enabled_at: safe_config(:maintenance_enabled_at),
+        estimated_completion: safe_config(:maintenance_estimated_completion),
+        bypass_ips: safe_config(:maintenance_bypass_ips) || []
       }
     )
   end
@@ -333,29 +333,13 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       }
     )
   rescue StandardError => e
-    Rails.logger.warn "Database backups unavailable: #{e.message}"
-    render_success([])
-  end
-
-  # Create backup endpoint
-  def create_backup
-    backup_job = DatabaseBackupJob.perform_later(
-      initiated_by: current_user.id,
-      backup_type: params[:type] || "manual"
-    )
-
-    render_success({
- job_id: backup_job.job_id },
-      message: "Backup initiated"
-    )
-  rescue StandardError => e
-    Rails.logger.error "Backup creation failed: #{e.message}"
-    render_error("Backup service unavailable")
+    Rails.logger.error "Database backups unavailable: #{e.message}"
+    render_error("Unable to retrieve database backups", status: :service_unavailable)
   end
 
   # Schedules endpoint
   def schedules
-    schedules = ScheduledTask.where(category: "maintenance").order(:name)
+    schedules = ScheduledTask.where(task_type: "maintenance").order(:name)
 
     render_success(
       data: schedules.map { |schedule|
@@ -363,16 +347,15 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
           id: schedule.id,
           name: schedule.name,
           cron: schedule.cron_expression,
-          enabled: schedule.enabled,
+          enabled: schedule.enabled?,
           last_run: schedule.last_run_at,
-          next_run: schedule.next_run_at,
-          description: schedule.description
+          next_run: schedule.next_run_at
         }
       }
     )
   rescue StandardError => e
-    Rails.logger.warn "Scheduled tasks unavailable: #{e.message}"
-    render_success([])
+    Rails.logger.error "Scheduled tasks unavailable: #{e.message}"
+    render_error("Unable to retrieve scheduled tasks", status: :service_unavailable)
   end
 
   private
@@ -412,7 +395,10 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       account: current_account,
       action: "maintenance_mode_enabled",
       resource_type: "System",
-      details: {
+      resource_id: "system",
+      source: "admin_panel",
+      ip_address: request.remote_ip,
+      metadata: {
         message: message,
         estimated_completion: estimated_completion,
         bypass_ips: bypass_ips
@@ -436,7 +422,10 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       account: current_account,
       action: "maintenance_mode_disabled",
       resource_type: "System",
-      details: {}
+      resource_id: "system",
+      source: "admin_panel",
+      ip_address: request.remote_ip,
+      metadata: {}
     )
   end
 
@@ -645,5 +634,9 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     parts << "#{minutes}m" if minutes > 0 || parts.empty?
 
     parts.join(" ")
+  end
+
+  def safe_config(key)
+    Rails.application.config.respond_to?(key) ? Rails.application.config.send(key) : nil
   end
 end

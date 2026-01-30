@@ -3,7 +3,7 @@
 module Api
   module V1
     class MetricsController < ApplicationController
-      # Prometheus endpoint disabled - no authentication skipping needed
+      skip_before_action :authenticate_request, only: [ :health, :prometheus ]
 
       # Prometheus metrics endpoint - DISABLED
       def prometheus
@@ -31,7 +31,7 @@ module Api
 
       # Detailed application metrics (authenticated)
       def application
-        require_permission!("analytics.read")
+        require_permission("analytics.read")
 
         metrics = {
           users: user_metrics,

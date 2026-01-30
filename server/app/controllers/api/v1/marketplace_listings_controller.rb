@@ -357,7 +357,7 @@ class Api::V1::MarketplaceListingsController < ApplicationController
         name: listing.app.name,
         slug: listing.app.slug,
         status: listing.app.status,
-        app_plans: listing.app.app_plans.active.public_plans.map { |plan|
+        app_plans: listing.app&.plans&.active&.public_plans&.map { |plan|
           {
             id: plan.id,
             name: plan.name,

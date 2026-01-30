@@ -40,16 +40,11 @@ module Api
 
         # POST /api/v1/supply_chain/scan_executions/:id/cancel
         def cancel
-          unless @execution.cancellable?
+          unless %w[pending running].include?(@execution.status)
             return render_error("Execution cannot be cancelled in current status", status: :unprocessable_entity)
           end
 
-          @execution.cancel!(current_user)
-
-          SupplyChainChannel.broadcast_execution_failed(
-            @execution,
-            "Cancelled by user"
-          )
+          @execution.cancel!
 
           render_success(
             { scan_execution: serialize_execution(@execution) },
@@ -59,25 +54,15 @@ module Api
 
         # GET /api/v1/supply_chain/scan_executions/:id/logs
         def logs
-          logs = @execution.execution_logs
-                           .order(created_at: :asc)
-
-          if params[:level].present?
-            logs = logs.where(level: params[:level])
-          end
-
-          if params[:since].present?
-            logs = logs.where("created_at >= ?", Time.parse(params[:since]))
-          end
-
-          logs = paginate(logs)
+          # logs is a text field, parse and return as array
+          log_lines = parse_logs(@execution.logs)
 
           render_success(
             {
               execution_id: @execution.id,
-              logs: logs.map { |l| serialize_log(l) }
+              logs: log_lines
             },
-            meta: pagination_meta
+            meta: { total: log_lines.length }
           )
         end
 
@@ -102,8 +87,6 @@ module Api
             started_at: execution.started_at,
             completed_at: execution.completed_at,
             duration_ms: execution.duration_ms,
-            target_type: execution.input_data&.dig("target_type"),
-            target_id: execution.input_data&.dig("target_id"),
             triggered_by: execution.triggered_by ? {
               id: execution.triggered_by.id,
               name: execution.triggered_by.name
@@ -115,27 +98,24 @@ module Api
           if include_details
             data[:input_data] = execution.input_data
             data[:output_data] = execution.output_data
-            data[:metrics] = execution.metrics
-            data[:cancelled_by] = execution.cancelled_by ? {
-              id: execution.cancelled_by.id,
-              name: execution.cancelled_by.name
-            } : nil
-            data[:cancelled_at] = execution.cancelled_at
-            data[:retry_count] = execution.retry_count
+            data[:logs] = execution.logs
             data[:metadata] = execution.metadata
           end
 
           data
         end
 
-        def serialize_log(log)
-          {
-            id: log.id,
-            level: log.level,
-            message: log.message,
-            timestamp: log.created_at.iso8601,
-            metadata: log.metadata
-          }
+        def parse_logs(logs_text)
+          return [] if logs_text.blank?
+
+          logs_text.split("\n").reject(&:blank?).map.with_index do |line, idx|
+            {
+              id: idx + 1,
+              message: line.sub(/^\[.*?\]\s*/, ""),
+              level: "info",
+              timestamp: line.match(/\[(.*?)\]/)&.captures&.first
+            }
+          end
         end
       end
     end

@@ -4,7 +4,7 @@ class Api::V1::UsersController < ApplicationController
   include UserSerialization
 
   before_action :set_user, only: [ :show, :update, :destroy ]
-  before_action -> { require_permission("admin.user.view") }, only: [ :index, :stats ]
+  before_action -> { require_permission("admin.user.read") }, only: [ :index, :stats ]
   before_action -> { require_permission("admin.user.create") }, only: [ :create ]
   before_action -> { require_permission("admin.user.delete") }, only: [ :destroy ]
 

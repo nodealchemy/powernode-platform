@@ -71,7 +71,7 @@ class Api::V1::WorkersController < ApplicationController
     # Get activity summary for the worker
     activity_summary = WorkerActivity.activity_summary(@worker, 24)
     recent_activities = @worker.worker_activities
-                              .order(performed_at: :desc)
+                              .order(occurred_at: :desc)
                               .limit(10)
                               .map { |activity| activity_json(activity) }
 

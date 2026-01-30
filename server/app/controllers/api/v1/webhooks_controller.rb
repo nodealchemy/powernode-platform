@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 class Api::V1::WebhooksController < ApplicationController
-  before_action -> { require_permission("webhook.view") }, only: [ :index, :show ]
+  before_action -> { require_permission("webhook.read") }, only: [ :index, :show ]
   before_action -> { require_permission("webhook.create") }, only: [ :create ]
   before_action -> { require_permission("webhook.update") }, only: [ :update, :toggle_status ]
   before_action -> { require_permission("webhook.delete") }, only: [ :destroy ]
-  before_action -> { require_permission("webhook.view") }, only: [ :test, :health_test ]
+  before_action -> { require_permission("webhook.read") }, only: [ :test, :health_test ]
   before_action :find_webhook, only: [ :show, :update, :destroy, :test, :toggle_status, :health_test ]
 
   # GET /api/v1/webhooks
@@ -51,6 +51,7 @@ class Api::V1::WebhooksController < ApplicationController
     end
 
     webhook = WebhookEndpoint.new(webhook_params)
+    webhook.account = current_account
     webhook.created_by = current_user
 
     if webhook.save
@@ -232,7 +233,7 @@ class Api::V1::WebhooksController < ApplicationController
 
     # Base query for failed deliveries
     failed_query = WebhookDelivery.includes(:webhook_endpoint)
-                                  .where(status: [ "failed", "max_retries_reached" ])
+                                  .where(status: [ "failed", "timeout" ])
                                   .order(created_at: :desc)
 
     # Apply filters
@@ -268,7 +269,7 @@ class Api::V1::WebhooksController < ApplicationController
         },
         summary: {
           failed_count: WebhookDelivery.failed.where("created_at >= ?", 7.days.ago).count,
-          max_retries_count: WebhookDelivery.max_retries_reached.where("created_at >= ?", 7.days.ago).count,
+          timed_out_count: WebhookDelivery.timed_out.where("created_at >= ?", 7.days.ago).count,
           pending_retry_count: WebhookDelivery.pending_retry.count,
           can_retry_count: deliveries.count(&:can_retry?)
         }
@@ -281,16 +282,16 @@ class Api::V1::WebhooksController < ApplicationController
   def retry_delivery
     delivery = WebhookDelivery.find(params[:id])
 
-    unless delivery.failed? || delivery.max_retries_reached?
+    unless delivery.failed? || delivery.timed_out?
       return render_error("Delivery is not in a failed state", status: :unprocessable_content)
     end
 
     # Reset the delivery for retry
     delivery.update!(
       status: "pending",
-      attempt_count: 0,
+      attempt_number: 1,
       next_retry_at: nil,
-      completed_at: nil,
+      attempted_at: nil,
       error_message: nil
     )
 
@@ -300,7 +301,7 @@ class Api::V1::WebhooksController < ApplicationController
     log_webhook_action("webhook_delivery_retry", delivery.webhook_endpoint, {
       delivery_id: delivery.id,
       original_status: delivery.status_was,
-      event_type: delivery.event_type
+      event_type: delivery.webhook_event&.event_type
     })
 
     render_success(
@@ -365,7 +366,7 @@ class Api::V1::WebhooksController < ApplicationController
 
   def webhook_params
     params.require(:webhook).permit(
-      :url, :description, :status, :secret_token, :content_type,
+      :url, :description, :status, :secret_key, :content_type,
       :timeout_seconds, :retry_limit, :retry_backoff,
       event_types: []
     )
@@ -395,7 +396,7 @@ class Api::V1::WebhooksController < ApplicationController
 
   def detailed_webhook_data(webhook)
     webhook_summary(webhook).merge({
-      secret_token: webhook.secret_token,
+      secret_key: webhook.secret_key,
       retry_backoff: webhook.retry_backoff,
       recent_deliveries: webhook.webhook_deliveries
                                .order(created_at: :desc)
@@ -415,14 +416,14 @@ class Api::V1::WebhooksController < ApplicationController
     {
       id: delivery.id,
       webhook_endpoint_id: delivery.webhook_endpoint_id,
-      event_type: delivery.event_type,
+      event_type: delivery.webhook_event&.event_type,
       status: delivery.status,
-      http_status: delivery.http_status,
-      response_time_ms: delivery.response_time_ms,
-      attempt_count: delivery.attempt_count,
+      response_status: delivery.response_status,
+      response_time_ms: delivery.duration_seconds&.*(1000)&.round,
+      attempt_number: delivery.attempt_number,
       next_retry_at: delivery.next_retry_at&.iso8601,
       created_at: delivery.created_at.iso8601,
-      completed_at: delivery.completed_at&.iso8601,
+      attempted_at: delivery.attempted_at&.iso8601,
       error_message: delivery.error_message,
       webhook_endpoint: delivery.webhook_endpoint ? {
         id: delivery.webhook_endpoint.id,
@@ -449,17 +450,15 @@ class Api::V1::WebhooksController < ApplicationController
                                            .order("count_id DESC")
                                            .limit(5)
                                            .count(:id),
-      event_type_distribution: WebhookDelivery.where(created_at: 7.days.ago..Time.current)
-                                             .group(:event_type)
+      event_type_distribution: WebhookDelivery.joins(:webhook_event)
+                                             .where(created_at: 7.days.ago..Time.current)
+                                             .group("webhook_events.event_type")
                                              .count,
       daily_delivery_trend: calculate_daily_delivery_trend,
-      average_response_times: WebhookDelivery.successful
-                                           .where(created_at: 24.hours.ago..Time.current)
-                                           .average(:response_time_ms),
       retry_statistics: {
-        total_retries: WebhookDelivery.where("attempt_count > 1").count,
+        total_retries: WebhookDelivery.where("attempt_number > 1").count,
         pending_retries: WebhookDelivery.pending_retry.count,
-        max_retries_reached: WebhookDelivery.max_retries_reached.count
+        timed_out: WebhookDelivery.timed_out.count
       }
     })
   end
@@ -527,17 +526,17 @@ class Api::V1::WebhooksController < ApplicationController
         description: delivery.webhook_endpoint.description,
         status: delivery.webhook_endpoint.status
       },
-      event_type: delivery.event_type,
+      event_type: delivery.webhook_event&.event_type,
       status: delivery.status,
-      http_status: delivery.http_status,
-      response_time_ms: delivery.response_time_ms,
-      attempt_count: delivery.attempt_count,
+      response_status: delivery.response_status,
+      response_time_ms: delivery.duration_seconds&.*(1000)&.round,
+      attempt_number: delivery.attempt_number,
       max_retries: delivery.webhook_endpoint.retry_limit,
       next_retry_at: delivery.next_retry_at&.iso8601,
       error_message: delivery.error_message,
-      can_retry: delivery.can_retry? || delivery.max_retries_reached?,
+      can_retry: delivery.can_retry? || delivery.timed_out?,
       created_at: delivery.created_at.iso8601,
-      completed_at: delivery.completed_at&.iso8601
+      attempted_at: delivery.attempted_at&.iso8601
     }
   end
 end

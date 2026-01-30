@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::Webhooks::StripeSyncController < ApplicationController
+  skip_before_action :authenticate_request
   before_action :authenticate_service_request
 
   # Handle invoice payment success
@@ -11,15 +12,16 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     ActiveRecord::Base.transaction do
       # Create payment record
       payment = invoice.payments.build(
+        account: invoice.account,
         amount_cents: params[:amount_paid],
         currency: invoice.currency,
-        payment_method: "stripe_card",
+        gateway: "stripe",
         status: "succeeded",
         processed_at: Time.current,
         metadata: {
           stripe_payment_intent_id: params[:payment_intent_id],
           webhook_processed_at: Time.current.iso8601
-        }.merge(params[:metadata] || {})
+        }.merge((params[:metadata] || {}).to_unsafe_h)
       )
 
       payment.save!
@@ -210,7 +212,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
 
     # Update local payment method record if exists
     payment_method = account.payment_methods.find_by(
-      provider_payment_method_id: params[:payment_method_id]
+      external_id: params[:payment_method_id]
     )
 
     if payment_method
@@ -236,7 +238,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
 
     # Update or deactivate local payment method
     payment_method = account.payment_methods.find_by(
-      provider_payment_method_id: params[:payment_method_id]
+      external_id: params[:payment_method_id]
     )
 
     if payment_method

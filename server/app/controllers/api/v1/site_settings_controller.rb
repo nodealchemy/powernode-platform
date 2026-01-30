@@ -168,12 +168,14 @@ class Api::V1::SiteSettingsController < ApplicationController
     end
 
     if errors.empty?
-      # Log bulk update
+      # Log bulk update - use first setting key as resource_id for bulk operations
+      first_setting = SiteSetting.find_by(key: updated_settings.keys.first)
       AuditLog.create!(
         user: current_user,
         account: current_user.account,
         action: "bulk_update_site_settings",
         resource_type: "SiteSetting",
+        resource_id: first_setting&.id || "bulk",
         source: "admin_panel",
         ip_address: request.remote_ip,
         user_agent: request.user_agent,

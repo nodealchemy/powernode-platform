@@ -47,7 +47,7 @@ class Api::V1::ApiKeysController < ApplicationController
 
     api_key = ApiKey.new(api_key_params)
     api_key.created_by = current_user
-    api_key.account = current_user.account unless current_user.has_permission?("admin.access")
+    api_key.account ||= current_user.account
 
     if api_key.save
       # Log API key creation
@@ -116,16 +116,17 @@ class Api::V1::ApiKeysController < ApplicationController
 
   # POST /api/v1/api_keys/:id/toggle_status
   def toggle_status
-    new_status = @api_key.active? ? "revoked" : "active"
+    was_active = @api_key.active?
+    new_active = !was_active
 
-    if @api_key.update(status: new_status)
+    if @api_key.update(is_active: new_active)
       log_api_key_action("api_key_status_changed", @api_key, {
-        old_status: @api_key.status_was,
-        new_status: new_status
+        old_status: was_active ? "active" : "revoked",
+        new_status: new_active ? "active" : "revoked"
       })
 
       render_success(
-        message: "API key #{new_status == 'active' ? 'activated' : 'revoked'}",
+        message: "API key #{new_active ? 'activated' : 'revoked'}",
         data: api_key_summary(@api_key)
       )
     else
@@ -177,7 +178,7 @@ class Api::V1::ApiKeysController < ApplicationController
     key_value = params[:key]
     return render_error("API key required", status: :bad_request) unless key_value.present?
 
-    api_key = ApiKey.find_by(key_hash: ApiKey.hash_key(key_value))
+    api_key = ApiKey.find_by(key_digest: ApiKey.hash_key(key_value))
 
     if api_key&.valid_for_use?
       render_success(
@@ -224,20 +225,19 @@ class Api::V1::ApiKeysController < ApplicationController
   end
 
   def api_key_params
-    params.require(:api_key).permit(:name, :description, :expires_at, scopes: [])
+    params.require(:api_key).permit(:name, :expires_at, scopes: [])
   end
 
   def api_key_update_params
-    params.require(:api_key).permit(:name, :description, :expires_at, scopes: [])
+    params.require(:api_key).permit(:name, :expires_at, scopes: [])
   end
 
   def api_key_summary(api_key)
     {
       id: api_key.id,
       name: api_key.name,
-      description: api_key.description,
       masked_key: api_key.masked_key,
-      status: api_key.status,
+      status: api_key.active? ? "active" : (api_key.expired? ? "expired" : "revoked"),
       scopes: api_key.scopes || [],
       expires_at: api_key.expires_at&.iso8601,
       last_used_at: api_key.last_used_at&.iso8601,
@@ -266,8 +266,7 @@ class Api::V1::ApiKeysController < ApplicationController
       usage_stats: {
         requests_today: api_key.requests_today,
         requests_this_week: api_key.requests_this_week,
-        requests_this_month: api_key.requests_this_month,
-        average_requests_per_day: api_key.average_requests_per_day
+        requests_this_month: api_key.requests_this_month
       }
     })
   end

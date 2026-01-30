@@ -111,7 +111,7 @@ module Api
             resource_id: @application.id,
             source: "api",
             ip_address: request.remote_ip,
-            severity: "warning",
+            severity: "high",
             metadata: { application_name: @application.name }
           )
 
@@ -133,7 +133,7 @@ module Api
             resource_id: @application.id,
             source: "api",
             ip_address: request.remote_ip,
-            severity: "warning",
+            severity: "high",
             metadata: { application_name: @application.name, reason: params[:reason] }
           )
 
@@ -189,7 +189,6 @@ module Api
         # GET /api/v1/oauth/applications/:id/tokens
         def tokens
           tokens = @application.access_tokens
-                               .includes(:resource_owner)
                                .order(created_at: :desc)
                                .page(params[:page])
                                .per(params[:per_page] || 20)
@@ -269,6 +268,7 @@ module Api
         end
 
         def serialize_token(token)
+          owner = token.resource_owner_id ? User.find_by(id: token.resource_owner_id) : nil
           {
             id: token.id,
             scopes: token.scopes.to_s.split(" "),
@@ -276,9 +276,9 @@ module Api
             expires_at: token.expires_in ? token.created_at + token.expires_in.seconds : nil,
             revoked_at: token.revoked_at,
             active: token.revoked_at.nil? && (token.expires_in.nil? || token.created_at + token.expires_in.seconds > Time.current),
-            resource_owner: token.resource_owner ? {
-              id: token.resource_owner.id,
-              email: token.resource_owner.email
+            resource_owner: owner ? {
+              id: owner.id,
+              email: owner.email
             } : nil
           }
         end

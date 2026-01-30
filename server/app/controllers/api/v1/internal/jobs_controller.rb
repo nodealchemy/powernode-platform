@@ -12,17 +12,15 @@ class Api::V1::Internal::JobsController < ApplicationController
     job = BackgroundJob.find_by!(job_id: params[:id])
 
     case params[:status]
-    when "in_progress"
+    when "in_progress", "processing"
       job.mark_in_progress!
     when "completed"
-      job.mark_completed!(params[:result] || {})
+      job.mark_completed!
     when "failed"
-      job.mark_failed!(params[:error] || "Job failed", params[:error_details] || {})
+      job.mark_failed!(params[:error] || "Job failed", params[:error_details]&.to_s)
     else
       job.update!(
-        result: params[:result],
-        error_message: params[:error],
-        error_details: params[:error_details]
+        error_message: params[:error]
       )
     end
 

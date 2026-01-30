@@ -81,11 +81,12 @@ class Api::V1::PaymentGatewaysController < ApplicationController
       job = GatewayConnectionJob.create!(
         gateway: gateway,
         status: "pending",
-        config_data: build_config_data_for_gateway(gateway)
+        operation: "test_connection",
+        payload: build_config_data_for_gateway(gateway)
       )
 
       # Delegate to worker service for async processing
-      enqueue_gateway_test_job(job.id, gateway, job.config_data)
+      enqueue_gateway_test_job(job.id, gateway, job.payload)
 
       render_success({
         job_id: job.id,
@@ -146,7 +147,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     per_page = [ params[:per_page]&.to_i || 20, 100 ].min
 
     payments_query = Payment.joins(:invoice)
-                           .where(payment_method: gateway_payment_methods(gateway))
+                           .where(gateway: gateway)
                            .order(created_at: :desc)
 
     total_count = payments_query.count
@@ -161,7 +162,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
             amount: payment.amount.to_s,
             currency: payment.currency,
             status: payment.status,
-            payment_method: payment.payment_method,
+            payment_method: payment.gateway,
             gateway_transaction_id: payment.gateway_transaction_id,
             created_at: payment.created_at,
             processed_at: payment.processed_at,
@@ -413,7 +414,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
         return empty_statistics
       end
 
-      payments = Payment.where(payment_method: methods)
+      payments = Payment.where(gateway: gateway)
 
       {
         total_transactions: payments.count,
@@ -462,7 +463,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
         return []
       end
 
-      Payment.where(payment_method: methods)
+      Payment.where(gateway: gateway)
              .order(created_at: :desc)
              .limit(20)
              .map do |payment|
@@ -642,7 +643,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
       end
     end
 
-    raise errors.join(", ") unless errors.empty?
+    raise BillingExceptions::ValidationError.new(errors.join(", ")) unless errors.empty?
   end
 
   def validate_paypal_config(config)
@@ -664,7 +665,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
       end
     end
 
-    raise errors.join(", ") unless errors.empty?
+    raise BillingExceptions::ValidationError.new(errors.join(", ")) unless errors.empty?
   end
 
   # Helper methods for safe configuration access

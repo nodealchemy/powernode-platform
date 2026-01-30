@@ -11,7 +11,13 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # GET /api/v1/kb/articles
   def index
-    if editing_mode?
+    # Check if admin view was explicitly requested
+    admin_requested = params[:admin] == "true" || params[:edit] == "true" || request.path.include?("/admin")
+
+    if admin_requested
+      # Admin view was explicitly requested - check permission
+      return render_error("Access denied", status: :forbidden) unless can_edit_kb?
+
       # Admin view with all articles for editing
       articles = KnowledgeBase::Article.includes(:author, :category, :tags)
       articles = apply_admin_filters(articles)
@@ -74,9 +80,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     if article.save
       handle_tag_assignment(article) if params[:article][:tag_names].present?
 
-      render_success({
+      render_success(
         article: serialize_article_admin(article.reload)
-      }, "Article created successfully")
+      )
     else
       render_validation_error(article)
     end
@@ -90,9 +96,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     if @article.update(article_params)
       handle_tag_assignment(@article) if params[:article][:tag_names].present?
 
-      render_success({
+      render_success(
         article: serialize_article_admin(@article.reload)
-      }, "Article updated successfully")
+      )
     else
       render_validation_error(@article)
     end
@@ -112,9 +118,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     return render_error("Article not found", status: :not_found) unless @article
 
     if @article.update(status: "published", published_at: Time.current)
-      render_success({
+      render_success(
         article: serialize_article_admin(@article)
-      }, "Article published successfully")
+      )
     else
       render_validation_error(@article)
     end
@@ -125,9 +131,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     return render_error("Article not found", status: :not_found) unless @article
 
     if @article.update(status: "draft", published_at: nil)
-      render_success({
+      render_success(
         article: serialize_article_admin(@article)
-      }, "Article unpublished successfully")
+      )
     else
       render_validation_error(@article)
     end
@@ -164,7 +170,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       views_by_day: daily_views_breakdown(period)
     }
 
-    render_success(analytics_data, "Analytics retrieved successfully")
+    render_success(analytics_data)
   end
 
   # PATCH /api/v1/kb/articles/bulk
@@ -190,9 +196,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       end
     end
 
-    render_success({
+    render_success(
       updated_count: updated_count
-    }, "#{updated_count} articles updated successfully")
+    )
   rescue StandardError => e
     render_internal_error("Bulk update failed", exception: e)
   end
@@ -218,14 +224,20 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       end
     end
 
-    render_success({
+    render_success(
       deleted_count: deleted_count
-    }, "#{deleted_count} articles deleted successfully")
+    )
   rescue StandardError => e
     render_internal_error("Bulk delete failed", exception: e)
   end
 
   private
+
+  def authenticate_optional
+    # Authenticate if Authorization header is present
+    return unless request.headers['Authorization'].present?
+    authenticate_request
+  end
 
   def set_article
     @article = KnowledgeBase::Article.find_by(id: params[:id]) ||
@@ -233,7 +245,8 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   end
 
   def editing_mode?
-    params[:admin] == "true" || params[:edit] == "true" || request.path.include?("/admin")
+    # Only return editing mode if user explicitly requests it AND has permission
+    (params[:admin] == "true" || params[:edit] == "true" || request.path.include?("/admin")) && can_edit_kb?
   end
 
   def can_edit_kb?
@@ -305,7 +318,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   def article_params
     params.require(:article).permit(
       :title, :slug, :content, :excerpt, :category_id, :status, :is_public, :is_featured,
-      :sort_order, :meta_title, :meta_description, tag_names: [], metadata: {}
+      :sort_order, :meta_title, :meta_description, metadata: {}
     )
   end
 

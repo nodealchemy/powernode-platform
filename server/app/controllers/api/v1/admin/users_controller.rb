@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::Admin::UsersController < ApplicationController
-  before_action -> { require_permission("admin.user.view") }, only: [ :index, :show ]
+  before_action -> { require_permission("admin.user.read") }, only: [ :index, :show ]
   before_action -> { require_permission("admin.user.create") }, only: [ :create ]
   before_action -> { require_permission("admin.user.update") }, only: [ :update ]
   before_action -> { require_permission("admin.user.delete") }, only: [ :destroy ]
@@ -220,7 +220,7 @@ class Api::V1::Admin::UsersController < ApplicationController
 
     # Prevent deletion of account owners unless there's another owner
     if @user.owner?
-      other_owners = @user.account.users.where(role: "owner").where.not(id: @user.id)
+      other_owners = @user.account.users.with_role("owner").where.not(id: @user.id)
       if other_owners.empty?
         return render_error(
           "Cannot delete the only account owner. Transfer ownership first.",

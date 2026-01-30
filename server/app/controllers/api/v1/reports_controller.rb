@@ -10,6 +10,9 @@ class Api::V1::ReportsController < ApplicationController
 
   # GET /api/v1/reports/:report_type
   def show
+    # Route provides :id param, treat as report_type
+    params[:report_type] ||= params[:id]
+
     unless REPORT_TYPES.include?(params[:report_type])
       return render_error(
         "Invalid report type. Supported types: #{REPORT_TYPES.join(', ')}",
@@ -327,7 +330,7 @@ class Api::V1::ReportsController < ApplicationController
   # GET /api/v1/reports/scheduled
   def scheduled
     reports = ScheduledReport.for_account(@account_scope)
-                            .where(active: true)
+                            .where(is_active: true)
                             .order(:next_run_at)
 
     render_success(
@@ -339,8 +342,8 @@ class Api::V1::ReportsController < ApplicationController
           frequency: report.frequency,
           next_run: report.next_run_at&.iso8601,
           last_run: report.last_run_at&.iso8601,
-          enabled: report.active,
-          delivery_method: report.delivery_method || "email",
+          enabled: report.is_active,
+          delivery_method: report.try(:delivery_method) || "email",
           recipients: report.recipients || [],
           parameters: report.parameters || {},
           format: report.format

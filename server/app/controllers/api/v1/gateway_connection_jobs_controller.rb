@@ -52,6 +52,9 @@ class Api::V1::GatewayConnectionJobsController < ApplicationController
     return if authenticate_service_token
 
     # Fallback to user authentication with required permission
+    authenticate_request
+    return if performed?
+
     require_permission("admin.settings.payment")
   end
 

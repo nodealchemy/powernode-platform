@@ -55,18 +55,20 @@ class Api::V1::CustomersController < ApplicationController
           account: @account,
           plan: plan,
           status: "active",
+          quantity: 1,
           current_period_start: Time.current,
           current_period_end: 1.month.from_now
         )
       end
 
-      # Create primary user
+      # Create primary user with a password that meets security requirements
+      # (uppercase, lowercase, digit, special character)
+      temp_password = "#{SecureRandom.alphanumeric(12)}!A1a"
       @user = User.create!(
         user_data.merge(
           account: @account,
-          password: SecureRandom.alphanumeric(16),
-          status: "active",
-          email_verified: false
+          password: temp_password,
+          status: "active"
         )
       )
 
@@ -87,7 +89,7 @@ class Api::V1::CustomersController < ApplicationController
     )
 
   rescue ActiveRecord::RecordInvalid => e
-    render_validation_error(e.record)
+    render_validation_error(e.record.errors)
   end
 
   def update
@@ -103,12 +105,13 @@ class Api::V1::CustomersController < ApplicationController
         end
       end
 
-      account.update!(customer_params.except(:subscription_attributes, :name, :email, :plan_id))
+      account.update!(customer_params.except(:subscription_attributes, :email, :plan_id))
 
       # Update primary user if user data provided
-      if customer_params.slice(:name, :email).any?
-        primary_user = account.users.owners.first || account.users.first
-        primary_user&.update!(customer_params.slice(:name, :email))
+      user_data = customer_params.slice(:name, :email).to_h.select { |_, v| v.present? }
+      if user_data.any?
+        primary_user = account.users.with_role("owner").first || account.users.first
+        primary_user&.update!(user_data)
       end
     end
 
@@ -122,17 +125,19 @@ class Api::V1::CustomersController < ApplicationController
     )
 
   rescue ActiveRecord::RecordInvalid => e
-    render_validation_error(e.record)
+    render_validation_error(e.record.errors)
   end
 
   def destroy
     account = Account.find(params[:id])
-    account.update!(status: "inactive")
+    account.update!(status: "cancelled")
 
     # Broadcast customer deletion/deactivation
     broadcast_customer_change("deactivated", account)
 
     render_success
+  rescue ActiveRecord::RecordInvalid => e
+    render_validation_error(e.record.errors)
   end
 
   def stats
@@ -147,37 +152,32 @@ class Api::V1::CustomersController < ApplicationController
     # Start with Account query
     accounts = Account.all
 
-    # Build subquery for account IDs that match criteria
-    account_ids_query = Account.joins(:users)
-
-    # Filter by search query
+    # Only join users when search requires it (to search by email/user name)
     if params[:search].present?
       search = "%#{params[:search]}%"
-      account_ids_query = account_ids_query.where(
+      account_ids_query = Account.joins(:users).where(
         "accounts.name ILIKE ? OR users.email ILIKE ? OR users.name ILIKE ?",
         search, search, search
       )
+      matching_account_ids = account_ids_query.select("accounts.id").distinct.pluck(:id)
+      accounts = accounts.where(id: matching_account_ids)
     end
 
     # Filter by status
     if params[:status].present? && params[:status] != "all"
-      account_ids_query = account_ids_query.where(accounts: { status: params[:status] })
+      accounts = accounts.where(status: params[:status])
     end
 
     # Filter by plan
     if params[:plan].present? && params[:plan] != "all"
-      account_ids_query = account_ids_query.joins(:subscription).where(subscriptions: { plan_id: params[:plan] })
+      accounts = accounts.joins(:subscription).where(subscriptions: { plan_id: params[:plan] })
     end
-
-    # Get distinct account IDs and apply to main query
-    matching_account_ids = account_ids_query.select("accounts.id").distinct.pluck(:id)
-    accounts = accounts.where(id: matching_account_ids) if matching_account_ids.any?
 
     accounts.order(created_at: :desc)
   end
 
   def serialize_customer(account)
-    primary_user = account.users.owners.first || account.users.first
+    primary_user = account.users.with_role("owner").first || account.users.first
     subscription = account.subscription
 
     {
@@ -276,7 +276,7 @@ class Api::V1::CustomersController < ApplicationController
   end
 
   def calculate_total_mrr
-    Subscription.joins(:plan).where(status: [ "active", "trialing" ]).sum do |subscription|
+    Subscription.includes(:plan).where(status: [ "active", "trialing" ]).to_a.sum do |subscription|
       case subscription.plan.billing_cycle
       when "monthly"
         subscription.plan.price_cents
@@ -292,7 +292,7 @@ class Api::V1::CustomersController < ApplicationController
     # Simple churn rate calculation for last 30 days
     start_of_month = 30.days.ago
     customers_at_start = Account.where("created_at < ?", start_of_month).count
-    churned_customers = Account.where(status: "inactive", updated_at: start_of_month..Time.current).count
+    churned_customers = Account.where(status: "cancelled", updated_at: start_of_month..Time.current).count
 
     return 0 if customers_at_start == 0
     (churned_customers.to_f / customers_at_start * 100).round(2)

@@ -2,7 +2,8 @@
 
 class Api::V1::Auth::PasswordsController < ApplicationController
   include RateLimiting
-  
+  wrap_parameters false
+
   skip_before_action :authenticate_request, only: [ :forgot, :reset ]
   after_action :increment_rate_limit_count, only: [:forgot, :reset], if: -> { response.status >= 400 }
 

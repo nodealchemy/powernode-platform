@@ -201,10 +201,16 @@ class Api::V1::SettingsController < ApplicationController
   end
 
   def update_user_preferences(key, new_preferences)
-    current_preferences = current_user.send(key) || {}
+    # Map key to actual attribute name
+    attribute_key = case key
+    when "notifications" then "notification_preferences"
+    else key
+    end
+
+    current_preferences = current_user.send(attribute_key) || {}
     updated_preferences = current_preferences.merge(new_preferences.to_h)
 
-    current_user.update(key.to_sym => updated_preferences)
+    current_user.update(attribute_key.to_sym => updated_preferences)
   end
 
   def broadcast_settings_update(message_type, data)

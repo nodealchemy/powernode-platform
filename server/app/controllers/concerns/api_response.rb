@@ -34,6 +34,7 @@ module ApiResponse
     end
 
     response[:meta] = sanitize_for_json(meta) if meta.present?
+    response[:message] = message if message.present?
 
     render json: response, status: status
   end
@@ -220,7 +221,7 @@ module ApiResponse
   # Define general exceptions FIRST (lowest priority) and specific exceptions LAST (highest priority)
   included do
     rescue_from StandardError do |exception|
-      render_internal_error("Something went wrong", exception: exception)
+      render_internal_error("Something went wrong", exception: exception) unless performed?
     end
 
     rescue_from ActiveRecord::RecordInvalid do |exception|

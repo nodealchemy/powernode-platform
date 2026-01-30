@@ -2,7 +2,6 @@
 
 class Api::V1::Kb::CommentsController < ApplicationController
   skip_before_action :authenticate_request, only: [ :index, :show ]
-  before_action :authenticate_request, only: [ :create ]
   before_action :set_article, only: [ :index, :create ]
   before_action :set_comment, only: [ :show, :approve, :reject, :spam, :destroy, :moderate ]
   before_action :authorize_kb_moderate, only: [ :approve, :reject, :spam, :destroy, :moderate ]
@@ -54,11 +53,11 @@ class Api::V1::Kb::CommentsController < ApplicationController
     comments = apply_admin_filters(comments)
     comments = comments.page(params[:page]).per(params[:per_page] || 20)
 
-    render_success({
+    render_success(
       comments: comments.map { |comment| serialize_comment_admin(comment) },
       pagination: pagination_meta(comments),
       stats: calculate_comment_stats
-    }, "Comments retrieved for moderation")
+    )
   end
 
   # POST /api/v1/kb/comments/:id/approve
@@ -66,9 +65,10 @@ class Api::V1::Kb::CommentsController < ApplicationController
     return render_error("Comment not found", status: :not_found) unless @comment
 
     @comment.approve!
-    render_success({
-      comment: serialize_comment_admin(@comment)
-    }, "Comment approved successfully")
+    render_success(
+      { comment: serialize_comment_admin(@comment) },
+      message: "Comment approved successfully"
+    )
   end
 
   # POST /api/v1/kb/comments/:id/reject
@@ -76,9 +76,10 @@ class Api::V1::Kb::CommentsController < ApplicationController
     return render_error("Comment not found", status: :not_found) unless @comment
 
     @comment.reject!
-    render_success({
-      comment: serialize_comment_admin(@comment)
-    }, "Comment rejected successfully")
+    render_success(
+      { comment: serialize_comment_admin(@comment) },
+      message: "Comment rejected successfully"
+    )
   end
 
   # POST /api/v1/kb/comments/:id/spam
@@ -86,9 +87,10 @@ class Api::V1::Kb::CommentsController < ApplicationController
     return render_error("Comment not found", status: :not_found) unless @comment
 
     @comment.mark_as_spam!
-    render_success({
-      comment: serialize_comment_admin(@comment)
-    }, "Comment marked as spam successfully")
+    render_success(
+      { comment: serialize_comment_admin(@comment) },
+      message: "Comment marked as spam successfully"
+    )
   end
 
   # DELETE /api/v1/kb/comments/:id
@@ -128,7 +130,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
     when "oldest"
       comments.order(:created_at)
     when "likes"
-      comments.order(likes_count: :desc)
+      comments.order(helpful_count: :desc)
     else
       comments.recent
     end
@@ -144,7 +146,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
       content: comment.content,
       user_name: comment.author.full_name,
       created_at: comment.created_at,
-      likes_count: comment.likes_count,
+      helpful_count: comment.helpful_count,
       replies_count: comment.replies_count,
       is_reply: comment.reply?
     }
@@ -167,7 +169,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
         id: comment.article.id,
         title: comment.article.title
       },
-      likes_count: comment.likes_count,
+      helpful_count: comment.helpful_count,
       replies_count: comment.replies_count,
       created_at: comment.created_at,
       is_reply: comment.reply?

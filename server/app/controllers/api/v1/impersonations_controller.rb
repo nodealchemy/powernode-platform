@@ -156,7 +156,7 @@ class Api::V1::ImpersonationsController < ApplicationController
                   .order(:name)
 
       # System admins can impersonate anyone except other system admins
-      users = users.where.not(role: "admin")
+      users = users.where.not(id: User.with_role("admin").select(:id))
     else
       # Regular account users can only impersonate within their account
       users = current_account.users
@@ -165,7 +165,7 @@ class Api::V1::ImpersonationsController < ApplicationController
                             .order(:name)
 
       # Filter out owners if current user is not owner
-      users = users.where.not(role: "owner") unless current_user.has_permission?("account.manage")
+      users = users.where.not(id: User.with_role("owner").select(:id)) unless current_user.has_permission?("account.manage")
     end
 
     render_success(

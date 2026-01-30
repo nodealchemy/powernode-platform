@@ -118,13 +118,8 @@ module Api
         end
 
         def filtered_plugins
-          plugins = Plugin.active.where(account: current_account)
-
-          plugins = plugins.search_by_text(params[:search]) if params[:search].present?
-          plugins = plugins.verified if params[:verified] == "true"
-          plugins = plugins.official if params[:official] == "true"
-
-          plugins
+          # Plugin system has been deprecated - return empty array
+          []
         end
 
         def filtered_templates
@@ -160,24 +155,8 @@ module Api
         end
 
         def normalize_plugins(plugins)
-          plugins.map do |plugin|
-            {
-              id: plugin.id,
-              type: "plugin",
-              name: plugin.name,
-              slug: plugin.slug,
-              description: plugin.description,
-              category: plugin.metadata&.dig("category") || "general",
-              tags: plugin.plugin_types || [],
-              icon: plugin.metadata&.dig("icon"),
-              version: plugin.version,
-              rating: plugin.average_rating || 0.0,
-              install_count: plugin.install_count || 0,
-              is_verified: plugin.is_verified || false,
-              status: plugin.status == "available" ? "published" : "draft",
-              created_at: plugin.created_at.iso8601
-            }
-          end
+          # Plugin system has been deprecated - return empty array
+          []
         end
 
         def normalize_templates(templates)
@@ -203,11 +182,12 @@ module Api
 
         # Item finders
         def find_app(app_id)
-          App.find_by(id: app_id)&.marketplace_listing
+          Marketplace::Definition.find_by(id: app_id)&.marketplace_listing
         end
 
         def find_plugin(plugin_id)
-          Plugin.find_by(id: plugin_id, account: current_account)
+          # Plugin system has been deprecated
+          nil
         end
 
         def find_template(template_id)
@@ -227,16 +207,17 @@ module Api
 
         # Install handlers
         def install_app(app_id)
-          app = App.find_by(id: app_id)
+          app = Marketplace::Definition.find_by(id: app_id)
           return { success: false, error: "App not found" } unless app
 
           # Create subscription to app's primary plan
-          primary_plan = app.app_plans.where(is_primary: true).first || app.app_plans.first
+          primary_plan = app.plans.where(is_primary: true).first || app.plans.first
           return { success: false, error: "No plans available for this app" } unless primary_plan
 
-          subscription = AppSubscription.create(
+          subscription = Marketplace::Subscription.create(
             account: current_account,
-            app_plan: primary_plan,
+            app: app,
+            plan: primary_plan,
             status: "trial" # Start with trial status
           )
 
@@ -262,29 +243,8 @@ module Api
         end
 
         def install_plugin(plugin_id)
-          plugin = Plugin.find_by(id: plugin_id, account: current_account)
-          return { success: false, error: "Plugin not found" } unless plugin
-
-          installation = plugin.install_for_account(current_account, current_user, {})
-
-          if installation
-            {
-              success: true,
-              data: {
-                id: installation.id,
-                item_id: plugin.id,
-                item_type: "plugin",
-                item_name: plugin.name,
-                status: installation.status,
-                installed_at: installation.installed_at.iso8601
-              }
-            }
-          else
-            { success: false, error: "Installation failed" }
-          end
-        rescue StandardError => e
-          Rails.logger.error "Failed to install plugin #{plugin_id}: #{e.message}"
-          { success: false, error: "Installation failed" }
+          # Plugin system has been deprecated
+          { success: false, error: "Plugin system has been deprecated" }
         end
 
         def install_template(template_id)

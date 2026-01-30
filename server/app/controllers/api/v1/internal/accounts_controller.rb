@@ -49,8 +49,7 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
   # PATCH /api/v1/internal/accounts/:account_id/anonymize_payments
   def anonymize_payments
     count = @account.payments.update_all(
-      metadata: nil,
-      billing_details: nil
+      metadata: nil
     ) if @account.respond_to?(:payments)
     render_success(message: "Anonymized #{count || 0} payment records")
   end

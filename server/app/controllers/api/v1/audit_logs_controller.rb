@@ -142,7 +142,7 @@ class Api::V1::AuditLogsController < ApplicationController
     AuditLog.create!(
       user: current_user,
       account: current_user.account,
-      action: "audit_logs_cleanup",
+      action: "audit_log_cleanup",
       resource_type: "AuditLog",
       resource_id: "bulk_cleanup",
       source: "admin_panel",
@@ -221,6 +221,21 @@ class Api::V1::AuditLogsController < ApplicationController
       worker = Worker.find_by(token: token, status: "active")
       return if worker.present?
       return render_error("Invalid worker token", status: :unauthorized)
+    end
+
+    # Try user JWT authentication first (for admin users calling create directly)
+    begin
+      payload = Security::JwtService.decode(token)
+      if payload[:type] == "access"
+        user = User.find_by(id: payload[:user_id])
+        if user&.active? && user&.has_permission?("admin.access")
+          @current_user = user
+          @current_account = user.account
+          return
+        end
+      end
+    rescue StandardError
+      # Fall through to service token validation
     end
 
     validate_service_token(token)

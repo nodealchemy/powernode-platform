@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "csv"
+
 module Api
   module V1
     module SupplyChain
@@ -11,12 +13,15 @@ module Api
         # GET /api/v1/supply_chain/attributions
         def index
           @attributions = current_account.supply_chain_attributions
-                                         .includes(:component, :license, :sbom)
+                                         .includes(:sbom_component, :license)
                                          .order(created_at: :desc)
 
-          @attributions = @attributions.where(attribution_type: params[:type]) if params[:type].present?
-          @attributions = @attributions.where(sbom_id: params[:sbom_id]) if params[:sbom_id].present?
+          @attributions = @attributions.where(requires_attribution: true) if params[:type] == "requires_attribution"
           @attributions = @attributions.where(license_id: params[:license_id]) if params[:license_id].present?
+
+          if params[:sbom_component_id].present?
+            @attributions = @attributions.where(sbom_component_id: params[:sbom_component_id])
+          end
 
           @attributions = paginate(@attributions)
 
@@ -34,7 +39,6 @@ module Api
         # POST /api/v1/supply_chain/attributions
         def create
           @attribution = current_account.supply_chain_attributions.build(attribution_params)
-          @attribution.created_by = current_user
 
           if @attribution.save
             render_success({ attribution: serialize_attribution(@attribution) }, status: :created)
@@ -97,13 +101,14 @@ module Api
 
         # GET /api/v1/supply_chain/attributions/export
         def export
-          format = params[:format] || "json"
-          sbom_id = params[:sbom_id]
+          format = params[:export_format] || "json"
 
           attributions = current_account.supply_chain_attributions
-                                        .includes(:component, :license, :sbom)
+                                        .includes(:sbom_component, :license)
 
-          attributions = attributions.where(sbom_id: sbom_id) if sbom_id.present?
+          if params[:sbom_component_id].present?
+            attributions = attributions.where(sbom_component_id: params[:sbom_component_id])
+          end
 
           case format
           when "json"
@@ -133,8 +138,11 @@ module Api
 
         def attribution_params
           params.require(:attribution).permit(
-            :attribution_type, :component_id, :license_id, :sbom_id,
-            :copyright_text, :attribution_text, :notice_text,
+            :sbom_component_id, :license_id,
+            :package_name, :package_version,
+            :copyright_holder, :copyright_year,
+            :license_text, :notice_text, :attribution_url,
+            :requires_attribution, :requires_license_copy, :requires_source_disclosure,
             metadata: {}
           )
         end
@@ -142,29 +150,30 @@ module Api
         def serialize_attribution(attribution, include_details: false)
           data = {
             id: attribution.id,
-            attribution_type: attribution.attribution_type,
-            component: attribution.component ? {
-              id: attribution.component.id,
-              name: attribution.component.name,
-              version: attribution.component.version
+            package_name: attribution.package_name,
+            package_version: attribution.package_version,
+            sbom_component: attribution.sbom_component ? {
+              id: attribution.sbom_component.id,
+              name: attribution.sbom_component.respond_to?(:full_name) ? attribution.sbom_component.full_name : attribution.sbom_component.name,
+              version: attribution.sbom_component.version
             } : nil,
             license: attribution.license ? {
               id: attribution.license.id,
               spdx_id: attribution.license.spdx_id,
               name: attribution.license.name
             } : nil,
-            sbom_id: attribution.sbom_id,
-            copyright_text: attribution.copyright_text,
+            copyright_holder: attribution.copyright_holder,
+            copyright_year: attribution.copyright_year,
+            requires_attribution: attribution.requires_attribution,
+            requires_license_copy: attribution.requires_license_copy,
+            requires_source_disclosure: attribution.requires_source_disclosure,
             created_at: attribution.created_at
           }
 
           if include_details
-            data[:attribution_text] = attribution.attribution_text
+            data[:license_text] = attribution.license_text
             data[:notice_text] = attribution.notice_text
-            data[:created_by] = attribution.created_by ? {
-              id: attribution.created_by.id,
-              name: attribution.created_by.name
-            } : nil
+            data[:attribution_url] = attribution.attribution_url
             data[:metadata] = attribution.metadata
           end
 
@@ -173,14 +182,14 @@ module Api
 
         def generate_csv(attributions)
           CSV.generate(headers: true) do |csv|
-            csv << ["Component", "Version", "License", "Copyright", "Attribution"]
+            csv << ["Package", "Version", "License", "Copyright Holder", "Copyright Year"]
             attributions.each do |attr|
               csv << [
-                attr.component&.name,
-                attr.component&.version,
+                attr.package_name,
+                attr.package_version,
                 attr.license&.spdx_id,
-                attr.copyright_text,
-                attr.attribution_text
+                attr.copyright_holder,
+                attr.copyright_year
               ]
             end
           end
@@ -201,10 +210,10 @@ module Api
             packages: attributions.map do |attr|
               {
                 SPDXID: "SPDXRef-Package-#{attr.id}",
-                name: attr.component&.name || "Unknown",
-                versionInfo: attr.component&.version || "Unknown",
+                name: attr.package_name || "Unknown",
+                versionInfo: attr.package_version || "Unknown",
                 licenseConcluded: attr.license&.spdx_id || "NOASSERTION",
-                copyrightText: attr.copyright_text || "NOASSERTION"
+                copyrightText: attr.copyright_holder || "NOASSERTION"
               }
             end
           }

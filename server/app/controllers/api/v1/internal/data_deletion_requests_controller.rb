@@ -4,7 +4,6 @@ module Api
   module V1
     module Internal
       class DataDeletionRequestsController < InternalBaseController
-        before_action :require_internal_access
         before_action :set_deletion_request, only: [:show, :update]
 
         # GET /api/v1/internal/data_deletion_requests/:id
@@ -16,7 +15,6 @@ module Api
         def create
           @deletion_request = DataManagement::DeletionRequest.new(deletion_request_params)
           @deletion_request.status = "pending"
-          @deletion_request.requested_at = Time.current
 
           if @deletion_request.save
             # Queue processing job
@@ -58,16 +56,13 @@ module Api
 
         def deletion_request_params
           params.require(:data_deletion_request).permit(
-            :account_id, :user_id, :request_type, :reason, :requester_email,
-            :requester_name, :verification_token, :scheduled_for,
-            data_categories: [], metadata: {}
+            :account_id, :user_id, :deletion_type, :reason,
+            data_types_to_delete: [], data_types_to_retain: [], metadata: {}
           )
         end
 
         def deletion_request_update_params
-          params.require(:data_deletion_request).permit(
-            :notes, :scheduled_for, metadata: {}
-          )
+          params.require(:data_deletion_request).permit(metadata: {})
         end
 
         def approve_request
@@ -78,16 +73,15 @@ module Api
           @deletion_request.update!(
             status: "approved",
             approved_at: Time.current,
-            approved_by_id: params[:approved_by_id]
+            processed_by_id: params[:processed_by_id]
           )
 
           # Send approval notification
           NotificationService.send_email(
             template: "data_deletion_approved",
-            email: @deletion_request.requester_email,
+            user_id: @deletion_request.user_id,
             data: {
-              request_id: @deletion_request.id,
-              scheduled_for: @deletion_request.scheduled_for&.iso8601
+              request_id: @deletion_request.id
             }
           )
 
@@ -109,14 +103,14 @@ module Api
           @deletion_request.update!(
             status: "rejected",
             rejection_reason: params[:reason],
-            rejected_at: Time.current,
-            rejected_by_id: params[:rejected_by_id]
+            completed_at: Time.current,
+            processed_by_id: params[:rejected_by_id]
           )
 
           # Send rejection notification
           NotificationService.send_email(
             template: "data_deletion_rejected",
-            email: @deletion_request.requester_email,
+            user_id: @deletion_request.user_id,
             data: {
               request_id: @deletion_request.id,
               reason: params[:reason]
@@ -136,7 +130,7 @@ module Api
 
           @deletion_request.update!(
             status: "processing",
-            started_at: Time.current
+            processing_started_at: Time.current
           )
 
           # Execute deletion in background
@@ -156,17 +150,15 @@ module Api
           @deletion_request.update!(
             status: "completed",
             completed_at: Time.current,
-            deleted_records_count: params[:deleted_records_count],
-            deletion_summary: params[:deletion_summary]
+            deletion_log: params[:deletion_log] || []
           )
 
           # Send completion notification
           NotificationService.send_email(
             template: "data_deletion_completed",
-            email: @deletion_request.requester_email,
+            user_id: @deletion_request.user_id,
             data: {
               request_id: @deletion_request.id,
-              deleted_count: @deletion_request.deleted_records_count,
               completed_at: @deletion_request.completed_at.iso8601
             }
           )
@@ -180,31 +172,26 @@ module Api
         def serialize_request(request, include_details: false)
           data = {
             id: request.id,
-            request_id: request.request_id,
-            request_type: request.request_type,
+            deletion_type: request.deletion_type,
             status: request.status,
             account_id: request.account_id,
             user_id: request.user_id,
-            requester_email: request.requester_email,
-            requester_name: request.requester_name,
-            data_categories: request.data_categories,
-            requested_at: request.requested_at,
-            scheduled_for: request.scheduled_for,
+            data_types_to_delete: request.data_types_to_delete,
+            data_types_to_retain: request.data_types_to_retain,
             created_at: request.created_at
           }
 
           if include_details
             data[:reason] = request.reason
             data[:approved_at] = request.approved_at
-            data[:approved_by_id] = request.approved_by_id
-            data[:rejected_at] = request.rejected_at
-            data[:rejected_by_id] = request.rejected_by_id
+            data[:processed_by_id] = request.processed_by_id
             data[:rejection_reason] = request.rejection_reason
-            data[:started_at] = request.started_at
+            data[:processing_started_at] = request.processing_started_at
             data[:completed_at] = request.completed_at
-            data[:deleted_records_count] = request.deleted_records_count
-            data[:deletion_summary] = request.deletion_summary
-            data[:notes] = request.notes
+            data[:grace_period_ends_at] = request.grace_period_ends_at
+            data[:deletion_log] = request.deletion_log
+            data[:retention_log] = request.retention_log
+            data[:error_message] = request.error_message
             data[:metadata] = request.metadata
           end
 

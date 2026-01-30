@@ -5,18 +5,18 @@ module Api
     module SupplyChain
       class RemediationPlansController < BaseController
         before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :generate_pr, :execute]
+        before_action :require_write_permission, only: [:create, :update, :destroy, :execute, :generate_pr]
         before_action :require_admin_permission, only: [:approve, :reject]
-        before_action :set_remediation_plan, only: [:show, :update, :destroy, :generate_pr, :approve, :reject, :execute]
+        before_action :set_remediation_plan, only: [:show, :update, :destroy, :approve, :reject, :execute, :generate_pr]
 
         # GET /api/v1/supply_chain/remediation_plans
         def index
           @plans = current_account.supply_chain_remediation_plans
-                                  .includes(:vulnerability, :created_by, :approved_by)
+                                  .includes(:sbom, :created_by, :approved_by)
                                   .order(created_at: :desc)
 
           @plans = @plans.where(status: params[:status]) if params[:status].present?
-          @plans = @plans.where(priority: params[:priority]) if params[:priority].present?
+          @plans = @plans.where(plan_type: params[:plan_type]) if params[:plan_type].present?
 
           @plans = paginate(@plans)
 
@@ -46,7 +46,7 @@ module Api
 
         # PATCH/PUT /api/v1/supply_chain/remediation_plans/:id
         def update
-          unless @plan.editable?
+          unless @plan.draft?
             return render_error("Plan cannot be edited in current status", status: :unprocessable_entity)
           end
 
@@ -59,7 +59,7 @@ module Api
 
         # DELETE /api/v1/supply_chain/remediation_plans/:id
         def destroy
-          unless @plan.deletable?
+          unless @plan.draft?
             return render_error("Plan cannot be deleted in current status", status: :unprocessable_entity)
           end
 
@@ -67,45 +67,13 @@ module Api
           render_success(message: "Remediation plan deleted")
         end
 
-        # POST /api/v1/supply_chain/remediation_plans/:id/generate_pr
-        def generate_pr
-          unless @plan.approved?
-            return render_error("Plan must be approved before generating PR", status: :unprocessable_entity)
-          end
-
-          result = ::SupplyChain::RemediationService.generate_pull_request(@plan, current_user)
-
-          if result[:success]
-            @plan.update!(
-              status: "pr_generated",
-              pr_url: result[:pr_url],
-              pr_number: result[:pr_number]
-            )
-
-            render_success(
-              { remediation_plan: serialize_plan(@plan), pr_url: result[:pr_url] },
-              message: "Pull request generated successfully"
-            )
-          else
-            render_error(result[:error], status: :unprocessable_entity)
-          end
-        end
-
         # POST /api/v1/supply_chain/remediation_plans/:id/approve
         def approve
-          unless @plan.pending_approval?
+          unless @plan.pending_review?
             return render_error("Plan is not pending approval", status: :unprocessable_entity)
           end
 
-          @plan.approve!(current_user, params[:comment])
-
-          SupplyChainChannel.broadcast_to_account(
-            current_account,
-            type: "remediation_plan_approved",
-            plan_id: @plan.id,
-            approved_by: current_user.id,
-            timestamp: Time.current.iso8601
-          )
+          @plan.approve!(current_user)
 
           render_success(
             { remediation_plan: serialize_plan(@plan) },
@@ -115,7 +83,7 @@ module Api
 
         # POST /api/v1/supply_chain/remediation_plans/:id/reject
         def reject
-          unless @plan.pending_approval?
+          unless @plan.pending_review?
             return render_error("Plan is not pending approval", status: :unprocessable_entity)
           end
 
@@ -133,14 +101,11 @@ module Api
 
         # POST /api/v1/supply_chain/remediation_plans/:id/execute
         def execute
-          unless @plan.approved? || @plan.pr_generated?
+          unless @plan.approved?
             return render_error("Plan must be approved before execution", status: :unprocessable_entity)
           end
 
-          @plan.update!(status: "executing", execution_started_at: Time.current)
-
-          # Queue the execution job
-          ::SupplyChain::RemediationExecutionJob.perform_later(@plan.id, current_user.id)
+          @plan.start_execution!
 
           render_success(
             { remediation_plan: serialize_plan(@plan) },
@@ -148,7 +113,64 @@ module Api
           )
         end
 
+        # POST /api/v1/supply_chain/remediation_plans/:id/generate_pr
+        def generate_pr
+          unless @plan.approved?
+            return render_error("Plan must be approved before generating a PR", status: :unprocessable_entity)
+          end
+
+          if @plan.generated_pr_url.present?
+            return render_error("PR has already been generated for this plan", status: :unprocessable_entity)
+          end
+
+          repository = find_repository_for_plan
+          unless repository
+            return render_error("No repository associated with this remediation plan", status: :unprocessable_entity)
+          end
+
+          service = ::SupplyChain::RemediationPrService.new(
+            plan: @plan,
+            repository: repository,
+            user: current_user
+          )
+
+          result = service.generate_pr
+
+          if result[:success]
+            render_success(
+              {
+                remediation_plan: serialize_plan(@plan.reload, include_details: true),
+                pr_url: result[:pr_url],
+                pr_number: result[:pr_number],
+                branch_name: result[:branch_name]
+              },
+              message: "Pull request created successfully"
+            )
+          else
+            render_error(result[:error], status: :unprocessable_entity)
+          end
+        rescue ArgumentError => e
+          render_error(e.message, status: :unprocessable_entity)
+        end
+
         private
+
+        def find_repository_for_plan
+          # Try to find repository via SBOM -> container image -> repository chain
+          # or via explicit repository_id in plan metadata
+          if @plan.metadata&.dig("repository_id")
+            return current_account.devops_repositories.find_by(id: @plan.metadata["repository_id"])
+          end
+
+          # Try to find via SBOM association
+          if @plan.sbom&.metadata&.dig("repository_id")
+            return current_account.devops_repositories.find_by(id: @plan.sbom.metadata["repository_id"])
+          end
+
+          # Default to first repository if only one exists (common for smaller projects)
+          repos = current_account.devops_repositories
+          repos.count == 1 ? repos.first : nil
+        end
 
         def set_remediation_plan
           @plan = current_account.supply_chain_remediation_plans.find(params[:id])
@@ -158,24 +180,25 @@ module Api
 
         def plan_params
           params.require(:remediation_plan).permit(
-            :title, :description, :priority, :vulnerability_id,
-            :target_version, :remediation_type, :deadline,
-            steps: [], affected_components: [], metadata: {}
+            :plan_type, :sbom_id, :auto_executable, :confidence_score,
+            :generated_pr_url,
+            target_vulnerabilities: [], upgrade_recommendations: [],
+            breaking_changes: [], metadata: {}
           )
         end
 
         def serialize_plan(plan, include_details: false)
           data = {
             id: plan.id,
-            title: plan.title,
-            description: plan.description,
+            plan_type: plan.plan_type,
             status: plan.status,
-            priority: plan.priority,
-            remediation_type: plan.remediation_type,
-            target_version: plan.target_version,
-            deadline: plan.deadline,
-            vulnerability_id: plan.vulnerability_id,
-            vulnerability_cve: plan.vulnerability&.cve_id,
+            approval_status: plan.approval_status,
+            confidence_score: plan.confidence_score,
+            auto_executable: plan.auto_executable,
+            target_vulnerability_count: plan.target_vulnerability_count,
+            upgrade_count: plan.upgrade_count,
+            has_breaking_changes: plan.has_breaking_changes?,
+            sbom_id: plan.sbom_id,
             created_by: plan.created_by ? {
               id: plan.created_by.id,
               name: plan.created_by.name
@@ -185,18 +208,15 @@ module Api
           }
 
           if include_details
-            data[:steps] = plan.steps
-            data[:affected_components] = plan.affected_components
-            data[:pr_url] = plan.pr_url
-            data[:pr_number] = plan.pr_number
+            data[:target_vulnerabilities] = plan.target_vulnerabilities
+            data[:upgrade_recommendations] = plan.upgrade_recommendations
+            data[:breaking_changes] = plan.breaking_changes
+            data[:generated_pr_url] = plan.generated_pr_url
             data[:approved_by] = plan.approved_by ? {
               id: plan.approved_by.id,
               name: plan.approved_by.name
             } : nil
             data[:approved_at] = plan.approved_at
-            data[:rejection_reason] = plan.rejection_reason
-            data[:execution_started_at] = plan.execution_started_at
-            data[:execution_completed_at] = plan.execution_completed_at
             data[:metadata] = plan.metadata
           end
 

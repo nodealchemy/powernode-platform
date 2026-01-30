@@ -11,15 +11,14 @@ module Api
         # GET /api/v1/supply_chain/build_provenance
         def index
           @provenances = current_account.supply_chain_build_provenances
-                                        .includes(:attestation, :repository)
+                                        .includes(:attestation)
                                         .order(created_at: :desc)
 
-          @provenances = @provenances.where(build_type: params[:build_type]) if params[:build_type].present?
-          @provenances = @provenances.where(verified: true) if params[:verified] == "true"
+          @provenances = @provenances.where(builder_id: params[:builder_id]) if params[:builder_id].present?
           @provenances = @provenances.where(reproducible: true) if params[:reproducible] == "true"
 
-          if params[:repository_id].present?
-            @provenances = @provenances.where(repository_id: params[:repository_id])
+          if params[:source_repository].present?
+            @provenances = @provenances.where(source_repository: params[:source_repository])
           end
 
           @provenances = paginate(@provenances)
@@ -41,10 +40,11 @@ module Api
             return render_error("Verification already in progress", status: :unprocessable_entity)
           end
 
-          @provenance.update!(
-            reproducibility_status: "verifying",
-            reproducibility_started_at: Time.current
+          updated_metadata = (@provenance.metadata || {}).merge(
+            "reproducibility_status" => "verifying",
+            "reproducibility_started_at" => Time.current.iso8601
           )
+          @provenance.update!(metadata: updated_metadata)
 
           # Queue the verification job
           ::SupplyChain::ReproducibilityVerificationJob.perform_later(@provenance.id, current_user.id)
@@ -68,23 +68,18 @@ module Api
         def serialize_provenance(provenance, include_details: false)
           data = {
             id: provenance.id,
-            provenance_id: provenance.provenance_id,
-            build_type: provenance.build_type,
             builder_id: provenance.builder_id,
             builder_version: provenance.builder_version,
+            source_repository: provenance.source_repository,
+            source_commit: provenance.source_commit,
+            source_branch: provenance.source_branch,
             build_started_at: provenance.build_started_at,
             build_finished_at: provenance.build_finished_at,
-            invocation_id: provenance.invocation_id,
-            verified: provenance.verified,
+            build_duration_ms: provenance.build_duration_ms,
             reproducible: provenance.reproducible,
-            reproducibility_status: provenance.reproducibility_status,
-            slsa_level: provenance.slsa_level,
+            reproducibility_verified_at: provenance.reproducibility_verified_at,
+            reproducibility_status: provenance.metadata&.dig("reproducibility_status"),
             attestation_id: provenance.attestation_id,
-            repository: provenance.repository ? {
-              id: provenance.repository.id,
-              name: provenance.repository.name,
-              full_name: provenance.repository.full_name
-            } : nil,
             created_at: provenance.created_at
           }
 
@@ -92,11 +87,8 @@ module Api
             data[:build_config] = provenance.build_config
             data[:materials] = provenance.materials
             data[:environment] = provenance.environment
-            data[:parameters] = provenance.parameters
-            data[:reproducibility_started_at] = provenance.reproducibility_started_at
-            data[:reproducibility_completed_at] = provenance.reproducibility_completed_at
-            data[:reproducibility_logs] = provenance.reproducibility_logs
-            data[:verification_errors] = provenance.verification_errors
+            data[:invocation] = provenance.invocation
+            data[:reproducibility_hash] = provenance.reproducibility_hash
             data[:metadata] = provenance.metadata
           end
 

@@ -353,7 +353,7 @@ module Ai
     end
 
     # Serialize node execution
-    # @param execution [Ai::NodeExecution] The execution to serialize
+    # @param execution [Ai::WorkflowNodeExecution] The execution to serialize
     # @return [Hash] Serialized execution data
     def serialize_node_execution(execution)
       result = {
