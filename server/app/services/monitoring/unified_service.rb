@@ -547,7 +547,7 @@ module Monitoring
   end
 
   def get_total_messages(time_range)
-    Ai::Message.joins(:ai_conversation)
+    Ai::Message.joins(:conversation)
             .where(ai_conversations: { account: @account })
             .where("ai_messages.created_at >= ?", time_range.ago)
             .count
@@ -555,7 +555,7 @@ module Monitoring
 
   def get_conversation_avg_response_time(time_range)
     # Calculate average time between user message and AI response
-    messages = Ai::Message.joins(:ai_conversation)
+    messages = Ai::Message.joins(:conversation)
                        .where(ai_conversations: { account: @account })
                        .where("ai_messages.created_at >= ?", time_range.ago)
                        .order(:created_at)
