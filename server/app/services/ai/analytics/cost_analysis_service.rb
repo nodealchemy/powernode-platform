@@ -328,7 +328,7 @@ module Ai
       end
 
       def node_executions
-        ::Ai::NodeExecution.joins(workflow_run: :workflow).where(ai_workflows: { account_id: account.id })
+        ::Ai::WorkflowNodeExecution.joins(workflow_run: :workflow).where(ai_workflows: { account_id: account.id })
       end
 
       def calculate_tokens(executions)

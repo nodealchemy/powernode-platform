@@ -80,6 +80,20 @@ module Devops
 
     # Pull Requests
 
+    def create_pull_request(owner, repo, title:, body:, head:, base:, draft: false)
+      with_error_handling do
+        payload = {
+          title: title,
+          body: body,
+          head: head,
+          base: base,
+          draft: draft
+        }
+        result = post("/repos/#{owner}/#{repo}/pulls", payload)
+        symbolize_keys(result).merge(success: true, pr_number: result["number"], pr_url: result["html_url"])
+      end
+    end
+
     def list_pull_requests(owner, repo, options = {})
       params = {
         state: options[:state] || "open",

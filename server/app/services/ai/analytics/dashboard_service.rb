@@ -52,7 +52,7 @@ module Ai
           },
           agents: {
             total: agents.count,
-            active: agents.where(is_active: true).count,
+            active: agents.active.count,
             executions: agent_executions.where("ai_agent_executions.created_at >= ?", start_time).count,
             success_rate: calculate_agent_success_rate(start_time)
           },

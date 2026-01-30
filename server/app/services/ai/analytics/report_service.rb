@@ -400,7 +400,7 @@ module Ai
         start_time = time_range.ago
 
         account.ai_agents.map do |agent|
-          node_executions = ::Ai::NodeExecution.joins(:node, workflow_run: :workflow)
+          node_executions = ::Ai::WorkflowNodeExecution.joins(:node, workflow_run: :workflow)
                                               .where(ai_workflows: { account_id: account.id })
                                               .where("ai_workflow_nodes.configuration->>'agent_id' = ?", agent.id.to_s)
                                               .where("ai_node_executions.created_at >= ?", start_time)

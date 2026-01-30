@@ -68,7 +68,7 @@ module Billing
 
     # Simple synchronous methods for immediate data needs
     def current_mrr
-      subscriptions = @account ? @account.subscriptions.active : Subscription.active
+      subscriptions = account_subscriptions_active
 
       mrr_cents = subscriptions.sum do |subscription|
         plan_price = subscription.plan.price_cents
@@ -93,18 +93,30 @@ module Billing
     end
 
     def active_subscriptions_count
-      subscriptions = @account ? @account.subscriptions : Subscription.all
-      subscriptions.active.count
+      if @account
+        @account.subscription&.active? ? 1 : 0
+      else
+        Subscription.active.count
+      end
     end
 
     def churn_rate(period_days = 30)
       end_date = Date.current
       start_date = end_date - period_days.days
 
-      subscriptions = @account ? @account.subscriptions : Subscription.all
-
-      active_start = subscriptions.where("created_at <= ?", start_date).active.count
-      cancelled_period = subscriptions.where(canceled_at: start_date..end_date).count
+      if @account
+        # Account has_one :subscription - handle singular relationship
+        sub = @account.subscription
+        if sub && sub.created_at <= start_date && sub.active?
+          active_start = 1
+        else
+          active_start = 0
+        end
+        cancelled_period = (sub && sub.canceled_at.present? && sub.canceled_at.between?(start_date, end_date)) ? 1 : 0
+      else
+        active_start = Subscription.where("created_at <= ?", start_date).active.count
+        cancelled_period = Subscription.where(canceled_at: start_date..end_date).count
+      end
 
       return 0.0 if active_start == 0
 
@@ -125,7 +137,11 @@ module Billing
 
     # Count active customers
     def count_active_customers
-      active_subscriptions_count
+      if @account
+        @account.subscription&.active? ? 1 : 0
+      else
+        Subscription.active.count
+      end
     end
 
     # Calculate ARPU (Average Revenue Per User)
@@ -189,11 +205,16 @@ module Billing
       end_date = Date.current
       start_date = end_date - cohort_months.months
 
-      subscriptions = @account ? @account.subscriptions : Subscription.all
+      all_subs = if @account
+                   sub = @account.subscription
+                   sub ? [sub] : []
+                 else
+                   Subscription.all.to_a
+                 end
 
       # Group subscriptions by signup month
-      cohorts = subscriptions
-                .where("created_at >= ?", start_date)
+      cohorts = all_subs
+                .select { |s| s.created_at >= start_date }
                 .group_by { |s| s.created_at.beginning_of_month }
 
       cohort_data = []
@@ -289,9 +310,34 @@ module Billing
 
     private
 
+    # Helper to get active subscriptions for account or globally
+    # Account has has_one :subscription, so we wrap it in an array
+    def account_subscriptions_active
+      if @account
+        sub = @account.subscription
+        sub&.active? ? [sub] : []
+      else
+        Subscription.active.to_a
+      end
+    end
+
+    # Helper to get all subscriptions for account or globally
+    def account_subscriptions_all
+      if @account
+        sub = @account.subscription
+        sub ? [sub] : []
+      else
+        Subscription.all.to_a
+      end
+    end
+
     def generate_mrr_trend_from_subscriptions(start_date, end_date)
-      subscriptions = @account ? @account.subscriptions : Subscription.all
-      all_subscriptions = subscriptions.where("created_at <= ?", end_date).to_a
+      all_subscriptions = if @account
+                            sub = @account.subscription
+                            (sub && sub.created_at <= end_date) ? [sub] : []
+                          else
+                            Subscription.where("created_at <= ?", end_date).to_a
+                          end
 
       trend_data = []
       current_date = start_date
