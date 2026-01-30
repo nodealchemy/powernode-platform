@@ -4729,7 +4729,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
     t.index ["parent_id"], name: "index_knowledge_base_comments_on_parent_id"
     t.index ["status"], name: "idx_kb_comments_on_status"
     t.check_constraint "helpful_count >= 0", name: "valid_kb_comment_helpful_count"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying, 'spam'::character varying]::text[])", name: "valid_kb_comment_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'spam'::character varying::text])", name: "valid_kb_comment_status"
   end
 
   create_table "knowledge_base_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5429,7 +5429,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
     t.index ["requested_by_id"], name: "idx_report_requests_on_requested_by_id"
     t.index ["requested_by_id"], name: "index_report_requests_on_requested_by_id"
     t.index ["status"], name: "idx_report_requests_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'generating'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying, 'expired'::character varying, 'cancelled'::character varying]::text[])", name: "valid_report_request_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'generating'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "valid_report_request_status"
   end
 
   create_table "reseller_commissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5782,7 +5782,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_27_054057) do
     t.index ["status"], name: "idx_subscriptions_on_status"
     t.index ["stripe_subscription_id"], name: "idx_subscriptions_on_stripe_id_unique", unique: true, where: "(stripe_subscription_id IS NOT NULL)"
     t.index ["trial_end"], name: "idx_subscriptions_on_trial_end"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'trialing'::character varying, 'past_due'::character varying, 'canceled'::character varying, 'unpaid'::character varying, 'incomplete'::character varying, 'incomplete_expired'::character varying, 'paused'::character varying, 'suspended'::character varying]::text[])", name: "valid_subscription_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'trialing'::character varying::text, 'past_due'::character varying::text, 'canceled'::character varying::text, 'unpaid'::character varying::text, 'incomplete'::character varying::text, 'incomplete_expired'::character varying::text, 'paused'::character varying::text, 'suspended'::character varying::text])", name: "valid_subscription_status"
   end
 
   create_table "supply_chain_attestations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
