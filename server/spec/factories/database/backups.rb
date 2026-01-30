@@ -2,8 +2,7 @@
 
 FactoryBot.define do
   factory :database_backup, class: "Database::Backup" do
-    association :user
-    sequence(:filename) { |n| "backup_#{n}_#{Time.current.strftime('%Y%m%d%H%M%S')}.sql.gz" }
+    association :created_by, factory: :user
     backup_type { "full" }
     status { "pending" }
     description { "Test database backup" }
@@ -18,8 +17,8 @@ FactoryBot.define do
       backup_type { "incremental" }
     end
 
-    trait :schema_only do
-      backup_type { "schema_only" }
+    trait :manual do
+      backup_type { "manual" }
     end
 
     trait :pending do
@@ -27,7 +26,7 @@ FactoryBot.define do
     end
 
     trait :in_progress do
-      status { "in_progress" }
+      status { "running" }
       started_at { Time.current }
     end
 
@@ -36,8 +35,8 @@ FactoryBot.define do
       started_at { 1.hour.ago }
       completed_at { Time.current }
       duration_seconds { 3600 }
-      file_size { 1024 * 1024 * 100 }
-      file_path { "/backups/#{filename}" }
+      file_size_bytes { 1024 * 1024 * 100 }
+      file_path { "/backups/backup_completed.sql.gz" }
     end
 
     trait :failed do

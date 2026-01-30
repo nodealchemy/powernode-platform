@@ -2,10 +2,6 @@
 
 FactoryBot.define do
   factory :marketplace_listing do
-    # Note: app association is defined but app_id column was removed from the table
-    # This will cause database-level failures until the schema is fixed
-    association :app, factory: :marketplace_definition
-
     sequence(:title) { |n| "Listing #{n}" }
     short_description { 'A short description of the listing' }
     long_description { 'A longer detailed description of the listing with more information about features and benefits.' }

@@ -57,6 +57,11 @@ FactoryBot.define do
       is_public { true }
     end
 
+    trait :published do
+      is_public { true }
+      published_at { Time.current }
+    end
+
     trait :content_generation do
       category { 'content_generation' }
       name { 'Blog Post Generator' }

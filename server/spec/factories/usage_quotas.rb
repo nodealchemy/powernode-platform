@@ -4,7 +4,7 @@ FactoryBot.define do
   factory :usage_quota do
     association :account
     association :usage_meter
-    association :plan, optional: true
+    plan { nil }
     soft_limit { 1000.0 }
     hard_limit { 1500.0 }
     current_usage { 0.0 }

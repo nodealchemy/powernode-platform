@@ -6,16 +6,16 @@ FactoryBot.define do
     association :created_by, factory: :user
     sequence(:name) { |n| "Image Policy #{n}" }
     description { Faker::Lorem.sentence }
-    policy_type { %w[registry_allowlist signature_required vulnerability_threshold custom].sample }
-    enforcement_level { %w[log warn block].sample }
+    policy_type { "registry_allowlist" }
+    enforcement_level { "warn" }
     is_active { true }
-    priority { rand(0..10) }
-    require_signature { [true, false].sample }
+    priority { 0 }
+    require_signature { false }
     require_sbom { false }
     max_critical_vulns { nil }
     max_high_vulns { nil }
     match_rules { {} }
-    rules { {} }
+    rules { { "allowed_registries" => ["gcr.io", "docker.io"] } }
     metadata { {} }
 
     trait :registry_allowlist do

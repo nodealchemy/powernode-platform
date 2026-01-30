@@ -5,11 +5,10 @@ FactoryBot.define do
     association :worker
     activity_type { "authentication" }
     occurred_at { Time.current }
-    status { "success" }
     details do
       {
         "status" => "success",
-        "ip_address" => Faker::Internet.ip_v4_address,
+        "ip_address" => "127.0.0.1",
         "user_agent" => "Worker/1.0"
       }
     end
@@ -54,7 +53,6 @@ FactoryBot.define do
 
     trait :error_occurred do
       activity_type { "error_occurred" }
-      status { "error" }
       details do
         {
           "status" => "error",
@@ -81,12 +79,10 @@ FactoryBot.define do
     end
 
     trait :successful do
-      status { "success" }
       details { { "status" => "success" } }
     end
 
     trait :failed do
-      status { "error" }
       details do
         {
           "status" => "error",

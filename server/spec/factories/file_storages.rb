@@ -3,7 +3,7 @@
 FactoryBot.define do
   factory :file_storage, class: "FileManagement::Storage" do
     account
-    name { "Test Storage" }
+    sequence(:name) { |n| "Test Storage #{n}" }
     provider_type { 'local' }
     status { 'active' }
     priority { 100 }

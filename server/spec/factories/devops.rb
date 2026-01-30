@@ -98,14 +98,14 @@ FactoryBot.define do
     end
 
     trait :completed do
-      status { 'completed' }
+      status { 'success' }
       started_at { 1.hour.ago }
       completed_at { Time.current }
       duration_seconds { 3600 }
     end
 
     trait :failed do
-      status { 'failed' }
+      status { 'failure' }
       started_at { 1.hour.ago }
       completed_at { Time.current }
       error_message { 'Pipeline failed' }
@@ -175,4 +175,9 @@ FactoryBot.define do
       association :responded_by, factory: :user
     end
   end
+
+  # Aliases for backward compatibility with specs using ci_cd_ prefix
+  factory :ci_cd_pipeline_run, parent: :devops_pipeline_run
+  factory :ci_cd_pipeline_step, parent: :devops_pipeline_step
+  factory :ci_cd_step_execution, parent: :devops_step_execution
 end

@@ -181,5 +181,12 @@ FactoryBot.define do
       status { 'connected' }
       last_health_check { 30.seconds.ago }
     end
+
+    trait :oauth2 do
+      auth_type { 'oauth2' }
+      oauth_client_id { SecureRandom.hex(16) }
+      oauth_authorization_url { 'https://oauth.example.com/authorize' }
+      oauth_token_url { 'https://oauth.example.com/token' }
+    end
   end
 end
