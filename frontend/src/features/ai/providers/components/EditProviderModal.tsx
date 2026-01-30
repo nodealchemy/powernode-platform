@@ -22,7 +22,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
   providerId
 }) => {
   const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [credentials, setCredentials] = useState<AiProviderCredential[]>([]);
   const [formData, setFormData] = useState({
     name: '',
@@ -56,13 +56,15 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
 
   const { addNotification } = useNotifications();
 
-  // Load provider data when modal opens
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when modal opens
+  // Reset state and load when modal opens
   useEffect(() => {
     if (isOpen && providerId) {
+      // Reset state for fresh load
+      setInitialLoading(true);
+      setCredentials([]);
       loadProvider();
     }
-  }, [isOpen, providerId]);
+  }, [isOpen, providerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadProvider = async () => {
     try {

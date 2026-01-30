@@ -33,7 +33,7 @@ export const WorkflowExecutionSummaryModal: React.FC<WorkflowExecutionSummaryMod
   const { addNotification } = useNotifications();
 
   const [metrics, setMetrics] = useState<WorkflowExecutionStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
 
@@ -70,12 +70,16 @@ export const WorkflowExecutionSummaryModal: React.FC<WorkflowExecutionSummaryMod
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when modal opens or dateRange changes
+  // Reset state and load when modal opens
   useEffect(() => {
     if (isOpen && workflowId) {
+      // Reset state for fresh load
+      setMetrics(null);
+      setLoading(true);
+      setError(null);
       loadMetrics();
     }
-  }, [isOpen, workflowId, dateRange]);
+  }, [isOpen, workflowId, dateRange]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Format duration
   const formatDuration = (ms: number): string => {

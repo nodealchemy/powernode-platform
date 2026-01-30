@@ -480,30 +480,26 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
         />
       )}
 
-      {/* Provider Detail Modal */}
-      {selectedProviderId && (
-        <ProviderDetailModal
-          isOpen={!!selectedProviderId}
-          onClose={() => setSelectedProviderId(null)}
-          providerId={selectedProviderId}
-          onUpdate={handleProviderUpdate}
-          onEdit={(_providerId) => {
-            setSelectedProviderId(null); // Close detail modal
-            setEditingProviderId(_providerId); // Open edit modal
-          }}
-          onDelete={handleDeleteProvider}
-        />
-      )}
+      {/* Provider Detail Modal - Always rendered, visibility controlled by isOpen */}
+      <ProviderDetailModal
+        isOpen={!!selectedProviderId}
+        onClose={() => setSelectedProviderId(null)}
+        providerId={selectedProviderId || ''}
+        onUpdate={handleProviderUpdate}
+        onEdit={(_providerId) => {
+          setSelectedProviderId(null); // Close detail modal
+          setEditingProviderId(_providerId); // Open edit modal
+        }}
+        onDelete={handleDeleteProvider}
+      />
 
-      {/* Edit Provider Modal */}
-      {editingProviderId && (
-        <EditProviderModal
-          isOpen={!!editingProviderId}
-          onClose={() => setEditingProviderId(null)}
-          providerId={editingProviderId}
-          onSuccess={handleProviderUpdate}
-        />
-      )}
+      {/* Edit Provider Modal - Always rendered, visibility controlled by isOpen */}
+      <EditProviderModal
+        isOpen={!!editingProviderId}
+        onClose={() => setEditingProviderId(null)}
+        providerId={editingProviderId || ''}
+        onSuccess={handleProviderUpdate}
+      />
     </>
   );
 };

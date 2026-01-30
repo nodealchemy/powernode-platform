@@ -565,32 +565,23 @@ export const AIConversationsPage: React.FC = () => {
         onConversationCreated={handleConversationCreated}
       />
 
-      {/* Conversation Detail Modal */}
-      {selectedConversationId && (() => {
-        const selectedConversation = conversations.find(c => c.id === selectedConversationId);
-        const agentId = selectedConversation?.ai_agent?.id;
+      {/* Conversation Detail Modal - Always rendered, visibility controlled by isOpen */}
+      <ConversationDetailModal
+        isOpen={!!selectedConversationId && !!conversations.find(c => c.id === selectedConversationId)?.ai_agent?.id}
+        onClose={() => setSelectedConversationId(null)}
+        agentId={conversations.find(c => c.id === selectedConversationId)?.ai_agent?.id || ''}
+        conversationId={selectedConversationId || ''}
+        onContinue={handleContinueConversation}
+        onArchive={() => {
+          loadConversations(pagination.currentPage, pagination.perPage);
+          setSelectedConversationId(null);
+        }}
+        onExport={() => {
+          setSelectedConversationId(null);
+        }}
+      />
 
-        if (!agentId) return null;
-
-        return (
-          <ConversationDetailModal
-            isOpen={!!selectedConversationId}
-            onClose={() => setSelectedConversationId(null)}
-            agentId={agentId}
-            conversationId={selectedConversationId}
-            onContinue={handleContinueConversation}
-            onArchive={() => {
-              loadConversations(pagination.currentPage, pagination.perPage);
-              setSelectedConversationId(null);
-            }}
-            onExport={() => {
-              setSelectedConversationId(null);
-            }}
-          />
-        );
-      })()}
-
-      {/* Conversation Continue Modal */}
+      {/* Conversation Continue Modal - Only rendered when conversation exists */}
       {chatConversation && (
         <ConversationContinueModal
           isOpen={!!chatConversationId}

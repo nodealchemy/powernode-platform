@@ -28,7 +28,7 @@ export interface AiProvider {
   health_status: 'healthy' | 'unhealthy' | 'unknown' | 'inactive';
   created_at: string;
   updated_at: string;
-  account_credentials?: AiProviderCredential[];
+  credentials?: AiProviderCredential[];
 }
 
 export interface ModelInfo {

@@ -74,12 +74,16 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
   // Check permissions
   const canUpdateWorkflows = currentUser?.permissions?.includes('ai.workflows.update');
 
-  // Load workflow data
+  // Reset state and load workflow data when modal opens
   useEffect(() => {
     if (isOpen && workflowId) {
+      // Reset state for fresh load
+      setWorkflow(null);
+      setLoading(true);
+      setHasChanges(false);
       loadWorkflow();
     }
-  }, [isOpen, workflowId]);
+  }, [isOpen, workflowId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadWorkflow = async () => {
     try {

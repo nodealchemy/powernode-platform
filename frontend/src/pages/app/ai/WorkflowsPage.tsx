@@ -753,24 +753,20 @@ export const WorkflowsPage: React.FC = () => {
       />
 
       {/* Workflow Detail Modal (includes Execute and Execution History tabs) */}
-      {selectedWorkflowId && (
-        <WorkflowDetailModal
-          isOpen={!!selectedWorkflowId}
-          onClose={() => setSelectedWorkflowId(null)}
-          workflowId={selectedWorkflowId}
-          initialTab={selectedWorkflowInitialTab}
-        />
-      )}
+      <WorkflowDetailModal
+        isOpen={!!selectedWorkflowId}
+        onClose={() => setSelectedWorkflowId(null)}
+        workflowId={selectedWorkflowId || ''}
+        initialTab={selectedWorkflowInitialTab}
+      />
 
       {/* Workflow Builder Modal */}
-      {builderWorkflowId && (
-        <WorkflowBuilderModal
-          isOpen={!!builderWorkflowId}
-          onClose={() => setBuilderWorkflowId(null)}
-          workflowId={builderWorkflowId}
-          onSuccess={handleBuilderSuccess}
-        />
-      )}
+      <WorkflowBuilderModal
+        isOpen={!!builderWorkflowId}
+        onClose={() => setBuilderWorkflowId(null)}
+        workflowId={builderWorkflowId || ''}
+        onSuccess={handleBuilderSuccess}
+      />
       </PageContainer>
     </AiErrorBoundary>
   );

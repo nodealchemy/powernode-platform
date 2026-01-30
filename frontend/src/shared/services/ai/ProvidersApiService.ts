@@ -40,7 +40,15 @@ export interface ProviderFilters extends QueryFilters {
 export interface CreateProviderRequest {
   name: string;
   provider_type: string;
-  configuration?: Record<string, any>;
+  slug?: string;
+  description?: string;
+  api_base_url?: string;
+  api_endpoint?: string;
+  capabilities?: string[];
+  documentation_url?: string;
+  status_url?: string;
+  supported_models?: Array<Record<string, unknown>> | unknown[];
+  configuration_schema?: Record<string, unknown>;
   is_active?: boolean;
 }
 

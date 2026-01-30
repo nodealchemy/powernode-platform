@@ -44,7 +44,7 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
   const { addNotification } = useNotifications();
   
   const [provider, setProvider] = useState<AiProvider | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,12 +76,16 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when modal opens
+  // Reset state when modal opens or provider changes
   useEffect(() => {
     if (isOpen && providerId) {
+      // Reset state for fresh load
+      setProvider(null);
+      setLoading(true);
+      setError(null);
       loadProvider();
     }
-  }, [isOpen, providerId]);
+  }, [isOpen, providerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle test connection
   const handleTestConnection = async () => {
@@ -551,9 +555,9 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
                 ) : undefined}
               />
               <CardContent>
-                {provider.account_credentials && provider.account_credentials.length > 0 ? (
+                {provider.credentials && provider.credentials.length > 0 ? (
                   <div className="space-y-3">
-                    {provider.account_credentials.map((credential: AiProviderCredential) => (
+                    {provider.credentials.map((credential: AiProviderCredential) => (
                       <div
                         key={credential.id}
                         className="flex items-center justify-between p-3 border border-theme-border rounded-lg"

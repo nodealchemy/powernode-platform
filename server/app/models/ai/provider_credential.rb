@@ -17,9 +17,7 @@ module Ai
     validates :name, presence: true, length: { maximum: 255 }
     validates :encrypted_credentials, presence: true
     validates :encryption_key_id, presence: true
-    validates :account_id, uniqueness: { scope: [:ai_provider_id, :is_default],
-                                         conditions: -> { where(is_default: true) },
-                                         message: "can only have one default credential per provider" }
+    validate :only_one_default_per_provider
     validate :credentials_format
     validate :expiration_date_future
 
@@ -205,21 +203,9 @@ module Ai
     end
 
     def validate_custom_configuration
-      # Custom providers vary by slug
-      case provider&.slug
-      when "ollama"
-        required_fields = %w[base_url]
-        optional_fields = %w[model]
-      when "huggingface"
-        required_fields = %w[api_key]
-        optional_fields = %w[model]
-      else
-        required_fields = %w[api_key]
-        optional_fields = %w[model base_url]
-      end
-
-      validate_required_fields(required_fields)
-      validate_field_formats(optional_fields)
+      # Custom providers are flexible - require either api_key or base_url
+      # This allows different custom provider configurations to work
+      validate_generic_configuration
     end
 
     def validate_generic_configuration
@@ -314,6 +300,20 @@ module Ai
               .where(ai_provider_credentials: { id: id })
               .where("ai_agent_executions.created_at >= ?", period.ago)
               .sum(:tokens_used) || 0
+    end
+
+    def only_one_default_per_provider
+      return unless is_default?
+
+      existing = Ai::ProviderCredential.where(
+        account_id: account_id,
+        ai_provider_id: ai_provider_id,
+        is_default: true
+      ).where.not(id: id)
+
+      if existing.exists?
+        errors.add(:is_default, "can only have one default credential per provider")
+      end
     end
   end
 end

@@ -55,7 +55,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
   const [conversation, setConversation] = useState<AiConversation | null>(null);
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [stats, setStats] = useState<ConversationStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Check permissions
@@ -98,12 +98,18 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when modal opens
+  // Reset state and load when modal opens
   useEffect(() => {
     if (isOpen && conversationId && agentId) {
+      // Reset state for fresh load
+      setConversation(null);
+      setMessages([]);
+      setStats(null);
+      setLoading(true);
+      setError(null);
       loadConversation();
     }
-  }, [isOpen, conversationId, agentId]);
+  }, [isOpen, conversationId, agentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle actions
   const handleContinue = () => {
