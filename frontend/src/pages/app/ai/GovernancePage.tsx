@@ -6,6 +6,7 @@ import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import {
   governanceApi,
   CompliancePolicy,
@@ -127,6 +128,11 @@ const GovernancePage: React.FC = () => {
     }
   };
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: loadData,
+    loading,
+  });
+
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
     { label: 'AI', href: '/app/ai' },
@@ -148,13 +154,16 @@ const GovernancePage: React.FC = () => {
       description="Enterprise compliance policies, approval workflows, and audit logging for AI operations"
       breadcrumbs={breadcrumbs}
       actions={[
+        refreshAction,
         {
+          id: 'generate-report',
           label: 'Generate Report',
           onClick: () => {},
           icon: FileText,
           variant: 'secondary' as const
         },
         {
+          id: 'create-policy',
           label: 'Create Policy',
           onClick: () => {},
           icon: Plus,

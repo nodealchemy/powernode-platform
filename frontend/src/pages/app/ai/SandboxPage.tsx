@@ -6,6 +6,7 @@ import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import {
   sandboxApi,
   Sandbox,
@@ -166,6 +167,11 @@ const SandboxPage: React.FC = () => {
     }
   };
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: loadData,
+    loading,
+  });
+
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
     { label: 'AI', href: '/app/ai' },
@@ -187,7 +193,9 @@ const SandboxPage: React.FC = () => {
       description="Isolated testing environments for AI agents with recording, playback, and performance profiling"
       breadcrumbs={breadcrumbs}
       actions={[
+        refreshAction,
         {
+          id: 'run-tests',
           label: 'Run Tests',
           onClick: handleRunTests,
           icon: Play,
@@ -195,6 +203,7 @@ const SandboxPage: React.FC = () => {
           disabled: !selectedSandbox
         },
         {
+          id: 'create-sandbox',
           label: 'Create Sandbox',
           onClick: handleCreateSandbox,
           icon: Plus,

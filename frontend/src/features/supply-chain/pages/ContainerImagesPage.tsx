@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { StatusBadge } from '../components/shared/StatusBadge';
 import { useContainerImages } from '../hooks/useContainerImages';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { ContainerImage } from '../services/containerImagesApi';
 
 type TabId = 'all' | 'verified' | 'unverified' | 'quarantined';
@@ -18,7 +19,7 @@ export const ContainerImagesPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   const statusFilter = activeTab === 'all' ? undefined : activeTab;
-  const { images, pagination, loading, error } = useContainerImages({
+  const { images, pagination, loading, error, refresh } = useContainerImages({
     page: currentPage,
     perPage: 20,
     status: statusFilter,
@@ -27,6 +28,11 @@ export const ContainerImagesPage: React.FC = () => {
   const handleRowClick = (image: ContainerImage) => {
     navigate(`/app/supply-chain/container-images/${image.id}`);
   };
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: refresh,
+    loading,
+  });
 
   const truncateDigest = (digest: string) => {
     if (!digest) return '-';
@@ -154,8 +160,7 @@ export const ContainerImagesPage: React.FC = () => {
     { label: 'Container Images' },
   ];
 
-  // Container images are discovered and scanned via registry integrations
-  const actions: never[] = [];
+  const actions = [refreshAction];
 
   return (
     <PageContainer

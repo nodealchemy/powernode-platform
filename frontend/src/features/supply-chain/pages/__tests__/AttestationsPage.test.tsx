@@ -15,7 +15,7 @@ jest.mock('react-router-dom', () => ({
   useNavigate: jest.fn(),
 }));
 jest.mock('@/shared/components/layout/PageContainer', () => ({
-  PageContainer: ({ children, title, description, breadcrumbs }: any) => (
+  PageContainer: ({ children, title, description, breadcrumbs, actions }: any) => (
     <div data-testid="page-container">
       <h1>{title}</h1>
       <p>{description}</p>
@@ -25,6 +25,20 @@ jest.mock('@/shared/components/layout/PageContainer', () => ({
             <span key={i}>{crumb.label}</span>
           ))}
         </nav>
+      )}
+      {actions && (
+        <div data-testid="page-actions">
+          {actions.map((action: any) => (
+            <button
+              key={action.id}
+              data-testid={`action-${action.id}`}
+              onClick={action.onClick}
+              disabled={action.disabled}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
       )}
       {children}
     </div>
@@ -1073,6 +1087,51 @@ describe('AttestationsPage', () => {
 
       const lastCall = mockUseAttestations.mock.calls[mockUseAttestations.mock.calls.length - 1];
       expect(lastCall[0].perPage).toBe(20);
+    });
+  });
+
+  describe('Refresh functionality', () => {
+    it('shows Refresh button in page actions', () => {
+      mockUseAttestations.mockReturnValue({
+        attestations: [],
+        pagination: null,
+        loading: false,
+        error: null,
+        refresh: jest.fn(),
+      });
+      renderPage();
+      expect(screen.getByTestId('action-refresh')).toBeInTheDocument();
+      expect(screen.getByText('Refresh')).toBeInTheDocument();
+    });
+
+    it('calls refresh when Refresh button is clicked', async () => {
+      const mockRefresh = jest.fn();
+      mockUseAttestations.mockReturnValue({
+        attestations: [],
+        pagination: null,
+        loading: false,
+        error: null,
+        refresh: mockRefresh,
+      });
+      renderPage();
+      const refreshButton = screen.getByTestId('action-refresh');
+      fireEvent.click(refreshButton);
+      await waitFor(() => {
+        expect(mockRefresh).toHaveBeenCalled();
+      });
+    });
+
+    it('disables Refresh button while loading', () => {
+      mockUseAttestations.mockReturnValue({
+        attestations: [],
+        pagination: null,
+        loading: true,
+        error: null,
+        refresh: jest.fn(),
+      });
+      renderPage();
+      const refreshButton = screen.getByTestId('action-refresh');
+      expect(refreshButton).toBeDisabled();
     });
   });
 });

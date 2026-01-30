@@ -15,6 +15,7 @@ import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 // Type guard for API errors
 interface ApiErrorResponse {
@@ -189,6 +190,11 @@ const AgentTeamsPage: React.FC = () => {
     }
   };
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: loadTeams,
+    loading,
+  });
+
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
     { label: 'AI', href: '/app/ai' },
@@ -201,7 +207,9 @@ const AgentTeamsPage: React.FC = () => {
       description="Manage multi-agent teams for collaborative AI orchestration"
       breadcrumbs={breadcrumbs}
       actions={[
+        refreshAction,
         {
+          id: 'create-team',
           label: 'Create Team',
           onClick: () => setIsBuilderOpen(true),
           icon: Plus,

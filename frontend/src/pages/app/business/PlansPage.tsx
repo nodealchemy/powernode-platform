@@ -15,7 +15,8 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { Plus, RefreshCw } from 'lucide-react';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
+import { Plus } from 'lucide-react';
 
 export const PlansPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -219,15 +220,13 @@ export const PlansPage: React.FC = () => {
     return sum + (plan.active_subscription_count || 0) * (priceCents / 100);
   }, 0);
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: loadPlans,
+    loading,
+  });
+
   const pageActions: PageAction[] = [
-    {
-      id: 'refresh',
-      label: 'Refresh',
-      onClick: loadPlans,
-      variant: 'secondary',
-      icon: RefreshCw,
-      disabled: loading
-    },
+    refreshAction,
     ...(canManagePlans ? [{
       id: 'create-plan',
       label: 'Create Plan',

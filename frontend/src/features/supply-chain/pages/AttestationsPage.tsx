@@ -10,6 +10,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { StatusBadge } from '../components/shared/StatusBadge';
 import { useAttestations } from '../hooks/useAttestations';
 import { Attestation, AttestationType } from '../services/attestationsApi';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 type TabId = 'all' | 'slsa_provenance' | 'sbom' | 'custom';
 
@@ -19,7 +20,7 @@ export const AttestationsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   const typeFilter = activeTab === 'all' ? undefined : (activeTab as AttestationType);
-  const { attestations, pagination, loading, error } = useAttestations({
+  const { attestations, pagination, loading, error, refresh } = useAttestations({
     page: currentPage,
     perPage: 20,
     attestationType: typeFilter,
@@ -28,6 +29,11 @@ export const AttestationsPage: React.FC = () => {
   const handleRowClick = (attestation: Attestation) => {
     navigate(`/app/supply-chain/attestations/${attestation.id}`);
   };
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: refresh,
+    loading,
+  });
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -151,8 +157,7 @@ export const AttestationsPage: React.FC = () => {
     { label: 'Attestations' },
   ];
 
-  // Attestations are generated programmatically via CI/CD pipelines
-  const actions: never[] = [];
+  const actions = [refreshAction];
 
   return (
     <PageContainer

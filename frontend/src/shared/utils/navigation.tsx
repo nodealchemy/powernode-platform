@@ -5,7 +5,8 @@ import {
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
   HardDrive, Workflow, Server, GitBranch, FolderGit2,
   Puzzle, BookOpen, UserCog, Key, Shield, FileCode,
-  CheckCircle2, Scale, Building2
+  CheckCircle2, Scale, Building2, Activity, ShieldCheck,
+  FlaskConical, ShoppingBag, Boxes
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -209,9 +210,54 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Model Context Protocol servers and tools',
           permissions: ['mcp.servers.read'],
           order: 10
+        },
+        {
+          id: 'ai-monitoring',
+          name: 'Monitoring',
+          href: '/app/ai/monitoring',
+          icon: Activity,
+          description: 'Real-time AI system monitoring and metrics',
+          permissions: ['ai.analytics.read'],
+          order: 11
+        },
+        {
+          id: 'ai-governance',
+          name: 'Governance',
+          href: '/app/ai/governance',
+          icon: ShieldCheck,
+          description: 'AI governance policies and compliance',
+          permissions: ['ai_orchestration.read'],
+          order: 12
+        },
+        {
+          id: 'ai-sandbox',
+          name: 'Sandbox',
+          href: '/app/ai/sandbox',
+          icon: FlaskConical,
+          description: 'Test and experiment with AI capabilities',
+          permissions: ['ai_orchestration.read'],
+          order: 13
+        },
+        {
+          id: 'ai-agent-marketplace',
+          name: 'Agent Marketplace',
+          href: '/app/ai/agent-marketplace',
+          icon: ShoppingBag,
+          description: 'Browse and install pre-built AI agents',
+          permissions: ['ai.agents.read'],
+          order: 14
+        },
+        {
+          id: 'ai-devops-templates',
+          name: 'DevOps Templates',
+          href: '/app/ai/devops-templates',
+          icon: Boxes,
+          description: 'AI workflow templates for DevOps automation',
+          permissions: ['ai.workflows.read'],
+          order: 15
         }
       ],
-      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.prompt_templates.read', 'mcp.servers.read'],
+      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.prompt_templates.read', 'mcp.servers.read', 'ai.analytics.read', 'ai_orchestration.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10

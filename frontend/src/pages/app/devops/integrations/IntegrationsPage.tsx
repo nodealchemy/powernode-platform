@@ -4,6 +4,7 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { IntegrationCard } from '@/features/devops/integrations/components/IntegrationCard';
 import { integrationsApi } from '@/features/devops/integrations/services/integrationsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import type { IntegrationInstanceSummary, InstanceStatus, IntegrationType } from '@/features/devops/integrations/types';
 
 export function IntegrationsPage() {
@@ -71,6 +72,14 @@ export function IntegrationsPage() {
     [showNotification]
   );
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: async () => {
+      await loadInstances();
+      showNotification('Integrations refreshed', 'success');
+    },
+    loading: isLoading,
+  });
+
   const statusOptions: { value: InstanceStatus | ''; label: string }[] = [
     { value: '', label: 'All Status' },
     { value: 'active', label: 'Active' },
@@ -103,12 +112,15 @@ export function IntegrationsPage() {
       description="Manage your installed integrations"
       breadcrumbs={breadcrumbs}
       actions={[
+        refreshAction,
         {
+          id: 'browse-marketplace',
           label: 'Browse Marketplace',
           onClick: () => navigate('/app/marketplace?types=integration_template'),
           variant: 'outline',
         },
         {
+          id: 'add-integration',
           label: 'Add Integration',
           onClick: () => navigate('/app/devops/integrations/new'),
           variant: 'primary',

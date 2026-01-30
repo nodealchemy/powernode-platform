@@ -7,6 +7,7 @@ import { Select } from '@/shared/components/ui/Select';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { McpServerCard } from '@/features/ai/components/McpServerCard';
 import { McpToolExplorer } from '@/features/ai/components/McpToolExplorer';
 import { McpServerFormModal } from '@/features/ai/components/McpServerFormModal';
@@ -153,9 +154,10 @@ export const McpBrowserPage: React.FC = () => {
     };
   }, [servers]);
 
-  const handleRefresh = () => {
-    loadData(false);
-  };
+  const { refreshAction } = useRefreshAction({
+    onRefresh: () => loadData(false),
+    loading: refreshing,
+  });
 
   const handleTestTool = (tool: McpTool) => {
     setSelectedTool(tool);
@@ -344,20 +346,13 @@ export const McpBrowserPage: React.FC = () => {
         { label: 'MCP Browser' }
       ]}
       actions={[
+        refreshAction,
         {
           id: 'add-server',
           label: 'Add Server',
           onClick: handleAddServer,
           variant: 'primary' as const,
           icon: Plus
-        },
-        {
-          id: 'refresh',
-          label: 'Refresh',
-          onClick: handleRefresh,
-          variant: 'outline' as const,
-          icon: RefreshCw,
-          disabled: refreshing
         }
       ]}
     >

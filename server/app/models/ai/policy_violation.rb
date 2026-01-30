@@ -25,6 +25,7 @@ module Ai
     scope :high_priority, -> { where(severity: %w[high critical]) }
     scope :by_severity, ->(severity) { where(severity: severity) }
     scope :for_source, ->(type, id) { where(source_type: type, source_id: id) }
+    scope :for_period, ->(start_date, end_date) { where(detected_at: start_date..end_date) }
     scope :recent, -> { order(detected_at: :desc) }
 
     # Callbacks

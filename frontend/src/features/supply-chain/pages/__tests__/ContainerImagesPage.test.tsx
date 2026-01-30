@@ -1056,7 +1056,7 @@ describe('ContainerImagesPage', () => {
       expect(screen.getByTestId('breadcrumb-2')).toHaveTextContent('Container Images');
     });
 
-    it('renders no actions (images discovered via integrations)', () => {
+    it('renders Refresh action', () => {
       mockUseContainerImages.mockReturnValue({
         images: [],
         pagination: null,
@@ -1072,7 +1072,7 @@ describe('ContainerImagesPage', () => {
       );
 
       const actions = screen.getByTestId('page-actions');
-      expect(actions).toBeEmptyDOMElement();
+      expect(actions).toHaveTextContent('Refresh');
     });
   });
 });

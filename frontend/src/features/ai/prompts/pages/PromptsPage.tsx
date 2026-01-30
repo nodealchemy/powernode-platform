@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, RefreshCw, X, LayoutGrid, Globe, Bot, GitBranch, Search, Code, Shield, Rocket, FileText, Puzzle } from 'lucide-react';
+import { Plus, X, LayoutGrid, Globe, Bot, GitBranch, Search, Code, Shield, Rocket, FileText, Puzzle } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { Button } from '@/shared/components/ui/Button';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { usePromptTemplates } from '../hooks/usePromptTemplates';
 import type {
   PromptTemplate,
@@ -349,6 +350,11 @@ const PromptsPageContent: React.FC = () => {
     }
   };
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: refresh,
+    loading,
+  });
+
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
     { label: 'AI', href: '/app/ai' },
@@ -356,13 +362,7 @@ const PromptsPageContent: React.FC = () => {
   ];
 
   const actions = [
-    {
-      id: 'refresh',
-      label: 'Refresh',
-      onClick: refresh,
-      variant: 'secondary' as const,
-      icon: RefreshCw
-    },
+    refreshAction,
     {
       id: 'create',
       label: 'Create Template',

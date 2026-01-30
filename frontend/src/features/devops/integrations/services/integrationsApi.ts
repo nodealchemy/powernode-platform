@@ -46,7 +46,7 @@ export const integrationsApi = {
       if (filters?.category) params.append('category', filters.category);
       if (filters?.featured) params.append('featured', 'true');
 
-      const response = await api.get(`/integrations/templates?${params}`);
+      const response = await api.get(`/devops/integration_templates?${params}`);
       return response.data;
     } catch (error) {
       return {
@@ -72,7 +72,7 @@ export const integrationsApi = {
       if (filters?.type) params.append('type', filters.type);
       if (filters?.category) params.append('category', filters.category);
 
-      const response = await api.get(`/integrations/templates/search?${params}`);
+      const response = await api.get(`/devops/integration_templates/search?${params}`);
       return response.data;
     } catch (error) {
       return {
@@ -84,7 +84,7 @@ export const integrationsApi = {
 
   async getTemplate(id: string): Promise<TemplateResponse> {
     try {
-      const response = await api.get(`/integrations/templates/${id}`);
+      const response = await api.get(`/devops/integration_templates/${id}`);
       return response.data;
     } catch (error) {
       return {
@@ -96,7 +96,7 @@ export const integrationsApi = {
 
   async getTemplateCategories(): Promise<{ success: boolean; data?: { categories: Record<string, number> }; error?: string }> {
     try {
-      const response = await api.get('/integrations/templates/categories');
+      const response = await api.get('/devops/integration_templates/categories');
       return response.data;
     } catch (error) {
       return {
@@ -108,7 +108,7 @@ export const integrationsApi = {
 
   async getTemplateTypes(): Promise<{ success: boolean; data?: { types: IntegrationType[] }; error?: string }> {
     try {
-      const response = await api.get('/integrations/templates/types');
+      const response = await api.get('/devops/integration_templates/types');
       return response.data;
     } catch (error) {
       return {
@@ -134,7 +134,7 @@ export const integrationsApi = {
       if (filters?.status) params.append('status', filters.status);
       if (filters?.type) params.append('type', filters.type);
 
-      const response = await api.get(`/integrations/instances?${params}`);
+      const response = await api.get(`/devops/integration_instances?${params}`);
       return response.data;
     } catch (error) {
       return {
@@ -146,7 +146,7 @@ export const integrationsApi = {
 
   async getInstance(id: string): Promise<InstanceResponse> {
     try {
-      const response = await api.get(`/integrations/instances/${id}`);
+      const response = await api.get(`/devops/integration_instances/${id}`);
       return response.data;
     } catch (error) {
       return {
@@ -158,7 +158,7 @@ export const integrationsApi = {
 
   async createInstance(data: InstanceFormData): Promise<InstanceResponse> {
     try {
-      const response = await api.post('/integrations/instances', {
+      const response = await api.post('/devops/integration_instances', {
         template_id: data.template_id,
         instance: {
           name: data.name,
@@ -180,7 +180,7 @@ export const integrationsApi = {
     data: Partial<InstanceFormData>
   ): Promise<InstanceResponse> {
     try {
-      const response = await api.patch(`/integrations/instances/${id}`, {
+      const response = await api.patch(`/devops/integration_instances/${id}`, {
         instance: data,
       });
       return response.data;
@@ -194,7 +194,7 @@ export const integrationsApi = {
 
   async deleteInstance(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
-      const response = await api.delete(`/integrations/instances/${id}`);
+      const response = await api.delete(`/devops/integration_instances/${id}`);
       return response.data;
     } catch (error) {
       return {
@@ -206,7 +206,7 @@ export const integrationsApi = {
 
   async activateInstance(id: string): Promise<InstanceResponse> {
     try {
-      const response = await api.post(`/integrations/instances/${id}/activate`);
+      const response = await api.post(`/devops/integration_instances/${id}/activate`);
       return response.data;
     } catch (error) {
       return {
@@ -218,7 +218,7 @@ export const integrationsApi = {
 
   async deactivateInstance(id: string): Promise<InstanceResponse> {
     try {
-      const response = await api.post(`/integrations/instances/${id}/deactivate`);
+      const response = await api.post(`/devops/integration_instances/${id}/deactivate`);
       return response.data;
     } catch (error) {
       return {
@@ -230,7 +230,7 @@ export const integrationsApi = {
 
   async testInstance(id: string): Promise<TestConnectionResponse> {
     try {
-      const response = await api.post(`/integrations/instances/${id}/test`);
+      const response = await api.post(`/devops/integration_instances/${id}/test`);
       return response.data;
     } catch (error) {
       return {
@@ -245,7 +245,7 @@ export const integrationsApi = {
     input: Record<string, unknown> = {}
   ): Promise<ExecuteResponse> {
     try {
-      const response = await api.post(`/integrations/instances/${id}/execute`, input);
+      const response = await api.post(`/devops/integration_instances/${id}/execute`, input);
       return response.data;
     } catch (error) {
       return {
@@ -257,7 +257,7 @@ export const integrationsApi = {
 
   async getInstanceHealth(id: string): Promise<{ success: boolean; data?: { health: Record<string, unknown> }; error?: string }> {
     try {
-      const response = await api.get(`/integrations/instances/${id}/health`);
+      const response = await api.get(`/devops/integration_instances/${id}/health`);
       return response.data;
     } catch (error) {
       return {
@@ -272,7 +272,7 @@ export const integrationsApi = {
     period = 30
   ): Promise<ExecutionStatsResponse> {
     try {
-      const response = await api.get(`/integrations/instances/${id}/stats?period=${period}`);
+      const response = await api.get(`/devops/integration_instances/${id}/stats?period=${period}`);
       return response.data;
     } catch (error) {
       return {
@@ -286,7 +286,7 @@ export const integrationsApi = {
 
   async getCredentials(page = 1, perPage = 20): Promise<CredentialsResponse> {
     try {
-      const response = await api.get(`/integrations/credentials?page=${page}&per_page=${perPage}`);
+      const response = await api.get(`/devops/integration_credentials?page=${page}&per_page=${perPage}`);
       return response.data;
     } catch (error) {
       return {
@@ -298,7 +298,7 @@ export const integrationsApi = {
 
   async getCredential(id: string): Promise<CredentialResponse> {
     try {
-      const response = await api.get(`/integrations/credentials/${id}`);
+      const response = await api.get(`/devops/integration_credentials/${id}`);
       return response.data;
     } catch (error) {
       return {
@@ -310,7 +310,7 @@ export const integrationsApi = {
 
   async createCredential(data: CredentialFormData): Promise<CredentialResponse> {
     try {
-      const response = await api.post('/integrations/credentials', {
+      const response = await api.post('/devops/integration_credentials', {
         credential: data,
       });
       return response.data;
@@ -327,7 +327,7 @@ export const integrationsApi = {
     data: Partial<CredentialFormData>
   ): Promise<CredentialResponse> {
     try {
-      const response = await api.patch(`/integrations/credentials/${id}`, {
+      const response = await api.patch(`/devops/integration_credentials/${id}`, {
         credential: data,
       });
       return response.data;
@@ -341,7 +341,7 @@ export const integrationsApi = {
 
   async deleteCredential(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
-      const response = await api.delete(`/integrations/credentials/${id}`);
+      const response = await api.delete(`/devops/integration_credentials/${id}`);
       return response.data;
     } catch (error) {
       return {
@@ -353,7 +353,7 @@ export const integrationsApi = {
 
   async rotateCredential(id: string): Promise<CredentialResponse> {
     try {
-      const response = await api.post(`/integrations/credentials/${id}/rotate`);
+      const response = await api.post(`/devops/integration_credentials/${id}/rotate`);
       return response.data;
     } catch (error) {
       return {
@@ -381,7 +381,7 @@ export const integrationsApi = {
       if (filters?.since) params.append('since', filters.since);
       if (filters?.until) params.append('until', filters.until);
 
-      const response = await api.get(`/integrations/executions?${params}`);
+      const response = await api.get(`/devops/integration_executions?${params}`);
       return response.data;
     } catch (error) {
       return {
@@ -393,7 +393,7 @@ export const integrationsApi = {
 
   async getExecution(id: string): Promise<ExecutionResponse> {
     try {
-      const response = await api.get(`/integrations/executions/${id}`);
+      const response = await api.get(`/devops/integration_executions/${id}`);
       return response.data;
     } catch (error) {
       return {
@@ -405,7 +405,7 @@ export const integrationsApi = {
 
   async retryExecution(id: string): Promise<ExecuteResponse> {
     try {
-      const response = await api.post(`/integrations/executions/${id}/retry`);
+      const response = await api.post(`/devops/integration_executions/${id}/retry`);
       return response.data;
     } catch (error) {
       return {
@@ -417,7 +417,7 @@ export const integrationsApi = {
 
   async cancelExecution(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
-      const response = await api.post(`/integrations/executions/${id}/cancel`);
+      const response = await api.post(`/devops/integration_executions/${id}/cancel`);
       return response.data;
     } catch (error) {
       return {
@@ -435,7 +435,7 @@ export const integrationsApi = {
       const params = new URLSearchParams({ period: period.toString() });
       if (instanceId) params.append('instance_id', instanceId);
 
-      const response = await api.get(`/integrations/executions/stats?${params}`);
+      const response = await api.get(`/devops/integration_executions/stats?${params}`);
       return response.data;
     } catch (error) {
       return {

@@ -7,6 +7,7 @@ import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Plus, Shield, Eye, Edit, Trash2 } from 'lucide-react';
 import { useLicensePolicies, useDeleteLicensePolicy, useToggleLicensePolicyActive } from '../hooks/useLicenseCompliance';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import type { LicensePolicy } from '../types/license';
 
 export const LicensePoliciesPage: React.FC = () => {
@@ -169,6 +170,11 @@ export const LicensePoliciesPage: React.FC = () => {
     },
   ];
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: refetch,
+    loading: isLoading,
+  });
+
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
     { label: 'Supply Chain', href: '/app/supply-chain' },
@@ -176,6 +182,7 @@ export const LicensePoliciesPage: React.FC = () => {
   ];
 
   const actions = [
+    refreshAction,
     {
       id: 'create',
       label: 'Create Policy',

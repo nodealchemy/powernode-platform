@@ -13,6 +13,7 @@ import { GitProviderModal } from '@/features/devops/git/components/GitProviderMo
 import { CredentialModal } from '@/features/devops/git/components/CredentialModal';
 import { GitProviderDetail, GitCredential, AvailableProvider } from '@/features/devops/git/types';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 interface GitProvider {
   id: string;
@@ -76,7 +77,16 @@ export function GitProvidersPage() {
     { label: 'Git Providers' }
   ];
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: async () => {
+      await fetchProviders();
+      showNotification('Providers refreshed', 'success');
+    },
+    loading,
+  });
+
   const pageActions: PageAction[] = [
+    refreshAction,
     {
       id: 'add-provider',
       label: 'Add Provider',

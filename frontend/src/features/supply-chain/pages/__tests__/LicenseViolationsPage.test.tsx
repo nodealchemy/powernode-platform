@@ -679,4 +679,35 @@ describe('LicenseViolationsPage', () => {
       expect(exceptionTab?.querySelector('svg')).toBeInTheDocument();
     });
   });
+
+  describe('Refresh functionality', () => {
+    it('shows Refresh button in page actions', () => {
+      renderComponent();
+      expect(screen.getByText('Refresh')).toBeInTheDocument();
+    });
+
+    it('calls refetch when Refresh button is clicked', async () => {
+      const mockRefetch = jest.fn();
+      mockUseLicenseViolations.mockReturnValue({
+        ...defaultMockData,
+        refetch: mockRefetch,
+      });
+      renderComponent();
+      const refreshButton = screen.getByText('Refresh');
+      fireEvent.click(refreshButton);
+      await waitFor(() => {
+        expect(mockRefetch).toHaveBeenCalled();
+      });
+    });
+
+    it('disables Refresh button while loading', () => {
+      mockUseLicenseViolations.mockReturnValue({
+        ...defaultMockData,
+        isLoading: true,
+      });
+      renderComponent();
+      const refreshButton = screen.getByText('Refresh');
+      expect(refreshButton).toBeDisabled();
+    });
+  });
 });

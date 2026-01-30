@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, RefreshCw, HardDrive } from 'lucide-react';
+import { Plus, HardDrive } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { StorageProviderCard } from '@/features/system/storage/components/StorageProviderCard';
 import { StorageProviderModal } from '@/features/system/storage/components/StorageProviderModal';
 import { ConnectionTestModal } from '@/features/system/storage/components/ConnectionTestModal';
@@ -30,6 +31,11 @@ const StorageProvidersPage: React.FC = () => {
   // Check permissions
   const canManage = currentUser?.permissions?.includes('admin.storage.manage');
   const canRead = currentUser?.permissions?.includes('admin.storage.read') || canManage;
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: loadProviders,
+    loading,
+  });
 
   useEffect(() => {
     if (canRead) {
@@ -174,27 +180,16 @@ const StorageProvidersPage: React.FC = () => {
         actions={
           canManage
             ? [
+                refreshAction,
                 {
+                  id: 'add-provider',
                   label: 'Add Provider',
                   onClick: handleAddProvider,
                   variant: 'primary',
                   icon: Plus,
                 },
-                {
-                  label: 'Refresh',
-                  onClick: loadProviders,
-                  variant: 'secondary',
-                  icon: RefreshCw,
-                },
               ]
-            : [
-                {
-                  label: 'Refresh',
-                  onClick: loadProviders,
-                  variant: 'secondary',
-                  icon: RefreshCw,
-                },
-              ]
+            : [refreshAction]
         }
       >
         <div className="space-y-6">

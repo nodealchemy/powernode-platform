@@ -36,6 +36,7 @@ import { workflowsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { AiWorkflow } from '@/shared/types/workflow';
 import type { WorkflowFilters } from '@/shared/services/ai/types/workflow-api-types';
 import { WorkflowCreateModal } from '@/features/ai/workflows/components/WorkflowCreateModal';
@@ -90,6 +91,11 @@ export const WorkflowsPage: React.FC = () => {
   const canCreateWorkflows = currentUser?.permissions?.includes('ai.workflows.create') || false;
   const canExecuteWorkflows = currentUser?.permissions?.includes('ai.workflows.execute') || false;
   const canDeleteWorkflows = currentUser?.permissions?.includes('ai.workflows.delete') || false;
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: () => loadWorkflows(pagination.current_page, perPage),
+    loading,
+  });
 
   // Load workflows function with useCallback for optimization
   const loadWorkflows = useCallback(async (page = 1, perPage = 25, skipLoading = false) => {
@@ -547,13 +553,7 @@ export const WorkflowsPage: React.FC = () => {
           { label: 'Workflows' }
         ]}
         actions={[
-          {
-            id: 'refresh',
-            label: 'Refresh',
-            onClick: () => loadWorkflows(pagination.current_page, perPage),
-            icon: RefreshCw,
-            variant: 'outline'
-          },
+          refreshAction,
           {
             id: 'monitoring',
             label: 'Monitoring',

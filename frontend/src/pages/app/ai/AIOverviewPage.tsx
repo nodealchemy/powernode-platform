@@ -1,8 +1,9 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { EnhancedAIOverview, EnhancedAIOverviewHandle } from '@/features/ai/orchestration/components/EnhancedAIOverview';
-import { RefreshCw, Radio } from 'lucide-react';
+import { Radio } from 'lucide-react';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 export const AIOverviewPage: React.FC = () => {
   const overviewRef = useRef<EnhancedAIOverviewHandle>(null);
@@ -32,6 +33,11 @@ export const AIOverviewPage: React.FC = () => {
     }
   }, []);
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: handleRefresh,
+    loading: isRefreshing,
+  });
+
   return (
     <PageContainer
       title="AI Overview"
@@ -41,14 +47,7 @@ export const AIOverviewPage: React.FC = () => {
         { label: 'AI' }
       ]}
       actions={[
-        {
-          id: 'refresh',
-          label: isRefreshing ? 'Refreshing...' : 'Refresh',
-          onClick: handleRefresh,
-          variant: 'outline',
-          icon: RefreshCw,
-          disabled: isRefreshing
-        },
+        refreshAction,
         {
           id: 'live-updates',
           label: isLiveUpdates ? 'Live' : 'Paused',

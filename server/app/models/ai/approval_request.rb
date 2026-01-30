@@ -22,6 +22,7 @@ module Ai
     scope :expired, -> { where(status: "expired") }
     scope :active, -> { pending.where("expires_at IS NULL OR expires_at > ?", Time.current) }
     scope :for_source, ->(type, id) { where(source_type: type, source_id: id) }
+    scope :for_period, ->(start_date, end_date) { where(created_at: start_date..end_date) }
 
     # Callbacks
     before_validation :set_request_id, on: :create

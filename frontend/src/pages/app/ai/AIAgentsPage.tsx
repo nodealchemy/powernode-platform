@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { AiAgentDashboard } from '@/features/ai/agents/components/AiAgentDashboard';
+import { AiAgentDashboard, AiAgentDashboardHandle } from '@/features/ai/agents/components/AiAgentDashboard';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 export const AIAgentsPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const dashboardRef = React.useRef<AiAgentDashboardHandle>(null);
   const { hasPermission } = usePermissions();
 
   // WebSocket for real-time updates
@@ -17,17 +20,34 @@ export const AIAgentsPage: React.FC = () => {
     }
   });
 
+  const handleRefresh = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      if (dashboardRef.current?.refresh) {
+        await dashboardRef.current.refresh();
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: handleRefresh,
+    loading: isLoading,
+  });
+
   const canCreateAgents = hasPermission('ai.agents.create');
 
-  const pageActions = canCreateAgents ? [
-    {
+  const pageActions = [
+    refreshAction,
+    ...(canCreateAgents ? [{
       id: 'create-agent',
       label: 'Create Agent',
       onClick: () => setShowCreateModal(true),
       variant: 'primary' as const,
       icon: Plus
-    }
-  ] : [];
+    }] : [])
+  ];
 
   return (
     <PageContainer
@@ -41,6 +61,7 @@ export const AIAgentsPage: React.FC = () => {
       actions={pageActions}
     >
       <AiAgentDashboard
+        ref={dashboardRef}
         showCreateModal={showCreateModal}
         onShowCreateModalChange={setShowCreateModal}
       />

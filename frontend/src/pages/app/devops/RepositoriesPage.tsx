@@ -5,7 +5,7 @@ import {
   GitBranch, GitCommit, GitPullRequest,
   Lock, Unlock, Star, ExternalLink, Webhook, Trash2,
   ChevronLeft, ChevronRight, X, Loader2, Clock, Archive, Eye,
-  Download
+  Download, RefreshCw
 } from 'lucide-react';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
@@ -783,6 +783,7 @@ export function RepositoriesPage() {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchRepositories = async () => {
     try {
@@ -820,6 +821,16 @@ export function RepositoriesPage() {
   useEffect(() => {
     fetchRepositories();
   }, [page, filters]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchRepositories();
+      showNotification('Repositories refreshed', 'success');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleImportSuccess = () => {
     showNotification('Repositories imported successfully', 'success');
@@ -876,6 +887,14 @@ export function RepositoriesPage() {
   ];
 
   const pageActions: PageAction[] = [
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      onClick: handleRefresh,
+      variant: 'secondary',
+      icon: RefreshCw,
+      disabled: refreshing || loading
+    },
     {
       id: 'import-repos',
       label: 'Import Repositories',

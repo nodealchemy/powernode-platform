@@ -19,7 +19,8 @@ import { AnalyticsExportModal } from '@/features/business/analytics/components/A
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { RefreshCw, Download, Lock, Clock } from 'lucide-react';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
+import { Download, Lock, Clock, RefreshCw as RefreshIcon } from 'lucide-react';
 
 // Types and utilities
 import type { AnalyticsData } from '@/features/business/analytics/types';
@@ -113,6 +114,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
 
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usingFallbackData, setUsingFallbackData] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -160,7 +162,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     }
 
     try {
-      setLoading(true);
+      // Use refreshing state when we already have data (to avoid page flash)
+      if (data) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       setUsingFallbackData(false);
 
@@ -225,8 +232,9 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [dateRange.startDate.getTime(), dateRange.endDate.getTime(), canViewAnalytics]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dateRange.startDate.getTime(), dateRange.endDate.getTime(), canViewAnalytics, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initial data load with StrictMode protection
   // WebSocket via useAnalyticsWebSocket handles real-time updates
@@ -256,15 +264,13 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   };
 
   // Define page actions for PageContainer
+  const { refreshAction } = useRefreshAction({
+    onRefresh: () => loadAnalyticsData(true), // Force refresh when manually triggered
+    loading: refreshing,
+  });
+
   const pageActions: PageAction[] = [
-    {
-      id: 'refresh',
-      label: 'Refresh',
-      onClick: () => loadAnalyticsData(true), // Force refresh when manually triggered
-      variant: 'secondary',
-      icon: RefreshCw,
-      disabled: loading
-    },
+    refreshAction,
     // Only show export if user has permission
     ...(canExportAnalytics ? [{
       id: 'export',
@@ -286,38 +292,78 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     { id: 'cohorts', label: 'Cohorts', icon: '🔄', path: '/cohorts' }
   ];
 
-  if (loading) {
-    return <LoadingSpinner size="lg" message="Loading analytics data..." />;
+  // Only show full-page spinner on initial load (no data yet)
+  // When refreshing with existing data, keep the page structure visible
+  if (loading && !data) {
+    return (
+      <PageContainer
+        title="Analytics Dashboard"
+        description="Analytics insights and reporting"
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/app' },
+          { label: 'Business', href: '/app/business' },
+          { label: 'Analytics' }
+        ]}
+        actions={[]}
+      >
+        <div className="flex items-center justify-center py-12">
+          <RefreshIcon className="h-8 w-8 animate-spin text-theme-interactive-primary" />
+          <span className="ml-3 text-theme-secondary">Loading analytics data...</span>
+        </div>
+      </PageContainer>
+    );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
-      <div className="min-h-screen bg-theme-background-secondary p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-theme-error text-theme-error card-theme p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <span className="text-theme-error text-xl">⚠️</span>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-theme-error">Error Loading Analytics</h3>
-                <p className="mt-1 text-sm text-theme-error">{error}</p>
-                <button
-                  onClick={() => loadAnalyticsData(true)}
-                  className="mt-2 px-3 py-1 bg-theme-error text-theme-error-contrast rounded text-sm hover:opacity-80"
-                >
-                  Try Again
-                </button>
-              </div>
+      <PageContainer
+        title="Analytics Dashboard"
+        description="Analytics insights and reporting"
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/app' },
+          { label: 'Business', href: '/app/business' },
+          { label: 'Analytics' }
+        ]}
+        actions={pageActions}
+      >
+        <div className="bg-theme-error text-theme-error card-theme p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <span className="text-theme-error text-xl">⚠️</span>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-theme-error">Error Loading Analytics</h3>
+              <p className="mt-1 text-sm text-theme-error">{error}</p>
+              <button
+                onClick={() => loadAnalyticsData(true)}
+                className="mt-2 px-3 py-1 bg-theme-error text-theme-error-contrast rounded text-sm hover:opacity-80"
+              >
+                Try Again
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   if (!data) {
-    return <LoadingSpinner size="lg" message="No analytics data available" />;
+    return (
+      <PageContainer
+        title="Analytics Dashboard"
+        description="Analytics insights and reporting"
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/app' },
+          { label: 'Business', href: '/app/business' },
+          { label: 'Analytics' }
+        ]}
+        actions={[]}
+      >
+        <div className="text-center py-12 text-theme-secondary">
+          No analytics data available
+        </div>
+      </PageContainer>
+    );
   }
 
   // Dynamic breadcrumbs based on active tab

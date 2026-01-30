@@ -5,10 +5,10 @@ import { RootState } from '@/shared/services';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 // Import individual AI pages
 import { AIProvidersPage } from './AIProvidersPage';
@@ -111,16 +111,12 @@ export const AIOrchestrationPage: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [location.pathname]);
 
-  const pageActions: PageAction[] = [
-    {
-      id: 'refresh',
-      label: 'Refresh',
-      onClick: () => loadData(true),
-      variant: 'secondary',
-      icon: RefreshCw,
-      disabled: loading
-    }
-  ];
+  const { refreshAction } = useRefreshAction({
+    onRefresh: () => loadData(true),
+    loading,
+  });
+
+  const pageActions: PageAction[] = [refreshAction];
 
   // Dynamic breadcrumbs based on active tab
   const getBreadcrumbs = () => {

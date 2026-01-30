@@ -42,6 +42,10 @@ export type { WorkflowVariable } from './useWorkflowVariables';
 export { useForm } from './useForm';
 export type { UseFormReturn, UseFormOptions, FormValidationRule, FormValidationRules } from './useForm';
 
+// Refresh action
+export { useRefreshAction } from './useRefreshAction';
+export type { UseRefreshActionOptions, UseRefreshActionReturn } from './useRefreshAction';
+
 // Context exports
 export { BreadcrumbProvider, useBreadcrumb } from './BreadcrumbContext';
 export { NavigationProvider, useNavigation } from './NavigationContext';

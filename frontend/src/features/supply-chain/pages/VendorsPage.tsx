@@ -12,6 +12,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { AddVendorModal } from '../components/vendor/AddVendorModal';
 import { StartAssessmentModal } from '../components/vendor/StartAssessmentModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 type VendorType = 'saas' | 'api' | 'library' | 'infrastructure' | 'hardware' | 'consulting';
 type RiskTier = 'critical' | 'high' | 'medium' | 'low';
@@ -116,6 +117,11 @@ export const VendorsPage: React.FC = () => {
     setSelectedVendorName(vendorName);
     setShowAssessmentModal(true);
   };
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: refresh,
+    loading,
+  });
 
   const columns: DataTableColumn<Vendor>[] = [
     {
@@ -251,6 +257,7 @@ export const VendorsPage: React.FC = () => {
         { label: 'Vendors' },
       ]}
       actions={[
+        refreshAction,
         {
           id: 'add-vendor',
           label: 'Add Vendor',

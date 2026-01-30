@@ -23,6 +23,7 @@ import { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { AiAgent } from '@/shared/types/ai';
 import { ConversationCreateModal } from '@/features/ai/conversations/components/ConversationCreateModal';
@@ -465,6 +466,11 @@ export const AIConversationsPage: React.FC = () => {
   // Get the conversation for the continue modal
   const chatConversation = chatConversationId ? conversations.find(c => c.id === chatConversationId) : null;
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: () => loadConversations(pagination.currentPage, pagination.perPage),
+    loading,
+  });
+
   return (
     <PageContainer
       title="AI Conversations"
@@ -474,15 +480,16 @@ export const AIConversationsPage: React.FC = () => {
         { label: 'AI', href: '/app/ai' },
         { label: 'Conversations' }
       ]}
-      actions={canCreateConversations ? [
-        {
+      actions={[
+        refreshAction,
+        ...(canCreateConversations ? [{
           id: 'create-conversation',
           label: 'Start Conversation',
           onClick: () => setIsCreateModalOpen(true),
           icon: Plus,
-          variant: 'primary'
-        }
-      ] : []}
+          variant: 'primary' as const
+        }] : [])
+      ]}
     >
       <div className="space-y-4">
         {/* Filters */}

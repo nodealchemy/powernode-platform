@@ -6,6 +6,7 @@ import { SearchResults } from '@/features/ai/context/components/SearchResults';
 import { contextApi } from '@/features/ai/context/services/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { Button } from '@/shared/components/ui/Button';
@@ -24,6 +25,16 @@ export function ContextsPage() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: async () => {
+      setIsRefreshing(true);
+      setRefreshKey((k) => k + 1);
+      setIsRefreshing(false);
+    },
+    loading: isRefreshing,
+  });
 
   // WebSocket for real-time updates
   const { isConnected: _wsConnected } = usePageWebSocket({
@@ -76,12 +87,9 @@ export function ContextsPage() {
         { label: 'Contexts' },
       ]}
       actions={[
+        refreshAction,
         {
-          label: 'Refresh',
-          onClick: () => setRefreshKey((k) => k + 1),
-          variant: 'secondary',
-        },
-        {
+          id: 'new-context',
           label: 'New Context',
           onClick: () => setActiveTab('create'),
           variant: 'primary',

@@ -384,6 +384,34 @@ describe('VendorsPage', () => {
     });
   });
 
+  describe('Refresh functionality', () => {
+    it('shows Refresh button in page actions', () => {
+      renderPage();
+      expect(screen.getByTestId('action-refresh')).toBeInTheDocument();
+      expect(screen.getByText('Refresh')).toBeInTheDocument();
+    });
+
+    it('calls refresh when Refresh button is clicked', async () => {
+      renderPage();
+      const refreshButton = screen.getByTestId('action-refresh');
+      await userEvent.click(refreshButton);
+      expect(mockRefresh).toHaveBeenCalled();
+    });
+
+    it('disables Refresh button while loading', () => {
+      mockUseVendors.mockReturnValue({
+        vendors: [],
+        pagination: null,
+        loading: true,
+        error: null,
+        refresh: mockRefresh,
+      });
+      renderPage();
+      const refreshButton = screen.getByTestId('action-refresh');
+      expect(refreshButton).toBeDisabled();
+    });
+  });
+
   describe('Add Vendor functionality', () => {
     it('shows Add Vendor button in page actions', () => {
       renderPage();

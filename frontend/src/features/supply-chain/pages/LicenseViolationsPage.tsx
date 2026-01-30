@@ -7,6 +7,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { AlertTriangle, CheckCircle2, ShieldAlert, Eye } from 'lucide-react';
 import { useLicenseViolations, useResolveViolation, useGrantViolationException } from '../hooks/useLicenseCompliance';
 import { SeverityBadge } from '../components/shared/SeverityBadge';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import type { LicenseViolation } from '../types/license';
 
 type ViolationStatus = 'open' | 'resolved' | 'exception_granted';
@@ -17,7 +18,7 @@ export const LicenseViolationsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ViolationStatus>('open');
   const perPage = 25;
 
-  const { data, isLoading } = useLicenseViolations({
+  const { data, isLoading, refetch } = useLicenseViolations({
     page: currentPage,
     per_page: perPage,
     status: activeTab,
@@ -25,6 +26,11 @@ export const LicenseViolationsPage: React.FC = () => {
 
   const resolveMutation = useResolveViolation();
   const grantExceptionMutation = useGrantViolationException();
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: refetch,
+    loading: isLoading,
+  });
 
   const handleResolve = async (id: string) => {
     const note = window.prompt('Enter resolution note (optional):');
@@ -178,6 +184,7 @@ export const LicenseViolationsPage: React.FC = () => {
       title="License Violations"
       description="Monitor and manage license compliance violations"
       breadcrumbs={breadcrumbs}
+      actions={[refreshAction]}
     >
       <div className="card-theme-elevated">
         {/* Tabs */}
