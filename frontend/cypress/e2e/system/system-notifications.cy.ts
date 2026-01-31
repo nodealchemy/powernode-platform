@@ -192,7 +192,7 @@ describe('System Notifications Tests', () => {
 
   describe('Notification Preferences', () => {
     it('should navigate to notification preferences', () => {
-      cy.visit('/app/settings/notifications');
+      cy.visit('/app/profile/notifications');
       cy.waitForPageLoad();
 
       cy.get('body').then($body => {
@@ -208,7 +208,7 @@ describe('System Notifications Tests', () => {
     });
 
     it('should display email notification settings', () => {
-      cy.visit('/app/settings/notifications');
+      cy.visit('/app/profile/notifications');
       cy.waitForPageLoad();
 
       cy.get('body').then($body => {
@@ -223,7 +223,7 @@ describe('System Notifications Tests', () => {
     });
 
     it('should display push notification settings', () => {
-      cy.visit('/app/settings/notifications');
+      cy.visit('/app/profile/notifications');
       cy.waitForPageLoad();
 
       cy.get('body').then($body => {
@@ -239,7 +239,7 @@ describe('System Notifications Tests', () => {
     });
 
     it('should display in-app notification settings', () => {
-      cy.visit('/app/settings/notifications');
+      cy.visit('/app/profile/notifications');
       cy.waitForPageLoad();
 
       cy.get('body').then($body => {
@@ -255,7 +255,7 @@ describe('System Notifications Tests', () => {
     });
 
     it('should have notification frequency options', () => {
-      cy.visit('/app/settings/notifications');
+      cy.visit('/app/profile/notifications');
       cy.waitForPageLoad();
 
       cy.get('body').then($body => {
@@ -316,7 +316,7 @@ describe('System Notifications Tests', () => {
 
   describe('Push Notifications', () => {
     it('should display push notification permission status', () => {
-      cy.visit('/app/settings/notifications');
+      cy.visit('/app/profile/notifications');
       cy.waitForPageLoad();
 
       cy.get('body').then($body => {
@@ -333,7 +333,7 @@ describe('System Notifications Tests', () => {
     });
 
     it('should have enable push notifications button', () => {
-      cy.visit('/app/settings/notifications');
+      cy.visit('/app/profile/notifications');
       cy.waitForPageLoad();
 
       cy.get('body').then($body => {

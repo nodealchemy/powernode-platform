@@ -97,7 +97,7 @@ describe('Role & Permission Management', () => {
     });
 
     it('should display settings content', () => {
-      cy.visit('/app/settings/profile');
+      cy.visit('/app/profile');
       cy.waitForPageLoad();
       cy.get('body').should('be.visible');
     });

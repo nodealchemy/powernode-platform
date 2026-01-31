@@ -20,7 +20,7 @@ describe('Account Settings Update Flow Tests', () => {
 
   describe('Page Navigation', () => {
     it('should navigate to Account Settings', () => {
-      cy.visit('/app/settings/profile');
+      cy.visit('/app/profile');
       cy.waitForPageLoad();
 
       cy.get('body').then($body => {
@@ -36,7 +36,7 @@ describe('Account Settings Update Flow Tests', () => {
     });
 
     it('should display settings navigation', () => {
-      cy.visit('/app/settings');
+      cy.visit('/app/profile');
       cy.waitForPageLoad();
 
       cy.get('body').then($body => {
@@ -52,7 +52,7 @@ describe('Account Settings Update Flow Tests', () => {
 
   describe('Profile Settings', () => {
     beforeEach(() => {
-      cy.visit('/app/settings/profile');
+      cy.visit('/app/profile');
       cy.waitForPageLoad();
     });
 
@@ -143,7 +143,7 @@ describe('Account Settings Update Flow Tests', () => {
 
   describe('Password Change', () => {
     beforeEach(() => {
-      cy.visit('/app/settings/security');
+      cy.visit('/app/profile/security');
       cy.waitForPageLoad();
     });
 
@@ -223,7 +223,7 @@ describe('Account Settings Update Flow Tests', () => {
 
   describe('Two-Factor Authentication', () => {
     beforeEach(() => {
-      cy.visit('/app/settings/security');
+      cy.visit('/app/profile/security');
       cy.waitForPageLoad();
     });
 
@@ -267,7 +267,7 @@ describe('Account Settings Update Flow Tests', () => {
 
   describe('Notification Preferences', () => {
     beforeEach(() => {
-      cy.visit('/app/settings/notifications');
+      cy.visit('/app/profile/notifications');
       cy.waitForPageLoad();
     });
 
@@ -349,7 +349,7 @@ describe('Account Settings Update Flow Tests', () => {
 
   describe('Session Management', () => {
     beforeEach(() => {
-      cy.visit('/app/settings/security');
+      cy.visit('/app/profile/security');
       cy.waitForPageLoad();
     });
 
@@ -381,7 +381,7 @@ describe('Account Settings Update Flow Tests', () => {
 
   describe('Account Deletion', () => {
     beforeEach(() => {
-      cy.visit('/app/settings/profile');
+      cy.visit('/app/profile');
       cy.waitForPageLoad();
     });
 
@@ -414,7 +414,7 @@ describe('Account Settings Update Flow Tests', () => {
 
   describe('Form Validation', () => {
     beforeEach(() => {
-      cy.visit('/app/settings/profile');
+      cy.visit('/app/profile');
       cy.waitForPageLoad();
     });
 
@@ -452,7 +452,7 @@ describe('Account Settings Update Flow Tests', () => {
 
   describe('Success/Error States', () => {
     beforeEach(() => {
-      cy.visit('/app/settings/profile');
+      cy.visit('/app/profile');
       cy.waitForPageLoad();
     });
 
@@ -482,7 +482,7 @@ describe('Account Settings Update Flow Tests', () => {
         body: { success: false, error: 'Server error' }
       });
 
-      cy.visit('/app/settings/profile');
+      cy.visit('/app/profile');
       cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
@@ -498,7 +498,7 @@ describe('Account Settings Update Flow Tests', () => {
         body: {}
       });
 
-      cy.visit('/app/settings/profile');
+      cy.visit('/app/profile');
 
       cy.get('body').then($body => {
         const hasLoading = $body.find('[class*="spin"]').length > 0 ||
@@ -515,7 +515,7 @@ describe('Account Settings Update Flow Tests', () => {
   describe('Responsive Design', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
-      cy.visit('/app/settings/profile');
+      cy.visit('/app/profile');
       cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
@@ -523,7 +523,7 @@ describe('Account Settings Update Flow Tests', () => {
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
-      cy.visit('/app/settings/profile');
+      cy.visit('/app/profile');
       cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
@@ -531,7 +531,7 @@ describe('Account Settings Update Flow Tests', () => {
 
     it('should display properly on large screens', () => {
       cy.viewport(1920, 1080);
-      cy.visit('/app/settings/profile');
+      cy.visit('/app/profile');
       cy.waitForPageLoad();
 
       cy.get('body').should('be.visible');
