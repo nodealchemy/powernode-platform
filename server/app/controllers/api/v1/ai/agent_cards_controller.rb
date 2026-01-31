@@ -5,6 +5,7 @@ module Api
     module Ai
       class AgentCardsController < ApplicationController
         include AuditLogging
+        include ::Ai::ResourceFiltering
 
         before_action :set_agent_card, only: %i[show update destroy publish deprecate refresh_metrics]
         before_action :validate_permissions

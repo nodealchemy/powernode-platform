@@ -5,6 +5,7 @@ module Api
     module Ai
       class A2aTasksController < ApplicationController
         include AuditLogging
+        include ::Ai::ResourceFiltering
         include ActionController::Live  # For SSE streaming
 
         before_action :set_task, only: %i[show cancel provide_input events artifacts artifact]
