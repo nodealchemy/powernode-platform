@@ -97,6 +97,10 @@ class Account < ApplicationRecord
   has_many :ai_workflows, class_name: "Ai::Workflow", dependent: :destroy
   has_many :ai_workflow_runs, class_name: "Ai::WorkflowRun", dependent: :destroy
 
+  # AI A2A (Agent-to-Agent) Protocol associations
+  has_many :ai_agent_cards, class_name: "Ai::AgentCard", dependent: :destroy
+  has_many :ai_a2a_tasks, class_name: "Ai::A2aTask", dependent: :destroy
+
   # Marketplace subscriptions (replaces deprecated ai_workflow_template_installations)
   has_many :marketplace_subscriptions, class_name: "Marketplace::Subscription", dependent: :destroy
   has_many :workflow_template_subscriptions, -> { for_workflow_templates }, class_name: "Marketplace::Subscription"
