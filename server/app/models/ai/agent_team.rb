@@ -46,7 +46,7 @@ module Ai
     # Callbacks
     # ==========================================
     before_validation :set_default_values, on: :create
-    after_create :initialize_team_communication
+    after_create :log_team_creation
 
     # ==========================================
     # Public Methods
@@ -168,8 +168,7 @@ module Ai
       end
     end
 
-    def initialize_team_communication
-      # Hook for setting up team communication channels via MultiAgentCommunicationHub
+    def log_team_creation
       Rails.logger.info "[Ai::AgentTeam] Team created: #{name} (#{id})"
     end
   end

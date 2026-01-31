@@ -53,6 +53,9 @@ import { agentMarketplaceApi } from './AgentMarketplaceApiService';
 import { governanceApi } from './GovernanceApiService';
 import { devopsApi } from './DevopsApiService';
 import { sandboxApi } from './SandboxApiService';
+import { agentCardsApiService } from './AgentCardsApiService';
+import { a2aTasksApiService } from './A2aTasksApiService';
+import { memoryApiService } from './MemoryApiService';
 
 export { BaseApiService } from './BaseApiService';
 export type {
@@ -350,6 +353,61 @@ export type {
   SandboxAnalytics,
 } from './SandboxApiService';
 
+// Re-export A2A Agent Cards service
+export { agentCardsApiService };
+export type {
+  AgentCard,
+  AgentCardFilters,
+  CreateAgentCardRequest,
+  UpdateAgentCardRequest,
+  A2aAgentCardJson,
+  DiscoverAgentsResponse,
+  A2aTask,
+  A2aTaskFilters,
+  SubmitA2aTaskRequest,
+  A2aTaskResponse,
+  A2aTaskJson,
+  A2aTaskEvent,
+  A2aTaskEventsResponse,
+  A2aArtifact,
+  A2aMessage,
+  A2aMessagePart,
+  A2aAuthenticationInfo,
+  A2aCapabilities,
+  A2aSkill,
+} from './types/a2a-types';
+
+// Re-export A2A Tasks service
+export { a2aTasksApiService };
+
+// Re-export Memory service
+export { memoryApiService };
+export type {
+  MemoryEntry,
+  MemoryType,
+  EntryType,
+  SourceType,
+  MemoryContent,
+  MemoryFilters,
+  CreateMemoryRequest,
+  UpdateMemoryRequest,
+  MemorySearchRequest,
+  MemorySearchResponse,
+  ContextInjectionRequest,
+  ContextInjectionResponse,
+  MemoryStatsResponse,
+  PersistentContext,
+  RetentionPolicy,
+  WorkingMemoryState,
+  ConversationMessage,
+  WorkingMemoryStats,
+  MemoryTimelineEntry,
+  MemoryCluster,
+  MemoryGraph,
+  MemoryGraphNode,
+  MemoryGraphEdge,
+} from './types/memory-types';
+
 /**
  * Convenience object for accessing all API services
  */
@@ -379,6 +437,10 @@ export const aiApi = {
   governance: governanceApi,
   devops: devopsApi,
   sandbox: sandboxApi,
+  // A2A & Memory services
+  agentCards: agentCardsApiService,
+  a2aTasks: a2aTasksApiService,
+  memory: memoryApiService,
 } as const;
 
 export default aiApi;

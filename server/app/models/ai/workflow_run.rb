@@ -30,7 +30,7 @@ module Ai
              foreign_key: "ai_workflow_run_id", dependent: :destroy
     has_many :checkpoints, class_name: "Ai::WorkflowCheckpoint",
              foreign_key: "ai_workflow_run_id", dependent: :destroy
-    has_many :agent_messages, class_name: "Ai::AgentMessage",
+    has_many :a2a_tasks, class_name: "Ai::A2aTask",
              foreign_key: "ai_workflow_run_id", dependent: :destroy
     has_many :shared_context_pools, class_name: "Ai::SharedContextPool",
              foreign_key: "ai_workflow_run_id", dependent: :destroy

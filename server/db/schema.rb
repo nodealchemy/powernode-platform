@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_30_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -64,8 +64,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000001) do
     t.index ["account_id", "status"], name: "index_account_git_webhooks_on_account_status"
     t.index ["account_id"], name: "index_account_git_webhook_configs_on_account_id"
     t.index ["created_by_id"], name: "index_account_git_webhook_configs_on_created_by_id"
-    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying::text, 'exact'::character varying::text, 'wildcard'::character varying::text, 'regex'::character varying::text])", name: "account_git_webhook_configs_branch_filter_type_check"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text])", name: "account_git_webhook_configs_status_check"
+    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying, 'exact'::character varying, 'wildcard'::character varying, 'regex'::character varying]::text[])", name: "account_git_webhook_configs_branch_filter_type_check"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying]::text[])", name: "account_git_webhook_configs_status_check"
   end
 
   create_table "account_terminations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -142,6 +142,79 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000001) do
     t.check_constraint "setting_type::text = ANY (ARRAY['string'::character varying::text, 'text'::character varying::text, 'integer'::character varying::text, 'boolean'::character varying::text, 'json'::character varying::text, 'array'::character varying::text])", name: "valid_admin_setting_type"
   end
 
+  create_table "ai_a2a_task_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_a2a_task_id", null: false
+    t.string "artifact_id"
+    t.string "artifact_mime_type"
+    t.string "artifact_name"
+    t.datetime "created_at", null: false
+    t.jsonb "data", default: {}, null: false
+    t.string "event_id"
+    t.string "event_type", null: false
+    t.text "message"
+    t.string "new_status"
+    t.string "previous_status"
+    t.integer "progress_current"
+    t.string "progress_message"
+    t.integer "progress_total"
+    t.datetime "updated_at", null: false
+    t.index ["ai_a2a_task_id", "created_at"], name: "idx_a2a_events_task_time"
+    t.index ["ai_a2a_task_id"], name: "index_ai_a2a_task_events_on_ai_a2a_task_id"
+    t.index ["event_id"], name: "index_ai_a2a_task_events_on_event_id"
+    t.index ["event_type"], name: "index_ai_a2a_task_events_on_event_type"
+    t.check_constraint "event_type::text = ANY (ARRAY['status_change'::character varying, 'artifact_added'::character varying, 'message'::character varying, 'progress'::character varying, 'error'::character varying, 'cancelled'::character varying]::text[])", name: "ai_a2a_task_events_type_check"
+  end
+
+  create_table "ai_a2a_tasks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_workflow_run_id"
+    t.jsonb "artifacts", default: [], null: false
+    t.datetime "completed_at"
+    t.decimal "cost", precision: 12, scale: 6, default: "0.0"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.string "error_code"
+    t.jsonb "error_details", default: {}
+    t.text "error_message"
+    t.jsonb "external_authentication", default: {}
+    t.string "external_endpoint_url"
+    t.uuid "from_agent_card_id"
+    t.uuid "from_agent_id"
+    t.jsonb "history", default: [], null: false
+    t.jsonb "input", default: {}, null: false
+    t.boolean "is_external", default: false, null: false
+    t.integer "max_retries", default: 3, null: false
+    t.jsonb "message", default: {}, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.jsonb "output", default: {}, null: false
+    t.uuid "parent_task_id"
+    t.jsonb "push_notification_config", default: {}
+    t.integer "retry_count", default: 0, null: false
+    t.integer "sequence_number"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.string "task_id", null: false
+    t.uuid "to_agent_card_id"
+    t.uuid "to_agent_id"
+    t.integer "tokens_used", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_ai_a2a_tasks_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_a2a_tasks_on_account_id"
+    t.index ["ai_workflow_run_id", "sequence_number"], name: "index_ai_a2a_tasks_on_ai_workflow_run_id_and_sequence_number"
+    t.index ["ai_workflow_run_id"], name: "index_ai_a2a_tasks_on_ai_workflow_run_id"
+    t.index ["created_at"], name: "index_ai_a2a_tasks_on_created_at"
+    t.index ["from_agent_card_id"], name: "index_ai_a2a_tasks_on_from_agent_card_id"
+    t.index ["from_agent_id", "status"], name: "index_ai_a2a_tasks_on_from_agent_id_and_status"
+    t.index ["from_agent_id"], name: "index_ai_a2a_tasks_on_from_agent_id"
+    t.index ["is_external"], name: "index_ai_a2a_tasks_on_is_external"
+    t.index ["parent_task_id"], name: "index_ai_a2a_tasks_on_parent_task_id"
+    t.index ["task_id"], name: "index_ai_a2a_tasks_on_task_id", unique: true
+    t.index ["to_agent_card_id"], name: "index_ai_a2a_tasks_on_to_agent_card_id"
+    t.index ["to_agent_id", "status"], name: "index_ai_a2a_tasks_on_to_agent_id_and_status"
+    t.index ["to_agent_id"], name: "index_ai_a2a_tasks_on_to_agent_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'active'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'input_required'::character varying]::text[])", name: "ai_a2a_tasks_status_check"
+  end
+
   create_table "ai_ab_tests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
@@ -193,6 +266,44 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000001) do
     t.index ["account_id"], name: "index_ai_account_credits_on_account_id", unique: true
     t.index ["balance"], name: "index_ai_account_credits_on_balance"
     t.index ["is_reseller"], name: "index_ai_account_credits_on_is_reseller"
+  end
+
+  create_table "ai_agent_cards", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_id"
+    t.jsonb "authentication", default: {}, null: false
+    t.decimal "avg_response_time_ms", precision: 10, scale: 2
+    t.jsonb "capabilities", default: {}, null: false
+    t.string "card_version", default: "1.0.0", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "default_input_modes", default: ["application/json"], null: false
+    t.jsonb "default_output_modes", default: ["application/json"], null: false
+    t.datetime "deprecated_at"
+    t.text "description"
+    t.text "documentation_url"
+    t.string "endpoint_url"
+    t.integer "failure_count", default: 0, null: false
+    t.string "name", null: false
+    t.string "protocol_version", default: "0.3", null: false
+    t.string "provider_name"
+    t.string "provider_url"
+    t.datetime "published_at"
+    t.string "status", default: "active", null: false
+    t.integer "success_count", default: 0, null: false
+    t.jsonb "tags", default: [], null: false
+    t.integer "task_count", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.string "visibility", default: "private", null: false
+    t.index ["account_id", "name"], name: "idx_agent_cards_account_name", unique: true
+    t.index ["account_id"], name: "index_ai_agent_cards_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_agent_cards_on_ai_agent_id"
+    t.index ["capabilities"], name: "index_ai_agent_cards_on_capabilities", using: :gin
+    t.index ["protocol_version"], name: "index_ai_agent_cards_on_protocol_version"
+    t.index ["status"], name: "index_ai_agent_cards_on_status"
+    t.index ["tags"], name: "index_ai_agent_cards_on_tags", using: :gin
+    t.index ["visibility"], name: "index_ai_agent_cards_on_visibility"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'deprecated'::character varying]::text[])", name: "ai_agent_cards_status_check"
+    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'internal'::character varying, 'public'::character varying]::text[])", name: "ai_agent_cards_visibility_check"
   end
 
   create_table "ai_agent_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -260,33 +371,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000001) do
     t.index ["license_expires_at"], name: "index_ai_agent_installations_on_license_expires_at"
     t.index ["status"], name: "index_ai_agent_installations_on_status"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text, 'pending_update'::character varying::text])", name: "check_installation_status"
-  end
-
-  create_table "ai_agent_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "acknowledged_at", precision: nil
-    t.uuid "ai_workflow_run_id", null: false
-    t.string "communication_pattern", default: "request_response", null: false
-    t.datetime "created_at", null: false
-    t.datetime "delivered_at", precision: nil
-    t.string "from_agent_id", null: false
-    t.string "in_reply_to_message_id"
-    t.jsonb "message_content", default: {}, null: false
-    t.string "message_id", null: false
-    t.string "message_type", default: "direct", null: false
-    t.jsonb "metadata", default: {}
-    t.integer "sequence_number", null: false
-    t.string "status", default: "sent", null: false
-    t.string "to_agent_id"
-    t.datetime "updated_at", null: false
-    t.index ["ai_workflow_run_id", "sequence_number"], name: "index_agent_messages_on_run_and_sequence"
-    t.index ["ai_workflow_run_id"], name: "index_ai_agent_messages_on_ai_workflow_run_id"
-    t.index ["from_agent_id", "to_agent_id"], name: "index_agent_messages_on_sender_receiver"
-    t.index ["from_agent_id"], name: "index_ai_agent_messages_on_from_agent_id"
-    t.index ["in_reply_to_message_id"], name: "index_ai_agent_messages_on_in_reply_to_message_id"
-    t.index ["message_id"], name: "index_ai_agent_messages_on_message_id", unique: true
-    t.index ["message_type"], name: "index_ai_agent_messages_on_message_type"
-    t.index ["status"], name: "index_ai_agent_messages_on_status"
-    t.index ["to_agent_id"], name: "index_ai_agent_messages_on_to_agent_id"
   end
 
   create_table "ai_agent_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -681,33 +765,44 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000001) do
     t.uuid "ai_agent_id"
     t.uuid "ai_persistent_context_id", null: false
     t.datetime "archived_at"
+    t.decimal "confidence_score", precision: 5, scale: 4, default: "1.0"
     t.jsonb "content", default: {}, null: false
     t.text "content_text"
+    t.jsonb "context_tags", default: [], null: false
     t.datetime "created_at", null: false
     t.uuid "created_by_user_id"
+    t.decimal "decay_rate", precision: 5, scale: 4, default: "0.0"
     t.string "entry_key", null: false
     t.string "entry_type"
     t.datetime "expires_at"
     t.decimal "importance_score", precision: 5, scale: 4, default: "0.5"
     t.datetime "last_accessed_at"
     t.datetime "last_relevance_update"
+    t.string "memory_type", default: "factual"
     t.jsonb "metadata", default: {}
+    t.boolean "outcome_success"
     t.uuid "previous_version_id"
     t.decimal "relevance_decay_rate", precision: 5, scale: 4, default: "0.0"
     t.string "source_id"
     t.string "source_type"
+    t.jsonb "task_context", default: {}
     t.datetime "updated_at", null: false
     t.integer "version", default: 1
     t.index ["ai_agent_id"], name: "index_ai_context_entries_on_ai_agent_id"
     t.index ["ai_persistent_context_id", "entry_key"], name: "idx_entries_context_key", unique: true
     t.index ["ai_persistent_context_id"], name: "index_ai_context_entries_on_ai_persistent_context_id"
     t.index ["archived_at"], name: "index_ai_context_entries_on_archived_at"
+    t.index ["confidence_score"], name: "index_ai_context_entries_on_confidence_score"
+    t.index ["context_tags"], name: "index_ai_context_entries_on_context_tags", using: :gin
     t.index ["created_by_user_id"], name: "index_ai_context_entries_on_created_by_user_id"
     t.index ["entry_type"], name: "index_ai_context_entries_on_entry_type"
     t.index ["expires_at"], name: "index_ai_context_entries_on_expires_at"
     t.index ["importance_score"], name: "index_ai_context_entries_on_importance_score"
+    t.index ["memory_type"], name: "index_ai_context_entries_on_memory_type"
+    t.index ["outcome_success"], name: "index_ai_context_entries_on_outcome_success"
     t.index ["previous_version_id"], name: "index_ai_context_entries_on_previous_version_id"
     t.index ["source_type"], name: "index_ai_context_entries_on_source_type"
+    t.check_constraint "memory_type::text = ANY (ARRAY['factual'::character varying, 'experiential'::character varying, 'working'::character varying]::text[])", name: "ai_context_entries_memory_type_check"
   end
 
   create_table "ai_conversations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -4478,7 +4573,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000001) do
     t.index ["owner"], name: "index_git_repositories_on_owner"
     t.index ["topics"], name: "index_git_repositories_on_topics", using: :gin
     t.index ["webhook_configured"], name: "index_git_repositories_on_webhook_configured"
-    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying::text, 'exact'::character varying::text, 'wildcard'::character varying::text, 'regex'::character varying::text])", name: "git_repositories_branch_filter_type_check"
+    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying, 'exact'::character varying, 'wildcard'::character varying, 'regex'::character varying]::text[])", name: "git_repositories_branch_filter_type_check"
   end
 
   create_table "git_runners", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -7072,7 +7167,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000001) do
     t.index ["tier"], name: "index_webhook_endpoints_on_tier"
     t.check_constraint "content_type::text = ANY (ARRAY['application/json'::character varying::text, 'application/x-www-form-urlencoded'::character varying::text])", name: "valid_webhook_content_type"
     t.check_constraint "failure_count >= 0", name: "valid_webhook_failure_count"
-    t.check_constraint "payload_detail_level::text = ANY (ARRAY['full'::character varying::text, 'minimal'::character varying::text, 'ids_only'::character varying::text])", name: "webhook_endpoints_payload_detail_level_check"
+    t.check_constraint "payload_detail_level::text = ANY (ARRAY['full'::character varying, 'minimal'::character varying, 'ids_only'::character varying]::text[])", name: "webhook_endpoints_payload_detail_level_check"
     t.check_constraint "retry_backoff::text = ANY (ARRAY['linear'::character varying::text, 'exponential'::character varying::text])", name: "valid_webhook_retry_backoff"
     t.check_constraint "retry_limit >= 0 AND retry_limit <= 10", name: "valid_webhook_retry_limit"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'suspended'::character varying::text])", name: "valid_webhook_status"
@@ -7193,9 +7288,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000001) do
   add_foreign_key "account_terminations", "users", column: "cancelled_by_id"
   add_foreign_key "account_terminations", "users", column: "processed_by_id"
   add_foreign_key "account_terminations", "users", column: "requested_by_id"
+  add_foreign_key "ai_a2a_task_events", "ai_a2a_tasks"
+  add_foreign_key "ai_a2a_tasks", "accounts"
+  add_foreign_key "ai_a2a_tasks", "ai_a2a_tasks", column: "parent_task_id"
+  add_foreign_key "ai_a2a_tasks", "ai_agent_cards", column: "from_agent_card_id"
+  add_foreign_key "ai_a2a_tasks", "ai_agent_cards", column: "to_agent_card_id"
+  add_foreign_key "ai_a2a_tasks", "ai_agents", column: "from_agent_id"
+  add_foreign_key "ai_a2a_tasks", "ai_agents", column: "to_agent_id"
+  add_foreign_key "ai_a2a_tasks", "ai_workflow_runs"
   add_foreign_key "ai_ab_tests", "accounts"
   add_foreign_key "ai_ab_tests", "users", column: "created_by_id"
   add_foreign_key "ai_account_credits", "accounts"
+  add_foreign_key "ai_agent_cards", "accounts"
+  add_foreign_key "ai_agent_cards", "ai_agents"
   add_foreign_key "ai_agent_executions", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_executions", "ai_agent_executions", column: "parent_execution_id", on_delete: :nullify
   add_foreign_key "ai_agent_executions", "ai_agents", on_delete: :cascade
@@ -7205,7 +7310,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000001) do
   add_foreign_key "ai_agent_installations", "ai_agent_templates", column: "agent_template_id"
   add_foreign_key "ai_agent_installations", "ai_agents", column: "installed_agent_id"
   add_foreign_key "ai_agent_installations", "users", column: "installed_by_id"
-  add_foreign_key "ai_agent_messages", "ai_workflow_runs", on_delete: :cascade
   add_foreign_key "ai_agent_reviews", "accounts"
   add_foreign_key "ai_agent_reviews", "ai_agent_installations", column: "installation_id"
   add_foreign_key "ai_agent_reviews", "ai_agent_templates", column: "agent_template_id"

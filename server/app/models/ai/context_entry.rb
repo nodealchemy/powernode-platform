@@ -8,6 +8,7 @@ module Ai
     # ==================== Constants ====================
     ENTRY_TYPES = %w[fact memory preference knowledge tool_result observation insight].freeze
     SOURCE_TYPES = %w[user_input agent_output workflow import api system].freeze
+    MEMORY_TYPES = %w[factual experiential working].freeze
 
     # ==================== Associations ====================
     belongs_to :persistent_context, class_name: "Ai::PersistentContext", foreign_key: "ai_persistent_context_id"
@@ -24,8 +25,10 @@ module Ai
     validates :content, presence: true
     validates :entry_type, inclusion: { in: ENTRY_TYPES }, allow_nil: true
     validates :source_type, inclusion: { in: SOURCE_TYPES }, allow_nil: true
+    validates :memory_type, inclusion: { in: MEMORY_TYPES }, allow_nil: true
     validates :version, presence: true, numericality: { only_integer: true, greater_than: 0 }
     validates :importance_score, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }, allow_nil: true
+    validates :confidence_score, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }, allow_nil: true
 
     # ==================== Scopes ====================
     scope :active, -> { where(archived_at: nil).where("ai_context_entries.expires_at IS NULL OR ai_context_entries.expires_at > ?", Time.current) }
@@ -33,12 +36,21 @@ module Ai
     scope :expired, -> { where("expires_at <= ?", Time.current) }
     scope :by_type, ->(type) { where(entry_type: type) }
     scope :by_source, ->(source) { where(source_type: source) }
+    scope :by_memory_type, ->(type) { where(memory_type: type) }
+    scope :factual, -> { by_memory_type("factual") }
+    scope :experiential, -> { by_memory_type("experiential") }
+    scope :working, -> { by_memory_type("working") }
     scope :high_importance, -> { where("importance_score >= ?", 0.7) }
     scope :low_importance, -> { where("importance_score < ?", 0.3) }
+    scope :high_confidence, -> { where("confidence_score >= ?", 0.8) }
     scope :by_agent, ->(agent_id) { where(ai_agent_id: agent_id) }
     scope :recent, -> { order(created_at: :desc) }
     scope :frequently_accessed, -> { order(access_count: :desc) }
     scope :searchable, -> { where.not(content_text: nil) }
+    scope :successful_outcomes, -> { where(outcome_success: true) }
+    scope :failed_outcomes, -> { where(outcome_success: false) }
+    scope :with_tag, ->(tag) { where("context_tags @> ?", [tag].to_json) }
+    scope :with_embedding, -> { where.not(embedding: nil) }
 
     # ==================== Callbacks ====================
     before_save :sanitize_jsonb_fields
@@ -54,7 +66,9 @@ module Ai
         id: id,
         entry_key: entry_key,
         entry_type: entry_type,
+        memory_type: memory_type,
         importance_score: importance_score,
+        confidence_score: confidence_score,
         version: version,
         created_at: created_at,
         last_accessed_at: last_accessed_at
@@ -72,7 +86,10 @@ module Ai
         access_count: access_count,
         expires_at: expires_at,
         archived_at: archived_at,
-        previous_version_id: previous_version_id
+        previous_version_id: previous_version_id,
+        context_tags: context_tags,
+        task_context: task_context,
+        outcome_success: outcome_success
       )
     end
 
@@ -80,13 +97,65 @@ module Ai
       {
         entry_key: entry_key,
         entry_type: entry_type,
+        memory_type: memory_type,
         content: content,
         content_text: content_text,
         metadata: metadata,
         importance_score: importance_score,
+        confidence_score: confidence_score,
         source_type: source_type,
-        source_id: source_id
+        source_id: source_id,
+        context_tags: context_tags
       }
+    end
+
+    # Memory type helpers
+    def factual?
+      memory_type == "factual"
+    end
+
+    def experiential?
+      memory_type == "experiential"
+    end
+
+    def working?
+      memory_type == "working"
+    end
+
+    # Calculate effective relevance score combining importance, confidence, and recency
+    def effective_relevance_score
+      base_score = importance_score || 0.5
+      confidence_factor = confidence_score || 1.0
+      recency_factor = calculate_recency_factor
+
+      (base_score * confidence_factor * recency_factor).round(4)
+    end
+
+    # Semantic similarity search using embeddings
+    def self.semantic_search(query_embedding, agent_id: nil, memory_type: nil, limit: 10, threshold: 0.7)
+      return none unless embedding_column_exists?
+
+      scope = active.with_embedding
+      scope = scope.by_agent(agent_id) if agent_id
+      scope = scope.by_memory_type(memory_type) if memory_type
+
+      # Use pgvector's cosine distance operator
+      scope.select("*, 1 - (embedding <=> '#{query_embedding}') AS similarity")
+           .where("1 - (embedding <=> '#{query_embedding}') >= ?", threshold)
+           .order(Arel.sql("similarity DESC"))
+           .limit(limit)
+    end
+
+    # Check if embedding column exists
+    def self.embedding_column_exists?
+      column_names.include?("embedding")
+    end
+
+    # Update embedding for this entry
+    def update_embedding!(embedding_vector)
+      return unless self.class.embedding_column_exists?
+
+      update!(embedding: embedding_vector)
     end
 
     def read_content
@@ -208,6 +277,21 @@ module Ai
 
     def update_context_entry_count
       persistent_context.update_column(:entry_count, persistent_context.context_entries.active.count)
+    end
+
+    def calculate_recency_factor
+      return 1.0 unless last_accessed_at.present?
+
+      days_since_access = (Time.current - last_accessed_at) / 1.day
+      decay = decay_rate || 0.0
+
+      # Exponential decay based on days since access
+      Math.exp(-decay * days_since_access).round(4)
+    end
+
+    def sanitize_context_tags
+      self.context_tags = [] if context_tags.blank?
+      self.context_tags = context_tags.map(&:to_s).uniq.compact if context_tags.is_a?(Array)
     end
   end
 end

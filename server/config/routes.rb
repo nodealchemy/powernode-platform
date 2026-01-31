@@ -2050,6 +2050,48 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # A2A PROTOCOL - Agent-to-Agent Communication
+        # ===================================================================
+        # Agent Cards for A2A discovery
+        resources :agent_cards do
+          member do
+            get :a2a  # Get A2A-compliant JSON
+            post :publish
+            post :deprecate
+            post :refresh_metrics
+          end
+
+          collection do
+            get :discover
+            post :find_for_task
+          end
+        end
+
+        # A2A Tasks
+        scope :a2a, as: :a2a do
+          resources :tasks, controller: "a2a_tasks", param: :task_id do
+            member do
+              post :cancel
+              post :input, action: :provide_input
+              get :events
+              get "events/poll", action: :events_poll
+              get :artifacts
+              get "artifacts/:artifact_id", action: :artifact
+              post :push_notifications, action: :configure_push_notifications
+            end
+
+            collection do
+              # tasks/send endpoint
+            end
+          end
+        end
+
+        # Agent Memory Enhancement (adds to existing memory routes)
+        scope "agents/:agent_id" do
+          post "memory/inject", to: "agent_memory#inject"
+        end
+
+        # ===================================================================
         # 12. MODEL ROUTER CONTROLLER - Intelligent AI Request Routing
         # ===================================================================
         # Routes AI requests to optimal providers based on cost, latency, quality

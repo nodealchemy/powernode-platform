@@ -83,6 +83,8 @@ import AgentMarketplacePage from './ai/AgentMarketplacePage';
 import GovernancePage from './ai/GovernancePage';
 import SandboxPage from './ai/SandboxPage';
 import DevOpsTemplatesPage from './ai/DevOpsTemplatesPage';
+import { AgentCardsPage } from './ai/AgentCardsPage';
+import { A2aTasksPage } from './ai/A2aTasksPage';
 import { WorkflowDetailPage } from './ai/WorkflowDetailPage';
 import { WorkflowImportPage } from './ai/WorkflowImportPage';
 import { WorkflowMonitoringPage } from './ai/WorkflowMonitoringPage';
@@ -556,6 +558,8 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/governance" element={<GovernancePage />} />
         <Route path="/ai/sandbox" element={<SandboxPage />} />
         <Route path="/ai/devops-templates" element={<DevOpsTemplatesPage />} />
+        <Route path="/ai/agent-cards" element={<AgentCardsPage />} />
+        <Route path="/ai/a2a-tasks" element={<A2aTasksPage />} />
         <Route path="/ai/plugins" element={<Navigate to="/app/marketplace?types=plugin" replace />} />
 
         {/* Core Pages */}

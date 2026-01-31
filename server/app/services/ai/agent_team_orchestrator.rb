@@ -2,6 +2,7 @@
 
 # Ai::AgentTeamOrchestrator - Coordinates multi-agent team execution
 # Implements CrewAI-style patterns: hierarchical, mesh, sequential, parallel
+# Uses A2A protocol for all inter-agent communication
 class Ai::AgentTeamOrchestrator
   include ActiveModel::Model
   include ActiveModel::Attributes
@@ -10,7 +11,7 @@ class Ai::AgentTeamOrchestrator
   class TeamNotActiveError < ExecutionError; end
   class NoMembersError < ExecutionError; end
 
-  attr_accessor :team, :user, :workflow_run, :communication_hub
+  attr_accessor :team, :user, :workflow_run, :a2a_service
 
   def initialize(team:, user:)
     @team = team
@@ -25,11 +26,11 @@ class Ai::AgentTeamOrchestrator
     # Create workflow run for tracking
     @workflow_run = create_workflow_run(input, context)
 
-    # Initialize communication hub
-    @communication_hub = Mcp::MultiAgentCommunicationHub.new(workflow_run: @workflow_run)
+    # Initialize A2A service for inter-agent communication
+    @a2a_service = Ai::A2a::Service.new(account: team.account, workflow_run: @workflow_run)
 
-    # Setup shared context pool for team
-    @team_context_pool = setup_team_context(input, context)
+    # Setup shared context using memory service
+    @team_context = setup_team_context(input, context)
 
     @logger.info "[TeamOrchestrator] Executing team #{team.name} (#{team.team_type})"
 
@@ -68,7 +69,7 @@ class Ai::AgentTeamOrchestrator
       started_at: @workflow_run.created_at,
       completed_at: @workflow_run.completed_at,
       current_node: @workflow_run.current_node_id,
-      communication_stats: @communication_hub&.communication_stats
+      a2a_tasks: @workflow_run.a2a_tasks.count
     }
   end
 
@@ -90,19 +91,19 @@ class Ai::AgentTeamOrchestrator
 
       # Prepare input (first member gets original input, others get previous output)
       member_input = if member.priority_order.zero?
-                       read_team_context("original_input")
+                       @team_context[:original_input]
       else
                        accumulated_output
       end
 
-      # Execute member
-      result = execute_member(member, member_input)
+      # Execute member via A2A
+      result = execute_member_via_a2a(member, member_input)
 
-      # Store output for next member (extract just the output value, not the full result hash)
-      accumulated_output = result[:output].is_a?(Hash) && result[:output][:output] ? result[:output][:output] : result[:output]
+      # Store output for next member
+      accumulated_output = result[:output]
 
-      # Write intermediate result to team context
-      write_team_context("member_#{member.priority_order}_output", accumulated_output)
+      # Store intermediate result
+      store_intermediate_result("member_#{member.priority_order}", accumulated_output)
     end
 
     {
@@ -117,16 +118,20 @@ class Ai::AgentTeamOrchestrator
   def execute_parallel
     @logger.info "[TeamOrchestrator] Parallel execution started"
 
-    members = team.members.includes(:agent) # Preload for thread safety
-    original_input = read_team_context("original_input")
+    members = team.members.includes(:agent)
+    original_input = @team_context[:original_input]
 
-    # Execute all members in parallel (simulated with threads)
-    results = members.map do |member|
-      Thread.new do
-        @logger.info "[TeamOrchestrator] Executing member (parallel): #{member.agent_name}"
-        execute_member(member, original_input)
-      end
-    end.map(&:value)
+    # Submit all A2A tasks in parallel
+    tasks = members.map do |member|
+      @logger.info "[TeamOrchestrator] Submitting parallel task for: #{member.agent_name}"
+
+      submit_member_task(member, original_input)
+    end
+
+    # Wait for all tasks to complete
+    results = tasks.map do |task|
+      wait_for_task_completion(task)
+    end
 
     # Aggregate results
     aggregated_output = aggregate_parallel_results(results)
@@ -148,38 +153,31 @@ class Ai::AgentTeamOrchestrator
     raise NoMembersError, "Hierarchical team requires a lead member" unless lead
 
     workers = team.members.non_leads.by_priority
+    original_input = @team_context[:original_input]
 
     # Lead analyzes input and creates work plan
-    original_input = read_team_context("original_input")
     work_plan = create_work_plan(lead, original_input, workers)
 
-    # Lead delegates tasks to workers
-    worker_results = workers.map do |worker|
-      task = work_plan[:tasks].find { |t| t[:assigned_to] == worker.id }
-      next unless task
+    # Lead delegates tasks to workers via A2A
+    worker_tasks = workers.map do |worker|
+      task_spec = work_plan[:tasks].find { |t| t[:assigned_to] == worker.id }
+      next unless task_spec
 
       @logger.info "[TeamOrchestrator] Lead delegating to #{worker.agent_name}"
 
-      # Send command from lead to worker
-      command_msg = @communication_hub.send_command(
-        coordinator_agent_id: lead.ai_agent_id,
-        worker_agent_id: worker.ai_agent_id,
-        command: task[:instructions]
+      # Submit A2A task from lead to worker
+      submit_delegation_task(
+        from_member: lead,
+        to_member: worker,
+        instructions: task_spec[:instructions],
+        input: task_spec[:input]
       )
-
-      # Execute worker task
-      worker_result = execute_member(worker, task[:input])
-
-      # Worker reports back to lead
-      @communication_hub.report_result(
-        worker_agent_id: worker.ai_agent_id,
-        coordinator_agent_id: lead.ai_agent_id,
-        result: worker_result[:output],
-        command_message_id: command_msg.message_id
-      )
-
-      worker_result
     end.compact
+
+    # Wait for all worker tasks
+    worker_results = worker_tasks.map do |task|
+      wait_for_task_completion(task)
+    end
 
     # Lead synthesizes final result
     final_result = synthesize_hierarchical_results(lead, worker_results)
@@ -193,65 +191,163 @@ class Ai::AgentTeamOrchestrator
     }
   end
 
-  # Mesh execution - peer-to-peer collaboration
+  # Mesh execution - peer-to-peer collaboration via shared context
   def execute_mesh
     @logger.info "[TeamOrchestrator] Mesh execution started"
 
-    members = team.members.includes(:agent) # Preload for thread safety
-    original_input = read_team_context("original_input")
+    members = team.members.includes(:agent)
+    original_input = @team_context[:original_input]
 
-    # Create blackboard for collaboration
-    blackboard = @communication_hub.create_context_pool(
-      owner_agent_id: members.first.ai_agent_id,
-      pool_type: "blackboard",
-      scope: "agent_group", # Team is conceptually an agent_group
-      initial_data: { "contributions" => [], "problem" => original_input }
-    )
-
-    # Grant access to all team members (required for blackboard collaboration)
-    members.each do |member|
-      blackboard.grant_access(member.ai_agent_id) unless member.ai_agent_id == blackboard.owner_agent_id
-    end
+    # Initialize collaboration context
+    contributions = []
 
     # Each member contributes to the solution
     members.each do |member|
       @logger.info "[TeamOrchestrator] Member #{member.agent_name} contributing to mesh"
 
-      # Read current blackboard state
-      blackboard_state = @communication_hub.read_blackboard(
-        blackboard_id: blackboard.pool_id,
-        agent_id: member.ai_agent_id
-      )
-
-      # Member processes and contributes
+      # Member processes with awareness of peer contributions
       member_input = {
         original_input: original_input,
-        blackboard_state: blackboard_state[:contributions],
+        peer_contributions: contributions,
         peer_count: members.count
       }
 
-      result = execute_member(member, member_input)
+      result = execute_member_via_a2a(member, member_input)
 
-      # Post contribution to blackboard
-      @communication_hub.post_to_blackboard(
-        blackboard_id: blackboard.pool_id,
+      # Record contribution
+      contributions << {
         agent_id: member.ai_agent_id,
-        contribution: result[:output]
-      )
+        agent_name: member.agent_name,
+        contribution: result[:output],
+        timestamp: Time.current.iso8601
+      }
     end
-
-    # Aggregate all contributions
-    final_blackboard = @communication_hub.read_blackboard(
-      blackboard_id: blackboard.pool_id,
-      agent_id: members.first.ai_agent_id
-    )
 
     {
       success: true,
-      output: aggregate_mesh_contributions(final_blackboard[:contributions]),
+      output: aggregate_mesh_contributions(contributions),
       execution_type: "mesh",
       members_executed: members.count,
-      contributions: final_blackboard[:contributions]
+      contributions: contributions
+    }
+  end
+
+  # ==========================================
+  # A2A Task Methods
+  # ==========================================
+
+  def execute_member_via_a2a(member, input)
+    task = submit_member_task(member, input)
+    wait_for_task_completion(task)
+  end
+
+  def submit_member_task(member, input)
+    # Get or create agent card for the member's agent
+    agent_card = find_or_create_agent_card(member.agent)
+
+    @a2a_service.submit_task(
+      from_agent: nil, # Team orchestrator
+      to_agent_card: agent_card,
+      message: build_task_message(member, input),
+      metadata: {
+        team_id: team.id,
+        member_id: member.id,
+        role: member.role,
+        capabilities: member.capabilities
+      }
+    )
+  end
+
+  def submit_delegation_task(from_member:, to_member:, instructions:, input:)
+    from_card = find_or_create_agent_card(from_member.agent)
+    to_card = find_or_create_agent_card(to_member.agent)
+
+    @a2a_service.submit_task(
+      from_agent: from_member.agent,
+      to_agent_card: to_card,
+      message: {
+        role: "user",
+        parts: [
+          { type: "text", text: instructions },
+          { type: "data", data: input }
+        ]
+      },
+      metadata: {
+        team_id: team.id,
+        delegation: true,
+        from_member_id: from_member.id,
+        to_member_id: to_member.id
+      }
+    )
+  end
+
+  def wait_for_task_completion(task, timeout: 300)
+    start_time = Time.current
+
+    loop do
+      task.reload
+
+      case task.status
+      when "completed"
+        return {
+          task_id: task.task_id,
+          output: task.output,
+          artifacts: task.artifacts,
+          success: true
+        }
+      when "failed"
+        return {
+          task_id: task.task_id,
+          error: task.error_message,
+          success: false
+        }
+      when "cancelled"
+        return {
+          task_id: task.task_id,
+          error: "Task was cancelled",
+          success: false
+        }
+      end
+
+      if Time.current - start_time > timeout
+        task.cancel!("Timeout waiting for completion")
+        return {
+          task_id: task.task_id,
+          error: "Task timeout",
+          success: false
+        }
+      end
+
+      sleep 0.5
+    end
+  end
+
+  def find_or_create_agent_card(agent)
+    Ai::AgentCard.find_or_create_by!(
+      account_id: team.account_id,
+      ai_agent_id: agent.id
+    ) do |card|
+      card.name = agent.name
+      card.description = agent.description&.truncate(500)
+      card.visibility = "private"
+      card.status = "active"
+      card.capabilities = { "skills" => agent.mcp_capabilities || [] }
+    end
+  end
+
+  def build_task_message(member, input)
+    {
+      role: "user",
+      parts: [
+        {
+          type: "text",
+          text: "Execute task as #{member.role} with capabilities: #{member.capabilities.join(', ')}"
+        },
+        {
+          type: "data",
+          data: input
+        }
+      ]
     }
   end
 
@@ -265,8 +361,6 @@ class Ai::AgentTeamOrchestrator
   end
 
   def create_workflow_run(input, context)
-    # Note: This creates a placeholder workflow for team execution
-    # In production, you might create a dedicated team execution record
     workflow = team.account.ai_workflows.find_or_create_by!(
       name: "Team Execution: #{team.name}",
       slug: "team-execution-#{team.id}",
@@ -299,54 +393,25 @@ class Ai::AgentTeamOrchestrator
         "team_type" => team.team_type,
         "coordination_strategy" => team.coordination_strategy,
         "member_count" => team.members.count,
-        "orchestrator" => "team_orchestrator"
+        "orchestrator" => "team_orchestrator_a2a"
       }
     )
   end
 
   def setup_team_context(input, context)
-    @communication_hub.create_context_pool(
-      owner_agent_id: team.members.first&.ai_agent_id,
-      pool_type: "shared_memory",
-      scope: "agent_group",  # Team is an agent_group
-      initial_data: {
-        "team_id" => team.id,
-        "original_input" => input,
-        "context" => context,
-        "started_at" => Time.current.iso8601
-      }
-    )
+    {
+      team_id: team.id,
+      original_input: input,
+      context: context,
+      started_at: Time.current.iso8601
+    }
   end
 
-  def execute_member(member, input)
-    # Execute the agent with role-specific context
-    execution_result = member.execute(
-      context: {
-        input: input,
-        team_context: read_team_context_all,
-        role: member.role,
-        capabilities: member.capabilities
-      },
-      user: @user
-    )
-
-    {
-      member_id: member.id,
-      agent_id: member.ai_agent_id,
-      agent_name: member.agent_name,
-      role: member.role,
-      output: execution_result,
-      should_stop: false
-    }
-  rescue StandardError => e
-    @logger.error "[TeamOrchestrator] Member execution failed: #{e.message}"
-    # Re-raise the exception so it can be caught by main execute block
-    raise
+  def store_intermediate_result(key, value)
+    @team_context[key.to_sym] = value
   end
 
   def create_work_plan(lead, input, workers)
-    # Lead creates distribution plan
-    # In production, this would involve executing the lead agent to create the plan
     {
       tasks: workers.map.with_index do |worker, idx|
         {
@@ -362,8 +427,6 @@ class Ai::AgentTeamOrchestrator
   end
 
   def synthesize_hierarchical_results(lead, worker_results)
-    # Lead synthesizes all worker outputs
-    # In production, this would execute the lead agent with worker outputs
     {
       synthesized: true,
       worker_outputs: worker_results.map { |r| r[:output] },
@@ -382,31 +445,9 @@ class Ai::AgentTeamOrchestrator
   def aggregate_mesh_contributions(contributions)
     {
       collaborative_result: true,
-      contributions: contributions.map { |c| c["contribution"] },
+      contributions: contributions.map { |c| c[:contribution] },
       contributor_count: contributions.count
     }
-  end
-
-  def write_team_context(key, value)
-    @communication_hub.write_to_pool(
-      pool_id: @team_context_pool.pool_id,
-      key: key,
-      value: value,
-      agent_id: @team_context_pool.owner_agent_id
-    )
-  end
-
-  def read_team_context(key)
-    result = @communication_hub.read_from_pool(
-      pool_id: @team_context_pool.pool_id,
-      key: key,
-      agent_id: @team_context_pool.owner_agent_id
-    )
-    result[:value]
-  end
-
-  def read_team_context_all
-    @team_context_pool.context_data
   end
 
   def finalize_execution(result, status)
@@ -417,14 +458,10 @@ class Ai::AgentTeamOrchestrator
       duration_ms: ((Time.current - @workflow_run.created_at) * 1000).to_i
     }
 
-    # Add error_details for failed runs (required by validation)
     if status == "failed"
       update_params[:error_details] = result[:error] || "Unknown error occurred during team execution"
     end
 
     @workflow_run.update!(update_params)
-
-    write_team_context("final_result", result)
-    write_team_context("completed_at", Time.current.iso8601)
   end
 end
