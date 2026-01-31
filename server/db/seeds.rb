@@ -411,13 +411,6 @@ Page.find_or_create_by!(slug: 'welcome') do |page|
     ---
 
     *Explore our [Knowledge Base](/kb) for detailed guides, or [contact our team](/pages/contact) for assistance.*
-
-    | Metric | Value |
-    |--------|-------|
-    | Uptime SLA | 99.9% |
-    | Active Customers | 2,500+ |
-    | Transactions Processed | $50M+ |
-    | Countries Served | 45+ |
   MARKDOWN
 end
 
@@ -516,7 +509,7 @@ Page.find_or_create_by!(slug: 'terms') do |page|
 
     ## 10. Governing Law
 
-    These terms shall be governed by and construed in accordance with the laws of [Jurisdiction], without regard to its conflict of law provisions.
+    These terms shall be governed by and construed in accordance with applicable laws.
 
     ## 11. Changes to Terms
 
@@ -659,9 +652,7 @@ Page.find_or_create_by!(slug: 'privacy') do |page|
 
     ## Contact Us
 
-    Questions about this Privacy Policy should be directed to:
-    - Email: privacy@powernode.org
-    - Address: [Your Company Address]
+    Questions about this Privacy Policy should be directed to: privacy@powernode.org
 
     For EU residents: You may also contact our Data Protection Officer at dpo@powernode.org
   MARKDOWN
@@ -764,8 +755,7 @@ Page.find_or_create_by!(slug: 'help') do |page|
     ### Developer Resources
     - **REST API** - Full CRUD access to all resources
     - **Webhooks** - Real-time event notifications
-    - **SDKs** - JavaScript, Python, Ruby, PHP libraries
-    - **Rate Limits** - 1000 requests/hour (adjustable per plan)
+    - **Rate Limits** - Based on your subscription plan
 
     ## 📞 Contact Support
 
@@ -778,12 +768,12 @@ Page.find_or_create_by!(slug: 'help') do |page|
     - **Help Desk**: Submit a ticket through your dashboard
 
     ### Response Times
-    | Plan | Email | Chat | Phone |
-    |------|-------|------|-------|
-    | Starter | 48 hours | - | - |
-    | Professional | 24 hours | Business hours | - |
-    | Business | 12 hours | Extended | Business hours |
-    | Enterprise | 2 hours | 24/7 | 24/7 |
+    | Plan | Support Level |
+    |------|---------------|
+    | Starter | Email support |
+    | Professional | Priority email |
+    | Business | Priority email + chat |
+    | Enterprise | Dedicated support |
 
     ## 📚 Knowledge Base Categories
 
@@ -935,31 +925,12 @@ Page.find_or_create_by!(slug: 'contact') do |page|
 
     ---
 
-    ## 🏢 Office Location
-
-    **Powernode Headquarters**
-    123 Innovation Drive
-    Tech City, TC 12345
-    United States
-
-    ---
-
     ## 🔗 Quick Links
 
     - [Help Center & FAQ](/pages/help) - Find answers to common questions
     - [System Status](/status) - Check current platform status
     - [Knowledge Base](/kb) - Detailed guides and tutorials
     - [API Documentation](/kb/api-integrations) - Developer resources
-
-    ---
-
-    ## 🌐 Connect With Us
-
-    Stay updated with the latest Powernode news and features:
-
-    - **Twitter/X**: @powernode
-    - **LinkedIn**: Powernode
-    - **GitHub**: github.com/powernode
 
     ---
 
