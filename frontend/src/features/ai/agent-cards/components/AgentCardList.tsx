@@ -6,7 +6,6 @@ import {
   Building2,
   Search,
   Filter,
-  RefreshCw,
   ExternalLink,
   Clock,
   CheckCircle,
@@ -136,15 +135,6 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
           </Select>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={loadCards}
-          disabled={loading}
-        >
-          <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
-          Refresh
-        </Button>
       </div>
 
       {/* Stats bar */}

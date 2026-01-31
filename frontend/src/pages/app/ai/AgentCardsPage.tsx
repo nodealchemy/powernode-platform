@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { AgentCardList, AgentCardDetail, AgentCardEditor } from '@/features/ai/agent-cards';
 import { usePermissions } from '@/shared/hooks/usePermissions';
