@@ -39,8 +39,8 @@ export const AgentCardsPage: React.FC = () => {
     loading: isLoading,
   });
 
-  const canCreateAgentCards = hasPermission('ai.agent_cards.create');
-  const canManageAgentCards = hasPermission('ai.agent_cards.manage');
+  const canCreateAgentCards = hasPermission('ai.agents.create');
+  const canManageAgentCards = hasPermission('ai.agents.update');
 
   const handleSelectCard = (card: AgentCard) => {
     setSelectedCard(card);
