@@ -58,12 +58,12 @@ powernode-platform/
 
 ### 🔧 Technology Stack
 
-**Backend**: Rails 8 API • PostgreSQL • UUIDv7 • JWT Authentication • Redis
-**Frontend**: React 18 • TypeScript • Tailwind CSS • Redux • Vite
-**Background**: Sidekiq • Redis • API-first communication
-**Payments**: Stripe • PayPal • PCI DSS Compliance
-**AI/ML**: OpenAI • Anthropic • MCP Protocol • A2A Protocol
-**Testing**: RSpec • Jest • Cypress • 20,600+ tests  
+- **Backend**: Rails 8 API • PostgreSQL • UUIDv7 • JWT Authentication • Redis
+- **Frontend**: React 18 • TypeScript • Tailwind CSS • Redux • Vite
+- **Background**: Sidekiq • Redis • API-first communication
+- **Payments**: Stripe • PayPal • PCI DSS Compliance
+- **AI/ML**: OpenAI • Anthropic • MCP Protocol • A2A Protocol
+- **Testing**: RSpec • Jest • Cypress • 20,600+ tests  
 
 ## 🚀 Quick Start
 
