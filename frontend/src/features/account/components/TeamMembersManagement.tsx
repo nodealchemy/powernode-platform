@@ -17,7 +17,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
   const [selectedRole, setSelectedRole] = useState<string>('');
 
   // Check if current user can manage team members based on permissions only
-  const canManageTeam = currentUser?.permissions?.includes('users.manage') || currentUser?.permissions?.includes('users.update') || currentUser?.permissions?.includes('team.manage');
+  const canManageTeam = currentUser?.permissions?.includes('team.assign_roles') || currentUser?.permissions?.includes('admin.user.update') || currentUser?.permissions?.includes('team.invite');
 
   useEffect(() => {
     loadTeamMembers();
@@ -39,7 +39,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
   };
 
   const handleRoleChange = async (userId: string, newRole: string) => {
-    if (!currentUser?.permissions?.includes('users.update') && !currentUser?.permissions?.includes('users.manage')) {
+    if (!currentUser?.permissions?.includes('team.assign_roles') && !currentUser?.permissions?.includes('admin.user.update')) {
       alert('You do not have permission to change user roles');
       return;
     }
@@ -55,7 +55,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
   };
 
   const handleRemoveMember = async (userId: string) => {
-    if (!currentUser?.permissions?.includes('users.delete') && !currentUser?.permissions?.includes('users.manage')) {
+    if (!currentUser?.permissions?.includes('team.remove') && !currentUser?.permissions?.includes('admin.user.delete')) {
       alert('You do not have permission to remove team members');
       return;
     }

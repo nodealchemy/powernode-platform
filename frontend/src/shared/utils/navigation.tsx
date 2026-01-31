@@ -117,7 +117,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/ai/agent-cards',
           icon: Bot,
           description: 'A2A Agent Cards for agent discovery',
-          permissions: ['ai.agent_cards.read'],
+          permissions: ['ai.agents.read'],
           order: 4
         },
         {
@@ -126,7 +126,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/ai/a2a-tasks',
           icon: Activity,
           description: 'Monitor agent-to-agent communication tasks',
-          permissions: ['ai.a2a_tasks.read'],
+          permissions: ['ai.agents.read'],
           order: 5
         },
         {
@@ -207,7 +207,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/ai/governance',
           icon: ShieldCheck,
           description: 'AI governance policies and compliance',
-          permissions: ['ai_orchestration.read'],
+          permissions: ['ai.workflows.read'],
           order: 12
         },
         {
@@ -216,7 +216,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/ai/sandbox',
           icon: FlaskConical,
           description: 'Test and experiment with AI capabilities',
-          permissions: ['ai_orchestration.read'],
+          permissions: ['ai.agents.read'],
           order: 13
         },
         {
@@ -238,7 +238,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 15
         }
       ],
-      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.prompt_templates.read', 'mcp.servers.read', 'ai.analytics.read', 'ai_orchestration.read', 'ai.agent_cards.read', 'ai.a2a_tasks.read'],
+      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.prompt_templates.read', 'mcp.servers.read', 'ai.analytics.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10

@@ -142,20 +142,20 @@ export const AIMonitoringPage: React.FC = () => {
 
   // Permission checks
   const canViewMonitoring = useMemo(() =>
-    currentUser?.permissions?.includes('ai.monitoring.view') ||
+    currentUser?.permissions?.includes('ai.analytics.read') ||
     currentUser?.permissions?.includes('ai.workflows.read') ||
     currentUser?.permissions?.includes('admin.access') ||
     false
   , [currentUser]);
 
   const canManageAlerts = useMemo(() =>
-    currentUser?.permissions?.includes('ai.monitoring.update') ||
+    currentUser?.permissions?.includes('ai.workflows.update') ||
     currentUser?.permissions?.includes('admin.access') ||
     false
   , [currentUser]);
 
   const canTestComponents = useMemo(() =>
-    currentUser?.permissions?.includes('ai.monitoring.test') ||
+    currentUser?.permissions?.includes('ai.providers.test') ||
     currentUser?.permissions?.includes('admin.access') ||
     false
   , [currentUser]);

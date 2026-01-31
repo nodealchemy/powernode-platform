@@ -76,7 +76,7 @@ export const McpBrowserPage: React.FC = () => {
 
   // Permission checks - memoized to prevent infinite loops
   const canViewMcpServers = useMemo(() =>
-    currentUser?.permissions?.includes('ai_orchestration.read') ||
+    currentUser?.permissions?.includes('mcp.servers.read') ||
     currentUser?.permissions?.includes('admin.access') ||
     false
   , [currentUser?.permissions]);

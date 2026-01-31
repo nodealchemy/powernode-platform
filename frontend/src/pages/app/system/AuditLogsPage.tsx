@@ -64,8 +64,8 @@ export const AuditLogsPage: React.FC = () => {
   }, [location.pathname]);
 
   // Check if user has audit log permissions
-  const canReadAuditLogs = hasPermissions(user, ['audit_logs.read']);
-  const canExportAuditLogs = hasPermissions(user, ['audit_logs.export']);
+  const canReadAuditLogs = hasPermissions(user, ['audit.read']);
+  const canExportAuditLogs = hasPermissions(user, ['audit.export']);
 
   // Handle tab changes with proper type casting and URL update
   const handleTabChange = (tabId: string) => {
@@ -261,7 +261,7 @@ export const AuditLogsPage: React.FC = () => {
             You don't have permission to view audit logs. Contact your system administrator to request access.
           </p>
           <p className="text-sm text-theme-tertiary">
-            Required permission: <code className="px-2 py-1 bg-theme-background-secondary rounded">audit_logs.read</code>
+            Required permission: <code className="px-2 py-1 bg-theme-background-secondary rounded">audit.read</code>
           </p>
         </div>
       ) : (

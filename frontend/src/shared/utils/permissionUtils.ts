@@ -71,7 +71,7 @@ export const hasAdminAccess = (user: User | null): boolean => {
  * Check if user can manage their account's team
  */
 export const hasTeamManagementAccess = (user: User | null): boolean => {
-  return hasPermissions(user, ['users.manage']) || hasPermissions(user, ['users.create']);
+  return hasPermissions(user, ['team.invite']) || hasPermissions(user, ['team.assign_roles']) || hasPermissions(user, ['admin.user.update']);
 };
 
 /**
@@ -79,7 +79,7 @@ export const hasTeamManagementAccess = (user: User | null): boolean => {
  */
 export const isAccountManager = (user: User | null): boolean => {
   if (!user) return false;
-  return hasPermissions(user, ['users.manage']) && hasPermissions(user, ['team.manage']);
+  return hasPermissions(user, ['team.assign_roles']) || hasPermissions(user, ['admin.user.update']);
 };
 
 /**
@@ -128,7 +128,7 @@ export const canModerateKnowledgeBase = (user: User | null): boolean => {
  * Check if user can access advanced analytics features
  */
 export const hasAdvancedAnalyticsAccess = (user: User | null): boolean => {
-  return hasPermissions(user, ['analytics.export']) || hasPermissions(user, ['analytics.manage']);
+  return hasPermissions(user, ['analytics.export']) || hasPermissions(user, ['ai.analytics.export']);
 };
 
 /**
@@ -280,16 +280,16 @@ export const getResourcePermissionLevel = (
         read: permissions.includes(PERMISSIONS.TEAM.VIEW),
         invite: permissions.includes(PERMISSIONS.TEAM.INVITE),
         remove: permissions.includes(PERMISSIONS.TEAM.REMOVE),
-        manage: permissions.includes('team.manage'),
+        manage: permissions.includes('team.assign_roles'),
         roles: permissions.includes('team.assign_roles')
       };
     case 'billing':
       return {
         read: permissions.includes(PERMISSIONS.BILLING.VIEW),
         update: permissions.includes(PERMISSIONS.BILLING.UPDATE),
-        manage: permissions.includes('billing.manage'),
+        manage: permissions.includes(PERMISSIONS.BILLING.UPDATE),
         invoices: permissions.includes(PERMISSIONS.INVOICE.VIEW),
-        payments: permissions.includes('billing.payments')
+        payments: permissions.includes(PERMISSIONS.BILLING.UPDATE)
       };
     default:
       return { read: false, create: false, update: false, delete: false, manage: false };

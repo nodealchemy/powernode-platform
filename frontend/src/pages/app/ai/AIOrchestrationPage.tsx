@@ -42,9 +42,9 @@ export const AIOrchestrationPage: React.FC = () => {
   const canViewWorkflows = currentUser?.permissions?.includes('ai.workflows.read') || false;
   const canViewConversations = currentUser?.permissions?.includes('ai.conversations.read') || false;
   const canViewAnalytics = currentUser?.permissions?.includes('ai.analytics.read') || false;
-  const canViewMonitoring = currentUser?.permissions?.includes('ai.monitoring.view') ||
+  const canViewMonitoring = currentUser?.permissions?.includes('ai.analytics.read') ||
                             currentUser?.permissions?.includes('admin.access') || false;
-  const canViewMcp = currentUser?.permissions?.includes('ai_orchestration.read') ||
+  const canViewMcp = currentUser?.permissions?.includes('mcp.servers.read') ||
                      currentUser?.permissions?.includes('admin.access') || false;
 
   // Load initial data
