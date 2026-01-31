@@ -1,42 +1,69 @@
 # 🚀 Powernode Platform
 
-> **A modern subscription management platform built for scale and developer happiness**
+> **A modern subscription management platform with integrated AI orchestration, built for scale and developer happiness**
 
-Welcome to Powernode! This is a comprehensive subscription lifecycle management platform designed with modern best practices, extensive testing, and developer-first experience.
+Welcome to Powernode! This is a comprehensive subscription lifecycle management platform with powerful AI capabilities, designed with modern best practices, extensive testing, and developer-first experience.
 
 ## ✨ What is Powernode?
 
-Powernode is a full-stack subscription platform that handles everything from user authentication to automated billing. Built with Rails 8, React TypeScript, and battle-tested patterns, it's designed to be both powerful and maintainable.
+Powernode is a full-stack subscription platform that handles everything from user authentication to automated billing, enhanced with AI-powered automation and agent orchestration. Built with Rails 8, React TypeScript, and battle-tested patterns, it's designed to be both powerful and maintainable.
 
 ### 🎯 Key Features
 
+#### Core Platform
 - **🔐 Enterprise Authentication** - JWT-based auth with strong security (12+ char passwords, account lockout, rate limiting)
 - **💳 Payment Processing** - Stripe & PayPal integration with PCI compliance
 - **📊 Smart Analytics** - MRR/ARR calculations, churn analysis, and customer insights
-- **🧪 Testing Excellence** - 628+ tests with 100% coverage across the stack
 - **⚡ Real-time Features** - WebSocket integration for live updates
 - **🎨 Modern UI** - React TypeScript with Tailwind CSS and theme support
 - **🤖 Background Jobs** - Sidekiq-powered async processing
-- **📝 Comprehensive Docs** - 47+ documentation files with specialist guides
+- **🔑 Permission-Based Access** - Granular permission system (no role-based checks)
+
+#### AI & Automation
+- **🤖 AI Agents** - Create and manage intelligent automation agents
+- **🔗 A2A Protocol** - Agent-to-Agent communication for distributed AI workflows
+- **🪪 Agent Cards** - A2A-compliant agent discovery and capability declaration
+- **👥 Agent Teams** - CrewAI-style multi-agent orchestration
+- **🔌 MCP Servers** - Model Context Protocol integration for tool access
+- **💬 AI Conversations** - Persistent AI-powered chat with context
+- **⚡ AI Workflows** - Visual workflow builder for AI orchestration
+- **📝 Prompt Templates** - Reusable, versioned prompt management
+- **🧠 Agent Memory** - Persistent context and learning for agents
+- **📈 AI Monitoring** - Real-time metrics, alerts, and performance tracking
+
+#### DevOps & Infrastructure
+- **🔧 Git Integration** - GitHub, GitLab, Gitea provider support
+- **📦 Supply Chain Security** - SBOM generation, attestations, license compliance
+- **🛡️ Audit Logging** - Comprehensive activity tracking and compliance
+- **⚙️ Worker Management** - Background job monitoring and control
+
+#### Quality & Testing
+- **🧪 Testing Excellence** - 20,600+ tests with comprehensive coverage
+- **📝 Comprehensive Docs** - 90+ documentation files with specialist guides
 
 ## 🏗️ Architecture Overview
 
 ```
 powernode-platform/
 ├── 🖥️  server/     - Rails 8 API (JWT, UUIDv7, PostgreSQL)
-├── ⚛️  frontend/   - React TypeScript (Tailwind, Redux)  
+│   ├── app/models/ai/    - 30+ AI models (Agents, A2A, Workflows)
+│   ├── app/services/ai/  - AI orchestration services
+│   └── app/controllers/  - RESTful API endpoints
+├── ⚛️  frontend/   - React TypeScript (Tailwind, Redux)
+│   └── src/features/ai/  - AI UI components & pages
 ├── ⚙️  worker/     - Sidekiq Background Jobs
-├── 📚 docs/       - Comprehensive Documentation
+├── 📚 docs/       - Comprehensive Documentation (90+ files)
 └── 🛠️  scripts/   - Development Automation
 ```
 
 ### 🔧 Technology Stack
 
-**Backend**: Rails 8 API • PostgreSQL • UUIDv7 • JWT Authentication • Redis  
-**Frontend**: React 18 • TypeScript • Tailwind CSS • Redux • Vite  
-**Background**: Sidekiq • Redis • API-first communication  
-**Payments**: Stripe • PayPal • PCI DSS Compliance  
-**Testing**: RSpec • Jest • Cypress • 628+ tests  
+**Backend**: Rails 8 API • PostgreSQL • UUIDv7 • JWT Authentication • Redis
+**Frontend**: React 18 • TypeScript • Tailwind CSS • Redux • Vite
+**Background**: Sidekiq • Redis • API-first communication
+**Payments**: Stripe • PayPal • PCI DSS Compliance
+**AI/ML**: OpenAI • Anthropic • MCP Protocol • A2A Protocol
+**Testing**: RSpec • Jest • Cypress • 20,600+ tests  
 
 ## 🚀 Quick Start
 
@@ -71,10 +98,11 @@ cd worker && ./bin/dev      # Background jobs
 
 The platform is **production-ready** with:
 
-- ✅ **100% Test Coverage** - All 628+ tests passing
+- ✅ **Comprehensive Testing** - 20,600+ tests (14,500 backend, 6,100 frontend)
 - ✅ **95%+ Pattern Consistency** - Standardized architecture
-- ✅ **18+ Specialist Docs** - Comprehensive guides
-- ✅ **Security First** - PCI compliance, strong auth
+- ✅ **90+ Documentation Files** - Comprehensive guides and specialist docs
+- ✅ **Security First** - PCI compliance, strong auth, permission-based access
+- ✅ **AI-Powered** - Full AI orchestration with A2A protocol support
 - ✅ **Performance Optimized** - Sub-second response times
 - ✅ **Modern DevOps** - Git-flow, semantic versioning, CI/CD ready
 
@@ -101,8 +129,9 @@ Powernode uses MCP (Model Context Protocol) specialists for different areas:
 - **[Data Modeler](docs/backend/DATA_MODELER_SPECIALIST.md)** - Database & ActiveRecord
 - **[Payment Integration](docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md)** - Stripe/PayPal
 - **[Billing Engine](docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md)** - Subscription lifecycle
+- **[Background Jobs](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)** - Sidekiq & async processing
 
-### Frontend Specialists  
+### Frontend Specialists
 - **[React Architect](docs/frontend/REACT_ARCHITECT_SPECIALIST.md)** - TypeScript architecture
 - **[UI Components](docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md)** - Design system
 - **[Dashboard](docs/frontend/DASHBOARD_SPECIALIST.md)** - Analytics & charts
@@ -111,7 +140,14 @@ Powernode uses MCP (Model Context Protocol) specialists for different areas:
 ### Infrastructure & Testing
 - **[DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md)** - CI/CD & deployment
 - **[Security Specialist](docs/infrastructure/SECURITY_SPECIALIST.md)** - Security & compliance
+- **[Performance Optimizer](docs/infrastructure/PERFORMANCE_OPTIMIZER.md)** - Performance tuning
 - **[Testing Engineers](docs/testing/)** - Comprehensive test strategies
+
+### Platform References
+- **[Permission System](docs/platform/PERMISSION_SYSTEM_REFERENCE.md)** - Access control guide
+- **[Theme System](docs/platform/THEME_SYSTEM_REFERENCE.md)** - UI theming
+- **[API Standards](docs/platform/API_RESPONSE_STANDARDS.md)** - API conventions
+- **[UUID System](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 implementation
 
 ## 🌟 Key Highlights
 
@@ -120,17 +156,26 @@ Powernode uses MCP (Model Context Protocol) specialists for different areas:
 - **Background Processing**: Async job handling with retry logic
 - **API-First**: Clean separation between services
 - **Theme System**: Dark/light mode with accessibility
+- **Multi-tenant**: Account-based isolation with permission controls
+
+### 🤖 **AI-Powered**
+- **Agent Orchestration**: Create, deploy, and manage AI agents
+- **A2A Protocol**: Industry-standard agent-to-agent communication
+- **MCP Integration**: Model Context Protocol for tool access
+- **Multi-Provider**: OpenAI, Anthropic, and custom provider support
+- **Workflow Builder**: Visual AI workflow orchestration
 
 ### 🔒 **Security First**
 - **Strong Authentication**: 12+ char passwords, complexity rules, lockout
+- **Permission-Based Access**: Granular permissions, no role-based checks
 - **PCI Compliance**: Secure payment data handling
 - **Rate Limiting**: DDoS protection on all endpoints
 - **Audit Logging**: Comprehensive activity tracking
 
 ### 🎨 **Developer Experience**
 - **Pattern Consistency**: Standardized code patterns across the platform
-- **Comprehensive Testing**: Every feature backed by tests
-- **Rich Documentation**: 47+ docs covering every aspect
+- **Comprehensive Testing**: 20,600+ tests covering every feature
+- **Rich Documentation**: 90+ docs covering every aspect
 - **Development Scripts**: Automated setup and management
 
 ## 🚀 What's Next?
