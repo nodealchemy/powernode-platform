@@ -1,0 +1,16 @@
+{
+  "env": {
+    "POWERNODE_ROOT": "/home/rett/Drive/Projects/powernode-platform"
+  },
+  "model": "claude-opus-4-5-20251101",
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-filesystem", "/home/rett/Drive/Projects/powernode-platform"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-sequential-thinking"]
+    }
+  }
+}

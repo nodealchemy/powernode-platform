@@ -22,44 +22,9 @@ User → Roles, Permissions, Invitations
 
 ---
 
-## Specialist Documentation Index
+## Specialists
 
-**Task Delegation**: See [MCP Configuration](docs/platform/MCP_CONFIGURATION.md#task-tool-specialist-delegation) for spawning specialists via Task tool.
-
-### Backend Specialists
-| Specialist | Documentation | Model |
-|------------|---------------|-------|
-| Rails Architect | [RAILS_ARCHITECT_SPECIALIST.md](docs/backend/RAILS_ARCHITECT_SPECIALIST.md) | **opus** |
-| Data Modeler | [DATA_MODELER_SPECIALIST.md](docs/backend/DATA_MODELER_SPECIALIST.md) | **opus** |
-| API Developer | [API_DEVELOPER_SPECIALIST.md](docs/backend/API_DEVELOPER_SPECIALIST.md) | **opus** |
-| Payment Integration | [PAYMENT_INTEGRATION_SPECIALIST.md](docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md) | **opus** |
-| Billing Engine | [BILLING_ENGINE_DEVELOPER_SPECIALIST.md](docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md) | **opus** |
-| Background Jobs | [BACKGROUND_JOB_ENGINEER_SPECIALIST.md](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md) | **opus** |
-
-### Frontend Specialists
-| Specialist | Documentation | Model |
-|------------|---------------|-------|
-| React Architect | [REACT_ARCHITECT_SPECIALIST.md](docs/frontend/REACT_ARCHITECT_SPECIALIST.md) | **opus** |
-| UI Components | [UI_COMPONENT_DEVELOPER_SPECIALIST.md](docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md) | **opus** |
-| Dashboard | [DASHBOARD_SPECIALIST.md](docs/frontend/DASHBOARD_SPECIALIST.md) | **opus** |
-| Admin Panel | [ADMIN_PANEL_DEVELOPER_SPECIALIST.md](docs/frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md) | **opus** |
-
-### Infrastructure & Testing Specialists
-| Specialist | Documentation | Model |
-|------------|---------------|-------|
-| DevOps Engineer | [DEVOPS_ENGINEER_SPECIALIST.md](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md) | **opus** |
-| Security | [SECURITY_SPECIALIST.md](docs/infrastructure/SECURITY_SPECIALIST.md) | **opus** |
-| Performance | [PERFORMANCE_OPTIMIZER.md](docs/infrastructure/PERFORMANCE_OPTIMIZER.md) | **opus** |
-| Backend Testing | [BACKEND_TEST_ENGINEER_SPECIALIST.md](docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md) | **opus** |
-| Frontend Testing | [FRONTEND_TEST_ENGINEER_SPECIALIST.md](docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md) | **opus** |
-
-### Service Specialists
-| Specialist | Documentation | Model |
-|------------|---------------|-------|
-| Project Manager | [PROJECT_MANAGER_SPECIALIST.md](docs/services/PROJECT_MANAGER_SPECIALIST.md) | **opus** |
-| Notifications | [NOTIFICATION_ENGINEER.md](docs/services/NOTIFICATION_ENGINEER.md) | **opus** |
-| Documentation | [DOCUMENTATION_SPECIALIST.md](docs/services/DOCUMENTATION_SPECIALIST.md) | **opus** |
-| Analytics | [ANALYTICS_ENGINEER.md](docs/services/ANALYTICS_ENGINEER.md) | **opus** |
+For specialist documentation and Task tool delegation, see [MCP_CONFIGURATION.md](docs/platform/MCP_CONFIGURATION.md).
 
 ---
 
@@ -148,27 +113,6 @@ cd frontend && CI=true npm test
 | UUID System | [UUID_SYSTEM_IMPLEMENTATION.md](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md) |
 | Workflow System | [WORKFLOW_SYSTEM_STANDARDS.md](docs/platform/WORKFLOW_SYSTEM_STANDARDS.md) |
 | Development | [DEVELOPMENT.md](docs/DEVELOPMENT.md) |
-
----
-
-## Task Tool Delegation
-
-For complex tasks, spawn specialists using the Task tool:
-
-```
-Task({
-  description: "Brief task description",
-  subagent_type: "general-purpose",
-  model: "opus",
-  prompt: `You are a [Specialist] for Powernode.
-Reference: [path/to/SPECIALIST.md]
-Task: [specific task]
-Follow patterns in specialist documentation.`
-})
-```
-
-**Model Selection**:
-- **opus**: All specialists use Opus 4.5 exclusively
 
 ---
 
