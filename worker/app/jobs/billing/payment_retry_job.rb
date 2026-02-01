@@ -76,7 +76,7 @@ class Billing::PaymentRetryJob < BaseJob
     }
     
     with_api_retry(max_attempts: 1) do
-      api_client.post('/api/v1/billing/retry_payment', retry_params)
+      api_client.post('/api/v1/internal/billing/retry_payment', retry_params)
     end
   rescue BackendApiClient::ApiError => e
     log_error("Payment retry API call failed: #{e.message}")
@@ -149,7 +149,7 @@ class Billing::PaymentRetryJob < BaseJob
     
     begin
       with_api_retry do
-        api_client.post('/api/v1/billing/suspend_subscription', suspension_params)
+        api_client.post('/api/v1/internal/billing/suspend_subscription', suspension_params)
       end
       
       log_info("Successfully suspended subscription #{subscription_id}")

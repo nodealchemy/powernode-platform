@@ -324,7 +324,5 @@ class AiA2aExternalTaskJob < BaseJob
       task_id: @task['task_id'],
       external_task_id: external_task_id
     )
-
-    # AiA2aExternalTaskPollJob.perform_in(10.seconds, @task['id'], external_task_id)
   end
 end

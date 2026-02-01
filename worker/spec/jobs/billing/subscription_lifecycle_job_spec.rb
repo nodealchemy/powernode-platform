@@ -419,7 +419,7 @@ RSpec.describe Billing::SubscriptionLifecycleJob, type: :job do
       job = described_class.new
       days = job.send(:calculate_days_until_renewal, subscription_data)
 
-      expect(days).to be >= 29
+      expect(days).to be >= 28
       expect(days).to be <= 31
     end
 

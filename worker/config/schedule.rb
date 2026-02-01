@@ -8,6 +8,7 @@
 every 5.minutes do
   runner "AiWorkflowHealthMonitoringJob.perform_async"
   runner "AiWorkflowEventIntegrationService.instance.monitor_system_health"
+  runner "RefreshEmailSettingsJob.perform_async"
 end
 
 # System Cleanup Jobs
@@ -53,11 +54,6 @@ end
 every 15.minutes do
   runner "AiWorkflowAnalyticsCacheWarmupJob.perform_async"
 end
-
-# Workflow Schedule Processing (handled by separate cron job system)
-# every 1.minute do
-#   runner "AiWorkflowScheduleJob.process_scheduled_workflows"
-# end
 
 # Weekly Reports
 every :sunday, at: '6:00 am' do

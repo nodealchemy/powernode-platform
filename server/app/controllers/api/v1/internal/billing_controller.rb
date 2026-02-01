@@ -7,14 +7,16 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
   def process_renewal
     subscription = Subscription.find(params[:subscription_id])
 
-    # Update subscription period
-    subscription.update!(
-      current_period_start: Time.current,
-      current_period_end: calculate_period_end(subscription),
-      status: params[:status] || "active"
-    )
+    ActiveRecord::Base.transaction do
+      # Update subscription period
+      subscription.update!(
+        current_period_start: Time.current,
+        current_period_end: calculate_period_end(subscription),
+        status: params[:status] || "active"
+      )
 
-    log_billing_action("process_renewal", subscription)
+      log_billing_action("process_renewal", subscription)
+    end
 
     render_success(
       data: {
@@ -64,25 +66,28 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     invoice = Invoice.find(params[:invoice_id])
 
     payment_status = params[:status] || "pending"
+    payment = nil
 
-    # Create payment record
-    payment = invoice.payments.create!(
-      account: invoice.account,
-      amount_cents: invoice.total_cents,
-      currency: invoice.currency,
-      status: payment_status,
-      payment_method_id: params[:payment_method_id],
-      gateway: params[:gateway] || "stripe",
-      processed_at: payment_status == "succeeded" ? Time.current : nil,
-      metadata: params[:metadata] || {}
-    )
+    ActiveRecord::Base.transaction do
+      # Create payment record
+      payment = invoice.payments.create!(
+        account: invoice.account,
+        amount_cents: invoice.total_cents,
+        currency: invoice.currency,
+        status: payment_status,
+        payment_method_id: params[:payment_method_id],
+        gateway: params[:gateway] || "stripe",
+        processed_at: payment_status == "succeeded" ? Time.current : nil,
+        metadata: params[:metadata] || {}
+      )
 
-    # Update invoice status
-    if payment.succeeded?
-      invoice.update!(status: "paid", paid_at: Time.current)
+      # Update invoice status
+      if payment.succeeded?
+        invoice.update!(status: "paid", paid_at: Time.current)
+      end
+
+      log_billing_action("process_payment", invoice.subscription, { invoice_id: invoice.id, payment_id: payment.id })
     end
-
-    log_billing_action("process_payment", invoice.subscription, { invoice_id: invoice.id, payment_id: payment.id })
 
     render_success(
       data: {
@@ -108,34 +113,37 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     price_cents = plan&.price_cents || 0
     quantity = subscription.quantity || 1
     subtotal = price_cents * quantity
+    invoice = nil
 
-    invoice = subscription.invoices.build(
-      account: subscription.account,
-      status: "open",
-      due_at: 30.days.from_now,
-      tax_rate: 0.0,
-      metadata: {
-        invoice_type: params[:invoice_type] || "subscription",
-        description: params[:description] || "Subscription invoice",
-        billing_period_start: subscription.current_period_start&.iso8601,
-        billing_period_end: subscription.current_period_end&.iso8601
-      }.compact
-    )
+    ActiveRecord::Base.transaction do
+      invoice = subscription.invoices.build(
+        account: subscription.account,
+        status: "open",
+        due_at: 30.days.from_now,
+        tax_rate: 0.0,
+        metadata: {
+          invoice_type: params[:invoice_type] || "subscription",
+          description: params[:description] || "Subscription invoice",
+          billing_period_start: subscription.current_period_start&.iso8601,
+          billing_period_end: subscription.current_period_end&.iso8601
+        }.compact
+      )
 
-    # Add subscription line item so calculate_totals computes correctly
-    invoice.invoice_line_items.build(
-      description: params[:description] || "#{plan&.name} subscription",
-      line_type: "subscription",
-      quantity: quantity,
-      unit_amount_cents: price_cents,
-      total_amount_cents: subtotal,
-      period_start: subscription.current_period_start,
-      period_end: subscription.current_period_end
-    )
+      # Add subscription line item so calculate_totals computes correctly
+      invoice.invoice_line_items.build(
+        description: params[:description] || "#{plan&.name} subscription",
+        line_type: "subscription",
+        quantity: quantity,
+        unit_amount_cents: price_cents,
+        total_amount_cents: subtotal,
+        period_start: subscription.current_period_start,
+        period_end: subscription.current_period_end
+      )
 
-    invoice.save!
+      invoice.save!
 
-    log_billing_action("generate_invoice", subscription, { invoice_id: invoice.id })
+      log_billing_action("generate_invoice", subscription, { invoice_id: invoice.id })
+    end
 
     render_success(
       data: {
@@ -263,14 +271,19 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     subscription = Subscription.find(params[:subscription_id]) if params[:subscription_id]
 
     if subscription
-      reactivate_subscription(subscription)
+      ActiveRecord::Base.transaction do
+        reactivate_subscription(subscription)
+      end
       render_success(
         data: { subscription_id: subscription.id, status: subscription.status },
         message: "Subscription reactivated"
       )
     else
       # Batch reactivation for subscriptions with successful recent payments
-      reactivated = reactivate_eligible_subscriptions
+      reactivated = []
+      ActiveRecord::Base.transaction do
+        reactivated = reactivate_eligible_subscriptions
+      end
       render_success(
         data: { reactivated_count: reactivated.count, subscription_ids: reactivated.map(&:id) },
         message: "Eligible subscriptions reactivated"

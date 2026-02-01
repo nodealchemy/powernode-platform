@@ -146,7 +146,12 @@ class WorkerApiClient
 
     case response
     when Net::HTTPSuccess
-      JSON.parse(response.body) rescue {}
+      begin
+        JSON.parse(response.body)
+      rescue JSON::ParserError => e
+        Rails.logger.warn "[WorkerApiClient] Failed to parse JSON response: #{e.message}"
+        {}
+      end
     when Net::HTTPUnauthorized
       raise AuthenticationError, "Worker service authentication failed"
     else

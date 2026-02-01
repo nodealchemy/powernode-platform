@@ -70,11 +70,22 @@ module Api
             return render_error("Request is not pending", status: :unprocessable_entity)
           end
 
+          # Validate processed_by_id if provided
+          processed_by = nil
+          if params[:processed_by_id].present?
+            processed_by = User.find_by(id: params[:processed_by_id])
+            unless processed_by
+              return render_error("Invalid processed_by_id", status: :unprocessable_entity)
+            end
+          end
+
           @deletion_request.update!(
             status: "approved",
             approved_at: Time.current,
-            processed_by_id: params[:processed_by_id]
+            processed_by_id: processed_by&.id
           )
+          log_internal_audit("data_deletion.approve", "DeletionRequest", @deletion_request.id,
+                             account_id: @deletion_request.account_id, user_id: @deletion_request.user_id)
 
           # Send approval notification
           NotificationService.send_email(
@@ -106,6 +117,8 @@ module Api
             completed_at: Time.current,
             processed_by_id: params[:rejected_by_id]
           )
+          log_internal_audit("data_deletion.reject", "DeletionRequest", @deletion_request.id,
+                             account_id: @deletion_request.account_id, reason: params[:reason])
 
           # Send rejection notification
           NotificationService.send_email(
@@ -132,6 +145,8 @@ module Api
             status: "processing",
             processing_started_at: Time.current
           )
+          log_internal_audit("data_deletion.execute", "DeletionRequest", @deletion_request.id,
+                             account_id: @deletion_request.account_id)
 
           # Execute deletion in background
           DataManagement::DeletionExecutionJob.perform_later(@deletion_request.id)
@@ -152,6 +167,8 @@ module Api
             completed_at: Time.current,
             deletion_log: params[:deletion_log] || []
           )
+          log_internal_audit("data_deletion.complete", "DeletionRequest", @deletion_request.id,
+                             account_id: @deletion_request.account_id)
 
           # Send completion notification
           NotificationService.send_email(

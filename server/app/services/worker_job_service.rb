@@ -12,45 +12,6 @@ class WorkerJobService
   end
 
   class << self
-    # Enqueue a notification email job
-    def enqueue_notification_email(template_type, data = {})
-      new.make_worker_request("POST", "/notifications/email", {
-        template_type: template_type,
-        data: data
-      })
-    end
-
-    # Enqueue a billing job
-    def enqueue_billing_job(job_type, data = {})
-      new.make_worker_request("POST", "/billing/jobs", {
-        job_type: job_type,
-        data: data
-      })
-    end
-
-    # Enqueue an analytics job
-    def enqueue_analytics_job(job_type, data = {})
-      new.make_worker_request("POST", "/analytics/jobs", {
-        job_type: job_type,
-        data: data
-      })
-    end
-
-    # Enqueue a report generation job
-    def enqueue_report_job(report_type, data = {})
-      new.make_worker_request("POST", "/reports/generate", {
-        report_type: report_type,
-        data: data
-      })
-    end
-
-    # Enqueue password reset email job
-    def enqueue_password_reset_email(user_id)
-      new.make_worker_request("POST", "/notifications/password_reset", {
-        user_id: user_id
-      })
-    end
-
     # Enqueue email settings refresh job
     def enqueue_refresh_email_settings
       new.make_worker_request("POST", "/api/v1/jobs", {

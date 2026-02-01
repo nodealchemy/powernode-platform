@@ -6,7 +6,7 @@ require 'base64'
 # Job to test payment gateway connections asynchronously
 # Handles external API calls to Stripe and PayPal for connection testing
 class Services::TestPaymentGatewayConnectionJob < BaseJob
-  sidekiq_options queue: 'high', retry: 2
+  sidekiq_options queue: 'services', retry: 2
 
   def execute(job_id, gateway, config_data = {})
     validate_required_params({ 'job_id' => job_id, 'gateway' => gateway }, 'job_id', 'gateway')
@@ -71,7 +71,10 @@ class Services::TestPaymentGatewayConnectionJob < BaseJob
     uri = URI('https://api.stripe.com/v1/account')
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = true
-    
+    http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    http.open_timeout = 10
+    http.read_timeout = 30
+
     request = Net::HTTP::Get.new(uri)
     request['Authorization'] = "Bearer #{secret_key}"
     request['Content-Type'] = 'application/x-www-form-urlencoded'
@@ -155,7 +158,10 @@ class Services::TestPaymentGatewayConnectionJob < BaseJob
     uri = URI("#{base_url}/v1/oauth2/token")
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = true
-    
+    http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    http.open_timeout = 10
+    http.read_timeout = 30
+
     request = Net::HTTP::Post.new(uri)
     request['Accept'] = 'application/json'
     request['Accept-Language'] = 'en_US'
@@ -185,7 +191,10 @@ class Services::TestPaymentGatewayConnectionJob < BaseJob
     uri = URI("#{base_url}/v1/identity/oauth2/userinfo?schema=paypalv1.1")
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = true
-    
+    http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    http.open_timeout = 10
+    http.read_timeout = 30
+
     request = Net::HTTP::Get.new(uri)
     request['Content-Type'] = 'application/json'
     request['Authorization'] = "Bearer #{access_token}"

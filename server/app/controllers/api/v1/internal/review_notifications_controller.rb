@@ -1,9 +1,7 @@
 # frozen_string_literal: true
 
 # Internal API for review notification operations
-class Api::V1::Internal::ReviewNotificationsController < ApplicationController
-  skip_before_action :authenticate_request
-  before_action :authenticate_service_token
+class Api::V1::Internal::ReviewNotificationsController < Api::V1::Internal::InternalBaseController
 
   # GET /api/v1/internal/review_notifications/:id
   def show
@@ -68,28 +66,5 @@ class Api::V1::Internal::ReviewNotificationsController < ApplicationController
   rescue StandardError => e
     Rails.logger.error "Failed to update review notification: #{e.message}"
     render_error("Failed to update notification", status: :internal_server_error)
-  end
-
-  private
-
-  def authenticate_service_token
-    token = request.headers["Authorization"]&.split(" ")&.last
-
-    unless token.present?
-      render_error("Service token required", status: :unauthorized)
-      return
-    end
-
-    begin
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
-
-      unless payload["service"] == "worker" && payload["type"] == "service"
-        render_error("Invalid service token", status: :unauthorized)
-        nil
-      end
-
-    rescue JWT::DecodeError, JWT::ExpiredSignature
-      render_error("Invalid service token", status: :unauthorized)
-    end
   end
 end

@@ -37,7 +37,7 @@ RSpec.describe Billing::PaymentRetryJob, type: :job do
       before do
         stub_backend_api_success(:get, "/api/v1/subscriptions/#{subscription_id}", subscription_data)
         stub_backend_api_success(:get, "/api/v1/accounts/#{account_id}", account_data)
-        stub_backend_api_success(:post, '/api/v1/billing/retry_payment', {
+        stub_backend_api_success(:post, '/api/v1/internal/billing/retry_payment', {
           'success' => true,
           'next_billing_date' => Date.current.next_month.to_s
         })
@@ -48,7 +48,7 @@ RSpec.describe Billing::PaymentRetryJob, type: :job do
         result = described_class.new.execute(subscription_id, failure_type, attempt_number)
 
         expect(result['success']).to be true
-        expect_api_request(:post, '/api/v1/billing/retry_payment')
+        expect_api_request(:post, '/api/v1/internal/billing/retry_payment')
       end
 
       it 'sends recovery notification' do
@@ -77,7 +77,7 @@ RSpec.describe Billing::PaymentRetryJob, type: :job do
       before do
         stub_backend_api_success(:get, "/api/v1/subscriptions/#{subscription_id}", subscription_data)
         stub_backend_api_success(:get, "/api/v1/accounts/#{account_id}", account_data)
-        stub_backend_api_success(:post, '/api/v1/billing/retry_payment', {
+        stub_backend_api_success(:post, '/api/v1/internal/billing/retry_payment', {
           'success' => false,
           'error' => 'Card declined',
           'retryable' => true
@@ -111,14 +111,14 @@ RSpec.describe Billing::PaymentRetryJob, type: :job do
       let(:attempt_number) { 6 }
 
       before do
-        stub_backend_api_success(:post, '/api/v1/billing/suspend_subscription', { 'success' => true })
+        stub_backend_api_success(:post, '/api/v1/internal/billing/suspend_subscription', { 'success' => true })
         stub_backend_api_success(:post, '/api/v1/notifications', { 'success' => true })
       end
 
       it 'suspends subscription' do
         described_class.new.execute(subscription_id, failure_type, attempt_number)
 
-        expect_api_request(:post, '/api/v1/billing/suspend_subscription')
+        expect_api_request(:post, '/api/v1/internal/billing/suspend_subscription')
       end
 
       it 'sends final notice notification' do
@@ -163,12 +163,12 @@ RSpec.describe Billing::PaymentRetryJob, type: :job do
       before do
         stub_backend_api_success(:get, "/api/v1/subscriptions/#{subscription_id}", subscription_data)
         stub_backend_api_success(:get, "/api/v1/accounts/#{account_id}", account_data)
-        stub_backend_api_success(:post, '/api/v1/billing/retry_payment', {
+        stub_backend_api_success(:post, '/api/v1/internal/billing/retry_payment', {
           'success' => false,
           'error' => 'Invalid payment method',
           'retryable' => false
         })
-        stub_backend_api_success(:post, '/api/v1/billing/suspend_subscription', { 'success' => true })
+        stub_backend_api_success(:post, '/api/v1/internal/billing/suspend_subscription', { 'success' => true })
         stub_backend_api_success(:post, '/api/v1/notifications', { 'success' => true })
       end
 
@@ -177,7 +177,7 @@ RSpec.describe Billing::PaymentRetryJob, type: :job do
 
         described_class.new.execute(subscription_id, failure_type, attempt_number)
 
-        expect_api_request(:post, '/api/v1/billing/suspend_subscription')
+        expect_api_request(:post, '/api/v1/internal/billing/suspend_subscription')
       end
     end
 
@@ -185,7 +185,7 @@ RSpec.describe Billing::PaymentRetryJob, type: :job do
       it 'uses exponential backoff' do
         stub_backend_api_success(:get, "/api/v1/subscriptions/#{subscription_id}", subscription_data)
         stub_backend_api_success(:get, "/api/v1/accounts/#{account_id}", account_data)
-        stub_backend_api_success(:post, '/api/v1/billing/retry_payment', {
+        stub_backend_api_success(:post, '/api/v1/internal/billing/retry_payment', {
           'success' => false,
           'error' => 'Failed',
           'retryable' => true
@@ -204,7 +204,7 @@ RSpec.describe Billing::PaymentRetryJob, type: :job do
       before do
         stub_backend_api_success(:get, "/api/v1/subscriptions/#{subscription_id}", subscription_data)
         stub_backend_api_success(:get, "/api/v1/accounts/#{account_id}", account_data)
-        stub_backend_api_error(:post, '/api/v1/billing/retry_payment', status: 500, error_message: 'Server error')
+        stub_backend_api_error(:post, '/api/v1/internal/billing/retry_payment', status: 500, error_message: 'Server error')
       end
 
       it 'returns failure result' do

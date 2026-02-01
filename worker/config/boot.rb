@@ -22,7 +22,6 @@ require_relative '../app/middleware/sidekiq_web_auth'
 require_relative '../app/controllers/jobs_controller'
 
 # Auto-require external service integrations
-require_relative '../app/services/clamav_service'
 require_relative '../app/services/firebase_service'
 require_relative '../app/services/twilio_service'
 

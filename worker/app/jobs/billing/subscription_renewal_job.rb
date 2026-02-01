@@ -91,7 +91,7 @@ class Billing::SubscriptionRenewalJob < BaseJob
     }
     
     with_api_retry(max_attempts: 2) do
-      api_client.post('/api/v1/billing/process_renewal', renewal_params)
+      api_client.post('/api/v1/internal/billing/process_renewal', renewal_params)
     end
   rescue BackendApiClient::ApiError => e
     log_error("Renewal processing failed: #{e.message}")

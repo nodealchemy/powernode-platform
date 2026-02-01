@@ -6,6 +6,8 @@ class AiAgentExecutionJob < BaseJob
   sidekiq_options queue: 'ai_agents', retry: 3
 
   def execute(agent_execution_id)
+    validate_required_params({ 'agent_execution_id' => agent_execution_id }, 'agent_execution_id')
+
     log_info("Starting AI agent execution", agent_execution_id: agent_execution_id)
 
     # Fetch the AI agent execution from backend
@@ -771,7 +773,7 @@ class AiAgentExecutionJob < BaseJob
     agent = @agent_execution['ai_agent']
     model = agent&.dig('configuration', 'model') ||
             decrypted_creds['model'] ||
-            'deepseek-r1:1.5b' # Updated default to match agent configs
+            ENV.fetch('DEFAULT_AI_MODEL', 'deepseek-r1:1.5b')
 
     # Build messages array
     messages = context.dup

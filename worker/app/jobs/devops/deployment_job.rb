@@ -252,7 +252,7 @@ module Devops
       output = nil
       error_output = nil
 
-      Open3.popen3(cmd.join(" "), chdir: options[:working_directory] || Dir.pwd) do |stdin, stdout, stderr, wait_thr|
+      Open3.popen3(*cmd, chdir: options[:working_directory] || Dir.pwd) do |stdin, stdout, stderr, wait_thr|
         stdin.write(prompt)
         stdin.close
 

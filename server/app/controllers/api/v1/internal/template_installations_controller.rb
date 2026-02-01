@@ -1,9 +1,7 @@
 # frozen_string_literal: true
 
 # Internal API for AI workflow template installation operations
-class Api::V1::Internal::TemplateInstallationsController < ApplicationController
-  skip_before_action :authenticate_request
-  before_action :authenticate_service_token
+class Api::V1::Internal::TemplateInstallationsController < Api::V1::Internal::InternalBaseController
 
   # POST /api/v1/internal/template_installations/:id/update
   def update
@@ -31,28 +29,5 @@ class Api::V1::Internal::TemplateInstallationsController < ApplicationController
     render_error("Installation not found", status: :not_found)
   rescue StandardError => e
     render_internal_error("Update failed", exception: e)
-  end
-
-  private
-
-  def authenticate_service_token
-    token = request.headers["Authorization"]&.split(" ")&.last
-
-    unless token.present?
-      render_error("Service token required", status: :unauthorized)
-      return
-    end
-
-    begin
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
-
-      unless payload["service"] == "worker" && payload["type"] == "service"
-        render_error("Invalid service token", status: :unauthorized)
-        nil
-      end
-
-    rescue JWT::DecodeError, JWT::ExpiredSignature
-      render_error("Invalid service token", status: :unauthorized)
-    end
   end
 end

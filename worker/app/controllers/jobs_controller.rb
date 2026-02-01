@@ -199,8 +199,6 @@ class JobsController
       'WorkflowTimeoutJob',
       'WorkflowCleanupJob',
       'AiWorkflow::ApprovalExpiryJob',
-      'AiContext::ContextCleanupJob',
-      'AiContext::ContextSyncJob',
       # File processing jobs
       'ThumbnailGenerationJob',
       'MetadataExtractionJob',

@@ -30,4 +30,28 @@ class Api::V1::Internal::InternalBaseController < ApplicationController
       render_error("Invalid service token", status: :unauthorized)
     end
   end
+
+  # Audit logging helper for internal service operations
+  # @param action [String] The action being performed (e.g., 'account.anonymize', 'user.delete')
+  # @param resource_type [String] The type of resource being affected
+  # @param resource_id [String] The ID of the resource being affected
+  # @param metadata [Hash] Additional context for the audit log
+  def log_internal_audit(action, resource_type, resource_id, metadata = {})
+    AuditLog.create!(
+      account_id: metadata[:account_id],
+      user_id: nil, # Internal service request - no user
+      action: action,
+      resource_type: resource_type,
+      resource_id: resource_id,
+      ip_address: request.remote_ip,
+      user_agent: request.user_agent,
+      details: metadata.merge(
+        internal_request: true,
+        service: "worker",
+        timestamp: Time.current.iso8601
+      )
+    )
+  rescue StandardError => e
+    Rails.logger.error "Failed to log internal audit event '#{action}': #{e.message}"
+  end
 end

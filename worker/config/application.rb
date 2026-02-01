@@ -111,12 +111,21 @@ class PowernodeWorker
   end
 
   def setup_service_authentication
-    # Ensure service token is available
-    unless config.worker_token
-      @logger.error "WORKER_TOKEN not configured - worker cannot authenticate with backend"
-      exit 1
+    # Validate required environment variables
+    required_env_vars = {
+      'WORKER_TOKEN' => config.worker_token,
+      'BACKEND_API_URL' => config.backend_api_url,
+      'REDIS_URL' => ENV['REDIS_URL']
+    }
+
+    missing_vars = required_env_vars.select { |_, v| v.blank? }.keys
+
+    if missing_vars.any?
+      @logger.error "Missing required environment variables: #{missing_vars.join(', ')}"
+      @logger.error "Worker cannot start without these configurations"
+      exit 1 unless %w[development test].include?(env)
     end
-    
+
     @logger.info "Worker service authentication configured"
   end
 
