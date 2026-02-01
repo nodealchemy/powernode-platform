@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Concern for models that can receive marketplace reviews
-# Include in: Marketplace::Definition, Ai::WorkflowTemplate, IntegrationTemplate
+# Include in: Ai::WorkflowTemplate, Devops::IntegrationTemplate
 module MarketplaceReviewable
   extend ActiveSupport::Concern
 

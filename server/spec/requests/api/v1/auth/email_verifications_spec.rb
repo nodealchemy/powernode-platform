@@ -63,7 +63,7 @@ RSpec.describe 'Api::V1::Auth::EmailVerifications', type: :request do
              params: { token: unverified_user.email_verification_token },
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -117,7 +117,7 @@ RSpec.describe 'Api::V1::Auth::EmailVerifications', type: :request do
       it 'returns error for already verified' do
         post '/api/v1/auth/resend-verification', headers: verified_headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 

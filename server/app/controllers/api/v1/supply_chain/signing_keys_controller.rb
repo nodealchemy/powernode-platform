@@ -38,7 +38,7 @@ module Api
             SupplyChainChannel.broadcast_signing_key_created(@signing_key)
             render_success({ signing_key: serialize_signing_key(@signing_key) }, status: :created)
           else
-            render_error(@signing_key.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@signing_key.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -47,14 +47,14 @@ module Api
           if @signing_key.update(signing_key_update_params)
             render_success({ signing_key: serialize_signing_key(@signing_key) })
           else
-            render_error(@signing_key.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@signing_key.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
         # DELETE /api/v1/supply_chain/signing_keys/:id
         def destroy
           if @signing_key.attestations.exists?
-            render_error("Cannot delete signing key with existing attestations", status: :unprocessable_entity)
+            render_error("Cannot delete signing key with existing attestations", status: :unprocessable_content)
           else
             @signing_key.destroy
             render_success(message: "Signing key deleted")
@@ -84,7 +84,7 @@ module Api
             message: "Key rotated successfully"
           )
         rescue StandardError => e
-          render_error("Failed to rotate key: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to rotate key: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/supply_chain/signing_keys/:id/revoke
@@ -98,7 +98,7 @@ module Api
             message: "Key revoked"
           )
         rescue StandardError => e
-          render_error("Failed to revoke key: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to revoke key: #{e.message}", status: :unprocessable_content)
         end
 
         # GET /api/v1/supply_chain/signing_keys/:id/public_key

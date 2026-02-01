@@ -163,7 +163,7 @@ module Api
           if result[:success]
             render_success(approval_request: approval_request_json(result[:request]))
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 

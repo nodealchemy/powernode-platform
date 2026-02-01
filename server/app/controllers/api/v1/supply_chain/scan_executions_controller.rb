@@ -41,7 +41,7 @@ module Api
         # POST /api/v1/supply_chain/scan_executions/:id/cancel
         def cancel
           unless %w[pending running].include?(@execution.status)
-            return render_error("Execution cannot be cancelled in current status", status: :unprocessable_entity)
+            return render_error("Execution cannot be cancelled in current status", status: :unprocessable_content)
           end
 
           @execution.cancel!

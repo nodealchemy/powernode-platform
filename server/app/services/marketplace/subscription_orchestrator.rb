@@ -2,12 +2,11 @@
 
 module Marketplace
   # Unified Subscription Orchestrator
-  # Handles subscribing to any marketplace item type (apps, plugins, templates, integrations)
+  # Handles subscribing to marketplace items (templates, integrations)
   class SubscriptionOrchestrator
     include ActiveModel::Model
 
     ITEM_TYPES = {
-      "app" => "Marketplace::Definition",
       "template" => "Ai::WorkflowTemplate",
       "integration" => "Devops::IntegrationTemplate"
     }.freeze
@@ -126,14 +125,10 @@ module Marketplace
 
     def subscribable?(item, item_type)
       case item_type.to_s
-      when "app"
-        item.published?
-      when "plugin"
-        item.status == "available" && !item.integration?
       when "template"
         item.published? && item.public?
       when "integration"
-        item.status == "available" && item.integration?
+        item.marketplace_published?
       else
         false
       end
@@ -161,47 +156,16 @@ module Marketplace
         }
       }
 
-      # For apps, also set legacy associations and plan
-      if item_type.to_s == "app" && options[:plan_id].present?
-        plan = item.plans.find_by(id: options[:plan_id])
-        if plan
-          subscription_params[:app_id] = item.id
-          subscription_params[:app_plan_id] = plan.id
-        end
-      end
-
       Marketplace::Subscription.create(subscription_params)
     end
 
     def perform_type_specific_setup(subscription, item, item_type, options)
       case item_type.to_s
-      when "app"
-        setup_app_subscription(subscription, item, options)
-      when "plugin"
-        setup_plugin_subscription(subscription, item, options)
       when "template"
         setup_template_subscription(subscription, item, options)
       when "integration"
         setup_integration_subscription(subscription, item, options)
       end
-    end
-
-    def setup_app_subscription(subscription, app, options)
-      # App subscriptions may need additional feature flags or permissions
-      subscription.update_metadata("app_version", app.version)
-      subscription.record_usage_metric("subscription_started", 1, { plan_id: subscription.app_plan_id })
-
-      # Increment app subscription count
-      app.record_metric("subscription", 1, { subscription_id: subscription.id }) if app.respond_to?(:record_metric)
-    end
-
-    def setup_plugin_subscription(subscription, plugin, options)
-      # Record plugin version and capabilities
-      subscription.update_metadata("plugin_version", plugin.version)
-      subscription.update_metadata("capabilities", plugin.capabilities)
-
-      # Update plugin statistics
-      plugin.increment_install_count! if plugin.respond_to?(:increment_install_count!)
     end
 
     def setup_template_subscription(subscription, template, options)
@@ -250,25 +214,11 @@ module Marketplace
 
     def perform_type_specific_cleanup(subscription)
       case subscription.subscription_type
-      when "app"
-        cleanup_app_subscription(subscription)
-      when "plugin"
-        cleanup_plugin_subscription(subscription)
       when "template"
         cleanup_template_subscription(subscription)
       when "integration"
         cleanup_integration_subscription(subscription)
       end
-    end
-
-    def cleanup_app_subscription(subscription)
-      # Log app unsubscription
-      subscription.record_usage_metric("subscription_ended", 1)
-    end
-
-    def cleanup_plugin_subscription(subscription)
-      # Plugin cleanup - could deactivate plugin resources
-      subscription.record_usage_metric("subscription_ended", 1)
     end
 
     def cleanup_template_subscription(subscription)

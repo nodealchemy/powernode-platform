@@ -201,7 +201,7 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
               headers: internal_headers,
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response['success']).to be false
       end
     end
@@ -225,7 +225,7 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
               headers: internal_headers,
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response['success']).to be false
       end
     end
@@ -256,7 +256,7 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
               headers: internal_headers,
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response['success']).to be false
       end
     end
@@ -288,7 +288,7 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
               headers: internal_headers,
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response['success']).to be false
       end
     end

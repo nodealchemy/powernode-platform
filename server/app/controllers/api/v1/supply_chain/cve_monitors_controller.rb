@@ -38,7 +38,7 @@ module Api
           if @monitor.save
             render_success({ cve_monitor: serialize_monitor(@monitor) }, status: :created)
           else
-            render_error(@monitor.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@monitor.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -47,7 +47,7 @@ module Api
           if @monitor.update(monitor_params)
             render_success({ cve_monitor: serialize_monitor(@monitor) })
           else
-            render_error(@monitor.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@monitor.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 

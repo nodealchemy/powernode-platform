@@ -22,7 +22,7 @@ module Api
 
             render_success({ data_export_request: serialize_request(@export_request) }, status: :created)
           else
-            render_error(@export_request.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@export_request.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -41,7 +41,7 @@ module Api
             if @export_request.update(export_request_update_params)
               render_success({ data_export_request: serialize_request(@export_request) })
             else
-              render_error(@export_request.errors.full_messages.join(", "), status: :unprocessable_entity)
+              render_error(@export_request.errors.full_messages.join(", "), status: :unprocessable_content)
             end
           end
         end
@@ -67,7 +67,7 @@ module Api
 
         def start_export
           unless @export_request.pending?
-            return render_error("Export is not pending", status: :unprocessable_entity)
+            return render_error("Export is not pending", status: :unprocessable_content)
           end
 
           @export_request.update!(
@@ -86,7 +86,7 @@ module Api
 
         def complete_export
           unless @export_request.processing?
-            return render_error("Export is not processing", status: :unprocessable_entity)
+            return render_error("Export is not processing", status: :unprocessable_content)
           end
 
           @export_request.update!(
@@ -118,7 +118,7 @@ module Api
 
         def fail_export
           unless @export_request.processing?
-            return render_error("Export is not processing", status: :unprocessable_entity)
+            return render_error("Export is not processing", status: :unprocessable_content)
           end
 
           @export_request.update!(
@@ -145,7 +145,7 @@ module Api
 
         def expire_export
           unless @export_request.completed?
-            return render_error("Export is not completed", status: :unprocessable_entity)
+            return render_error("Export is not completed", status: :unprocessable_content)
           end
 
           # Delete the exported file

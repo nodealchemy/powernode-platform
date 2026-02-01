@@ -40,7 +40,7 @@ module Api
           if @config.save
             render_success({ ai_config: serialize_config(@config) }, status: :created)
           else
-            render_error(@config.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@config.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -49,14 +49,14 @@ module Api
           if @config.update(config_params)
             render_success({ ai_config: serialize_config(@config) })
           else
-            render_error(@config.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@config.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
         # DELETE /api/v1/devops/ai_configs/:id
         def destroy
           if @config.is_default?
-            return render_error("Cannot delete default configuration", status: :unprocessable_entity)
+            return render_error("Cannot delete default configuration", status: :unprocessable_content)
           end
 
           @config.destroy

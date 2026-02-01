@@ -30,6 +30,32 @@ class WorkerJobService
       })
     end
 
+    # Enqueue notification email job (email verification, welcome emails, etc.)
+    # @param notification_type [String] Type of notification (e.g., 'email_verification')
+    # @param options [Hash] Email options containing:
+    #   - user_id: The user UUID
+    #   - email: The recipient email address
+    #   - verification_token: Token for verification emails
+    #   - user_name: User's display name
+    #   - smtp_settings: SMTP configuration from system settings
+    def enqueue_notification_email(notification_type, options = {})
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "NotificationEmailJob",
+        "args" => [ notification_type, options ],
+        "queue" => "email"
+      })
+    end
+
+    # Enqueue password reset email job
+    # @param user_id [String] The user UUID requesting password reset
+    def enqueue_password_reset_email(user_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "PasswordResetEmailJob",
+        "args" => [ user_id ],
+        "queue" => "email"
+      })
+    end
+
     # Enqueue test worker job
     def enqueue_test_worker_job(worker_id, worker_name)
       new.make_worker_request("POST", "/api/v1/jobs", {

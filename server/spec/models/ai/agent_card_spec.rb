@@ -14,7 +14,7 @@ RSpec.describe Ai::AgentCard, type: :model do
     it { should validate_presence_of(:name) }
     it { should validate_length_of(:name).is_at_most(255) }
     it { should validate_inclusion_of(:visibility).in_array(%w[private internal public]) }
-    it { should validate_inclusion_of(:status).in_array(%w[draft published deprecated disabled]) }
+    it { should validate_inclusion_of(:status).in_array(%w[active inactive deprecated]) }
 
     context 'name uniqueness within account' do
       let!(:existing_card) { create(:ai_agent_card) }
@@ -40,43 +40,42 @@ RSpec.describe Ai::AgentCard, type: :model do
   end
 
   describe 'scopes' do
-    let!(:public_card) { create(:ai_agent_card, :public, :published) }
-    let!(:internal_card) { create(:ai_agent_card, :internal, :published) }
-    let!(:private_card) { create(:ai_agent_card, :published) }
-    let!(:draft_card) { create(:ai_agent_card) }
+    let!(:public_card) { create(:ai_agent_card, :public, :active, published_at: Time.current) }
+    let!(:internal_card) { create(:ai_agent_card, :internal, :active, published_at: Time.current) }
+    let!(:private_card) { create(:ai_agent_card, :active, published_at: Time.current) }
+    let!(:inactive_card) { create(:ai_agent_card, :inactive) }
     let!(:deprecated_card) { create(:ai_agent_card, :deprecated) }
 
     describe '.published' do
       it 'returns only published cards' do
         published = Ai::AgentCard.published
         expect(published).to include(public_card, internal_card, private_card)
-        expect(published).not_to include(draft_card, deprecated_card)
+        expect(published).not_to include(inactive_card)
       end
     end
 
-    describe '.visible_to' do
+    describe '.visible_to_account' do
       it 'returns public cards for any account' do
         other_account = create(:account)
-        visible = Ai::AgentCard.visible_to(other_account)
+        visible = Ai::AgentCard.visible_to_account(other_account.id)
         expect(visible).to include(public_card)
       end
 
       it 'returns internal cards for same organization' do
-        # Internal visibility would check organization membership
-        visible = Ai::AgentCard.visible_to(internal_card.account)
+        visible = Ai::AgentCard.visible_to_account(internal_card.account_id)
         expect(visible).to include(internal_card)
       end
 
       it 'returns private cards only for owner account' do
-        visible = Ai::AgentCard.visible_to(private_card.account)
+        visible = Ai::AgentCard.visible_to_account(private_card.account_id)
         expect(visible).to include(private_card)
       end
     end
 
     describe '.with_capability' do
       let!(:summarize_card) do
-        create(:ai_agent_card, :published, capabilities: {
-          'skills' => [{ 'id' => 'summarize', 'name' => 'Summarize' }]
+        create(:ai_agent_card, :active, published_at: Time.current, capabilities: {
+          'skills' => ['summarize']
         })
       end
 
@@ -88,37 +87,37 @@ RSpec.describe Ai::AgentCard, type: :model do
   end
 
   describe '#to_a2a_json' do
-    let(:agent_card) { create(:ai_agent_card, :published, :with_multiple_skills) }
+    let(:agent_card) { create(:ai_agent_card, :active, :with_multiple_skills, published_at: Time.current) }
 
     it 'returns A2A-compliant JSON structure' do
       json = agent_card.to_a2a_json
 
-      expect(json).to include(
-        'name' => agent_card.name,
-        'description' => agent_card.description,
-        'version' => agent_card.protocol_version
-      )
-      expect(json['skills']).to be_an(Array)
-      expect(json['skills'].length).to eq(3)
+      expect(json[:name]).to eq(agent_card.name)
+      expect(json[:description]).to eq(agent_card.description)
+      expect(json[:version]).to eq(agent_card.card_version)
+      expect(json[:skills]).to be_an(Array)
+      expect(json[:skills].length).to eq(3)
     end
 
     it 'includes authentication info when present' do
       json = agent_card.to_a2a_json
-      expect(json['authentication']).to be_present
+      expect(json[:authentication]).to be_present
     end
   end
 
   describe '#publish!' do
-    let(:agent_card) { create(:ai_agent_card, status: 'draft') }
+    let(:agent_card) { create(:ai_agent_card, :inactive) }
 
-    it 'changes status to published' do
+    it 'changes status to active and sets published_at' do
       agent_card.publish!
-      expect(agent_card.reload.status).to eq('published')
+      agent_card.reload
+      expect(agent_card.status).to eq('active')
+      expect(agent_card.published_at).to be_present
     end
   end
 
   describe '#deprecate!' do
-    let(:agent_card) { create(:ai_agent_card, :published) }
+    let(:agent_card) { create(:ai_agent_card, :active, published_at: Time.current) }
 
     it 'changes status to deprecated' do
       agent_card.deprecate!
@@ -126,32 +125,30 @@ RSpec.describe Ai::AgentCard, type: :model do
     end
   end
 
-  describe '#skills' do
+  describe '#skills_list' do
     let(:agent_card) { create(:ai_agent_card, :with_multiple_skills) }
 
     it 'returns array of skills from capabilities' do
-      expect(agent_card.skills).to be_an(Array)
-      expect(agent_card.skills.length).to eq(3)
-      expect(agent_card.skills.first).to include('id', 'name')
+      expect(agent_card.skills_list).to be_an(Array)
+      expect(agent_card.skills_list.length).to eq(3)
+      expect(agent_card.skills_list.first).to include('id', 'name')
     end
   end
 
   describe '.find_agents_for_task' do
+    let(:account) { create(:account) }
+
     before do
-      create(:ai_agent_card, :published, capabilities: {
-        'skills' => [
-          { 'id' => 'summarize', 'name' => 'Summarize', 'description' => 'Summarize text documents' }
-        ]
+      create(:ai_agent_card, account: account, status: 'active', capabilities: {
+        'skills' => ['summarize']
       })
-      create(:ai_agent_card, :published, capabilities: {
-        'skills' => [
-          { 'id' => 'translate', 'name' => 'Translate', 'description' => 'Translate between languages' }
-        ]
+      create(:ai_agent_card, account: account, status: 'active', capabilities: {
+        'skills' => ['translate']
       })
     end
 
     it 'returns agents matching task description' do
-      results = Ai::AgentCard.find_agents_for_task('summarize this document')
+      results = Ai::AgentCard.find_agents_for_task('summarize this document', account_id: account.id)
       expect(results).not_to be_empty
     end
   end

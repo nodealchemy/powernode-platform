@@ -307,8 +307,9 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
         expect(result).to be true
         openai_provider.reload
         model_ids = openai_provider.supported_models.map { |m| m['id'] }
-        expect(model_ids).to include('gpt-3.5-turbo')
-        expect(model_ids).to include('gpt-4')
+        # Updated to current OpenAI model names
+        expect(model_ids).to include('gpt-4o')
+        expect(model_ids).to include('gpt-4-turbo')
       end
     end
 

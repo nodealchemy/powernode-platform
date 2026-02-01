@@ -405,7 +405,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
              params: submit_params,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to eq("Questionnaire already submitted")
       end
@@ -449,7 +449,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
              params: submit_params,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to eq("Validation error")
       end
@@ -500,7 +500,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
               headers: headers,
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
       end
     end
@@ -617,7 +617,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to eq("Failed to approve: Cannot approve")
       end
@@ -703,7 +703,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to eq("Rejection reason is required")
       end
@@ -714,7 +714,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to eq("Rejection reason is required")
       end
@@ -731,7 +731,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to eq("Failed to reject: Cannot reject")
       end
@@ -820,7 +820,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to eq("Feedback is required")
       end
@@ -831,7 +831,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to eq("Feedback is required")
       end
@@ -848,7 +848,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to eq("Failed to request changes: Cannot request changes")
       end

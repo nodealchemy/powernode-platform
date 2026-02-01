@@ -152,7 +152,7 @@ RSpec.describe 'Api::V1::Devops::Pipelines', type: :request do
         # Creation returns validation error due to this limitation.
         post '/api/v1/devops/pipelines', params: valid_params, headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'accepts pipeline creation request' do
@@ -168,7 +168,7 @@ RSpec.describe 'Api::V1::Devops::Pipelines', type: :request do
 
         post '/api/v1/devops/pipelines', params: empty_params, headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 

@@ -117,7 +117,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationTemplates', type: :request do
 
         post '/api/v1/devops/integration_templates', params: valid_params, headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -164,7 +164,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationTemplates', type: :request do
               headers: headers,
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end

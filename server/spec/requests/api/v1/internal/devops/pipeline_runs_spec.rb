@@ -136,7 +136,7 @@ RSpec.describe 'Api::V1::Internal::Devops::PipelineRuns', type: :request do
               params: { pipeline_run: { status: 'invalid_status' } },
               headers: internal_headers
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['success']).to be false
       end

@@ -165,7 +165,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
              params: { token: @stored_token, password: 'weak' },
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end
@@ -221,7 +221,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 

@@ -17,14 +17,14 @@ module Api
         if @event.update(event_update_params)
           render_success({ webhook_event: serialize_event(@event) })
         else
-          render_error(@event.errors.full_messages.join(", "), status: :unprocessable_entity)
+          render_error(@event.errors.full_messages.join(", "), status: :unprocessable_content)
         end
       end
 
       # PATCH /api/v1/webhook_events/:id/processing
       def processing
         unless @event.status == "pending"
-          return render_error("Event is not pending", status: :unprocessable_entity)
+          return render_error("Event is not pending", status: :unprocessable_content)
         end
 
         merged_metadata = parse_metadata(@event.metadata).merge("processing_started_at" => Time.current.iso8601)
@@ -41,7 +41,7 @@ module Api
       # PATCH /api/v1/webhook_events/:id/processed
       def processed
         unless @event.status == "processing"
-          return render_error("Event is not processing", status: :unprocessable_entity)
+          return render_error("Event is not processing", status: :unprocessable_content)
         end
 
         current_metadata = parse_metadata(@event.metadata)
@@ -68,7 +68,7 @@ module Api
       # PATCH /api/v1/webhook_events/:id/failed
       def failed
         unless @event.status == "processing"
-          return render_error("Event is not processing", status: :unprocessable_entity)
+          return render_error("Event is not processing", status: :unprocessable_content)
         end
 
         max_attempts = 5

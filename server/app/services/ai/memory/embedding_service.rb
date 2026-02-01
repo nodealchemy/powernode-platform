@@ -12,7 +12,15 @@ module Ai
       def initialize(account:, provider: nil)
         @account = account
         @provider = provider || default_provider
-        @redis = Rails.application.config.redis_client || Redis.new
+        @redis = redis_client
+      end
+
+      def redis_client
+        if Rails.application.config.respond_to?(:redis_client) && Rails.application.config.redis_client
+          Rails.application.config.redis_client
+        else
+          Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
+        end
       end
 
       # Generate embedding for text

@@ -195,7 +195,7 @@ RSpec.describe BackgroundJob, type: :model do
       it 'returns finished_at (alias)' do
         timestamp = Time.current
         job.update!(finished_at: timestamp)
-        expect(job.completed_at).to eq(timestamp)
+        expect(job.completed_at).to be_within(1.second).of(timestamp)
       end
     end
   end

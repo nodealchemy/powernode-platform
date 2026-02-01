@@ -123,7 +123,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
 
         post '/api/v1/devops/integration_credentials', params: valid_params, headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -169,7 +169,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
               headers: headers,
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end
@@ -194,7 +194,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
 
         delete "/api/v1/devops/integration_credentials/#{credential.id}", headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end
@@ -219,7 +219,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
 
         post "/api/v1/devops/integration_credentials/#{credential.id}/rotate", headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end

@@ -280,7 +280,7 @@ RSpec.describe "Api::V1::SupplyChain::ScanInstances", type: :request do
              headers: auth_headers_for(supply_chain_writer),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["error"]).to include("Name can't be blank")
       end
 
@@ -293,7 +293,7 @@ RSpec.describe "Api::V1::SupplyChain::ScanInstances", type: :request do
              headers: auth_headers_for(supply_chain_writer),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 

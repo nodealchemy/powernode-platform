@@ -33,6 +33,14 @@ FactoryBot.define do
       published_at { Time.current }
     end
 
+    trait :active do
+      status { 'active' }
+    end
+
+    trait :inactive do
+      status { 'inactive' }
+    end
+
     trait :deprecated do
       status { 'deprecated' }
     end

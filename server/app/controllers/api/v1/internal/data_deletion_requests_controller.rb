@@ -22,7 +22,7 @@ module Api
 
             render_success({ data_deletion_request: serialize_request(@deletion_request) }, status: :created)
           else
-            render_error(@deletion_request.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@deletion_request.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -41,7 +41,7 @@ module Api
             if @deletion_request.update(deletion_request_update_params)
               render_success({ data_deletion_request: serialize_request(@deletion_request) })
             else
-              render_error(@deletion_request.errors.full_messages.join(", "), status: :unprocessable_entity)
+              render_error(@deletion_request.errors.full_messages.join(", "), status: :unprocessable_content)
             end
           end
         end
@@ -67,7 +67,7 @@ module Api
 
         def approve_request
           unless @deletion_request.pending?
-            return render_error("Request is not pending", status: :unprocessable_entity)
+            return render_error("Request is not pending", status: :unprocessable_content)
           end
 
           # Validate processed_by_id if provided
@@ -75,7 +75,7 @@ module Api
           if params[:processed_by_id].present?
             processed_by = User.find_by(id: params[:processed_by_id])
             unless processed_by
-              return render_error("Invalid processed_by_id", status: :unprocessable_entity)
+              return render_error("Invalid processed_by_id", status: :unprocessable_content)
             end
           end
 
@@ -104,11 +104,11 @@ module Api
 
         def reject_request
           unless @deletion_request.pending? || @deletion_request.approved?
-            return render_error("Request cannot be rejected", status: :unprocessable_entity)
+            return render_error("Request cannot be rejected", status: :unprocessable_content)
           end
 
           if params[:reason].blank?
-            return render_error("Rejection reason is required", status: :unprocessable_entity)
+            return render_error("Rejection reason is required", status: :unprocessable_content)
           end
 
           @deletion_request.update!(
@@ -138,7 +138,7 @@ module Api
 
         def execute_request
           unless @deletion_request.approved?
-            return render_error("Request must be approved before execution", status: :unprocessable_entity)
+            return render_error("Request must be approved before execution", status: :unprocessable_content)
           end
 
           @deletion_request.update!(
@@ -159,7 +159,7 @@ module Api
 
         def complete_request
           unless @deletion_request.processing?
-            return render_error("Request is not processing", status: :unprocessable_entity)
+            return render_error("Request is not processing", status: :unprocessable_content)
           end
 
           @deletion_request.update!(

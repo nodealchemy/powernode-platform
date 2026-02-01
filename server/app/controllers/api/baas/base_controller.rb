@@ -43,7 +43,7 @@ module Api
         render json: response, status: status
       end
 
-      def render_error(message, status: :unprocessable_entity, errors: nil)
+      def render_error(message, status: :unprocessable_content, errors: nil)
         response = {
           success: false,
           error: message

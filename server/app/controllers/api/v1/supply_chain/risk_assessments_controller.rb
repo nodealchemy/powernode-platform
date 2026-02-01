@@ -42,14 +42,14 @@ module Api
           if @assessment.save
             render_success({ risk_assessment: serialize_assessment(@assessment) }, status: :created)
           else
-            render_error(@assessment.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@assessment.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
         # POST /api/v1/supply_chain/vendors/:vendor_id/assessments/:id/submit_for_review
         def submit_for_review
           unless @assessment.draft? || @assessment.in_progress?
-            return render_error("Assessment cannot be submitted for review in current status", status: :unprocessable_entity)
+            return render_error("Assessment cannot be submitted for review in current status", status: :unprocessable_content)
           end
 
           @assessment.submit_for_review!
@@ -63,7 +63,7 @@ module Api
         # POST /api/v1/supply_chain/vendors/:vendor_id/assessments/:id/complete
         def complete
           unless @assessment.pending_review?
-            return render_error("Assessment is not pending review", status: :unprocessable_entity)
+            return render_error("Assessment is not pending review", status: :unprocessable_content)
           end
 
           valid_months = params[:valid_months]&.to_i || 12

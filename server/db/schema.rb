@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_01_200002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -64,8 +64,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.index ["account_id", "status"], name: "index_account_git_webhooks_on_account_status"
     t.index ["account_id"], name: "index_account_git_webhook_configs_on_account_id"
     t.index ["created_by_id"], name: "index_account_git_webhook_configs_on_created_by_id"
-    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying, 'exact'::character varying, 'wildcard'::character varying, 'regex'::character varying]::text[])", name: "account_git_webhook_configs_branch_filter_type_check"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying]::text[])", name: "account_git_webhook_configs_status_check"
+    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying::text, 'exact'::character varying::text, 'wildcard'::character varying::text, 'regex'::character varying::text])", name: "account_git_webhook_configs_branch_filter_type_check"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text])", name: "account_git_webhook_configs_status_check"
   end
 
   create_table "account_terminations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -789,7 +789,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.datetime "updated_at", null: false
     t.integer "version", default: 1
     t.index ["ai_agent_id"], name: "index_ai_context_entries_on_ai_agent_id"
-    t.index ["ai_persistent_context_id", "entry_key"], name: "idx_entries_context_key", unique: true
+    t.index ["ai_persistent_context_id", "entry_key"], name: "idx_entries_context_key_active", unique: true, where: "(archived_at IS NULL)"
     t.index ["ai_persistent_context_id"], name: "index_ai_context_entries_on_ai_persistent_context_id"
     t.index ["archived_at"], name: "index_ai_context_entries_on_archived_at"
     t.index ["confidence_score"], name: "index_ai_context_entries_on_confidence_score"
@@ -1849,20 +1849,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.check_constraint "granularity::text = ANY (ARRAY['minute'::character varying::text, 'hour'::character varying::text, 'day'::character varying::text, 'week'::character varying::text, 'month'::character varying::text])", name: "check_metric_granularity"
   end
 
-  create_table "ai_provider_plugins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.jsonb "authentication_schema", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.jsonb "default_configuration", default: {}, null: false
-    t.jsonb "models", default: [], null: false
-    t.uuid "plugin_id", null: false
-    t.string "provider_type", null: false
-    t.jsonb "supported_capabilities", default: [], null: false
-    t.datetime "updated_at", null: false
-    t.index ["plugin_id"], name: "index_ai_provider_plugins_on_plugin_id"
-    t.index ["provider_type"], name: "index_ai_provider_plugins_on_provider_type"
-    t.index ["supported_capabilities"], name: "index_ai_provider_plugins_on_supported_capabilities", using: :gin
-  end
-
   create_table "ai_providers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id"
     t.string "api_base_url", limit: 500
@@ -2726,6 +2712,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
   end
 
   create_table "ai_workflow_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "a2a_artifacts", default: []
+    t.uuid "a2a_context_id"
+    t.uuid "a2a_task_id"
     t.uuid "account_id", null: false
     t.uuid "ai_workflow_id", null: false
     t.uuid "ai_workflow_trigger_id"
@@ -2750,6 +2739,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.string "trigger_type", null: false
     t.uuid "triggered_by_user_id"
     t.datetime "updated_at", null: false
+    t.index ["a2a_context_id"], name: "index_ai_workflow_runs_on_a2a_context_id", where: "(a2a_context_id IS NOT NULL)"
+    t.index ["a2a_task_id"], name: "index_ai_workflow_runs_on_a2a_task_id", where: "(a2a_task_id IS NOT NULL)"
     t.index ["account_id", "status"], name: "index_ai_workflow_runs_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_workflow_runs_on_account_id"
     t.index ["ai_workflow_id", "status"], name: "index_ai_workflow_runs_on_ai_workflow_id_and_status"
@@ -3086,31 +3077,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.check_constraint "rate_limit_per_day IS NULL OR rate_limit_per_day > 0", name: "valid_api_key_daily_limit"
     t.check_constraint "rate_limit_per_hour IS NULL OR rate_limit_per_hour > 0", name: "valid_api_key_hourly_limit"
     t.check_constraint "usage_count >= 0", name: "valid_api_key_usage_count"
-  end
-
-  create_table "app_subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "app_id"
-    t.uuid "app_plan_id"
-    t.datetime "cancelled_at"
-    t.jsonb "configuration", default: {}
-    t.datetime "created_at", null: false
-    t.jsonb "metadata", default: {}
-    t.datetime "next_billing_at"
-    t.string "status", default: "active", null: false
-    t.uuid "subscribable_id"
-    t.string "subscribable_type"
-    t.datetime "subscribed_at", null: false
-    t.uuid "subscribed_by_user_id"
-    t.string "tier"
-    t.datetime "updated_at", null: false
-    t.jsonb "usage_metrics", default: {}
-    t.index ["account_id"], name: "index_app_subscriptions_on_account_id"
-    t.index ["app_id"], name: "index_app_subscriptions_on_app_id"
-    t.index ["app_plan_id"], name: "index_app_subscriptions_on_app_plan_id"
-    t.index ["status"], name: "index_app_subscriptions_on_status"
-    t.index ["subscribable_type", "subscribable_id"], name: "idx_app_subscriptions_on_subscribable"
-    t.index ["subscribed_at"], name: "index_app_subscriptions_on_subscribed_at"
   end
 
   create_table "audit_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -4123,6 +4089,42 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'sent'::character varying::text, 'delivered'::character varying::text, 'bounced'::character varying::text, 'failed'::character varying::text, 'opened'::character varying::text, 'clicked'::character varying::text])", name: "valid_email_status"
   end
 
+  create_table "external_agents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "agent_card_url", null: false
+    t.string "auth_token_encrypted"
+    t.jsonb "authentication", default: {}
+    t.decimal "avg_response_time_ms", precision: 10, scale: 2
+    t.jsonb "cached_card", default: {}
+    t.jsonb "capabilities", default: {}
+    t.datetime "card_cached_at"
+    t.string "card_version"
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.integer "failure_count", default: 0
+    t.jsonb "health_details", default: {}
+    t.string "health_status"
+    t.datetime "last_health_check"
+    t.jsonb "metadata", default: {}
+    t.string "name", limit: 255, null: false
+    t.jsonb "skills", default: []
+    t.string "slug", limit: 150
+    t.string "status", default: "active", null: false
+    t.integer "success_count", default: 0
+    t.integer "task_count", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "idx_external_agents_account_name", unique: true
+    t.index ["account_id"], name: "index_external_agents_on_account_id"
+    t.index ["agent_card_url"], name: "index_external_agents_on_agent_card_url"
+    t.index ["capabilities"], name: "index_external_agents_on_capabilities", using: :gin
+    t.index ["created_by_id"], name: "index_external_agents_on_created_by_id"
+    t.index ["skills"], name: "index_external_agents_on_skills", using: :gin
+    t.index ["slug"], name: "index_external_agents_on_slug", unique: true, where: "(slug IS NOT NULL)"
+    t.index ["status"], name: "index_external_agents_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'error'::character varying, 'unreachable'::character varying]::text[])", name: "external_agents_status_check"
+  end
+
   create_table "file_object_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
@@ -4573,7 +4575,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.index ["owner"], name: "index_git_repositories_on_owner"
     t.index ["topics"], name: "index_git_repositories_on_topics", using: :gin
     t.index ["webhook_configured"], name: "index_git_repositories_on_webhook_configured"
-    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying, 'exact'::character varying, 'wildcard'::character varying, 'regex'::character varying]::text[])", name: "git_repositories_branch_filter_type_check"
+    t.check_constraint "branch_filter_type::text = ANY (ARRAY['none'::character varying::text, 'exact'::character varying::text, 'wildcard'::character varying::text, 'regex'::character varying::text])", name: "git_repositories_branch_filter_type_check"
   end
 
   create_table "git_runners", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -4949,43 +4951,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.check_constraint "action::text = ANY (ARRAY['create'::character varying::text, 'edit'::character varying::text, 'publish'::character varying::text, 'unpublish'::character varying::text, 'archive'::character varying::text, 'delete'::character varying::text, 'review'::character varying::text])", name: "valid_kb_workflow_action"
   end
 
-  create_table "marketplace_categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.text "description"
-    t.string "icon", limit: 100
-    t.boolean "is_active", default: true
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 255, null: false
-    t.integer "sort_order", default: 0
-    t.datetime "updated_at", null: false
-    t.index ["is_active"], name: "idx_marketplace_categories_on_is_active"
-    t.index ["slug"], name: "idx_marketplace_categories_on_slug_unique", unique: true
-    t.index ["sort_order"], name: "idx_marketplace_categories_on_sort_order"
-  end
-
-  create_table "marketplace_listings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "category", limit: 100
-    t.datetime "created_at", null: false
-    t.string "documentation_url", limit: 500
-    t.boolean "featured", default: false
-    t.string "homepage_url", limit: 500
-    t.text "long_description"
-    t.datetime "published_at", precision: nil
-    t.text "review_notes"
-    t.string "review_status", limit: 50, default: "pending"
-    t.jsonb "screenshots", default: []
-    t.string "short_description", limit: 500
-    t.string "support_url", limit: 500
-    t.jsonb "tags", default: []
-    t.string "title", limit: 255, null: false
-    t.datetime "updated_at", null: false
-    t.index ["category"], name: "idx_marketplace_listings_on_category"
-    t.index ["featured"], name: "idx_marketplace_listings_on_featured"
-    t.index ["published_at"], name: "idx_marketplace_listings_on_published_at"
-    t.index ["review_status"], name: "idx_marketplace_listings_on_review_status"
-    t.check_constraint "review_status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text])", name: "valid_listing_review_status"
-  end
-
   create_table "marketplace_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.text "content"
@@ -5005,6 +4970,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.index ["rating"], name: "index_marketplace_reviews_on_rating"
     t.index ["reviewable_type", "reviewable_id"], name: "idx_marketplace_reviews_on_reviewable"
     t.index ["user_id"], name: "index_marketplace_reviews_on_user_id"
+  end
+
+  create_table "marketplace_subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "cancelled_at"
+    t.jsonb "configuration", default: {}
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}
+    t.datetime "next_billing_at"
+    t.string "status", default: "active", null: false
+    t.uuid "subscribable_id"
+    t.string "subscribable_type"
+    t.datetime "subscribed_at", null: false
+    t.uuid "subscribed_by_user_id"
+    t.string "tier"
+    t.datetime "updated_at", null: false
+    t.jsonb "usage_metrics", default: {}
+    t.index ["account_id"], name: "index_marketplace_subscriptions_on_account_id"
+    t.index ["status"], name: "index_marketplace_subscriptions_on_status"
+    t.index ["subscribable_type", "subscribable_id"], name: "idx_app_subscriptions_on_subscribable"
+    t.index ["subscribed_at"], name: "index_marketplace_subscriptions_on_subscribed_at"
   end
 
   create_table "mcp_hosted_servers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5466,48 +5452,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.check_constraint "price_cents >= 0", name: "valid_price"
   end
 
-  create_table "plugins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.string "author", limit: 255
-    t.decimal "average_rating", precision: 3, scale: 2
-    t.jsonb "capabilities", default: [], null: false
-    t.jsonb "configuration", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.uuid "creator_id", null: false
-    t.text "description"
-    t.integer "download_count", default: 0
-    t.string "homepage", limit: 500
-    t.integer "install_count", default: 0
-    t.boolean "is_official", default: false
-    t.boolean "is_verified", default: false
-    t.string "license", limit: 50
-    t.jsonb "manifest", default: {}, null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.string "name", limit: 255, null: false
-    t.string "plugin_id", limit: 255, null: false
-    t.string "plugin_types", default: [], null: false, array: true
-    t.integer "rating_count", default: 0
-    t.string "slug", limit: 255, null: false
-    t.uuid "source_marketplace_id"
-    t.string "source_ref", limit: 255
-    t.string "source_type", null: false
-    t.string "source_url", limit: 500
-    t.string "status", default: "available", null: false
-    t.datetime "updated_at", null: false
-    t.string "version", limit: 20, null: false
-    t.index ["account_id", "plugin_id"], name: "index_plugins_on_account_id_and_plugin_id", unique: true
-    t.index ["account_id", "slug"], name: "index_plugins_on_account_id_and_slug", unique: true
-    t.index ["account_id"], name: "index_plugins_on_account_id"
-    t.index ["capabilities"], name: "index_plugins_on_capabilities", using: :gin
-    t.index ["creator_id"], name: "index_plugins_on_creator_id"
-    t.index ["is_official"], name: "index_plugins_on_is_official"
-    t.index ["is_verified"], name: "index_plugins_on_is_verified"
-    t.index ["plugin_types"], name: "index_plugins_on_plugin_types", using: :gin
-    t.index ["source_marketplace_id"], name: "index_plugins_on_source_marketplace_id"
-    t.index ["source_type"], name: "index_plugins_on_source_type"
-    t.index ["status"], name: "index_plugins_on_status"
-  end
-
   create_table "reconciliation_flags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.decimal "amount_cents", precision: 15, scale: 2
     t.datetime "created_at", null: false
@@ -5789,35 +5733,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.index ["period_type"], name: "idx_revenue_snapshots_on_period_type"
     t.index ["snapshot_date"], name: "idx_revenue_snapshots_on_snapshot_date"
     t.check_constraint "period_type::text = ANY (ARRAY['daily'::character varying::text, 'weekly'::character varying::text, 'monthly'::character varying::text, 'yearly'::character varying::text])", name: "valid_period_type"
-  end
-
-  create_table "review_aggregation_cache", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.decimal "average_features_rating", precision: 3, scale: 2
-    t.decimal "average_quality_score", precision: 5, scale: 2
-    t.decimal "average_rating", precision: 3, scale: 2, default: "0.0"
-    t.decimal "average_support_rating", precision: 3, scale: 2
-    t.decimal "average_usability_rating", precision: 3, scale: 2
-    t.decimal "average_value_rating", precision: 3, scale: 2
-    t.datetime "created_at", null: false
-    t.integer "five_star_count", default: 0
-    t.integer "four_star_count", default: 0
-    t.datetime "last_calculated_at", null: false
-    t.integer "one_star_count", default: 0
-    t.integer "response_count", default: 0
-    t.decimal "response_rate", precision: 5, scale: 2, default: "0.0"
-    t.integer "three_star_count", default: 0
-    t.integer "total_helpful_votes", default: 0
-    t.integer "total_reviews", default: 0
-    t.integer "two_star_count", default: 0
-    t.datetime "updated_at", null: false
-    t.integer "verified_reviews_count", default: 0
-    t.index ["average_rating"], name: "idx_review_aggregation_cache_on_average_rating"
-    t.index ["last_calculated_at"], name: "idx_review_aggregation_cache_on_last_calculated_at"
-    t.index ["total_reviews"], name: "idx_review_aggregation_cache_on_total_reviews"
-    t.check_constraint "average_rating >= 0::numeric AND average_rating <= 5::numeric", name: "valid_cached_average_rating"
-    t.check_constraint "five_star_count >= 0 AND four_star_count >= 0 AND three_star_count >= 0 AND two_star_count >= 0 AND one_star_count >= 0", name: "valid_rating_counts"
-    t.check_constraint "response_rate >= 0::numeric AND response_rate <= 100::numeric", name: "valid_response_rate"
-    t.check_constraint "total_reviews >= 0", name: "valid_total_reviews"
   end
 
   create_table "role_permissions", id: false, force: :cascade do |t|
@@ -7167,7 +7082,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.index ["tier"], name: "index_webhook_endpoints_on_tier"
     t.check_constraint "content_type::text = ANY (ARRAY['application/json'::character varying::text, 'application/x-www-form-urlencoded'::character varying::text])", name: "valid_webhook_content_type"
     t.check_constraint "failure_count >= 0", name: "valid_webhook_failure_count"
-    t.check_constraint "payload_detail_level::text = ANY (ARRAY['full'::character varying, 'minimal'::character varying, 'ids_only'::character varying]::text[])", name: "webhook_endpoints_payload_detail_level_check"
+    t.check_constraint "payload_detail_level::text = ANY (ARRAY['full'::character varying::text, 'minimal'::character varying::text, 'ids_only'::character varying::text])", name: "webhook_endpoints_payload_detail_level_check"
     t.check_constraint "retry_backoff::text = ANY (ARRAY['linear'::character varying::text, 'exponential'::character varying::text])", name: "valid_webhook_retry_backoff"
     t.check_constraint "retry_limit >= 0 AND retry_limit <= 10", name: "valid_webhook_retry_limit"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'suspended'::character varying::text])", name: "valid_webhook_status"
@@ -7245,21 +7160,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
     t.index ["name"], name: "index_workers_on_name", unique: true
     t.index ["permissions"], name: "index_workers_on_permissions", using: :gin
     t.index ["status"], name: "index_workers_on_status"
-  end
-
-  create_table "workflow_node_plugins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.jsonb "configuration_schema", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.jsonb "input_schema", default: {}, null: false
-    t.string "node_category", null: false
-    t.string "node_type", null: false
-    t.jsonb "output_schema", default: {}, null: false
-    t.uuid "plugin_id", null: false
-    t.jsonb "ui_configuration", default: {}, null: false
-    t.datetime "updated_at", null: false
-    t.index ["node_category"], name: "index_workflow_node_plugins_on_node_category"
-    t.index ["node_type"], name: "index_workflow_node_plugins_on_node_type"
-    t.index ["plugin_id"], name: "index_workflow_node_plugins_on_plugin_id"
   end
 
   create_table "workflow_validations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -7433,7 +7333,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
   add_foreign_key "ai_provider_credentials", "ai_providers", on_delete: :cascade
   add_foreign_key "ai_provider_metrics", "accounts"
   add_foreign_key "ai_provider_metrics", "ai_providers", column: "provider_id"
-  add_foreign_key "ai_provider_plugins", "plugins"
   add_foreign_key "ai_providers", "accounts"
   add_foreign_key "ai_publisher_accounts", "accounts"
   add_foreign_key "ai_publisher_accounts", "users", column: "primary_user_id"
@@ -7497,11 +7396,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
   add_foreign_key "ai_workflow_node_executions", "ai_workflow_nodes"
   add_foreign_key "ai_workflow_node_executions", "ai_workflow_runs"
   add_foreign_key "ai_workflow_nodes", "ai_workflows"
-  add_foreign_key "ai_workflow_nodes", "plugins"
   add_foreign_key "ai_workflow_nodes", "shared_prompt_templates", on_delete: :nullify
   add_foreign_key "ai_workflow_run_logs", "ai_workflow_node_executions"
   add_foreign_key "ai_workflow_run_logs", "ai_workflow_runs"
   add_foreign_key "ai_workflow_runs", "accounts"
+  add_foreign_key "ai_workflow_runs", "ai_a2a_tasks", column: "a2a_task_id", on_delete: :nullify
   add_foreign_key "ai_workflow_runs", "ai_workflow_triggers"
   add_foreign_key "ai_workflow_runs", "ai_workflows"
   add_foreign_key "ai_workflow_runs", "users", column: "triggered_by_user_id"
@@ -7520,7 +7419,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
   add_foreign_key "api_key_usages", "api_keys"
   add_foreign_key "api_keys", "accounts"
   add_foreign_key "api_keys", "users", column: "created_by_id"
-  add_foreign_key "app_subscriptions", "accounts"
   add_foreign_key "audit_logs", "accounts"
   add_foreign_key "audit_logs", "users", on_delete: :nullify
   add_foreign_key "baas_api_keys", "baas_tenants"
@@ -7588,6 +7486,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
   add_foreign_key "devops_step_executions", "devops_pipeline_runs", column: "ci_cd_pipeline_run_id", on_delete: :cascade
   add_foreign_key "devops_step_executions", "devops_pipeline_steps", column: "ci_cd_pipeline_step_id", on_delete: :cascade
   add_foreign_key "email_deliveries", "users"
+  add_foreign_key "external_agents", "accounts", on_delete: :cascade
+  add_foreign_key "external_agents", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "file_object_tags", "accounts"
   add_foreign_key "file_object_tags", "file_objects"
   add_foreign_key "file_object_tags", "file_tags"
@@ -7650,6 +7550,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
   add_foreign_key "knowledge_base_workflows", "users"
   add_foreign_key "marketplace_reviews", "accounts"
   add_foreign_key "marketplace_reviews", "users"
+  add_foreign_key "marketplace_subscriptions", "accounts"
   add_foreign_key "mcp_hosted_servers", "accounts"
   add_foreign_key "mcp_hosted_servers", "mcp_servers"
   add_foreign_key "mcp_hosted_servers", "users", column: "deployed_by_id"
@@ -7676,8 +7577,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
   add_foreign_key "payments", "invoices"
   add_foreign_key "payments", "payment_methods"
   add_foreign_key "payments", "subscriptions"
-  add_foreign_key "plugins", "accounts"
-  add_foreign_key "plugins", "users", column: "creator_id"
   add_foreign_key "reconciliation_flags", "reconciliation_reports"
   add_foreign_key "reconciliation_flags", "users", column: "resolved_by_id"
   add_foreign_key "reconciliation_investigations", "reconciliation_flags"
@@ -7821,6 +7720,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_000005) do
   add_foreign_key "worker_roles", "roles"
   add_foreign_key "worker_roles", "workers"
   add_foreign_key "workers", "accounts"
-  add_foreign_key "workflow_node_plugins", "plugins"
   add_foreign_key "workflow_validations", "ai_workflows", column: "workflow_id"
 end

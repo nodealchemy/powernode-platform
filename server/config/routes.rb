@@ -9,6 +9,21 @@ Rails.application.routes.draw do
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # =========================================================================
+  # A2A Protocol - Well-Known Endpoints (outside API namespace)
+  # =========================================================================
+  # These endpoints implement the A2A protocol for agent-to-agent discovery
+  # and communication. They must be at the root level per the A2A spec.
+  # =========================================================================
+  scope "/.well-known" do
+    get "agent-card.json", to: "well_known#agent_card"
+  end
+
+  # A2A JSON-RPC 2.0 endpoint
+  post "/a2a", to: "a2a#handle"
+  get "/a2a", to: "a2a#info"
+  post "/a2a/stream", to: "a2a#stream"
+
   # Health check endpoints (global, outside API namespace)
   get :health, to: "health#index"
   get "health/detailed", to: "health#detailed"
@@ -748,21 +763,6 @@ Rails.application.routes.draw do
           get :health
         end
 
-        # Review Moderation
-        resource :review_moderation, only: [], controller: "review_moderation" do
-          collection do
-            get :queue
-            post :bulk_action
-            get :analytics
-            get :settings
-            post :update_settings
-          end
-
-          member do
-            get "history/:review_id", to: "review_moderation#history"
-          end
-        end
-
         # Reverse Proxy URL Configuration
         resources :proxy_settings, only: [] do
           collection do
@@ -1063,14 +1063,7 @@ Rails.application.routes.draw do
         end
       end
 
-      # Public marketplace endpoints (no authentication required)
-      resources :marketplace_listings, only: [ :index, :show ] do
-        collection do
-          get :categories
-        end
-      end
-
-      # Marketplace endpoints (apps, plugins, templates, integrations)
+      # Marketplace endpoints (templates, integrations)
       namespace :marketplace do
         # Browse and discover
         get "/", to: "items#index"
@@ -1124,20 +1117,6 @@ Rails.application.routes.draw do
         get ":type/:id", to: "items#show"
         post ":type/:id/subscribe", to: "items#subscribe"
         delete ":type/:id/unsubscribe", to: "items#unsubscribe"
-      end
-
-      # Marketplace Categories (admin management)
-      resources :marketplace_categories do
-        member do
-          post :activate
-          post :deactivate
-          post :reorder
-          get :analytics
-        end
-
-        collection do
-          post :bulk_reorder
-        end
       end
 
       # System Management endpoints (admin only)

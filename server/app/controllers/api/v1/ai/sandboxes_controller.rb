@@ -61,7 +61,7 @@ module Api
           if result[:success]
             render_success(sandbox: sandbox_json(result[:sandbox]))
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 
@@ -173,7 +173,7 @@ module Api
           if result[:success]
             render_success(run: run_json(result[:run]), status: :created)
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 
@@ -185,7 +185,7 @@ module Api
           if result[:success]
             render_success(run: run_json(result[:run], detailed: true))
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 
@@ -243,7 +243,7 @@ module Api
               comparison: result[:comparison]
             )
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 
@@ -285,7 +285,7 @@ module Api
           if result[:success]
             render_success(ab_test: ab_test_json(result[:test]))
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 

@@ -294,7 +294,7 @@ RSpec.describe "Api::V1::SupplyChain::CveMonitors", type: :request do
              headers: auth_headers_for(supply_chain_writer),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["error"]).to include("Name can't be blank")
       end
 
@@ -306,7 +306,7 @@ RSpec.describe "Api::V1::SupplyChain::CveMonitors", type: :request do
              headers: auth_headers_for(supply_chain_writer),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["error"]).to include("Scope type is not included in the list")
       end
 
@@ -318,7 +318,7 @@ RSpec.describe "Api::V1::SupplyChain::CveMonitors", type: :request do
              headers: auth_headers_for(supply_chain_writer),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["error"]).to include("Min severity is not included in the list")
       end
 
@@ -330,7 +330,7 @@ RSpec.describe "Api::V1::SupplyChain::CveMonitors", type: :request do
              headers: auth_headers_for(supply_chain_writer),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["error"]).to include("Scope is required for image scope")
       end
 
@@ -342,7 +342,7 @@ RSpec.describe "Api::V1::SupplyChain::CveMonitors", type: :request do
              headers: auth_headers_for(supply_chain_writer),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["error"]).to include("Scope is required for repository scope")
       end
 
@@ -355,7 +355,7 @@ RSpec.describe "Api::V1::SupplyChain::CveMonitors", type: :request do
              headers: auth_headers_for(supply_chain_writer),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["error"]).to include("Name has already been taken")
       end
     end
@@ -457,7 +457,7 @@ RSpec.describe "Api::V1::SupplyChain::CveMonitors", type: :request do
               headers: auth_headers_for(supply_chain_writer),
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["error"]).to include("Min severity is not included in the list")
       end
 
@@ -469,7 +469,7 @@ RSpec.describe "Api::V1::SupplyChain::CveMonitors", type: :request do
               headers: auth_headers_for(supply_chain_writer),
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["error"]).to include("Name has already been taken")
       end
     end

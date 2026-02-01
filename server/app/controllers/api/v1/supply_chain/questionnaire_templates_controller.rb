@@ -39,7 +39,7 @@ module Api
           if @template.save
             render_success({ questionnaire_template: serialize_template(@template) }, status: :created)
           else
-            render_error(@template.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@template.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -53,7 +53,7 @@ module Api
           if @template.update(template_params)
             render_success({ questionnaire_template: serialize_template(@template) })
           else
-            render_error(@template.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@template.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -65,7 +65,7 @@ module Api
           end
 
           if @template.questionnaire_responses.exists?
-            render_error("Cannot delete template with existing responses", status: :unprocessable_entity)
+            render_error("Cannot delete template with existing responses", status: :unprocessable_content)
             return
           end
 
@@ -83,7 +83,7 @@ module Api
             message: "Template duplicated"
           )
         rescue StandardError => e
-          render_error("Failed to duplicate: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to duplicate: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/supply_chain/questionnaire_templates/:id/send_to_vendor
@@ -120,7 +120,7 @@ module Api
             message: "Questionnaire sent to vendor"
           )
         rescue StandardError => e
-          render_error("Failed to send questionnaire: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to send questionnaire: #{e.message}", status: :unprocessable_content)
         end
 
         private

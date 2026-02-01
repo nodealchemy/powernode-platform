@@ -14,7 +14,15 @@ module Ai
         @account = account
         @task = task
         @workflow_run = workflow_run
-        @redis = Rails.application.config.redis_client || Redis.new
+        @redis = redis_client
+      end
+
+      def redis_client
+        if Rails.application.config.respond_to?(:redis_client) && Rails.application.config.redis_client
+          Rails.application.config.redis_client
+        else
+          Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
+        end
       end
 
       # ==================== Core Operations ====================
@@ -285,11 +293,11 @@ module Ai
         Ai::PersistentContext.find_or_create_by!(
           account_id: @account.id,
           context_type: "agent_memory",
-          scope_type: "agent",
-          scope_id: @agent.id,
+          scope: "agent",
+          ai_agent_id: @agent.id,
           name: "#{@agent.name} Working Memory"
         ) do |ctx|
-          ctx.access_level = "private"
+          ctx.access_control = { "level" => "private" }
           ctx.retention_policy = {
             "max_entries" => 1000,
             "max_age_days" => 7

@@ -89,7 +89,7 @@ module Api
           if result[:success]
             render_success(installation: installation_json(result[:installation]))
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 
@@ -138,7 +138,7 @@ module Api
           if result[:success]
             render_success(execution: execution_json(result[:execution]), status: :created)
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 
@@ -190,7 +190,7 @@ module Api
           if result[:success]
             render_success(assessment: risk_json(result[:assessment]))
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 
@@ -256,7 +256,7 @@ module Api
           if result[:success]
             render_success(review: review_json(result[:review]), status: :created)
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 

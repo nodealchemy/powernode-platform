@@ -128,7 +128,7 @@ RSpec.describe 'Api::V1::Internal::Git::Repositories', type: :request do
              },
              headers: internal_headers
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['success']).to be false
       end
@@ -226,7 +226,7 @@ RSpec.describe 'Api::V1::Internal::Git::Repositories', type: :request do
               params: { stars_count: -1 },
               headers: internal_headers
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end

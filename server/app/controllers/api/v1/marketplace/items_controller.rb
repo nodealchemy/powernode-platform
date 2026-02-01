@@ -8,7 +8,7 @@ module Api
         before_action :authenticate_optional, only: [ :index, :show, :categories, :featured ]
 
         # GET /api/v1/marketplace
-        # Lists all marketplace items - supports both legacy and feature-aligned types
+        # Lists all marketplace items - supports feature-aligned types
         def index
           items = []
 
@@ -22,9 +22,7 @@ module Api
           items += normalize_integration_templates(filtered_integration_templates) if requested_types.include?("integration_template")
           items += normalize_prompt_templates(filtered_prompt_templates) if requested_types.include?("prompt_template")
 
-          # Legacy types (for backward compatibility)
-          items += normalize_apps(filtered_apps) if requested_types.include?("app")
-          items += normalize_plugins(filtered_plugins) if requested_types.include?("plugin")
+          # Legacy types (template and integration only)
           items += normalize_templates(filtered_templates) if requested_types.include?("template")
           items += normalize_integrations(filtered_integrations) if requested_types.include?("integration")
 
@@ -75,8 +73,6 @@ module Api
           items = []
 
           # Get featured/verified items from each type
-          items += normalize_apps(featured_apps)
-          items += normalize_plugins(featured_plugins)
           items += normalize_templates(featured_templates)
           items += normalize_integrations(featured_integrations)
 
@@ -90,13 +86,6 @@ module Api
         # Returns available categories across all types
         def categories
           categories = {}
-
-          # Collect categories from each type
-          MarketplaceListing.approved.published.pluck(:category).compact.each do |cat|
-            categories[cat] ||= { name: cat, count: 0, types: [] }
-            categories[cat][:count] += 1
-            categories[cat][:types] |= [ "app" ]
-          end
 
           # Add integration templates to categories
           ::Devops::IntegrationTemplate.marketplace_published.pluck(:category).compact.each do |cat|
@@ -131,10 +120,6 @@ module Api
           when "prompt_template"
                    find_prompt_template(item_id)
           # Legacy types
-          when "app"
-                   find_app(item_id)
-          when "plugin"
-                   find_plugin(item_id)
           when "template"
                    find_template(item_id)
           when "integration"
@@ -290,18 +275,6 @@ module Api
         end
 
         # Query builders - Legacy types
-        def filtered_apps
-          apps = MarketplaceListing.includes(:app).approved.published
-          apps = apps.by_category(params[:category]) if params[:category].present?
-          apps = apps.search(params[:search]) if params[:search].present?
-          apps
-        end
-
-        def filtered_plugins
-          # Plugin system deprecated - return empty relation
-          ::Devops::IntegrationTemplate.none
-        end
-
         def filtered_templates
           templates = ::Ai::WorkflowTemplate.public_templates.published
           templates = templates.by_category(params[:category]) if params[:category].present?
@@ -311,21 +284,11 @@ module Api
         end
 
         def filtered_integrations
-          # Use IntegrationTemplate for integrations
           integrations = ::Devops::IntegrationTemplate.marketplace_published
           integrations = integrations.by_category(params[:category]) if params[:category].present?
           integrations = integrations.search_by_text(params[:search]) if params[:search].present?
           integrations = integrations.featured if params[:verified] == "true"
           integrations
-        end
-
-        def featured_apps
-          MarketplaceListing.includes(:app).approved.published.where(app: { verified: true }).limit(3)
-        end
-
-        def featured_plugins
-          # Plugin system deprecated - return empty relation
-          ::Devops::IntegrationTemplate.none
         end
 
         def featured_templates
@@ -454,53 +417,6 @@ module Api
         end
 
         # Normalizers - Legacy types
-        def normalize_apps(apps)
-          apps.map do |listing|
-            {
-              id: listing.app.id,
-              type: "app",
-              name: listing.title,
-              slug: listing.app.slug,
-              description: listing.short_description,
-              category: listing.category,
-              tags: listing.tags || [],
-              icon: listing.primary_screenshot&.dig("url"),
-              version: listing.app.version || "1.0.0",
-              rating: listing.average_rating || listing.app.marketplace_rating || 0.0,
-              rating_count: listing.app.marketplace_review_count || 0,
-              install_count: listing.subscription_count || 0,
-              is_verified: listing.app.verified,
-              is_featured: listing.featured || false,
-              status: listing.published? ? "published" : "draft",
-              created_at: listing.created_at.iso8601
-            }
-          end
-        end
-
-        def normalize_plugins(plugins)
-          plugins.map do |plugin|
-            {
-              id: plugin.id,
-              type: "plugin",
-              name: plugin.name,
-              slug: plugin.slug,
-              description: plugin.description,
-              category: plugin.metadata&.dig("category") || "general",
-              tags: plugin.plugin_types || [],
-              icon: plugin.metadata&.dig("icon"),
-              version: plugin.version,
-              rating: plugin.average_rating || plugin.marketplace_rating || 0.0,
-              rating_count: plugin.marketplace_review_count || 0,
-              install_count: plugin.install_count || 0,
-              is_verified: plugin.is_verified || false,
-              is_featured: plugin.is_official || false,
-              status: plugin.status == "available" ? "published" : "draft",
-              capabilities: plugin.capabilities || [],
-              created_at: plugin.created_at.iso8601
-            }
-          end
-        end
-
         def normalize_templates(templates)
           templates.map do |template|
             {
@@ -535,7 +451,7 @@ module Api
               slug: integration.slug,
               description: integration.description,
               category: integration.metadata&.dig("category") || "integration",
-              tags: integration.plugin_types || [],
+              tags: integration.integration_types || [],
               icon: integration.metadata&.dig("icon"),
               version: integration.version,
               rating: integration.average_rating || integration.marketplace_rating || 0.0,
@@ -543,7 +459,7 @@ module Api
               install_count: integration.install_count || 0,
               is_verified: integration.is_verified || false,
               is_featured: integration.is_official || false,
-              status: integration.status == "available" ? "published" : "draft",
+              status: integration.marketplace_published? ? "published" : "draft",
               integration_type: integration.manifest&.dig("integration", "type") || "api",
               capabilities: integration.capabilities || [],
               created_at: integration.created_at.iso8601
@@ -552,21 +468,11 @@ module Api
         end
 
         # Item finders
-        def find_app(app_id)
-          ::Marketplace::Definition.find_by(id: app_id)&.marketplace_listing
-        end
-
-        def find_plugin(_plugin_id)
-          # Plugin system has been deprecated - return nil for legacy requests
-          nil
-        end
-
         def find_template(template_id)
           ::Ai::WorkflowTemplate.public_templates.find_by(id: template_id)
         end
 
         def find_integration(integration_id)
-          # Legacy integration lookups now use IntegrationTemplate
           ::Devops::IntegrationTemplate.marketplace_published.find_by(id: integration_id)
         end
 
@@ -599,10 +505,6 @@ module Api
           when "prompt_template"
             ::Shared::PromptTemplate.find_by(id: item_id)
           # Legacy types
-          when "app"
-            ::Marketplace::Definition.find_by(id: item_id)
-          when "plugin"
-            nil  # Plugin system deprecated
           when "template"
             ::Ai::WorkflowTemplate.find_by(id: item_id)
           when "integration"
@@ -622,10 +524,6 @@ module Api
           when "prompt_template"
             normalize_prompt_templates([ item ]).first
           # Legacy types
-          when "app"
-            normalize_apps([ item ]).first
-          when "plugin"
-            normalize_plugins([ item ]).first
           when "template"
             normalize_templates([ item ]).first
           when "integration"
@@ -636,18 +534,10 @@ module Api
         def get_subscription_info(item, item_type)
           return nil unless current_account
 
-          # Get the actual model (not the listing for apps)
-          actual_item = case item_type
-          when "app"
-                         item.is_a?(MarketplaceListing) ? item.app : item
-          else
-                         item
-          end
-
           subscription = ::Marketplace::Subscription.where(
             account: current_account,
-            subscribable_type: actual_item.class.name,
-            subscribable_id: actual_item.id
+            subscribable_type: item.class.name,
+            subscribable_id: item.id
           ).first
 
           return nil unless subscription
@@ -663,7 +553,6 @@ module Api
         def subscription_options
           {
             tier: params[:tier] || "standard",
-            plan_id: params[:plan_id],
             configuration: params[:configuration] || {},
             create_workflow: params[:create_workflow] == "true",
             workflow_name: params[:workflow_name],

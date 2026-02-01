@@ -151,11 +151,23 @@ module Ai
       column_names.include?("embedding")
     end
 
+    # Get embedding (from column or metadata)
+    def embedding
+      if self.class.embedding_column_exists?
+        self[:embedding]
+      else
+        metadata&.dig("embedding")
+      end
+    end
+
     # Update embedding for this entry
     def update_embedding!(embedding_vector)
-      return unless self.class.embedding_column_exists?
-
-      update!(embedding: embedding_vector)
+      if self.class.embedding_column_exists?
+        update!(embedding: embedding_vector)
+      else
+        # Store in metadata if column doesn't exist
+        update!(metadata: (metadata || {}).merge("embedding" => embedding_vector))
+      end
     end
 
     def read_content
@@ -166,6 +178,9 @@ module Ai
 
     def update_content(new_content, create_version: true)
       if create_version && content != new_content
+        # Archive this version first (to allow new entry with same key)
+        update!(archived_at: Time.current)
+
         # Create a new version
         new_entry = persistent_context.context_entries.create!(
           entry_key: entry_key,
@@ -179,9 +194,6 @@ module Ai
           previous_version_id: id,
           version: version + 1
         )
-
-        # Archive this version
-        update!(archived_at: Time.current)
 
         new_entry
       else

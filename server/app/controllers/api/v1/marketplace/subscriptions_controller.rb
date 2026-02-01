@@ -192,44 +192,33 @@ module Api
         def serialize_item(item, type)
           return nil unless item
 
+          base_data = {
+            id: item.id,
+            name: item.name,
+            slug: item.slug,
+            description: item.description,
+            version: item.version
+          }
+
           case type
-          when "app"
-            {
-              id: item.id,
-              name: item.name,
-              slug: item.slug,
-              description: item.description,
-              version: item.version,
-              category: item.category
-            }
-          when "plugin", "integration"
-            {
-              id: item.id,
-              name: item.name,
-              slug: item.slug,
-              description: item.description,
-              version: item.version,
-              capabilities: item.capabilities
-            }
-          when "template"
-            {
-              id: item.id,
-              name: item.name,
-              slug: item.slug,
-              description: item.description,
-              version: item.version,
-              category: item.category,
-              difficulty_level: item.difficulty_level
-            }
+          when "integration", "integration_template"
+            base_data.merge(capabilities: item.respond_to?(:capabilities) ? item.capabilities : [])
+          when "template", "workflow_template", "pipeline_template", "prompt_template"
+            base_data.merge(
+              category: item.respond_to?(:category) ? item.category : nil,
+              difficulty_level: item.respond_to?(:difficulty_level) ? item.difficulty_level : nil
+            )
+          else
+            base_data
           end
         end
 
         def subscription_counts_by_type
           {
-            app: current_account.marketplace_subscriptions.for_apps.count,
-            plugin: current_account.marketplace_subscriptions.for_plugins.count,
-            template: current_account.marketplace_subscriptions.for_templates.count,
-            integration: current_account.marketplace_subscriptions.for_integrations.count
+            workflow_template: current_account.marketplace_subscriptions.for_workflow_templates.count,
+            pipeline_template: current_account.marketplace_subscriptions.for_pipeline_templates.count,
+            integration_template: current_account.marketplace_subscriptions.for_integration_templates.count,
+            prompt_template: current_account.marketplace_subscriptions.for_prompt_templates.count
           }
         end
 

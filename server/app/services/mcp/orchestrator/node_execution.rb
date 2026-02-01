@@ -248,6 +248,9 @@ module Mcp
           Mcp::NodeExecutors::Scheduler
         when "file"
           Mcp::NodeExecutors::File
+        # A2A External Agent node type
+        when "external_agent"
+          Mcp::NodeExecutors::ExternalAgent
         else
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "Unknown node type: #{node_type}"
         end

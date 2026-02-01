@@ -232,7 +232,7 @@ RSpec.describe 'Api::V1::Kb::Categories', type: :request do
 
         post '/api/v1/kb/categories', params: invalid_params, headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response['success']).to be false
       end
     end
@@ -279,7 +279,7 @@ RSpec.describe 'Api::V1::Kb::Categories', type: :request do
 
         patch "/api/v1/kb/categories/#{public_category.id}", params: invalid_params, headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 

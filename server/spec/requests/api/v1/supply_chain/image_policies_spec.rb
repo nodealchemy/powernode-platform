@@ -252,7 +252,7 @@ RSpec.describe "Api::V1::SupplyChain::ImagePolicies", type: :request do
 
         post "/api/v1/supply_chain/image_policies", params: invalid_params, headers: write_headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = json_response
         expect(json["success"]).to be false
         expect(json["error"]).to include("Name")
@@ -263,7 +263,7 @@ RSpec.describe "Api::V1::SupplyChain::ImagePolicies", type: :request do
 
         post "/api/v1/supply_chain/image_policies", params: invalid_params, headers: write_headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = json_response
         expect(json["success"]).to be false
       end
@@ -273,7 +273,7 @@ RSpec.describe "Api::V1::SupplyChain::ImagePolicies", type: :request do
 
         post "/api/v1/supply_chain/image_policies", params: invalid_params, headers: write_headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = json_response
         expect(json["success"]).to be false
       end
@@ -364,7 +364,7 @@ RSpec.describe "Api::V1::SupplyChain::ImagePolicies", type: :request do
               headers: write_headers,
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = json_response
         expect(json["success"]).to be false
       end

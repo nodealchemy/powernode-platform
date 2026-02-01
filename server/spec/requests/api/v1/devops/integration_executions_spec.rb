@@ -142,7 +142,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
 
         post "/api/v1/devops/integration_executions/#{execution.id}/retry", headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -180,7 +180,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
 
         post "/api/v1/devops/integration_executions/#{execution.id}/cancel", headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end

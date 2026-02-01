@@ -67,11 +67,6 @@ RSpec.describe 'Api::V1::Marketplace::Items', type: :request do
 
   describe 'GET /api/v1/marketplace/featured' do
     context 'without authentication' do
-      before do
-        # Stub featured methods that may reference deleted models (App)
-        allow(MarketplaceListing).to receive_message_chain(:includes, :approved, :published, :where).and_return(MarketplaceListing.none)
-      end
-
       it 'returns featured items' do
         get '/api/v1/marketplace/featured', as: :json
 

@@ -208,7 +208,7 @@ RSpec.describe 'Api::V1::SupplyChain::VendorMonitoringEvents', type: :request do
              headers: write_headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response['error']).to include('already acknowledged')
       end
     end
@@ -245,7 +245,7 @@ RSpec.describe 'Api::V1::SupplyChain::VendorMonitoringEvents', type: :request do
              headers: write_headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response['error']).to include('already resolved')
       end
     end

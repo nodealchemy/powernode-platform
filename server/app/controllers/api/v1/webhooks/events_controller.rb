@@ -18,14 +18,14 @@ module Api
           if @event.update(event_update_params)
             render_success({ webhook_event: serialize_event(@event) })
           else
-            render_error(@event.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@event.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
         # POST /api/v1/webhooks/events/:id/processing
         def processing
           unless @event.pending?
-            return render_error("Event is not pending", status: :unprocessable_entity)
+            return render_error("Event is not pending", status: :unprocessable_content)
           end
 
           @event.update!(
@@ -43,7 +43,7 @@ module Api
         # POST /api/v1/webhooks/events/:id/processed
         def processed
           unless @event.processing?
-            return render_error("Event is not processing", status: :unprocessable_entity)
+            return render_error("Event is not processing", status: :unprocessable_content)
           end
 
           @event.update!(
@@ -62,7 +62,7 @@ module Api
         # POST /api/v1/webhooks/events/:id/failed
         def failed
           unless @event.processing?
-            return render_error("Event is not processing", status: :unprocessable_entity)
+            return render_error("Event is not processing", status: :unprocessable_content)
           end
 
           @event.update!(

@@ -39,7 +39,7 @@ module Api
           if @violation.update(violation_update_params)
             render_success({ license_violation: serialize_violation(@violation) })
           else
-            render_error(@violation.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@violation.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -55,7 +55,7 @@ module Api
             license_violation: serialize_violation(@violation)
           })
         rescue StandardError => e
-          render_error("Failed to resolve: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to resolve: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/supply_chain/license_violations/:id/request_exception
@@ -64,7 +64,7 @@ module Api
           expires_at = params[:expires_at]
 
           if justification.blank?
-            render_error("Justification is required for exception request", status: :unprocessable_entity)
+            render_error("Justification is required for exception request", status: :unprocessable_content)
             return
           end
 
@@ -79,7 +79,7 @@ module Api
             license_violation: serialize_violation(@violation)
           })
         rescue StandardError => e
-          render_error("Failed to request exception: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to request exception: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/supply_chain/license_violations/:id/approve_exception
@@ -98,7 +98,7 @@ module Api
             license_violation: serialize_violation(@violation)
           })
         rescue StandardError => e
-          render_error("Failed to approve exception: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to approve exception: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/supply_chain/license_violations/:id/reject_exception
@@ -112,7 +112,7 @@ module Api
             license_violation: serialize_violation(@violation)
           })
         rescue StandardError => e
-          render_error("Failed to reject exception: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to reject exception: #{e.message}", status: :unprocessable_content)
         end
 
         # GET /api/v1/supply_chain/license_violations/statistics

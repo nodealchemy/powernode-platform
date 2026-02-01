@@ -145,7 +145,7 @@ RSpec.describe TaskExecution, type: :model do
       end
 
       it 'formats minutes and seconds' do
-        execution.started_at = 2.minutes.ago + 30.seconds.ago
+        execution.started_at = (2.minutes + 30.seconds).ago
         execution.completed_at = Time.current
         result = execution.duration_human
         expect(result).to match(/\d+m \d+s/)
@@ -160,14 +160,21 @@ RSpec.describe TaskExecution, type: :model do
   end
 
   describe 'callbacks' do
-    let(:scheduled_task) { create(:scheduled_task) }
+    let(:scheduled_task) do
+      # Allow any log messages during scheduled_task creation
+      allow(Rails.logger).to receive(:info)
+      create(:scheduled_task)
+    end
 
     it 'logs execution creation' do
+      scheduled_task # trigger creation with logging allowed
       expect(Rails.logger).to receive(:info).with(/Task execution created for/)
       create(:task_execution, scheduled_task: scheduled_task)
     end
 
     it 'logs status changes' do
+      scheduled_task # trigger creation with logging allowed
+      allow(Rails.logger).to receive(:info) # allow creation log
       execution = create(:task_execution, :running, scheduled_task: scheduled_task)
       expect(Rails.logger).to receive(:info).with(/Task execution status changed for/)
       execution.update!(status: 'completed')

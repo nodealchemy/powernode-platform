@@ -131,7 +131,7 @@ class Api::V1::ReconciliationController < ApplicationController
     unless account
       return render_error(
         "Cannot determine account for missing payment. Provide account_id or ensure a related payment exists.",
-        status: :unprocessable_entity
+        status: :unprocessable_content
       )
     end
 

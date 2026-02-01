@@ -196,7 +196,8 @@ class Reseller < ApplicationRecord
   end
 
   def set_commission_by_tier
-    self.commission_percentage ||= TIER_BENEFITS[tier][:commission]
+    # Always set commission based on tier on create (overrides DB default)
+    self.commission_percentage = TIER_BENEFITS[tier][:commission]
   end
 
   def generate_payout_reference

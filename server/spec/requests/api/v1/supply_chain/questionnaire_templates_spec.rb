@@ -367,7 +367,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireTemplates", type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to be_present
       end
@@ -378,7 +378,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireTemplates", type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
       end
 
@@ -498,7 +498,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireTemplates", type: :request do
               headers: headers,
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
       end
     end
@@ -584,7 +584,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireTemplates", type: :request do
           delete "/api/v1/supply_chain/questionnaire_templates/#{template.id}", headers: headers, as: :json
         }.not_to change(SupplyChain::QuestionnaireTemplate, :count)
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to eq("Cannot delete template with existing responses")
       end
@@ -843,7 +843,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireTemplates", type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to include("Failed to send questionnaire")
       end
@@ -858,7 +858,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireTemplates", type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
       end
     end

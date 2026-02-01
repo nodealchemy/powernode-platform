@@ -57,7 +57,7 @@ module Api
           metric_names = params[:metrics]&.split(",") || []
 
           if metric_names.empty?
-            return render_error("metrics parameter is required", status: :unprocessable_entity)
+            return render_error("metrics parameter is required", status: :unprocessable_content)
           end
 
           time_range = params[:range] || "1h"

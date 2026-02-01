@@ -345,7 +345,7 @@ RSpec.describe "Api::V1::SupplyChain::SigningKeys", type: :request do
              headers: auth_headers_for(read_write_user),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to be_present
       end
@@ -365,7 +365,7 @@ RSpec.describe "Api::V1::SupplyChain::SigningKeys", type: :request do
              headers: auth_headers_for(read_write_user),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response["success"]).to be false
         expect(json_response["error"]).to be_present
       end
@@ -469,7 +469,7 @@ RSpec.describe "Api::V1::SupplyChain::SigningKeys", type: :request do
               headers: auth_headers_for(read_write_user),
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -523,7 +523,7 @@ RSpec.describe "Api::V1::SupplyChain::SigningKeys", type: :request do
                  as: :json
         end.not_to change(SupplyChain::SigningKey, :count)
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect_error_response("Cannot delete signing key with existing attestations", 422)
       end
 
@@ -610,7 +610,7 @@ RSpec.describe "Api::V1::SupplyChain::SigningKeys", type: :request do
              headers: auth_headers_for(read_write_user),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect_error_response("Failed to rotate key: Rotation failed", 422)
       end
     end
@@ -684,7 +684,7 @@ RSpec.describe "Api::V1::SupplyChain::SigningKeys", type: :request do
              headers: auth_headers_for(read_write_user),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect_error_response("Failed to revoke key: Revocation failed", 422)
       end
     end

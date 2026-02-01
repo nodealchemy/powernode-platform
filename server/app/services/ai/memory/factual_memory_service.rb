@@ -170,11 +170,11 @@ module Ai
         Ai::PersistentContext.find_or_create_by!(
           account_id: @account.id,
           context_type: "agent_memory",
-          scope_type: "agent",
-          scope_id: @agent.id,
+          scope: "agent",
+          ai_agent_id: @agent.id,
           name: "#{@agent.name} Factual Memory"
         ) do |ctx|
-          ctx.access_level = "private"
+          ctx.access_control = { "level" => "private" }
           ctx.retention_policy = { "max_entries" => 10_000 }
         end
       end

@@ -4,7 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
   before do
-    allow(WorkerJobService).to receive(:enqueue_notification_email).and_return(true)
+    allow(WorkerJobService).to receive(:enqueue_job).and_return({ 'status' => 'queued' })
+    allow(WorkerJobService).to receive(:enqueue_notification_email).and_return({ 'status' => 'queued' })
     allow(System::SettingsService).to receive(:email_verification_required?).and_return(true)
     allow(System::SettingsService).to receive(:get_setting).and_return({})
   end
@@ -217,7 +218,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
              params: valid_params,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
 
         response_data = json_response
         expect(response_data['success']).to be false
@@ -231,7 +232,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
              params: valid_params.except(:email),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'returns validation error for missing password' do
@@ -239,7 +240,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
              params: valid_params.except(:password),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'returns validation error for missing name' do
@@ -247,7 +248,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
              params: valid_params.except(:name),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -257,7 +258,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
              params: valid_params.merge(email: 'invalid-email'),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -267,7 +268,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
              params: valid_params.merge(password: 'weak'),
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 

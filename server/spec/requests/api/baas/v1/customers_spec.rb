@@ -104,7 +104,7 @@ RSpec.describe "Api::BaaS::V1::Customers", type: :request do
 
       post "/api/baas/v1/customers", params: { external_id: "existing-id" }.to_json, headers: headers
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 
@@ -136,7 +136,7 @@ RSpec.describe "Api::BaaS::V1::Customers", type: :request do
 
       delete "/api/baas/v1/customers/#{customer.external_id}", headers: headers
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 

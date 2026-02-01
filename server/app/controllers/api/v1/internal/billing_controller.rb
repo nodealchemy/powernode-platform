@@ -30,7 +30,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     render_not_found("Subscription")
   rescue StandardError => e
     Rails.logger.error "Renewal processing failed: #{e.message}"
-    render_error("Failed to process renewal: #{e.message}", status: :unprocessable_entity)
+    render_error("Failed to process renewal: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/billing/retry_payment
@@ -57,7 +57,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     render_not_found(e.message.include?("Invoice") ? "Invoice" : "Subscription")
   rescue StandardError => e
     Rails.logger.error "Payment retry failed: #{e.message}"
-    render_error("Failed to retry payment: #{e.message}", status: :unprocessable_entity)
+    render_error("Failed to retry payment: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/billing/process_payment
@@ -102,7 +102,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     render_not_found("Invoice")
   rescue StandardError => e
     Rails.logger.error "Payment processing failed: #{e.message}"
-    render_error("Failed to process payment: #{e.message}", status: :unprocessable_entity)
+    render_error("Failed to process payment: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/billing/generate_invoice
@@ -159,7 +159,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     render_not_found("Subscription")
   rescue StandardError => e
     Rails.logger.error "Invoice generation failed: #{e.message}"
-    render_error("Failed to generate invoice: #{e.message}", status: :unprocessable_entity)
+    render_error("Failed to generate invoice: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/billing/suspend_subscription
@@ -190,7 +190,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     render_not_found("Subscription")
   rescue StandardError => e
     Rails.logger.error "Suspension failed: #{e.message}"
-    render_error("Failed to suspend subscription: #{e.message}", status: :unprocessable_entity)
+    render_error("Failed to suspend subscription: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/billing/cancel_subscription
@@ -221,7 +221,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     render_not_found("Subscription")
   rescue StandardError => e
     Rails.logger.error "Cancellation failed: #{e.message}"
-    render_error("Failed to cancel subscription: #{e.message}", status: :unprocessable_entity)
+    render_error("Failed to cancel subscription: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/billing/cleanup
@@ -240,7 +240,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     render_success(data: cleanup_results, message: "Billing cleanup completed")
   rescue StandardError => e
     Rails.logger.error "Billing cleanup failed: #{e.message}"
-    render_error("Failed to cleanup billing data: #{e.message}", status: :unprocessable_entity)
+    render_error("Failed to cleanup billing data: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/billing/health_report
@@ -262,7 +262,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     render_success(data: report, message: "Health report recorded")
   rescue StandardError => e
     Rails.logger.error "Health report failed: #{e.message}"
-    render_error("Failed to record health report: #{e.message}", status: :unprocessable_entity)
+    render_error("Failed to record health report: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/internal/billing/reactivate_suspended_accounts
@@ -293,7 +293,7 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
     render_not_found("Subscription")
   rescue StandardError => e
     Rails.logger.error "Reactivation failed: #{e.message}"
-    render_error("Failed to reactivate accounts: #{e.message}", status: :unprocessable_entity)
+    render_error("Failed to reactivate accounts: #{e.message}", status: :unprocessable_content)
   end
 
   private

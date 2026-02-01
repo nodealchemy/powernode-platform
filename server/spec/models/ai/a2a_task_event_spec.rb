@@ -11,7 +11,7 @@ RSpec.describe Ai::A2aTaskEvent, type: :model do
     subject { build(:ai_a2a_task_event) }
 
     it { should validate_presence_of(:event_type) }
-    it { should validate_inclusion_of(:event_type).in_array(%w[status_change artifact_added message progress error]) }
+    it { should validate_inclusion_of(:event_type).in_array(%w[status_change artifact_added message progress error cancelled]) }
   end
 
   describe 'scopes' do
@@ -44,36 +44,38 @@ RSpec.describe Ai::A2aTaskEvent, type: :model do
     end
   end
 
-  describe '#to_sse_format' do
+  describe '#to_sse_json' do
     let(:event) { create(:ai_a2a_task_event, :progress) }
 
-    it 'returns SSE-formatted string' do
-      sse = event.to_sse_format
+    it 'returns SSE-formatted hash' do
+      sse = event.to_sse_json
 
-      expect(sse).to include("event: #{event.event_type}")
-      expect(sse).to include("id: #{event.id}")
-      expect(sse).to include("data:")
+      expect(sse[:id]).to eq(event.event_id)
+      expect(sse[:type]).to eq('task.progress')
+      expect(sse[:data]).to be_present
     end
 
     it 'includes JSON data' do
-      sse = event.to_sse_format
-      data_line = sse.lines.find { |l| l.start_with?('data:') }
-      json_data = JSON.parse(data_line.sub('data: ', '').strip)
+      sse = event.to_sse_json
+      json_data = JSON.parse(sse[:data])
 
-      expect(json_data).to include('current', 'total')
+      expect(json_data).to include('taskId')
     end
   end
 
-  describe '#broadcast!' do
-    let(:event) { create(:ai_a2a_task_event) }
+  describe 'auto-broadcast on create' do
+    let(:task) { create(:ai_a2a_task) }
 
-    it 'broadcasts to ActionCable channel' do
+    it 'broadcasts to ActionCable channel on create' do
       expect(ActionCable.server).to receive(:broadcast).with(
-        "a2a_task_#{event.a2a_task.task_id}",
-        hash_including('event_type' => event.event_type)
+        "a2a_task_#{task.task_id}",
+        hash_including(:id, :type, :data)
       )
 
-      event.broadcast!
+      # Also expect broadcast to account channel
+      allow(McpChannel).to receive(:broadcast_to)
+
+      create(:ai_a2a_task_event, a2a_task: task)
     end
   end
 end

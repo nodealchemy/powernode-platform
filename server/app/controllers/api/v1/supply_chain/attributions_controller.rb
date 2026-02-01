@@ -43,7 +43,7 @@ module Api
           if @attribution.save
             render_success({ attribution: serialize_attribution(@attribution) }, status: :created)
           else
-            render_error(@attribution.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@attribution.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -52,7 +52,7 @@ module Api
           if @attribution.update(attribution_params)
             render_success({ attribution: serialize_attribution(@attribution) })
           else
-            render_error(@attribution.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@attribution.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -68,7 +68,7 @@ module Api
           format = params[:format] || "text"
 
           if sbom_id.blank?
-            return render_error("sbom_id is required", status: :unprocessable_entity)
+            return render_error("sbom_id is required", status: :unprocessable_content)
           end
 
           sbom = current_account.supply_chain_sboms.find(sbom_id)
@@ -93,7 +93,7 @@ module Api
               message: "Notice file generated"
             )
           else
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error(result[:error], status: :unprocessable_content)
           end
         rescue ActiveRecord::RecordNotFound
           render_error("SBOM not found", status: :not_found)
@@ -124,7 +124,7 @@ module Api
             spdx_content = generate_spdx(attributions)
             render_success(spdx_content)
           else
-            render_error("Unsupported format: #{format}", status: :unprocessable_entity)
+            render_error("Unsupported format: #{format}", status: :unprocessable_content)
           end
         end
 

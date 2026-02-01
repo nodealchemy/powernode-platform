@@ -38,7 +38,7 @@ module Api
           if @policy.save
             render_success({ license_policy: serialize_policy(@policy) }, status: :created)
           else
-            render_error(@policy.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@policy.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -47,7 +47,7 @@ module Api
           if @policy.update(policy_params)
             render_success({ license_policy: serialize_policy(@policy) })
           else
-            render_error(@policy.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@policy.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 

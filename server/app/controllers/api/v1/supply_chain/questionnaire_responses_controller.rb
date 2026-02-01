@@ -45,7 +45,7 @@ module Api
         # POST /api/v1/supply_chain/questionnaire_responses/token/:token/submit
         def submit_by_token
           if @response.submitted?
-            render_error("Questionnaire already submitted", status: :unprocessable_entity)
+            render_error("Questionnaire already submitted", status: :unprocessable_content)
             return
           end
 
@@ -66,7 +66,7 @@ module Api
               overall_score: @response.overall_score
             }, message: "Questionnaire submitted successfully")
           else
-            render_error(@response.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@response.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -75,14 +75,14 @@ module Api
           if @response.update(response_params)
             render_success({ questionnaire_response: serialize_response(@response) })
           else
-            render_error(@response.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@response.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
         # POST /api/v1/supply_chain/questionnaire_responses/:id/submit
         def submit
           if @response.submitted?
-            render_error("Questionnaire already submitted", status: :unprocessable_entity)
+            render_error("Questionnaire already submitted", status: :unprocessable_content)
             return
           end
 
@@ -92,10 +92,10 @@ module Api
               message: "Questionnaire submitted successfully"
             )
           else
-            render_error("Failed to submit questionnaire", status: :unprocessable_entity)
+            render_error("Failed to submit questionnaire", status: :unprocessable_content)
           end
         rescue StandardError => e
-          render_error("Failed to submit: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to submit: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/supply_chain/questionnaire_responses/:id/review
@@ -107,7 +107,7 @@ module Api
             message: "Questionnaire reviewed"
           )
         rescue StandardError => e
-          render_error("Failed to review: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to review: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/supply_chain/questionnaire_responses/:id/send_reminder
@@ -137,7 +137,7 @@ module Api
             message: "Reminder sent"
           )
         rescue StandardError => e
-          render_error("Failed to send reminder: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to send reminder: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/supply_chain/questionnaire_responses/:id/approve
@@ -152,14 +152,14 @@ module Api
             message: "Questionnaire approved"
           )
         rescue StandardError => e
-          render_error("Failed to approve: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to approve: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/supply_chain/questionnaire_responses/:id/reject
         def reject
           reason = params[:reason]
           if reason.blank?
-            render_error("Rejection reason is required", status: :unprocessable_entity)
+            render_error("Rejection reason is required", status: :unprocessable_content)
             return
           end
 
@@ -170,14 +170,14 @@ module Api
             message: "Questionnaire rejected"
           )
         rescue StandardError => e
-          render_error("Failed to reject: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to reject: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/supply_chain/questionnaire_responses/:id/request_changes
         def request_changes
           feedback = params[:feedback]
           if feedback.blank?
-            render_error("Feedback is required", status: :unprocessable_entity)
+            render_error("Feedback is required", status: :unprocessable_content)
             return
           end
 
@@ -205,7 +205,7 @@ module Api
             message: "Changes requested"
           )
         rescue StandardError => e
-          render_error("Failed to request changes: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to request changes: #{e.message}", status: :unprocessable_content)
         end
 
         private

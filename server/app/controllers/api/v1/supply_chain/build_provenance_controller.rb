@@ -37,7 +37,7 @@ module Api
         # POST /api/v1/supply_chain/build_provenance/:id/verify_reproducibility
         def verify_reproducibility
           if @provenance.verification_in_progress?
-            return render_error("Verification already in progress", status: :unprocessable_entity)
+            return render_error("Verification already in progress", status: :unprocessable_content)
           end
 
           updated_metadata = (@provenance.metadata || {}).merge(
@@ -54,7 +54,7 @@ module Api
             message: "Reproducibility verification started"
           )
         rescue StandardError => e
-          render_error("Failed to start verification: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to start verification: #{e.message}", status: :unprocessable_content)
         end
 
         private

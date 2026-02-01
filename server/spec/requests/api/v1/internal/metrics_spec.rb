@@ -90,7 +90,7 @@ RSpec.describe 'Api::V1::Internal::Metrics', type: :request do
       it 'requires metrics parameter' do
         post '/api/v1/internal/metrics/custom', headers: internal_headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'returns custom metrics when requested' do

@@ -55,7 +55,7 @@ module Api
           if result[:success]
             render_success(installation: installation_json(result[:installation]))
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 
@@ -67,7 +67,7 @@ module Api
           if result[:success]
             render_success(message: "Template uninstalled successfully")
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 
@@ -101,7 +101,7 @@ module Api
           if result[:success]
             render_success(review: review_json(result[:review]))
           else
-            render_error(result[:error], :unprocessable_entity)
+            render_error(result[:error], :unprocessable_content)
           end
         end
 

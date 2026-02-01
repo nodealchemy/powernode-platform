@@ -200,7 +200,7 @@ RSpec.describe 'Api::V1::Devops::AiConfigs', type: :request do
       it 'returns validation error' do
         post '/api/v1/devops/ai_configs', params: invalid_params, headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end

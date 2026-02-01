@@ -190,7 +190,7 @@ RSpec.describe 'Api::V1::SupplyChain::ScanExecutions', type: :request do
 
         post "/api/v1/supply_chain/scan_executions/#{completed_execution.id}/cancel", headers: write_headers
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response['error']).to include('cannot be cancelled')
       end
     end

@@ -163,7 +163,7 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
       it 'returns validation error' do
         post '/api/v1/devops/providers', params: invalid_params, headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -268,7 +268,7 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
         # NoMethodError, which is caught by rescue StandardError in the controller.
         post "/api/v1/devops/providers/#{provider.id}/test_connection", headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end

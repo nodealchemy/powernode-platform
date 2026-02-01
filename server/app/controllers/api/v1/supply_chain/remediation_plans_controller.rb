@@ -40,27 +40,27 @@ module Api
           if @plan.save
             render_success({ remediation_plan: serialize_plan(@plan) }, status: :created)
           else
-            render_error(@plan.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@plan.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
         # PATCH/PUT /api/v1/supply_chain/remediation_plans/:id
         def update
           unless @plan.draft?
-            return render_error("Plan cannot be edited in current status", status: :unprocessable_entity)
+            return render_error("Plan cannot be edited in current status", status: :unprocessable_content)
           end
 
           if @plan.update(plan_params)
             render_success({ remediation_plan: serialize_plan(@plan) })
           else
-            render_error(@plan.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@plan.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
         # DELETE /api/v1/supply_chain/remediation_plans/:id
         def destroy
           unless @plan.draft?
-            return render_error("Plan cannot be deleted in current status", status: :unprocessable_entity)
+            return render_error("Plan cannot be deleted in current status", status: :unprocessable_content)
           end
 
           @plan.destroy
@@ -70,7 +70,7 @@ module Api
         # POST /api/v1/supply_chain/remediation_plans/:id/approve
         def approve
           unless @plan.pending_review?
-            return render_error("Plan is not pending approval", status: :unprocessable_entity)
+            return render_error("Plan is not pending approval", status: :unprocessable_content)
           end
 
           @plan.approve!(current_user)
@@ -84,11 +84,11 @@ module Api
         # POST /api/v1/supply_chain/remediation_plans/:id/reject
         def reject
           unless @plan.pending_review?
-            return render_error("Plan is not pending approval", status: :unprocessable_entity)
+            return render_error("Plan is not pending approval", status: :unprocessable_content)
           end
 
           if params[:reason].blank?
-            return render_error("Rejection reason is required", status: :unprocessable_entity)
+            return render_error("Rejection reason is required", status: :unprocessable_content)
           end
 
           @plan.reject!(current_user, params[:reason])
@@ -102,7 +102,7 @@ module Api
         # POST /api/v1/supply_chain/remediation_plans/:id/execute
         def execute
           unless @plan.approved?
-            return render_error("Plan must be approved before execution", status: :unprocessable_entity)
+            return render_error("Plan must be approved before execution", status: :unprocessable_content)
           end
 
           @plan.start_execution!
@@ -116,16 +116,16 @@ module Api
         # POST /api/v1/supply_chain/remediation_plans/:id/generate_pr
         def generate_pr
           unless @plan.approved?
-            return render_error("Plan must be approved before generating a PR", status: :unprocessable_entity)
+            return render_error("Plan must be approved before generating a PR", status: :unprocessable_content)
           end
 
           if @plan.generated_pr_url.present?
-            return render_error("PR has already been generated for this plan", status: :unprocessable_entity)
+            return render_error("PR has already been generated for this plan", status: :unprocessable_content)
           end
 
           repository = find_repository_for_plan
           unless repository
-            return render_error("No repository associated with this remediation plan", status: :unprocessable_entity)
+            return render_error("No repository associated with this remediation plan", status: :unprocessable_content)
           end
 
           service = ::SupplyChain::RemediationPrService.new(
@@ -147,10 +147,10 @@ module Api
               message: "Pull request created successfully"
             )
           else
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error(result[:error], status: :unprocessable_content)
           end
         rescue ArgumentError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         private

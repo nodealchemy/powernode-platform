@@ -45,9 +45,13 @@ RSpec.describe Ai::Memory::FactualMemoryService, type: :service do
     it 'updates existing fact if value changed' do
       service.store(key: 'version', value: '1.0')
 
+      # Versioning creates a new entry and archives the old one
       expect {
         service.store(key: 'version', value: '2.0')
-      }.not_to change { Ai::ContextEntry.count }
+      }.to change { Ai::ContextEntry.count }.by(1)
+
+      # Only one active entry should exist
+      expect(Ai::ContextEntry.where(entry_key: 'version', archived_at: nil).count).to eq(1)
     end
 
     it 'stores metadata with the fact' do

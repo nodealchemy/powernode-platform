@@ -28,7 +28,7 @@ module Ai
           memory_type: "experiential",
           content: normalize_content(content),
           content_text: extract_text(content),
-          metadata: { "context" => context },
+          metadata: { "context" => context, "embedding" => embedding },
           source_type: source_type,
           ai_agent_id: @agent.id,
           importance_score: importance || calculate_importance(outcome_success),
@@ -37,7 +37,6 @@ module Ai
           context_tags: tags,
           task_context: context,
           outcome_success: outcome_success,
-          embedding: embedding,
           version: 1
         )
 
@@ -199,11 +198,11 @@ module Ai
         Ai::PersistentContext.find_or_create_by!(
           account_id: @account.id,
           context_type: "agent_memory",
-          scope_type: "agent",
-          scope_id: @agent.id,
+          scope: "agent",
+          ai_agent_id: @agent.id,
           name: "#{@agent.name} Experiential Memory"
         ) do |ctx|
-          ctx.access_level = "private"
+          ctx.access_control = { "level" => "private" }
           ctx.retention_policy = {
             "max_entries" => 5000,
             "max_age_days" => 180,

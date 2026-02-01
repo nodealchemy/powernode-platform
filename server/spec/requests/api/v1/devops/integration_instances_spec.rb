@@ -129,7 +129,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationInstances', type: :request do
 
         post '/api/v1/devops/integration_instances', params: valid_params, headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -176,7 +176,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationInstances', type: :request do
               headers: headers,
               as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end
@@ -274,7 +274,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationInstances', type: :request do
 
         post "/api/v1/devops/integration_instances/#{disabled_instance.id}/execute", headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'handles execution errors' do

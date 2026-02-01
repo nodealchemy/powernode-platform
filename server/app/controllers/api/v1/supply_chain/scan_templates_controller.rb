@@ -58,7 +58,7 @@ module Api
           if @template.save
             render_success({ scan_template: serialize_template(@template) }, status: :created)
           else
-            render_error(@template.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@template.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -72,7 +72,7 @@ module Api
           if @template.update(template_params)
             render_success({ scan_template: serialize_template(@template) })
           else
-            render_error(@template.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@template.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -102,7 +102,7 @@ module Api
               message: "Template installed successfully"
             )
           else
-            render_error(instance.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(instance.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -120,7 +120,7 @@ module Api
             message: "Template published to marketplace"
           )
         rescue StandardError => e
-          render_error("Failed to publish: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to publish: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/supply_chain/scan_templates/:id/unpublish
@@ -137,7 +137,7 @@ module Api
             message: "Template removed from marketplace"
           )
         rescue StandardError => e
-          render_error("Failed to unpublish: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to unpublish: #{e.message}", status: :unprocessable_content)
         end
 
         private

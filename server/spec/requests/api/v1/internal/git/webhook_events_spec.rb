@@ -143,7 +143,7 @@ RSpec.describe 'Api::V1::Internal::Git::WebhookEvents', type: :request do
               params: { status: 'invalid' },
               headers: internal_headers
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['success']).to be false
       end
@@ -172,7 +172,7 @@ RSpec.describe 'Api::V1::Internal::Git::WebhookEvents', type: :request do
         patch processing_api_v1_internal_git_webhook_event_path(webhook_event),
               headers: internal_headers
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['success']).to be false
         expect(json['error']).to eq('Event is not pending')
@@ -213,7 +213,7 @@ RSpec.describe 'Api::V1::Internal::Git::WebhookEvents', type: :request do
         patch processed_api_v1_internal_git_webhook_event_path(webhook_event),
               headers: internal_headers
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['success']).to be false
         expect(json['error']).to eq('Event is not processing')

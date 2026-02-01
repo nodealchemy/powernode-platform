@@ -111,7 +111,7 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
     it "returns 422 for invalid params" do
       post "/api/baas/v1/invoices", params: {}.to_json, headers: headers
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 
@@ -133,7 +133,7 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
         params: { metadata: {} }.to_json,
         headers: headers
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 
@@ -176,7 +176,7 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
 
       post "/api/baas/v1/invoices/#{invoice.external_id}/void", headers: headers
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 
@@ -196,7 +196,7 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
 
       delete "/api/baas/v1/invoices/#{invoice.external_id}", headers: headers
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 

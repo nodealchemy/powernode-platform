@@ -155,14 +155,14 @@ module Api
           return unless params[:item_type].present? && params[:item_id].present?
 
           @reviewable = case params[:item_type]
-          when "app"
-                         ::Marketplace::Definition.find_by(id: params[:item_id])
-          when "plugin"
-                         nil  # Plugin system deprecated
-          when "template"
+          when "template", "workflow_template"
                          ::Ai::WorkflowTemplate.find_by(id: params[:item_id])
-          when "integration"
+          when "integration", "integration_template"
                          ::Devops::IntegrationTemplate.find_by(id: params[:item_id])
+          when "pipeline_template"
+                         ::Devops::PipelineTemplate.find_by(id: params[:item_id])
+          when "prompt_template"
+                         ::Shared::PromptTemplate.find_by(id: params[:item_id])
           end
         end
 

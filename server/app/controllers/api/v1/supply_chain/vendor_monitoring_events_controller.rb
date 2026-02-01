@@ -36,7 +36,7 @@ module Api
         # POST /api/v1/supply_chain/vendor_monitoring_events/:id/acknowledge
         def acknowledge
           if @event.acknowledged?
-            return render_error("Event already acknowledged", status: :unprocessable_entity)
+            return render_error("Event already acknowledged", status: :unprocessable_content)
           end
 
           @event.acknowledge!(current_user)
@@ -50,7 +50,7 @@ module Api
         # POST /api/v1/supply_chain/vendor_monitoring_events/:id/resolve
         def resolve
           if @event.resolved?
-            return render_error("Event already resolved", status: :unprocessable_entity)
+            return render_error("Event already resolved", status: :unprocessable_content)
           end
 
           @event.resolve!

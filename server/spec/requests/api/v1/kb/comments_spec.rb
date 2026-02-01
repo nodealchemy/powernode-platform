@@ -145,7 +145,7 @@ RSpec.describe 'Api::V1::Kb::Comments', type: :request do
 
         post "/api/v1/kb/articles/#{published_article.id}/comments", params: invalid_params, headers: regular_headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'returns not found for non-existent article' do

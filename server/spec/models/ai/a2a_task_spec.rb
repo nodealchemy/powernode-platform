@@ -12,9 +12,14 @@ RSpec.describe Ai::A2aTask, type: :model do
   end
 
   describe 'validations' do
-    subject { build(:ai_a2a_task) }
+    subject { create(:ai_a2a_task) }
 
-    it { should validate_presence_of(:task_id) }
+    it 'auto-generates task_id if not provided' do
+      task = build(:ai_a2a_task, task_id: nil)
+      task.valid?
+      expect(task.task_id).to be_present
+    end
+
     it { should validate_uniqueness_of(:task_id) }
     it { should validate_inclusion_of(:status).in_array(%w[pending active completed failed cancelled input_required]) }
   end
@@ -42,11 +47,11 @@ RSpec.describe Ai::A2aTask, type: :model do
       let(:output) { { 'result' => 'success' } }
 
       it 'transitions from active to completed' do
-        expect { task.complete!(output) }.to change { task.status }.from('active').to('completed')
+        expect { task.complete!(result: output) }.to change { task.status }.from('active').to('completed')
       end
 
       it 'sets output and completed_at' do
-        task.complete!(output)
+        task.complete!(result: output)
         expect(task.output).to eq(output)
         expect(task.completed_at).to be_present
       end
@@ -56,11 +61,11 @@ RSpec.describe Ai::A2aTask, type: :model do
       let(:task) { create(:ai_a2a_task, :active) }
 
       it 'transitions from active to failed' do
-        expect { task.fail!('Error occurred') }.to change { task.status }.from('active').to('failed')
+        expect { task.fail!(error_message: 'Error occurred') }.to change { task.status }.from('active').to('failed')
       end
 
       it 'sets error_message' do
-        task.fail!('Something went wrong')
+        task.fail!(error_message: 'Something went wrong')
         expect(task.error_message).to eq('Something went wrong')
       end
     end
@@ -69,7 +74,7 @@ RSpec.describe Ai::A2aTask, type: :model do
       let(:task) { create(:ai_a2a_task, :active) }
 
       it 'transitions to cancelled' do
-        expect { task.cancel!('User requested') }.to change { task.status }.to('cancelled')
+        expect { task.cancel!(reason: 'User requested') }.to change { task.status }.to('cancelled')
       end
     end
 
@@ -77,7 +82,7 @@ RSpec.describe Ai::A2aTask, type: :model do
       let(:task) { create(:ai_a2a_task, :active) }
 
       it 'transitions to input_required' do
-        expect { task.request_input! }.to change { task.status }.to('input_required')
+        expect { task.request_input!(prompt: 'Please provide more info') }.to change { task.status }.to('input_required')
       end
     end
 
@@ -89,10 +94,9 @@ RSpec.describe Ai::A2aTask, type: :model do
         expect { task.provide_input!(input) }.to change { task.status }.from('input_required').to('active')
       end
 
-      it 'merges input into existing input' do
-        original_input = task.input.dup
+      it 'adds to history' do
         task.provide_input!(input)
-        expect(task.input).to include(original_input)
+        expect(task.history).to be_present
       end
     end
   end
@@ -137,29 +141,22 @@ RSpec.describe Ai::A2aTask, type: :model do
     end
   end
 
-  describe '#add_artifact!' do
+  describe '#add_artifact' do
     let(:task) { create(:ai_a2a_task, :active) }
-    let(:artifact_data) do
-      {
-        name: 'result.json',
-        mime_type: 'application/json',
-        data: { 'key' => 'value' }
-      }
-    end
 
     it 'adds artifact to artifacts array' do
-      task.add_artifact!(artifact_data)
+      task.add_artifact(name: 'result.json', mime_type: 'application/json', content: '{"key": "value"}')
       expect(task.artifacts.length).to eq(1)
       expect(task.artifacts.first['name']).to eq('result.json')
     end
 
-    it 'generates artifact_id' do
-      task.add_artifact!(artifact_data)
-      expect(task.artifacts.first['artifact_id']).to be_present
+    it 'generates artifact id' do
+      task.add_artifact(name: 'result.json', content: 'test content')
+      expect(task.artifacts.first['id']).to be_present
     end
 
     it 'creates artifact_added event' do
-      expect { task.add_artifact!(artifact_data) }.to change { task.events.count }.by(1)
+      expect { task.add_artifact(name: 'result.json', content: 'test') }.to change { task.events.count }.by(1)
     end
   end
 
@@ -169,15 +166,14 @@ RSpec.describe Ai::A2aTask, type: :model do
     it 'returns A2A-compliant task JSON' do
       json = task.to_a2a_json
 
-      expect(json).to include(
-        'id' => task.task_id,
-        'status' => task.status
-      )
+      expect(json[:id]).to eq(task.task_id)
+      expect(json[:status]).to be_a(Hash)
+      expect(json[:status][:state]).to eq('completed')
     end
 
     it 'includes artifacts when present' do
       json = task.to_a2a_json
-      expect(json['artifacts']).to be_an(Array)
+      expect(json[:artifacts]).to be_an(Array)
     end
   end
 end

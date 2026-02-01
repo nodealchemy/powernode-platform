@@ -4,6 +4,8 @@ require 'rails_helper'
 
 RSpec.describe Reseller, type: :model do
   describe 'associations' do
+    subject { create(:reseller) }
+
     it { should belong_to(:account) }
     it { should belong_to(:primary_user).class_name('User') }
     it { should belong_to(:approved_by).class_name('User').optional }
@@ -13,7 +15,7 @@ RSpec.describe Reseller, type: :model do
   end
 
   describe 'validations' do
-    subject { build(:reseller) }
+    subject { create(:reseller) }
 
     it { should validate_presence_of(:company_name) }
     it { should validate_length_of(:company_name).is_at_least(2).is_at_most(200) }

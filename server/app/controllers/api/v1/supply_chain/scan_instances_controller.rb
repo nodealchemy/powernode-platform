@@ -37,7 +37,7 @@ module Api
           if @instance.save
             render_success({ scan_instance: serialize_instance(@instance) }, status: :created)
           else
-            render_error(@instance.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@instance.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -46,7 +46,7 @@ module Api
           if @instance.update(instance_params)
             render_success({ scan_instance: serialize_instance(@instance) })
           else
-            render_error(@instance.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(@instance.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -62,7 +62,7 @@ module Api
           target_id = params[:target_id]
 
           if target_type.blank? || target_id.blank?
-            render_error("target_type and target_id are required", status: :unprocessable_entity)
+            render_error("target_type and target_id are required", status: :unprocessable_content)
             return
           end
 
@@ -86,7 +86,7 @@ module Api
             message: "Scan execution queued"
           )
         rescue StandardError => e
-          render_error("Failed to execute scan: #{e.message}", status: :unprocessable_entity)
+          render_error("Failed to execute scan: #{e.message}", status: :unprocessable_content)
         end
 
         # GET /api/v1/supply_chain/scan_instances/:id/executions

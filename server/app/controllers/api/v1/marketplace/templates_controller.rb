@@ -19,7 +19,7 @@ module Api
             message: "Workflow template created successfully"
           )
         rescue ::Marketplace::TemplateCreatorError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/marketplace/templates/from_pipeline/:id
@@ -35,7 +35,7 @@ module Api
             message: "Pipeline template created successfully"
           )
         rescue ::Marketplace::TemplateCreatorError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/marketplace/templates/from_integration/:id
@@ -51,7 +51,7 @@ module Api
             message: "Integration template created successfully"
           )
         rescue ::Marketplace::TemplateCreatorError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/marketplace/templates/from_prompt/:id
@@ -67,7 +67,7 @@ module Api
             message: "Prompt template created successfully"
           )
         rescue ::Marketplace::TemplateCreatorError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/marketplace/templates/:type/:id/submit
@@ -82,7 +82,7 @@ module Api
             message: "Template submitted for review"
           )
         rescue MarketplacePublishError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/marketplace/templates/:type/:id/withdraw
@@ -110,7 +110,7 @@ module Api
             message: "Template approved for marketplace"
           )
         rescue MarketplacePublishError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/marketplace/templates/:type/:id/reject
@@ -126,7 +126,7 @@ module Api
             message: "Template rejected from marketplace"
           )
         rescue MarketplacePublishError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # GET /api/v1/marketplace/templates/my_published
@@ -196,7 +196,7 @@ module Api
                      when "integration_template"
                        creator.create_from_integration_template(@template, instance_params)
                      else
-                       render_error("Cannot create instance from this template type", status: :unprocessable_entity)
+                       render_error("Cannot create instance from this template type", status: :unprocessable_content)
                        return
                      end
 
@@ -205,7 +205,7 @@ module Api
             message: "Instance created from template"
           )
         rescue ::Marketplace::InstanceCreatorError => e
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         private

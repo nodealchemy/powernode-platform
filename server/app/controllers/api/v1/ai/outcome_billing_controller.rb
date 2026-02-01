@@ -43,7 +43,7 @@ module Api
           if result
             render_success(result, status: :created)
           else
-            render_error(billing_service.errors.join(", "), status: :unprocessable_entity)
+            render_error(billing_service.errors.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -54,7 +54,7 @@ module Api
           if result
             render_success(result)
           else
-            render_error(billing_service.errors.join(", "), status: :unprocessable_entity)
+            render_error(billing_service.errors.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -90,7 +90,7 @@ module Api
           if result
             render_success(result, status: :created)
           else
-            render_error(billing_service.errors.join(", "), status: :unprocessable_entity)
+            render_error(billing_service.errors.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -101,7 +101,7 @@ module Api
           if result
             render_success(result)
           else
-            render_error(billing_service.errors.join(", "), status: :unprocessable_entity)
+            render_error(billing_service.errors.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -112,7 +112,7 @@ module Api
           if result
             render_success(result)
           else
-            render_error(billing_service.errors.join(", "), status: :unprocessable_entity)
+            render_error(billing_service.errors.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -123,7 +123,7 @@ module Api
           if result
             render_success(result)
           else
-            render_error(billing_service.errors.join(", "), status: :unprocessable_entity)
+            render_error(billing_service.errors.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -152,7 +152,7 @@ module Api
           if result
             render_success(result, status: :created)
           else
-            render_error(billing_service.errors.join(", "), status: :unprocessable_entity)
+            render_error(billing_service.errors.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -163,7 +163,7 @@ module Api
           if result
             render_success(result)
           else
-            render_error(billing_service.errors.join(", "), status: :unprocessable_entity)
+            render_error(billing_service.errors.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -206,7 +206,7 @@ module Api
           if result
             render_success(result)
           else
-            render_error(billing_service.errors.join(", "), status: :unprocessable_entity)
+            render_error(billing_service.errors.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -217,7 +217,7 @@ module Api
           if result
             render_success(result)
           else
-            render_error(billing_service.errors.join(", "), status: :unprocessable_entity)
+            render_error(billing_service.errors.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -228,7 +228,7 @@ module Api
           if result
             render_success(result)
           else
-            render_error(billing_service.errors.join(", "), status: :unprocessable_entity)
+            render_error(billing_service.errors.join(", "), status: :unprocessable_content)
           end
         end
 
