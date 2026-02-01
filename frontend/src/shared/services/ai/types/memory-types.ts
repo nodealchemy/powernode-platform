@@ -118,6 +118,7 @@ export interface MemoryFilters {
   outcome_success?: boolean;
   limit?: number;
   offset?: number;
+  [key: string]: string | number | boolean | string[] | Record<string, unknown> | undefined;
 }
 
 export interface CreateMemoryRequest {

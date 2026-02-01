@@ -372,9 +372,9 @@ export type {
   A2aArtifact,
   A2aMessage,
   A2aMessagePart,
-  A2aAuthenticationInfo,
-  A2aCapabilities,
-  A2aSkill,
+  AgentAuthentication,
+  AgentCapabilities,
+  AgentSkill,
 } from './types/a2a-types';
 
 // Re-export A2A Tasks service

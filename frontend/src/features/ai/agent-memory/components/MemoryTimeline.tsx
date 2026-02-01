@@ -10,7 +10,7 @@ import {
   RefreshCw,
   Search,
 } from 'lucide-react';
-import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
+import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -152,7 +152,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
               <Filter className="h-4 w-4 text-theme-muted" />
               <Select
                 value={memoryTypeFilter}
-                onChange={(e) => setMemoryTypeFilter(e.target.value as MemoryType | '')}
+                onChange={(value) => setMemoryTypeFilter(value as MemoryType | '')}
                 className="w-32"
               >
                 <option value="">All Types</option>
@@ -163,7 +163,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
 
               <Select
                 value={outcomeFilter}
-                onChange={(e) => setOutcomeFilter(e.target.value)}
+                onChange={(value) => setOutcomeFilter(value)}
                 className="w-32"
               >
                 <option value="">All Outcomes</option>

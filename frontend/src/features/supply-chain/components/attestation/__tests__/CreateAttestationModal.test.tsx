@@ -534,7 +534,6 @@ describe('CreateAttestationModal', () => {
 
     it('closes modal when close button is clicked', async () => {
       const { container } = render(<CreateAttestationModal {...defaultProps} />);
-      const closeButton = container.querySelector('button[onClick]');
 
       // Find the X close button (it's the second button after the form)
       const buttons = container.querySelectorAll('button');

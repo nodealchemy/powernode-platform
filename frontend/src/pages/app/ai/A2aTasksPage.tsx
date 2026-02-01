@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import { RefreshCw } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TaskList, TaskDetail, TaskEventStream } from '@/features/ai/a2a-tasks';
 import { usePermissions } from '@/shared/hooks/usePermissions';
@@ -15,7 +14,7 @@ export const A2aTasksPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [listKey, setListKey] = useState(0);
 
-  const { hasPermission } = usePermissions();
+  const { hasPermission: _hasPermission } = usePermissions();
 
   // WebSocket for real-time updates
   usePageWebSocket({

@@ -96,7 +96,7 @@ export function useAiConfigs(params: UseAiProvidersForDevopsParams = {}) {
 
       if (currentDefault && currentDefault.id !== id) {
         await providersApi.updateProvider(currentDefault.id, {
-          configuration: {
+          metadata: {
             ...currentDefault.metadata,
             cicd_default: false,
           },
@@ -105,7 +105,7 @@ export function useAiConfigs(params: UseAiProvidersForDevopsParams = {}) {
 
       // Set new default
       const updated = await providersApi.updateProvider(id, {
-        configuration: {
+        metadata: {
           ...provider.metadata,
           cicd_default: true,
         },

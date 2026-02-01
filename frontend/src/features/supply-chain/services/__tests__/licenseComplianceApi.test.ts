@@ -185,7 +185,14 @@ describe('licenseComplianceApi', () => {
 
     const createdPolicy: LicensePolicy = {
       id: 'policy-new',
-      ...policyData,
+      name: policyData.name,
+      description: policyData.description,
+      policy_type: policyData.policy_type,
+      enforcement_level: policyData.enforcement_level,
+      is_active: policyData.is_active ?? true,
+      block_copyleft: policyData.block_copyleft ?? false,
+      block_strong_copyleft: policyData.block_strong_copyleft ?? false,
+      allowed_licenses: policyData.allowed_licenses,
       created_at: '2024-01-15T00:00:00Z',
       updated_at: '2024-01-15T00:00:00Z',
     };

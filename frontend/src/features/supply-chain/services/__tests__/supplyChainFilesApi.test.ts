@@ -1,5 +1,6 @@
 import { supplyChainFilesApi } from '../supplyChainFilesApi';
 import api from '@/shared/services/api';
+import type { AxiosResponse, InternalAxiosRequestConfig, AxiosHeaders, AxiosProgressEvent } from 'axios';
 
 jest.mock('@/shared/services/api', () => ({
   __esModule: true,
@@ -11,6 +12,17 @@ jest.mock('@/shared/services/api', () => ({
 }));
 
 const mockApi = api as jest.Mocked<typeof api>;
+
+// Helper to create mock Axios responses
+function mockAxiosResponse<T>(data: T): AxiosResponse<T> {
+  return {
+    data,
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config: { headers: {} as AxiosHeaders } as InternalAxiosRequestConfig,
+  };
+}
 
 describe('supplyChainFilesApi', () => {
   beforeEach(() => {
@@ -36,9 +48,9 @@ describe('supplyChainFilesApi', () => {
     ];
 
     it('fetches files for a vendor', async () => {
-      mockApi.get.mockResolvedValue({
-        data: { data: { files: mockFiles } },
-      });
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
+        data: { files: mockFiles },
+      }));
 
       const result = await supplyChainFilesApi.getEntityFiles(
         'SupplyChain::Vendor',
@@ -55,9 +67,9 @@ describe('supplyChainFilesApi', () => {
     });
 
     it('fetches files with category filter', async () => {
-      mockApi.get.mockResolvedValue({
-        data: { data: { files: [mockFiles[0]] } },
-      });
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
+        data: { files: [mockFiles[0]] },
+      }));
 
       const result = await supplyChainFilesApi.getEntityFiles(
         'SupplyChain::Vendor',
@@ -76,9 +88,9 @@ describe('supplyChainFilesApi', () => {
     });
 
     it('fetches files for SBOM', async () => {
-      mockApi.get.mockResolvedValue({
-        data: { data: { files: [] } },
-      });
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
+        data: { files: [] },
+      }));
 
       await supplyChainFilesApi.getEntityFiles(
         'SupplyChain::Sbom',
@@ -94,9 +106,9 @@ describe('supplyChainFilesApi', () => {
     });
 
     it('fetches files for Attestation', async () => {
-      mockApi.get.mockResolvedValue({
-        data: { data: { files: [] } },
-      });
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
+        data: { files: [] },
+      }));
 
       await supplyChainFilesApi.getEntityFiles(
         'SupplyChain::Attestation',
@@ -112,9 +124,9 @@ describe('supplyChainFilesApi', () => {
     });
 
     it('fetches files for ContainerImage', async () => {
-      mockApi.get.mockResolvedValue({
-        data: { data: { files: [] } },
-      });
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
+        data: { files: [] },
+      }));
 
       await supplyChainFilesApi.getEntityFiles(
         'SupplyChain::ContainerImage',
@@ -149,9 +161,9 @@ describe('supplyChainFilesApi', () => {
     };
 
     it('uploads file to vendor', async () => {
-      mockApi.post.mockResolvedValue({
-        data: { data: { file: mockUploadedFile } },
-      });
+      mockApi.post.mockResolvedValue(mockAxiosResponse({
+        data: { file: mockUploadedFile },
+      }));
 
       const result = await supplyChainFilesApi.uploadFile(
         'SupplyChain::Vendor',
@@ -178,9 +190,9 @@ describe('supplyChainFilesApi', () => {
     });
 
     it('includes optional fields when provided', async () => {
-      mockApi.post.mockResolvedValue({
-        data: { data: { file: mockUploadedFile } },
-      });
+      mockApi.post.mockResolvedValue(mockAxiosResponse({
+        data: { file: mockUploadedFile },
+      }));
 
       await supplyChainFilesApi.uploadFile(
         'SupplyChain::Vendor',
@@ -207,12 +219,12 @@ describe('supplyChainFilesApi', () => {
       mockApi.post.mockImplementation((_url, _data, config) => {
         // Simulate progress event
         if (config?.onUploadProgress) {
-          config.onUploadProgress({ loaded: 50, total: 100 });
-          config.onUploadProgress({ loaded: 100, total: 100 });
+          config.onUploadProgress({ loaded: 50, total: 100 } as AxiosProgressEvent);
+          config.onUploadProgress({ loaded: 100, total: 100 } as AxiosProgressEvent);
         }
-        return Promise.resolve({
-          data: { data: { file: mockUploadedFile } },
-        });
+        return Promise.resolve(mockAxiosResponse({
+          data: { file: mockUploadedFile },
+        }));
       });
 
       await supplyChainFilesApi.uploadFile(
@@ -235,9 +247,9 @@ describe('supplyChainFilesApi', () => {
     });
 
     it('uploads to SBOM with sbom_export category', async () => {
-      mockApi.post.mockResolvedValue({
-        data: { data: { file: { ...mockUploadedFile, category: 'sbom_export' } } },
-      });
+      mockApi.post.mockResolvedValue(mockAxiosResponse({
+        data: { file: { ...mockUploadedFile, category: 'sbom_export' } },
+      }));
 
       await supplyChainFilesApi.uploadFile(
         'SupplyChain::Sbom',
@@ -268,7 +280,7 @@ describe('supplyChainFilesApi', () => {
 
   describe('deleteFile', () => {
     it('deletes file with soft delete by default', async () => {
-      mockApi.delete.mockResolvedValue({ data: { success: true } });
+      mockApi.delete.mockResolvedValue(mockAxiosResponse({ success: true }));
 
       await supplyChainFilesApi.deleteFile('file-123');
 
@@ -278,7 +290,7 @@ describe('supplyChainFilesApi', () => {
     });
 
     it('permanently deletes file when specified', async () => {
-      mockApi.delete.mockResolvedValue({ data: { success: true } });
+      mockApi.delete.mockResolvedValue(mockAxiosResponse({ success: true }));
 
       await supplyChainFilesApi.deleteFile('file-123', true);
 
@@ -307,7 +319,7 @@ describe('supplyChainFilesApi', () => {
 
     it('downloads file with given filename', async () => {
       const mockBlob = new Blob(['test content']);
-      mockApi.get.mockResolvedValue({ data: mockBlob });
+      mockApi.get.mockResolvedValue(mockAxiosResponse(mockBlob));
 
       const mockLink = {
         href: '',
@@ -330,7 +342,7 @@ describe('supplyChainFilesApi', () => {
 
     it('uses default filename when not provided', async () => {
       const mockBlob = new Blob(['test content']);
-      mockApi.get.mockResolvedValue({ data: mockBlob });
+      mockApi.get.mockResolvedValue(mockAxiosResponse(mockBlob));
 
       const mockLink = {
         href: '',
@@ -348,18 +360,16 @@ describe('supplyChainFilesApi', () => {
 
   describe('getDownloadUrl', () => {
     it('returns download URL from file details', async () => {
-      mockApi.get.mockResolvedValue({
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
         data: {
-          data: {
-            file: {
-              id: 'file-123',
-              urls: {
-                download: 'https://storage.example.com/file-123/download',
-              },
+          file: {
+            id: 'file-123',
+            urls: {
+              download: 'https://storage.example.com/file-123/download',
             },
           },
         },
-      });
+      }));
 
       const result = await supplyChainFilesApi.getDownloadUrl('file-123');
 
@@ -368,16 +378,14 @@ describe('supplyChainFilesApi', () => {
     });
 
     it('returns empty string when no download URL', async () => {
-      mockApi.get.mockResolvedValue({
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
         data: {
-          data: {
-            file: {
-              id: 'file-123',
-              urls: {},
-            },
+          file: {
+            id: 'file-123',
+            urls: {},
           },
         },
-      });
+      }));
 
       const result = await supplyChainFilesApi.getDownloadUrl('file-123');
 
@@ -387,9 +395,9 @@ describe('supplyChainFilesApi', () => {
 
   describe('vendor-specific helpers', () => {
     it('getVendorDocuments calls getEntityFiles with vendor type', async () => {
-      mockApi.get.mockResolvedValue({
-        data: { data: { files: [] } },
-      });
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
+        data: { files: [] },
+      }));
 
       await supplyChainFilesApi.getVendorDocuments('vendor-123');
 
@@ -402,9 +410,9 @@ describe('supplyChainFilesApi', () => {
     });
 
     it('getVendorDocuments with category filter', async () => {
-      mockApi.get.mockResolvedValue({
-        data: { data: { files: [] } },
-      });
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
+        data: { files: [] },
+      }));
 
       await supplyChainFilesApi.getVendorDocuments('vendor-123', 'vendor_compliance');
 
@@ -419,9 +427,9 @@ describe('supplyChainFilesApi', () => {
 
     it('uploadVendorDocument uploads with correct params', async () => {
       const mockFile = new File(['test'], 'test.pdf', { type: 'application/pdf' });
-      mockApi.post.mockResolvedValue({
-        data: { data: { file: { id: 'file-new' } } },
-      });
+      mockApi.post.mockResolvedValue(mockAxiosResponse({
+        data: { file: { id: 'file-new' } },
+      }));
 
       await supplyChainFilesApi.uploadVendorDocument(
         'vendor-123',
@@ -440,9 +448,9 @@ describe('supplyChainFilesApi', () => {
 
   describe('SBOM-specific helpers', () => {
     it('getSbomFiles calls getEntityFiles with sbom type and category', async () => {
-      mockApi.get.mockResolvedValue({
-        data: { data: { files: [] } },
-      });
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
+        data: { files: [] },
+      }));
 
       await supplyChainFilesApi.getSbomFiles('sbom-123');
 
@@ -457,9 +465,9 @@ describe('supplyChainFilesApi', () => {
 
     it('uploadSbomExport uploads with sbom_export category', async () => {
       const mockFile = new File(['test'], 'sbom.json', { type: 'application/json' });
-      mockApi.post.mockResolvedValue({
-        data: { data: { file: { id: 'file-new' } } },
-      });
+      mockApi.post.mockResolvedValue(mockAxiosResponse({
+        data: { file: { id: 'file-new' } },
+      }));
 
       await supplyChainFilesApi.uploadSbomExport('sbom-123', mockFile);
 
@@ -471,9 +479,9 @@ describe('supplyChainFilesApi', () => {
 
   describe('Attestation-specific helpers', () => {
     it('getAttestationFiles calls getEntityFiles with attestation type and category', async () => {
-      mockApi.get.mockResolvedValue({
-        data: { data: { files: [] } },
-      });
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
+        data: { files: [] },
+      }));
 
       await supplyChainFilesApi.getAttestationFiles('attestation-123');
 
@@ -488,9 +496,9 @@ describe('supplyChainFilesApi', () => {
 
     it('uploadAttestationProof uploads with attestation_proof category', async () => {
       const mockFile = new File(['test'], 'attestation.sig', { type: 'application/octet-stream' });
-      mockApi.post.mockResolvedValue({
-        data: { data: { file: { id: 'file-new' } } },
-      });
+      mockApi.post.mockResolvedValue(mockAxiosResponse({
+        data: { file: { id: 'file-new' } },
+      }));
 
       await supplyChainFilesApi.uploadAttestationProof('attestation-123', mockFile);
 
@@ -502,9 +510,9 @@ describe('supplyChainFilesApi', () => {
 
   describe('ContainerImage-specific helpers', () => {
     it('getContainerImageFiles calls getEntityFiles with image type and category', async () => {
-      mockApi.get.mockResolvedValue({
-        data: { data: { files: [] } },
-      });
+      mockApi.get.mockResolvedValue(mockAxiosResponse({
+        data: { files: [] },
+      }));
 
       await supplyChainFilesApi.getContainerImageFiles('image-123');
 
@@ -519,9 +527,9 @@ describe('supplyChainFilesApi', () => {
 
     it('uploadScanReport uploads with supply_chain_scan_report category', async () => {
       const mockFile = new File(['test'], 'scan.json', { type: 'application/json' });
-      mockApi.post.mockResolvedValue({
-        data: { data: { file: { id: 'file-new' } } },
-      });
+      mockApi.post.mockResolvedValue(mockAxiosResponse({
+        data: { file: { id: 'file-new' } },
+      }));
 
       await supplyChainFilesApi.uploadScanReport('image-123', mockFile);
 

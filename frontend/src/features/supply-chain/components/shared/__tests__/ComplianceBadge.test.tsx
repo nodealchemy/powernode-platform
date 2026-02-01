@@ -1,6 +1,5 @@
 import { render, screen } from '@testing-library/react';
 import { ComplianceBadge } from '../ComplianceBadge';
-import { CheckCircle, XCircle, HelpCircle } from 'lucide-react';
 
 jest.mock('lucide-react', () => ({
   CheckCircle: ({ className }: { className?: string }) => (

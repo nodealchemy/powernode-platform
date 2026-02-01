@@ -123,7 +123,7 @@ class AIOrchestrationMonitor {
         }
       };
 
-      this.ws.onerror = (error) => {
+      this.ws.onerror = () => {
         // WebSocket connection error - reconnect will be attempted
       };
 

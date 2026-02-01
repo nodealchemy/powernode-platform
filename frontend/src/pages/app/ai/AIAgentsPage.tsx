@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { AiAgentDashboard, AiAgentDashboardHandle } from '@/features/ai/agents/components/AiAgentDashboard';
+import { AiAgentDashboard } from '@/features/ai/agents/components/AiAgentDashboard';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
@@ -9,7 +9,7 @@ import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 export const AIAgentsPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const dashboardRef = React.useRef<AiAgentDashboardHandle>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const { hasPermission } = usePermissions();
 
   // WebSocket for real-time updates
@@ -22,13 +22,8 @@ export const AIAgentsPage: React.FC = () => {
 
   const handleRefresh = useCallback(async () => {
     setIsLoading(true);
-    try {
-      if (dashboardRef.current?.refresh) {
-        await dashboardRef.current.refresh();
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    setRefreshKey(prev => prev + 1);
+    setIsLoading(false);
   }, []);
 
   const { refreshAction } = useRefreshAction({
@@ -61,7 +56,7 @@ export const AIAgentsPage: React.FC = () => {
       actions={pageActions}
     >
       <AiAgentDashboard
-        ref={dashboardRef}
+        key={refreshKey}
         showCreateModal={showCreateModal}
         onShowCreateModalChange={setShowCreateModal}
       />

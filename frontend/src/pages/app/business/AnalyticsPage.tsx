@@ -16,7 +16,6 @@ import { MetricsOverview } from '@/features/business/analytics/components/Metric
 import { LiveMetricsOverview } from '@/features/business/analytics/components/LiveMetricsOverview';
 import { DateRangeFilter } from '@/features/business/analytics/components/DateRangeFilter';
 import { AnalyticsExportModal } from '@/features/business/analytics/components/AnalyticsExportModal';
-import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';

@@ -36,10 +36,9 @@ const visibilityIcons: Record<string, React.FC<{ className?: string }>> = {
 };
 
 const statusConfig: Record<string, { variant: 'success' | 'warning' | 'danger' | 'outline'; label: string }> = {
-  published: { variant: 'success', label: 'Published' },
-  draft: { variant: 'outline', label: 'Draft' },
+  active: { variant: 'success', label: 'Active' },
+  inactive: { variant: 'outline', label: 'Inactive' },
   deprecated: { variant: 'warning', label: 'Deprecated' },
-  disabled: { variant: 'danger', label: 'Disabled' },
 };
 
 export const AgentCardList: React.FC<AgentCardListProps> = ({
@@ -67,7 +66,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
 
       const response = await agentCardsApiService.getAgentCards(filters);
       setCards(response.items || []);
-      setTotalCount(response.total || 0);
+      setTotalCount(response.pagination?.total_count || 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load agent cards');
     } finally {
@@ -114,7 +113,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
           <Filter className="h-4 w-4 text-theme-muted" />
           <Select
             value={visibilityFilter}
-            onChange={(e) => setVisibilityFilter(e.target.value)}
+            onChange={(value) => setVisibilityFilter(value)}
             className="w-32"
           >
             <option value="">All Visibility</option>
@@ -125,12 +124,12 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
 
           <Select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(value) => setStatusFilter(value)}
             className="w-32"
           >
             <option value="">All Status</option>
-            <option value="published">Published</option>
-            <option value="draft">Draft</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
             <option value="deprecated">Deprecated</option>
           </Select>
         </div>
@@ -215,18 +214,14 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
 
                 {/* Metrics */}
                 <div className="flex items-center gap-4 text-xs text-theme-muted border-t border-theme pt-3 mt-3">
-                  {card.metrics && (
-                    <>
-                      <div className="flex items-center gap-1">
-                        <CheckCircle className="h-3 w-3" />
-                        <span>{card.metrics.tasks_completed || 0} tasks</span>
-                      </div>
-                      {card.metrics.success_rate !== undefined && (
-                        <div className="flex items-center gap-1">
-                          <span>{Math.round(card.metrics.success_rate * 100)}% success</span>
-                        </div>
-                      )}
-                    </>
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>{card.task_count || 0} tasks</span>
+                  </div>
+                  {card.task_count > 0 && (
+                    <div className="flex items-center gap-1">
+                      <span>{Math.round((card.success_count / card.task_count) * 100)}% success</span>
+                    </div>
                   )}
                   <div className="flex items-center gap-1 ml-auto">
                     <Clock className="h-3 w-3" />

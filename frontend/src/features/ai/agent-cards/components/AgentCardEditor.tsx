@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Bot,
-  Globe,
-  Lock,
-  Building2,
   Plus,
   Trash2,
   Save,
@@ -22,7 +19,7 @@ import type {
   AgentCard,
   CreateAgentCardRequest,
   UpdateAgentCardRequest,
-  A2aSkill,
+  AgentSkill,
 } from '@/shared/services/ai/types/a2a-types';
 import type { AiAgent } from '@/shared/types/ai';
 
@@ -66,7 +63,6 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [visibility, setVisibility] = useState<'private' | 'internal' | 'public'>('private');
-  const [protocolVersion, setProtocolVersion] = useState('0.3');
   const [endpointUrl, setEndpointUrl] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [skills, setSkills] = useState<SkillInput[]>([{ ...emptySkill, id: crypto.randomUUID() }]);
@@ -104,9 +100,8 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
       setName(card.name);
       setDescription(card.description || '');
       setVisibility(card.visibility);
-      setProtocolVersion(card.protocol_version || '0.3');
       setEndpointUrl(card.endpoint_url || '');
-      setSelectedAgentId(card.agent_id || '');
+      setSelectedAgentId(card.ai_agent_id || '');
       setStreamingEnabled(card.capabilities?.streaming ?? true);
       setPushNotificationsEnabled(card.capabilities?.push_notifications ?? false);
       setAuthSchemes(card.authentication?.schemes || []);
@@ -117,7 +112,7 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
             id: skill.id,
             name: skill.name || '',
             description: skill.description || '',
-            tags: skill.tags?.join(', ') || '',
+            tags: '',
             inputSchema: skill.inputSchema ? JSON.stringify(skill.inputSchema, null, 2) : '',
             outputSchema: skill.outputSchema ? JSON.stringify(skill.outputSchema, null, 2) : '',
           }))
@@ -152,16 +147,15 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
     }
   };
 
-  const parseSkills = (): A2aSkill[] => {
+  const parseSkills = (): AgentSkill[] => {
     return skills
       .filter((s) => s.id.trim() || s.name.trim())
       .map((s) => {
-        const skill: A2aSkill = {
+        const skill: AgentSkill = {
           id: s.id.trim() || s.name.trim().toLowerCase().replace(/\s+/g, '_'),
           name: s.name.trim() || s.id.trim(),
         };
         if (s.description.trim()) skill.description = s.description.trim();
-        if (s.tags.trim()) skill.tags = s.tags.split(',').map((t) => t.trim()).filter(Boolean);
         if (s.inputSchema.trim()) {
           try {
             skill.inputSchema = JSON.parse(s.inputSchema);
@@ -203,7 +197,7 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
             streaming: streamingEnabled,
             push_notifications: pushNotificationsEnabled,
           },
-          authentication: authSchemes.length > 0 ? { schemes: authSchemes } : undefined,
+          authentication: authSchemes.length > 0 ? { schemes: authSchemes as ('bearer' | 'api_key' | 'oauth2' | 'basic' | 'none')[] } : undefined,
         };
 
         const response = await agentCardsApiService.updateAgentCard(cardId, updateData);
@@ -214,15 +208,14 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
           name: name.trim(),
           description: description.trim() || undefined,
           visibility,
-          protocol_version: protocolVersion,
           endpoint_url: endpointUrl.trim() || undefined,
-          agent_id: selectedAgentId || undefined,
+          ai_agent_id: selectedAgentId || undefined,
           capabilities: {
             skills: parsedSkills,
             streaming: streamingEnabled,
             push_notifications: pushNotificationsEnabled,
           },
-          authentication: authSchemes.length > 0 ? { schemes: authSchemes } : undefined,
+          authentication: authSchemes.length > 0 ? { schemes: authSchemes as ('bearer' | 'api_key' | 'oauth2' | 'basic' | 'none')[] } : undefined,
         };
 
         const response = await agentCardsApiService.createAgentCard(createData);
@@ -302,7 +295,7 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
               </label>
               <Select
                 value={visibility}
-                onChange={(e) => setVisibility(e.target.value as 'private' | 'internal' | 'public')}
+                onChange={(value) => setVisibility(value as 'private' | 'internal' | 'public')}
               >
                 <option value="private">Private - Only you</option>
                 <option value="internal">Internal - Your organization</option>
@@ -332,7 +325,7 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
                 </label>
                 <Select
                   value={selectedAgentId}
-                  onChange={(e) => setSelectedAgentId(e.target.value)}
+                  onChange={(value) => setSelectedAgentId(value)}
                 >
                   <option value="">No linked agent</option>
                   {agents.map((agent) => (

@@ -86,7 +86,7 @@ export const useTeamExecutionWebSocket = (options: UseTeamExecutionWebSocketOpti
         }
       };
 
-      ws.onerror = (error) => {
+      ws.onerror = () => {
         // WebSocket error - reconnection will be attempted
       };
 

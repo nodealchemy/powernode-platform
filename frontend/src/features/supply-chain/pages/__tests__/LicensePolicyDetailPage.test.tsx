@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
@@ -88,6 +87,7 @@ describe('LicensePolicyDetailPage', () => {
         package: 'legacy-lib',
         license: 'GPL-2.0',
         reason: 'Required for backward compatibility',
+        added_at: '2024-01-01T00:00:00Z',
         expires_at: '2026-12-31T23:59:59Z',
       },
     ],
@@ -309,7 +309,7 @@ describe('LicensePolicyDetailPage', () => {
 
     it('disables button while toggling', () => {
       // Mock actionLoading state by checking the actual disabled prop
-      const { container } = render(
+      render(
         <BreadcrumbProvider>
           <BrowserRouter>
             <LicensePolicyDetailPage />
@@ -335,7 +335,6 @@ describe('LicensePolicyDetailPage', () => {
       rerender();
       // The button should be disabled when isLoading is true in the mutation
       // Since the mock returns isLoading: true, the actionLoading state should reflect this
-      const deactivateButton = container.querySelector('[data-testid="action-toggle-active"]') as HTMLButtonElement;
       // Note: The actual component may not show disabled state from mutation directly
       // This test verifies the mutation has isLoading flag set
       expect(mockUseToggleLicensePolicyActive()).toHaveProperty('isLoading', true);
@@ -609,7 +608,7 @@ describe('LicensePolicyDetailPage', () => {
 
   describe('enforcement level styling', () => {
     it('applies error color for block enforcement', () => {
-      const { container } = renderComponent();
+      renderComponent();
       const blockTexts = screen.getAllByText('Block');
       const badgeElement = blockTexts[0].closest('.badge-theme-danger');
       expect(badgeElement).toBeInTheDocument();

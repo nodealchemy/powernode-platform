@@ -235,6 +235,7 @@ export interface AgentCardFilters {
   sort?: 'name' | 'created_at' | 'task_count' | 'success_rate';
   page?: number;
   per_page?: number;
+  [key: string]: string | number | boolean | string[] | Record<string, unknown> | undefined;
 }
 
 export interface CreateAgentCardRequest {
@@ -266,6 +267,7 @@ export interface A2aTaskFilters {
   since?: string;
   page?: number;
   per_page?: number;
+  [key: string]: string | number | boolean | string[] | Record<string, unknown> | undefined;
 }
 
 export interface SubmitA2aTaskRequest {

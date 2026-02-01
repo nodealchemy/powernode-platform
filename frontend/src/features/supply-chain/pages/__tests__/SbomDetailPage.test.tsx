@@ -31,7 +31,7 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 
 // Mock PageContainer
 jest.mock('@/shared/components/layout/PageContainer', () => ({
-  PageContainer: ({ title, breadcrumbs, actions, children }: any) => (
+  PageContainer: ({ title, breadcrumbs: _breadcrumbs, actions, children }: any) => (
     <div data-testid="page-container">
       <div data-testid="page-title">{title}</div>
       <div data-testid="page-actions">

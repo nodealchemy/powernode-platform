@@ -49,7 +49,7 @@ const mockPayPalGateway = {
   client_id_present: false,
   client_secret_present: false,
   webhook_id_present: false,
-  mode: 'sandbox'
+  mode: 'sandbox' as const,
 };
 
 describe('GatewayConfigModal', () => {

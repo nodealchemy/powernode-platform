@@ -1,11 +1,14 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { TaskEventStream } from '../components/TaskEventStream';
 import { a2aTasksApiService } from '@/shared/services/ai';
+
+// Mock scrollIntoView which isn't available in jsdom
+Element.prototype.scrollIntoView = jest.fn();
 
 // Mock the API service
 jest.mock('@/shared/services/ai', () => ({
   a2aTasksApiService: {
-    pollTaskEvents: jest.fn(),
+    subscribeToTask: jest.fn(),
   },
 }));
 
@@ -17,165 +20,149 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 }));
 
 describe('TaskEventStream', () => {
-  const mockEvents = [
-    {
-      id: '1',
-      event_type: 'status_change',
-      data: { from_status: 'pending', to_status: 'active' },
-      created_at: '2025-01-15T10:00:01Z',
-    },
-    {
-      id: '2',
-      event_type: 'progress',
-      data: { current: 50, total: 100, message: 'Processing...' },
-      created_at: '2025-01-15T10:00:02Z',
-    },
-    {
-      id: '3',
-      event_type: 'artifact_added',
-      data: { artifact_id: 'art-1', name: 'result.json' },
-      created_at: '2025-01-15T10:00:03Z',
-    },
-    {
-      id: '4',
-      event_type: 'status_change',
-      data: { from_status: 'active', to_status: 'completed' },
-      created_at: '2025-01-15T10:00:04Z',
-    },
-  ];
+  let mockClose: jest.Mock;
+  let statusCallback: ((task: unknown) => void) | undefined;
+  let progressCallback: ((progress: unknown) => void) | undefined;
+  let errorCallback: ((error: unknown) => void) | undefined;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (a2aTasksApiService.pollTaskEvents as jest.Mock).mockResolvedValue({
-      events: mockEvents,
-    });
-  });
+    mockClose = jest.fn();
+    statusCallback = undefined;
+    progressCallback = undefined;
+    errorCallback = undefined;
 
-  it('renders loading state initially', () => {
-    (a2aTasksApiService.pollTaskEvents as jest.Mock).mockImplementation(
-      () => new Promise(() => {})
+    // Mock subscribeToTask to capture callbacks and return subscription
+    (a2aTasksApiService.subscribeToTask as jest.Mock).mockImplementation(
+      (_taskId: string, callbacks: {
+        onStatus?: (task: unknown) => void;
+        onProgress?: (progress: unknown) => void;
+        onError?: (error: unknown) => void;
+      }) => {
+        statusCallback = callbacks.onStatus;
+        progressCallback = callbacks.onProgress;
+        errorCallback = callbacks.onError;
+
+        return {
+          eventSource: {} as EventSource,
+          close: mockClose,
+        };
+      }
     );
-
-    render(<TaskEventStream taskId="task-1" />);
-
-    expect(screen.getByText(/loading events/i)).toBeInTheDocument();
   });
 
-  it('renders events after loading', async () => {
-    render(<TaskEventStream taskId="task-1" />);
+  it('renders event stream header', () => {
+    render(<TaskEventStream taskId="task-1" autoConnect={false} />);
 
-    await waitFor(() => {
-      expect(screen.getByText(/status_change/i)).toBeInTheDocument();
-      expect(screen.getByText(/progress/i)).toBeInTheDocument();
-      expect(screen.getByText(/artifact_added/i)).toBeInTheDocument();
-    });
+    expect(screen.getByText('Event Stream')).toBeInTheDocument();
   });
 
-  it('shows event details', async () => {
-    render(<TaskEventStream taskId="task-1" />);
+  it('shows disconnected state when autoConnect is false', () => {
+    render(<TaskEventStream taskId="task-1" autoConnect={false} />);
 
-    await waitFor(() => {
-      expect(screen.getByText(/pending.*active/i)).toBeInTheDocument();
-      expect(screen.getByText(/Processing/i)).toBeInTheDocument();
-      expect(screen.getByText(/result.json/i)).toBeInTheDocument();
-    });
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /connect/i })).toBeInTheDocument();
   });
 
-  it('shows progress bar for progress events', async () => {
-    render(<TaskEventStream taskId="task-1" />);
+  it('connects and shows connected state when autoConnect is true', () => {
+    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
 
-    await waitFor(() => {
-      expect(screen.getByText(/50%|50 \/ 100/)).toBeInTheDocument();
-    });
+    expect(a2aTasksApiService.subscribeToTask).toHaveBeenCalledWith(
+      'task-1',
+      expect.objectContaining({
+        onStatus: expect.any(Function),
+        onProgress: expect.any(Function),
+      })
+    );
+    expect(screen.getByText('Connected')).toBeInTheDocument();
   });
 
-  it('polls for new events', async () => {
-    jest.useFakeTimers();
+  it('shows stop button when connected', () => {
+    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
 
-    render(<TaskEventStream taskId="task-1" autoRefresh={true} />);
-
-    await waitFor(() => {
-      expect(a2aTasksApiService.pollTaskEvents).toHaveBeenCalledTimes(1);
-    });
-
-    jest.advanceTimersByTime(5000);
-
-    await waitFor(() => {
-      expect(a2aTasksApiService.pollTaskEvents).toHaveBeenCalledTimes(2);
-    });
-
-    jest.useRealTimers();
+    expect(screen.getByRole('button', { name: /stop/i })).toBeInTheDocument();
   });
 
-  it('stops polling when task is terminal', async () => {
-    jest.useFakeTimers();
+  it('disconnects when stop button clicked', () => {
+    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
 
-    render(<TaskEventStream taskId="task-1" taskStatus="completed" autoRefresh={true} />);
+    const stopButton = screen.getByRole('button', { name: /stop/i });
+    fireEvent.click(stopButton);
 
-    await waitFor(() => {
-      expect(a2aTasksApiService.pollTaskEvents).toHaveBeenCalledTimes(1);
-    });
-
-    // Advance time - should not poll again since task is completed
-    jest.advanceTimersByTime(5000);
-
-    expect(a2aTasksApiService.pollTaskEvents).toHaveBeenCalledTimes(1);
-
-    jest.useRealTimers();
+    expect(mockClose).toHaveBeenCalled();
   });
 
-  it('displays empty state when no events', async () => {
-    (a2aTasksApiService.pollTaskEvents as jest.Mock).mockResolvedValue({
-      events: [],
+  it('shows status events when received', async () => {
+    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+
+    // Trigger a status update through the captured callback
+    await act(async () => {
+      statusCallback?.({ status: { state: 'active' } });
     });
 
-    render(<TaskEventStream taskId="task-1" />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/no events/i)).toBeInTheDocument();
-    });
+    expect(screen.getByText(/task\.status/)).toBeInTheDocument();
   });
 
-  it('shows timestamps for events', async () => {
-    render(<TaskEventStream taskId="task-1" />);
+  it('shows progress bar when progress event received', async () => {
+    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
 
-    await waitFor(() => {
-      // Should show time stamps
-      expect(screen.getByText(/10:00/)).toBeInTheDocument();
+    await act(async () => {
+      progressCallback?.({ current: 50, total: 100, message: 'Processing...' });
     });
+
+    expect(screen.getByText(/50 \/ 100/)).toBeInTheDocument();
+    // "Processing..." appears in both progress bar and event log
+    expect(screen.getAllByText(/Processing\.\.\./).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('allows manual refresh', async () => {
-    render(<TaskEventStream taskId="task-1" autoRefresh={false} />);
+  it('displays current task status', async () => {
+    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
 
-    await waitFor(() => {
-      expect(a2aTasksApiService.pollTaskEvents).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      statusCallback?.({ status: { state: 'completed' } });
     });
 
-    const refreshButton = screen.getByRole('button', { name: /refresh/i });
-    fireEvent.click(refreshButton);
-
-    await waitFor(() => {
-      expect(a2aTasksApiService.pollTaskEvents).toHaveBeenCalledTimes(2);
-    });
+    expect(screen.getByText('completed')).toBeInTheDocument();
   });
 
-  it('shows error events with error styling', async () => {
-    (a2aTasksApiService.pollTaskEvents as jest.Mock).mockResolvedValue({
-      events: [
-        {
-          id: '5',
-          event_type: 'error',
-          data: { message: 'Something went wrong' },
-          created_at: '2025-01-15T10:00:05Z',
-        },
-      ],
+  it('handles error events', async () => {
+    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+
+    await act(async () => {
+      errorCallback?.('Connection failed');
     });
 
-    render(<TaskEventStream taskId="task-1" />);
+    expect(screen.getByText(/task\.error/)).toBeInTheDocument();
+  });
 
-    await waitFor(() => {
-      expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+  it('clears events when clear button clicked', async () => {
+    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+
+    // Add an event
+    await act(async () => {
+      statusCallback?.({ status: { state: 'active' } });
     });
+
+    expect(screen.getByText(/task\.status/)).toBeInTheDocument();
+
+    // Clear events
+    const clearButton = screen.getByRole('button', { name: /clear/i });
+    fireEvent.click(clearButton);
+
+    expect(screen.queryByText(/task\.status/)).not.toBeInTheDocument();
+  });
+
+  it('can reconnect after disconnecting', () => {
+    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+
+    // Disconnect
+    const stopButton = screen.getByRole('button', { name: /stop/i });
+    fireEvent.click(stopButton);
+
+    // Reconnect
+    const connectButton = screen.getByRole('button', { name: /connect/i });
+    fireEvent.click(connectButton);
+
+    expect(a2aTasksApiService.subscribeToTask).toHaveBeenCalledTimes(2);
   });
 });

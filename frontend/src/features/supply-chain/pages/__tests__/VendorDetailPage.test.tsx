@@ -1,5 +1,4 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { VendorDetailPage } from '../VendorDetailPage';
@@ -64,7 +63,7 @@ jest.mock('@/shared/components/ui/TabContainer', () => ({
 
 // Mock modal components
 jest.mock('../../components/vendor/EditVendorModal', () => ({
-  EditVendorModal: ({ onClose, onSave, vendor }: any) => (
+  EditVendorModal: ({ onClose, onSave: _onSave, vendor: _vendor }: any) => (
     <div data-testid="edit-vendor-modal">
       <h2>Edit Vendor</h2>
       <button onClick={onClose}>Close</button>
@@ -73,7 +72,7 @@ jest.mock('../../components/vendor/EditVendorModal', () => ({
 }));
 
 jest.mock('../../components/vendor/StartAssessmentModal', () => ({
-  StartAssessmentModal: ({ onClose, onStart, vendorName }: any) => (
+  StartAssessmentModal: ({ onClose, onStart: _onStart, vendorName }: any) => (
     <div data-testid="start-assessment-modal">
       <h2>Start Assessment for {vendorName}</h2>
       <button onClick={onClose}>Close</button>
@@ -82,7 +81,7 @@ jest.mock('../../components/vendor/StartAssessmentModal', () => ({
 }));
 
 jest.mock('../../components/vendor/SendQuestionnaireModal', () => ({
-  SendQuestionnaireModal: ({ onClose, onSend, vendorName }: any) => (
+  SendQuestionnaireModal: ({ onClose, onSend: _onSend, vendorName }: any) => (
     <div data-testid="send-questionnaire-modal">
       <h2>Send Questionnaire to {vendorName}</h2>
       <button onClick={onClose}>Close</button>
@@ -132,7 +131,7 @@ describe('VendorDetailPage', () => {
     });
   });
 
-  const renderPage = (vendorId = 'vendor-1') => {
+  const renderPage = (_vendorId = 'vendor-1') => {
     return render(
       <BrowserRouter>
         <Routes>

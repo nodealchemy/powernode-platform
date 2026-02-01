@@ -1,6 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AlertsPanel } from '../AlertsPanel';
-import { AlertTriangle, AlertCircle, Info, CheckCircle } from 'lucide-react';
 
 jest.mock('lucide-react', () => ({
   AlertTriangle: ({ className }: { className?: string }) => (

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   accountWebhooksApi,
   AccountGitWebhookConfig,
-  AccountGitWebhookFormData,
 } from '../services/git/accountWebhooksApi';
 import { PaginationInfo } from '../types';
 
@@ -30,7 +29,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [_showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const fetchWebhooks = async (page = 1) => {

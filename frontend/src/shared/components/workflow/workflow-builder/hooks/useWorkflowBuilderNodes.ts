@@ -204,7 +204,19 @@ export const useWorkflowBuilderNodes = ({
     const positionsChanging = newPositions && JSON.stringify(newPositions) !== JSON.stringify(currentPositions);
 
     if (positionsChanging && currentNode) {
-      interface EdgeWithSource { source: string; target: string; [key: string]: unknown; }
+      interface EdgeWithSource {
+        id?: string;
+        source: string;
+        target: string;
+        sourceHandle?: string | null;
+        targetHandle?: string | null;
+        type?: string;
+        animated?: boolean;
+        style?: Record<string, unknown>;
+        markerEnd?: unknown;
+        label?: string;
+        data?: Record<string, unknown>;
+      }
       const affectedEdges = (edges as EdgeWithSource[]).filter(edge => edge.source === nodeId || edge.target === nodeId);
 
       const updatedNode = {

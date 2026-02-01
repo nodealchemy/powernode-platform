@@ -41,7 +41,7 @@ jest.mock('@/shared/hooks/useForm', () => ({
 
 // Mock invitations API
 const mockInviteUser = jest.fn();
-jest.mock('@/shared/services/invitationsApi', () => ({
+jest.mock('@/shared/services/account/invitationsApi', () => ({
   invitationsApi: {
     inviteUser: (...args: any[]) => mockInviteUser(...args)
   }

@@ -78,7 +78,7 @@ interface VulnerabilityDetail extends SbomVulnerability {
   false_positive_reason?: string;
 }
 
-interface ComplianceStatus {
+export interface ComplianceStatus {
   ntia_minimum_compliant: boolean;
   ntia_fields: {
     supplier_name: boolean;

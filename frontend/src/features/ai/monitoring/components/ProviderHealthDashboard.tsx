@@ -3,8 +3,6 @@ import {
   Activity,
   AlertCircle,
   AlertTriangle,
-  ArrowDown,
-  ArrowUp,
   CheckCircle,
   Clock,
   DollarSign,
@@ -22,7 +20,7 @@ import { Progress } from '@/shared/components/ui/Progress';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
-import { ProviderMetrics, Alert } from '@/shared/types/monitoring';
+import type { ProviderMetrics } from '@/shared/types/monitoring';
 import { cn } from '@/shared/utils/cn';
 
 interface ProviderHealthDashboardProps {
@@ -54,7 +52,6 @@ export const ProviderHealthDashboard: React.FC<ProviderHealthDashboardProps> = (
   onViewDetails,
 }) => {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Aggregate statistics
   const aggregateStats = useMemo(() => {

@@ -49,6 +49,7 @@ export interface CreateProviderRequest {
   status_url?: string;
   supported_models?: Array<Record<string, unknown>> | unknown[];
   configuration_schema?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   is_active?: boolean;
 }
 

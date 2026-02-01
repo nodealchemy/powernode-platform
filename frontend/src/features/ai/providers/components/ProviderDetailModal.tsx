@@ -167,10 +167,10 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
   };
 
   // Handle delete
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!provider) return;
     if (confirm(`Are you sure you want to delete the provider "${provider.name}"? This action cannot be undone.`)) {
-      onDelete?.(provider.id);
+      await onDelete?.(provider.id);
       onClose();
     }
   };

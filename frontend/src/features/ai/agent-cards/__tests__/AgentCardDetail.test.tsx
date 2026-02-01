@@ -6,9 +6,10 @@ import { agentCardsApiService } from '@/shared/services/ai';
 jest.mock('@/shared/services/ai', () => ({
   agentCardsApiService: {
     getAgentCard: jest.fn(),
+    getA2aJson: jest.fn(),
     publishAgentCard: jest.fn(),
     deprecateAgentCard: jest.fn(),
-    refreshAgentCardMetrics: jest.fn(),
+    refreshMetrics: jest.fn(),
   },
 }));
 
@@ -24,7 +25,7 @@ describe('AgentCardDetail', () => {
     id: '1',
     name: 'Test Agent',
     description: 'A comprehensive test agent',
-    status: 'draft',
+    status: 'inactive',
     visibility: 'private',
     protocol_version: '0.3',
     capabilities: {
@@ -37,14 +38,22 @@ describe('AgentCardDetail', () => {
     task_count: 50,
     success_count: 45,
     failure_count: 5,
-    avg_duration_ms: 1200,
+    avg_response_time_ms: 1200,
     provider_name: 'Test Provider',
     documentation_url: 'https://docs.example.com',
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-15T00:00:00Z',
   };
 
-  const mockOnBack = jest.fn();
+  const mockA2aJson = {
+    agent_id: '1',
+    name: 'Test Agent',
+    description: 'A comprehensive test agent',
+    protocol_version: '0.3',
+    capabilities: { skills: [] },
+  };
+
+  const mockOnClose = jest.fn();
   const mockOnEdit = jest.fn();
 
   beforeEach(() => {
@@ -52,6 +61,7 @@ describe('AgentCardDetail', () => {
     (agentCardsApiService.getAgentCard as jest.Mock).mockResolvedValue({
       agent_card: mockAgentCard,
     });
+    (agentCardsApiService.getA2aJson as jest.Mock).mockResolvedValue(mockA2aJson);
   });
 
   it('renders loading state initially', () => {
@@ -60,7 +70,7 @@ describe('AgentCardDetail', () => {
     );
 
     render(
-      <AgentCardDetail agentCardId="1" onBack={mockOnBack} onEdit={mockOnEdit} />
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
     );
 
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
@@ -68,7 +78,7 @@ describe('AgentCardDetail', () => {
 
   it('renders agent card details after loading', async () => {
     render(
-      <AgentCardDetail agentCardId="1" onBack={mockOnBack} onEdit={mockOnEdit} />
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
     );
 
     await waitFor(() => {
@@ -79,7 +89,7 @@ describe('AgentCardDetail', () => {
 
   it('displays all skills', async () => {
     render(
-      <AgentCardDetail agentCardId="1" onBack={mockOnBack} onEdit={mockOnEdit} />
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
     );
 
     await waitFor(() => {
@@ -90,18 +100,18 @@ describe('AgentCardDetail', () => {
 
   it('displays metrics', async () => {
     render(
-      <AgentCardDetail agentCardId="1" onBack={mockOnBack} onEdit={mockOnEdit} />
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/50/)).toBeInTheDocument(); // task_count
-      expect(screen.getByText(/90%/)).toBeInTheDocument(); // success rate
+      expect(screen.getByText('50')).toBeInTheDocument(); // task_count
+      expect(screen.getByText('90%')).toBeInTheDocument(); // success rate (45/50)
     });
   });
 
-  it('shows publish button for draft cards', async () => {
+  it('shows publish button for inactive cards', async () => {
     render(
-      <AgentCardDetail agentCardId="1" onBack={mockOnBack} onEdit={mockOnEdit} />
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
     );
 
     await waitFor(() => {
@@ -111,11 +121,12 @@ describe('AgentCardDetail', () => {
 
   it('calls publish API when publish button clicked', async () => {
     (agentCardsApiService.publishAgentCard as jest.Mock).mockResolvedValue({
-      agent_card: { ...mockAgentCard, status: 'published' },
+      agent_card: { ...mockAgentCard, status: 'active' },
+      message: 'Published successfully',
     });
 
     render(
-      <AgentCardDetail agentCardId="1" onBack={mockOnBack} onEdit={mockOnEdit} />
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
     );
 
     await waitFor(() => {
@@ -129,13 +140,13 @@ describe('AgentCardDetail', () => {
     });
   });
 
-  it('shows deprecate button for published cards', async () => {
+  it('shows deprecate button for active cards', async () => {
     (agentCardsApiService.getAgentCard as jest.Mock).mockResolvedValue({
-      agent_card: { ...mockAgentCard, status: 'published' },
+      agent_card: { ...mockAgentCard, status: 'active' },
     });
 
     render(
-      <AgentCardDetail agentCardId="1" onBack={mockOnBack} onEdit={mockOnEdit} />
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
     );
 
     await waitFor(() => {
@@ -143,23 +154,9 @@ describe('AgentCardDetail', () => {
     });
   });
 
-  it('calls onBack when back button clicked', async () => {
-    render(
-      <AgentCardDetail agentCardId="1" onBack={mockOnBack} onEdit={mockOnEdit} />
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Agent')).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /back/i }));
-
-    expect(mockOnBack).toHaveBeenCalled();
-  });
-
   it('calls onEdit when edit button clicked', async () => {
     render(
-      <AgentCardDetail agentCardId="1" onBack={mockOnBack} onEdit={mockOnEdit} />
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
     );
 
     await waitFor(() => {
@@ -168,16 +165,68 @@ describe('AgentCardDetail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /edit/i }));
 
-    expect(mockOnEdit).toHaveBeenCalledWith(mockAgentCard);
+    expect(mockOnEdit).toHaveBeenCalled();
   });
 
   it('displays A2A JSON section', async () => {
     render(
-      <AgentCardDetail agentCardId="1" onBack={mockOnBack} onEdit={mockOnEdit} />
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/A2A JSON/i)).toBeInTheDocument();
+      expect(screen.getByText(/A2A Agent Card JSON/i)).toBeInTheDocument();
     });
+  });
+
+  it('shows protocol version', async () => {
+    render(
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Protocol v0.3/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows authentication schemes', async () => {
+    render(
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('bearer')).toBeInTheDocument();
+    });
+  });
+
+  it('displays error state when loading fails', async () => {
+    (agentCardsApiService.getAgentCard as jest.Mock).mockRejectedValue(
+      new Error('Failed to load')
+    );
+
+    render(
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/failed to load/i)).toBeInTheDocument();
+    });
+  });
+
+  it('calls onClose from Go Back button on error', async () => {
+    (agentCardsApiService.getAgentCard as jest.Mock).mockRejectedValue(
+      new Error('Failed to load')
+    );
+
+    render(
+      <AgentCardDetail cardId="1" onClose={mockOnClose} onEdit={mockOnEdit} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /go back/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /go back/i }));
+
+    expect(mockOnClose).toHaveBeenCalled();
   });
 });

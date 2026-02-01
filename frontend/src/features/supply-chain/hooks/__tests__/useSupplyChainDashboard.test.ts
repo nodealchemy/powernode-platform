@@ -224,7 +224,7 @@ describe('useSupplyChainDashboard', () => {
         new Error('First error')
       );
 
-      const { result, rerender } = renderHook(() => useSupplyChainDashboard());
+      const { result } = renderHook(() => useSupplyChainDashboard());
 
       await waitFor(() => {
         expect(result.current.error).toBe('First error');

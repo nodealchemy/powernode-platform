@@ -85,7 +85,6 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
     }
   };
 
-  const selectedOption = FILTER_TYPE_OPTIONS.find((opt) => opt.value === filterType);
   const examples = PATTERN_EXAMPLES[filterType] || [];
 
   return (

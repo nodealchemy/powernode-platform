@@ -9,7 +9,7 @@ jest.mock('../../hooks/useSboms');
 
 // Mock PageContainer
 jest.mock('@/shared/components/layout/PageContainer', () => ({
-  PageContainer: ({ title, description, breadcrumbs, actions, children }: any) => (
+  PageContainer: ({ title, description, breadcrumbs: _breadcrumbs, actions, children }: any) => (
     <div data-testid="page-container">
       <div data-testid="page-title">{title}</div>
       <div data-testid="page-description">{description}</div>

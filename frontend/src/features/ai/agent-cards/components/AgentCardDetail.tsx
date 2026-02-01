@@ -5,8 +5,6 @@ import {
   Lock,
   Building2,
   Clock,
-  CheckCircle,
-  XCircle,
   AlertCircle,
   Play,
   Pause,
@@ -184,7 +182,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                     </Badge>
                   )}
                   <Badge
-                    variant={card.status === 'published' ? 'success' : card.status === 'deprecated' ? 'warning' : 'outline'}
+                    variant={card.status === 'active' ? 'success' : card.status === 'deprecated' ? 'warning' : 'outline'}
                     size="sm"
                   >
                     {card.status}
@@ -194,7 +192,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              {card.status === 'draft' && (
+              {card.status === 'inactive' && (
                 <Button
                   variant="primary"
                   size="sm"
@@ -209,7 +207,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                   Publish
                 </Button>
               )}
-              {card.status === 'published' && (
+              {card.status === 'active' && (
                 <Button
                   variant="warning"
                   size="sm"
@@ -345,27 +343,27 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 bg-theme-surface rounded-lg">
                   <div className="text-2xl font-bold text-theme-primary">
-                    {card.metrics?.tasks_completed || 0}
+                    {card.task_count || 0}
                   </div>
                   <div className="text-xs text-theme-muted">Tasks Completed</div>
                 </div>
                 <div className="text-center p-3 bg-theme-surface rounded-lg">
                   <div className="text-2xl font-bold text-theme-success">
-                    {card.metrics?.success_rate !== undefined
-                      ? `${Math.round(card.metrics.success_rate * 100)}%`
+                    {card.task_count > 0
+                      ? `${Math.round((card.success_count / card.task_count) * 100)}%`
                       : 'N/A'}
                   </div>
                   <div className="text-xs text-theme-muted">Success Rate</div>
                 </div>
               </div>
 
-              {card.metrics?.avg_duration_ms !== undefined && (
+              {card.avg_response_time_ms !== undefined && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-theme-secondary">Avg Duration</span>
                   <span className="text-theme-primary">
-                    {card.metrics.avg_duration_ms < 1000
-                      ? `${Math.round(card.metrics.avg_duration_ms)}ms`
-                      : `${(card.metrics.avg_duration_ms / 1000).toFixed(1)}s`}
+                    {card.avg_response_time_ms < 1000
+                      ? `${Math.round(card.avg_response_time_ms)}ms`
+                      : `${(card.avg_response_time_ms / 1000).toFixed(1)}s`}
                   </span>
                 </div>
               )}
@@ -409,12 +407,12 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                 </div>
               </div>
 
-              {card.agent_id && (
+              {card.ai_agent_id && (
                 <div className="flex items-start gap-2">
                   <Bot className="h-4 w-4 text-theme-muted mt-0.5" />
                   <div>
                     <div className="text-theme-secondary">Linked Agent</div>
-                    <div className="text-theme-primary font-mono text-xs">{card.agent_id}</div>
+                    <div className="text-theme-primary font-mono text-xs">{card.ai_agent_id}</div>
                   </div>
                 </div>
               )}

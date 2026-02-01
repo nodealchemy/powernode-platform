@@ -130,7 +130,7 @@ describe('ComplianceStatusCard', () => {
     });
 
     it('displays large score text', () => {
-      const { container } = render(<ComplianceStatusCard {...defaultProps} />);
+      render(<ComplianceStatusCard {...defaultProps} />);
       const scoreText = screen.getByText('85%');
       expect(scoreText).toHaveClass('text-3xl', 'font-bold');
     });
@@ -236,7 +236,7 @@ describe('ComplianceStatusCard', () => {
     });
 
     it('displays alert icon for missing fields', () => {
-      const { container } = render(<ComplianceStatusCard {...defaultProps} />);
+      render(<ComplianceStatusCard {...defaultProps} />);
       const missingFieldsSection = screen.getByText('Missing Fields').closest('div');
       expect(missingFieldsSection?.querySelector('svg')).toBeInTheDocument();
     });
@@ -322,7 +322,7 @@ describe('ComplianceStatusCard', () => {
           unknown_field: true,
         } as any,
       };
-      const { container } = render(<ComplianceStatusCard compliance={unknownCompliance} />);
+      render(<ComplianceStatusCard compliance={unknownCompliance} />);
       expect(screen.getByText('unknown_field')).toBeInTheDocument();
     });
   });
@@ -343,14 +343,14 @@ describe('ComplianceStatusCard', () => {
 
   describe('badge styling', () => {
     it('missing field badges have warning variant', () => {
-      const { container } = render(<ComplianceStatusCard {...defaultProps} />);
+      render(<ComplianceStatusCard {...defaultProps} />);
       // Check for warning-styled badges in missing fields
       const missingSection = screen.getByText('Missing Fields').closest('div')?.parentElement;
       expect(missingSection?.textContent).toContain('Author');
     });
 
     it('displays badges in flex layout', () => {
-      const { container } = render(<ComplianceStatusCard {...defaultProps} />);
+      render(<ComplianceStatusCard {...defaultProps} />);
       const missingHeaderDiv = screen.getByText('Missing Fields').closest('div');
       const badgeContainer = missingHeaderDiv?.parentElement?.querySelector('div[class*="flex flex-wrap"]');
       expect(badgeContainer).toBeInTheDocument();

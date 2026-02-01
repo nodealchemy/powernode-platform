@@ -304,7 +304,7 @@ describe('CreateDiffModal', () => {
 
     it('shows Creating... text while creating diff', async () => {
       const onCreateDiff = jest.fn(
-        () => new Promise(resolve => setTimeout(resolve, 1000))
+        (_compareSbomId: string) => new Promise<void>(resolve => setTimeout(resolve, 1000))
       );
       render(<CreateDiffModal {...defaultProps} onCreateDiff={onCreateDiff} />);
 
@@ -321,7 +321,7 @@ describe('CreateDiffModal', () => {
 
     it('disables button while creating', async () => {
       const onCreateDiff = jest.fn(
-        () => new Promise(resolve => setTimeout(resolve, 1000))
+        (_compareSbomId: string) => new Promise<void>(resolve => setTimeout(resolve, 1000))
       );
       render(<CreateDiffModal {...defaultProps} onCreateDiff={onCreateDiff} />);
 
@@ -474,7 +474,7 @@ describe('CreateDiffModal', () => {
 
       (sbomsApi.list as jest.Mock).mockResolvedValue({ sboms: manySboms });
 
-      const { container } = render(<CreateDiffModal {...defaultProps} />);
+      render(<CreateDiffModal {...defaultProps} />);
       await waitFor(() => {
         expect(screen.getByText('App v0.0')).toBeInTheDocument();
         expect(screen.getByText('App v49.0')).toBeInTheDocument();

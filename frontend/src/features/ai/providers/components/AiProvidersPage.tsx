@@ -186,7 +186,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
 
   const handleProviderUpdate = useCallback(() => {
     loadProviders(false);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadProviders]);
 
   // Handle view provider details
   const handleViewProvider = useCallback((providerId: string) => {
@@ -211,7 +211,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
         message: error instanceof Error ? error.message : 'Failed to delete provider'
       });
     }
-  }, [addNotification]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [addNotification, loadProviders]);
 
   const getPriorityProviders = () => {
     return providers.filter(p => p.priority_order <= 3);

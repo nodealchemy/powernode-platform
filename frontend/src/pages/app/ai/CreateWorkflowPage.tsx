@@ -29,7 +29,7 @@ import { AiWorkflowNode, AiWorkflowEdge } from '@/shared/types/workflow';
 interface WorkflowFormData {
   name: string;
   description: string;
-  status: 'draft' | 'active';
+  status: 'draft' | 'published';
   visibility: 'private' | 'account' | 'public';
   execution_mode: 'sequential' | 'parallel' | 'conditional';
   timeout_seconds: number;
@@ -231,7 +231,7 @@ export const CreateWorkflowPage: React.FC = () => {
   }, [addTag]);
 
   // Submit form
-  const handleSubmit = async (saveAs: 'draft' | 'active' = 'draft') => {
+  const handleSubmit = async (saveAs: 'draft' | 'published' = 'draft') => {
     if (!canCreateWorkflows) {
       addNotification({
         type: 'error',
@@ -340,7 +340,7 @@ export const CreateWorkflowPage: React.FC = () => {
         },
         {
           label: 'Save & Activate',
-          onClick: () => handleSubmit('active'),
+          onClick: () => handleSubmit('published'),
           icon: Play,
           variant: 'primary',
           disabled: isSubmitting
@@ -663,7 +663,7 @@ export const CreateWorkflowPage: React.FC = () => {
               Save as Draft
             </Button>
             <Button
-              onClick={() => handleSubmit('active')}
+              onClick={() => handleSubmit('published')}
               disabled={isSubmitting}
             >
               <Play className="h-4 w-4 mr-2" />

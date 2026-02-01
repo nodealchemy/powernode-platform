@@ -1,10 +1,8 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { SupplyChainDashboardPage } from '../SupplyChainDashboardPage';
 import { useSupplyChainDashboard } from '../../hooks/useSupplyChainDashboard';
 import { createMockDashboardData } from '../../testing/mockFactories';
-import type { SupplyChainDashboardData } from '../../services/supplyChainApi';
 
 jest.mock('../../hooks/useSupplyChainDashboard');
 jest.mock('@/shared/components/layout/PageContainer', () => ({
@@ -34,7 +32,7 @@ jest.mock('@/shared/components/layout/PageContainer', () => ({
   ),
 }));
 jest.mock('@/shared/components/ui/LoadingSpinner', () => ({
-  LoadingSpinner: ({ size }: any) => <div data-testid="loading-spinner">Loading...</div>,
+  LoadingSpinner: ({ size: _size }: any) => <div data-testid="loading-spinner">Loading...</div>,
 }));
 
 const mockNavigate = jest.fn();

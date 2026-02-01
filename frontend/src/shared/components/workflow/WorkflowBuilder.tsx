@@ -14,7 +14,8 @@ import {
   NodeChange,
   ReactFlowProvider,
   Panel,
-  ReactFlowInstance
+  ReactFlowInstance,
+  ConnectionLineType
 } from '@xyflow/react';
 import { Workflow } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
@@ -44,7 +45,7 @@ import { WorkflowToolbar } from './WorkflowToolbar';
 import { NodeOperationsChat } from './NodeOperationsChat';
 import { WorkflowProvider } from './WorkflowContext';
 
-import { AiWorkflow, AiWorkflowNode, BaseWorkflowNodeData } from '@/shared/types/workflow';
+import { AiWorkflow, AiWorkflowNode, BaseWorkflowNodeData, NodeExecutionStatus } from '@/shared/types/workflow';
 import { AiAgent } from '@/shared/types/ai';
 import { agentsApi } from '@/shared/services/ai';
 
@@ -57,7 +58,7 @@ interface ExtendedWorkflowNode extends AiWorkflowNode {
 interface NodeDataWithHandles extends BaseWorkflowNodeData {
   handlePositions?: HandlePositions;
   positionsUpdated?: number;
-  executionStatus?: string;
+  executionStatus?: NodeExecutionStatus;
   executionDuration?: number;
   executionError?: string;
 }
@@ -1159,8 +1160,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         nodeTypes={nodeTypes as typeof NODE_TYPES}
         edgeTypes={edgeTypes as typeof EDGE_TYPES}
         defaultEdgeOptions={defaultEdgeOptions as typeof DEFAULT_EDGE_OPTIONS}
-        // @xyflow/react expects ConnectionLineType enum, but string literal works at runtime
-        connectionLineType="default"
+        connectionLineType={ConnectionLineType.Bezier}
         connectionLineStyle={{
           stroke: '#94a3b8',
           strokeWidth: 2,
@@ -1172,7 +1172,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           maxZoom: 1.5,
           minZoom: 0.1,
         }}
-        onError={(id, error) => {
+        onError={(_id, _error) => {
           // ReactFlow error occurred - error ID and details logged internally
         }}
       >

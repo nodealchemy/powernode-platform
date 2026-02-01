@@ -449,14 +449,14 @@ export const TraceViewer: React.FC<TraceViewerProps> = ({ trace, className }) =>
       {/* View mode toggle */}
       <div className="flex items-center gap-2 mb-4">
         <Button
-          variant={viewMode === 'tree' ? 'default' : 'outline'}
+          variant={viewMode === 'tree' ? 'primary' : 'outline'}
           size="sm"
           onClick={() => setViewMode('tree')}
         >
           Tree View
         </Button>
         <Button
-          variant={viewMode === 'timeline' ? 'default' : 'outline'}
+          variant={viewMode === 'timeline' ? 'primary' : 'outline'}
           size="sm"
           onClick={() => setViewMode('timeline')}
         >

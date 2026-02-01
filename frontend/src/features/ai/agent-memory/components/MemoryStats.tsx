@@ -7,7 +7,6 @@ import {
   XCircle,
   HelpCircle,
   BarChart3,
-  Clock,
   RefreshCw,
 } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';

@@ -1,5 +1,4 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { VendorRiskDashboardPage } from '../VendorRiskDashboardPage';
 import { useVendorRiskDashboard } from '../../hooks/useVendorRisk';
@@ -32,7 +31,7 @@ jest.mock('@/shared/components/layout/PageContainer', () => ({
   ),
 }));
 jest.mock('@/shared/components/ui/LoadingSpinner', () => ({
-  LoadingSpinner: ({ size }: any) => <div data-testid="loading-spinner">Loading...</div>,
+  LoadingSpinner: ({ size: _size }: any) => <div data-testid="loading-spinner">Loading...</div>,
 }));
 jest.mock('../../components/RiskTierBadge', () => ({
   RiskTierBadge: ({ tier }: any) => <span data-testid={`risk-badge-${tier}`}>{tier}</span>,
@@ -320,9 +319,9 @@ describe('VendorRiskDashboardPage', () => {
       renderPage();
 
       // Get the stat card by checking for bg-theme-surface class
-      let element = screen.getByText('Total Vendors').closest('p');
+      let element: HTMLElement | null = screen.getByText('Total Vendors').closest('p');
       while (element && !element.className.includes('bg-theme-surface')) {
-        element = element.parentElement as HTMLElement;
+        element = element.parentElement;
       }
       const gridContainer = element?.parentElement;
       expect(gridContainer).toHaveClass('grid');
@@ -850,9 +849,9 @@ describe('VendorRiskDashboardPage', () => {
       renderPage();
 
       // Get the stat card by checking for bg-theme-surface class
-      let element = screen.getByText('Total Vendors').closest('p');
+      let element: HTMLElement | null = screen.getByText('Total Vendors').closest('p');
       while (element && !element.className.includes('bg-theme-surface')) {
-        element = element.parentElement as HTMLElement;
+        element = element.parentElement;
       }
       const gridContainer = element?.parentElement;
       expect(gridContainer).toHaveClass('grid');

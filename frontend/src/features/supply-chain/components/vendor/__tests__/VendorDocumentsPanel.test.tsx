@@ -71,28 +71,46 @@ describe('VendorDocumentsPanel', () => {
     {
       id: 'file-1',
       filename: 'compliance-report.pdf',
+      storage_key: 'vendors/vendor-123/compliance-report.pdf',
       file_size: 1024000,
+      file_type: 'document',
       category: 'vendor_compliance',
       content_type: 'application/pdf',
+      visibility: 'private',
+      version: 1,
+      processing_status: 'completed',
       created_at: '2024-01-15T10:00:00Z',
+      updated_at: '2024-01-15T10:00:00Z',
       uploaded_by: { id: 'user-1', name: 'John Doe', email: 'john@test.com' },
     },
     {
       id: 'file-2',
       filename: 'iso-certificate.pdf',
+      storage_key: 'vendors/vendor-123/iso-certificate.pdf',
       file_size: 512000,
+      file_type: 'document',
       category: 'vendor_certificate',
       content_type: 'application/pdf',
+      visibility: 'private',
+      version: 1,
+      processing_status: 'completed',
       created_at: '2024-01-16T10:00:00Z',
+      updated_at: '2024-01-16T10:00:00Z',
       uploaded_by: { id: 'user-1', name: 'John Doe', email: 'john@test.com' },
     },
     {
       id: 'file-3',
       filename: 'risk-assessment.pdf',
+      storage_key: 'vendors/vendor-123/risk-assessment.pdf',
       file_size: 256000,
+      file_type: 'document',
       category: 'vendor_assessment',
       content_type: 'application/pdf',
+      visibility: 'private',
+      version: 1,
+      processing_status: 'completed',
       created_at: '2024-01-17T10:00:00Z',
+      updated_at: '2024-01-17T10:00:00Z',
     },
   ];
 
@@ -297,10 +315,16 @@ describe('VendorDocumentsPanel', () => {
       mockApi.uploadVendorDocument.mockResolvedValue({
         id: 'file-new',
         filename: 'new-doc.pdf',
+        storage_key: 'vendors/vendor-123/new-doc.pdf',
         file_size: 1024,
+        file_type: 'document',
         category: 'vendor_compliance',
         content_type: 'application/pdf',
+        visibility: 'private',
+        version: 1,
+        processing_status: 'completed',
         created_at: '2024-01-20T10:00:00Z',
+        updated_at: '2024-01-20T10:00:00Z',
       });
 
       render(<VendorDocumentsPanel {...defaultProps} />);
@@ -395,10 +419,16 @@ describe('VendorDocumentsPanel', () => {
           return new Promise((resolve) => setTimeout(() => resolve({
             id: 'file-new',
             filename: 'test.pdf',
+            storage_key: 'vendors/vendor-123/test.pdf',
             file_size: 1024,
+            file_type: 'document',
             category: 'vendor_compliance',
             content_type: 'application/pdf',
+            visibility: 'private',
+            version: 1,
+            processing_status: 'completed',
             created_at: '2024-01-20T10:00:00Z',
+            updated_at: '2024-01-20T10:00:00Z',
           }), 100));
         }
       );
@@ -564,10 +594,16 @@ describe('VendorDocumentsPanel', () => {
           {
             id: 'file-unknown',
             filename: 'unknown.pdf',
+            storage_key: 'vendors/vendor-123/unknown.pdf',
             file_size: 1024,
+            file_type: 'document',
             category: 'unknown_category',
             content_type: 'application/pdf',
+            visibility: 'private',
+            version: 1,
+            processing_status: 'completed',
             created_at: '2024-01-15T10:00:00Z',
+            updated_at: '2024-01-15T10:00:00Z',
           },
         ],
       });
@@ -588,10 +624,16 @@ describe('VendorDocumentsPanel', () => {
           {
             id: 'file-no-category',
             filename: 'no-category.pdf',
+            storage_key: 'vendors/vendor-123/no-category.pdf',
             file_size: 1024,
+            file_type: 'document',
             category: '',
             content_type: 'application/pdf',
+            visibility: 'private',
+            version: 1,
+            processing_status: 'completed',
             created_at: '2024-01-15T10:00:00Z',
+            updated_at: '2024-01-15T10:00:00Z',
           },
         ],
       });
@@ -608,7 +650,7 @@ describe('VendorDocumentsPanel', () => {
     it('formats bytes correctly', async () => {
       mockApi.getVendorDocuments.mockResolvedValue({
         files: [
-          { id: 'f1', filename: 'tiny.txt', file_size: 500, category: 'vendor_compliance', content_type: 'text/plain', created_at: '2024-01-15T10:00:00Z' },
+          { id: 'f1', filename: 'tiny.txt', storage_key: 'f1.txt', file_size: 500, file_type: 'document', category: 'vendor_compliance', content_type: 'text/plain', visibility: 'private', version: 1, processing_status: 'completed', created_at: '2024-01-15T10:00:00Z', updated_at: '2024-01-15T10:00:00Z' },
         ],
       });
 
@@ -622,7 +664,7 @@ describe('VendorDocumentsPanel', () => {
     it('formats kilobytes correctly', async () => {
       mockApi.getVendorDocuments.mockResolvedValue({
         files: [
-          { id: 'f1', filename: 'small.pdf', file_size: 5120, category: 'vendor_compliance', content_type: 'application/pdf', created_at: '2024-01-15T10:00:00Z' },
+          { id: 'f1', filename: 'small.pdf', storage_key: 'f1.pdf', file_size: 5120, file_type: 'document', category: 'vendor_compliance', content_type: 'application/pdf', visibility: 'private', version: 1, processing_status: 'completed', created_at: '2024-01-15T10:00:00Z', updated_at: '2024-01-15T10:00:00Z' },
         ],
       });
 
@@ -636,7 +678,7 @@ describe('VendorDocumentsPanel', () => {
     it('formats megabytes correctly', async () => {
       mockApi.getVendorDocuments.mockResolvedValue({
         files: [
-          { id: 'f1', filename: 'large.pdf', file_size: 5242880, category: 'vendor_compliance', content_type: 'application/pdf', created_at: '2024-01-15T10:00:00Z' },
+          { id: 'f1', filename: 'large.pdf', storage_key: 'f1.pdf', file_size: 5242880, file_type: 'document', category: 'vendor_compliance', content_type: 'application/pdf', visibility: 'private', version: 1, processing_status: 'completed', created_at: '2024-01-15T10:00:00Z', updated_at: '2024-01-15T10:00:00Z' },
         ],
       });
 

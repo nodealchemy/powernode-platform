@@ -29,6 +29,8 @@ describe('AuditLogTable', () => {
         id: 'acc-1',
         name: 'Acme Corp'
       },
+      old_values: {},
+      new_values: {},
       metadata: { browser: 'Chrome', os: 'Windows' }
     },
     {
@@ -49,6 +51,8 @@ describe('AuditLogTable', () => {
         full_name: 'Jane Smith'
       },
       account: undefined,
+      old_values: {},
+      new_values: {},
       metadata: {}
     },
     {
@@ -68,6 +72,8 @@ describe('AuditLogTable', () => {
         id: 'acc-2',
         name: 'Beta Inc'
       },
+      old_values: {},
+      new_values: {},
       metadata: { amount: 100 }
     }
   ];

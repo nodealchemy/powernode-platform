@@ -1,5 +1,6 @@
 import { sbomsApi } from '../sbomsApi';
 import { apiClient } from '@/shared/services/apiClient';
+import type { AxiosResponse, InternalAxiosRequestConfig, AxiosHeaders } from 'axios';
 
 jest.mock('@/shared/services/apiClient', () => ({
   apiClient: {
@@ -11,6 +12,17 @@ jest.mock('@/shared/services/apiClient', () => ({
 }));
 
 const mockApiClient = apiClient as jest.Mocked<typeof apiClient>;
+
+// Helper to create mock Axios responses
+function mockAxiosResponse<T>(data: T): AxiosResponse<T> {
+  return {
+    data,
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config: { headers: {} as AxiosHeaders } as InternalAxiosRequestConfig,
+  };
+}
 
 describe('sbomsApi', () => {
   beforeEach(() => {
@@ -49,7 +61,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.list({ page: 1, per_page: 20 });
 
@@ -77,7 +89,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       await sbomsApi.list({
         page: 2,
@@ -132,7 +144,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.get('123');
 
@@ -173,7 +185,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.post.mockResolvedValue(mockResponse);
+      mockApiClient.post.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const createData = {
         name: 'New SBOM',
@@ -205,7 +217,7 @@ describe('sbomsApi', () => {
 
   describe('delete', () => {
     it('deletes sbom successfully', async () => {
-      mockApiClient.delete.mockResolvedValue({ data: { success: true } });
+      mockApiClient.delete.mockResolvedValue(mockAxiosResponse({ success: true }));
 
       await sbomsApi.delete('123');
 
@@ -249,7 +261,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.getComponents('123', { page: 1, per_page: 20 });
 
@@ -276,7 +288,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       await sbomsApi.getComponents('123', {
         ecosystem: 'npm',
@@ -327,7 +339,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.getVulnerabilities('123', {
         severity: 'high',
@@ -355,7 +367,7 @@ describe('sbomsApi', () => {
   describe('export', () => {
     it('exports sbom in JSON format', async () => {
       const mockBlob = new Blob(['{"sbom": "data"}'], { type: 'application/json' });
-      mockApiClient.post.mockResolvedValue({ data: mockBlob });
+      mockApiClient.post.mockResolvedValue(mockAxiosResponse(mockBlob));
 
       const result = await sbomsApi.export('123', 'json');
 
@@ -369,7 +381,7 @@ describe('sbomsApi', () => {
 
     it('exports sbom in XML format', async () => {
       const mockBlob = new Blob(['<sbom></sbom>'], { type: 'application/xml' });
-      mockApiClient.post.mockResolvedValue({ data: mockBlob });
+      mockApiClient.post.mockResolvedValue(mockAxiosResponse(mockBlob));
 
       const result = await sbomsApi.export('123', 'xml');
 
@@ -413,7 +425,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.post.mockResolvedValue(mockResponse);
+      mockApiClient.post.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.rescan('123');
 
@@ -458,7 +470,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.getVulnerability('123', 'vuln-1');
 
@@ -493,7 +505,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.patch.mockResolvedValue(mockResponse);
+      mockApiClient.patch.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.updateVulnerabilityStatus('123', 'vuln-1', 'in_progress');
 
@@ -533,7 +545,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.post.mockResolvedValue(mockResponse);
+      mockApiClient.post.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.suppressVulnerability('123', 'vuln-1');
 
@@ -569,7 +581,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.post.mockResolvedValue(mockResponse);
+      mockApiClient.post.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.unsuppressVulnerability('123', 'vuln-1');
 
@@ -605,7 +617,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.post.mockResolvedValue(mockResponse);
+      mockApiClient.post.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.markFalsePositive('123', 'vuln-1', 'Not applicable to our use case');
 
@@ -654,7 +666,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.getComponentVulnerabilities('123', 'comp-1');
 
@@ -697,7 +709,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.getComplianceStatus('123');
 
@@ -735,7 +747,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.post.mockResolvedValue(mockResponse);
+      mockApiClient.post.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.calculateRisk('123');
 
@@ -769,7 +781,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.post.mockResolvedValue(mockResponse);
+      mockApiClient.post.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.correlateVulnerabilities('123');
 
@@ -818,7 +830,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.getStatistics();
 
@@ -857,7 +869,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.listDiffs('123');
 
@@ -914,7 +926,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.get.mockResolvedValue(mockResponse);
+      mockApiClient.get.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.getDiff('123', 'diff-1');
 
@@ -951,7 +963,7 @@ describe('sbomsApi', () => {
         },
       };
 
-      mockApiClient.post.mockResolvedValue(mockResponse);
+      mockApiClient.post.mockResolvedValue(mockAxiosResponse(mockResponse.data));
 
       const result = await sbomsApi.createDiff('123', '456');
 
@@ -982,7 +994,7 @@ describe('sbomsApi', () => {
     formats.forEach((format) => {
       it(`exports sbom in ${format} format`, async () => {
         const mockBlob = new Blob([`{${format}: "data"}`], { type: 'application/octet-stream' });
-        mockApiClient.post.mockResolvedValue({ data: mockBlob });
+        mockApiClient.post.mockResolvedValue(mockAxiosResponse(mockBlob));
 
         const result = await sbomsApi.exportSbom('123', format);
 

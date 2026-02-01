@@ -32,19 +32,6 @@ const StorageProvidersPage: React.FC = () => {
   const canManage = currentUser?.permissions?.includes('admin.storage.manage');
   const canRead = currentUser?.permissions?.includes('admin.storage.read') || canManage;
 
-  const { refreshAction } = useRefreshAction({
-    onRefresh: loadProviders,
-    loading,
-  });
-
-  useEffect(() => {
-    if (canRead) {
-      loadProviders();
-    } else {
-      setLoading(false);
-    }
-  }, [canRead]);
-
   const loadProviders = async () => {
     try {
       setRefreshing(true);
@@ -57,6 +44,19 @@ const StorageProvidersPage: React.FC = () => {
       setRefreshing(false);
     }
   };
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: loadProviders,
+    loading,
+  });
+
+  useEffect(() => {
+    if (canRead) {
+      loadProviders();
+    } else {
+      setLoading(false);
+    }
+  }, [canRead]);
 
   const handleAddProvider = () => {
     setEditingProvider(null);

@@ -5,7 +5,6 @@ import type {
   SubmitA2aTaskRequest,
   A2aTaskResponse,
   A2aTaskJson,
-  A2aTaskEvent,
   A2aTaskEventsResponse,
   A2aArtifact,
 } from './types/a2a-types';

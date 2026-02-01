@@ -40,13 +40,29 @@ export interface License {
 export interface LicensePolicy {
   id: string;
   name: string;
+  description?: string;
   policy_type: LicensePolicyType;
   enforcement_level: EnforcementLevel;
   is_active: boolean;
+  is_default?: boolean;
+  priority?: number;
   block_copyleft: boolean;
   block_strong_copyleft: boolean;
+  block_network_copyleft?: boolean;
+  block_unknown?: boolean;
+  require_osi_approved?: boolean;
+  require_attribution?: boolean;
   allowed_licenses?: string[];
   denied_licenses?: string[];
+  exception_packages?: Array<{
+    package: string;
+    license: string;
+    reason: string;
+    added_at: string;
+    expires_at?: string;
+  }>;
+  metadata?: Record<string, unknown>;
+  violation_count?: number;
   created_at: string;
   updated_at: string;
 }

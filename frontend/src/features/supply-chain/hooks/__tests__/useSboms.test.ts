@@ -14,7 +14,7 @@ import {
   useSbomDiff,
   useCreateSbomDiff,
 } from '../useSboms';
-import { sbomsApi } from '../../services/sbomsApi';
+import { sbomsApi, ComplianceStatus } from '../../services/sbomsApi';
 import {
   createMockSbom,
   createMockSbomList,
@@ -110,7 +110,7 @@ describe('SBOM Hooks', () => {
     it('should clear error on successful retry', async () => {
       mockApi.list.mockRejectedValueOnce(new Error('Initial error'));
 
-      const { result, rerender } = renderHook(() => useSboms());
+      const { result } = renderHook(() => useSboms());
 
       await waitFor(() => {
         expect(result.current.error).toBe('Initial error');
@@ -383,7 +383,6 @@ describe('SBOM Hooks', () => {
 
       const { result } = renderHook(() => useUpdateVulnerabilityStatus());
 
-      let isLoadingDuringCall = false;
       const mutatePromise = act(async () => {
         const promise = result.current.mutateAsync({
           sbomId: 'sbom-123',
@@ -391,14 +390,12 @@ describe('SBOM Hooks', () => {
           status: 'in_progress',
         });
         // Check loading state after mutation starts
-        isLoadingDuringCall = result.current.isLoading;
         resolveCall!();
         await promise;
       });
 
       await mutatePromise;
       expect(result.current.isLoading).toBe(false);
-      // The mutation hook may set loading state synchronously
     });
 
     it('should handle mutation errors and throw', async () => {
@@ -647,11 +644,19 @@ describe('SBOM Hooks', () => {
     });
 
     it('should provide refresh function', async () => {
-      const mockCompliance = {
+      const mockCompliance: ComplianceStatus = {
         ntia_minimum_compliant: true,
-        ntia_fields: {} as Record<string, boolean>,
+        ntia_fields: {
+          supplier_name: true,
+          component_name: true,
+          component_version: true,
+          unique_identifier: true,
+          dependency_relationship: true,
+          author: true,
+          timestamp: true,
+        },
         completeness_score: 95,
-        missing_fields: [],
+        missing_fields: [] as string[],
       };
 
       mockApi.getComplianceStatus.mockResolvedValue(mockCompliance);
@@ -740,17 +745,14 @@ describe('SBOM Hooks', () => {
 
       const { result } = renderHook(() => useCalculateRisk());
 
-      let isLoadingDuringCall = false;
       const mutatePromise = act(async () => {
         const promise = result.current.mutateAsync('sbom-123');
-        isLoadingDuringCall = result.current.isLoading;
         resolveCall!();
         await promise;
       });
 
       await mutatePromise;
       expect(result.current.isLoading).toBe(false);
-      // The mutation hook may set loading state synchronously
     });
   });
 
@@ -1227,20 +1229,17 @@ describe('SBOM Hooks', () => {
 
       const { result } = renderHook(() => useCreateSbomDiff());
 
-      let isLoadingDuringCall = false;
       const mutatePromise = act(async () => {
         const promise = result.current.mutateAsync({
           sbomId: 'sbom-123',
           compareSbomId: 'sbom-456',
         });
-        isLoadingDuringCall = result.current.isLoading;
         resolveCall!();
         await promise;
       });
 
       await mutatePromise;
       expect(result.current.isLoading).toBe(false);
-      // The mutation hook may set loading state synchronously
     });
 
     it('should handle creation errors and throw', async () => {

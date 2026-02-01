@@ -1,6 +1,5 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { ContainerImagesPage } from '../ContainerImagesPage';
 import { useContainerImages } from '../../hooks/useContainerImages';
 import { createMockContainerImage, createMockPagination } from '../../testing/mockFactories';
@@ -340,7 +339,7 @@ describe('ContainerImagesPage', () => {
         medium_vuln_count: 0,
         low_vuln_count: 0,
         is_deployed: false,
-        last_scanned_at: null,
+        last_scanned_at: undefined,
       }),
     ];
 

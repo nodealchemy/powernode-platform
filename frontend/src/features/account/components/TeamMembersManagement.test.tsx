@@ -186,7 +186,7 @@ describe('TeamMembersManagement', () => {
             ...mockAuthenticatedState.auth,
             user: {
               ...mockAuthenticatedState.auth.user,
-              permissions: ['users.manage']
+              permissions: ['team.assign_roles', 'admin.user.update']
             }
           }
         }
@@ -225,7 +225,7 @@ describe('TeamMembersManagement', () => {
             ...mockAuthenticatedState.auth,
             user: {
               ...mockAuthenticatedState.auth.user,
-              permissions: ['users.delete', 'users.manage']
+              permissions: ['team.assign_roles', 'team.remove']
             }
           }
         }

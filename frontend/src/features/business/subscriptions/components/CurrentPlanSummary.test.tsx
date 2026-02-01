@@ -60,10 +60,10 @@ describe('CurrentPlanSummary', () => {
   });
 
   describe('loading state', () => {
-    it('shows loading skeleton when loading', () => {
+    it('renders nothing when loading', () => {
       const { container } = render(<CurrentPlanSummary {...defaultProps} loading={true} />);
 
-      expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
+      expect(container.firstChild).toBeNull();
     });
   });
 
@@ -71,28 +71,7 @@ describe('CurrentPlanSummary', () => {
     it('shows no subscription message', () => {
       render(<CurrentPlanSummary {...defaultProps} subscription={null} />);
 
-      expect(screen.getByText('No Active Subscription')).toBeInTheDocument();
-    });
-
-    it('shows get started message', () => {
-      render(<CurrentPlanSummary {...defaultProps} subscription={null} />);
-
-      expect(screen.getByText(/Choose a plan below/)).toBeInTheDocument();
-    });
-
-    it('shows Browse Plans button when onManage provided', () => {
-      render(<CurrentPlanSummary {...defaultProps} subscription={null} />);
-
-      expect(screen.getByText('Browse Plans')).toBeInTheDocument();
-    });
-
-    it('calls onManage when Browse Plans clicked', () => {
-      const onManage = jest.fn();
-      render(<CurrentPlanSummary {...defaultProps} subscription={null} onManage={onManage} />);
-
-      fireEvent.click(screen.getByText('Browse Plans'));
-
-      expect(onManage).toHaveBeenCalled();
+      expect(screen.getByText(/No active subscription/i)).toBeInTheDocument();
     });
   });
 

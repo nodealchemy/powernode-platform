@@ -6,7 +6,7 @@ import {
   useContainerSbom,
   useEvaluatePolicies,
 } from '../useContainerImages';
-import { containerImagesApi } from '../../services/containerImagesApi';
+import { containerImagesApi, ContainerStatus, PolicyEvaluationResult } from '../../services/containerImagesApi';
 import {
   createMockContainerImage,
   createMockContainerImageDetail,
@@ -139,7 +139,7 @@ describe('useContainerImages Hook Suite', () => {
         });
 
         expect(result.current.images).toEqual([]);
-        expect(result.current.pagination.total_count).toBe(0);
+        expect(result.current.pagination?.total_count).toBe(0);
       });
 
       it('refreshes images when refresh is called', async () => {
@@ -152,7 +152,7 @@ describe('useContainerImages Hook Suite', () => {
           pagination: mockPagination,
         });
 
-        const { result, rerender } = renderHook(() => useContainerImages());
+        const { result } = renderHook(() => useContainerImages());
 
         await waitFor(() => {
           expect(result.current.loading).toBe(false);
@@ -285,9 +285,9 @@ describe('useContainerImages Hook Suite', () => {
         });
 
         const { rerender } = renderHook(
-          ({ status }) => useContainerImages({ status }),
+          ({ status }: { status: ContainerStatus }) => useContainerImages({ status }),
           {
-            initialProps: { status: 'verified' as const },
+            initialProps: { status: 'verified' as ContainerStatus },
           }
         );
 
@@ -295,7 +295,7 @@ describe('useContainerImages Hook Suite', () => {
           expect(mockApi.list).toHaveBeenCalledTimes(1);
         });
 
-        rerender({ status: 'quarantined' as const });
+        rerender({ status: 'quarantined' });
 
         await waitFor(() => {
           expect(mockApi.list).toHaveBeenCalledTimes(2);
@@ -452,7 +452,7 @@ describe('useContainerImages Hook Suite', () => {
         const { rerender } = renderHook(
           ({ id }: { id: string | null }) => useContainerImage(id),
           {
-            initialProps: { id: null },
+            initialProps: { id: null as string | null },
           }
         );
 
@@ -472,7 +472,7 @@ describe('useContainerImages Hook Suite', () => {
         const { result, rerender } = renderHook(
           ({ id }: { id: string | null }) => useContainerImage(id),
           {
-            initialProps: { id: 'image-123' },
+            initialProps: { id: 'image-123' as string | null },
           }
         );
 
@@ -705,7 +705,7 @@ describe('useContainerImages Hook Suite', () => {
           ({ imageId }: { imageId: string | null }) =>
             useContainerVulnerabilities(imageId),
           {
-            initialProps: { imageId: null },
+            initialProps: { imageId: null as string | null },
           }
         );
 
@@ -958,7 +958,7 @@ describe('useContainerImages Hook Suite', () => {
         const { rerender } = renderHook(
           ({ imageId }: { imageId: string | null }) => useContainerSbom(imageId),
           {
-            initialProps: { imageId: null },
+            initialProps: { imageId: null as string | null },
           }
         );
 
@@ -1096,18 +1096,18 @@ describe('useContainerImages Hook Suite', () => {
 
         const { result } = renderHook(() => useEvaluatePolicies());
 
-        let evaluationResult;
+        let evaluationResult: Awaited<ReturnType<typeof result.current.mutateAsync>> | undefined;
         await act(async () => {
           evaluationResult = await result.current.mutateAsync('image-123');
         });
 
         expect(evaluationResult).toHaveLength(2);
-        expect(evaluationResult[0].passed).toBe(false);
-        expect(evaluationResult[1].passed).toBe(true);
+        expect(evaluationResult![0].passed).toBe(false);
+        expect(evaluationResult![1].passed).toBe(true);
       });
 
       it('sets loading state during evaluation', async () => {
-        const mockEvaluation = [];
+        const mockEvaluation: PolicyEvaluationResult[] = [];
         mockApi.evaluatePolicies.mockImplementation(
           () => new Promise((resolve) => setTimeout(() => resolve(mockEvaluation), 100))
         );
@@ -1144,12 +1144,12 @@ describe('useContainerImages Hook Suite', () => {
 
         const { result } = renderHook(() => useEvaluatePolicies());
 
-        let evaluationResult;
+        let evaluationResult: Awaited<ReturnType<typeof result.current.mutateAsync>> | undefined;
         await act(async () => {
           evaluationResult = await result.current.mutateAsync('image-123');
         });
 
-        expect(evaluationResult[0].violations).toHaveLength(0);
+        expect(evaluationResult![0].violations).toHaveLength(0);
       });
     });
 

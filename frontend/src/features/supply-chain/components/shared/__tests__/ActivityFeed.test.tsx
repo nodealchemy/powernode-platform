@@ -1,6 +1,5 @@
 import { render, screen } from '@testing-library/react';
 import { ActivityFeed } from '../ActivityFeed';
-import { FileCode, Container, Shield, Building2, Scale, Clock } from 'lucide-react';
 
 jest.mock('lucide-react', () => ({
   FileCode: ({ className }: { className?: string }) => (
@@ -433,7 +432,7 @@ describe('ActivityFeed', () => {
     });
 
     it('title has correct styling', () => {
-      const { container } = render(<ActivityFeed items={[]} />);
+      render(<ActivityFeed items={[]} />);
       const title = screen.getByText('Recent Activity');
       expect(title).toHaveClass('font-semibold');
       expect(title).toHaveClass('text-theme-primary');

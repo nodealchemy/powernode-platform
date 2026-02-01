@@ -2,6 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { Clock, CheckCircle, XCircle, Loader, X } from 'lucide-react';
 import { servicesApi } from '../../services/servicesApi';
 
+// Result types for different job types
+interface ValidationResult {
+  valid: boolean;
+  errors?: string[];
+}
+
+interface ConnectivityResult {
+  status: 'healthy' | 'unhealthy' | 'error';
+  response_time_ms?: number;
+}
+
+interface ServiceInfo {
+  name: string;
+  type: string;
+  status?: string;
+}
+
+interface JobResult {
+  validation?: ValidationResult;
+  connectivity?: Record<string, ConnectivityResult>;
+  filename?: string;
+  size?: number;
+  config?: string;
+  instructions?: string;
+  services_count?: number;
+  services?: ServiceInfo[];
+  [key: string]: unknown;
+}
+
 interface JobProgressModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,7 +53,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
   type JobStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
   const [status, setStatus] = useState<JobStatus>('pending');
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<unknown>(null);
+  const [result, setResult] = useState<JobResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [polling, setPolling] = useState(false);
@@ -46,7 +75,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
             setProgress(currentProgress);
             
             if (currentResult) {
-              setResult(currentResult);
+              setResult(currentResult as JobResult);
             }
           },
           120, // 2 minutes max
@@ -54,7 +83,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
         );
 
         if (isMounted) {
-          setResult(jobData);
+          setResult(jobData as JobResult);
           setStatus('completed');
           onComplete?.(jobData);
         }
@@ -156,9 +185,9 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
                       {result.validation.valid ? 'Configuration Valid' : 'Configuration Invalid'}
                     </span>
                   </div>
-                  {result.validation.errors?.length > 0 && (
+                  {(result.validation.errors?.length ?? 0) > 0 && (
                     <ul className="mt-2 text-sm text-theme-error">
-                      {result.validation.errors.map((error: string, index: number) => (
+                      {result.validation.errors?.map((error: string, index: number) => (
                         <li key={index}>• {error}</li>
                       ))}
                     </ul>
@@ -207,7 +236,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
                   <span className="text-xs text-theme-secondary">{result.size} chars</span>
                 </div>
                 <pre className="text-xs text-theme-secondary overflow-x-auto max-h-40 bg-theme-background p-2 rounded">
-                  {result.config?.substring(0, 500)}{result.config?.length > 500 ? '...' : ''}
+                  {result.config?.substring(0, 500)}{(result.config?.length ?? 0) > 500 ? '...' : ''}
                 </pre>
               </div>
             </div>
@@ -230,10 +259,10 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
               <h4 className="font-medium text-theme-primary mb-2">
                 Discovered Services ({result.services_count || 0})
               </h4>
-              {result.services?.length > 0 ? (
+              {(result.services?.length ?? 0) > 0 ? (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  {result.services.map((service: any, index: number) => (
+                  {result.services?.map((service: any, index: number) => (
                     <div key={index} className="flex items-center justify-between p-2 bg-theme-surface rounded">
                       <div>
                         <span className="font-medium">{service.name}</span>

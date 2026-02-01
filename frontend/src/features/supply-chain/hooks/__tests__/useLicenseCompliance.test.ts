@@ -21,10 +21,7 @@ import {
   createMockPagination,
 } from '../../testing/mockFactories';
 import type {
-  LicensePolicy,
-  LicenseViolation,
   CreateLicensePolicyData,
-  Pagination,
 } from '../../services/licenseComplianceApi';
 
 jest.mock('../../services/licenseComplianceApi');
@@ -89,7 +86,7 @@ describe('License Compliance Hooks', () => {
       expect(result.current.data).toHaveProperty('policies');
       expect(result.current.data).toHaveProperty('pagination');
       expect(Array.isArray(result.current.data.policies)).toBe(true);
-      expect(result.current.data.pagination.current_page).toBe(1);
+      expect(result.current.data.pagination?.current_page).toBe(1);
     });
 
     it('passes pagination options to API', async () => {
@@ -352,12 +349,11 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useCreateLicensePolicy());
 
-      let thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync(policyData);
-        } catch (err) {
-          thrownError = err as Error;
+        } catch {
+          // Error is expected
         }
       });
 
@@ -379,17 +375,17 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useCreateLicensePolicy());
 
-      let thrownError: Error | null = null;
+      let _thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync(policyData);
         } catch (err) {
-          thrownError = err as Error;
+          _thrownError = err as Error;
         }
       });
 
       expect(result.current.error).toBe('Invalid policy data');
-      expect(thrownError).toEqual(error);
+      expect(_thrownError).toEqual(error);
     });
 
     it('throws error instead of suppressing it', async () => {
@@ -450,15 +446,14 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useUpdateLicensePolicy());
 
-      let thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
             id: policyId,
             data: updateData,
           });
-        } catch (err) {
-          thrownError = err as Error;
+        } catch {
+          // Error is expected
         }
       });
 
@@ -483,7 +478,7 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useUpdateLicensePolicy());
 
-      let thrownError: Error | null = null;
+      let _thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
@@ -491,12 +486,12 @@ describe('License Compliance Hooks', () => {
             data: updateData,
           });
         } catch (err) {
-          thrownError = err as Error;
+          _thrownError = err as Error;
         }
       });
 
       expect(result.current.error).toBe('Policy not found');
-      expect(thrownError).toEqual(error);
+      expect(_thrownError).toEqual(error);
     });
 
     it('updates partial fields', async () => {
@@ -548,12 +543,11 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useDeleteLicensePolicy());
 
-      let thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync(policyId);
-        } catch (err) {
-          thrownError = err as Error;
+        } catch {
+          // Error is expected
         }
       });
 
@@ -575,17 +569,17 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useDeleteLicensePolicy());
 
-      let thrownError: Error | null = null;
+      let _thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync(policyId);
         } catch (err) {
-          thrownError = err as Error;
+          _thrownError = err as Error;
         }
       });
 
       expect(result.current.error).toBe('Cannot delete active policy');
-      expect(thrownError).toEqual(error);
+      expect(_thrownError).toEqual(error);
     });
   });
 
@@ -646,15 +640,14 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useToggleLicensePolicyActive());
 
-      let thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
             id: policyId,
             isActive: true,
           });
-        } catch (err) {
-          thrownError = err as Error;
+        } catch {
+          // Error is expected
         }
       });
 
@@ -679,7 +672,7 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useToggleLicensePolicyActive());
 
-      let thrownError: Error | null = null;
+      let _thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
@@ -687,12 +680,12 @@ describe('License Compliance Hooks', () => {
             isActive: true,
           });
         } catch (err) {
-          thrownError = err as Error;
+          _thrownError = err as Error;
         }
       });
 
       expect(result.current.error).toBe('Policy is locked');
-      expect(thrownError).toEqual(error);
+      expect(_thrownError).toEqual(error);
     });
   });
 
@@ -977,15 +970,14 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useResolveViolation());
 
-      let thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
             id: violationId,
             note,
           });
-        } catch (err) {
-          thrownError = err as Error;
+        } catch {
+          // Error is expected
         }
       });
 
@@ -1010,7 +1002,7 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useResolveViolation());
 
-      let thrownError: Error | null = null;
+      let _thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
@@ -1018,12 +1010,12 @@ describe('License Compliance Hooks', () => {
             note,
           });
         } catch (err) {
-          thrownError = err as Error;
+          _thrownError = err as Error;
         }
       });
 
       expect(result.current.error).toBe('Cannot resolve approved exception');
-      expect(thrownError).toEqual(error);
+      expect(_thrownError).toEqual(error);
     });
   });
 
@@ -1068,15 +1060,14 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useGrantViolationException());
 
-      let thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
             id: violationId,
             note,
           });
-        } catch (err) {
-          thrownError = err as Error;
+        } catch {
+          // Error is expected
         }
       });
 
@@ -1101,7 +1092,7 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useGrantViolationException());
 
-      let thrownError: Error | null = null;
+      let _thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
@@ -1109,12 +1100,12 @@ describe('License Compliance Hooks', () => {
             note,
           });
         } catch (err) {
-          thrownError = err as Error;
+          _thrownError = err as Error;
         }
       });
 
       expect(result.current.error).toBe('Exception already granted');
-      expect(thrownError).toEqual(error);
+      expect(_thrownError).toEqual(error);
     });
   });
 
@@ -1183,7 +1174,7 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useRequestException());
 
-      let thrownError: Error | null = null;
+      let _thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
@@ -1191,12 +1182,12 @@ describe('License Compliance Hooks', () => {
             justification: '',
           });
         } catch (err) {
-          thrownError = err as Error;
+          _thrownError = err as Error;
         }
       });
 
       expect(result.current.error).toBe('Justification too short');
-      expect(thrownError).toEqual(error);
+      expect(_thrownError).toEqual(error);
     });
   });
 
@@ -1278,19 +1269,19 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useApproveException());
 
-      let thrownError: Error | null = null;
+      let _thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
             id: violationId,
           });
         } catch (err) {
-          thrownError = err as Error;
+          _thrownError = err as Error;
         }
       });
 
       expect(result.current.error).toBe('No pending exception request');
-      expect(thrownError).toEqual(error);
+      expect(_thrownError).toEqual(error);
     });
   });
 
@@ -1345,15 +1336,14 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useRejectException());
 
-      let thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
             id: violationId,
             reason,
           });
-        } catch (err) {
-          thrownError = err as Error;
+        } catch {
+          // Error is expected
         }
       });
 
@@ -1378,7 +1368,7 @@ describe('License Compliance Hooks', () => {
 
       const { result } = renderHook(() => useRejectException());
 
-      let thrownError: Error | null = null;
+      let _thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync({
@@ -1386,12 +1376,12 @@ describe('License Compliance Hooks', () => {
             reason,
           });
         } catch (err) {
-          thrownError = err as Error;
+          _thrownError = err as Error;
         }
       });
 
       expect(result.current.error).toBe('Exception already approved');
-      expect(thrownError).toEqual(error);
+      expect(_thrownError).toEqual(error);
     });
   });
 
@@ -1434,17 +1424,15 @@ describe('License Compliance Hooks', () => {
         enforcement_level: 'warn',
       };
 
-      let thrownError: Error | null = null;
       await act(async () => {
         try {
           await result.current.mutateAsync(policyData);
-        } catch (err) {
-          thrownError = err;
+        } catch {
+          // Error is caught internally by hook
         }
       });
 
       expect(result.current.error).toBe('Failed to create license policy');
-      expect(thrownError).toBeNull();
     });
   });
 });

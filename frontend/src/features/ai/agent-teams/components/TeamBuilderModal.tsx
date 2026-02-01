@@ -59,8 +59,10 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
     }
   };
 
-  const handleChange = (field: keyof CreateTeamParams, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleChange = (field: keyof CreateTeamParams, value: string | undefined) => {
+    if (value !== undefined) {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const teamTypeOptions = [
@@ -156,7 +158,7 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
           <Select
             id="status"
             value={formData.status || 'active'}
-            onChange={(value) => handleChange('status', value as CreateTeamParams['status'])}
+            onChange={(value) => handleChange('status', (value || 'active') as CreateTeamParams['status'])}
             options={statusOptions}
           />
         </div>

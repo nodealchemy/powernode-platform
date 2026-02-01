@@ -165,7 +165,7 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
     }
   }, [addNotification, fetchMonitoringData]);
 
-  const handleWebSocketError = useCallback((error: string) => {
+  const handleWebSocketError = useCallback((_error: string) => {
     // Error handling through notifications system
   }, []);
 

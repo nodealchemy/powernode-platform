@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { AttestationsPage } from '../AttestationsPage';
@@ -769,7 +768,7 @@ describe('AttestationsPage', () => {
 
       await waitFor(() => {
         const lastCall = mockUseAttestations.mock.calls[mockUseAttestations.mock.calls.length - 1];
-        expect(lastCall[0].attestationType).toBe('slsa_provenance');
+        expect(lastCall?.[0]?.attestationType).toBe('slsa_provenance');
       });
     });
 
@@ -788,7 +787,7 @@ describe('AttestationsPage', () => {
 
       await waitFor(() => {
         const lastCall = mockUseAttestations.mock.calls[mockUseAttestations.mock.calls.length - 1];
-        expect(lastCall[0].attestationType).toBe('sbom');
+        expect(lastCall?.[0]?.attestationType).toBe('sbom');
       });
     });
 
@@ -807,7 +806,7 @@ describe('AttestationsPage', () => {
 
       await waitFor(() => {
         const lastCall = mockUseAttestations.mock.calls[mockUseAttestations.mock.calls.length - 1];
-        expect(lastCall[0].attestationType).toBe('custom');
+        expect(lastCall?.[0]?.attestationType).toBe('custom');
       });
     });
 
@@ -830,7 +829,7 @@ describe('AttestationsPage', () => {
 
       await waitFor(() => {
         const lastCall = mockUseAttestations.mock.calls[mockUseAttestations.mock.calls.length - 1];
-        expect(lastCall[0].attestationType).toBeUndefined();
+        expect(lastCall?.[0]?.attestationType).toBeUndefined();
       });
     });
   });
@@ -879,7 +878,7 @@ describe('AttestationsPage', () => {
 
       await waitFor(() => {
         const lastCall = mockUseAttestations.mock.calls[mockUseAttestations.mock.calls.length - 1];
-        expect(lastCall[0].page).toBe(2);
+        expect(lastCall?.[0]?.page).toBe(2);
       });
     });
 
@@ -898,7 +897,7 @@ describe('AttestationsPage', () => {
 
       await waitFor(() => {
         const lastCall = mockUseAttestations.mock.calls[mockUseAttestations.mock.calls.length - 1];
-        expect(lastCall[0].page).toBe(1);
+        expect(lastCall?.[0]?.page).toBe(1);
       });
     });
   });
@@ -1000,7 +999,7 @@ describe('AttestationsPage', () => {
 
       await waitFor(() => {
         const lastCall = mockUseAttestations.mock.calls[mockUseAttestations.mock.calls.length - 1];
-        expect(lastCall[0].page).toBe(1);
+        expect(lastCall?.[0]?.page).toBe(1);
       });
     });
   });
@@ -1086,7 +1085,7 @@ describe('AttestationsPage', () => {
       renderPage();
 
       const lastCall = mockUseAttestations.mock.calls[mockUseAttestations.mock.calls.length - 1];
-      expect(lastCall[0].perPage).toBe(20);
+      expect(lastCall?.[0]?.perPage).toBe(20);
     });
   });
 

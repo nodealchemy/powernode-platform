@@ -171,7 +171,7 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
             <Filter className="h-4 w-4 text-theme-muted" />
             <Select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
+              onChange={(value) => setTypeFilter(value)}
               className="w-36"
             >
               {traceTypeOptions.map(opt => (
@@ -181,7 +181,7 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
           </div>
           <Select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(value) => setStatusFilter(value)}
             className="w-36"
           >
             {statusOptions.map(opt => (

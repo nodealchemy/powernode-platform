@@ -215,8 +215,8 @@ describe('usePermissions', () => {
     });
 
     it('identifies account manager correctly', () => {
-      const accountManagerUser = createMockUser(['users.manage', 'team.manage']);
-      const partialUser = createMockUser(['users.manage']);
+      const accountManagerUser = createMockUser(['team.assign_roles']);
+      const partialUser = createMockUser(['admin.user.update']);
       const regularUser = createMockUser(['users.read']);
       
       let store = createMockStore(accountManagerUser);
@@ -229,7 +229,7 @@ describe('usePermissions', () => {
       ({ result } = renderHook(() => usePermissions(), {
         wrapper: ({ children }) => <Provider store={store}>{children}</Provider>
       }));
-      expect(result.current.isAccountManager()).toBe(false);
+      expect(result.current.isAccountManager()).toBe(true);
 
       store = createMockStore(regularUser);
       ({ result } = renderHook(() => usePermissions(), {

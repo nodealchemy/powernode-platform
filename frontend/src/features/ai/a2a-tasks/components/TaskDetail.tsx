@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Activity,
   Clock,
   CheckCircle,
   XCircle,
   AlertCircle,
   Loader2,
-  ArrowRight,
   RefreshCw,
   StopCircle,
   Send,
@@ -21,7 +19,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { a2aTasksApiService } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
-import type { A2aTask, A2aTaskJson, A2aArtifact } from '@/shared/services/ai/types/a2a-types';
+import type { A2aTask, A2aArtifact } from '@/shared/services/ai/types/a2a-types';
 
 interface TaskDetailProps {
   taskId: string;
@@ -42,7 +40,7 @@ const statusConfig: Record<
 };
 
 export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, className }) => {
-  const [task, setTask] = useState<A2aTaskJson | null>(null);
+  const [task, setTask] = useState<A2aTask | null>(null);
   const [artifacts, setArtifacts] = useState<A2aArtifact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +61,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
       setError(null);
 
       const [taskResponse, artifactsResponse] = await Promise.all([
-        a2aTasksApiService.getTask(taskId),
+        a2aTasksApiService.getTaskDetails(taskId),
         a2aTasksApiService.getArtifacts(taskId).catch(() => ({ artifacts: [] })),
       ]);
 
@@ -79,9 +77,9 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
   const handleCancel = async () => {
     try {
       setActionLoading('cancel');
-      const response = await a2aTasksApiService.cancelTask(taskId, 'Cancelled by user');
-      setTask(response.task);
+      await a2aTasksApiService.cancelTask(taskId, 'Cancelled by user');
       addNotification({ type: 'success', title: 'Cancelled', message: 'Task has been cancelled' });
+      await loadTask(); // Reload to get updated task state
     } catch (err) {
       addNotification({ type: 'error', title: 'Error', message: 'Failed to cancel task' });
     } finally {
@@ -99,10 +97,10 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
       } catch {
         parsedInput = inputValue;
       }
-      const response = await a2aTasksApiService.provideInput(taskId, parsedInput);
-      setTask(response.task);
+      await a2aTasksApiService.provideInput(taskId, parsedInput);
       setInputValue('');
       addNotification({ type: 'success', title: 'Input Sent', message: 'Input provided to task' });
+      await loadTask(); // Reload to get updated task state
     } catch (err) {
       addNotification({ type: 'error', title: 'Error', message: 'Failed to provide input' });
     } finally {
@@ -254,7 +252,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
           />
           <CardContent>
             <p className="text-sm text-theme-danger whitespace-pre-wrap">
-              {(task as A2aTaskJson & { error_message?: string }).error_message || 'Unknown error'}
+              {task.error_message || 'Unknown error'}
             </p>
           </CardContent>
         </Card>
@@ -282,7 +280,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
               <CardContent>
                 <pre className="bg-theme-surface-dark p-4 rounded-lg text-xs overflow-x-auto max-h-64">
                   <code className="text-theme-primary">
-                    {JSON.stringify((task as A2aTaskJson & { input?: unknown }).input, null, 2) || 'null'}
+                    {JSON.stringify(task.input, null, 2) || 'null'}
                   </code>
                 </pre>
               </CardContent>
@@ -290,7 +288,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
           </Card>
 
           {/* Output */}
-          {(task as A2aTaskJson & { output?: unknown }).output && (
+          {task.output && Object.keys(task.output).length > 0 && (
             <Card>
               <CardHeader
                 title="Output"
@@ -309,7 +307,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                 <CardContent>
                   <pre className="bg-theme-surface-dark p-4 rounded-lg text-xs overflow-x-auto max-h-64">
                     <code className="text-theme-primary">
-                      {JSON.stringify((task as A2aTaskJson & { output?: unknown }).output, null, 2)}
+                      {JSON.stringify(task.output, null, 2)}
                     </code>
                   </pre>
                 </CardContent>
@@ -328,7 +326,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                 <div className="space-y-2">
                   {artifacts.map((artifact, idx) => (
                     <div
-                      key={artifact.artifact_id || idx}
+                      key={artifact.id || idx}
                       className="p-3 bg-theme-surface rounded-lg flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
@@ -337,13 +335,13 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                           <div className="font-medium text-theme-primary">
                             {artifact.name || `Artifact ${idx + 1}`}
                           </div>
-                          {artifact.mime_type && (
-                            <div className="text-xs text-theme-muted">{artifact.mime_type}</div>
+                          {artifact.mimeType && (
+                            <div className="text-xs text-theme-muted">{artifact.mimeType}</div>
                           )}
                         </div>
                       </div>
                       <Badge variant="outline" size="sm">
-                        {artifact.artifact_id?.substring(0, 8) || 'N/A'}
+                        {artifact.id?.substring(0, 8) || 'N/A'}
                       </Badge>
                     </div>
                   ))}
@@ -362,32 +360,29 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
               <div className="flex justify-between">
                 <span className="text-theme-secondary">Created</span>
                 <span className="text-theme-primary">
-                  {formatDate((task as A2aTaskJson & { created_at?: string }).created_at)}
+                  {formatDate(task.created_at)}
                 </span>
               </div>
-              {(task as A2aTaskJson & { started_at?: string }).started_at && (
+              {task.started_at && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Started</span>
                   <span className="text-theme-primary">
-                    {formatDate((task as A2aTaskJson & { started_at?: string }).started_at)}
+                    {formatDate(task.started_at)}
                   </span>
                 </div>
               )}
-              {(task as A2aTaskJson & { completed_at?: string }).completed_at && (
+              {task.completed_at && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Completed</span>
                   <span className="text-theme-primary">
-                    {formatDate((task as A2aTaskJson & { completed_at?: string }).completed_at)}
+                    {formatDate(task.completed_at)}
                   </span>
                 </div>
               )}
               <div className="flex justify-between pt-2 border-t border-theme">
                 <span className="text-theme-secondary">Duration</span>
                 <span className="text-theme-primary font-medium">
-                  {formatDuration(
-                    (task as A2aTaskJson & { started_at?: string }).started_at,
-                    (task as A2aTaskJson & { completed_at?: string }).completed_at
-                  )}
+                  {formatDuration(task.started_at, task.completed_at)}
                 </span>
               </div>
             </CardContent>
@@ -397,19 +392,19 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
           <Card>
             <CardHeader title="Details" />
             <CardContent className="space-y-3 text-sm">
-              {(task as A2aTaskJson & { sequence_number?: number }).sequence_number !== undefined && (
+              {task.sequence_number !== undefined && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Sequence #</span>
                   <span className="text-theme-primary">
-                    {(task as A2aTaskJson & { sequence_number?: number }).sequence_number}
+                    {task.sequence_number}
                   </span>
                 </div>
               )}
-              {(task as A2aTaskJson & { workflow_run_id?: string }).workflow_run_id && (
+              {task.workflow_run_id && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Workflow Run</span>
                   <span className="text-theme-primary font-mono text-xs">
-                    {(task as A2aTaskJson & { workflow_run_id?: string }).workflow_run_id?.substring(0, 8)}...
+                    {task.workflow_run_id.substring(0, 8)}...
                   </span>
                 </div>
               )}

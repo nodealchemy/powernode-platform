@@ -11,7 +11,7 @@ import {
   RefreshCw,
   ArrowRight,
 } from 'lucide-react';
-import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
+import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -57,7 +57,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
 
       const response = await a2aTasksApiService.getTasks(filters);
       setTasks(response.items || []);
-      setTotalCount(response.total || 0);
+      setTotalCount(response.pagination?.total_count || 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load tasks');
     } finally {
@@ -74,8 +74,8 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
     ? tasks.filter(
         (task) =>
           task.task_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          task.from_agent?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          task.to_agent?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+          task.from_agent_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          task.to_agent_id?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : tasks;
 
@@ -134,7 +134,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
               <Filter className="h-4 w-4 text-theme-muted" />
               <Select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(value) => setStatusFilter(value)}
                 className="w-36"
               >
                 <option value="">All Status</option>
@@ -218,12 +218,12 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
 
                     {/* Agent flow */}
                     <div className="flex items-center gap-2 text-sm text-theme-secondary mb-2">
-                      <span className="font-medium">
-                        {task.from_agent?.name || 'Unknown Agent'}
+                      <span className="font-medium font-mono text-xs">
+                        {task.from_agent_id?.substring(0, 8) || 'Unknown'}...
                       </span>
                       <ArrowRight className="h-4 w-4 text-theme-muted" />
-                      <span className="font-medium">
-                        {task.to_agent?.name || 'Unknown Agent'}
+                      <span className="font-medium font-mono text-xs">
+                        {task.to_agent_id?.substring(0, 8) || 'Unknown'}...
                       </span>
                     </div>
 

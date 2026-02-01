@@ -1,5 +1,6 @@
 import { containerImagesApi } from '../containerImagesApi';
 import { apiClient } from '@/shared/services/apiClient';
+import type { AxiosResponse, InternalAxiosRequestConfig, AxiosHeaders } from 'axios';
 
 jest.mock('@/shared/services/apiClient', () => ({
   apiClient: {
@@ -11,6 +12,17 @@ jest.mock('@/shared/services/apiClient', () => ({
 }));
 
 const mockApiClient = apiClient as jest.Mocked<typeof apiClient>;
+
+// Helper to create mock Axios responses
+function mockAxiosResponse<T>(data: T): AxiosResponse<T> {
+  return {
+    data,
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config: { headers: {} as AxiosHeaders } as InternalAxiosRequestConfig,
+  };
+}
 
 describe('containerImagesApi', () => {
   beforeEach(() => {
@@ -114,14 +126,12 @@ describe('containerImagesApi', () => {
 
   describe('list', () => {
     it('should fetch container images without parameters', async () => {
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            images: [mockContainerImage],
-            pagination: mockPagination,
-          },
+          images: [mockContainerImage],
+          pagination: mockPagination,
         },
-      });
+      }));
 
       const result = await containerImagesApi.list();
 
@@ -136,14 +146,12 @@ describe('containerImagesApi', () => {
 
     it('should fetch container images with pagination parameters', async () => {
       const params = { page: 2, per_page: 10 };
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            images: [mockContainerImage],
-            pagination: { ...mockPagination, current_page: 2 },
-          },
+          images: [mockContainerImage],
+          pagination: { ...mockPagination, current_page: 2 },
         },
-      });
+      }));
 
       const result = await containerImagesApi.list(params);
 
@@ -155,14 +163,12 @@ describe('containerImagesApi', () => {
 
     it('should fetch container images filtered by status', async () => {
       const params = { status: 'quarantined' as const };
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            images: [{ ...mockContainerImage, status: 'quarantined' }],
-            pagination: mockPagination,
-          },
+          images: [{ ...mockContainerImage, status: 'quarantined' }],
+          pagination: mockPagination,
         },
-      });
+      }));
 
       const result = await containerImagesApi.list(params);
 
@@ -174,14 +180,12 @@ describe('containerImagesApi', () => {
 
     it('should fetch container images filtered by registry', async () => {
       const params = { registry: 'gcr.io' };
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            images: [{ ...mockContainerImage, registry: 'gcr.io' }],
-            pagination: mockPagination,
-          },
+          images: [{ ...mockContainerImage, registry: 'gcr.io' }],
+          pagination: mockPagination,
         },
-      });
+      }));
 
       const result = await containerImagesApi.list(params);
 
@@ -193,14 +197,12 @@ describe('containerImagesApi', () => {
 
     it('should fetch container images filtered by deployment status', async () => {
       const params = { is_deployed: false };
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            images: [{ ...mockContainerImage, is_deployed: false }],
-            pagination: mockPagination,
-          },
+          images: [{ ...mockContainerImage, is_deployed: false }],
+          pagination: mockPagination,
         },
-      });
+      }));
 
       const result = await containerImagesApi.list(params);
 
@@ -220,13 +222,11 @@ describe('containerImagesApi', () => {
 
   describe('get', () => {
     it('should fetch a single container image by id', async () => {
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            image: mockContainerImageDetail,
-          },
+          image: mockContainerImageDetail,
         },
-      });
+      }));
 
       const result = await containerImagesApi.get('image-001');
 
@@ -237,13 +237,11 @@ describe('containerImagesApi', () => {
     });
 
     it('should return container image with scans', async () => {
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            image: mockContainerImageDetail,
-          },
+          image: mockContainerImageDetail,
         },
-      });
+      }));
 
       const result = await containerImagesApi.get('image-001');
 
@@ -252,13 +250,11 @@ describe('containerImagesApi', () => {
     });
 
     it('should return container image with applicable policies', async () => {
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            image: mockContainerImageDetail,
-          },
+          image: mockContainerImageDetail,
         },
-      });
+      }));
 
       const result = await containerImagesApi.get('image-001');
 
@@ -276,13 +272,11 @@ describe('containerImagesApi', () => {
 
   describe('scan', () => {
     it('should initiate a scan on a container image', async () => {
-      mockApiClient.post.mockResolvedValueOnce({
+      mockApiClient.post.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            image: mockContainerImage,
-          },
+          image: mockContainerImage,
         },
-      });
+      }));
 
       const result = await containerImagesApi.scan('image-001');
 
@@ -294,13 +288,11 @@ describe('containerImagesApi', () => {
 
     it('should return updated image after scan', async () => {
       const scannedImage = { ...mockContainerImage, last_scanned_at: '2024-01-21T11:00:00Z' };
-      mockApiClient.post.mockResolvedValueOnce({
+      mockApiClient.post.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            image: scannedImage,
-          },
+          image: scannedImage,
         },
-      });
+      }));
 
       const result = await containerImagesApi.scan('image-001');
 
@@ -317,13 +309,11 @@ describe('containerImagesApi', () => {
 
   describe('verify', () => {
     it('should verify a container image', async () => {
-      mockApiClient.post.mockResolvedValueOnce({
+      mockApiClient.post.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            image: mockContainerImage,
-          },
+          image: mockContainerImage,
         },
-      });
+      }));
 
       const result = await containerImagesApi.verify('image-001');
 
@@ -335,13 +325,11 @@ describe('containerImagesApi', () => {
 
     it('should update status to verified', async () => {
       const verifiedImage = { ...mockContainerImage, status: 'verified' as const };
-      mockApiClient.post.mockResolvedValueOnce({
+      mockApiClient.post.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            image: verifiedImage,
-          },
+          image: verifiedImage,
         },
-      });
+      }));
 
       const result = await containerImagesApi.verify('image-001');
 
@@ -361,13 +349,11 @@ describe('containerImagesApi', () => {
   describe('quarantine', () => {
     it('should quarantine a container image with reason', async () => {
       const reason = 'Critical vulnerabilities detected';
-      mockApiClient.post.mockResolvedValueOnce({
+      mockApiClient.post.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            image: { ...mockContainerImage, status: 'quarantined' as const },
-          },
+          image: { ...mockContainerImage, status: 'quarantined' as const },
         },
-      });
+      }));
 
       const result = await containerImagesApi.quarantine('image-001', reason);
 
@@ -380,13 +366,11 @@ describe('containerImagesApi', () => {
 
     it('should pass reason in request body', async () => {
       const reason = 'Policy violation detected';
-      mockApiClient.post.mockResolvedValueOnce({
+      mockApiClient.post.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            image: mockContainerImage,
-          },
+          image: mockContainerImage,
         },
-      });
+      }));
 
       await containerImagesApi.quarantine('image-001', reason);
 
@@ -408,7 +392,7 @@ describe('containerImagesApi', () => {
 
   describe('delete', () => {
     it('should delete a container image', async () => {
-      mockApiClient.delete.mockResolvedValueOnce(undefined);
+      mockApiClient.delete.mockResolvedValueOnce(mockAxiosResponse(null));
 
       await containerImagesApi.delete('image-001');
 
@@ -427,7 +411,7 @@ describe('containerImagesApi', () => {
     });
 
     it('should successfully delete and not return data', async () => {
-      mockApiClient.delete.mockResolvedValueOnce(undefined);
+      mockApiClient.delete.mockResolvedValueOnce(mockAxiosResponse(null));
 
       const result = await containerImagesApi.delete('image-001');
 
@@ -437,14 +421,12 @@ describe('containerImagesApi', () => {
 
   describe('getVulnerabilities', () => {
     it('should fetch vulnerabilities for an image without parameters', async () => {
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            vulnerabilities: [mockVulnerability],
-            pagination: mockPagination,
-          },
+          vulnerabilities: [mockVulnerability],
+          pagination: mockPagination,
         },
-      });
+      }));
 
       const result = await containerImagesApi.getVulnerabilities('image-001');
 
@@ -460,16 +442,14 @@ describe('containerImagesApi', () => {
 
     it('should fetch vulnerabilities with pagination parameters', async () => {
       const params = { page: 2, per_page: 25 };
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            vulnerabilities: [mockVulnerability],
-            pagination: { ...mockPagination, current_page: 2 },
-          },
+          vulnerabilities: [mockVulnerability],
+          pagination: { ...mockPagination, current_page: 2 },
         },
-      });
+      }));
 
-      const result = await containerImagesApi.getVulnerabilities('image-001', params);
+      await containerImagesApi.getVulnerabilities('image-001', params);
 
       expect(mockApiClient.get).toHaveBeenCalledWith(
         '/supply_chain/container_images/image-001/vulnerabilities',
@@ -479,16 +459,14 @@ describe('containerImagesApi', () => {
 
     it('should fetch vulnerabilities filtered by severity', async () => {
       const params = { severity: 'critical' as const };
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            vulnerabilities: [
-              { ...mockVulnerability, severity: 'critical' as const, cvss_score: 9.8 },
-            ],
-            pagination: mockPagination,
-          },
+          vulnerabilities: [
+            { ...mockVulnerability, severity: 'critical' as const, cvss_score: 9.8 },
+          ],
+          pagination: mockPagination,
         },
-      });
+      }));
 
       const result = await containerImagesApi.getVulnerabilities('image-001', params);
 
@@ -513,14 +491,12 @@ describe('containerImagesApi', () => {
         mockVulnerability,
         { ...mockVulnerability, id: 'vuln-002', vulnerability_id: 'CVE-2024-5678' },
       ];
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            vulnerabilities,
-            pagination: mockPagination,
-          },
+          vulnerabilities,
+          pagination: mockPagination,
         },
-      });
+      }));
 
       const result = await containerImagesApi.getVulnerabilities('image-001');
 
@@ -530,13 +506,11 @@ describe('containerImagesApi', () => {
 
   describe('getSbom', () => {
     it('should fetch SBOM for an image', async () => {
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            sbom: mockSbom,
-          },
+          sbom: mockSbom,
         },
-      });
+      }));
 
       const result = await containerImagesApi.getSbom('image-001');
 
@@ -547,13 +521,11 @@ describe('containerImagesApi', () => {
     });
 
     it('should return SBOM with components', async () => {
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            sbom: mockSbom,
-          },
+          sbom: mockSbom,
         },
-      });
+      }));
 
       const result = await containerImagesApi.getSbom('image-001');
 
@@ -562,13 +534,11 @@ describe('containerImagesApi', () => {
     });
 
     it('should return SBOM with correct format', async () => {
-      mockApiClient.get.mockResolvedValueOnce({
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            sbom: mockSbom,
-          },
+          sbom: mockSbom,
         },
-      });
+      }));
 
       const result = await containerImagesApi.getSbom('image-001');
 
@@ -588,13 +558,11 @@ describe('containerImagesApi', () => {
 
   describe('evaluatePolicies', () => {
     it('should evaluate policies for an image', async () => {
-      mockApiClient.post.mockResolvedValueOnce({
+      mockApiClient.post.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            evaluations: [mockPolicyEvaluation],
-          },
+          evaluations: [mockPolicyEvaluation],
         },
-      });
+      }));
 
       const result = await containerImagesApi.evaluatePolicies('image-001');
 
@@ -615,13 +583,11 @@ describe('containerImagesApi', () => {
           violations: [],
         },
       ];
-      mockApiClient.post.mockResolvedValueOnce({
+      mockApiClient.post.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            evaluations,
-          },
+          evaluations,
         },
-      });
+      }));
 
       const result = await containerImagesApi.evaluatePolicies('image-001');
 
@@ -631,13 +597,11 @@ describe('containerImagesApi', () => {
     });
 
     it('should include violations in policy evaluation', async () => {
-      mockApiClient.post.mockResolvedValueOnce({
+      mockApiClient.post.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            evaluations: [mockPolicyEvaluation],
-          },
+          evaluations: [mockPolicyEvaluation],
         },
-      });
+      }));
 
       const result = await containerImagesApi.evaluatePolicies('image-001');
 
@@ -651,13 +615,11 @@ describe('containerImagesApi', () => {
         passed: true,
         violations: [],
       };
-      mockApiClient.post.mockResolvedValueOnce({
+      mockApiClient.post.mockResolvedValueOnce(mockAxiosResponse({
         data: {
-          data: {
-            evaluations: [passingEvaluation],
-          },
+          evaluations: [passingEvaluation],
         },
-      });
+      }));
 
       const result = await containerImagesApi.evaluatePolicies('image-001');
 
@@ -677,13 +639,13 @@ describe('containerImagesApi', () => {
 
   describe('API endpoint consistency', () => {
     it('should use correct base path for all endpoints', async () => {
-      mockApiClient.get.mockResolvedValueOnce({
-        data: { data: { images: [], pagination: mockPagination } },
-      });
-      mockApiClient.post.mockResolvedValueOnce({
-        data: { data: { image: mockContainerImage } },
-      });
-      mockApiClient.delete.mockResolvedValueOnce(undefined);
+      mockApiClient.get.mockResolvedValueOnce(mockAxiosResponse({
+        data: { images: [], pagination: mockPagination },
+      }));
+      mockApiClient.post.mockResolvedValueOnce(mockAxiosResponse({
+        data: { image: mockContainerImage },
+      }));
+      mockApiClient.delete.mockResolvedValueOnce(mockAxiosResponse(null));
 
       await containerImagesApi.list();
       await containerImagesApi.scan('image-001');

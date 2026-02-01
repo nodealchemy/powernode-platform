@@ -183,7 +183,7 @@ describe('ExportFormatDropdown', () => {
   describe('loading state', () => {
     it('shows Exporting... text during export', async () => {
       const onExport = jest.fn(
-        () => new Promise(resolve => setTimeout(resolve, 1000))
+        (_format: ExportFormat) => new Promise<void>(resolve => setTimeout(resolve, 1000))
       );
       const { container } = render(
         <ExportFormatDropdown {...defaultProps} onExport={onExport} />
@@ -199,7 +199,7 @@ describe('ExportFormatDropdown', () => {
 
     it('disables button while exporting', async () => {
       const onExport = jest.fn(
-        () => new Promise(resolve => setTimeout(resolve, 1000))
+        (_format: ExportFormat) => new Promise<void>(resolve => setTimeout(resolve, 1000))
       );
       const { container } = render(
         <ExportFormatDropdown {...defaultProps} onExport={onExport} />
@@ -295,7 +295,6 @@ describe('ExportFormatDropdown', () => {
       const button = container.querySelector('button');
 
       const chevron = button?.querySelector('svg:last-of-type');
-      const initialClasses = chevron?.getAttribute('class') || '';
 
       fireEvent.click(button!);
       const updatedClasses = chevron?.getAttribute('class') || '';

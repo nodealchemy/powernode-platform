@@ -296,7 +296,7 @@ describe('SignAttestationModal', () => {
       const manyKeys = Array.from({ length: 20 }, (_, i) => ({
         id: `key-${i}`,
         name: `Key ${i}`,
-        key_type: (i % 2 === 0 ? 'rsa' : 'ecdsa') as const,
+        key_type: (i % 2 === 0 ? 'rsa' : 'ecdsa') as 'rsa' | 'ecdsa',
         fingerprint: `fingerprint${i}${'x'.repeat(20)}`,
         is_default: i === 0,
         created_at: new Date(2025, 0, 15 - i).toISOString(),
@@ -526,7 +526,7 @@ describe('SignAttestationModal', () => {
       mockOnSign.mockResolvedValueOnce(undefined);
 
       render(<SignAttestationModal {...defaultProps} />);
-      let signButton = screen.getByRole('button', { name: /sign attestation/i });
+      let signButton: HTMLElement | null = screen.getByRole('button', { name: /sign attestation/i });
 
       await userEvent.click(signButton);
 
@@ -586,7 +586,6 @@ describe('SignAttestationModal', () => {
       mockOnSign.mockRejectedValueOnce(new Error('API error'));
 
       render(<SignAttestationModal {...defaultProps} />);
-      const signButton = screen.getByRole('button', { name: /sign attestation/i });
 
       // Clicking should not cause modal to close on error
       expect(mockOnClose).not.toHaveBeenCalled();

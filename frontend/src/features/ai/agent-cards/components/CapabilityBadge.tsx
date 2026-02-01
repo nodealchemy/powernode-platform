@@ -1,10 +1,10 @@
 import React from 'react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { cn } from '@/shared/utils/cn';
-import type { A2aSkill } from '@/shared/services/ai/types/a2a-types';
+import type { AgentSkill } from '@/shared/services/ai/types/a2a-types';
 
 interface CapabilityBadgeProps {
-  skill: A2aSkill;
+  skill: AgentSkill;
   size?: 'sm' | 'md';
   showDescription?: boolean;
   className?: string;
@@ -25,9 +25,8 @@ export const CapabilityBadge: React.FC<CapabilityBadgeProps> = ({
   showDescription = false,
   className,
 }) => {
-  // Determine category from skill tags or id
-  const category = skill.tags?.[0] || 'default';
-  const colors = categoryColors[category] || categoryColors.default;
+  // Determine category from skill id (simplified - no tags in AgentSkill)
+  const colors = categoryColors.default;
 
   return (
     <div className={cn('inline-flex items-center gap-2', className)}>
@@ -48,7 +47,7 @@ export const CapabilityBadge: React.FC<CapabilityBadgeProps> = ({
 };
 
 interface CapabilityListProps {
-  skills: A2aSkill[];
+  skills: AgentSkill[];
   maxVisible?: number;
   showAll?: boolean;
   className?: string;

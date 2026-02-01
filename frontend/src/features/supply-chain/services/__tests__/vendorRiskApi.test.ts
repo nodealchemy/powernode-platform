@@ -69,7 +69,7 @@ describe('vendorRiskApi', () => {
     });
 
     it('returns filtered vendors with parameters', async () => {
-      const mockVendors = [];
+      const mockVendors: never[] = [];
       const mockPagination = {
         current_page: 1,
         per_page: 10,

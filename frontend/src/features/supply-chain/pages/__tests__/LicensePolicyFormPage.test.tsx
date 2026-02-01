@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
@@ -16,7 +15,7 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 }));
 
 const mockNavigate = jest.fn();
-const mockParams = { id: undefined };
+const mockParams: { id: string | undefined } = { id: undefined };
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,

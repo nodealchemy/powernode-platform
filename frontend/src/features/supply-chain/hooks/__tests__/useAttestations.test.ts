@@ -42,7 +42,6 @@ function createMockAttestationDetail(
   return {
     ...createMockAttestation(),
     build_provenance: {
-      id: 'prov_1',
       builder_id: 'builder-001',
       build_type: 'docker',
       invocation: {
@@ -57,15 +56,12 @@ function createMockAttestationDetail(
           digest: { sha256: 'def456' },
         },
       ],
-      metadata: { buildId: 'build_001' },
     },
     signing_key: {
       id: 'key_1',
       name: 'Default Key',
       key_type: 'cosign',
-      public_key: 'public_key_data',
       is_default: true,
-      created_at: '2024-01-01T00:00:00Z',
     },
     verification_logs: [
       {
@@ -532,9 +528,9 @@ describe('Attestation Hooks', () => {
       mockApi.get.mockResolvedValue(mockDetail);
 
       const { result, rerender } = renderHook(
-        ({ id }) => useAttestation(id),
+        ({ id }: { id: string | null }) => useAttestation(id),
         {
-          initialProps: { id: 'att_1' },
+          initialProps: { id: 'att_1' as string | null },
         }
       );
 
@@ -562,13 +558,13 @@ describe('Attestation Hooks', () => {
     it('should sign attestation with default key', async () => {
       const mockSigned = createMockAttestationDetail({
         signed: true,
-        signing_key: createMockSigningKey({ is_default: true }),
+        signing_key: { id: 'key_1', name: 'Default Key', key_type: 'rsa', is_default: true },
       });
       mockApi.sign.mockResolvedValue(mockSigned);
 
       const { result } = renderHook(() => useSignAttestation());
 
-      let signResult;
+      let signResult: AttestationDetail | undefined;
       await act(async () => {
         signResult = await result.current.mutateAsync({
           id: 'att_1',
@@ -583,17 +579,13 @@ describe('Attestation Hooks', () => {
     it('should sign attestation with specific key', async () => {
       const mockSigned = createMockAttestationDetail({
         signed: true,
-        signing_key: createMockSigningKey({
-          id: 'key_custom',
-          name: 'Custom Key',
-          is_default: false,
-        }),
+        signing_key: { id: 'key_custom', name: 'Custom Key', key_type: 'ecdsa', is_default: false },
       });
       mockApi.sign.mockResolvedValue(mockSigned);
 
       const { result } = renderHook(() => useSignAttestation());
 
-      let signResult;
+      let signResult: AttestationDetail | undefined;
       await act(async () => {
         signResult = await result.current.mutateAsync({
           id: 'att_1',
@@ -737,7 +729,7 @@ describe('Attestation Hooks', () => {
 
       const { result } = renderHook(() => useSignAttestation());
 
-      let result1, result2;
+      let result1: AttestationDetail | undefined, result2: AttestationDetail | undefined;
       await act(async () => {
         result1 = await result.current.mutateAsync({ id: 'att_1' });
         result2 = await result.current.mutateAsync({ id: 'att_2' });
@@ -955,7 +947,7 @@ describe('Attestation Hooks', () => {
         },
       };
 
-      let createResult;
+      let createResult: Attestation | undefined;
       await act(async () => {
         createResult = await result.current.mutateAsync(createData);
       });
@@ -984,7 +976,7 @@ describe('Attestation Hooks', () => {
         },
       };
 
-      let createResult;
+      let createResult: Attestation | undefined;
       await act(async () => {
         createResult = await result.current.mutateAsync(createData);
       });
@@ -1010,7 +1002,7 @@ describe('Attestation Hooks', () => {
         },
       };
 
-      let createResult;
+      let createResult: Attestation | undefined;
       await act(async () => {
         createResult = await result.current.mutateAsync(createData);
       });
@@ -1035,7 +1027,7 @@ describe('Attestation Hooks', () => {
         },
       };
 
-      let createResult;
+      let createResult: Attestation | undefined;
       await act(async () => {
         createResult = await result.current.mutateAsync(createData);
       });
@@ -1201,7 +1193,7 @@ describe('Attestation Hooks', () => {
         predicate: complexPredicate,
       };
 
-      let createResult;
+      let createResult: Attestation | undefined;
       await act(async () => {
         createResult = await result.current.mutateAsync(createData);
       });
@@ -1225,7 +1217,7 @@ describe('Attestation Hooks', () => {
 
       const { result } = renderHook(() => useCreateAttestation());
 
-      let result1, result2;
+      let result1: Attestation | undefined, result2: Attestation | undefined;
       await act(async () => {
         result1 = await result.current.mutateAsync({
           attestation_type: 'slsa_provenance',
@@ -1268,7 +1260,7 @@ describe('Attestation Hooks', () => {
         },
       };
 
-      let createResult;
+      let createResult: Attestation | undefined;
       await act(async () => {
         createResult = await result.current.mutateAsync(createData);
       });

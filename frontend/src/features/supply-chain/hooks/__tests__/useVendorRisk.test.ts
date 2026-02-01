@@ -32,6 +32,7 @@ import {
   createMockQuestionnaire,
   createMockPagination,
 } from '../../testing/mockFactories';
+import type { RiskAssessment, Questionnaire } from '../../types/vendor';
 
 // Mock the vendorRiskApi service
 jest.mock('../../services/vendorRiskApi');
@@ -694,7 +695,7 @@ describe('Vendor Risk Hooks', () => {
 
       const updateData = {
         id: 'vendor-123',
-        data: { risk_tier: 'high', status: 'active' },
+        data: { risk_tier: 'high' as const, status: 'active' as const },
       };
 
       await act(async () => {
@@ -949,7 +950,7 @@ describe('Vendor Risk Hooks', () => {
 
       const { result } = renderHook(() => useStartAssessment());
 
-      let returnedAssessment;
+      let returnedAssessment: RiskAssessment | undefined;
 
       await act(async () => {
         returnedAssessment = await result.current.mutateAsync({
@@ -1066,7 +1067,7 @@ describe('Vendor Risk Hooks', () => {
 
       const { result } = renderHook(() => useSendQuestionnaire());
 
-      let returnedQuestionnaire;
+      let returnedQuestionnaire: Questionnaire | undefined;
 
       await act(async () => {
         returnedQuestionnaire = await result.current.mutateAsync({
@@ -1096,7 +1097,7 @@ describe('Vendor Risk Hooks', () => {
 
       const { result } = renderHook(() => useSendQuestionnaire());
 
-      let response1, response2;
+      let response1: Questionnaire | undefined, response2: Questionnaire | undefined;
 
       await act(async () => {
         response1 = await result.current.mutateAsync({

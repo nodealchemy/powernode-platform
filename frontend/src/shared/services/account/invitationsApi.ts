@@ -3,20 +3,20 @@ import { api } from '@/shared/services/api';
 // Type for API error response data
 interface ApiErrorResponseData {
   message?: string;
-  errors?: string[] | null;
+  errors?: string[];
 }
 
 // Helper function to safely extract error information
 const getErrorInfo = (error: unknown, defaultMessage: string) => {
   let errorMessage = defaultMessage;
-  let errors: string[] | null = null;
+  let errors: string[] | undefined = undefined;
 
   if (error && typeof error === 'object' && 'response' in error && error.response &&
       typeof error.response === 'object' && 'data' in error.response && error.response.data &&
       typeof error.response.data === 'object') {
     const responseData = error.response.data as ApiErrorResponseData;
     errorMessage = responseData.message || errorMessage;
-    errors = responseData.errors || null;
+    errors = responseData.errors;
   }
 
   return { errorMessage, errors };

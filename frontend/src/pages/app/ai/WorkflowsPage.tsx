@@ -23,7 +23,6 @@ import {
   Hash,
   FileText,
   Activity,
-  RefreshCw,
   FileStack
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';

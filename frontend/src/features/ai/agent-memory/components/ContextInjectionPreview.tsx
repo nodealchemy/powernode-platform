@@ -10,10 +10,8 @@ import {
 import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
-import { Loading } from '@/shared/components/ui/Loading';
 import { memoryApiService } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { cn } from '@/shared/utils/cn';
 import type {
   ContextInjectionResponse,
   ContextInjectionRequest,

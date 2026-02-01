@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
@@ -662,19 +661,19 @@ describe('LicenseViolationsPage', () => {
 
   describe('tab icons', () => {
     it('renders AlertTriangle icon for Open tab', () => {
-      const { container } = renderComponent();
+      renderComponent();
       const openTab = screen.getAllByText('Open')[0].closest('button');
       expect(openTab?.querySelector('svg')).toBeInTheDocument();
     });
 
     it('renders CheckCircle2 icon for Resolved tab', () => {
-      const { container } = renderComponent();
+      renderComponent();
       const resolvedTab = screen.getByText('Resolved').closest('button');
       expect(resolvedTab?.querySelector('svg')).toBeInTheDocument();
     });
 
     it('renders ShieldAlert icon for Exception Granted tab', () => {
-      const { container } = renderComponent();
+      renderComponent();
       const exceptionTab = screen.getByText('Exception Granted').closest('button');
       expect(exceptionTab?.querySelector('svg')).toBeInTheDocument();
     });

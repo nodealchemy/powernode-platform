@@ -16,7 +16,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { a2aTasksApiService } from '@/shared/services/ai';
 import { cn } from '@/shared/utils/cn';
-import type { A2aTaskJson, A2aTaskEvent } from '@/shared/services/ai/types/a2a-types';
+import type { A2aTaskJson } from '@/shared/services/ai/types/a2a-types';
 
 interface TaskEventStreamProps {
   taskId: string;
@@ -162,7 +162,6 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      fractionalSecondDigits: 3,
     });
   };
 
@@ -235,15 +234,15 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
             <span className="text-sm text-theme-secondary">Current Status</span>
             <Badge
               variant={
-                currentTask.status === 'completed'
+                currentTask.status.state === 'completed'
                   ? 'success'
-                  : currentTask.status === 'failed'
+                  : currentTask.status.state === 'failed'
                   ? 'danger'
                   : 'info'
               }
               size="sm"
             >
-              {currentTask.status}
+              {currentTask.status.state}
             </Badge>
           </div>
         )}

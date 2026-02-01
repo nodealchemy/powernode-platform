@@ -1,13 +1,11 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AttestationDetailPage } from '../AttestationDetailPage';
 import { useAttestation, useSignAttestation } from '../../hooks/useAttestations';
 import { attestationsApi } from '../../services/attestationsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import {
   createMockAttestationDetail,
-  createMockAttestation,
   createMockBuildProvenance,
   createMockSigningKey,
 } from '../../testing/mockFactories';
@@ -157,7 +155,7 @@ describe('AttestationDetailPage', () => {
         refresh: jest.fn(),
       });
 
-      const { container } = renderPage();
+      renderPage();
 
       const spinner = screen.getByTestId('loading-spinner');
       expect(spinner.parentElement).toHaveClass('flex', 'justify-center', 'items-center', 'min-h-screen');
@@ -1019,7 +1017,7 @@ describe('AttestationDetailPage', () => {
 
     it('shows empty state when no provenance data', () => {
       const attestation = createMockAttestationDetail({
-        build_provenance: null,
+        build_provenance: undefined,
       });
       mockUseSignAttestation.mockReturnValue({
         mutateAsync: jest.fn(),

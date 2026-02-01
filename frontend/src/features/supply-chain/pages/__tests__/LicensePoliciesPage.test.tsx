@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
@@ -42,7 +41,7 @@ jest.mock('@/shared/components/layout/PageContainer', () => ({
 
 // Mock DataTable
 jest.mock('@/shared/components/ui/DataTable', () => ({
-  DataTable: ({ columns, data, loading, onRowClick, emptyState, pagination, onPageChange }: any) => (
+  DataTable: ({ columns, data, loading, onRowClick, emptyState, pagination, onPageChange: _onPageChange }: any) => (
     <div data-testid="data-table">
       {loading && <div className="animate-spin">Loading...</div>}
       {!loading && data.length === 0 && (

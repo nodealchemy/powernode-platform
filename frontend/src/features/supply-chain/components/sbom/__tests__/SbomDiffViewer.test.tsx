@@ -105,7 +105,7 @@ describe('SbomDiffViewer', () => {
 
     it('hides added section when no added components', () => {
       const noDiff = { ...mockDiff, added_components: [], added_count: 0 };
-      const { container } = render(<SbomDiffViewer diff={noDiff} />);
+      render(<SbomDiffViewer diff={noDiff} />);
       expect(screen.queryByText(/Added Components/)).not.toBeInTheDocument();
     });
   });
@@ -127,7 +127,7 @@ describe('SbomDiffViewer', () => {
     });
 
     it('applies strikethrough styling to removed components', () => {
-      const { container } = render(<SbomDiffViewer {...defaultProps} />);
+      render(<SbomDiffViewer {...defaultProps} />);
       const oldLibText = screen.getByText('old-lib');
       expect(oldLibText).toHaveClass('line-through');
     });
@@ -235,7 +235,7 @@ describe('SbomDiffViewer', () => {
 
     it('hides new vulnerabilities when none added', () => {
       const noDiff = { ...mockDiff, added_vulnerabilities: [] };
-      const { container } = render(<SbomDiffViewer diff={noDiff} />);
+      render(<SbomDiffViewer diff={noDiff} />);
       expect(screen.queryByText(/New Vulnerabilities \(/)).not.toBeInTheDocument();
     });
   });
@@ -278,20 +278,20 @@ describe('SbomDiffViewer', () => {
 
   describe('card styling and layout', () => {
     it('added card has success styling', () => {
-      const { container } = render(<SbomDiffViewer {...defaultProps} />);
+      render(<SbomDiffViewer {...defaultProps} />);
       const addedText = screen.getByText('Added');
       const card = addedText.closest('[class*="bg-theme-surface"]');
       expect(card?.textContent).toContain('components');
     });
 
     it('removed card has error styling', () => {
-      const { container } = render(<SbomDiffViewer {...defaultProps} />);
+      render(<SbomDiffViewer {...defaultProps} />);
       const removedText = screen.getByText('Removed');
       expect(removedText).toBeInTheDocument();
     });
 
     it('changed card has warning styling', () => {
-      const { container } = render(<SbomDiffViewer {...defaultProps} />);
+      render(<SbomDiffViewer {...defaultProps} />);
       const changedText = screen.getByText('Changed');
       expect(changedText).toBeInTheDocument();
     });
@@ -380,25 +380,25 @@ describe('SbomDiffViewer', () => {
 
   describe('icon display', () => {
     it('shows plus icon for added section', () => {
-      const { container } = render(<SbomDiffViewer {...defaultProps} />);
+      render(<SbomDiffViewer {...defaultProps} />);
       const addedHeader = screen.getByText(/Added Components/).closest('h3');
       expect(addedHeader?.querySelector('svg')).toBeInTheDocument();
     });
 
     it('shows minus icon for removed section', () => {
-      const { container } = render(<SbomDiffViewer {...defaultProps} />);
+      render(<SbomDiffViewer {...defaultProps} />);
       const removedHeader = screen.getByText(/Removed Components/).closest('h3');
       expect(removedHeader?.querySelector('svg')).toBeInTheDocument();
     });
 
     it('shows refresh icon for changed section', () => {
-      const { container } = render(<SbomDiffViewer {...defaultProps} />);
+      render(<SbomDiffViewer {...defaultProps} />);
       const changedHeader = screen.getByText(/Changed Components/).closest('h3');
       expect(changedHeader?.querySelector('svg')).toBeInTheDocument();
     });
 
     it('shows alert icon for vulnerability changes', () => {
-      const { container } = render(<SbomDiffViewer {...defaultProps} />);
+      render(<SbomDiffViewer {...defaultProps} />);
       const vulnHeader = screen.getByText(/Vulnerability Changes/).closest('h3');
       expect(vulnHeader?.querySelector('svg')).toBeInTheDocument();
     });

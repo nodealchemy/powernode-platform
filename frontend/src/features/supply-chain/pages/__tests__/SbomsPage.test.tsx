@@ -1,6 +1,5 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import { SbomsPage } from '../SbomsPage';
 import { useSboms } from '../../hooks/useSboms';
 import { sbomsApi } from '../../services/sbomsApi';
@@ -17,7 +16,7 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 
 // Mock PageContainer to simplify testing
 jest.mock('@/shared/components/layout/PageContainer', () => ({
-  PageContainer: ({ title, description, breadcrumbs, actions, children }: any) => (
+  PageContainer: ({ title, description, breadcrumbs: _breadcrumbs, actions, children }: any) => (
     <div data-testid="page-container">
       <div data-testid="page-title">{title}</div>
       <div data-testid="page-description">{description}</div>
