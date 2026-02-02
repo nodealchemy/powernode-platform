@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class UpdateWorkerRoleUserToAccount < ActiveRecord::Migration[8.0]
   def up
     # Update existing 'user' role workers to 'account' role

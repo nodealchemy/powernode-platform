@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class FixAllMissingUuidDefaults < ActiveRecord::Migration[8.0]
   def up
     # Get all tables with string ID columns
@@ -16,7 +18,7 @@ class FixAllMissingUuidDefaults < ActiveRecord::Migration[8.0]
       result = execute("SELECT column_default FROM information_schema.columns WHERE table_name = '#{table_name}' AND column_name = 'id'").first
 
       if result.nil? || result['column_default'].nil?
-        puts "Adding UUID default to #{table_name}.id"
+        Rails.logger.info "Adding UUID default to #{table_name}.id"
         execute "ALTER TABLE #{table_name} ALTER COLUMN id SET DEFAULT gen_random_uuid();"
       end
     end

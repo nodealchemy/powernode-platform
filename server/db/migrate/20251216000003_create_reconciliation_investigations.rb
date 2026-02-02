@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class CreateReconciliationInvestigations < ActiveRecord::Migration[8.0]
   def change
     create_table :reconciliation_investigations, id: :uuid do |t|

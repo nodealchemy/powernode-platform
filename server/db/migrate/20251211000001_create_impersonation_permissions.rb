@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class CreateImpersonationPermissions < ActiveRecord::Migration[8.0]
   def up
     # Create impersonation permissions

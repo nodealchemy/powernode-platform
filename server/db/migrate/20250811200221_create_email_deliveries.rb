@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class CreateEmailDeliveries < ActiveRecord::Migration[8.0]
   def change
     create_table :email_deliveries, id: { type: :string, limit: 36 } do |t|

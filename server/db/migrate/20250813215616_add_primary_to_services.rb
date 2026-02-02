@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AddPrimaryToServices < ActiveRecord::Migration[8.0]
   def change
     add_column :services, :primary, :boolean, null: false, default: false

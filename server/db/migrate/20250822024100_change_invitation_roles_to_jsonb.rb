@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ChangeInvitationRolesToJsonb < ActiveRecord::Migration[8.0]
   def up
     # Change role_names from json to jsonb for better performance and indexing

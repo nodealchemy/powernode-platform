@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AddPaypalFieldsToPayments < ActiveRecord::Migration[8.0]
   def change
     add_column :payments, :paypal_payment_id, :string

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class CreateApiKeyUsages < ActiveRecord::Migration[8.0]
   def change
     create_table :api_key_usages, id: :string do |t|

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ChangeUsersToSingleRole < ActiveRecord::Migration[8.0]
   def up
     # Add single role column to users

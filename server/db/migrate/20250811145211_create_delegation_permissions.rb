@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class CreateDelegationPermissions < ActiveRecord::Migration[8.0]
   def change
     create_table :delegation_permissions, id: :string do |t|

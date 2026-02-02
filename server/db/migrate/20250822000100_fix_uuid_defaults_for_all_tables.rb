@@ -24,7 +24,7 @@ class FixUuidDefaultsForAllTables < ActiveRecord::Migration[8.0]
         ALTER COLUMN id SET DEFAULT gen_random_uuid()
       SQL
 
-      puts "Updated #{table_name} to use gen_random_uuid() for id column"
+      Rails.logger.info "Updated #{table_name} to use gen_random_uuid() for id column"
     end
   end
 

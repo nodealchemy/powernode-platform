@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class CreateImpersonationSessions < ActiveRecord::Migration[8.0]
   def change
     create_table :impersonation_sessions, id: { type: :string, limit: 36 } do |t|

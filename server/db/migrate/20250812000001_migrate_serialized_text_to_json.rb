@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class MigrateSerializedTextToJson < ActiveRecord::Migration[8.0]
   def up
     # Migrate Account.settings from text to json

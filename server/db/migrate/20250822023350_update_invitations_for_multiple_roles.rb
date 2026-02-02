@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class UpdateInvitationsForMultipleRoles < ActiveRecord::Migration[8.0]
   def change
     # Remove single role column and add JSON array for multiple roles

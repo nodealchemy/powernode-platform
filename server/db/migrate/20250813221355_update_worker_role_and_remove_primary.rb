@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class UpdateWorkerRoleAndRemovePrimary < ActiveRecord::Migration[8.0]
   def change
     # Add role attribute to workers

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AddRequiredRolesToPlans < ActiveRecord::Migration[8.0]
   def change
     add_column :plans, :required_roles, :text, comment: 'JSON array of role names that are required for users on this plan'

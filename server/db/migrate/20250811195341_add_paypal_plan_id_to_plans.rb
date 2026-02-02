@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AddPaypalPlanIdToPlans < ActiveRecord::Migration[8.0]
   def change
     # Check if column already exists before adding
