@@ -118,3 +118,53 @@ export interface McpPromptForWorkflowBuilder {
     required?: boolean;
   }>;
 }
+
+// Ralph Loop operation types
+export type RalphLoopOperation =
+  | 'create'
+  | 'start'
+  | 'pause'
+  | 'resume'
+  | 'cancel'
+  | 'run_iteration'
+  | 'run_to_completion'
+  | 'status'
+  | 'get_learnings'
+  | 'add_task'
+  | 'parse_prd';
+
+export type RalphLoopAiTool = 'amp' | 'claude_code' | 'ollama';
+
+export type RalphLoopSchedulingMode = 'manual' | 'auto' | 'scheduled';
+
+export interface RalphLoopNodeConfiguration {
+  operation: RalphLoopOperation;
+  // Loop identification (for non-create operations)
+  loop_id?: string;
+  loop_variable?: string;
+  // Output
+  output_variable?: string;
+  // Create operation fields
+  name?: string;
+  description?: string;
+  ai_tool?: RalphLoopAiTool;
+  max_iterations?: number;
+  repository_url?: string;
+  branch?: string;
+  scheduling_mode?: RalphLoopSchedulingMode;
+  prd_json?: string;
+  // Run to completion fields
+  timeout_seconds?: number;
+  stop_on_error?: boolean;
+  // Cancel operation fields
+  reason?: string;
+  // Add task operation fields
+  task_key?: string;
+  task_description?: string;
+  priority?: number;
+  dependencies?: string[];
+  acceptance_criteria?: string;
+  // Parse PRD operation fields
+  prd_data?: string;
+  prd_variable?: string;
+}

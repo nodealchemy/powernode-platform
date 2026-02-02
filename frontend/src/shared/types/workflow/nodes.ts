@@ -4,7 +4,7 @@
 
 import type { Node } from '@xyflow/react';
 import type { HandlePositions } from './core';
-import type { KbArticleNodeConfiguration, McpOperationNodeConfiguration, PageNodeConfiguration } from './configuration';
+import type { KbArticleNodeConfiguration, McpOperationNodeConfiguration, PageNodeConfiguration, RalphLoopNodeConfiguration } from './configuration';
 
 // ===== NODE DATA TYPES FOR REACTFLOW =====
 // Type-safe data interfaces for ReactFlow node components
@@ -345,6 +345,11 @@ export interface DevopsGetLogsNodeData extends BaseWorkflowNodeData {
   };
 }
 
+/** Ralph Loop node data - AI-driven iterative development */
+export interface RalphLoopNodeData extends BaseWorkflowNodeData {
+  configuration?: RalphLoopNodeConfiguration;
+}
+
 /** Union type for all node data types */
 export type WorkflowNodeData =
   | AiAgentNodeData
@@ -367,6 +372,7 @@ export type WorkflowNodeData =
   | NotificationNodeData
   | PageNodeData
   | PromptTemplateNodeData
+  | RalphLoopNodeData
   | SchedulerNodeData
   | SplitNodeData
   | StartNodeData
@@ -466,6 +472,9 @@ export type DevopsWaitStatusNode = Node<DevopsWaitStatusNodeData, 'devops_wait_s
 /** DevOps Get Logs workflow node type */
 export type DevopsGetLogsNode = Node<DevopsGetLogsNodeData, 'devops_get_logs'>;
 
+/** Ralph Loop workflow node type */
+export type RalphLoopNode = Node<RalphLoopNodeData, 'ralph_loop'>;
+
 /** Union of all workflow node types */
 export type WorkflowNode =
   | AiAgentNode
@@ -488,6 +497,7 @@ export type WorkflowNode =
   | NotificationNode
   | PageNode
   | PromptTemplateNode
+  | RalphLoopNode
   | SchedulerNode
   | SplitNode
   | StartNode

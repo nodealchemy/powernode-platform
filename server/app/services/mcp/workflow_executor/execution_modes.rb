@@ -5,7 +5,9 @@ module Mcp
     module ExecutionModes
       # Execute workflow based on configured mode
       def execute_by_mode
-        execution_mode = @workflow.mcp_orchestration_config&.dig("execution_mode") || "sequential"
+        execution_mode = @workflow.configuration&.dig("execution_mode") ||
+                         @workflow.mcp_orchestration_config&.dig("execution_mode") ||
+                         "sequential"
 
         log_info "Executing in #{execution_mode} mode"
 

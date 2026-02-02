@@ -34,9 +34,9 @@ module Mcp
 
           # Return standardized result (v1.0 format)
           # The result from perform_execution already contains: output, data, result, metadata
-          # We just add success flag and execution metadata
+          # We add success flag (unless already explicitly set to false) and execution metadata
           result.merge(
-            success: true,
+            success: result[:success] != false,  # Preserve explicit false
             execution_time_ms: execution_time_ms
           )
 

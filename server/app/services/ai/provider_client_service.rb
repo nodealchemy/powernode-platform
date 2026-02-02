@@ -151,10 +151,15 @@ class Ai::ProviderClientService
                  openai_send_message(messages, model_name, **options)
       when "anthropic", "claude-ai-anthropic"
                  anthropic_send_message(messages, model_name, **options)
-      when "ollama", "remote-ollama-server"
+      when "ollama", "remote-ollama-server", "ollama-local"
                  ollama_send_message(messages, model_name, **options)
       else
-                 raise NotImplementedError, "send_message not implemented for #{provider.name}"
+                 # Fallback: check provider_type for Ollama variants
+                 if provider.provider_type == "ollama"
+                   ollama_send_message(messages, model_name, **options)
+                 else
+                   raise NotImplementedError, "send_message not implemented for #{provider.name}"
+                 end
       end
 
       response_time_ms = ((Time.current - start_time) * 1000).round

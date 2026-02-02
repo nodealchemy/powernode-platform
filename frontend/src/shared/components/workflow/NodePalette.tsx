@@ -185,6 +185,12 @@ const nodeColorThemes = {
     bg: 'bg-gradient-to-r from-slate-500 to-slate-600',
     indicator: 'bg-theme-secondary',
     text: 'text-theme-secondary'
+  },
+  // Ralph Loop - AI-driven iterative development
+  'ralph_loop': {
+    bg: 'bg-node-ralph-loop',
+    indicator: 'bg-node-ralph-loop',
+    text: 'text-node-ralph-loop'
   }
 } as const;
 
@@ -212,6 +218,14 @@ const nodeTypes: NodeTypeDefinition[] = [
     icon: <Bot className="h-4 w-4" />,
     category: 'AI',
     color: 'ai_agent'
+  },
+  {
+    type: 'ralph_loop',
+    label: 'Ralph Loop',
+    description: 'AI-driven iterative development with task parsing and learning',
+    icon: <RefreshCw className="h-4 w-4" />,
+    category: 'AI',
+    color: 'ralph_loop'
   },
   {
     type: 'api_call',

@@ -4,7 +4,9 @@ module Mcp
   module Orchestrator
     module ExecutionModes
       def execute_workflow_by_mode
-        execution_mode = @workflow.mcp_orchestration_config&.dig("execution_mode") || "sequential"
+        execution_mode = @workflow.configuration&.dig("execution_mode") ||
+                         @workflow.mcp_orchestration_config&.dig("execution_mode") ||
+                         "sequential"
 
         @logger.info "[MCP_ORCHESTRATOR] Executing in #{execution_mode} mode"
 

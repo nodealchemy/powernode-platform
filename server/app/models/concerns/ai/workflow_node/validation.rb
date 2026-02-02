@@ -38,6 +38,8 @@ module Ai
           validate_page_configuration
         when "mcp_operation"
           validate_mcp_operation_configuration
+        when "ralph_loop"
+          validate_ralph_loop_configuration
         end
       end
 
@@ -57,6 +59,11 @@ module Ai
           operation_type = configuration["operation_type"]
           unless Ai::WorkflowNode::MCP_OPERATION_TYPES.include?(operation_type)
             errors.add(:configuration, "operation_type must be one of: #{Ai::WorkflowNode::MCP_OPERATION_TYPES.join(', ')}")
+          end
+        when "ralph_loop"
+          operation = configuration["operation"]
+          unless Ai::WorkflowNode::RALPH_LOOP_OPERATIONS.include?(operation)
+            errors.add(:configuration, "operation must be one of: #{Ai::WorkflowNode::RALPH_LOOP_OPERATIONS.join(', ')}")
           end
         end
       end
@@ -183,6 +190,95 @@ module Ai
           if configuration["prompt_name"].blank?
             errors.add(:configuration, "must specify prompt_name for MCP prompt operation")
           end
+        end
+      end
+
+      def validate_ralph_loop_configuration
+        operation = configuration["operation"]
+
+        case operation
+        when "create"
+          validate_ralph_loop_create_config
+        when "start", "run_iteration", "run_to_completion", "pause", "resume", "cancel", "status", "get_learnings"
+          validate_ralph_loop_instance_config
+        when "add_task"
+          validate_ralph_loop_add_task_config
+        when "parse_prd"
+          validate_ralph_loop_parse_prd_config
+        end
+      end
+
+      def validate_ralph_loop_create_config
+        if configuration["name"].blank?
+          errors.add(:configuration, "must specify name for Ralph Loop create operation")
+        end
+
+        if configuration["ai_tool"].blank?
+          errors.add(:configuration, "must specify ai_tool for Ralph Loop create operation")
+        elsif !Ai::RalphLoop::AI_TOOLS.include?(configuration["ai_tool"])
+          errors.add(:configuration, "ai_tool must be one of: #{Ai::RalphLoop::AI_TOOLS.join(', ')}")
+        end
+
+        max_iterations = configuration["max_iterations"]
+        if max_iterations.present? && (!max_iterations.is_a?(Integer) || max_iterations <= 0)
+          errors.add(:configuration, "max_iterations must be a positive integer")
+        end
+      end
+
+      def validate_ralph_loop_instance_config
+        # Loop can be specified by ID or variable reference
+        if configuration["loop_id"].blank? && configuration["loop_variable"].blank?
+          errors.add(:configuration, "must specify loop_id or loop_variable for Ralph Loop operation")
+        end
+
+        if configuration["loop_id"].present? && !workflow.account.ai_ralph_loops.exists?(id: configuration["loop_id"])
+          errors.add(:configuration, "specified Ralph Loop does not exist")
+        end
+
+        # Validate operation-specific options
+        operation = configuration["operation"]
+
+        if operation == "run_to_completion"
+          max_iterations = configuration["max_iterations"]
+          if max_iterations.present? && (!max_iterations.is_a?(Integer) || max_iterations <= 0)
+            errors.add(:configuration, "max_iterations must be a positive integer")
+          end
+
+          timeout_seconds = configuration["timeout_seconds"]
+          if timeout_seconds.present? && (!timeout_seconds.is_a?(Integer) || timeout_seconds <= 0)
+            errors.add(:configuration, "timeout_seconds must be a positive integer")
+          end
+        end
+
+        if operation == "cancel" && configuration["reason"].present?
+          if !configuration["reason"].is_a?(String) || configuration["reason"].length > 500
+            errors.add(:configuration, "cancel reason must be a string of max 500 characters")
+          end
+        end
+      end
+
+      def validate_ralph_loop_add_task_config
+        validate_ralph_loop_instance_config
+
+        if configuration["task_key"].blank?
+          errors.add(:configuration, "must specify task_key for add_task operation")
+        end
+
+        if configuration["description"].blank?
+          errors.add(:configuration, "must specify description for add_task operation")
+        end
+
+        priority = configuration["priority"]
+        if priority.present? && (!priority.is_a?(Integer) || priority < 0)
+          errors.add(:configuration, "priority must be a non-negative integer")
+        end
+      end
+
+      def validate_ralph_loop_parse_prd_config
+        validate_ralph_loop_instance_config
+
+        if configuration["prd_data"].blank? && configuration["prd_variable"].blank?
+          errors.add(:configuration, "must specify prd_data or prd_variable for parse_prd operation")
         end
       end
     end

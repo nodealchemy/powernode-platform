@@ -31,6 +31,10 @@ export type {
   McpToolForWorkflowBuilder,
   McpResourceForWorkflowBuilder,
   McpPromptForWorkflowBuilder,
+  RalphLoopOperation,
+  RalphLoopAiTool,
+  RalphLoopSchedulingMode,
+  RalphLoopNodeConfiguration,
 } from './configuration';
 
 // Node data types
@@ -65,6 +69,7 @@ export type {
   DevopsTriggerNodeData,
   DevopsWaitStatusNodeData,
   DevopsGetLogsNodeData,
+  RalphLoopNodeData,
   WorkflowNodeData,
   // ReactFlow node types
   AiAgentNode,
@@ -95,6 +100,7 @@ export type {
   DevopsTriggerNode,
   DevopsWaitStatusNode,
   DevopsGetLogsNode,
+  RalphLoopNode,
   WorkflowNode,
 } from './nodes';
 

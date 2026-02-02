@@ -38,6 +38,7 @@ import { McpToolNodeConfig } from './McpToolNodeConfig';
 import { McpResourceNodeConfig } from './McpResourceNodeConfig';
 import { McpPromptNodeConfig } from './McpPromptNodeConfig';
 import { McpOperationConfig } from './McpOperationConfig';
+import { RalphLoopConfig } from './RalphLoopConfig';
 import type { NodeTypeConfigComponent } from './types';
 
 export { StartNodeConfig } from './StartNodeConfig';
@@ -84,6 +85,9 @@ export { McpToolNodeConfig } from './McpToolNodeConfig';
 export { McpResourceNodeConfig } from './McpResourceNodeConfig';
 export { McpPromptNodeConfig } from './McpPromptNodeConfig';
 export { McpOperationConfig } from './McpOperationConfig';
+
+// Ralph Loop config
+export { RalphLoopConfig } from './RalphLoopConfig';
 
 // Types
 export type { NodeTypeConfigProps, NodeConfiguration, NodeTypeConfigComponent } from './types';
@@ -144,6 +148,9 @@ export const nodeTypeConfigRegistry: Record<string, NodeTypeConfigComponent> = {
   mcp_resource: McpResourceNodeConfig,
   mcp_prompt: McpPromptNodeConfig,
   mcp_operation: McpOperationConfig,
+
+  // Ralph Loop node
+  ralph_loop: RalphLoopConfig,
 
   // Default fallback
   default: DefaultNodeConfig,

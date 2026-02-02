@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_01_400002) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -2104,7 +2104,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_01_400002) do
     t.index ["scheduling_mode"], name: "index_ai_ralph_loops_on_scheduling_mode"
     t.index ["status"], name: "index_ai_ralph_loops_on_status"
     t.index ["webhook_token"], name: "index_ai_ralph_loops_on_webhook_token", unique: true, where: "(webhook_token IS NOT NULL)"
-    t.check_constraint "ai_tool::text = ANY (ARRAY['amp'::character varying, 'claude_code'::character varying]::text[])", name: "ai_ralph_loops_ai_tool_check"
+    t.check_constraint "ai_tool::text = ANY (ARRAY['amp'::character varying, 'claude_code'::character varying, 'ollama'::character varying]::text[])", name: "ai_ralph_loops_ai_tool_check"
     t.check_constraint "scheduling_mode::text = ANY (ARRAY['manual'::character varying, 'scheduled'::character varying, 'continuous'::character varying, 'event_triggered'::character varying]::text[])", name: "ai_ralph_loops_scheduling_mode_check"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'paused'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "ai_ralph_loops_status_check"
   end
@@ -2856,7 +2856,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_01_400002) do
     t.index ["mcp_tool_id"], name: "index_ai_workflow_nodes_on_mcp_tool_id"
     t.index ["plugin_id"], name: "index_ai_workflow_nodes_on_plugin_id"
     t.index ["shared_prompt_template_id"], name: "index_ai_workflow_nodes_on_shared_prompt_template_id"
-    t.check_constraint "node_type::text = ANY (ARRAY['start'::character varying::text, 'end'::character varying::text, 'trigger'::character varying::text, 'ai_agent'::character varying::text, 'prompt_template'::character varying::text, 'data_processor'::character varying::text, 'transform'::character varying::text, 'condition'::character varying::text, 'loop'::character varying::text, 'delay'::character varying::text, 'merge'::character varying::text, 'split'::character varying::text, 'database'::character varying::text, 'file'::character varying::text, 'validator'::character varying::text, 'email'::character varying::text, 'notification'::character varying::text, 'api_call'::character varying::text, 'webhook'::character varying::text, 'scheduler'::character varying::text, 'human_approval'::character varying::text, 'sub_workflow'::character varying::text, 'kb_article'::character varying::text, 'page'::character varying::text, 'mcp_operation'::character varying::text, 'ci_trigger'::character varying::text, 'ci_wait_status'::character varying::text, 'ci_get_logs'::character varying::text, 'ci_cancel'::character varying::text, 'git_commit_status'::character varying::text, 'git_create_check'::character varying::text, 'integration_execute'::character varying::text, 'git_checkout'::character varying::text, 'git_branch'::character varying::text, 'git_pull_request'::character varying::text, 'git_comment'::character varying::text, 'deploy'::character varying::text, 'run_tests'::character varying::text, 'shell_command'::character varying::text])", name: "ai_workflow_nodes_type_check"
+    t.check_constraint "node_type::text = ANY (ARRAY['start'::character varying, 'end'::character varying, 'trigger'::character varying, 'ai_agent'::character varying, 'prompt_template'::character varying, 'data_processor'::character varying, 'transform'::character varying, 'condition'::character varying, 'loop'::character varying, 'delay'::character varying, 'merge'::character varying, 'split'::character varying, 'database'::character varying, 'file'::character varying, 'validator'::character varying, 'email'::character varying, 'notification'::character varying, 'api_call'::character varying, 'webhook'::character varying, 'scheduler'::character varying, 'human_approval'::character varying, 'sub_workflow'::character varying, 'kb_article'::character varying, 'page'::character varying, 'mcp_operation'::character varying, 'ci_trigger'::character varying, 'ci_wait_status'::character varying, 'ci_get_logs'::character varying, 'ci_cancel'::character varying, 'git_commit_status'::character varying, 'git_create_check'::character varying, 'integration_execute'::character varying, 'git_checkout'::character varying, 'git_branch'::character varying, 'git_pull_request'::character varying, 'git_comment'::character varying, 'deploy'::character varying, 'run_tests'::character varying, 'shell_command'::character varying, 'ralph_loop'::character varying]::text[])", name: "ai_workflow_nodes_type_check"
     t.check_constraint "retry_count >= 0", name: "ai_workflow_nodes_retry_check"
     t.check_constraint "timeout_seconds > 0", name: "ai_workflow_nodes_timeout_check"
   end

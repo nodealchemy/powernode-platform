@@ -32,6 +32,8 @@ import { McpOperationNode } from '../nodes/McpOperationNode';
 import { DevopsTriggerNode } from '../nodes/DevopsTriggerNode';
 import { DevopsWaitStatusNode } from '../nodes/DevopsWaitStatusNode';
 import { DevopsGetLogsNode } from '../nodes/DevopsGetLogsNode';
+// Ralph Loop Node
+import { RalphLoopNode } from '../nodes/RalphLoopNode';
 
 // Node types mapping for React Flow
 export const NODE_TYPES = {
@@ -74,6 +76,8 @@ export const NODE_TYPES = {
   devops_trigger: DevopsTriggerNode,
   devops_wait_status: DevopsWaitStatusNode,
   devops_get_logs: DevopsGetLogsNode,
+  // Ralph Loop Node
+  ralph_loop: RalphLoopNode,
 } as const;
 
 export type NodeTypeKey = keyof typeof NODE_TYPES;

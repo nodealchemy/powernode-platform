@@ -8,7 +8,7 @@ module Ai
     # ==================== Constants ====================
     STATUSES = %w[pending running paused completed failed cancelled].freeze
     TERMINAL_STATUSES = %w[completed failed cancelled].freeze
-    AI_TOOLS = %w[amp claude_code].freeze
+    AI_TOOLS = %w[amp claude_code ollama].freeze
 
     # Scheduling mode enumeration
     SCHEDULING_MODES = %w[manual scheduled continuous event_triggered].freeze
@@ -149,6 +149,10 @@ module Ai
 
     def in_progress?
       !terminal?
+    end
+
+    def running?
+      status == "running"
     end
 
     def max_iterations_reached?

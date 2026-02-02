@@ -260,7 +260,7 @@ module Ai
 
       # Validate execution_mode if present
       if configuration["execution_mode"].present?
-        valid_modes = %w[sequential parallel conditional batch]
+        valid_modes = %w[sequential parallel conditional dag batch]
         unless valid_modes.include?(configuration["execution_mode"])
           errors.add(:configuration, "invalid execution_mode")
         end

@@ -211,6 +211,11 @@
   --node-mcp-operation-text: #ffffff;
   --node-mcp-operation-border: #7c3aed; /* violet-600 */
 
+  /* Ralph Loop - AI-driven iterative development node */
+  --node-ralph-loop-bg: #3b82f6;     /* blue-500 */
+  --node-ralph-loop-text: #ffffff;
+  --node-ralph-loop-border: #2563eb; /* blue-600 */
+
   /* Legacy colors (deprecated - kept for backwards compatibility during migration) */
   --node-mcp-tool-bg: #8b5cf6;       /* violet-500 */
   --node-mcp-resource-bg: #06b6d4;   /* cyan-500 */

@@ -191,6 +191,8 @@ module Ai
           execute_amp(prompt, task, iteration)
         when "claude_code"
           execute_claude_code(prompt, task, iteration)
+        when "ollama"
+          execute_ollama(prompt, task, iteration)
         else
           { success: false, error: "Unknown AI tool: #{ralph_loop.ai_tool}" }
         end
@@ -218,6 +220,36 @@ module Ai
           task: task,
           iteration: iteration
         )
+      end
+
+      def execute_ollama(prompt, task, iteration)
+        provider = account.ai_providers.find_by(provider_type: "ollama")
+        provider ||= account.ai_providers.find_by(slug: "ollama")
+        provider ||= account.ai_providers.find_by(slug: "remote-ollama-server")
+        return ollama_not_configured_error unless provider
+
+        credential = provider.provider_credentials.active.first
+        return ollama_not_configured_error unless credential
+
+        client = Ai::ProviderClientService.new(credential)
+
+        # Build system prompt with context
+        system_prompt = build_ollama_system_prompt
+
+        result = client.send_message(
+          [
+            { role: "system", content: system_prompt },
+            { role: "user", content: prompt }
+          ],
+          model: ralph_loop.configuration&.dig("model") || provider.default_model || "llama3.2",
+          max_tokens: ralph_loop.configuration&.dig("max_tokens") || 4096,
+          temperature: ralph_loop.configuration&.dig("temperature") || 0.7
+        )
+
+        parse_ollama_result(result, task, iteration)
+      rescue StandardError => e
+        Rails.logger.error("Ollama execution failed: #{e.message}")
+        { success: false, error: e.message, error_code: "OLLAMA_EXECUTION_FAILED" }
       end
 
       def execute_container_template(template:, prompt:, task:, iteration:)
@@ -268,6 +300,93 @@ module Ai
           error: "Claude Code executor template not configured",
           error_code: "CLAUDE_CODE_NOT_CONFIGURED"
         }
+      end
+
+      def ollama_not_configured_error
+        {
+          success: false,
+          error: "Ollama provider not configured for this account",
+          error_code: "OLLAMA_NOT_CONFIGURED"
+        }
+      end
+
+      def build_ollama_system_prompt
+        <<~SYSTEM
+          You are an AI assistant helping with software development tasks.
+          You are part of a Ralph Loop - an iterative development cycle.
+
+          Current loop: #{ralph_loop.name}
+          Repository: #{ralph_loop.repository_url || 'Not specified'}
+          Branch: #{ralph_loop.branch || 'main'}
+          Iteration: #{ralph_loop.current_iteration + 1} of #{ralph_loop.max_iterations}
+
+          Instructions:
+          1. Complete the task according to the acceptance criteria
+          2. Provide clear, actionable output
+          3. If you learn something useful for future iterations, include it with "Learning:" prefix
+          4. Be concise but thorough
+        SYSTEM
+      end
+
+      def parse_ollama_result(result, task, iteration)
+        unless result[:success]
+          return {
+            success: false,
+            error: result[:error] || "Ollama request failed",
+            error_code: result[:error_type] || "OLLAMA_REQUEST_FAILED"
+          }
+        end
+
+        # Extract content from Ollama response
+        response = result[:response]
+        content = extract_ollama_content(response)
+
+        # Extract learning from the response
+        learning = extract_learning_from_output(content)
+
+        # Add learning to the loop if found
+        ralph_loop.add_learning(learning, context: { task_key: task.task_key, iteration: iteration.iteration_number }) if learning.present?
+
+        {
+          success: true,
+          output: content,
+          checks_passed: true, # Ollama doesn't run checks, assume success
+          tokens: extract_ollama_tokens(result),
+          cost: 0 # Ollama is typically free/local
+        }
+      end
+
+      def extract_ollama_content(response)
+        return "" unless response.is_a?(Hash)
+
+        # Handle different response structures
+        if response[:choices]&.first
+          response.dig(:choices, 0, :message, :content) || ""
+        elsif response[:message]
+          response[:message][:content] || ""
+        elsif response[:content]
+          response[:content]
+        else
+          response.to_s
+        end
+      end
+
+      def extract_ollama_tokens(result)
+        metadata = result[:metadata] || {}
+        {
+          input: metadata[:tokens_used] || 0,
+          output: 0
+        }
+      end
+
+      def extract_learning_from_output(output)
+        return nil if output.blank?
+
+        # Look for explicit learning markers
+        if output.match?(/(?:Learning|Learned|Insight|Takeaway):/i)
+          match = output.match(/(?:Learning|Learned|Insight|Takeaway):\s*(.+?)(?:\n\n|\z)/im)
+          match[1]&.strip if match
+        end
       end
 
       def build_task_prompt(task)

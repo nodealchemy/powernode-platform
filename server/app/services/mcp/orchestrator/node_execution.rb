@@ -251,6 +251,9 @@ module Mcp
         # A2A External Agent node type
         when "external_agent"
           Mcp::NodeExecutors::ExternalAgent
+        # Ralph Loop node type
+        when "ralph_loop"
+          Mcp::NodeExecutors::RalphLoop
         else
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "Unknown node type: #{node_type}"
         end

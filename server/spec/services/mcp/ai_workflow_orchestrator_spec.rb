@@ -195,8 +195,8 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
     context 'with parallel execution mode' do
       before do
-        # Set mcp_orchestration_config to use parallel execution mode
-        workflow.update!(mcp_orchestration_config: { 'execution_mode' => 'parallel' })
+        # Set configuration to use parallel execution mode (configuration takes precedence)
+        workflow.update!(configuration: workflow.configuration.merge('execution_mode' => 'parallel'))
       end
 
       it 'executes independent nodes in parallel' do
@@ -208,8 +208,8 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
     context 'with conditional execution mode' do
       before do
-        # Set mcp_orchestration_config to use conditional execution mode
-        workflow.update!(mcp_orchestration_config: { 'execution_mode' => 'conditional' })
+        # Set configuration to use conditional execution mode (configuration takes precedence)
+        workflow.update!(configuration: workflow.configuration.merge('execution_mode' => 'conditional'))
       end
 
       it 'executes nodes based on conditions' do
@@ -221,8 +221,8 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
     context 'with dag execution mode' do
       before do
-        # Set mcp_orchestration_config to use dag execution mode
-        workflow.update!(mcp_orchestration_config: { 'execution_mode' => 'dag' })
+        # Set configuration to use dag execution mode (configuration takes precedence)
+        workflow.update!(configuration: workflow.configuration.merge('execution_mode' => 'dag'))
       end
 
       it 'executes nodes based on dependency graph' do
@@ -234,8 +234,10 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
 
     context 'with unknown execution mode' do
       before do
-        # Set mcp_orchestration_config with invalid mode
-        workflow.update!(mcp_orchestration_config: { 'execution_mode' => 'invalid_mode' })
+        # Clear execution_mode from configuration and set invalid mode in mcp_orchestration_config
+        # to test fallback behavior (unknown mode should default to sequential)
+        config = workflow.configuration.except('execution_mode')
+        workflow.update!(configuration: config, mcp_orchestration_config: { 'execution_mode' => 'invalid_mode' })
       end
 
       it 'defaults to sequential mode for unknown mode' do
