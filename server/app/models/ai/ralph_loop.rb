@@ -370,13 +370,13 @@ module Ai
     def broadcast_status_update
       # Use AiOrchestrationChannel for consistent real-time updates
       event_type = case status
-                   when "running" then saved_change_to_status? && status_before_last_save == "pending" ? "started" : "progress"
-                   when "completed" then "completed"
-                   when "failed" then "failed"
-                   when "paused" then "paused"
-                   when "cancelled" then "cancelled"
-                   else "progress"
-                   end
+      when "running" then saved_change_to_status? && status_before_last_save == "pending" ? "started" : "progress"
+      when "completed" then "completed"
+      when "failed" then "failed"
+      when "paused" then "paused"
+      when "cancelled" then "cancelled"
+      else "progress"
+      end
 
       AiOrchestrationChannel.broadcast_ralph_loop_event(self, event_type)
     rescue StandardError => e
