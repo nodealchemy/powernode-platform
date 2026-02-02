@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Play,
   Pause,
@@ -7,6 +7,8 @@ import {
   RotateCcw,
   Zap,
   Calendar,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
@@ -24,6 +26,7 @@ import { RalphLoopScheduleStatus } from '../components/RalphLoopScheduleStatus';
 import { RalphLoopScheduleConfig } from '../components/RalphLoopScheduleConfig';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
 import { cn } from '@/shared/utils/cn';
+import { useRalphLoopExecutionWebSocket, RalphLoopExecutionUpdate } from '../hooks/useRalphLoopExecutionWebSocket';
 import type {
   RalphLoop,
   RalphLoopSummary,
@@ -70,20 +73,46 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       const response = await ralphLoopsApi.getLoop(loopId);
       setSelectedLoop(response.ralph_loop);
       setEditedTasks(response.ralph_loop.prd_json?.tasks || []);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load loop');
     } finally {
       setLoading(false);
     }
   };
 
-  // Auto-refresh for running loops
-  useEffect(() => {
-    if (selectedLoop?.status === 'running') {
-      const interval = setInterval(() => loadLoop(selectedLoop.id), 5000);
-      return () => clearInterval(interval);
+  // WebSocket handler for real-time updates
+  const handleWebSocketUpdate = useCallback((update: RalphLoopExecutionUpdate) => {
+    if (!selectedLoop || update.loop_id !== selectedLoop.id) return;
+
+    // For progress updates, update state directly without full reload
+    if (update.type === 'loop_progress' || update.type === 'task_status_changed') {
+      setSelectedLoop(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          status: (update.status as RalphLoopStatus) || prev.status,
+          current_iteration: update.current_iteration ?? prev.current_iteration,
+          completed_task_count: update.completed_task_count ?? prev.completed_task_count,
+          task_count: update.task_count ?? prev.task_count,
+        };
+      });
     }
-  }, [selectedLoop?.id, selectedLoop?.status]);
+    // For terminal events, do a full reload to get final state
+    else if (['loop_completed', 'loop_failed', 'loop_cancelled'].includes(update.type)) {
+      loadLoop(selectedLoop.id);
+    }
+    // For iteration completed, reload to get updated task list
+    else if (update.type === 'iteration_completed') {
+      loadLoop(selectedLoop.id);
+    }
+  }, [selectedLoop?.id]);
+
+  // WebSocket for real-time updates (replaces polling)
+  const { isConnected: wsConnected } = useRalphLoopExecutionWebSocket({
+    loopId: selectedLoop?.id,
+    enabled: selectedLoop?.status === 'running' || selectedLoop?.status === 'paused',
+    onUpdate: handleWebSocketUpdate,
+  });
 
   const handleSelectLoop = (loop: RalphLoopSummary) => {
     loadLoop(loop.id);
@@ -109,7 +138,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
     try {
       await ralphLoopsApi.startLoop(selectedLoop.id);
       loadLoop(selectedLoop.id);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to start loop');
     }
   };
@@ -119,7 +148,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
     try {
       await ralphLoopsApi.pauseLoop(selectedLoop.id);
       loadLoop(selectedLoop.id);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to pause loop');
     }
   };
@@ -129,7 +158,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
     try {
       await ralphLoopsApi.resumeLoop(selectedLoop.id);
       loadLoop(selectedLoop.id);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to resume loop');
     }
   };
@@ -139,7 +168,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
     try {
       await ralphLoopsApi.cancelLoop(selectedLoop.id);
       loadLoop(selectedLoop.id);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to cancel loop');
     }
   };
@@ -149,7 +178,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
     try {
       await ralphLoopsApi.runIteration(selectedLoop.id);
       loadLoop(selectedLoop.id);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to run iteration');
     }
   };
@@ -164,7 +193,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       });
       showNotification(`PRD tasks saved successfully (${tasks.length} tasks)`, 'success');
       loadLoop(selectedLoop.id);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to save PRD');
     }
   };
@@ -181,7 +210,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       await ralphLoopsApi.pauseSchedule(selectedLoop.id);
       showNotification('Schedule paused successfully', 'success');
       loadLoop(selectedLoop.id);
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to pause schedule', 'error');
     } finally {
       setScheduleLoading(false);
@@ -195,7 +224,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       await ralphLoopsApi.resumeSchedule(selectedLoop.id);
       showNotification('Schedule resumed successfully', 'success');
       loadLoop(selectedLoop.id);
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to resume schedule', 'error');
     } finally {
       setScheduleLoading(false);
@@ -209,7 +238,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       await ralphLoopsApi.regenerateWebhookToken(selectedLoop.id);
       showNotification('Webhook token regenerated successfully', 'success');
       loadLoop(selectedLoop.id);
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to regenerate token', 'error');
     } finally {
       setScheduleLoading(false);
@@ -230,7 +259,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       showNotification('Schedule configuration saved successfully', 'success');
       setShowScheduleConfigModal(false);
       loadLoop(selectedLoop.id);
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to save schedule configuration', 'error');
     } finally {
       setScheduleLoading(false);
@@ -378,6 +407,21 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
             {isRunning && <RotateCcw className="w-3 h-3 mr-1 animate-spin" />}
             {status.label}
           </Badge>
+          {(isRunning || selectedLoop.status === 'paused') && (
+            <Badge variant={wsConnected ? 'success' : 'warning'} size="sm">
+              {wsConnected ? (
+                <>
+                  <Wifi className="w-3 h-3 mr-1" />
+                  Live
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-3 h-3 mr-1" />
+                  Connecting...
+                </>
+              )}
+            </Badge>
+          )}
         </div>
 
         {/* Error */}

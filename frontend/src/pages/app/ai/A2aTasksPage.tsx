@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TaskList, TaskDetail, TaskEventStream } from '@/features/ai/a2a-tasks';
 import { usePermissions } from '@/shared/hooks/usePermissions';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import type { A2aTask } from '@/shared/services/ai/types/a2a-types';
 
@@ -14,13 +14,15 @@ export const A2aTasksPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [listKey, setListKey] = useState(0);
 
-  const { hasPermission: _hasPermission } = usePermissions();
+  usePermissions();
 
-  // WebSocket for real-time updates
-  usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {
-      setListKey((k) => k + 1);
+  // WebSocket for real-time A2A task updates
+  useAiOrchestrationWebSocket({
+    onAgentEvent: (event) => {
+      // Refresh task list when agent execution events occur (A2A tasks use agent infrastructure)
+      if (['agent_execution_started', 'agent_execution_completed', 'agent_execution_failed', 'agent_message_sent', 'agent_message_received'].includes(event.type)) {
+        setListKey((k) => k + 1);
+      }
     },
   });
 

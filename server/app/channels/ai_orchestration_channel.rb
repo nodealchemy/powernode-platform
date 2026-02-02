@@ -640,6 +640,116 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     end
 
     # =============================================================================
+    # RALPH LOOP BROADCASTING
+    # =============================================================================
+
+    # Broadcast Ralph Loop status update
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    # @param event_type [String] Event type (e.g., 'loop_started', 'loop_progress')
+    # @param payload [Hash] Additional payload data
+    def broadcast_ralph_loop_event(ralph_loop, event_type, payload = {})
+      message = build_message(
+        "ralph_loop.#{event_type}",
+        "ralph_loop",
+        ralph_loop.id,
+        {
+          loop_id: ralph_loop.id,
+          status: ralph_loop.status,
+          progress_percentage: ralph_loop.progress_percentage,
+          current_iteration: ralph_loop.current_iteration,
+          completed_task_count: ralph_loop.completed_tasks,
+          task_count: ralph_loop.total_tasks,
+          **payload
+        }
+      )
+
+      # Broadcast to loop-specific stream
+      ActionCable.server.broadcast(stream_key("ralph_loop", ralph_loop.id), message)
+
+      # Also broadcast to account-level stream
+      ActionCable.server.broadcast(stream_key("account", ralph_loop.account_id), message)
+
+      Rails.logger.debug "[AiOrchestrationChannel] Ralph loop event #{event_type} broadcast for loop #{ralph_loop.id}"
+    end
+
+    # Broadcast Ralph Loop started
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    def broadcast_ralph_loop_started(ralph_loop)
+      broadcast_ralph_loop_event(ralph_loop, "started")
+    end
+
+    # Broadcast Ralph Loop progress
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    def broadcast_ralph_loop_progress(ralph_loop)
+      broadcast_ralph_loop_event(ralph_loop, "progress")
+    end
+
+    # Broadcast Ralph Loop iteration completed
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    # @param iteration_number [Integer] Completed iteration number
+    def broadcast_ralph_loop_iteration_completed(ralph_loop, iteration_number)
+      broadcast_ralph_loop_event(ralph_loop, "iteration_completed", {
+        iteration_number: iteration_number
+      })
+    end
+
+    # Broadcast Ralph Loop task status changed
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    # @param task [Ai::RalphTask] Task that changed
+    def broadcast_ralph_loop_task_status_changed(ralph_loop, task)
+      broadcast_ralph_loop_event(ralph_loop, "task_status_changed", {
+        task_id: task.id,
+        task_status: task.status
+      })
+    end
+
+    # Broadcast Ralph Loop learning added
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    # @param learning [String] Learning text
+    def broadcast_ralph_loop_learning_added(ralph_loop, learning)
+      broadcast_ralph_loop_event(ralph_loop, "learning_added", {
+        learning: learning
+      })
+    end
+
+    # Broadcast Ralph Loop completed
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    def broadcast_ralph_loop_completed(ralph_loop)
+      broadcast_ralph_loop_event(ralph_loop, "completed")
+    end
+
+    # Broadcast Ralph Loop failed
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    # @param error_message [String] Error message
+    def broadcast_ralph_loop_failed(ralph_loop, error_message = nil)
+      broadcast_ralph_loop_event(ralph_loop, "failed", {
+        error_message: error_message || ralph_loop.error_message
+      })
+    end
+
+    # Broadcast Ralph Loop paused
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    def broadcast_ralph_loop_paused(ralph_loop)
+      broadcast_ralph_loop_event(ralph_loop, "paused")
+    end
+
+    # Broadcast Ralph Loop cancelled
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    def broadcast_ralph_loop_cancelled(ralph_loop)
+      broadcast_ralph_loop_event(ralph_loop, "cancelled")
+    end
+
+    # =============================================================================
     # CIRCUIT BREAKER BROADCASTING
     # =============================================================================
 
@@ -812,7 +922,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
   end
 
   def valid_subscription_type?(type)
-    %w[account workflow workflow_run agent monitoring system batch_execution circuit_breaker circuit_breaker_service].include?(type)
+    %w[account workflow workflow_run agent monitoring system batch_execution circuit_breaker circuit_breaker_service ralph_loop].include?(type)
   end
 
   def authorized_for_subscription?(subscription_type, resource_id)
@@ -859,6 +969,10 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       # User can subscribe to all breakers for a specific service
       current_user.has_permission?("ai_orchestration.read") ||
         current_user.has_permission?("system.admin")
+    when "ralph_loop"
+      # User can subscribe to Ralph loops in their account
+      ralph_loop = Ai::RalphLoop.find_by(id: resource_id)
+      ralph_loop && ralph_loop.account_id == current_user.account_id
     else
       false
     end

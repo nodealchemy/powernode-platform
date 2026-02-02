@@ -34,7 +34,7 @@ import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { workflowsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { AiWorkflow } from '@/shared/types/workflow';
 import type { WorkflowFilters } from '@/shared/services/ai/types/workflow-api-types';
@@ -49,12 +49,14 @@ export const WorkflowsPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
 
-  // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
+  // WebSocket for real-time workflow updates
+  useAiOrchestrationWebSocket({
+    onWorkflowEvent: (event) => {
+      // Refresh workflow list when workflows are created, updated, or deleted
+      if (['workflow_created', 'workflow_updated', 'workflow_deleted'].includes(event.type)) {
+        loadWorkflows(pagination.current_page, perPage, true);
+      }
+    },
   });
 
   // Get initial type filter from URL query param
@@ -119,7 +121,7 @@ export const WorkflowsPage: React.FC = () => {
       if (response.pagination.per_page && response.pagination.per_page !== perPage) {
         setPerPage(response.pagination.per_page);
       }
-    } catch (error) {
+    } catch {
       console.error('Failed to load workflows:', error);
       // Reset to empty state on error
       setWorkflows([]);
@@ -144,7 +146,7 @@ export const WorkflowsPage: React.FC = () => {
     loadWorkflows(1, perPage);
     // Mark that initial mount is complete
     setIsInitialMount(false);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   // Handle search
   const handleSearch = useCallback((query: string) => {
@@ -164,10 +166,10 @@ export const WorkflowsPage: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, perPage, hasSearched]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchQuery, perPage, hasSearched]);  
 
   // Handle filter changes
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleFilterChange = useCallback((key: keyof WorkflowFilters, value: any) => {
     setFilters(prev => ({
       ...prev,
@@ -181,7 +183,7 @@ export const WorkflowsPage: React.FC = () => {
     if (Object.keys(filters).length > 0 || Object.values(filters).some(v => v !== undefined && v !== '')) {
       loadWorkflows(1, perPage);
     }
-  }, [filters, perPage]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filters, perPage]);  
 
   // Effect to reload workflows when type filter changes
   useEffect(() => {
@@ -194,7 +196,7 @@ export const WorkflowsPage: React.FC = () => {
       searchParams.set('type', typeFilter);
     }
     setSearchParams(searchParams, { replace: true });
-  }, [typeFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [typeFilter]);  
 
   // Debounced effect to reload workflows when sorting changes
   useEffect(() => {
@@ -206,7 +208,7 @@ export const WorkflowsPage: React.FC = () => {
     }, 100); // Short debounce for immediate visual feedback
 
     return () => clearTimeout(timeoutId);
-  }, [sortBy, sortOrder, perPage, isInitialMount]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sortBy, sortOrder, perPage, isInitialMount]);  
 
   // Handle sorting change
   const handleSort = useCallback((field: string) => {
@@ -292,7 +294,7 @@ export const WorkflowsPage: React.FC = () => {
       });
       // Refresh workflow list after duplication
       loadWorkflows(1, perPage);
-    } catch (error) {
+    } catch {
       console.error('Failed to duplicate workflow:', error);
       addNotification({
         type: 'error',
@@ -326,7 +328,7 @@ export const WorkflowsPage: React.FC = () => {
       });
       // Refresh workflow list after deletion
       loadWorkflows(1, perPage);
-    } catch (error) {
+    } catch {
       console.error('Failed to delete workflow:', error);
       addNotification({
         type: 'error',

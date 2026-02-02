@@ -275,7 +275,7 @@ module Ai
         "context" => context
       }
 
-      self.learnings = (learnings || []) + [learning_entry]
+      self.learnings = (learnings || []) + [ learning_entry ]
       save!
     end
 
@@ -368,18 +368,17 @@ module Ai
     end
 
     def broadcast_status_update
-      channel_key = "account_#{account_id}"
+      # Use AiOrchestrationChannel for consistent real-time updates
+      event_type = case status
+                   when "running" then saved_change_to_status? && status_before_last_save == "pending" ? "started" : "progress"
+                   when "completed" then "completed"
+                   when "failed" then "failed"
+                   when "paused" then "paused"
+                   when "cancelled" then "cancelled"
+                   else "progress"
+                   end
 
-      McpChannel.broadcast_to(
-        channel_key,
-        {
-          type: "ralph_loop_update",
-          loop_id: id,
-          status: status,
-          progress_percentage: progress_percentage,
-          current_iteration: current_iteration
-        }
-      )
+      AiOrchestrationChannel.broadcast_ralph_loop_event(self, event_type)
     rescue StandardError => e
       Rails.logger.warn("Failed to broadcast Ralph loop update: #{e.message}")
     end

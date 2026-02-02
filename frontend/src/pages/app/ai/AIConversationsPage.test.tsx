@@ -76,14 +76,18 @@ jest.mock('@/shared/hooks/BreadcrumbContext', () => ({
   })
 }));
 
-// Mock usePageWebSocket
-jest.mock('@/shared/hooks/usePageWebSocket', () => ({
-  usePageWebSocket: () => ({
+// Mock useAiOrchestrationWebSocket
+jest.mock('@/shared/hooks/useAiOrchestrationWebSocket', () => ({
+  useAiOrchestrationWebSocket: () => ({
     isConnected: true,
-    error: null,
-    activeChannels: [],
-    subscribeToChannel: jest.fn(),
-    unsubscribeFromChannel: jest.fn()
+    subscribeToWorkflow: jest.fn(() => jest.fn()),
+    subscribeToWorkflowRun: jest.fn(() => jest.fn()),
+    subscribeToAgent: jest.fn(() => jest.fn()),
+    subscribeToAgentTeam: jest.fn(() => jest.fn()),
+    subscribeToBatch: jest.fn(() => jest.fn()),
+    subscribeToCircuitBreaker: jest.fn(() => jest.fn()),
+    subscribeToProvider: jest.fn(() => jest.fn()),
+    error: null
   })
 }));
 
@@ -103,8 +107,7 @@ jest.mock('@/features/ai/conversations/components/ConversationContinueModal', ()
     isOpen ? <div data-testid="continue-modal"><button onClick={onClose}>Close</button></div> : null
 }));
 
-// Import component after mocks
-// eslint-disable-next-line import/first
+// Import component after mocks (must be after jest.mock calls)
 import { AIConversationsPage } from './AIConversationsPage';
 
 describe('AIConversationsPage', () => {

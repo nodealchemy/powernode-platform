@@ -22,7 +22,7 @@ import { agentsApi, conversationsApi, GlobalConversationFilters } from '@/shared
 import { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { AiAgent } from '@/shared/types/ai';
@@ -41,12 +41,14 @@ export const AIConversationsPage: React.FC = () => {
   const { addNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
 
-  // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
+  // WebSocket for real-time conversation updates
+  useAiOrchestrationWebSocket({
+    onAgentEvent: (event) => {
+      // Refresh conversation list when agent messages are received or conversations end
+      if (['agent_message_received', 'agent_execution_completed', 'agent_execution_failed'].includes(event.type)) {
+        loadConversations(pagination.currentPage, pagination.perPage);
+      }
+    },
   });
 
   const [conversations, setConversations] = useState<ConversationBase[]>([]);
@@ -91,7 +93,7 @@ export const AIConversationsPage: React.FC = () => {
         totalCount: response.pagination.total_count,
         perPage: response.pagination.per_page
       });
-    } catch (error) {
+    } catch {
       setConversations([]);
       setPagination({
         currentPage: 1,
@@ -115,7 +117,7 @@ export const AIConversationsPage: React.FC = () => {
       const response = await agentsApi.getAgents({ page: 1, per_page: 100 });
       // Response is PaginatedResponse<AiAgent> with items array
       setAvailableAgents(response.items || []);
-    } catch (error) {
+    } catch {
       setAvailableAgents([]);
     }
   };
@@ -176,7 +178,7 @@ export const AIConversationsPage: React.FC = () => {
         title: 'Export Started',
         message: 'Conversation export has been initiated'
       });
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Export Failed',
@@ -200,7 +202,7 @@ export const AIConversationsPage: React.FC = () => {
       });
 
       loadConversations(pagination.currentPage, pagination.perPage);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Action Failed',
@@ -223,7 +225,7 @@ export const AIConversationsPage: React.FC = () => {
       });
 
       loadConversations(pagination.currentPage, pagination.perPage);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Duplicate Failed',
@@ -249,7 +251,7 @@ export const AIConversationsPage: React.FC = () => {
           });
 
           loadConversations(pagination.currentPage, pagination.perPage);
-        } catch (error) {
+        } catch {
           addNotification({
             type: 'error',
             title: 'Delete Failed',

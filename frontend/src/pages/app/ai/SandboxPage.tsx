@@ -5,7 +5,7 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import {
   sandboxApi,
@@ -54,12 +54,24 @@ const SandboxPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
-  // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {
-      loadData();
-    }
+  // WebSocket for real-time sandbox and workflow updates
+  useAiOrchestrationWebSocket({
+    onWorkflowRunEvent: (event) => {
+      // Refresh sandbox data when workflow runs complete (test runs)
+      if (['run_completed', 'run_failed'].includes(event.type)) {
+        if (selectedSandbox) {
+          loadSandboxData(selectedSandbox.id);
+        }
+      }
+    },
+    onBatchEvent: (event) => {
+      // Refresh sandbox data when batch test executions complete
+      if (['batch_completed', 'batch_failed', 'batch_progress_update'].includes(event.type)) {
+        if (selectedSandbox) {
+          loadSandboxData(selectedSandbox.id);
+        }
+      }
+    },
   });
 
   useEffect(() => {
@@ -86,7 +98,7 @@ const SandboxPage: React.FC = () => {
       if (sandboxesRes.items && sandboxesRes.items.length > 0 && !selectedSandbox) {
         setSelectedSandbox(sandboxesRes.items[0]);
       }
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to load sandbox data')
@@ -106,7 +118,7 @@ const SandboxPage: React.FC = () => {
       setScenarios(scenariosRes.items || []);
       setRuns(runsRes.items || []);
       setBenchmarks(benchmarksRes.items || []);
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to load sandbox details')
@@ -126,7 +138,7 @@ const SandboxPage: React.FC = () => {
       }));
       setSandboxes([...sandboxes, result.sandbox]);
       setSelectedSandbox(result.sandbox);
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to create sandbox')
@@ -146,7 +158,7 @@ const SandboxPage: React.FC = () => {
         message: 'Test run started'
       }));
       setRuns([result.run, ...runs]);
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to start test run')

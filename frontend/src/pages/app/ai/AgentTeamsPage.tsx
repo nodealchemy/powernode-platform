@@ -14,7 +14,7 @@ import {
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 // Type guard for API errors
@@ -56,12 +56,14 @@ const AgentTeamsPage: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [executingTeamId, setExecutingTeamId] = useState<string | null>(null);
 
-  // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
+  // WebSocket for real-time agent team updates
+  useAiOrchestrationWebSocket({
+    onAgentTeamEvent: (event) => {
+      // Refresh team list when teams are created, updated, deleted, or execution completes
+      if (['team_created', 'team_updated', 'team_deleted', 'team_execution_completed'].includes(event.type)) {
+        loadTeams();
+      }
+    },
   });
 
   useEffect(() => {
@@ -77,7 +79,7 @@ const AgentTeamsPage: React.FC = () => {
 
       const data = await agentTeamsApi.getTeams(filters);
       setTeams(data);
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
@@ -97,7 +99,7 @@ const AgentTeamsPage: React.FC = () => {
         message: 'Team created successfully'
       }));
       await loadTeams();
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
@@ -119,7 +121,7 @@ const AgentTeamsPage: React.FC = () => {
       }));
       await loadTeams();
       setEditingTeam(null);
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
@@ -140,7 +142,7 @@ const AgentTeamsPage: React.FC = () => {
         message: 'Team deleted successfully'
       }));
       await loadTeams();
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
@@ -158,7 +160,7 @@ const AgentTeamsPage: React.FC = () => {
         // title: 'Team Execution Started',
         message: `Team "${team.name}" is now executing. Job ID: ${result.job_id}`
       }));
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',

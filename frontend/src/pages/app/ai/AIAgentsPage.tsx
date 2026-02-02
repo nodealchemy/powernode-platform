@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { AiAgentDashboard } from '@/features/ai/agents/components/AiAgentDashboard';
 import { usePermissions } from '@/shared/hooks/usePermissions';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 export const AIAgentsPage: React.FC = () => {
@@ -12,12 +12,14 @@ export const AIAgentsPage: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const { hasPermission } = usePermissions();
 
-  // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
+  // WebSocket for real-time agent updates
+  useAiOrchestrationWebSocket({
+    onAgentEvent: (event) => {
+      // Refresh agent list when agents are created, updated, or deleted
+      if (['agent_created', 'agent_updated', 'agent_deleted', 'agent_execution_completed'].includes(event.type)) {
+        setRefreshKey(prev => prev + 1);
+      }
+    },
   });
 
   const handleRefresh = useCallback(async () => {
