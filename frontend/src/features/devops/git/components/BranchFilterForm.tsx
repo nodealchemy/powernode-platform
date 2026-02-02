@@ -68,6 +68,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
     // Validate regex pattern
     if (filterType === 'regex') {
       try {
+        // eslint-disable-next-line security/detect-non-literal-regexp -- User-provided regex validation is intentional
         new RegExp(filterPattern);
       } catch {
         setError('Invalid regular expression pattern');
