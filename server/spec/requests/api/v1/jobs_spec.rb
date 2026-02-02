@@ -22,7 +22,7 @@ RSpec.describe 'Api::V1::Jobs', type: :request do
       it 'enqueues a job successfully' do
         job_params = {
           job_class: 'TestJob',
-          args: ['arg1', 'arg2'],
+          args: [ 'arg1', 'arg2' ],
           options: { queue: 'default' }
         }
 

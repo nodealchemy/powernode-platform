@@ -337,5 +337,4 @@ RSpec.describe SupplyChain::SigningKey, type: :model do
       expect(key.metadata).to eq({})
     end
   end
-
 end

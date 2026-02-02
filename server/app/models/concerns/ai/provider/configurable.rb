@@ -43,22 +43,22 @@ module Ai
 
         # Fallback: Return configuration based on provider type
         fallback = case provider_type
-                   when "openai"
+        when "openai"
                      {
                        "api_key" => "***masked***",
                        "models" => available_models_list,
                        "default_model" => available_models_list.first,
                        "rate_limits" => rate_limits
                      }
-                   when "anthropic"
+        when "anthropic"
                      {
                        "api_key" => "***masked***",
                        "models" => available_models_list,
                        "default_model" => available_models_list.first
                      }
-                   else
+        else
                      configuration_schema.presence || {}
-                   end
+        end
 
         fallback.is_a?(Hash) ? fallback.with_indifferent_access : {}
       end
@@ -151,7 +151,7 @@ module Ai
         end
 
         default_config = case provider_type.to_s.downcase
-                         when "openai"
+        when "openai"
                            {
                              "models" => %w[gpt-3.5-turbo gpt-4],
                              "default_model" => "gpt-3.5-turbo",
@@ -159,7 +159,7 @@ module Ai
                              "temperature" => 0.7,
                              "max_tokens" => 2000
                            }
-                         when "anthropic"
+        when "anthropic"
                            {
                              "models" => %w[claude-instant-1 claude-2],
                              "default_model" => "claude-instant-1",
@@ -167,7 +167,7 @@ module Ai
                              "temperature" => 0.7,
                              "max_tokens" => 2000
                            }
-                         else
+        else
                            {
                              "api_key" => "",
                              "models" => [],
@@ -175,7 +175,7 @@ module Ai
                              "temperature" => 0.7,
                              "max_tokens" => 2000
                            }
-                         end
+        end
 
         # Add capability-specific defaults
         default_config["supports_functions"] = true if supports_capability?("function_calling")

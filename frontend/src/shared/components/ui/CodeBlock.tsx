@@ -19,8 +19,9 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   return (

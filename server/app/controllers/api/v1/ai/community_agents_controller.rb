@@ -15,7 +15,7 @@ module Api
 
           # Apply filters
           scope = scope.where(category: params[:category]) if params[:category].present?
-          scope = scope.where("skills @> ?", [params[:skill]].to_json) if params[:skill].present?
+          scope = scope.where("skills @> ?", [ params[:skill] ].to_json) if params[:skill].present?
           scope = scope.verified if params[:verified] == "true"
 
           # Search

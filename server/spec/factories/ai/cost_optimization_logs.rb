@@ -16,7 +16,7 @@ FactoryBot.define do
     recommendation do
       {
         "current_provider" => "Provider A",
-        "alternatives" => ["Provider B", "Provider C"],
+        "alternatives" => [ "Provider B", "Provider C" ],
         "reason" => "Same capabilities at lower cost"
       }
     end
@@ -37,7 +37,7 @@ FactoryBot.define do
       recommendation do
         {
           "current_provider" => "Provider A",
-          "alternatives" => ["Provider B"],
+          "alternatives" => [ "Provider B" ],
           "reason" => "Same capabilities at lower cost",
           "confidence" => 0.85,
           "estimated_impact" => "medium"

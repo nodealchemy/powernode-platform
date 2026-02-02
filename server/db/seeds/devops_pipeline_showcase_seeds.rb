@@ -173,7 +173,7 @@ review_pipeline = Devops::Pipeline.find_or_create_by!(
     'pull_request' => {
       'enabled' => true,
       'events' => %w[opened synchronize reopened],
-      'branches' => ['main', 'develop', 'release/*']
+      'branches' => [ 'main', 'develop', 'release/*' ]
     }
   }
   p.features = {
@@ -184,7 +184,7 @@ review_pipeline = Devops::Pipeline.find_or_create_by!(
   p.notification_settings = {
     'on_success' => true,
     'on_failure' => true,
-    'channels' => ['slack', 'email']
+    'channels' => [ 'slack', 'email' ]
   }
 end
 
@@ -306,7 +306,7 @@ cicd_pipeline = Devops::Pipeline.find_or_create_by!(
   p.triggers = {
     'push' => {
       'enabled' => true,
-      'branches' => ['main']
+      'branches' => [ 'main' ]
     },
     'manual' => {
       'enabled' => true,
@@ -321,11 +321,11 @@ cicd_pipeline = Devops::Pipeline.find_or_create_by!(
     'parallel_tests' => true,
     'blue_green_deploy' => true
   }
-  p.runner_labels = ['linux', 'docker']
+  p.runner_labels = [ 'linux', 'docker' ]
   p.notification_settings = {
     'on_success' => true,
     'on_failure' => true,
-    'channels' => ['slack']
+    'channels' => [ 'slack' ]
   }
 end
 
@@ -427,7 +427,7 @@ cicd_steps = [
     approval_settings: {
       'required_approvers' => 2,
       'timeout_hours' => 4,
-      'notify' => ['devops-team', 'tech-lead']
+      'notify' => [ 'devops-team', 'tech-lead' ]
     },
     inputs: { 'staging_url' => '{{steps.deploy_to_staging.outputs.url}}' },
     outputs: { 'approved' => 'boolean' }
@@ -506,7 +506,7 @@ security_pipeline = Devops::Pipeline.find_or_create_by!(
     },
     'pull_request' => {
       'enabled' => true,
-      'events' => ['opened', 'synchronize']
+      'events' => [ 'opened', 'synchronize' ]
     },
     'manual' => {
       'enabled' => true,
@@ -526,7 +526,7 @@ security_pipeline = Devops::Pipeline.find_or_create_by!(
   p.notification_settings = {
     'on_critical' => true,
     'on_high' => true,
-    'channels' => ['security-team', 'slack']
+    'channels' => [ 'security-team', 'slack' ]
   }
 end
 
@@ -556,7 +556,7 @@ security_steps = [
     step_type: 'custom',
     inputs: {
       'command' => 'trufflehog filesystem . --json > secrets-report.json',
-      'excluded_paths' => ['node_modules', '.git', 'dist']
+      'excluded_paths' => [ 'node_modules', '.git', 'dist' ]
     },
     outputs: { 'secrets_found' => 'array', 'secrets_count' => 'number' }
   },
@@ -566,7 +566,7 @@ security_steps = [
     step_type: 'custom',
     inputs: {
       'command' => 'semgrep --config auto --json > sast-report.json',
-      'rules' => ['security', 'best-practices']
+      'rules' => [ 'security', 'best-practices' ]
     },
     outputs: { 'findings' => 'array', 'severity_breakdown' => 'object' }
   },
@@ -704,8 +704,8 @@ issue_pipeline = Devops::Pipeline.find_or_create_by!(
   p.triggers = {
     'issue' => {
       'enabled' => true,
-      'events' => ['labeled'],
-      'labels' => ['ai-implement', 'auto-fix']
+      'events' => [ 'labeled' ],
+      'labels' => [ 'ai-implement', 'auto-fix' ]
     },
     'issue_comment' => {
       'enabled' => true,
@@ -812,7 +812,7 @@ issue_steps = [
       'head' => '{{steps.create_feature_branch.outputs.branch_name}}',
       'base' => '{{inputs.target_branch || "develop"}}',
       'draft' => false,
-      'labels' => ['ai-generated', 'auto-review']
+      'labels' => [ 'ai-generated', 'auto-review' ]
     },
     outputs: { 'pr_number' => 'number', 'pr_url' => 'string' }
   },
@@ -881,7 +881,7 @@ release_pipeline = Devops::Pipeline.find_or_create_by!(
   p.triggers = {
     'push' => {
       'enabled' => true,
-      'tags' => ['v*.*.*']
+      'tags' => [ 'v*.*.*' ]
     },
     'manual' => {
       'enabled' => true,
@@ -902,7 +902,7 @@ release_pipeline = Devops::Pipeline.find_or_create_by!(
   p.notification_settings = {
     'on_success' => true,
     'on_failure' => true,
-    'channels' => ['releases', 'slack']
+    'channels' => [ 'releases', 'slack' ]
   }
 end
 
@@ -942,7 +942,7 @@ release_steps = [
     step_type: 'custom',
     inputs: {
       'command' => 'npm version {{steps.determine_version.outputs.new_version}} --no-git-tag-version',
-      'files' => ['package.json', 'package-lock.json']
+      'files' => [ 'package.json', 'package-lock.json' ]
     },
     outputs: { 'updated_files' => 'array' }
   },
@@ -969,7 +969,7 @@ release_steps = [
     step_type: 'custom',
     inputs: {
       'command' => 'docker build -t {{docker_registry}}/{{app_name}}:{{steps.determine_version.outputs.new_version}} .',
-      'tags' => ['{{steps.determine_version.outputs.new_version}}', 'latest']
+      'tags' => [ '{{steps.determine_version.outputs.new_version}}', 'latest' ]
     },
     outputs: { 'image_tag' => 'string', 'image_digest' => 'string' }
   },
@@ -1015,7 +1015,7 @@ release_steps = [
     step_type: 'upload_artifact',
     inputs: {
       'release_id' => '{{steps.create_github_release.outputs.release_id}}',
-      'files' => ['dist/*.zip', 'dist/*.tar.gz']
+      'files' => [ 'dist/*.zip', 'dist/*.tar.gz' ]
     },
     outputs: { 'uploaded_files' => 'array' }
   },
@@ -1027,7 +1027,7 @@ release_steps = [
     approval_settings: {
       'required_approvers' => 2,
       'timeout_hours' => 8,
-      'notify' => ['release-managers']
+      'notify' => [ 'release-managers' ]
     },
     inputs: {
       'environment' => 'production',
@@ -1042,7 +1042,7 @@ release_steps = [
     position: 13,
     step_type: 'notify',
     inputs: {
-      'channels' => ['releases', 'slack', 'email'],
+      'channels' => [ 'releases', 'slack', 'email' ],
       'message' => 'Release v{{steps.determine_version.outputs.new_version}} deployed successfully!\n\nChanges:\n{{steps.generate_changelog.outputs.changelog}}\n\nRelease: {{steps.create_github_release.outputs.release_url}}',
       'priority' => 'normal'
     },
@@ -1088,11 +1088,11 @@ puts "   Total Steps: #{Devops::Pipeline.where(account: account, name: [
 puts "\n  Pipelines Created:"
 
 [
-  [review_pipeline, 'AI-powered code review on PRs', 'PR triggers, AI analysis, approval gates'],
-  [cicd_pipeline, 'Full build, test, deploy workflow', 'Artifacts, multi-environment, blue-green deploy'],
-  [security_pipeline, 'Comprehensive security scanning', 'SAST, dependency scan, AI analysis, scheduled'],
-  [issue_pipeline, 'Automated issue to PR workflow', 'Issue triggers, AI implementation, auto-PR'],
-  [release_pipeline, 'Versioning and release process', 'Changelog, Docker, NPM, GitHub releases']
+  [ review_pipeline, 'AI-powered code review on PRs', 'PR triggers, AI analysis, approval gates' ],
+  [ cicd_pipeline, 'Full build, test, deploy workflow', 'Artifacts, multi-environment, blue-green deploy' ],
+  [ security_pipeline, 'Comprehensive security scanning', 'SAST, dependency scan, AI analysis, scheduled' ],
+  [ issue_pipeline, 'Automated issue to PR workflow', 'Issue triggers, AI implementation, auto-PR' ],
+  [ release_pipeline, 'Versioning and release process', 'Changelog, Docker, NPM, GitHub releases' ]
 ].each_with_index do |(pipeline, purpose, features), i|
   puts "\n   #{i + 1}. #{pipeline.name}"
   puts "      Purpose: #{purpose}"

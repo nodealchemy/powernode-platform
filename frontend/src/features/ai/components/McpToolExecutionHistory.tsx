@@ -47,7 +47,7 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
         per_page: 10
       });
       setData(response);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Load Failed',
@@ -72,7 +72,7 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
         message: 'The execution has been cancelled'
       });
       loadHistory();
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Cancel Failed',

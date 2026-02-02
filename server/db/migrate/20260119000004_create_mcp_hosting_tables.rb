@@ -72,8 +72,8 @@ class CreateMcpHostingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :mcp_hosted_servers, [:account_id, :status]
-    add_index :mcp_hosted_servers, [:account_id, :name], unique: true
+    add_index :mcp_hosted_servers, [ :account_id, :status ]
+    add_index :mcp_hosted_servers, [ :account_id, :name ], unique: true
     add_index :mcp_hosted_servers, :status
     add_index :mcp_hosted_servers, :visibility
     add_index :mcp_hosted_servers, :is_published
@@ -113,7 +113,7 @@ class CreateMcpHostingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :mcp_server_deployments, [:hosted_server_id, :created_at]
+    add_index :mcp_server_deployments, [ :hosted_server_id, :created_at ]
     add_index :mcp_server_deployments, :status
     add_index :mcp_server_deployments, :version
 
@@ -151,8 +151,8 @@ class CreateMcpHostingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :mcp_server_metrics, [:hosted_server_id, :recorded_at]
-    add_index :mcp_server_metrics, [:granularity, :recorded_at]
+    add_index :mcp_server_metrics, [ :hosted_server_id, :recorded_at ]
+    add_index :mcp_server_metrics, [ :granularity, :recorded_at ]
     add_index :mcp_server_metrics, :recorded_at
 
     # ==========================================================================
@@ -176,7 +176,7 @@ class CreateMcpHostingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :mcp_server_subscriptions, [:account_id, :hosted_server_id], unique: true, name: "idx_mcp_subscriptions_account_server"
+    add_index :mcp_server_subscriptions, [ :account_id, :hosted_server_id ], unique: true, name: "idx_mcp_subscriptions_account_server"
     add_index :mcp_server_subscriptions, :status
 
     # ==========================================================================

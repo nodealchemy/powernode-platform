@@ -6,7 +6,7 @@ export interface FormValidationRule {
   minLength?: number;
   maxLength?: number;
   pattern?: RegExp;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   custom?: (value: any) => string | null;
 }
 
@@ -15,7 +15,7 @@ export interface FormValidationRules {
 }
 
 export interface FormField {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   value: any;
   error?: string;
   touched?: boolean;
@@ -44,7 +44,7 @@ export interface UseFormReturn<T> {
   isDirty: boolean;
   
   // Field methods
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   setValue: (field: keyof T, value: any) => void;
   setError: (field: keyof T, error: string) => void;
   clearError: (field: keyof T) => void;
@@ -61,7 +61,7 @@ export interface UseFormReturn<T> {
   // Utility methods
   getFieldProps: (field: keyof T) => {
     name: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     value: any;
     onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
     onBlur: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
@@ -71,7 +71,7 @@ export interface UseFormReturn<T> {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function useForm<T extends Record<string, any>>(
   options: UseFormOptions<T>
 ): UseFormReturn<T> {
@@ -91,9 +91,9 @@ export function useForm<T extends Record<string, any>>(
     (): FormState => {
       const state: FormState = {};
       Object.keys(initialValues).forEach(key => {
-        // eslint-disable-next-line security/detect-object-injection
+         
         state[key] = {
-          // eslint-disable-next-line security/detect-object-injection
+           
           value: initialValues[key as keyof T],
           error: undefined,
           touched: false
@@ -110,19 +110,19 @@ export function useForm<T extends Record<string, any>>(
 
   // Extract values, errors, touched from form state
   const values = Object.keys(formState).reduce((acc, key) => {
-    // eslint-disable-next-line security/detect-object-injection
+     
     acc[key as keyof T] = formState[key].value as T[keyof T];
     return acc;
   }, {} as T);
 
   const errors = Object.keys(formState).reduce((acc, key) => {
-    // eslint-disable-next-line security/detect-object-injection
+     
     acc[key as keyof T] = formState[key].error;
     return acc;
   }, {} as Record<keyof T, string | undefined>);
 
   const touched = Object.keys(formState).reduce((acc, key) => {
-    // eslint-disable-next-line security/detect-object-injection
+     
     acc[key as keyof T] = formState[key].touched || false;
     return acc;
   }, {} as Record<keyof T, boolean>);
@@ -180,9 +180,9 @@ export function useForm<T extends Record<string, any>>(
 
       Object.keys(formState).forEach(key => {
         const error = validateField(key as keyof T);
-        // eslint-disable-next-line security/detect-object-injection
+         
         newState[key] = {
-          // eslint-disable-next-line security/detect-object-injection
+           
           ...newState[key],
           error: error || undefined
         };
@@ -197,7 +197,7 @@ export function useForm<T extends Record<string, any>>(
 
   // Set field value
   const setValue = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     (field: keyof T, value: any) => {
       setFormState(prev => {
         // For real-time validation, we need to validate with the new value
@@ -367,7 +367,7 @@ export function useForm<T extends Record<string, any>>(
         if (resetAfterSubmit) {
           reset();
         }
-      } catch (error: unknown) {
+      } catch {
         const errorMessage = error instanceof Error ? error.message : 'An error occurred while submitting the form';
         addNotification({
           type: 'error',
@@ -400,7 +400,7 @@ export function useForm<T extends Record<string, any>>(
   // Computed properties
   const isValid = Object.values(formState).every(field => !field.error);
   const isDirty = Object.keys(formState).some(key => {
-    // eslint-disable-next-line security/detect-object-injection
+     
     return formState[key].value !== initialValues[key as keyof T];
   });
 

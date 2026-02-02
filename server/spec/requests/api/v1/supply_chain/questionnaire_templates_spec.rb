@@ -5,9 +5,9 @@ require "rails_helper"
 RSpec.describe "Api::V1::SupplyChain::QuestionnaireTemplates", type: :request do
   let!(:account) { create(:account) }
   let!(:other_account) { create(:account) }
-  let!(:read_user) { create(:user, account: account, permissions: ["supply_chain.read"]) }
-  let!(:write_user) { create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"]) }
-  let!(:other_user) { create(:user, account: other_account, permissions: ["supply_chain.read", "supply_chain.write"]) }
+  let!(:read_user) { create(:user, account: account, permissions: [ "supply_chain.read" ]) }
+  let!(:write_user) { create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ]) }
+  let!(:other_user) { create(:user, account: other_account, permissions: [ "supply_chain.read", "supply_chain.write" ]) }
 
   before(:each) do
     Rails.cache.clear
@@ -672,8 +672,8 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireTemplates", type: :request do
 
       it "copies sections and questions" do
         template.update!(
-          sections: [{ id: "sec1", name: "Security", weight: 1.0, order: 0 }],
-          questions: [{ id: "q1", section_id: "sec1", text: "Question?", type: "yes_no", required: true }]
+          sections: [ { id: "sec1", name: "Security", weight: 1.0, order: 0 } ],
+          questions: [ { id: "q1", section_id: "sec1", text: "Question?", type: "yes_no", required: true } ]
         )
 
         post "/api/v1/supply_chain/questionnaire_templates/#{template.id}/duplicate", headers: headers, as: :json

@@ -54,8 +54,8 @@ class CreateOutcomeBillingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_outcome_definitions, [:account_id, :outcome_type]
-    add_index :ai_outcome_definitions, [:account_id, :is_active]
+    add_index :ai_outcome_definitions, [ :account_id, :outcome_type ]
+    add_index :ai_outcome_definitions, [ :account_id, :is_active ]
     add_index :ai_outcome_definitions, :outcome_type
     add_index :ai_outcome_definitions, :is_system
 
@@ -99,7 +99,7 @@ class CreateOutcomeBillingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_sla_contracts, [:account_id, :status]
+    add_index :ai_sla_contracts, [ :account_id, :status ]
     add_index :ai_sla_contracts, :status
     add_index :ai_sla_contracts, :current_period_end
 
@@ -149,11 +149,11 @@ class CreateOutcomeBillingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_outcome_billing_records, [:account_id, :created_at]
-    add_index :ai_outcome_billing_records, [:outcome_definition_id, :created_at]
-    add_index :ai_outcome_billing_records, [:source_type, :source_id]
+    add_index :ai_outcome_billing_records, [ :account_id, :created_at ]
+    add_index :ai_outcome_billing_records, [ :outcome_definition_id, :created_at ]
+    add_index :ai_outcome_billing_records, [ :source_type, :source_id ]
     add_index :ai_outcome_billing_records, :status
-    add_index :ai_outcome_billing_records, [:is_billable, :is_billed]
+    add_index :ai_outcome_billing_records, [ :is_billable, :is_billed ]
     add_index :ai_outcome_billing_records, :created_at
 
     # ==========================================================================
@@ -186,8 +186,8 @@ class CreateOutcomeBillingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_sla_violations, [:account_id, :created_at]
-    add_index :ai_sla_violations, [:sla_contract_id, :period_start]
+    add_index :ai_sla_violations, [ :account_id, :created_at ]
+    add_index :ai_sla_violations, [ :sla_contract_id, :period_start ]
     add_index :ai_sla_violations, :credit_status
     add_index :ai_sla_violations, :violation_type
 

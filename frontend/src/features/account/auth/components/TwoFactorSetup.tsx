@@ -40,7 +40,7 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
       } else {
         setError(response.error || 'Failed to enable two-factor authentication');
       }
-    } catch (error) {
+    } catch {
       setError('Failed to enable two-factor authentication');
     } finally {
       setLoading(false);
@@ -64,7 +64,7 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
       } else {
         setError(response.error || 'Invalid verification code');
       }
-    } catch (error) {
+    } catch {
       setError('Failed to verify the code. Please try again.');
     } finally {
       setIsVerifying(false);

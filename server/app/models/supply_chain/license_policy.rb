@@ -180,22 +180,22 @@ module SupplyChain
     end
 
     def add_allowed_license(spdx_id)
-      self.allowed_licenses = (allowed_licenses + [spdx_id]).uniq
+      self.allowed_licenses = (allowed_licenses + [ spdx_id ]).uniq
       save!
     end
 
     def remove_allowed_license(spdx_id)
-      self.allowed_licenses = allowed_licenses - [spdx_id]
+      self.allowed_licenses = allowed_licenses - [ spdx_id ]
       save!
     end
 
     def add_denied_license(spdx_id)
-      self.denied_licenses = (denied_licenses + [spdx_id]).uniq
+      self.denied_licenses = (denied_licenses + [ spdx_id ]).uniq
       save!
     end
 
     def remove_denied_license(spdx_id)
-      self.denied_licenses = denied_licenses - [spdx_id]
+      self.denied_licenses = denied_licenses - [ spdx_id ]
       save!
     end
 
@@ -208,7 +208,7 @@ module SupplyChain
         expires_at: expires_at&.iso8601
       }
 
-      self.exception_packages = (exception_packages + [exception])
+      self.exception_packages = (exception_packages + [ exception ])
       save!
     end
 

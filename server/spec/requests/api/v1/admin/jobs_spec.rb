@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Admin::Jobs', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_settings_update) { create(:user, account: account, permissions: ['admin.settings.update']) }
+  let(:user_with_settings_update) { create(:user, account: account, permissions: [ 'admin.settings.update' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/admin/jobs' do
@@ -66,7 +66,7 @@ RSpec.describe 'Api::V1::Admin::Jobs', type: :request do
         response_data = json_response
 
         statuses = response_data['data']['jobs'].map { |j| j['status'] }
-        expect(statuses.uniq).to eq(['pending'])
+        expect(statuses.uniq).to eq([ 'pending' ])
       end
 
       it 'filters by job_type' do
@@ -85,7 +85,7 @@ RSpec.describe 'Api::V1::Admin::Jobs', type: :request do
         response_data = json_response
 
         job_types = response_data['data']['jobs'].map { |j| j['job_type'] }
-        expect(job_types.uniq).to eq(['SpecialJob'])
+        expect(job_types.uniq).to eq([ 'SpecialJob' ])
       end
     end
 

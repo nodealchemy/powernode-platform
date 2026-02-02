@@ -39,7 +39,7 @@ RSpec.describe 'Api::V1::Internal::Git::Repositories', type: :request do
             forks_count: 2,
             open_issues_count: 5,
             primary_language: 'Ruby',
-            topics: ['rails', 'api']
+            topics: [ 'rails', 'api' ]
           }
         }
       end
@@ -202,7 +202,7 @@ RSpec.describe 'Api::V1::Internal::Git::Repositories', type: :request do
         patch api_v1_internal_git_repository_path(repository),
               params: {
                 languages: { 'Ruby' => 70, 'JavaScript' => 30 },
-                topics: ['api', 'rails', 'backend']
+                topics: [ 'api', 'rails', 'backend' ]
               },
               headers: internal_headers
 
@@ -210,7 +210,7 @@ RSpec.describe 'Api::V1::Internal::Git::Repositories', type: :request do
         repository.reload
         # Language values come back as strings from params processing
         expect(repository.languages).to eq({ 'Ruby' => '70', 'JavaScript' => '30' })
-        expect(repository.topics).to eq(['api', 'rails', 'backend'])
+        expect(repository.topics).to eq([ 'api', 'rails', 'backend' ])
       end
     end
 
@@ -220,7 +220,7 @@ RSpec.describe 'Api::V1::Internal::Git::Repositories', type: :request do
         repo_record = repository
 
         allow_any_instance_of(Devops::GitRepository).to receive(:update).and_return(false)
-        allow_any_instance_of(Devops::GitRepository).to receive_message_chain(:errors, :full_messages).and_return(['Validation failed'])
+        allow_any_instance_of(Devops::GitRepository).to receive_message_chain(:errors, :full_messages).and_return([ 'Validation failed' ])
 
         patch api_v1_internal_git_repository_path(repo_record),
               params: { stars_count: -1 },

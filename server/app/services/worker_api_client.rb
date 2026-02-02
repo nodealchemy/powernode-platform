@@ -43,14 +43,14 @@ class WorkerApiClient
   # @param options [Hash] Additional options (e.g., skip_repo_sync: true)
   # @return [Hash] Response from worker
   def queue_git_credential_setup(credential_id, options = {})
-    queue_job("Git::CredentialSetupJob", [credential_id, options], queue: "services")
+    queue_job("Git::CredentialSetupJob", [ credential_id, options ], queue: "services")
   end
 
   # Queue a Git repository sync job
   # @param credential_id [String] GitProviderCredential ID
   # @return [Hash] Response from worker
   def queue_git_repository_sync(credential_id)
-    queue_job("Git::RepositorySyncJob", [credential_id], queue: "services")
+    queue_job("Git::RepositorySyncJob", [ credential_id ], queue: "services")
   end
 
   # Queue a Git pipeline sync job
@@ -58,7 +58,7 @@ class WorkerApiClient
   # @param external_pipeline_id [String] Optional external pipeline ID to sync specific run
   # @return [Hash] Response from worker
   def queue_git_pipeline_sync(repository_id, external_pipeline_id = nil)
-    args = external_pipeline_id ? [repository_id, external_pipeline_id] : [repository_id]
+    args = external_pipeline_id ? [ repository_id, external_pipeline_id ] : [ repository_id ]
     queue_job("Git::PipelineSyncJob", args, queue: "services")
   end
 
@@ -66,7 +66,7 @@ class WorkerApiClient
   # @param event_id [String] GitWebhookEvent ID
   # @return [Hash] Response from worker
   def queue_git_webhook_processing(event_id)
-    queue_job("Git::WebhookProcessingJob", [event_id], queue: "webhooks")
+    queue_job("Git::WebhookProcessingJob", [ event_id ], queue: "webhooks")
   end
 
   # Queue a Git job logs sync job
@@ -74,7 +74,7 @@ class WorkerApiClient
   # @param options [Hash] Options including repository_id, pipeline_id, streaming
   # @return [Hash] Response from worker
   def queue_git_job_logs_sync(job_id, options = {})
-    queue_job("Git::JobLogsSyncJob", [job_id, options], queue: "services")
+    queue_job("Git::JobLogsSyncJob", [ job_id, options ], queue: "services")
   end
 
   # Generic job queueing method

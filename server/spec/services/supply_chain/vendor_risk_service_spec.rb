@@ -925,7 +925,7 @@ RSpec.describe SupplyChain::VendorRiskService, type: :service do
       let(:vendor) do
         create(:supply_chain_vendor,
           account: account,
-          certifications: [{ "name" => "SOC 2 Type II" }],
+          certifications: [ { "name" => "SOC 2 Type II" } ],
           metadata: {
             "security_controls" => {
               "mfa" => false,
@@ -948,7 +948,7 @@ RSpec.describe SupplyChain::VendorRiskService, type: :service do
       let(:vendor) do
         create(:supply_chain_vendor,
           account: account,
-          certifications: [{ "name" => "SOC 2 Type II" }],
+          certifications: [ { "name" => "SOC 2 Type II" } ],
           metadata: {
             "security_controls" => {
               "mfa" => true,
@@ -971,7 +971,7 @@ RSpec.describe SupplyChain::VendorRiskService, type: :service do
       let(:vendor) do
         create(:supply_chain_vendor,
           account: account,
-          certifications: [{ "name" => "SOC 2 Type II" }],
+          certifications: [ { "name" => "SOC 2 Type II" } ],
           metadata: {
             "security_controls" => {
               "mfa" => true,
@@ -994,7 +994,7 @@ RSpec.describe SupplyChain::VendorRiskService, type: :service do
       let(:vendor) do
         create(:supply_chain_vendor,
           account: account,
-          certifications: [{ "name" => "SOC 2 Type II" }],
+          certifications: [ { "name" => "SOC 2 Type II" } ],
           metadata: {
             "security_controls" => {
               "mfa" => true,
@@ -1017,7 +1017,7 @@ RSpec.describe SupplyChain::VendorRiskService, type: :service do
       let(:vendor) do
         create(:supply_chain_vendor,
           account: account,
-          certifications: [{ "name" => "SOC 2 Type II" }],
+          certifications: [ { "name" => "SOC 2 Type II" } ],
           metadata: {
             "security_controls" => {
               "mfa" => true,
@@ -1106,7 +1106,7 @@ RSpec.describe SupplyChain::VendorRiskService, type: :service do
       let(:vendor) do
         create(:supply_chain_vendor,
           account: account,
-          certifications: [{ "name" => "SOC 2 Type II" }]
+          certifications: [ { "name" => "SOC 2 Type II" } ]
         )
       end
 
@@ -1121,7 +1121,7 @@ RSpec.describe SupplyChain::VendorRiskService, type: :service do
       let(:vendor) do
         create(:supply_chain_vendor,
           account: account,
-          certifications: [{ "name" => "ISO 27001" }]
+          certifications: [ { "name" => "ISO 27001" } ]
         )
       end
 
@@ -1136,7 +1136,7 @@ RSpec.describe SupplyChain::VendorRiskService, type: :service do
       let(:vendor) do
         create(:supply_chain_vendor,
           account: account,
-          certifications: [{ "name" => "GDPR" }]
+          certifications: [ { "name" => "GDPR" } ]
         )
       end
 
@@ -1151,7 +1151,7 @@ RSpec.describe SupplyChain::VendorRiskService, type: :service do
       let(:vendor) do
         create(:supply_chain_vendor,
           account: account,
-          certifications: [{ "name" => "HIPAA" }]
+          certifications: [ { "name" => "HIPAA" } ]
         )
       end
 
@@ -1331,7 +1331,7 @@ RSpec.describe SupplyChain::VendorRiskService, type: :service do
         create(:supply_chain_vendor,
           account: account,
           vendor_type: "saas",
-          certifications: [{ "name" => "SOC 2 Type II" }],
+          certifications: [ { "name" => "SOC 2 Type II" } ],
           metadata: {
             "operational" => {
               "business_continuity" => true,
@@ -1371,7 +1371,7 @@ RSpec.describe SupplyChain::VendorRiskService, type: :service do
         create(:supply_chain_vendor,
           account: account,
           vendor_type: "library",
-          certifications: [{ "name" => "SOC 2 Type II" }],
+          certifications: [ { "name" => "SOC 2 Type II" } ],
           metadata: {
             "operational" => {
               "business_continuity" => true,

@@ -313,7 +313,7 @@ module DataManagement
       def format_file_size(bytes)
         return "0 B" if bytes.nil? || bytes.zero?
 
-        units = ["B", "KB", "MB", "GB", "TB"]
+        units = [ "B", "KB", "MB", "GB", "TB" ]
         base = 1024
         exp = (Math.log(bytes) / Math.log(base)).floor
         exp = units.length - 1 if exp >= units.length

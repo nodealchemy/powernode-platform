@@ -3,16 +3,16 @@
 module Api
   module V1
     class ResellersController < ApplicationController
-      before_action :set_reseller, only: [:show, :update, :dashboard, :request_payout, :commissions, :referrals, :payouts]
-      before_action -> { require_permission("resellers.read") }, only: [:index]
-      before_action -> { require_permission("resellers.manage") }, only: [:approve, :activate, :suspend, :process_payout]
+      before_action :set_reseller, only: [ :show, :update, :dashboard, :request_payout, :commissions, :referrals, :payouts ]
+      before_action -> { require_permission("resellers.read") }, only: [ :index ]
+      before_action -> { require_permission("resellers.manage") }, only: [ :approve, :activate, :suspend, :process_payout ]
 
       # GET /api/v1/resellers
       def index
         service = ResellerService.new(account: current_account, user: current_user)
         resellers = service.list_resellers(filters: filter_params)
 
-        paginated = resellers.page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+        paginated = resellers.page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
         render_success(
           paginated.map { |r| reseller_data(r) },
@@ -108,7 +108,7 @@ module Api
           commissions = commissions.for_period(params[:start_date].to_date, params[:end_date].to_date)
         end
 
-        paginated = commissions.page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+        paginated = commissions.page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
         render_success(
           paginated.map { |c| commission_data(c) },
@@ -126,7 +126,7 @@ module Api
           referrals = referrals.where(status: params[:status])
         end
 
-        paginated = referrals.page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+        paginated = referrals.page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
         render_success(
           paginated.map(&:summary),
@@ -144,7 +144,7 @@ module Api
           payouts = payouts.where(status: params[:status])
         end
 
-        paginated = payouts.page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+        paginated = payouts.page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
         render_success(
           paginated.map(&:summary),
@@ -273,9 +273,9 @@ module Api
       def set_reseller
         @reseller = if params[:id] == "me"
                       current_account.reseller
-                    else
+        else
                       Reseller.find(params[:id])
-                    end
+        end
 
         render_error("Reseller not found", status: :not_found) unless @reseller
       rescue ActiveRecord::RecordNotFound

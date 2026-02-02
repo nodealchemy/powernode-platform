@@ -637,32 +637,32 @@ RSpec.describe SupplyChain::Attribution, type: :model do
     end
 
     it "generates notice file with header" do
-      notice = described_class.generate_notice_file([attribution1, attribution2, attribution3])
+      notice = described_class.generate_notice_file([ attribution1, attribution2, attribution3 ])
       expect(notice).to include("THIRD-PARTY SOFTWARE NOTICES AND INFORMATION")
       expect(notice).to include("This software includes third-party components under the following licenses:")
     end
 
     it "groups attributions by license" do
-      notice = described_class.generate_notice_file([attribution1, attribution2, attribution3])
+      notice = described_class.generate_notice_file([ attribution1, attribution2, attribution3 ])
       expect(notice).to include("MIT License")
       expect(notice).to include("Apache License 2.0")
     end
 
     it "sorts packages alphabetically within each license group" do
-      notice = described_class.generate_notice_file([attribution1, attribution2, attribution3])
+      notice = described_class.generate_notice_file([ attribution1, attribution2, attribution3 ])
       axios_index = notice.index("axios")
       lodash_index = notice.index("lodash")
       expect(axios_index).to be < lodash_index
     end
 
     it "includes license text when any attribution requires license copy" do
-      notice = described_class.generate_notice_file([attribution3])
+      notice = described_class.generate_notice_file([ attribution3 ])
       expect(notice).to include("License Text:")
       expect(notice).to include("Apache License 2.0 full text...")
     end
 
     it "includes generation timestamp" do
-      notice = described_class.generate_notice_file([attribution1])
+      notice = described_class.generate_notice_file([ attribution1 ])
       expect(notice).to include("Generated at:")
     end
 
@@ -677,7 +677,7 @@ RSpec.describe SupplyChain::Attribution, type: :model do
                                      sbom_component: create(:supply_chain_sbom_component, sbom: sbom, account: account),
                                      license: nil,
                                      package_name: "unknown-package")
-      notice = described_class.generate_notice_file([attribution_no_license])
+      notice = described_class.generate_notice_file([ attribution_no_license ])
       # When license is nil, the attribution won't have a license name, so it appears unlicensed
       expect(notice).to include("unknown-package")
     end

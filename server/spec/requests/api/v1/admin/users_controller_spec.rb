@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Admin::UsersController', type: :request do
   let(:account) { create(:account) }
-  let(:admin_user) { create(:user, account: account, permissions: ['admin.user.read', 'admin.user.create', 'admin.user.update', 'admin.user.delete', 'admin.user.impersonate']) }
-  let(:view_only_user) { create(:user, account: account, permissions: ['admin.user.read']) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'admin.user.read', 'admin.user.create', 'admin.user.update', 'admin.user.delete', 'admin.user.impersonate' ]) }
+  let(:view_only_user) { create(:user, account: account, permissions: [ 'admin.user.read' ]) }
   let(:non_admin_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(admin_user) }
   let(:view_only_headers) { auth_headers_for(view_only_user) }
@@ -193,7 +193,7 @@ RSpec.describe 'Api::V1::Admin::UsersController', type: :request do
         patch "/api/v1/admin/users/#{target_user.id}",
               params: {
                 user: {
-                  roles: ['custom_role']
+                  roles: [ 'custom_role' ]
                 }
               }.to_json,
               headers: headers
@@ -209,7 +209,7 @@ RSpec.describe 'Api::V1::Admin::UsersController', type: :request do
           patch "/api/v1/admin/users/#{target_user.id}",
                 params: {
                   user: {
-                    roles: ['custom_role']
+                    roles: [ 'custom_role' ]
                   }
                 }.to_json,
                 headers: headers
@@ -234,7 +234,7 @@ RSpec.describe 'Api::V1::Admin::UsersController', type: :request do
         patch "/api/v1/admin/users/#{admin_user.id}",
               params: {
                 user: {
-                  roles: ['basic_user']
+                  roles: [ 'basic_user' ]
                 }
               }.to_json,
               headers: headers
@@ -246,7 +246,7 @@ RSpec.describe 'Api::V1::Admin::UsersController', type: :request do
         patch "/api/v1/admin/users/#{target_user.id}",
               params: {
                 user: {
-                  roles: ['nonexistent_role']
+                  roles: [ 'nonexistent_role' ]
                 }
               }.to_json,
               headers: headers

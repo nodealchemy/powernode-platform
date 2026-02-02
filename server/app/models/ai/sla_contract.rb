@@ -98,7 +98,7 @@ module Ai
     end
 
     def calculate_credit_percentage
-      [breach_credit_percentage, max_monthly_credit_percentage].compact.min
+      [ breach_credit_percentage, max_monthly_credit_percentage ].compact.min
     end
 
     def calculate_credit_amount

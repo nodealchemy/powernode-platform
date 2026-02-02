@@ -89,7 +89,7 @@ RSpec.describe StorageProviders::NfsStorage, type: :service do
   describe '#upload_file' do
     let(:file_content) { 'Test file content for NFS upload' }
     let(:temp_file) do
-      file = Tempfile.new(['test', '.txt'])
+      file = Tempfile.new([ 'test', '.txt' ])
       file.write(file_content)
       file.rewind
       file

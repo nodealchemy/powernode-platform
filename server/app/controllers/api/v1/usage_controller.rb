@@ -3,8 +3,8 @@
 module Api
   module V1
     class UsageController < ApplicationController
-      before_action -> { require_permission("billing.read") }, only: [:dashboard, :meter, :history, :export]
-      before_action -> { require_permission("billing.manage") }, only: [:set_quota, :reset_quotas]
+      before_action -> { require_permission("billing.read") }, only: [ :dashboard, :meter, :history, :export ]
+      before_action -> { require_permission("billing.manage") }, only: [ :set_quota, :reset_quotas ]
 
       # GET /api/v1/usage/dashboard
       def dashboard

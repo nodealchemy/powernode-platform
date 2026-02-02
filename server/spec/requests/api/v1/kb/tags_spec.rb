@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Kb::Tags', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['kb.update']) }
+  let(:user) { create(:user, account: account, permissions: [ 'kb.update' ]) }
 
   let(:headers) { auth_headers_for(user) }
 

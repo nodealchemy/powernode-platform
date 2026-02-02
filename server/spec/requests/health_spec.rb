@@ -79,7 +79,7 @@ RSpec.describe 'Health', type: :request do
 
       response_data = json_response
 
-      expect(['healthy', 'degraded']).to include(response_data['data']['status'])
+      expect([ 'healthy', 'degraded' ]).to include(response_data['data']['status'])
     end
   end
 

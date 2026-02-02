@@ -7,9 +7,9 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [:index, :show, :preview]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :duplicate]
-        before_action :set_prompt_template, only: [:show, :update, :destroy, :preview, :duplicate]
+        before_action :require_read_permission, only: [ :index, :show, :preview ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :duplicate ]
+        before_action :set_prompt_template, only: [ :show, :update, :destroy, :preview, :duplicate ]
 
         # GET /api/v1/ai/prompt_templates
         def index

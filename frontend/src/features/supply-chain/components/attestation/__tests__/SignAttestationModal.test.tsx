@@ -540,7 +540,7 @@ describe('SignAttestationModal', () => {
       mockOnSign.mockRejectedValueOnce(new Error('Signing failed'));
 
       render(<SignAttestationModal {...defaultProps} />);
-      let signButton = screen.getByRole('button', { name: /sign attestation/i });
+      const signButton = screen.getByRole('button', { name: /sign attestation/i });
 
       // Click should not throw even if onSign rejects
       expect(() => {

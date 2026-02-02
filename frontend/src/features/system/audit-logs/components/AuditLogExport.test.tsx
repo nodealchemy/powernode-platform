@@ -326,6 +326,7 @@ describe('AuditLogExport', () => {
 
   describe('export functionality', () => {
     it('shows exporting state when export started', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockImplementation(() => new Promise(() => {})); // Never resolves
 
@@ -339,6 +340,7 @@ describe('AuditLogExport', () => {
     });
 
     it('shows progress bar during export', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockImplementation(() => new Promise(() => {}));
 
@@ -352,6 +354,7 @@ describe('AuditLogExport', () => {
     });
 
     it('disables buttons while exporting', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockImplementation(() => new Promise(() => {}));
 
@@ -365,6 +368,7 @@ describe('AuditLogExport', () => {
     });
 
     it('shows success notification on completed export', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockResolvedValue({
         success: true,
@@ -389,6 +393,7 @@ describe('AuditLogExport', () => {
     });
 
     it('shows error notification on failed export', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockRejectedValue(new Error('Export failed'));
 
@@ -402,6 +407,7 @@ describe('AuditLogExport', () => {
     });
 
     it('handles job_id response for background exports', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockResolvedValue({
         success: true,

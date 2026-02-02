@@ -158,12 +158,12 @@ module SupplyChain
         avg_score = security_sections
                       .map { |s| questionnaire.section_scores[s] }
                       .compact
-                      .sum / [security_sections.length, 1].max
+                      .sum / [ security_sections.length, 1 ].max
 
         base_score = (base_score * 0.5 + avg_score * 0.5).round(2)
       end
 
-      [[base_score, 0].max, 100].min.round(2)
+      [ [ base_score, 0 ].max, 100 ].min.round(2)
     end
 
     def calculate_compliance_score(questionnaire)
@@ -190,7 +190,7 @@ module SupplyChain
         end
       end
 
-      [[base_score, 0].max, 100].min.round(2)
+      [ [ base_score, 0 ].max, 100 ].min.round(2)
     end
 
     def calculate_operational_score(questionnaire)
@@ -217,7 +217,7 @@ module SupplyChain
         end
       end
 
-      [[base_score, 0].max, 100].min.round(2)
+      [ [ base_score, 0 ].max, 100 ].min.round(2)
     end
 
     def generate_findings(scores)
@@ -337,7 +337,7 @@ module SupplyChain
       risk += 40 if vendor.handles_phi
       risk += 30 if vendor.handles_pci
 
-      [risk, 100].min
+      [ risk, 100 ].min
     end
 
     def calculate_criticality_risk

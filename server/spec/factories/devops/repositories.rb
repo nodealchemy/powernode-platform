@@ -21,7 +21,7 @@ FactoryBot.define do
     end
 
     trait :with_protected_branches do
-      settings { { "protected_branches" => ["main", "release/*"] } }
+      settings { { "protected_branches" => [ "main", "release/*" ] } }
     end
   end
 end

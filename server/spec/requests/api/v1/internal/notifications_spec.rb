@@ -91,7 +91,7 @@ RSpec.describe 'Api::V1::Internal::Notifications', type: :request do
       it 'sends notification to multiple users' do
         post '/api/v1/internal/notifications/send',
              params: {
-               user_ids: [user.id, user2.id],
+               user_ids: [ user.id, user2.id ],
                message: 'Multi-user notification',
                type: 'system_alert'
              },

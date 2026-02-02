@@ -222,7 +222,7 @@ module Ai
           Thread.new do
             node = nodes.find { |n| n[:id] == node_id }
             result = execute_node(node, shared_context)
-            [node_id, result]
+            [ node_id, result ]
           end
         end
 
@@ -259,7 +259,7 @@ module Ai
         agent = account.ai_agents.find(agent_id)
         task = @a2a_service.submit_task(
           agent: agent,
-          message: { role: "user", parts: [{ type: "text", text: input.to_json }] },
+          message: { role: "user", parts: [ { type: "text", text: input.to_json } ] },
           metadata: {
             dag_execution_id: @execution.id,
             dag_node_id: node_id

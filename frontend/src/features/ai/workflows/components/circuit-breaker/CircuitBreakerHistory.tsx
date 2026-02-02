@@ -65,7 +65,7 @@ export const CircuitBreakerHistory: React.FC<CircuitBreakerHistoryProps> = ({
         time_range: timeRange
       });
       setInternalHistory(events);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Load Failed',
@@ -158,7 +158,7 @@ export const CircuitBreakerHistory: React.FC<CircuitBreakerHistoryProps> = ({
         title: 'Export Complete',
         message: 'Circuit breaker history exported successfully.'
       });
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Export Failed',

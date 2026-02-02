@@ -206,7 +206,7 @@ class Reseller < ApplicationRecord
 
   def calculate_payout_fee(amount)
     case payout_method
-    when "paypal" then [amount * 0.02, 25.0].min # 2% up to $25
+    when "paypal" then [ amount * 0.02, 25.0 ].min # 2% up to $25
     when "wire" then 25.0 # Flat $25 for wire
     else 0.0 # Free for bank transfer, check
     end

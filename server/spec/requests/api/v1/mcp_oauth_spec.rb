@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::McpOauth', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['mcp.servers.write']) }
+  let(:user) { create(:user, account: account, permissions: [ 'mcp.servers.write' ]) }
   let(:headers) { auth_headers_for(user) }
 
   let(:mcp_server) do
@@ -280,7 +280,7 @@ RSpec.describe 'Api::V1::McpOauth', type: :request do
   end
 
   describe 'permissions' do
-    let(:user_without_permission) { create(:user, account: account, permissions: ['mcp.servers.read']) }
+    let(:user_without_permission) { create(:user, account: account, permissions: [ 'mcp.servers.read' ]) }
     let(:no_perm_headers) { auth_headers_for(user_without_permission) }
 
     it 'requires mcp.servers.write permission for authorize' do

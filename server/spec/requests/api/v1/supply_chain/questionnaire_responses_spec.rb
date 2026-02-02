@@ -5,9 +5,9 @@ require "rails_helper"
 RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
   let!(:account) { create(:account) }
   let!(:other_account) { create(:account) }
-  let!(:read_user) { create(:user, account: account, permissions: ["supply_chain.read"]) }
-  let!(:write_user) { create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"]) }
-  let!(:other_user) { create(:user, account: other_account, permissions: ["supply_chain.read", "supply_chain.write"]) }
+  let!(:read_user) { create(:user, account: account, permissions: [ "supply_chain.read" ]) }
+  let!(:write_user) { create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ]) }
+  let!(:other_user) { create(:user, account: other_account, permissions: [ "supply_chain.read", "supply_chain.write" ]) }
 
   before(:each) do
     Rails.cache.clear
@@ -322,8 +322,8 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
     let(:vendor) { create(:supply_chain_vendor, account: account) }
     let(:template) do
       create(:supply_chain_questionnaire_template,
-             sections: [{ id: "section1", name: "General", weight: 1.0, order: 0 }],
-             questions: [{ id: "q1", section_id: "section1", text: "Question?", type: "yes_no", required: true }])
+             sections: [ { id: "section1", name: "General", weight: 1.0, order: 0 } ],
+             questions: [ { id: "q1", section_id: "section1", text: "Question?", type: "yes_no", required: true } ])
     end
     let(:questionnaire_response) { create(:supply_chain_questionnaire_response, vendor: vendor, template: template, account: account) }
     let(:submit_params) do
@@ -436,7 +436,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
     end
 
     context "with validation errors" do
-      let(:mock_errors) { instance_double(ActiveModel::Errors, full_messages: ["Validation error"], clear: nil, empty?: false, any?: true) }
+      let(:mock_errors) { instance_double(ActiveModel::Errors, full_messages: [ "Validation error" ], clear: nil, empty?: false, any?: true) }
 
       it "returns unprocessable entity with error message" do
         # Create response BEFORE setting up the mock
@@ -486,7 +486,7 @@ RSpec.describe "Api::V1::SupplyChain::QuestionnaireResponses", type: :request do
     end
 
     context "with invalid parameters" do
-      let(:mock_errors) { instance_double(ActiveModel::Errors, full_messages: ["Update failed"], clear: nil, empty?: false, any?: true) }
+      let(:mock_errors) { instance_double(ActiveModel::Errors, full_messages: [ "Update failed" ], clear: nil, empty?: false, any?: true) }
 
       it "returns unprocessable entity error" do
         # Create response BEFORE setting up the mock

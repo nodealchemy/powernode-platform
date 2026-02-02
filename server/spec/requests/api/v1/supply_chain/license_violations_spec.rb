@@ -7,17 +7,17 @@ RSpec.describe "Api::V1::SupplyChain::LicenseViolations", type: :request do
 
   # User with supply_chain.read permission only
   let(:supply_chain_reader) do
-    create(:user, account: account, permissions: ["supply_chain.read"])
+    create(:user, account: account, permissions: [ "supply_chain.read" ])
   end
 
   # User with both supply_chain.read and supply_chain.write permissions
   let(:supply_chain_writer) do
-    create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"])
+    create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ])
   end
 
   # User with supply_chain.admin permission
   let(:supply_chain_admin) do
-    create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write", "supply_chain.admin"])
+    create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write", "supply_chain.admin" ])
   end
 
   # User without supply_chain permissions

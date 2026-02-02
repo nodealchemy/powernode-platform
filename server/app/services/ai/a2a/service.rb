@@ -57,7 +57,7 @@ module Ai
         scope = scope.by_protocol_version(filter[:protocol_version]) if filter[:protocol_version].present?
 
         page = filter[:page] || 1
-        per_page = [filter[:per_page] || 20, 100].min
+        per_page = [ filter[:per_page] || 20, 100 ].min
 
         {
           agents: scope.offset((page - 1) * per_page).limit(per_page).map(&:to_a2a_json),
@@ -289,7 +289,7 @@ module Ai
       def normalize_message(message)
         return {} if message.blank?
 
-        parts = message[:parts] || message["parts"] || [message[:content] || message["content"]].compact
+        parts = message[:parts] || message["parts"] || [ message[:content] || message["content"] ].compact
         normalized_parts = parts.map do |part|
           part.is_a?(String) ? { "type" => "text", "text" => part } : part.deep_stringify_keys
         end
@@ -334,7 +334,7 @@ module Ai
           parts.unshift({ "type" => "text", "text" => context })
           message.merge("parts" => parts)
         else
-          { "parts" => [{ "type" => "text", "text" => context }] }
+          { "parts" => [ { "type" => "text", "text" => context } ] }
         end
       end
 

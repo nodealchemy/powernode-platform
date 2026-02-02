@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Admin::Pages', type: :request do
   let(:account) { create(:account) }
-  let(:admin_user) { create(:user, account: account, permissions: ['admin.access']) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'admin.access' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   # For GET requests, remove Content-Type: application/json to prevent Rails
@@ -66,11 +66,11 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
         data = json_response_data
 
         statuses = data.map { |p| p['status'] }
-        expect(statuses.uniq).to eq(['published'])
+        expect(statuses.uniq).to eq([ 'published' ])
       end
 
       it 'filters by author_id' do
-        other_user = create(:user, account: account, permissions: ['admin.access'])
+        other_user = create(:user, account: account, permissions: [ 'admin.access' ])
         create(:page, user: other_user)
 
         get '/api/v1/admin/pages',
@@ -81,7 +81,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
         data = json_response_data
 
         author_ids = data.map { |p| p['author']['id'] }
-        expect(author_ids.uniq).to eq([other_user.id])
+        expect(author_ids.uniq).to eq([ other_user.id ])
       end
 
       it 'searches by title or content' do

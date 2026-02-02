@@ -11,9 +11,9 @@ RSpec.describe "Api::V1::SupplyChain::ImagePolicies", type: :request do
   let(:account) { create(:account) }
   let(:other_account) { create(:account) }
 
-  let(:read_user) { create(:user, account: account, permissions: ["supply_chain.read"]) }
-  let(:write_user) { create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"]) }
-  let(:other_account_user) { create(:user, account: other_account, permissions: ["supply_chain.read", "supply_chain.write"]) }
+  let(:read_user) { create(:user, account: account, permissions: [ "supply_chain.read" ]) }
+  let(:write_user) { create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ]) }
+  let(:other_account_user) { create(:user, account: other_account, permissions: [ "supply_chain.read", "supply_chain.write" ]) }
   let(:no_permission_user) { create(:user, account: account, permissions: []) }
 
   let(:read_headers) { auth_headers_for(read_user) }
@@ -165,7 +165,7 @@ RSpec.describe "Api::V1::SupplyChain::ImagePolicies", type: :request do
           is_active: true,
           max_critical_vulns: 0,
           max_high_vulns: 5,
-          match_rules: { registries: ["gcr.io"] },
+          match_rules: { registries: [ "gcr.io" ] },
           rules: {},
           metadata: {}
         }
@@ -233,8 +233,8 @@ RSpec.describe "Api::V1::SupplyChain::ImagePolicies", type: :request do
             enforcement_level: "block",
             is_active: true,
             rules: {
-              allowed_registries: ["gcr.io", "docker.io"],
-              denied_registries: ["quay.io"]
+              allowed_registries: [ "gcr.io", "docker.io" ],
+              denied_registries: [ "quay.io" ]
             }
           }
         }
@@ -341,7 +341,7 @@ RSpec.describe "Api::V1::SupplyChain::ImagePolicies", type: :request do
         params = {
           image_policy: {
             rules: {
-              allowed_registries: ["gcr.io", "ghcr.io"]
+              allowed_registries: [ "gcr.io", "ghcr.io" ]
             }
           }
         }
@@ -574,7 +574,7 @@ RSpec.describe "Api::V1::SupplyChain::ImagePolicies", type: :request do
           create(:supply_chain_image_policy, :registry_allowlist,
                  account: account,
                  created_by: write_user,
-                 rules: { "allowed_registries" => ["gcr.io"] })
+                 rules: { "allowed_registries" => [ "gcr.io" ] })
         end
         let!(:gcr_image) { create(:supply_chain_container_image, account: account, registry: "gcr.io") }
         let!(:docker_image) { create(:supply_chain_container_image, account: account, registry: "docker.io") }

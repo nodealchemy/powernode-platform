@@ -271,15 +271,15 @@ module Devops
 
     def list_runners(scope = :repo, owner = nil, repo = nil)
       path = case scope
-             when :repo
+      when :repo
                "/repos/#{owner}/#{repo}/actions/runners"
-             when :org
+      when :org
                "/orgs/#{owner}/actions/runners"
-             when :admin
+      when :admin
                "/admin/actions/runners"
-             else
+      else
                raise ArgumentError, "Invalid scope: #{scope}"
-             end
+      end
 
       result = get(path)
       runners = result["runners"] || result || []
@@ -295,15 +295,15 @@ module Devops
 
     def runner_registration_token(scope = :repo, owner = nil, repo = nil)
       path = case scope
-             when :repo
+      when :repo
                "/repos/#{owner}/#{repo}/actions/runners/registration-token"
-             when :org
+      when :org
                "/orgs/#{owner}/actions/runners/registration-token"
-             when :admin
+      when :admin
                "/admin/actions/runners/registration-token"
-             else
+      else
                raise ArgumentError, "Invalid scope: #{scope}"
-             end
+      end
 
       result = post(path)
       { token: result["token"], expires_at: nil }
@@ -924,5 +924,5 @@ module Devops
       }
     end
   end
-end
+  end
 end

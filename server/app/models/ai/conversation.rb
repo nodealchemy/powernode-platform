@@ -105,14 +105,14 @@ module Ai
       return false unless is_collaborative?
       return false if participants.include?(user.id)
 
-      new_participants = participants + [user.id]
+      new_participants = participants + [ user.id ]
       update!(participants: new_participants)
     end
 
     def remove_participant(user)
       return false unless is_collaborative?
 
-      new_participants = participants - [user.id]
+      new_participants = participants - [ user.id ]
       update!(participants: new_participants)
     end
 

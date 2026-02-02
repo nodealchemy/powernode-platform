@@ -60,7 +60,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
           setThemeState('light');
           applyThemeToDocument('light');
         }
-      } catch (error: unknown) {
+      } catch {
         // Check if this is an authentication error
         const apiError = error as { response?: { status?: number } };
         if (apiError?.response?.status === 401) {
@@ -127,7 +127,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       
       // Update user preferences
       await settingsApi.updateUserSettings({ user_preferences: { theme: newTheme } });
-    } catch (error: unknown) {
+    } catch {
       // Check if authentication error
       const apiError = error as { response?: { status?: number } };
       if (apiError?.response?.status === 401) {

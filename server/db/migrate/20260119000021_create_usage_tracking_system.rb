@@ -56,9 +56,9 @@ class CreateUsageTrackingSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :usage_events, [:account_id, :event_id], unique: true
-    add_index :usage_events, [:account_id, :usage_meter_id]
-    add_index :usage_events, [:account_id, :timestamp]
+    add_index :usage_events, [ :account_id, :event_id ], unique: true
+    add_index :usage_events, [ :account_id, :usage_meter_id ]
+    add_index :usage_events, [ :account_id, :timestamp ]
     add_index :usage_events, :timestamp
     add_index :usage_events, :is_processed
 
@@ -91,8 +91,8 @@ class CreateUsageTrackingSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :usage_summaries, [:account_id, :usage_meter_id, :period_start], unique: true, name: "idx_usage_summaries_unique_period"
-    add_index :usage_summaries, [:account_id, :period_start]
+    add_index :usage_summaries, [ :account_id, :usage_meter_id, :period_start ], unique: true, name: "idx_usage_summaries_unique_period"
+    add_index :usage_summaries, [ :account_id, :period_start ]
     add_index :usage_summaries, :is_billed
 
     # Usage quotas - per-account limits
@@ -122,7 +122,7 @@ class CreateUsageTrackingSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :usage_quotas, [:account_id, :usage_meter_id], unique: true
+    add_index :usage_quotas, [ :account_id, :usage_meter_id ], unique: true
 
     # Add CHECK constraints
     execute <<-SQL

@@ -139,7 +139,7 @@ module Devops
       # Enqueue notification job via backend API (worker will create tokens and send emails)
       WorkerJobService.enqueue_job(
         job_class: "Devops::ApprovalNotificationJob",
-        args: [id, recipients],
+        args: [ id, recipients ],
         queue: "email"
       )
     rescue StandardError => e

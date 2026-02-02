@@ -143,12 +143,12 @@ class FederationPartner < ApplicationRecord
 
   # Trust management
   def increase_trust!
-    new_level = [trust_level + 1, MAX_TRUST_LEVEL].min
+    new_level = [ trust_level + 1, MAX_TRUST_LEVEL ].min
     update!(trust_level: new_level)
   end
 
   def decrease_trust!
-    new_level = [trust_level - 1, MIN_TRUST_LEVEL].max
+    new_level = [ trust_level - 1, MIN_TRUST_LEVEL ].max
     update!(trust_level: new_level)
 
     suspend!(reason: "Trust level too low") if new_level == MIN_TRUST_LEVEL

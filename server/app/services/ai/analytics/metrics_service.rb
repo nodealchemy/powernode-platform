@@ -263,7 +263,7 @@ module Ai
         return nil if durations.empty?
 
         index = (percentile / 100.0 * durations.length).ceil - 1
-        durations[[index, 0].max]
+        durations[[ index, 0 ].max]
       end
 
       def count_agent_executions(since)
@@ -385,7 +385,7 @@ module Ai
         return nil if times.empty?
 
         index = (percentile / 100.0 * times.length).ceil - 1
-        times[[index, 0].max].round(2)
+        times[[ index, 0 ].max].round(2)
       end
 
       def calculate_max_queue_time(runs)

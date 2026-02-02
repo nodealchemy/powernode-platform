@@ -55,7 +55,7 @@ module Security
         end
 
         {
-          remaining: [config[:limit] - count, 0].max,
+          remaining: [ config[:limit] - count, 0 ].max,
           limit: config[:limit],
           reset_at: Time.current + redis.ttl(full_key).seconds
         }
@@ -71,7 +71,7 @@ module Security
 
         {
           used: count,
-          remaining: [config[:limit] - count, 0].max,
+          remaining: [ config[:limit] - count, 0 ].max,
           limit: config[:limit],
           reset_at: ttl.positive? ? Time.current + ttl.seconds : nil
         }
@@ -95,7 +95,7 @@ module Security
       private
 
       def build_key(key, category, account_id)
-        parts = ["rate_limit", category]
+        parts = [ "rate_limit", category ]
         parts << "account:#{account_id}" if account_id.present?
         parts << key
         parts.join(":")

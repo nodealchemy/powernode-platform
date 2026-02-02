@@ -15,7 +15,7 @@ module Api
         Rails.cache.clear if Rails.cache.respond_to?(:clear)
 
         render_success(
-          message: 'Test environment reset successfully',
+          message: "Test environment reset successfully",
           data: { timestamp: Time.current.iso8601 }
         )
       end
@@ -24,11 +24,11 @@ module Api
       # Seeds test data for E2E testing
       def seed
         # Load cypress test users if available
-        seed_file = Rails.root.join('db/seeds/cypress_test_users.rb')
+        seed_file = Rails.root.join("db/seeds/cypress_test_users.rb")
         load(seed_file) if File.exist?(seed_file)
 
         render_success(
-          message: 'Test data seeded successfully',
+          message: "Test data seeded successfully",
           data: { timestamp: Time.current.iso8601 }
         )
       end
@@ -39,7 +39,7 @@ module Api
         return if Rails.env.development? || Rails.env.test?
 
         render_error(
-          'Test endpoints are only available in development and test environments',
+          "Test endpoints are only available in development and test environments",
           :forbidden
         )
       end

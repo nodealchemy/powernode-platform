@@ -97,7 +97,7 @@ class Api::V1::InvoicesController < ApplicationController
     begin
       WorkerJobService.enqueue_job(
         "Billing::PaymentRetryJob",
-        args: [@invoice.id],
+        args: [ @invoice.id ],
         queue: "billing_high"
       )
       job_queued = true

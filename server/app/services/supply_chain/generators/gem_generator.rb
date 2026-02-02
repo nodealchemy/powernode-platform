@@ -8,9 +8,9 @@ module SupplyChain
 
         components = if lockfile_content.present?
                        parse_lockfile(lockfile_content)[:components]
-                     else
+        else
                        parse_gemfile
-                     end
+        end
 
         { components: components, vulnerabilities: [] }
       end

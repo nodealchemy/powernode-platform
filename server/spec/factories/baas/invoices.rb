@@ -18,7 +18,7 @@ FactoryBot.define do
     due_date { 30.days.from_now }
     period_start { Time.current.beginning_of_month }
     period_end { Time.current.end_of_month }
-    line_items { [{ "id" => SecureRandom.uuid, "description" => "Monthly subscription", "quantity" => 1, "unit_amount_cents" => 10000, "amount_cents" => 10000 }] }
+    line_items { [ { "id" => SecureRandom.uuid, "description" => "Monthly subscription", "quantity" => 1, "unit_amount_cents" => 10000, "amount_cents" => 10000 } ] }
     paid_at { nil }
     voided_at { nil }
     stripe_invoice_id { nil }

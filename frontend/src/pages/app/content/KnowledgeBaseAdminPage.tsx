@@ -95,7 +95,7 @@ export default function KnowledgeBaseAdminPage() {
       setStats(articlesResponse.data.data.stats || { total: 0, published: 0, draft: 0, review: 0, archived: 0 });
       setCategories(categoriesResponse.data.data || []);
       setTotalPages(articlesResponse.data.data.pagination?.total_pages || 1);
-    } catch (error) {
+    } catch {
       dispatch(addNotification({ type: 'error', message: 'Failed to load data' }));
     } finally {
       setIsLoading(false);
@@ -127,7 +127,7 @@ export default function KnowledgeBaseAdminPage() {
       dispatch(addNotification({ type: 'success', message: `${selectedArticles.length} articles updated` }));
       setSelectedArticles([]);
       loadAdminData();
-    } catch (error) {
+    } catch {
       dispatch(addNotification({ type: 'error', message: 'Failed to update articles' }));
     }
   };
@@ -144,7 +144,7 @@ export default function KnowledgeBaseAdminPage() {
       dispatch(addNotification({ type: 'success', message: `${selectedArticles.length} articles deleted` }));
       setSelectedArticles([]);
       loadAdminData();
-    } catch (error) {
+    } catch {
       dispatch(addNotification({ type: 'error', message: 'Failed to delete articles' }));
     }
   };

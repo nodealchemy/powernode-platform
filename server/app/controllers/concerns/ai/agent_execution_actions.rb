@@ -42,9 +42,9 @@ module Ai
       executions = if params[:agent_id].present?
                      agent = current_user.account.ai_agents.find(params[:agent_id])
                      agent.executions
-                   else
+      else
                      ::Ai::AgentExecution.joins(:agent).where(ai_agents: { account_id: current_user.account_id })
-                   end
+      end
 
       executions = executions.includes(:agent, :provider, :user)
       executions = apply_execution_filters(executions)

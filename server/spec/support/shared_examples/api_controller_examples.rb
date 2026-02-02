@@ -68,7 +68,7 @@ end
 
 RSpec.shared_examples 'accessible with permission' do |http_method, path, permission, params: {}|
   let(:account) { create(:account) }
-  let(:user_with_permission) { create(:user, account: account, permissions: [permission]) }
+  let(:user_with_permission) { create(:user, account: account, permissions: [ permission ]) }
 
   it "succeeds when user has #{permission} permission" do
     headers = auth_headers_for(user_with_permission)
@@ -101,7 +101,7 @@ end
 
 RSpec.shared_examples 'paginates results' do |http_method, path, factory_name, count: 25|
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['admin.access']) }
+  let(:user) { create(:user, account: account, permissions: [ 'admin.access' ]) }
 
   before do
     create_list(factory_name, count, account: account)
@@ -177,8 +177,8 @@ end
 RSpec.shared_examples 'scopes to current account' do |http_method, path, factory_name|
   let(:account1) { create(:account) }
   let(:account2) { create(:account) }
-  let(:user1) { create(:user, account: account1, permissions: ['admin.access']) }
-  let(:user2) { create(:user, account: account2, permissions: ['admin.access']) }
+  let(:user1) { create(:user, account: account1, permissions: [ 'admin.access' ]) }
+  let(:user2) { create(:user, account: account2, permissions: [ 'admin.access' ]) }
 
   before do
     @record1 = create(factory_name, account: account1)
@@ -191,7 +191,7 @@ RSpec.shared_examples 'scopes to current account' do |http_method, path, factory
 
     expect(response).to have_http_status(:success)
     data = json_response['data'] || json_response
-    items = data['items'] || data[factory_name.to_s.pluralize] || [data]
+    items = data['items'] || data[factory_name.to_s.pluralize] || [ data ]
 
     item_ids = items.map { |item| item['id'] }
     expect(item_ids).to include(@record1.id)
@@ -204,7 +204,7 @@ RSpec.shared_examples 'scopes to current account' do |http_method, path, factory
 
     expect(response).to have_http_status(:success)
     data = json_response['data'] || json_response
-    items = data['items'] || data[factory_name.to_s.pluralize] || [data]
+    items = data['items'] || data[factory_name.to_s.pluralize] || [ data ]
 
     item_ids = items.map { |item| item['id'] }
     expect(item_ids).to include(@record2.id)
@@ -215,7 +215,7 @@ end
 RSpec.shared_examples 'returns 404 for other account resources' do |http_method, path_template, factory_name|
   let(:account1) { create(:account) }
   let(:account2) { create(:account) }
-  let(:user1) { create(:user, account: account1, permissions: ['admin.access']) }
+  let(:user1) { create(:user, account: account1, permissions: [ 'admin.access' ]) }
 
   before do
     @record = create(factory_name, account: account2)

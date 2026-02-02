@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::PaymentMethods', type: :request do
   let(:account) { create(:account, :with_stripe_data) }
-  let(:billing_reader) { create(:user, account: account, permissions: ['billing.read']) }
-  let(:billing_manager) { create(:user, account: account, permissions: ['billing.read', 'billing.manage']) }
+  let(:billing_reader) { create(:user, account: account, permissions: [ 'billing.read' ]) }
+  let(:billing_manager) { create(:user, account: account, permissions: [ 'billing.read', 'billing.manage' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   let(:headers) { auth_headers_for(billing_manager) }

@@ -105,9 +105,9 @@ module SupplyChain
     def parse_digest(digest_string)
       if digest_string.include?(":")
         parts = digest_string.split(":", 2)
-        [parts[0], parts[1]]
+        [ parts[0], parts[1] ]
       else
-        ["sha256", digest_string]
+        [ "sha256", digest_string ]
       end
     end
 

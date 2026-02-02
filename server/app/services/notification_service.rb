@@ -143,7 +143,7 @@ class NotificationService
     def queue_email_job(args)
       worker_client.queue_job(
         "Notifications::TransactionalEmailJob",
-        [args],
+        [ args ],
         queue: "email"
       )
     end

@@ -31,7 +31,7 @@ RSpec.describe 'Api::V1::Internal::Invitations', type: :request do
       email: 'invitee@example.com',
       first_name: 'Jane',
       last_name: 'Smith',
-      role_names: ['member'],
+      role_names: [ 'member' ],
       expires_at: 7.days.from_now
     )
   end
@@ -57,7 +57,7 @@ RSpec.describe 'Api::V1::Internal::Invitations', type: :request do
           'email' => 'invitee@example.com',
           'first_name' => 'Jane',
           'last_name' => 'Smith',
-          'role_names' => ['member']
+          'role_names' => [ 'member' ]
         )
       end
 

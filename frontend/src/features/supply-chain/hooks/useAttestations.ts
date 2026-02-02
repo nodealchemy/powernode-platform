@@ -24,7 +24,7 @@ export function useAttestations(options: {
       });
       setAttestations(result.attestations);
       setPagination(result.pagination);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch attestations');
     } finally {
       setLoading(false);
@@ -50,7 +50,7 @@ export function useAttestation(id: string | null) {
       setError(null);
       const result = await attestationsApi.get(id);
       setAttestation(result);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch attestation');
     } finally {
       setLoading(false);
@@ -81,7 +81,7 @@ export function useSignAttestation() {
       setError(null);
       const result = await attestationsApi.sign(id, signingKeyId);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to sign attestation';
       setError(errorMsg);
       throw err;
@@ -113,7 +113,7 @@ export function useSigningKeys() {
       setError(null);
       const result = await attestationsApi.listSigningKeys();
       setSigningKeys(result);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch signing keys');
     } finally {
       setLoading(false);
@@ -143,7 +143,7 @@ export function useCreateAttestation() {
       setError(null);
       const result = await attestationsApi.create(data);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create attestation';
       setError(errorMsg);
       throw err;

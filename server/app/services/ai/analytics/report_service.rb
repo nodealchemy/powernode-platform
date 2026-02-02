@@ -40,14 +40,14 @@ module Ai
         validate_report_type!(type)
 
         report_data = case type.to_s
-                      when "executive_summary" then generate_executive_summary(options)
-                      when "cost_analysis" then generate_cost_report(options)
-                      when "performance_analysis" then generate_performance_report(options)
-                      when "workflow_analysis" then generate_workflow_report(options)
-                      when "agent_analysis" then generate_agent_report(options)
-                      when "custom" then generate_custom_report(options)
-                      else raise ArgumentError, "Unknown report type: #{type}"
-                      end
+        when "executive_summary" then generate_executive_summary(options)
+        when "cost_analysis" then generate_cost_report(options)
+        when "performance_analysis" then generate_performance_report(options)
+        when "workflow_analysis" then generate_workflow_report(options)
+        when "agent_analysis" then generate_agent_report(options)
+        when "custom" then generate_custom_report(options)
+        else raise ArgumentError, "Unknown report type: #{type}"
+        end
 
         {
           report_type: type.to_s,
@@ -190,9 +190,9 @@ module Ai
 
                                  metrics_service.workflow_specific_metrics(workflow)
                                end.compact
-                             else
+        else
                                []
-                             end
+        end
 
         {
           title: "Workflow Analysis Report",
@@ -215,9 +215,9 @@ module Ai
 
                               metrics_service.agent_specific_metrics(agent)
                             end.compact
-                          else
+        else
                             []
-                          end
+        end
 
         {
           title: "Agent Analysis Report",
@@ -256,9 +256,9 @@ module Ai
         csv_data = []
 
         # Convert report data to flat CSV format
-        csv_data << ["Report Type", report[:report_type]]
-        csv_data << ["Generated At", report[:generated_at]]
-        csv_data << ["Period", "#{report[:time_range][:start]} to #{report[:time_range][:end]}"]
+        csv_data << [ "Report Type", report[:report_type] ]
+        csv_data << [ "Generated At", report[:generated_at] ]
+        csv_data << [ "Period", "#{report[:time_range][:start]} to #{report[:time_range][:end]}" ]
         csv_data << []
 
         # Add data sections
@@ -284,7 +284,7 @@ module Ai
             flatten_to_csv(item, csv_data, "#{prefix}[#{index}]")
           end
         else
-          csv_data << [prefix, data.to_s]
+          csv_data << [ prefix, data.to_s ]
         end
       end
 

@@ -112,7 +112,7 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
     if (isOpen && operationsAgent && currentNode && !conversation && !isInitializing && !initializationFailed) {
       initializeConversation();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isOpen, operationsAgent?.id, currentNode?.id, conversation?.id, isInitializing, initializationFailed]);
 
   // Auto-focus input when chat opens and is not minimized
@@ -130,7 +130,7 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
       const messages = await agentsApi.getMessages(agentId, conversationId);
       setMessages(messages.reverse()); // Reverse to show oldest first
       scrollToBottom();
-    } catch (error) {
+    } catch {
       // Error loading messages - will display empty state
     }
   }, [scrollToBottom]);
@@ -194,7 +194,7 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
             });
             return null;
           }
-        } catch (availabilityError) {
+        } catch {
           // Error checking provider availability - continue with conversation creation
         }
       }
@@ -234,7 +234,7 @@ Position: (${node.position_x}, ${node.position_y})`;
         // Load messages to show the conversation
         loadMessages(agent.id, newConversation.id);
         return newConversation;
-      } catch (messageError) {
+      } catch {
         // If message sending fails, clean up the conversation
         try {
           await agentsApi.archiveConversation(agent.id, newConversation.id);
@@ -249,7 +249,7 @@ Position: (${node.position_x}, ${node.position_y})`;
         });
         return null;
       }
-    } catch (error: unknown) {
+    } catch {
       const apiError = error as { response?: { status?: number } };
       setInitializationFailed(true);
       addNotification({
@@ -338,7 +338,7 @@ Position: (${node.position_x}, ${node.position_y})`;
       // Remove temp message and add real messages
       setMessages(prev => prev.filter(m => m.id !== userMessage.id));
       loadMessages(operationsAgent.id, activeConversation.id);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Chat Error',

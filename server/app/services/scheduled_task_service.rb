@@ -331,7 +331,7 @@ class ScheduledTaskService
         Sidekiq.set_schedule(job_name, {
           "cron" => task.cron_schedule,
           "class" => "ScheduledTaskJob",
-          "args" => [task.id],
+          "args" => [ task.id ],
           "queue" => "scheduled_tasks",
           "description" => "Scheduled task: #{task.name}"
         })

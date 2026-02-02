@@ -235,7 +235,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   def authenticate_optional
     # Authenticate if Authorization header is present
-    return unless request.headers['Authorization'].present?
+    return unless request.headers["Authorization"].present?
     authenticate_request
   end
 

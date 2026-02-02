@@ -72,7 +72,7 @@ export const paymentMethodsApi = {
     try {
       const response = await api.get('/api/v1/payment_methods');
       return response.data;
-    } catch (error: unknown) {
+    } catch {
       const message = getErrorMessage(error);
       return { success: false, payment_methods: [], error: message };
     }
@@ -83,7 +83,7 @@ export const paymentMethodsApi = {
     try {
       const response = await api.get(`/api/v1/payment_methods/${id}`);
       return response.data;
-    } catch (error: unknown) {
+    } catch {
       const message = getErrorMessage(error);
       return { success: false, error: message };
     }
@@ -96,7 +96,7 @@ export const paymentMethodsApi = {
         payment_method_type: type
       });
       return response.data;
-    } catch (error: unknown) {
+    } catch {
       const message = getErrorMessage(error);
       return { success: false, setup_intent: { id: '', client_secret: '', status: 'error', usage: '', payment_method_types: [] }, error: message };
     }
@@ -110,7 +110,7 @@ export const paymentMethodsApi = {
         setup_intent_id: setupIntentId
       });
       return response.data;
-    } catch (error: unknown) {
+    } catch {
       const message = getErrorMessage(error);
       return { success: false, error: message };
     }
@@ -121,7 +121,7 @@ export const paymentMethodsApi = {
     try {
       const response = await api.put(`/api/v1/payment_methods/${id}/set_default`);
       return response.data;
-    } catch (error: unknown) {
+    } catch {
       const message = getErrorMessage(error);
       return { success: false, error: message };
     }
@@ -132,7 +132,7 @@ export const paymentMethodsApi = {
     try {
       const response = await api.delete(`/api/v1/payment_methods/${id}`);
       return response.data;
-    } catch (error: unknown) {
+    } catch {
       const message = getErrorMessage(error);
       return { success: false, error: message };
     }

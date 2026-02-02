@@ -31,7 +31,7 @@ export const RevenueForecastPage: React.FC = () => {
         future_only: true,
       });
       setForecasts(response.data);
-    } catch (error: unknown) {
+    } catch {
       const message = error instanceof Error ? error.message : 'Failed to load forecasts';
       showNotification(message, 'error');
     } finally {
@@ -52,7 +52,7 @@ export const RevenueForecastPage: React.FC = () => {
       });
       showNotification(response.message, 'success');
       fetchData();
-    } catch (error: unknown) {
+    } catch {
       const message = error instanceof Error ? error.message : 'Failed to generate forecast';
       showNotification(message, 'error');
     } finally {

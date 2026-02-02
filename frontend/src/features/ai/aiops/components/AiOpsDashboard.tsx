@@ -49,7 +49,7 @@ export const AiOpsDashboard: React.FC = () => {
       setHealthData(health);
       setRealTimeData(realTime);
 
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'AIOps Error',
@@ -68,14 +68,14 @@ export const AiOpsDashboard: React.FC = () => {
   // Initial load
   useEffect(() => {
     loadData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   // Reload when time range changes
   useEffect(() => {
     if (dashboardData) {
       loadData(false);
     }
-  }, [timeRange]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [timeRange]);  
 
   // Auto-refresh every 30 seconds
   useEffect(() => {

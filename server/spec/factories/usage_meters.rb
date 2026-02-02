@@ -42,12 +42,12 @@ FactoryBot.define do
 
     trait :flat_rate do
       billing_model { "flat" }
-      pricing_tiers { [{ "price" => 99.00 }] }
+      pricing_tiers { [ { "price" => 99.00 } ] }
     end
 
     trait :per_unit do
       billing_model { "per_unit" }
-      pricing_tiers { [{ "price_per_unit" => 0.01 }] }
+      pricing_tiers { [ { "price_per_unit" => 0.01 } ] }
     end
 
     trait :volume do
@@ -63,7 +63,7 @@ FactoryBot.define do
 
     trait :package do
       billing_model { "package" }
-      pricing_tiers { [{ "package_size" => 100, "price" => 10.00 }] }
+      pricing_tiers { [ { "package_size" => 100, "price" => 10.00 } ] }
     end
 
     trait :daily_reset do

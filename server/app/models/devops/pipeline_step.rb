@@ -87,7 +87,7 @@ module Devops
 
       input_def = inputs[key.to_s]
 
-      if input_def.is_a?(String) && input_def.start_with?('${{')
+      if input_def.is_a?(String) && input_def.start_with?("${{")
         # Expression reference: ${{ steps.previous.outputs.result }}
         resolve_expression(input_def, context)
       else
@@ -100,7 +100,7 @@ module Devops
       match = expression.match(/\$\{\{\s*(.+?)\s*\}\}/)
       return expression unless match
 
-      path = match[1].split('.')
+      path = match[1].split(".")
       context.dig(*path)
     end
 
@@ -110,14 +110,14 @@ module Devops
       # Handle both array format [{name: ..., type: ...}] and hash format {name: type}
       if outputs.is_a?(Array)
         outputs.map do |output|
-          if output.is_a?(Hash) && output['name']
+          if output.is_a?(Hash) && output["name"]
             {
-              name: output['name'],
-              description: output['description'],
-              type: output['type'] || 'string'
+              name: output["name"],
+              description: output["description"],
+              type: output["type"] || "string"
             }
           else
-            { name: output.to_s, type: 'string' }
+            { name: output.to_s, type: "string" }
           end
         end
       elsif outputs.is_a?(Hash)
@@ -134,7 +134,7 @@ module Devops
     end
 
     def claude_execute?
-      step_type == 'claude_execute'
+      step_type == "claude_execute"
     end
 
     def requires_prompt?

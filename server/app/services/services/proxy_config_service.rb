@@ -353,7 +353,7 @@ module Services
           timestamp: timestamp.iso8601,
           status: status,
           response_time: response_time,
-          response_code: status == "healthy" ? 200 : [404, 500, 502].sample,
+          response_code: status == "healthy" ? 200 : [ 404, 500, 502 ].sample,
           error: status == "healthy" ? nil : "Connection timeout"
         }
       end

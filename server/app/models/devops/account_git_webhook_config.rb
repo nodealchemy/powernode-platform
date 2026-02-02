@@ -37,7 +37,7 @@ module Devops
     # Scopes
     scope :active, -> { where(status: "active", is_active: true) }
     scope :inactive, -> { where.not(status: "active").or(where(is_active: false)) }
-    scope :for_event_type, ->(event_type) { where("event_types @> ?", [event_type].to_json) }
+    scope :for_event_type, ->(event_type) { where("event_types @> ?", [ event_type ].to_json) }
 
     # Callbacks
     before_validation :set_defaults
@@ -141,13 +141,13 @@ module Devops
       base_delay = 5 # seconds
 
       delay = case retry_backoff
-              when "linear"
+      when "linear"
                 base_delay * attempt_number
-              when "exponential"
+      when "exponential"
                 base_delay * (2**(attempt_number - 1))
-              else
+      else
                 base_delay
-              end
+      end
 
       delay.clamp(1, 300) # Max 5 minutes
     end
@@ -185,9 +185,9 @@ module Devops
 
     def wildcard_match?(branch_name, pattern)
       regex_pattern = Regexp.escape(pattern)
-                            .gsub('\*\*', '.*')
-                            .gsub('\*', '[^/]*')
-                            .gsub('\?', '.')
+                            .gsub('\*\*', ".*")
+                            .gsub('\*', "[^/]*")
+                            .gsub('\?', ".")
       Regexp.new("\\A#{regex_pattern}\\z").match?(branch_name)
     rescue RegexpError
       false

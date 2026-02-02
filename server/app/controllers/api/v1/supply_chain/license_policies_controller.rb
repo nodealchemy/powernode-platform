@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class LicensePoliciesController < BaseController
-        before_action :require_read_permission, only: [:index, :show, :evaluate]
-        before_action :require_write_permission, only: [:create, :update, :destroy]
-        before_action :set_license_policy, only: [:show, :update, :destroy, :evaluate]
+        before_action :require_read_permission, only: [ :index, :show, :evaluate ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy ]
+        before_action :set_license_policy, only: [ :show, :update, :destroy, :evaluate ]
 
         # GET /api/v1/supply_chain/license_policies
         def index

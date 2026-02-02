@@ -20,7 +20,7 @@ RSpec.describe ApiKey, type: :model do
     it 'has a uniqueness validation on key_digest' do
       expect(ApiKey.validators_on(:key_digest).map(&:class)).to include(ActiveRecord::Validations::UniquenessValidator)
     end
-    it { should validate_inclusion_of(:is_active).in_array([true, false]) }
+    it { should validate_inclusion_of(:is_active).in_array([ true, false ]) }
   end
 
   describe 'scopes' do
@@ -140,17 +140,17 @@ RSpec.describe ApiKey, type: :model do
       end
 
       it 'returns true when permissions include wildcard' do
-        api_key.permissions = ['*']
+        api_key.permissions = [ '*' ]
         expect(api_key.has_scope?('read:users')).to be true
       end
 
       it 'returns true when scope is included in permissions' do
-        api_key.permissions = ['read:users', 'write:accounts']
+        api_key.permissions = [ 'read:users', 'write:accounts' ]
         expect(api_key.has_scope?('read:users')).to be true
       end
 
       it 'returns false when scope is not included' do
-        api_key.permissions = ['read:users']
+        api_key.permissions = [ 'read:users' ]
         expect(api_key.has_scope?('write:accounts')).to be false
       end
     end

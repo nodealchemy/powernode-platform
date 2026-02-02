@@ -4,7 +4,7 @@ module Api
   module V1
     module Marketplace
       class TemplatesController < ApplicationController
-        before_action :set_template, only: [:submit, :withdraw, :approve, :reject]
+        before_action :set_template, only: [ :submit, :withdraw, :approve, :reject ]
 
         # POST /api/v1/marketplace/templates/from_workflow/:id
         # Create a template from an existing workflow
@@ -189,16 +189,16 @@ module Api
           creator = ::Marketplace::InstanceCreator.new(current_user)
 
           instance = case params[:type]
-                     when "workflow_template"
+          when "workflow_template"
                        creator.create_from_workflow_template(@template, instance_params)
-                     when "pipeline_template"
+          when "pipeline_template"
                        creator.create_from_pipeline_template(@template, instance_params)
-                     when "integration_template"
+          when "integration_template"
                        creator.create_from_integration_template(@template, instance_params)
-                     else
+          else
                        render_error("Cannot create instance from this template type", status: :unprocessable_content)
                        return
-                     end
+          end
 
           render_success(
             { id: instance.id, name: instance.name, type: params[:type].sub("_template", "") },
@@ -212,18 +212,18 @@ module Api
 
         def set_template
           @template = case params[:type]
-                      when "workflow_template"
+          when "workflow_template"
                         ::Ai::WorkflowTemplate.find(params[:id])
-                      when "pipeline_template"
+          when "pipeline_template"
                         ::Devops::PipelineTemplate.find(params[:id])
-                      when "integration_template"
+          when "integration_template"
                         ::Devops::IntegrationTemplate.find(params[:id])
-                      when "prompt_template"
+          when "prompt_template"
                         ::Shared::PromptTemplate.find(params[:id])
-                      else
+          else
                         render_error("Invalid template type", status: :bad_request)
                         nil
-                      end
+          end
         end
 
         def template_params

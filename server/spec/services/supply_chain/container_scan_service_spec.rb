@@ -294,7 +294,7 @@ RSpec.describe SupplyChain::ContainerScanService, type: :service do
       let!(:policy2) do
         create(:supply_chain_image_policy, :active, :registry_allowlist,
                account: account,
-               rules: { "allowed_registries" => [image.registry] })
+               rules: { "allowed_registries" => [ image.registry ] })
       end
       let(:image) { create(:supply_chain_container_image, :clean, account: account) }
 
@@ -455,7 +455,7 @@ RSpec.describe SupplyChain::ContainerScanService, type: :service do
       let!(:policy) do
         create(:supply_chain_image_policy, :active, :blocking, :registry_allowlist,
                account: account,
-               match_rules: { "registries" => ["other-registry.io"] })
+               match_rules: { "registries" => [ "other-registry.io" ] })
       end
 
       it "returns passed: true when policy is skipped" do
@@ -518,7 +518,7 @@ RSpec.describe SupplyChain::ContainerScanService, type: :service do
         create(:supply_chain_image_policy, :active, :blocking, :registry_allowlist,
                account: account,
                priority: 1,
-               rules: { "allowed_registries" => [image.registry] })
+               rules: { "allowed_registries" => [ image.registry ] })
       end
       let!(:high_priority_policy) do
         create(:supply_chain_image_policy, :active, :blocking, :vulnerability_threshold,
@@ -530,7 +530,7 @@ RSpec.describe SupplyChain::ContainerScanService, type: :service do
       it "evaluates policies in order by priority" do
         result = service.evaluate_policies
         policy_ids = result[:policy_results].map { |r| r[:policy_id] }
-        expect(policy_ids).to eq([high_priority_policy.id, low_priority_policy.id])
+        expect(policy_ids).to eq([ high_priority_policy.id, low_priority_policy.id ])
       end
     end
   end
@@ -639,7 +639,7 @@ RSpec.describe SupplyChain::ContainerScanService, type: :service do
 
       it "updates image counts with latest scan results" do
         allow_any_instance_of(described_class).to receive(:perform_scan).and_return({
-          vulnerabilities: [{ "severity" => "critical" }]
+          vulnerabilities: [ { "severity" => "critical" } ]
         })
         service.scan!
         expect(image.reload.critical_vuln_count).to eq(1)

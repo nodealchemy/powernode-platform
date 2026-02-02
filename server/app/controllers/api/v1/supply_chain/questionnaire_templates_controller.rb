@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class QuestionnaireTemplatesController < BaseController
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :duplicate, :send_to_vendor]
-        before_action :set_template, only: [:show, :update, :destroy, :duplicate, :send_to_vendor]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :duplicate, :send_to_vendor ]
+        before_action :set_template, only: [ :show, :update, :destroy, :duplicate, :send_to_vendor ]
 
         # GET /api/v1/supply_chain/questionnaire_templates
         def index
@@ -134,8 +134,8 @@ module Api
         def template_params
           params.require(:questionnaire_template).permit(
             :name, :description, :template_type, :version, :is_active,
-            sections: [:id, :name, :description, :weight, :order],
-            questions: [:id, :section_id, :text, :type, :required, :weight, :order, options: []],
+            sections: [ :id, :name, :description, :weight, :order ],
+            questions: [ :id, :section_id, :text, :type, :required, :weight, :order, options: [] ],
             metadata: {}
           )
         end

@@ -91,7 +91,7 @@ RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
           account_id: account.id,
           user_id: user.id,
           format: 'json',
-          include_data_types: ['profile', 'activity', 'audit_logs']
+          include_data_types: [ 'profile', 'activity', 'audit_logs' ]
         }
       }
     end

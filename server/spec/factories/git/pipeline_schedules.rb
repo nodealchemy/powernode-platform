@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :git_pipeline_schedule, aliases: [:devops_git_pipeline_schedule], class: 'Devops::GitPipelineSchedule' do
+  factory :git_pipeline_schedule, aliases: [ :devops_git_pipeline_schedule ], class: 'Devops::GitPipelineSchedule' do
     association :repository, factory: :git_repository
     association :account
 

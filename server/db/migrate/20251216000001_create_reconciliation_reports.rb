@@ -16,6 +16,6 @@ class CreateReconciliationReports < ActiveRecord::Migration[8.0]
     add_index :reconciliation_reports, :reconciliation_date
     add_index :reconciliation_reports, :reconciliation_type
     add_index :reconciliation_reports, :discrepancies_count
-    add_index :reconciliation_reports, [:date_range_start, :date_range_end]
+    add_index :reconciliation_reports, [ :date_range_start, :date_range_end ]
   end
 end

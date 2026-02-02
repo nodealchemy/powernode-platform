@@ -6,11 +6,11 @@ RSpec.describe 'Api::V1::AnalyticsTiers', type: :request do
   let(:account) { create(:account) }
 
   let(:billing_reader) do
-    create(:user, account: account, permissions: ['billing.read'])
+    create(:user, account: account, permissions: [ 'billing.read' ])
   end
 
   let(:billing_manager) do
-    create(:user, account: account, permissions: ['billing.read', 'billing.manage'])
+    create(:user, account: account, permissions: [ 'billing.read', 'billing.manage' ])
   end
 
   let(:regular_user) do

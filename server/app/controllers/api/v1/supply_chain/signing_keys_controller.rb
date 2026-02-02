@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class SigningKeysController < BaseController
-        before_action :require_read_permission, only: [:index, :show, :public_key]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :rotate, :revoke]
-        before_action :set_signing_key, only: [:show, :update, :destroy, :rotate, :revoke, :public_key]
+        before_action :require_read_permission, only: [ :index, :show, :public_key ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :rotate, :revoke ]
+        before_action :set_signing_key, only: [ :show, :update, :destroy, :rotate, :revoke, :public_key ]
 
         # GET /api/v1/supply_chain/signing_keys
         def index

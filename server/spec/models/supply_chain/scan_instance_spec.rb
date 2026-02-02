@@ -135,7 +135,7 @@ RSpec.describe SupplyChain::ScanInstance, type: :model do
 
       it "returns all matching status" do
         result = described_class.by_status("paused")
-        expect(result).to eq([paused_instance])
+        expect(result).to eq([ paused_instance ])
       end
     end
 
@@ -150,14 +150,14 @@ RSpec.describe SupplyChain::ScanInstance, type: :model do
     describe ".paused" do
       it "returns only paused instances" do
         result = described_class.paused
-        expect(result).to eq([paused_instance])
+        expect(result).to eq([ paused_instance ])
       end
     end
 
     describe ".disabled" do
       it "returns only disabled instances" do
         result = described_class.disabled
-        expect(result).to eq([disabled_instance])
+        expect(result).to eq([ disabled_instance ])
       end
     end
 
@@ -665,7 +665,7 @@ RSpec.describe SupplyChain::ScanInstance, type: :model do
         before do
           allow(scan_template).to receive(:validate_configuration).and_return({
             valid: false,
-            errors: ["Missing required field: api_key"]
+            errors: [ "Missing required field: api_key" ]
           })
         end
 

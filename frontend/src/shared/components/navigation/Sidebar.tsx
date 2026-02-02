@@ -123,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       try {
         const copyright = await settingsApi.getCopyright();
         setCopyrightText(copyright);
-      } catch (error) {
+      } catch {
         setCopyrightText(`© ${new Date().getFullYear()} Everett C. Haimes III. All rights reserved.`);
       }
     };

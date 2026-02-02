@@ -75,7 +75,7 @@ RSpec.describe Ai::AgentCard, type: :model do
     describe '.with_capability' do
       let!(:summarize_card) do
         create(:ai_agent_card, :active, published_at: Time.current, capabilities: {
-          'skills' => ['summarize']
+          'skills' => [ 'summarize' ]
         })
       end
 
@@ -140,10 +140,10 @@ RSpec.describe Ai::AgentCard, type: :model do
 
     before do
       create(:ai_agent_card, account: account, status: 'active', capabilities: {
-        'skills' => ['summarize']
+        'skills' => [ 'summarize' ]
       })
       create(:ai_agent_card, account: account, status: 'active', capabilities: {
-        'skills' => ['translate']
+        'skills' => [ 'translate' ]
       })
     end
 

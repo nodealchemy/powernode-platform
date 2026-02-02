@@ -159,7 +159,7 @@ const proxySettingsApi = {
           // Extract config from export format or use directly
           const config = data.config || data;
           resolve(config);
-        } catch (error) {
+        } catch {
           reject(new Error('Invalid configuration file format'));
         }
       };

@@ -343,7 +343,7 @@ RSpec.describe 'AI Channels Integration', type: :integration do
 
   def subscribe_to_channel(channel_class, user, params = {})
     # Create a proper connection stub for ActionCable testing
-    connection = ActionCable::Channel::ConnectionStub.new(identifiers: [:current_user])
+    connection = ActionCable::Channel::ConnectionStub.new(identifiers: [ :current_user ])
 
     # Define current_user getter/setter on the connection stub
     connection.define_singleton_method(:current_user) { @current_user }

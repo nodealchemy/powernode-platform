@@ -4,11 +4,11 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::IntegrationInstances', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['devops.integrations.read']) }
-  let(:user_with_create_permission) { create(:user, account: account, permissions: ['devops.integrations.read', 'devops.integrations.create']) }
-  let(:user_with_update_permission) { create(:user, account: account, permissions: ['devops.integrations.read', 'devops.integrations.update']) }
-  let(:user_with_execute_permission) { create(:user, account: account, permissions: ['devops.integrations.read', 'devops.integrations.execute']) }
-  let(:user_with_delete_permission) { create(:user, account: account, permissions: ['devops.integrations.read', 'devops.integrations.delete']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'devops.integrations.read' ]) }
+  let(:user_with_create_permission) { create(:user, account: account, permissions: [ 'devops.integrations.read', 'devops.integrations.create' ]) }
+  let(:user_with_update_permission) { create(:user, account: account, permissions: [ 'devops.integrations.read', 'devops.integrations.update' ]) }
+  let(:user_with_execute_permission) { create(:user, account: account, permissions: [ 'devops.integrations.read', 'devops.integrations.execute' ]) }
+  let(:user_with_delete_permission) { create(:user, account: account, permissions: [ 'devops.integrations.read', 'devops.integrations.delete' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/devops/integration_instances' do

@@ -164,7 +164,7 @@ RSpec.describe SupplyChain::ScanExecutionJob, type: :job do
         before do
           execution.update!(input_data: { "target_type" => "SupplyChain::ContainerImage", "target_id" => container_image.id })
           allow(SupplyChain::ContainerScanService).to receive(:new).and_return(container_service)
-          allow(container_service).to receive(:scan!).and_return({ vulnerabilities: [{ id: "CVE-1", severity: "high" }] })
+          allow(container_service).to receive(:scan!).and_return({ vulnerabilities: [ { id: "CVE-1", severity: "high" } ] })
         end
 
         it "calls execute_quality_scan" do
@@ -412,7 +412,7 @@ RSpec.describe SupplyChain::ScanExecutionJob, type: :job do
     context "with ContainerImage target" do
       let(:container_image) { create(:supply_chain_container_image, account: account) }
       let(:container_service) { instance_double(SupplyChain::ContainerScanService) }
-      let(:scan_results) { { vulnerabilities: [{ id: "CVE-1", severity: "critical" }, { id: "CVE-2", severity: "high" }] } }
+      let(:scan_results) { { vulnerabilities: [ { id: "CVE-1", severity: "critical" }, { id: "CVE-2", severity: "high" } ] } }
 
       before do
         execution.update!(input_data: { "target_type" => "SupplyChain::ContainerImage", "target_id" => container_image.id })

@@ -234,7 +234,7 @@ RSpec.describe SupplyChain::SbomDiff, type: :model do
 
   describe "#has_new_vulnerabilities?" do
     it "returns true when new_vulnerabilities is present and not empty" do
-      diff = build(:supply_chain_sbom_diff, new_vulnerabilities: [{ vulnerability_id: "CVE-2024-1234" }])
+      diff = build(:supply_chain_sbom_diff, new_vulnerabilities: [ { vulnerability_id: "CVE-2024-1234" } ])
       expect(diff.has_new_vulnerabilities?).to be true
     end
 
@@ -251,7 +251,7 @@ RSpec.describe SupplyChain::SbomDiff, type: :model do
 
   describe "#has_resolved_vulnerabilities?" do
     it "returns true when resolved_vulnerabilities is present and not empty" do
-      diff = build(:supply_chain_sbom_diff, resolved_vulnerabilities: [{ vulnerability_id: "CVE-2023-5678" }])
+      diff = build(:supply_chain_sbom_diff, resolved_vulnerabilities: [ { vulnerability_id: "CVE-2023-5678" } ])
       expect(diff.has_resolved_vulnerabilities?).to be true
     end
 

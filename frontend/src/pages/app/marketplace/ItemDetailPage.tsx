@@ -34,7 +34,7 @@ export const ItemDetailPage: React.FC = () => {
         setLoading(true);
         const response = await marketplaceApi.getItem(type, id);
         setItem(response.data);
-      } catch (error) {
+      } catch {
         console.error('Failed to load item:', error);
         addNotification({
           type: 'error',
@@ -65,7 +65,7 @@ export const ItemDetailPage: React.FC = () => {
 
       // Navigate back to marketplace
       navigate('/app/marketplace');
-    } catch (error) {
+    } catch {
       console.error('Failed to subscribe to item:', error);
       addNotification({
         type: 'error',

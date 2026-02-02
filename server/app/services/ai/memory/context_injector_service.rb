@@ -94,7 +94,7 @@ module Ai
 
       def inject_factual_memory(char_budget, task)
         facts = @factual_service.all(limit: 50)
-        return [nil, 0] if facts.empty?
+        return [ nil, 0 ] if facts.empty?
 
         # Sort by importance and recency
         sorted_facts = facts.sort_by do |f|
@@ -102,7 +102,7 @@ module Ai
         end
 
         # Build context string within budget
-        context_lines = ["## Known Facts"]
+        context_lines = [ "## Known Facts" ]
         used_chars = context_lines.first.length + 2
 
         sorted_facts.each do |fact|
@@ -113,13 +113,13 @@ module Ai
           used_chars += line.length + 1
         end
 
-        return [nil, 0] if context_lines.size == 1  # Only header
+        return [ nil, 0 ] if context_lines.size == 1  # Only header
 
-        [context_lines.join("\n"), used_chars]
+        [ context_lines.join("\n"), used_chars ]
       end
 
       def inject_working_memory(char_budget, task)
-        return [nil, 0] unless task
+        return [ nil, 0 ] unless task
 
         working_service = WorkingMemoryService.new(
           agent: @agent,
@@ -128,9 +128,9 @@ module Ai
         )
 
         memory = working_service.all
-        return [nil, 0] if memory.empty?
+        return [ nil, 0 ] if memory.empty?
 
-        context_lines = ["## Current State"]
+        context_lines = [ "## Current State" ]
         used_chars = context_lines.first.length + 2
 
         # Prioritize task state and conversation context
@@ -155,19 +155,19 @@ module Ai
           used_chars += line.length + 1
         end
 
-        return [nil, 0] if context_lines.size == 1
+        return [ nil, 0 ] if context_lines.size == 1
 
-        [context_lines.join("\n"), used_chars]
+        [ context_lines.join("\n"), used_chars ]
       end
 
       def inject_experiential_memory(char_budget, query)
-        return [nil, 0] if query.blank?
+        return [ nil, 0 ] if query.blank?
 
         # Search for relevant experiences
         experiences = @experiential_service.search(query, limit: 10, threshold: 0.6)
-        return [nil, 0] if experiences.empty?
+        return [ nil, 0 ] if experiences.empty?
 
-        context_lines = ["## Relevant Experience"]
+        context_lines = [ "## Relevant Experience" ]
         used_chars = context_lines.first.length + 2
 
         experiences.each do |exp|
@@ -178,9 +178,9 @@ module Ai
           used_chars += line.length + 1
         end
 
-        return [nil, 0] if context_lines.size == 1
+        return [ nil, 0 ] if context_lines.size == 1
 
-        [context_lines.join("\n"), used_chars]
+        [ context_lines.join("\n"), used_chars ]
       end
 
       def format_fact(fact)
@@ -191,11 +191,11 @@ module Ai
 
       def format_working_memory(key, value)
         formatted_value = case value
-                          when Hash, Array
+        when Hash, Array
                             value.to_json.truncate(200)
-                          else
+        else
                             value.to_s.truncate(200)
-                          end
+        end
 
         "- #{key.humanize}: #{formatted_value}"
       end

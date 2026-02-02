@@ -2,7 +2,6 @@
 
 # Internal API for webhook delivery operations
 class Api::V1::Internal::WebhookDeliveriesController < Api::V1::Internal::InternalBaseController
-
   # GET /api/v1/internal/webhook_deliveries/:id
   def show
     delivery = ::Marketplace::WebhookDelivery.find(params[:id])

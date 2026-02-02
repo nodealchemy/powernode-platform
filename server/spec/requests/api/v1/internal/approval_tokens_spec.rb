@@ -166,7 +166,7 @@ RSpec.describe 'Api::V1::Internal::ApprovalTokens', type: :request do
       end
 
       it 'creates tokens with expiration' do
-        recipients = [{ 'value' => 'user@example.com' }]
+        recipients = [ { 'value' => 'user@example.com' } ]
 
         post "/api/v1/internal/approval_tokens/#{step_execution.id}/create_tokens",
              params: { recipients: recipients },
@@ -181,7 +181,7 @@ RSpec.describe 'Api::V1::Internal::ApprovalTokens', type: :request do
       end
 
       it 'returns raw tokens for email delivery' do
-        recipients = [{ 'value' => 'user@example.com' }]
+        recipients = [ { 'value' => 'user@example.com' } ]
 
         post "/api/v1/internal/approval_tokens/#{step_execution.id}/create_tokens",
              params: { recipients: recipients },
@@ -211,7 +211,7 @@ RSpec.describe 'Api::V1::Internal::ApprovalTokens', type: :request do
 
     context 'when step execution does not exist' do
       it 'returns not found error' do
-        recipients = [{ 'value' => 'user@example.com' }]
+        recipients = [ { 'value' => 'user@example.com' } ]
 
         post '/api/v1/internal/approval_tokens/nonexistent-id/create_tokens',
              params: { recipients: recipients },
@@ -224,7 +224,7 @@ RSpec.describe 'Api::V1::Internal::ApprovalTokens', type: :request do
 
     context 'without authentication' do
       it 'returns unauthorized error' do
-        recipients = [{ 'value' => 'user@example.com' }]
+        recipients = [ { 'value' => 'user@example.com' } ]
 
         post "/api/v1/internal/approval_tokens/#{step_execution.id}/create_tokens",
              params: { recipients: recipients },

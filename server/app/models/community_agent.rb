@@ -130,7 +130,7 @@ class CommunityAgent < ApplicationRecord
     # Calculate reputation based on multiple factors
     success_rate = task_count.positive? ? (success_count.to_f / task_count * 100) : 0
     rating_factor = (avg_rating / 5.0) * 100
-    volume_factor = [Math.log10(task_count + 1) * 10, 30].min
+    volume_factor = [ Math.log10(task_count + 1) * 10, 30 ].min
     verified_bonus = verified? ? 10 : 0
 
     score = (success_rate * 0.4 + rating_factor * 0.3 + volume_factor * 0.2 + verified_bonus * 0.1)

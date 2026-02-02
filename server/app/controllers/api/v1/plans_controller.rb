@@ -254,7 +254,7 @@ class Api::V1::PlansController < ApplicationController
       default_roles: [],
       required_roles: [],
       metadata: {},
-      volume_discount_tiers: [:min_quantity, :discount_percent]
+      volume_discount_tiers: [ :min_quantity, :discount_percent ]
     )
   end
 

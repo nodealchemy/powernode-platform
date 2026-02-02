@@ -4,10 +4,10 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Publisher', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.publisher.read', 'ai.publisher.manage']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['ai.publisher.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.publisher.read', 'ai.publisher.manage' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'ai.publisher.read' ]) }
   let(:other_account) { create(:account) }
-  let(:other_user) { create(:user, account: other_account, permissions: ['ai.publisher.read']) }
+  let(:other_user) { create(:user, account: other_account, permissions: [ 'ai.publisher.read' ]) }
 
   let(:headers) { auth_headers_for(user) }
   let(:read_only_headers) { auth_headers_for(read_only_user) }

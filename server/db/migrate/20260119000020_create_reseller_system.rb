@@ -49,7 +49,7 @@ class CreateResellerSystem < ActiveRecord::Migration[8.0]
     add_index :resellers, :referral_code, unique: true
     add_index :resellers, :tier
     add_index :resellers, :status
-    add_index :resellers, [:status, :tier]
+    add_index :resellers, [ :status, :tier ]
 
     # Reseller commissions - earnings tracking
     create_table :reseller_commissions, id: false do |t|
@@ -81,9 +81,9 @@ class CreateResellerSystem < ActiveRecord::Migration[8.0]
 
     add_index :reseller_commissions, :commission_type
     add_index :reseller_commissions, :status
-    add_index :reseller_commissions, [:reseller_id, :status]
-    add_index :reseller_commissions, [:reseller_id, :earned_at]
-    add_index :reseller_commissions, [:source_type, :source_id]
+    add_index :reseller_commissions, [ :reseller_id, :status ]
+    add_index :reseller_commissions, [ :reseller_id, :earned_at ]
+    add_index :reseller_commissions, [ :source_type, :source_id ]
 
     # Reseller payouts - payment processing
     create_table :reseller_payouts, id: false do |t|
@@ -119,7 +119,7 @@ class CreateResellerSystem < ActiveRecord::Migration[8.0]
 
     add_index :reseller_payouts, :payout_reference, unique: true
     add_index :reseller_payouts, :status
-    add_index :reseller_payouts, [:reseller_id, :status]
+    add_index :reseller_payouts, [ :reseller_id, :status ]
     add_index :reseller_payouts, :requested_at
 
     # Add the payout foreign key now that reseller_payouts exists
@@ -148,7 +148,7 @@ class CreateResellerSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :reseller_referrals, [:reseller_id, :status]
+    add_index :reseller_referrals, [ :reseller_id, :status ]
     add_index :reseller_referrals, :referral_code_used
 
     # Add CHECK constraints

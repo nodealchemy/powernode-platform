@@ -387,9 +387,9 @@ module Mcp
 
         prd_data = if configuration["prd_variable"].present?
                      get_variable(configuration["prd_variable"])
-                   else
+        else
                      resolve_value(configuration["prd_data"])
-                   end
+        end
 
         service = Ai::Ralph::ExecutionService.new(
           ralph_loop: ralph_loop,
@@ -418,9 +418,9 @@ module Mcp
       def find_ralph_loop
         loop_id = if configuration["loop_variable"].present?
                     get_variable(configuration["loop_variable"])
-                  else
+        else
                     configuration["loop_id"]
-                  end
+        end
 
         if loop_id.blank?
           return error_result("No loop_id or loop_variable specified")

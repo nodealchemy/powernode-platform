@@ -41,7 +41,7 @@ class AddAnalyticsAndWebhookTiers < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :webhook_delivery_stats, [:webhook_endpoint_id, :stat_date], unique: true, name: "idx_webhook_stats_endpoint_date"
+    add_index :webhook_delivery_stats, [ :webhook_endpoint_id, :stat_date ], unique: true, name: "idx_webhook_stats_endpoint_date"
     add_index :webhook_delivery_stats, :stat_date
 
     # Analytics tier configuration

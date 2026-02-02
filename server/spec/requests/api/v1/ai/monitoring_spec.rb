@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.monitoring.read', 'ai.monitoring.manage']) }
-  let(:limited_user) { create(:user, account: account, permissions: ['ai.monitoring.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.monitoring.read', 'ai.monitoring.manage' ]) }
+  let(:limited_user) { create(:user, account: account, permissions: [ 'ai.monitoring.read' ]) }
   let(:headers) { auth_headers_for(user) }
   let(:limited_headers) { auth_headers_for(limited_user) }
 

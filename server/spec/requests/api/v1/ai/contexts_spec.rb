@@ -4,12 +4,12 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Contexts', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['ai.context.read']) }
-  let(:user_with_create_permission) { create(:user, account: account, permissions: ['ai.context.read', 'ai.context.create']) }
-  let(:user_with_update_permission) { create(:user, account: account, permissions: ['ai.context.read', 'ai.context.update']) }
-  let(:user_with_delete_permission) { create(:user, account: account, permissions: ['ai.context.read', 'ai.context.delete']) }
-  let(:user_with_export_permission) { create(:user, account: account, permissions: ['ai.context.read', 'ai.context.export']) }
-  let(:user_with_import_permission) { create(:user, account: account, permissions: ['ai.context.read', 'ai.context.import']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'ai.context.read' ]) }
+  let(:user_with_create_permission) { create(:user, account: account, permissions: [ 'ai.context.read', 'ai.context.create' ]) }
+  let(:user_with_update_permission) { create(:user, account: account, permissions: [ 'ai.context.read', 'ai.context.update' ]) }
+  let(:user_with_delete_permission) { create(:user, account: account, permissions: [ 'ai.context.read', 'ai.context.delete' ]) }
+  let(:user_with_export_permission) { create(:user, account: account, permissions: [ 'ai.context.read', 'ai.context.export' ]) }
+  let(:user_with_import_permission) { create(:user, account: account, permissions: [ 'ai.context.read', 'ai.context.import' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   # Helper to create AI context
@@ -72,7 +72,7 @@ RSpec.describe 'Api::V1::Ai::Contexts', type: :request do
         data = json_response_data
 
         context_types = data['contexts'].map { |c| c['context_type'] }
-        expect(context_types.uniq).to eq(['shared_context'])
+        expect(context_types.uniq).to eq([ 'shared_context' ])
       end
     end
 
@@ -278,7 +278,7 @@ RSpec.describe 'Api::V1::Ai::Contexts', type: :request do
 
   describe 'POST /api/v1/ai/contexts/:id/search' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
-    let(:context_record) { create_context.call(name: 'Searchable Context', context_data: { keywords: ['marketing', 'sales'] }) }
+    let(:context_record) { create_context.call(name: 'Searchable Context', context_data: { keywords: [ 'marketing', 'sales' ] }) }
 
     context 'with ai.context.read permission' do
       it 'searches within context' do

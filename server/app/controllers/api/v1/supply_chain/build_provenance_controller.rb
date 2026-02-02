@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class BuildProvenanceController < BaseController
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:verify_reproducibility]
-        before_action :set_provenance, only: [:show, :verify_reproducibility]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :verify_reproducibility ]
+        before_action :set_provenance, only: [ :show, :verify_reproducibility ]
 
         # GET /api/v1/supply_chain/build_provenance
         def index

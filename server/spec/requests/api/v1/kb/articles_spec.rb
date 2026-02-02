@@ -4,9 +4,9 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Kb::Articles', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['kb.update', 'kb.manage']) }
-  let(:editor_user) { create(:user, account: account, permissions: ['kb.update']) }
-  let(:publisher_user) { create(:user, account: account, permissions: ['kb.publish']) }
+  let(:user) { create(:user, account: account, permissions: [ 'kb.update', 'kb.manage' ]) }
+  let(:editor_user) { create(:user, account: account, permissions: [ 'kb.update' ]) }
+  let(:publisher_user) { create(:user, account: account, permissions: [ 'kb.publish' ]) }
   let(:read_only_user) { create(:user, account: account, permissions: []) }
 
   let(:headers) { auth_headers_for(user) }
@@ -231,7 +231,7 @@ RSpec.describe 'Api::V1::Kb::Articles', type: :request do
 
       it 'assigns tags when provided' do
         params_with_tags = article_params.deep_merge(
-          article: { tag_names: ['tag1', 'tag2'] }
+          article: { tag_names: [ 'tag1', 'tag2' ] }
         )
 
         post '/api/v1/kb/articles', params: params_with_tags, headers: editor_headers, as: :json
@@ -290,7 +290,7 @@ RSpec.describe 'Api::V1::Kb::Articles', type: :request do
 
       it 'updates tags when provided' do
         params_with_tags = update_params.deep_merge(
-          article: { tag_names: ['updated-tag'] }
+          article: { tag_names: [ 'updated-tag' ] }
         )
 
         patch "/api/v1/kb/articles/#{draft_article.id}", params: params_with_tags, headers: editor_headers, as: :json
@@ -488,7 +488,7 @@ RSpec.describe 'Api::V1::Kb::Articles', type: :request do
 
     let(:bulk_update_params) do
       {
-        article_ids: [article1.id, article2.id],
+        article_ids: [ article1.id, article2.id ],
         status: 'published',
         is_featured: true
       }
@@ -517,7 +517,7 @@ RSpec.describe 'Api::V1::Kb::Articles', type: :request do
 
     context 'with non-existent article IDs' do
       it 'returns not found error' do
-        params = { article_ids: ['00000000-0000-0000-0000-000000000000'], status: 'published' }
+        params = { article_ids: [ '00000000-0000-0000-0000-000000000000' ], status: 'published' }
 
         patch '/api/v1/kb/articles/bulk', params: params, headers: editor_headers, as: :json
 
@@ -549,7 +549,7 @@ RSpec.describe 'Api::V1::Kb::Articles', type: :request do
 
     let(:bulk_delete_params) do
       {
-        article_ids: [article1.id, article2.id]
+        article_ids: [ article1.id, article2.id ]
       }
     end
 

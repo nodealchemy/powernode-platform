@@ -244,7 +244,7 @@ RSpec.describe SupplyChain::CveMonitor, type: :model do
       end
 
       it "preserves existing notification_channels" do
-        channels = [{ "type" => "email", "config" => { "to" => "test@example.com" } }]
+        channels = [ { "type" => "email", "config" => { "to" => "test@example.com" } } ]
         monitor = create_cve_monitor(notification_channels: channels)
         expect(monitor.notification_channels).to eq(channels)
       end
@@ -671,7 +671,7 @@ RSpec.describe SupplyChain::CveMonitor, type: :model do
       end
 
       it "appends to existing channels" do
-        monitor.update!(notification_channels: [{ type: "email", config: {} }])
+        monitor.update!(notification_channels: [ { type: "email", config: {} } ])
         monitor.add_notification_channel(type: "slack", config: {})
         expect(monitor.notification_channels.length).to eq(2)
       end
@@ -729,7 +729,7 @@ RSpec.describe SupplyChain::CveMonitor, type: :model do
           is_active: true,
           last_run_at: 1.hour.ago,
           next_run_at: 23.hours.from_now,
-          notification_channels: [{ type: "email", config: {} }]
+          notification_channels: [ { type: "email", config: {} } ]
         )
       end
 

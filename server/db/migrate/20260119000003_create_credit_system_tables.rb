@@ -35,7 +35,7 @@ class CreateCreditSystemTables < ActiveRecord::Migration[8.0]
 
     add_index :ai_credit_packs, :pack_type
     add_index :ai_credit_packs, :is_active
-    add_index :ai_credit_packs, [:is_active, :sort_order]
+    add_index :ai_credit_packs, [ :is_active, :sort_order ]
 
     # ==========================================================================
     # ACCOUNT CREDITS - Credit balance per account
@@ -88,9 +88,9 @@ class CreateCreditSystemTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_credit_transactions, [:account_id, :created_at]
-    add_index :ai_credit_transactions, [:account_id, :transaction_type]
-    add_index :ai_credit_transactions, [:reference_type, :reference_id]
+    add_index :ai_credit_transactions, [ :account_id, :created_at ]
+    add_index :ai_credit_transactions, [ :account_id, :transaction_type ]
+    add_index :ai_credit_transactions, [ :reference_type, :reference_id ]
     add_index :ai_credit_transactions, :status
     add_index :ai_credit_transactions, :expires_at
     add_index :ai_credit_transactions, :related_transaction_id
@@ -123,7 +123,7 @@ class CreateCreditSystemTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_credit_purchases, [:account_id, :created_at]
+    add_index :ai_credit_purchases, [ :account_id, :created_at ]
     add_index :ai_credit_purchases, :status
     add_index :ai_credit_purchases, :payment_reference
 
@@ -153,8 +153,8 @@ class CreateCreditSystemTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_credit_transfers, [:from_account_id, :created_at]
-    add_index :ai_credit_transfers, [:to_account_id, :created_at]
+    add_index :ai_credit_transfers, [ :from_account_id, :created_at ]
+    add_index :ai_credit_transfers, [ :to_account_id, :created_at ]
     add_index :ai_credit_transfers, :status
     add_index :ai_credit_transfers, :reference_code, unique: true
 
@@ -179,8 +179,8 @@ class CreateCreditSystemTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_credit_usage_rates, [:operation_type, :provider_type, :model_name], name: "idx_credit_rates_operation_provider_model"
-    add_index :ai_credit_usage_rates, [:is_active, :effective_from]
+    add_index :ai_credit_usage_rates, [ :operation_type, :provider_type, :model_name ], name: "idx_credit_rates_operation_provider_model"
+    add_index :ai_credit_usage_rates, [ :is_active, :effective_from ]
 
     # ==========================================================================
     # CONSTRAINTS

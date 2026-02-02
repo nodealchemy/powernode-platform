@@ -45,7 +45,7 @@ class AddExecutionAssociationsToRalphTasks < ActiveRecord::Migration[8.0]
 
     # Indexes for efficient querying
     add_index :ai_ralph_tasks, :execution_type
-    add_index :ai_ralph_tasks, [:executor_type, :executor_id]
+    add_index :ai_ralph_tasks, [ :executor_type, :executor_id ]
     add_index :ai_ralph_tasks, :required_capabilities, using: :gin
     add_index :ai_ralph_tasks, :capability_match_strategy
 

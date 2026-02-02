@@ -32,7 +32,7 @@ module Ai
         full_key = build_key(key)
         serialized = serialize_value(value)
 
-        @redis.setex(full_key, [ttl.to_i, MAX_TTL.to_i].min, serialized)
+        @redis.setex(full_key, [ ttl.to_i, MAX_TTL.to_i ].min, serialized)
 
         # Also track in a set for cleanup
         @redis.sadd(context_keys_set, full_key)
@@ -254,7 +254,7 @@ module Ai
 
       def context_id
         @context_id ||= begin
-          parts = [@account.id, @agent.id]
+          parts = [ @account.id, @agent.id ]
           parts << @workflow_run.id if @workflow_run
           parts << @task.id if @task
           parts.join(":")

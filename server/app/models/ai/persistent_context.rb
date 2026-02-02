@@ -40,7 +40,7 @@ module Ai
     scope :accessible_by_agent, ->(agent_id) do
       where(ai_agent_id: agent_id)
         .or(where(ai_agent_id: nil, scope: %w[account team]))
-        .or(where("access_control->>'agents' @> ?", [agent_id].to_json))
+        .or(where("access_control->>'agents' @> ?", [ agent_id ].to_json))
     end
     scope :recent, -> { order(last_accessed_at: :desc) }
 
@@ -217,11 +217,11 @@ module Ai
       return if context_id.present?
 
       prefix = case context_type
-               when "agent_memory" then "mem"
-               when "knowledge_base" then "kb"
-               when "shared_context" then "ctx"
-               else "ctx"
-               end
+      when "agent_memory" then "mem"
+      when "knowledge_base" then "kb"
+      when "shared_context" then "ctx"
+      else "ctx"
+      end
 
       self.context_id = "#{prefix}_#{SecureRandom.hex(12)}"
     end

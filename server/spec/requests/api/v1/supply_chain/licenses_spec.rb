@@ -316,7 +316,7 @@ RSpec.describe "Api::V1::SupplyChain::Licenses", type: :request do
              description: "A permissive license",
              license_text: "Permission is hereby granted...",
              url: "https://opensource.org/licenses/MIT",
-             compatibility: { "compatible_with" => ["Apache-2.0", "GPL-3.0-only"] })
+             compatibility: { "compatible_with" => [ "Apache-2.0", "GPL-3.0-only" ] })
     end
 
     context "without authentication" do
@@ -708,7 +708,7 @@ RSpec.describe "Api::V1::SupplyChain::Licenses", type: :request do
         expect_success_response
         json = json_response
 
-        expect(json["data"]["compatible"]).to be_in([true, false])
+        expect(json["data"]["compatible"]).to be_in([ true, false ])
       end
 
       it "includes explanation text" do

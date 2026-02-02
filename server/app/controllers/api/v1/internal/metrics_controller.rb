@@ -4,7 +4,6 @@ module Api
   module V1
     module Internal
       class MetricsController < InternalBaseController
-
         # GET /api/v1/internal/metrics/jobs
         def jobs
           stats = {

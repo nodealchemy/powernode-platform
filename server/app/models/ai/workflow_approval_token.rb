@@ -45,7 +45,7 @@ module Ai
         expires_at: Time.current + expires_in
       )
 
-      [token, raw_token]
+      [ token, raw_token ]
     end
 
     def self.generate_digest(raw_token)

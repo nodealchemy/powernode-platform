@@ -173,7 +173,7 @@ export const ScheduledTasksTab: React.FC<ScheduledTasksTabProps> = ({
       await maintenanceApi.createMaintenanceSchedule(schedule);
       showNotification('Maintenance schedule created successfully', 'success');
       onRefresh();
-    } catch (error) {
+    } catch {
       showNotification('Failed to create maintenance schedule', 'error');
       throw error;
     }
@@ -188,7 +188,7 @@ export const ScheduledTasksTab: React.FC<ScheduledTasksTabProps> = ({
       await maintenanceApi.runScheduledTask(scheduleId);
       showNotification('Scheduled task executed successfully', 'success');
       onRefresh();
-    } catch (_error: unknown) {
+    } catch {
       showNotification('Failed to execute scheduled task', 'error');
     }
   };

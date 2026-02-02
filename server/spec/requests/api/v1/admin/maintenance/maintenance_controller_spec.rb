@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :request do
   let(:account) { create(:account) }
-  let(:admin_user) { create(:user, account: account, permissions: ['admin.maintenance.mode']) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'admin.maintenance.mode' ]) }
   let(:non_admin_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(admin_user) }
   let(:non_admin_headers) { auth_headers_for(non_admin_user) }
@@ -74,7 +74,7 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
               enabled: true,
               message: 'System upgrade in progress',
               estimated_completion: '2025-01-25T12:00:00Z',
-              bypass_ips: ['127.0.0.1']
+              bypass_ips: [ '127.0.0.1' ]
             },
             headers: headers,
             as: :json

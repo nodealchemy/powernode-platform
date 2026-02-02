@@ -52,7 +52,7 @@ export const LicensePolicyDetailPage: React.FC = () => {
           await deleteMutation.mutateAsync(id!);
           showNotification('License policy deleted successfully', 'success');
           navigate('/app/supply-chain/licenses/policies');
-        } catch (err) {
+        } catch {
           showNotification(
             err instanceof Error ? err.message : 'Failed to delete policy',
             'error'
@@ -73,7 +73,7 @@ export const LicensePolicyDetailPage: React.FC = () => {
         'success'
       );
       refetch();
-    } catch (err) {
+    } catch {
       showNotification(
         err instanceof Error ? err.message : 'Failed to update policy',
         'error'

@@ -41,7 +41,7 @@ export function usePromptTemplates(params?: PromptTemplatesParams): UsePromptTem
       const response = await promptsApi.getAll(params);
       setTemplates(response.prompt_templates);
       setMeta(response.meta);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load prompt templates');
     } finally {
       setLoading(false);
@@ -118,7 +118,7 @@ export function usePromptTemplate(id: string | undefined): UsePromptTemplateResu
       setError(null);
       const data = await promptsApi.getById(id, true);
       setTemplate(data);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load prompt template');
     } finally {
       setLoading(false);

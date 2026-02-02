@@ -8,7 +8,7 @@ module Api
 
         before_action :authenticate_request
         before_action :set_context
-        before_action :set_entry, only: [:show, :update, :destroy, :archive, :unarchive, :boost, :history]
+        before_action :set_entry, only: [ :show, :update, :destroy, :archive, :unarchive, :boost, :history ]
 
         rescue_from UnauthorizedActionError do |_e|
           render_forbidden("You don't have permission to perform this action")

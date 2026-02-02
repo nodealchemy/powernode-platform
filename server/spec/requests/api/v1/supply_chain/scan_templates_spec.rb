@@ -8,12 +8,12 @@ RSpec.describe "Api::V1::SupplyChain::ScanTemplates", type: :request do
 
   # User with supply_chain.read permission only
   let(:supply_chain_reader) do
-    create(:user, account: account, permissions: ["supply_chain.read"])
+    create(:user, account: account, permissions: [ "supply_chain.read" ])
   end
 
   # User with both supply_chain.read and supply_chain.write permissions
   let(:supply_chain_writer) do
-    create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"])
+    create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ])
   end
 
   # User without supply_chain permissions
@@ -55,7 +55,7 @@ RSpec.describe "Api::V1::SupplyChain::ScanTemplates", type: :request do
         # Should include: 2 mine, 1 marketplace, 1 system = 4 total
         expect(data.length).to eq(4)
         template_ids = data.map { |t| t["id"] }
-        expect(template_ids).to match_array([*my_templates.map(&:id), marketplace_template.id, system_template.id])
+        expect(template_ids).to match_array([ *my_templates.map(&:id), marketplace_template.id, system_template.id ])
         expect(template_ids).not_to include(private_other_template.id)
       end
 
@@ -304,7 +304,7 @@ RSpec.describe "Api::V1::SupplyChain::ScanTemplates", type: :request do
             name: "Security Scan",
             description: "Comprehensive security scanning",
             category: "security",
-            supported_ecosystems: ["npm", "gem"],
+            supported_ecosystems: [ "npm", "gem" ],
             version: "1.0.0",
             default_configuration: { scan_depth: "deep" },
             metadata: { author: "Security Team" }
@@ -622,7 +622,7 @@ RSpec.describe "Api::V1::SupplyChain::ScanTemplates", type: :request do
       it "returns error if installation fails" do
         allow_any_instance_of(SupplyChain::ScanInstance).to receive(:save).and_return(false)
         allow_any_instance_of(SupplyChain::ScanInstance).to receive(:errors).and_return(
-          double(full_messages: ["Name can't be blank"])
+          double(full_messages: [ "Name can't be blank" ])
         )
 
         post "/api/v1/supply_chain/scan_templates/#{template.id}/install",

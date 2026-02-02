@@ -54,7 +54,7 @@ export const versionApi = {
     try {
       const response = await api.get('/version');
       return response.data;
-    } catch (error) {
+    } catch {
       // Log network errors as warnings, not errors
       return {
         success: false,
@@ -69,7 +69,7 @@ export const versionApi = {
     try {
       const response = await api.get('/version/full');
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         data: {} as FullVersionInfo,
@@ -83,7 +83,7 @@ export const versionApi = {
     try {
       const response = await api.get('/version/health');
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         data: {} as HealthInfo,

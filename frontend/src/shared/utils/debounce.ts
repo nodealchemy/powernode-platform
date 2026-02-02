@@ -50,7 +50,7 @@ export function debounceAsync<TArgs extends unknown[], TReturn>(
           if (resolvePromise) {
             resolvePromise(result);
           }
-        } catch (error) {
+        } catch {
           if (rejectPromise) {
             rejectPromise(error instanceof Error ? error : new Error(String(error)));
           }

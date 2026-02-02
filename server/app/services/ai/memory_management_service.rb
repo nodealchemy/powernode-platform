@@ -413,7 +413,7 @@ class Ai::MemoryManagementService
       target.update!(
         content: merged_content,
         metadata: merged_metadata,
-        importance_score: [target.importance_score, source.importance_score].max,
+        importance_score: [ target.importance_score, source.importance_score ].max,
         access_count: target.access_count + source.access_count
       )
 

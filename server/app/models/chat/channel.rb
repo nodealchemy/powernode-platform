@@ -23,7 +23,7 @@ module Chat
     # Validations
     validates :platform, presence: true, inclusion: { in: PLATFORMS }
     validates :name, presence: true, length: { maximum: 255 }
-    validates :name, uniqueness: { scope: [:account_id, :platform] }
+    validates :name, uniqueness: { scope: [ :account_id, :platform ] }
     validates :status, presence: true, inclusion: { in: STATUSES }
     validates :webhook_token, presence: true, uniqueness: true
     validates :rate_limit_per_minute, numericality: { greater_than: 0, less_than_or_equal_to: 1000 }

@@ -52,13 +52,13 @@ class AnalyticsAlert < ApplicationRecord
     update!(current_value: value, last_checked_at: Time.current)
 
     should_trigger = case condition
-                     when "greater_than" then value > threshold_value
-                     when "less_than" then value < threshold_value
-                     when "equals" then value == threshold_value
-                     when "change_percent" then calculate_change_exceeded?(value)
-                     when "anomaly_detected" then value == 1 # External anomaly flag
-                     else false
-                     end
+    when "greater_than" then value > threshold_value
+    when "less_than" then value < threshold_value
+    when "equals" then value == threshold_value
+    when "change_percent" then calculate_change_exceeded?(value)
+    when "anomaly_detected" then value == 1 # External anomaly flag
+    else false
+    end
 
     if should_trigger
       trigger!(value)
@@ -183,10 +183,10 @@ class AnalyticsAlert < ApplicationRecord
 
     # Determine severity-based notification type
     notification_type = case calculate_severity(current_value)
-                        when "critical" then "error"
-                        when "high" then "warning"
-                        else "info"
-                        end
+    when "critical" then "error"
+    when "high" then "warning"
+    else "info"
+    end
 
     notification_data = {
       alert_id: id,
@@ -238,7 +238,7 @@ class AnalyticsAlert < ApplicationRecord
       account = Account.find_by(id: account_id)
       if account
         recipients += account.users.joins(:roles)
-                            .where(roles: { name: ["admin", "owner"] })
+                            .where(roles: { name: [ "admin", "owner" ] })
                             .pluck(:email)
       end
     end

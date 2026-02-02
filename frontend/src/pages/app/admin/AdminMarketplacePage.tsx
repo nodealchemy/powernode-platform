@@ -47,7 +47,7 @@ const ALL_TYPES = ALL_MARKETPLACE_TYPES;
 
 export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ className = '' }) => {
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'admin',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -115,7 +115,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
         const response = await marketplaceApi.getReviews(params);
         setReviews(response.data || []);
       }
-    } catch (error: unknown) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -207,7 +207,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
         title: 'Export Complete',
         message: `Exported ${data.length} records to ${filename}`
       });
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Export Failed',
@@ -226,7 +226,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
         message: `${template.name} has been approved for the marketplace`
       });
       await loadData();
-    } catch (error: unknown) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -259,7 +259,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       setRejectReason('');
       setTemplateToReject(null);
       await loadData();
-    } catch (error: unknown) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -308,7 +308,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       }
 
       await loadData();
-    } catch (error: unknown) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',

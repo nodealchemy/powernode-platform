@@ -46,7 +46,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
     try {
       await filesApi.downloadFile(file.id, file.filename);
       showNotification('Download started', 'success');
-    } catch (error) {
+    } catch {
       showNotification('Download failed', 'error');
     }
   };
@@ -61,7 +61,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
 
       setShareUrl(result.url);
       showNotification('Share link created', 'success');
-    } catch (error) {
+    } catch {
       showNotification('Failed to create share link', 'error');
     }
   };
@@ -72,7 +72,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
       setCopiedUrl(true);
       showNotification('URL copied to clipboard', 'success');
       setTimeout(() => setCopiedUrl(false), 2000);
-    } catch (error) {
+    } catch {
       showNotification('Failed to copy URL', 'error');
     }
   };
@@ -85,7 +85,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
       showNotification('File deleted successfully', 'success');
       onFileUpdated?.();
       onClose();
-    } catch (error) {
+    } catch {
       showNotification('Failed to delete file', 'error');
     }
   };

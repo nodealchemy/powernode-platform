@@ -35,7 +35,7 @@ module Orchestration
     def calculate_success_rate(executions)
       return 0.0 if executions.empty?
 
-      successful = executions.where(status: ["completed", "skipped"]).count
+      successful = executions.where(status: [ "completed", "skipped" ]).count
       (successful.to_f / executions.count * 100).round(2)
     end
 
@@ -48,7 +48,7 @@ module Orchestration
       return 100.0 if expected_duration <= 0
 
       efficiency = (expected_duration / actual_duration.to_f * 100).round(2)
-      [efficiency, 100.0].min
+      [ efficiency, 100.0 ].min
     end
 
     def estimate_expected_duration(run)

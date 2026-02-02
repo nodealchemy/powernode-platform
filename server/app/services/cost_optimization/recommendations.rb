@@ -82,17 +82,17 @@ module CostOptimization
       [
         {
           phase: "Immediate (0-7 days)",
-          actions: ["Set up cost alerts", "Review provider efficiency", "Enable automatic optimizations"],
+          actions: [ "Set up cost alerts", "Review provider efficiency", "Enable automatic optimizations" ],
           expected_impact: "Quick wins, 5-15% cost reduction"
         },
         {
           phase: "Short-term (1-4 weeks)",
-          actions: ["Implement usage scheduling", "Optimize underperforming agents", "Set budget limits"],
+          actions: [ "Implement usage scheduling", "Optimize underperforming agents", "Set budget limits" ],
           expected_impact: "Sustainable optimization, 10-25% cost reduction"
         },
         {
           phase: "Long-term (1-3 months)",
-          actions: ["Advanced caching strategies", "Custom provider negotiations", "ML-driven optimization"],
+          actions: [ "Advanced caching strategies", "Custom provider negotiations", "ML-driven optimization" ],
           expected_impact: "Maximum efficiency, 20-40% cost reduction"
         }
       ]

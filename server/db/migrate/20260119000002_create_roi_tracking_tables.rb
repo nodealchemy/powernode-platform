@@ -50,11 +50,11 @@ class CreateRoiTrackingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_roi_metrics, [:account_id, :period_type, :period_date],
+    add_index :ai_roi_metrics, [ :account_id, :period_type, :period_date ],
               name: "idx_roi_metrics_account_period"
-    add_index :ai_roi_metrics, [:account_id, :metric_type, :period_date],
+    add_index :ai_roi_metrics, [ :account_id, :metric_type, :period_date ],
               name: "idx_roi_metrics_account_type_date"
-    add_index :ai_roi_metrics, [:attributable_type, :attributable_id],
+    add_index :ai_roi_metrics, [ :attributable_type, :attributable_id ],
               name: "idx_roi_metrics_attributable"
     add_index :ai_roi_metrics, :period_date
 
@@ -102,11 +102,11 @@ class CreateRoiTrackingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_cost_attributions, [:account_id, :attribution_date],
+    add_index :ai_cost_attributions, [ :account_id, :attribution_date ],
               name: "idx_cost_attributions_account_date"
-    add_index :ai_cost_attributions, [:source_type, :source_id],
+    add_index :ai_cost_attributions, [ :source_type, :source_id ],
               name: "idx_cost_attributions_source"
-    add_index :ai_cost_attributions, [:cost_category, :attribution_date]
+    add_index :ai_cost_attributions, [ :cost_category, :attribution_date ]
     add_index :ai_cost_attributions, :attribution_date
 
     # Add check constraint for cost categories
@@ -163,11 +163,11 @@ class CreateRoiTrackingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_provider_metrics, [:provider_id, :recorded_at],
+    add_index :ai_provider_metrics, [ :provider_id, :recorded_at ],
               name: "idx_provider_metrics_provider_time"
-    add_index :ai_provider_metrics, [:account_id, :recorded_at],
+    add_index :ai_provider_metrics, [ :account_id, :recorded_at ],
               name: "idx_provider_metrics_account_time"
-    add_index :ai_provider_metrics, [:granularity, :recorded_at]
+    add_index :ai_provider_metrics, [ :granularity, :recorded_at ]
     add_index :ai_provider_metrics, :recorded_at
 
     # Add check constraint for granularity

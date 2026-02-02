@@ -115,7 +115,7 @@ module CostOptimization
         monthly_cost = cost_per_request * monthly_volume
         quality_score = provider_quality_score(provider)
 
-        normalized_monthly_cost = monthly_cost > 0 ? [1.0 - (monthly_cost / 1000.0), 0].max : 1.0
+        normalized_monthly_cost = monthly_cost > 0 ? [ 1.0 - (monthly_cost / 1000.0), 0 ].max : 1.0
         value_score = (normalized_monthly_cost * cost_weight + quality_score * quality_weight).round(3)
 
         {
@@ -162,8 +162,8 @@ module CostOptimization
 
       {
         recommended_mix: recommended_mix,
-        projected_cost: [projected_cost, monthly_budget].min,
-        projected_savings: [current_cost - projected_cost, BigDecimal("0")].max,
+        projected_cost: [ projected_cost, monthly_budget ].min,
+        projected_savings: [ current_cost - projected_cost, BigDecimal("0") ].max,
         risk_assessment: {
           quality_risk: recommended_mix.values.max < 0.5 ? "low" : "medium",
           availability_risk: credentials.size < 2 ? "high" : "low",
@@ -234,7 +234,7 @@ module CostOptimization
         confidence_score: 0,
         reasoning: "No providers available",
         alternative_options: [],
-        warnings: ["No active provider credentials found"],
+        warnings: [ "No active provider credentials found" ],
         estimated_response_time_ms: 0
       }
     end

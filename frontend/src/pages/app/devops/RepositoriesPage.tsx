@@ -798,7 +798,7 @@ export function RepositoriesPage() {
       });
       setRepositories(data.repositories);
       setPagination(data.pagination);
-    } catch (error) {
+    } catch {
       showNotification('Failed to load repositories', 'error');
     } finally {
       setLoading(false);
@@ -809,7 +809,7 @@ export function RepositoriesPage() {
     try {
       const data = await gitProvidersApi.getProviders();
       setProviders(data);
-    } catch (error) {
+    } catch {
       // Silently fail
     }
   };
@@ -842,7 +842,7 @@ export function RepositoriesPage() {
       await gitProvidersApi.configureWebhook(repoId);
       showNotification('Webhook configured successfully', 'success');
       fetchRepositories();
-    } catch (error) {
+    } catch {
       showNotification('Failed to configure webhook', 'error');
     }
   };
@@ -855,7 +855,7 @@ export function RepositoriesPage() {
       await gitProvidersApi.deleteRepository(repoId);
       showNotification('Repository removed', 'success');
       setRepositories(repositories.filter(r => r.id !== repoId));
-    } catch (error) {
+    } catch {
       showNotification('Failed to remove repository', 'error');
     }
   };

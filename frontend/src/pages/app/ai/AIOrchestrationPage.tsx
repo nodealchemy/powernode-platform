@@ -29,7 +29,7 @@ export const AIOrchestrationPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -58,12 +58,12 @@ export const AIOrchestrationPage: React.FC = () => {
       // For now, just simulate loading
       await new Promise(resolve => setTimeout(resolve, 500));
 
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to load AI system data', 'error');
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [loading]);
 
   // Load data on mount

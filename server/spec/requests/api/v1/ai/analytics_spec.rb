@@ -4,9 +4,9 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Analytics', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.analytics.read', 'ai.analytics.create', 'ai.analytics.export']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['ai.analytics.read']) }
-  let(:manage_user) { create(:user, account: account, permissions: ['ai.analytics.read', 'ai.analytics.create', 'ai.analytics.manage']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.analytics.read', 'ai.analytics.create', 'ai.analytics.export' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'ai.analytics.read' ]) }
+  let(:manage_user) { create(:user, account: account, permissions: [ 'ai.analytics.read', 'ai.analytics.create', 'ai.analytics.manage' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(user) }
 

@@ -7,7 +7,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
   let(:user) { create(:user, account: account) }
 
   # Permission users
-  let(:approval_read_user) { create(:user, account: account, permissions: ['git.approvals.read']) }
+  let(:approval_read_user) { create(:user, account: account, permissions: [ 'git.approvals.read' ]) }
   let(:approval_manage_user) do
     create(:user, account: account, permissions: %w[
       git.approvals.read git.approvals.manage
@@ -274,7 +274,7 @@ RSpec.describe Api::V1::Git::PipelineApprovalsController, type: :controller do
       let(:restricted_approval) do
         other_user = create(:user, account: account)
         create(:git_pipeline_approval, :pending, expires_at: 1.hour.from_now,
-               required_approvers: [other_user.id], pipeline: pipeline, account: account)
+               required_approvers: [ other_user.id ], pipeline: pipeline, account: account)
       end
       before { sign_in approval_manage_user }
 

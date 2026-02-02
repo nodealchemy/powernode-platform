@@ -17,9 +17,9 @@ class AddPolymorphicToAppSubscriptions < ActiveRecord::Migration[8.0]
     add_column :app_subscriptions, :metadata, :jsonb, default: {}
 
     # Add indexes for polymorphic lookup
-    add_index :app_subscriptions, [:subscribable_type, :subscribable_id],
+    add_index :app_subscriptions, [ :subscribable_type, :subscribable_id ],
               name: "idx_app_subscriptions_on_subscribable"
-    add_index :app_subscriptions, [:account_id, :subscribable_type, :subscribable_id],
+    add_index :app_subscriptions, [ :account_id, :subscribable_type, :subscribable_id ],
               unique: true, name: "idx_app_subscriptions_unique_per_account_subscribable"
 
     # Backfill existing app subscriptions with polymorphic association

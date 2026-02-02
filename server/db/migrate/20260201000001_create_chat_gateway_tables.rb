@@ -28,7 +28,7 @@ class CreateChatGatewayTables < ActiveRecord::Migration[8.0]
     add_index :chat_channels, :platform
     add_index :chat_channels, :status
     add_index :chat_channels, :webhook_token, unique: true
-    add_index :chat_channels, [:account_id, :platform, :name], unique: true
+    add_index :chat_channels, [ :account_id, :platform, :name ], unique: true
 
     add_check_constraint :chat_channels, "platform IN ('whatsapp', 'telegram', 'discord', 'slack', 'mattermost')", name: "chat_channels_platform_check"
     add_check_constraint :chat_channels, "status IN ('connected', 'disconnected', 'connecting', 'error')", name: "chat_channels_status_check"
@@ -55,7 +55,7 @@ class CreateChatGatewayTables < ActiveRecord::Migration[8.0]
 
     add_index :chat_sessions, :platform_user_id
     add_index :chat_sessions, :status
-    add_index :chat_sessions, [:channel_id, :platform_user_id], unique: true
+    add_index :chat_sessions, [ :channel_id, :platform_user_id ], unique: true
     add_index :chat_sessions, :last_activity_at
 
     add_check_constraint :chat_sessions, "status IN ('active', 'idle', 'closed', 'blocked')", name: "chat_sessions_status_check"
@@ -84,7 +84,7 @@ class CreateChatGatewayTables < ActiveRecord::Migration[8.0]
     add_index :chat_messages, :message_type
     add_index :chat_messages, :delivery_status
     add_index :chat_messages, :platform_message_id
-    add_index :chat_messages, [:session_id, :created_at]
+    add_index :chat_messages, [ :session_id, :created_at ]
 
     add_check_constraint :chat_messages, "direction IN ('inbound', 'outbound')", name: "chat_messages_direction_check"
     add_check_constraint :chat_messages, "message_type IN ('text', 'image', 'audio', 'video', 'document', 'location', 'sticker')", name: "chat_messages_type_check"
@@ -131,8 +131,8 @@ class CreateChatGatewayTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :chat_blacklists, [:account_id, :platform_user_id]
-    add_index :chat_blacklists, [:channel_id, :platform_user_id], unique: true, where: "channel_id IS NOT NULL"
+    add_index :chat_blacklists, [ :account_id, :platform_user_id ]
+    add_index :chat_blacklists, [ :channel_id, :platform_user_id ], unique: true, where: "channel_id IS NOT NULL"
     add_index :chat_blacklists, :expires_at, where: "expires_at IS NOT NULL"
 
     add_check_constraint :chat_blacklists, "block_type IN ('temporary', 'permanent')", name: "chat_blacklists_type_check"

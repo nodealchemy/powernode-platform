@@ -28,7 +28,7 @@ export function useProviders(params: UseProvidersParams = {}) {
       const data = await devopsProvidersApi.getAll(params);
       setProviders(data.providers);
       setMeta(data.meta);
-    } catch (err) {
+    } catch {
       const message = err instanceof Error ? err.message : 'Failed to fetch providers';
       setError(message);
     } finally {
@@ -43,7 +43,7 @@ export function useProviders(params: UseProvidersParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchProviders();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.provider_type, params.is_active]);
 
   const createProvider = async (data: DevopsProviderFormData) => {
@@ -52,7 +52,7 @@ export function useProviders(params: UseProvidersParams = {}) {
       showNotification('Provider created successfully', 'success');
       await fetchProviders();
       return provider;
-    } catch (err) {
+    } catch {
       showNotification('Failed to create provider', 'error');
       return null;
     }
@@ -64,7 +64,7 @@ export function useProviders(params: UseProvidersParams = {}) {
       showNotification('Provider updated successfully', 'success');
       await fetchProviders();
       return provider;
-    } catch (err) {
+    } catch {
       showNotification('Failed to update provider', 'error');
       return null;
     }
@@ -76,7 +76,7 @@ export function useProviders(params: UseProvidersParams = {}) {
       showNotification('Provider deleted successfully', 'success');
       await fetchProviders();
       return true;
-    } catch (err) {
+    } catch {
       showNotification('Failed to delete provider', 'error');
       return false;
     }
@@ -91,7 +91,7 @@ export function useProviders(params: UseProvidersParams = {}) {
         showNotification(result.message || 'Connection failed', 'error');
       }
       return result;
-    } catch (err) {
+    } catch {
       showNotification('Failed to test connection', 'error');
       return null;
     }
@@ -126,7 +126,7 @@ export function useProvider(id: string | null) {
       setError(null);
       const data = await devopsProvidersApi.getById(id, true);
       setProvider(data);
-    } catch (err) {
+    } catch {
       const message = err instanceof Error ? err.message : 'Failed to fetch provider';
       setError(message);
     } finally {
@@ -139,7 +139,7 @@ export function useProvider(id: string | null) {
       hasLoadedRef.current = id;
       fetchProvider();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
   const updateProvider = async (data: Partial<DevopsProviderFormData>) => {
@@ -150,7 +150,7 @@ export function useProvider(id: string | null) {
       showNotification('Provider updated successfully', 'success');
       setProvider(updated);
       return updated;
-    } catch (err) {
+    } catch {
       showNotification('Failed to update provider', 'error');
       return null;
     }

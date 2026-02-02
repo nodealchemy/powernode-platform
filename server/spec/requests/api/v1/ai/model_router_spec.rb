@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::ModelRouter', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.routing.read', 'ai.routing.manage', 'ai.routing.optimize']) }
-  let(:limited_user) { create(:user, account: account, permissions: ['ai.routing.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.routing.read', 'ai.routing.manage', 'ai.routing.optimize' ]) }
+  let(:limited_user) { create(:user, account: account, permissions: [ 'ai.routing.read' ]) }
   let(:headers) { auth_headers_for(user) }
   let(:limited_headers) { auth_headers_for(limited_user) }
 
@@ -175,7 +175,7 @@ RSpec.describe 'Api::V1::Ai::ModelRouter', type: :request do
     let(:route_params) do
       {
         request_type: 'completion',
-        capabilities: ['text-generation'],
+        capabilities: [ 'text-generation' ],
         estimated_tokens: 1000
       }
     end
@@ -301,7 +301,7 @@ RSpec.describe 'Api::V1::Ai::ModelRouter', type: :request do
     context 'with proper permissions' do
       it 'returns provider rankings' do
         allow_any_instance_of(Ai::ModelRouterService).to receive(:provider_rankings)
-          .and_return([{ provider_id: 'openai', rank: 1, score: 0.95 }])
+          .and_return([ { provider_id: 'openai', rank: 1, score: 0.95 } ])
 
         get '/api/v1/ai/model_router/provider_rankings', headers: headers, as: :json
 
@@ -316,7 +316,7 @@ RSpec.describe 'Api::V1::Ai::ModelRouter', type: :request do
     context 'with proper permissions' do
       it 'returns optimization recommendations' do
         allow_any_instance_of(Ai::ModelRouterService).to receive(:get_optimization_recommendations)
-          .and_return([{ type: 'cost', description: 'Switch to cheaper provider' }])
+          .and_return([ { type: 'cost', description: 'Switch to cheaper provider' } ])
 
         get '/api/v1/ai/model_router/recommendations', headers: headers, as: :json
 

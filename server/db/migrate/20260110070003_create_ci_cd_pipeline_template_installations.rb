@@ -18,6 +18,6 @@ class CreateCiCdPipelineTemplateInstallations < ActiveRecord::Migration[7.2]
     add_index :ci_cd_pipeline_template_installations, :ci_cd_pipeline_template_id, name: "idx_cicd_template_installations_template"
     add_index :ci_cd_pipeline_template_installations, :account_id, name: "idx_cicd_template_installations_account"
     add_index :ci_cd_pipeline_template_installations, :ci_cd_pipeline_id, name: "idx_cicd_template_installations_pipeline"
-    add_index :ci_cd_pipeline_template_installations, [:ci_cd_pipeline_template_id, :account_id], name: "idx_cicd_template_installations_unique"
+    add_index :ci_cd_pipeline_template_installations, [ :ci_cd_pipeline_template_id, :account_id ], name: "idx_cicd_template_installations_unique"
   end
 end

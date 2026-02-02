@@ -78,7 +78,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
     setIsSubmitting(true);
     try {
       await onSave(filterType, filterType === 'none' ? undefined : filterPattern.trim());
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to save branch filter');
     } finally {
       setIsSubmitting(false);

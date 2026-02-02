@@ -98,7 +98,7 @@ module A2a
       scope = scope.to_agent(params["toAgentId"]) if params["toAgentId"].present?
 
       page = (params["page"] || 1).to_i
-      per_page = [(params["perPage"] || 20).to_i, 100].min
+      per_page = [ (params["perPage"] || 20).to_i, 100 ].min
 
       tasks = scope.offset((page - 1) * per_page).limit(per_page)
 
@@ -219,7 +219,7 @@ module A2a
     end
 
     def create_task_for_skill(skill, params)
-      message = params["message"] || { "parts" => [{ "type" => "text", "text" => "Execute #{skill[:id]}" }] }
+      message = params["message"] || { "parts" => [ { "type" => "text", "text" => "Execute #{skill[:id]}" } ] }
 
       # Mark as external since skill execution is handled by the platform itself
       ::Ai::A2aTask.create!(
@@ -265,7 +265,7 @@ module A2a
 
       {
         "role" => message["role"] || "user",
-        "parts" => message["parts"] || [{ "type" => "text", "text" => message.to_s }]
+        "parts" => message["parts"] || [ { "type" => "text", "text" => message.to_s } ]
       }
     end
 

@@ -10,7 +10,7 @@ module SupplyChain
     # Constants
     # ============================================
     ATTESTATION_TYPES = %w[slsa_provenance sbom vuln_scan custom].freeze
-    SLSA_LEVELS = [0, 1, 2, 3].freeze
+    SLSA_LEVELS = [ 0, 1, 2, 3 ].freeze
     VERIFICATION_STATUSES = %w[unverified verified failed expired].freeze
     SIGNATURE_FORMATS = %w[dsse jws pgp].freeze
     DIGEST_ALGORITHMS = %w[sha256 sha384 sha512].freeze
@@ -223,15 +223,15 @@ module SupplyChain
       return if predicate_type.present?
 
       self.predicate_type = case attestation_type
-                            when "slsa_provenance"
+      when "slsa_provenance"
                               PREDICATE_TYPES[:slsa_provenance_v1]
-                            when "sbom"
+      when "sbom"
                               PREDICATE_TYPES[:sbom_cyclonedx]
-                            when "vuln_scan"
+      when "vuln_scan"
                               PREDICATE_TYPES[:vuln_scan]
-                            else
+      else
                               "https://custom.attestation/v1"
-                            end
+      end
     end
 
     def sanitize_jsonb_fields

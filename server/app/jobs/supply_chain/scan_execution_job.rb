@@ -22,17 +22,17 @@ module SupplyChain
 
         # Execute based on template category
         results = case template.category
-                  when "security"
+        when "security"
                     execute_security_scan(execution, template, config)
-                  when "compliance"
+        when "compliance"
                     execute_compliance_scan(execution, template, config)
-                  when "license"
+        when "license"
                     execute_license_scan(execution, template, config)
-                  when "quality"
+        when "quality"
                     execute_quality_scan(execution, template, config)
-                  else
+        else
                     execute_custom_scan(execution, template, config)
-                  end
+        end
 
         execution.update!(
           status: "completed",

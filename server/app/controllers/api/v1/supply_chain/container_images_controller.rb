@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class ContainerImagesController < BaseController
-        before_action :require_read_permission, only: [:index, :show, :vulnerabilities, :sbom, :statistics]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :scan, :evaluate_policies, :quarantine, :verify]
-        before_action :set_container_image, only: [:show, :update, :destroy, :scan, :evaluate_policies, :vulnerabilities, :sbom, :quarantine, :verify]
+        before_action :require_read_permission, only: [ :index, :show, :vulnerabilities, :sbom, :statistics ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :scan, :evaluate_policies, :quarantine, :verify ]
+        before_action :set_container_image, only: [ :show, :update, :destroy, :scan, :evaluate_policies, :vulnerabilities, :sbom, :quarantine, :verify ]
 
         # GET /api/v1/supply_chain/container_images
         def index

@@ -32,23 +32,23 @@ module Ai
 
         # Route to appropriate execution method
         result = case task.execution_type
-                 when "agent"
+        when "agent"
                    execute_via_agent(executor)
-                 when "workflow"
+        when "workflow"
                    execute_via_workflow(executor)
-                 when "pipeline"
+        when "pipeline"
                    execute_via_pipeline(executor)
-                 when "a2a_task"
+        when "a2a_task"
                    execute_via_a2a(executor)
-                 when "container"
+        when "container"
                    execute_via_container(executor)
-                 when "human"
+        when "human"
                    queue_for_human_review(executor)
-                 when "community"
+        when "community"
                    execute_via_community_agent(executor)
-                 else
+        else
                    { success: false, error: "Unknown execution type: #{task.execution_type}" }
-                 end
+        end
 
         # Update task with executor if successful
         task.update!(executor: executor) if result[:success] && executor

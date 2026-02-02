@@ -43,9 +43,9 @@ module Api
         def create
           team = if params[:template_id].present?
                    @team_service.create_team_from_template(params[:template_id], name: params[:name], user: current_user)
-                 else
+          else
                    @team_service.create_team(team_params, user: current_user)
-                 end
+          end
           render_success(serialize_team(team), status: :created)
         end
 
@@ -332,7 +332,7 @@ module Api
         def execution_params
           params.permit(
             :objective, :workflow_run_id, input_context: {},
-            tasks: [:description, :expected_output, :task_type, :role_id, { input_data: {} }]
+            tasks: [ :description, :expected_output, :task_type, :role_id, { input_data: {} } ]
           )
         end
 

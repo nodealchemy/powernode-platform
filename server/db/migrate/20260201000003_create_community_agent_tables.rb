@@ -84,7 +84,7 @@ class CreateCommunityAgentTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :community_agent_ratings, [:community_agent_id, :account_id], unique: true, name: "idx_community_ratings_unique_per_account"
+    add_index :community_agent_ratings, [ :community_agent_id, :account_id ], unique: true, name: "idx_community_ratings_unique_per_account"
     add_index :community_agent_ratings, :rating
     add_index :community_agent_ratings, :verified_usage
 
@@ -110,7 +110,7 @@ class CreateCommunityAgentTables < ActiveRecord::Migration[8.0]
 
     add_index :community_agent_reports, :report_type
     add_index :community_agent_reports, :status
-    add_index :community_agent_reports, [:community_agent_id, :status]
+    add_index :community_agent_reports, [ :community_agent_id, :status ]
 
     add_check_constraint :community_agent_reports, "report_type IN ('malicious', 'spam', 'inappropriate', 'copyright', 'other')", name: "community_reports_type_check"
     add_check_constraint :community_agent_reports, "status IN ('pending', 'investigating', 'resolved', 'dismissed')", name: "community_reports_status_check"
@@ -150,7 +150,7 @@ class CreateCommunityAgentTables < ActiveRecord::Migration[8.0]
 
     add_index :federation_partners, :organization_id, unique: true
     add_index :federation_partners, :status
-    add_index :federation_partners, [:account_id, :status]
+    add_index :federation_partners, [ :account_id, :status ]
     add_index :federation_partners, :trust_level
 
     add_check_constraint :federation_partners, "status IN ('pending', 'active', 'suspended', 'revoked')", name: "federation_partners_status_check"

@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class CveMonitorsController < BaseController
-        before_action :require_read_permission, only: [:index, :show, :alerts]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :run, :run_all]
-        before_action :set_cve_monitor, only: [:show, :update, :destroy, :run, :alerts]
+        before_action :require_read_permission, only: [ :index, :show, :alerts ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :run, :run_all ]
+        before_action :set_cve_monitor, only: [ :show, :update, :destroy, :run, :alerts ]
 
         # GET /api/v1/supply_chain/cve_monitors
         def index
@@ -104,7 +104,7 @@ module Api
             :name, :description, :scope_type, :scope_id,
             :min_severity, :is_active, :schedule_cron,
             filters: {}, metadata: {},
-            notification_channels: [:type, :config, config: {}]
+            notification_channels: [ :type, :config, config: {} ]
           )
         end
 

@@ -237,7 +237,7 @@ const SchemaField: React.FC<SchemaFieldProps> = ({
       );
 
     case 'string':
-    default:
+    default: {
       // Check if multiline based on format or if content looks like text
       const isMultiline = property.format === 'textarea' ||
                          (property.maxLength && property.maxLength > 200);
@@ -315,6 +315,7 @@ const SchemaField: React.FC<SchemaFieldProps> = ({
           {description && <p className="text-xs text-theme-muted mt-1">{description}</p>}
         </div>
       );
+    }
   }
 };
 

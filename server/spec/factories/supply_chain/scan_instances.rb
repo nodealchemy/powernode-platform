@@ -95,7 +95,7 @@ FactoryBot.define do
           severity_threshold: "critical",
           scan_depth: 5,
           ignore_dev_dependencies: true,
-          exclude_patterns: ["**/test/**", "**/spec/**"],
+          exclude_patterns: [ "**/test/**", "**/spec/**" ],
           notification_channels: [
             { type: "email", config: { to: "security@example.com" } }
           ]

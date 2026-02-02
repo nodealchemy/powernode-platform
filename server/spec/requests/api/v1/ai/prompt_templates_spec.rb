@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::PromptTemplates', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.prompt_templates.read', 'ai.prompt_templates.write']) }
-  let(:limited_user) { create(:user, account: account, permissions: ['ai.prompt_templates.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.prompt_templates.read', 'ai.prompt_templates.write' ]) }
+  let(:limited_user) { create(:user, account: account, permissions: [ 'ai.prompt_templates.read' ]) }
   let(:headers) { auth_headers_for(user) }
   let(:limited_headers) { auth_headers_for(limited_user) }
 
@@ -235,7 +235,7 @@ RSpec.describe 'Api::V1::Ai::PromptTemplates', type: :request do
         allow_any_instance_of(Shared::PromptTemplate).to receive(:render)
           .and_return('Hello World!')
         allow_any_instance_of(Shared::PromptTemplate).to receive(:extract_variables)
-          .and_return(['name'])
+          .and_return([ 'name' ])
 
         post "/api/v1/ai/prompt_templates/#{template.id}/preview",
              params: { variables: { name: 'World' } },

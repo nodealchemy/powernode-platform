@@ -22,8 +22,8 @@ module Chat
         message = timestamp + body
 
         begin
-          verify_key = Ed25519::VerifyKey.new([public_key].pack("H*"))
-          verify_key.verify([signature].pack("H*"), message)
+          verify_key = Ed25519::VerifyKey.new([ public_key ].pack("H*"))
+          verify_key.verify([ signature ].pack("H*"), message)
           true
         rescue Ed25519::VerifyError, ArgumentError
           false
@@ -79,10 +79,10 @@ module Chat
             "#{API_BASE_URL}/channels/#{channel_id}/messages",
             json: {
               content: options[:caption],
-              embeds: [{
+              embeds: [ {
                 image: attachment_type == "image" ? { url: file_url } : nil,
                 video: attachment_type == "video" ? { url: file_url } : nil
-              }.compact]
+              }.compact ]
             }
           )
         end

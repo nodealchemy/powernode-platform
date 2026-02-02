@@ -6,7 +6,7 @@ module Api
       module Devops
         # Internal API for worker service to manage step executions
         class StepExecutionsController < InternalBaseController
-          before_action :set_step_execution, only: [:show, :update]
+          before_action :set_step_execution, only: [ :show, :update ]
 
           # POST /api/v1/internal/devops/step_executions
           def create

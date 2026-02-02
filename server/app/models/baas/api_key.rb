@@ -25,17 +25,17 @@ module BaaS
     class << self
       def generate_key(type: "secret", environment: "production")
         prefix = case type
-                 when "secret" then "sk"
-                 when "publishable" then "pk"
-                 when "restricted" then "rk"
-                 else "sk"
-                 end
+        when "secret" then "sk"
+        when "publishable" then "pk"
+        when "restricted" then "rk"
+        else "sk"
+        end
 
         env_prefix = case environment
-                     when "production" then "live"
-                     when "staging" then "stag"
-                     else "test"
-                     end
+        when "production" then "live"
+        when "staging" then "stag"
+        else "test"
+        end
 
         random_part = SecureRandom.hex(24)
         "#{prefix}_#{env_prefix}_#{random_part}"
@@ -86,10 +86,10 @@ module BaaS
 
     def within_rate_limit?(requests_in_window, window_type: :minute)
       limit = case window_type
-              when :minute then rate_limit_per_minute
-              when :day then rate_limit_per_day
-              else rate_limit_per_minute
-              end
+      when :minute then rate_limit_per_minute
+      when :day then rate_limit_per_day
+      else rate_limit_per_minute
+      end
       requests_in_window < limit
     end
 

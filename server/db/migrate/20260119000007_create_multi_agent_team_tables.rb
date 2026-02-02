@@ -35,8 +35,8 @@ class CreateMultiAgentTeamTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_team_roles, [:agent_team_id, :role_name], unique: true
-    add_index :ai_team_roles, [:agent_team_id, :priority_order]
+    add_index :ai_team_roles, [ :agent_team_id, :role_name ], unique: true
+    add_index :ai_team_roles, [ :agent_team_id, :priority_order ]
     add_index :ai_team_roles, :role_type
 
     # ==========================================================================
@@ -57,7 +57,7 @@ class CreateMultiAgentTeamTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_team_channels, [:agent_team_id, :name], unique: true
+    add_index :ai_team_channels, [ :agent_team_id, :name ], unique: true
     add_index :ai_team_channels, :channel_type
 
     # ==========================================================================
@@ -91,8 +91,8 @@ class CreateMultiAgentTeamTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_team_executions, :execution_id, unique: true
-    add_index :ai_team_executions, [:account_id, :status]
-    add_index :ai_team_executions, [:agent_team_id, :created_at]
+    add_index :ai_team_executions, [ :account_id, :status ]
+    add_index :ai_team_executions, [ :agent_team_id, :created_at ]
     add_index :ai_team_executions, :started_at
 
     # ==========================================================================
@@ -128,8 +128,8 @@ class CreateMultiAgentTeamTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_team_tasks, :task_id, unique: true
-    add_index :ai_team_tasks, [:team_execution_id, :status]
-    add_index :ai_team_tasks, [:assigned_role_id, :status]
+    add_index :ai_team_tasks, [ :team_execution_id, :status ]
+    add_index :ai_team_tasks, [ :assigned_role_id, :status ]
     add_index :ai_team_tasks, :parent_task_id
     add_index :ai_team_tasks, :priority
 
@@ -157,9 +157,9 @@ class CreateMultiAgentTeamTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_team_messages, [:team_execution_id, :sequence_number]
-    add_index :ai_team_messages, [:channel_id, :created_at]
-    add_index :ai_team_messages, [:from_role_id, :created_at]
+    add_index :ai_team_messages, [ :team_execution_id, :sequence_number ]
+    add_index :ai_team_messages, [ :channel_id, :created_at ]
+    add_index :ai_team_messages, [ :from_role_id, :created_at ]
     add_index :ai_team_messages, :message_type
     add_index :ai_team_messages, :in_reply_to_id
 
@@ -189,7 +189,7 @@ class CreateMultiAgentTeamTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_team_templates, :slug, unique: true
-    add_index :ai_team_templates, [:is_public, :category]
+    add_index :ai_team_templates, [ :is_public, :category ]
     add_index :ai_team_templates, :team_topology
     add_index :ai_team_templates, :is_system
 

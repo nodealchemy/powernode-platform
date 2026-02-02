@@ -142,7 +142,7 @@ export function CommitDetailModal({
     try {
       const data = await gitProvidersApi.getCommit(repositoryId, sha);
       setCommit(data);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load commit');
     } finally {
       setLoading(false);

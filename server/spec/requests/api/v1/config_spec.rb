@@ -167,8 +167,8 @@ RSpec.describe 'Api::V1::Config', type: :request do
 
     context 'with admin settings' do
       before do
-        AdminSetting.create!(key: 'trusted_hosts', value: ['example.com'])
-        AdminSetting.create!(key: 'allowed_hosts', value: ['api.example.com'])
+        AdminSetting.create!(key: 'trusted_hosts', value: [ 'example.com' ])
+        AdminSetting.create!(key: 'allowed_hosts', value: [ 'api.example.com' ])
       end
 
       it 'includes hosts from admin settings' do

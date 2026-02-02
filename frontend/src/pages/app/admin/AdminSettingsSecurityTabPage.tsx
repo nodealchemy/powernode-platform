@@ -73,7 +73,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
     let accessScore = settings.email_verification_required ? 80 : 60;
     if (settings.maintenance_mode) accessScore += 10;
     
-    let rateScore = settings.rate_limiting?.enabled ? 80 : 40;
+    const rateScore = settings.rate_limiting?.enabled ? 80 : 40;
     
     const avgScore = Math.round((authScore + accessScore + rateScore) / 3);
     
@@ -94,7 +94,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
       setSystemSettings(updatedSettings);
       calculateSecurityScores(updatedSettings);
       showNotification('Security settings updated successfully', 'success');
-    } catch (_error) {
+    } catch {
       showNotification('Failed to update security settings', 'error');
     } finally {
       setSaving(false);

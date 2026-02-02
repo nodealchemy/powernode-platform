@@ -128,14 +128,14 @@ module WebhookTestHelpers
       canceled_at: data[:canceled_at]&.to_i,
       metadata: data[:metadata] || {},
       items: {
-        data: [{
+        data: [ {
           id: "si_#{SecureRandom.hex(12)}",
           price: {
             id: data[:price_id] || "price_#{SecureRandom.hex(12)}",
             unit_amount: data[:amount] || 2999,
             currency: data[:currency] || 'usd'
           }
-        }]
+        } ]
       }
     }
   end
@@ -284,12 +284,12 @@ module WebhookTestHelpers
         payer_id: data[:payer_id] || SecureRandom.hex(8).upcase
       },
       billing_info: {
-        cycle_executions: [{
+        cycle_executions: [ {
           tenure_type: 'REGULAR',
           sequence: 1,
           cycles_completed: data[:cycles_completed] || 1,
           cycles_remaining: data[:cycles_remaining] || 0
-        }],
+        } ],
         last_payment: {
           amount: {
             currency_code: data[:currency] || 'USD',
@@ -326,14 +326,14 @@ module WebhookTestHelpers
       id: data[:order_id] || SecureRandom.hex(8).upcase,
       status: data[:status] || 'APPROVED',
       intent: 'CAPTURE',
-      purchase_units: [{
+      purchase_units: [ {
         reference_id: data[:reference_id] || 'default',
         amount: {
           currency_code: data[:currency] || 'USD',
           value: data[:amount] || '29.99'
         },
         custom_id: data[:custom_id]
-      }],
+      } ],
       payer: {
         email_address: data[:email] || 'payer@example.com',
         payer_id: data[:payer_id] || SecureRandom.hex(8).upcase

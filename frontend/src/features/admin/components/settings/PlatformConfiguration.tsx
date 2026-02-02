@@ -59,7 +59,7 @@ export const PlatformConfiguration: React.FC = () => {
       setSettings(platformSettings);
       setOriginalSettings({ ...platformSettings });
       setHasChanges(false);
-    } catch (error) {
+    } catch {
       showNotification('Failed to load settings', 'error');
     } finally {
       setLoading(false);
@@ -98,7 +98,7 @@ export const PlatformConfiguration: React.FC = () => {
           window.location.reload();
         }, 1000);
       }
-    } catch (error: unknown) {
+    } catch {
       const apiError = error as { response?: { data?: { error?: string } } };
       showNotification(
         apiError.response?.data?.error || 'Failed to update configuration',

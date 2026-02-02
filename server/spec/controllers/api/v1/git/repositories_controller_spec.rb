@@ -7,7 +7,7 @@ RSpec.describe Api::V1::Git::RepositoriesController, type: :controller do
   let(:user) { create(:user, account: account) }
 
   # Permission users
-  let(:repo_read_user) { create(:user, account: account, permissions: ['git.repositories.read']) }
+  let(:repo_read_user) { create(:user, account: account, permissions: [ 'git.repositories.read' ]) }
   let(:repo_manage_user) do
     create(:user, account: account, permissions: %w[
       git.repositories.read git.repositories.sync git.repositories.webhooks.manage

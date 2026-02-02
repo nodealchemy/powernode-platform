@@ -77,7 +77,7 @@ export const QuotaDisplay: React.FC<QuotaDisplayProps> = ({ className, compact =
       setError(null);
       const response = await containerExecutionApi.getQuota();
       setQuota(response);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load quota');
     } finally {
       setLoading(false);

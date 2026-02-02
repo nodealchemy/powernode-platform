@@ -23,7 +23,7 @@ export const MaintenanceModeTab: React.FC<MaintenanceModeTabProps> = ({ status, 
         'success'
       );
       onUpdate();
-    } catch (_error: unknown) {
+    } catch {
       showNotification('Failed to update maintenance mode', 'error');
     } finally {
       setSubmitting(false);
@@ -40,7 +40,7 @@ export const MaintenanceModeTab: React.FC<MaintenanceModeTabProps> = ({ status, 
       );
       showNotification('Maintenance mode scheduled successfully', 'success');
       onUpdate();
-    } catch (_error: unknown) {
+    } catch {
       showNotification('Failed to schedule maintenance mode', 'error');
     } finally {
       setSubmitting(false);

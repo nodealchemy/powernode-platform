@@ -34,7 +34,7 @@ export const TemplateAnalyticsPage: React.FC = () => {
       try {
         const response = await publisherApi.getPublisherAnalytics(id, { period });
         setAnalytics(response.data);
-      } catch (error: unknown) {
+      } catch {
         const message = error instanceof Error ? error.message : 'Failed to load analytics';
         showNotification(message, 'error');
       } finally {

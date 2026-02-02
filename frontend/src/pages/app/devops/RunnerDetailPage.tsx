@@ -42,7 +42,7 @@ export const RunnerDetailPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { confirm, ConfirmationDialog } = useConfirmation();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     subscribeToDevops: true,
     onDataUpdate: () => {
@@ -64,7 +64,7 @@ export const RunnerDetailPage: React.FC = () => {
     try {
       const data = await gitProvidersApi.getRunner(id);
       setRunner(data);
-    } catch (error) {
+    } catch {
       showNotification('Failed to load runner', 'error');
       navigate('/app/devops/runners');
     } finally {
@@ -90,7 +90,7 @@ export const RunnerDetailPage: React.FC = () => {
           await gitProvidersApi.deleteRunner(runner.id);
           showNotification('Runner deleted successfully', 'success');
           navigate('/app/devops/runners');
-        } catch (error) {
+        } catch {
           showNotification('Failed to delete runner', 'error');
         } finally {
           setDeleting(false);
@@ -113,7 +113,7 @@ export const RunnerDetailPage: React.FC = () => {
       const result = await gitProvidersApi.getRunnerRemovalToken(runner.id);
       navigator.clipboard.writeText(result.token);
       showNotification('Removal token copied to clipboard', 'success');
-    } catch (error) {
+    } catch {
       showNotification('Failed to get removal token', 'error');
     }
   };

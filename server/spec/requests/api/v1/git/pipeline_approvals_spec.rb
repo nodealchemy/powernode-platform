@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Git::PipelineApprovals', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['git.approvals.read', 'git.approvals.manage']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['git.approvals.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'git.approvals.read', 'git.approvals.manage' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'git.approvals.read' ]) }
   let(:no_permission_user) { create(:user, account: account, permissions: []) }
   let(:other_account) { create(:account) }
   let(:other_user) { create(:user, account: other_account) }

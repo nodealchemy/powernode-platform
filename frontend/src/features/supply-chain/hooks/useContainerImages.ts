@@ -22,7 +22,7 @@ export function useContainerImages(options: {
       });
       setImages(result.images);
       setPagination(result.pagination);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch images');
     } finally {
       setLoading(false);
@@ -48,7 +48,7 @@ export function useContainerImage(id: string | null) {
       setError(null);
       const result = await containerImagesApi.get(id);
       setImage(result);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch image');
     } finally {
       setLoading(false);
@@ -92,7 +92,7 @@ export function useContainerVulnerabilities(imageId: string | null, options: {
       });
       setVulnerabilities(result.vulnerabilities);
       setPagination(result.pagination);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch vulnerabilities');
     } finally {
       setLoading(false);
@@ -130,7 +130,7 @@ export function useContainerSbom(imageId: string | null) {
       setError(null);
       const result = await containerImagesApi.getSbom(imageId);
       setSbom(result);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch SBOM');
     } finally {
       setLoading(false);
@@ -155,7 +155,7 @@ export function useEvaluatePolicies() {
       setError(null);
       const result = await containerImagesApi.evaluatePolicies(imageId);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to evaluate policies';
       setError(errorMsg);
       throw err;

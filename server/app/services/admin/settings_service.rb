@@ -254,7 +254,7 @@ module Admin
 
     def calculate_uptime
       process_start_time = File.stat("/proc/self").ctime rescue (Time.current - 1.day)
-      [Time.current - process_start_time, 0].max
+      [ Time.current - process_start_time, 0 ].max
     end
 
     def serialize_user(user)
@@ -392,7 +392,7 @@ module Admin
 
       User.includes(user_roles: :role).find_each do |u|
         user_roles = u.user_roles.map { |ur| ur.role.name }
-        user_roles = ["no_role"] if user_roles.empty?
+        user_roles = [ "no_role" ] if user_roles.empty?
 
         user_roles.each do |role_name|
           role_counts[role_name] = (role_counts[role_name] || 0) + 1

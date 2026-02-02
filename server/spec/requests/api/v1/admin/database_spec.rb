@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Admin::Database', type: :request do
   let(:account) { create(:account) }
-  let(:admin_user) { create(:user, account: account, permissions: ['system.admin']) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'system.admin' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/admin/database/pool_stats' do

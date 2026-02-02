@@ -20,8 +20,8 @@ module Api
           end
 
           # Pagination
-          page = [params[:page].to_i, 1].max
-          per_page = [[params[:per_page].to_i, 50].min, 10].max
+          page = [ params[:page].to_i, 1 ].max
+          per_page = [ [ params[:per_page].to_i, 50 ].min, 10 ].max
           total = webhooks.count
           webhooks = webhooks.order(created_at: :desc).offset((page - 1) * per_page).limit(per_page)
 

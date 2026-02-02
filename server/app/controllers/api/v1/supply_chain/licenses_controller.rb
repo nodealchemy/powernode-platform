@@ -5,7 +5,7 @@ module Api
     module SupplyChain
       class LicensesController < BaseController
         skip_before_action :authenticate_request
-        before_action :set_license, only: [:show]
+        before_action :set_license, only: [ :show ]
 
         # GET /api/v1/supply_chain/licenses
         def index

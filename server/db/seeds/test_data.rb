@@ -120,8 +120,8 @@ sample_customers.each_with_index do |customer_data, index|
         email: "team#{member_index}@#{customer_data[:account][:subdomain]}.com"
       ) do |u|
         u.account = account
-        u.first_name = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve'].sample
-        u.last_name = ['Johnson', 'Williams', 'Brown', 'Jones', 'Davis'].sample
+        u.first_name = [ 'Alice', 'Bob', 'Charlie', 'Diana', 'Eve' ].sample
+        u.last_name = [ 'Johnson', 'Williams', 'Brown', 'Jones', 'Davis' ].sample
         u.password = 'TeamSecure567!@#$%'
         u.password_confirmation = 'TeamSecure567!@#$%'
         u.status = 'active'
@@ -141,7 +141,7 @@ sample_customers.each_with_index do |customer_data, index|
     external_id: "pm_test_#{SecureRandom.hex(8)}"
   ) do |pm|
     pm.payment_type = 'card'
-    pm.brand = ['visa', 'mastercard', 'amex'].sample
+    pm.brand = [ 'visa', 'mastercard', 'amex' ].sample
     pm.last_four = rand(1000..9999).to_s
     pm.exp_month = rand(1..12)
     pm.exp_year = Date.current.year + rand(1..4)
@@ -153,7 +153,7 @@ sample_customers.each_with_index do |customer_data, index|
   # Create invoices with payment history
   (1..rand(3..6)).each do |invoice_num|
     invoice_date = customer_data[:created_at] + (invoice_num - 1).months
-    
+
     invoice_number = "INV-#{index.to_s.rjust(3, '0')}-#{invoice_num.to_s.rjust(4, '0')}-#{SecureRandom.hex(4).upcase}"
     invoice = Invoice.find_or_create_by!(
       subscription: subscription,
@@ -292,30 +292,30 @@ puts "\n📈 Creating revenue snapshots..."
 # Generate monthly revenue snapshots for the past 6 months
 6.downto(0) do |months_ago|
   snapshot_date = months_ago.months.ago.beginning_of_month
-  
+
   # Calculate metrics based on existing data
   active_subscriptions = Subscription.where(status: 'active')
     .joins(:plan)
     .where('subscriptions.created_at <= ?', snapshot_date.end_of_month)
-  
+
   mrr = active_subscriptions.sum('plans.price_cents')
   arr = mrr * 12
-  
+
   # Count active customers (accounts with active subscriptions)
   active_customers = Account.joins(:subscription)
     .where(subscriptions: { status: 'active' })
     .where('accounts.created_at <= ?', snapshot_date.end_of_month)
     .count
-  
+
   # Calculate churn (simplified for demo)
   churned_customers = months_ago == 0 ? 0 : rand(0..2)
   new_customers = months_ago == 0 ? 2 : rand(1..4)
-  
+
   # Count by plan
   plan_distribution = active_subscriptions
     .group('plans.name')
     .count
-  
+
   RevenueSnapshot.find_or_create_by!(
     snapshot_date: snapshot_date
   ) do |snapshot|
@@ -471,14 +471,14 @@ enterprise_accounts = Account.joins(:subscription)
 
 enterprise_accounts.each_with_index do |account, index|
   break if index >= delegated_users.count
-  
+
   delegated_user = delegated_users[index]
   delegator = account.users.where(role: 'owner').first
-  
+
   if delegator
     role_name = index == 0 ? 'Admin' : 'Member'
     role = Role.find_by(name: role_name)
-    
+
     Account::Delegation.find_or_create_by!(
       account: account,
       delegated_user: delegated_user,

@@ -24,8 +24,8 @@ module Api
         include AuditLogging
 
         before_action :validate_permissions
-        before_action :set_time_range, only: [:dashboard, :metrics, :health]
-        before_action :set_components, only: [:dashboard, :metrics]
+        before_action :set_time_range, only: [ :dashboard, :metrics, :health ]
+        before_action :set_components, only: [ :dashboard, :metrics ]
 
         # =============================================================================
         # DASHBOARD & METRICS

@@ -23,7 +23,7 @@ export const PipelineCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -97,7 +97,7 @@ export const PipelineCreatePage: React.FC = () => {
 
       showNotification('Pipeline created successfully', 'success');
       navigate(`/app/devops/pipelines/${pipeline.id}`);
-    } catch (error) {
+    } catch {
       showNotification('Failed to create pipeline', 'error');
     } finally {
       setSaving(false);

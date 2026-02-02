@@ -5,8 +5,8 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::AdminSettings', type: :request do
   let(:account) { create(:account) }
   let(:admin_user) { create(:user, :admin, account: account) }
-  let(:user_with_settings_view) { create(:user, account: account, permissions: ['admin.settings.read']) }
-  let(:user_with_security_permission) { create(:user, account: account, permissions: ['admin.settings.read', 'admin.settings.security']) }
+  let(:user_with_settings_view) { create(:user, account: account, permissions: [ 'admin.settings.read' ]) }
+  let(:user_with_security_permission) { create(:user, account: account, permissions: [ 'admin.settings.read', 'admin.settings.security' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/admin_settings' do

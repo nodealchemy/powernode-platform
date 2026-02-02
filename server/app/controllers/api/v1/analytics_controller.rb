@@ -495,7 +495,7 @@ class Api::V1::AnalyticsController < ApplicationController
     # Limit to reasonable range (2 years max)
     if (@end_date - @start_date).to_i > 730
       render_error("Date range too large (max 2 years)", status: :bad_request)
-      return
+      nil
     end
   end
 
@@ -546,9 +546,9 @@ class Api::V1::AnalyticsController < ApplicationController
     subscriptions = if @account_scope
                       sub = @account_scope.subscription
                       sub&.active? ? [ sub ] : []
-                    else
+    else
                       Subscription.active.to_a
-                    end
+    end
 
     segments = {
       "New (0-3 months)" => 0,

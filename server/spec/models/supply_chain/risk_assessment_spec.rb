@@ -191,7 +191,7 @@ RSpec.describe SupplyChain::RiskAssessment, type: :model do
 
     describe "#finding_count" do
       it "returns the number of findings" do
-        assessment.update!(findings: [{ id: "1" }, { id: "2" }])
+        assessment.update!(findings: [ { id: "1" }, { id: "2" } ])
         expect(assessment.finding_count).to eq(2)
       end
 
@@ -268,7 +268,7 @@ RSpec.describe SupplyChain::RiskAssessment, type: :model do
     let(:assessment) { create(:supply_chain_risk_assessment, vendor: vendor, account: account) }
 
     it "returns the number of recommendations" do
-      assessment.update!(recommendations: [{ id: "1" }, { id: "2" }])
+      assessment.update!(recommendations: [ { id: "1" }, { id: "2" } ])
       expect(assessment.recommendation_count).to eq(2)
     end
   end

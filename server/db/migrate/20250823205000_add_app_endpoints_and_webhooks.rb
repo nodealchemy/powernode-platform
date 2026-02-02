@@ -24,8 +24,8 @@ class AddAppEndpointsAndWebhooks < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.timestamps null: false
 
-      t.index [:app_id, :slug], unique: true
-      t.index [:app_id, :http_method, :path], unique: true
+      t.index [ :app_id, :slug ], unique: true
+      t.index [ :app_id, :http_method, :path ], unique: true
       t.index :http_method
       t.index :is_public
       t.index :is_active
@@ -54,8 +54,8 @@ class AddAppEndpointsAndWebhooks < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.timestamps null: false
 
-      t.index [:app_id, :slug], unique: true
-      t.index [:app_id, :event_type]
+      t.index [ :app_id, :slug ], unique: true
+      t.index [ :app_id, :event_type ]
       t.index :event_type
       t.index :is_active
     end

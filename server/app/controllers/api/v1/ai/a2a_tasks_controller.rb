@@ -66,14 +66,14 @@ module Api
                          from_agent_id: params[:from_agent_id],
                          metadata: params[:metadata]&.to_unsafe_h || {}
                        )
-                     else
+            else
                        service.submit_task(
                          to_agent_card: params[:to_agent_card_id],
                          message: task_message_params,
                          from_agent: params[:from_agent_id],
                          metadata: params[:metadata]&.to_unsafe_h || {}
                        )
-                     end
+            end
 
             render_success({ task: result.to_a2a_json }, status: :created)
             log_audit_event("ai.a2a_tasks.create", result)
@@ -229,7 +229,7 @@ module Api
           if params[:message].present?
             params[:message].to_unsafe_h
           elsif params[:text].present?
-            { role: "user", parts: [{ type: "text", text: params[:text] }] }
+            { role: "user", parts: [ { type: "text", text: params[:text] } ] }
           else
             {}
           end

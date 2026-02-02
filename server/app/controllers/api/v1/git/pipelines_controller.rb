@@ -27,8 +27,8 @@ module Api
           pipelines = pipelines.by_ref(params[:ref]) if params[:ref].present?
 
           # Pagination
-          page = [params[:page].to_i, 1].max
-          per_page = [[params[:per_page].to_i, 50].min, 20].max
+          page = [ params[:page].to_i, 1 ].max
+          per_page = [ [ params[:per_page].to_i, 50 ].min, 20 ].max
           total = pipelines.count
           pipelines = pipelines.order(created_at: :desc).offset((page - 1) * per_page).limit(per_page)
 

@@ -19,12 +19,12 @@ RSpec.describe Analytics::ChurnPredictionService, type: :service do
       result = service.predict
 
       expected_tier = case result.churn_probability
-                      when 0...0.10 then "minimal"
-                      when 0.10...0.25 then "low"
-                      when 0.25...0.50 then "medium"
-                      when 0.50...0.75 then "high"
-                      else "critical"
-                      end
+      when 0...0.10 then "minimal"
+      when 0.10...0.25 then "low"
+      when 0.25...0.50 then "medium"
+      when 0.50...0.75 then "high"
+      else "critical"
+      end
 
       expect(result.risk_tier).to eq(expected_tier)
     end
@@ -95,7 +95,7 @@ RSpec.describe Analytics::ChurnPredictionService, type: :service do
 
     describe "#generate_recommendations" do
       it "generates actions based on factors" do
-        factors = [{ factor: "usage_decline", weight: 0.4, description: "Test" }]
+        factors = [ { factor: "usage_decline", weight: 0.4, description: "Test" } ]
         recommendations = service.send(:generate_recommendations, factors)
 
         expect(recommendations).to be_an(Array)

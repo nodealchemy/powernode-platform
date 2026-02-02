@@ -15,7 +15,7 @@ interface ExecutionState {
   currentMember?: string;
   startTime?: Date;
   endTime?: Date;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   result?: any;
   error?: string;
   updates: TeamExecutionUpdate[];

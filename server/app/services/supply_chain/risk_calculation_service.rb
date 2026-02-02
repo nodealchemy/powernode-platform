@@ -100,7 +100,7 @@ module SupplyChain
                              .count
       penalty += unfixed_critical * 10
 
-      [penalty, max_score].min
+      [ penalty, max_score ].min
     end
 
     def calculate_license_score
@@ -126,7 +126,7 @@ module SupplyChain
       violation_count = sbom.license_violations.where(status: "open").count
       penalty += violation_count * LICENSE_RISK_WEIGHTS[:non_compliant]
 
-      [penalty, max_score].min
+      [ penalty, max_score ].min
     end
 
     def calculate_dependency_score
@@ -158,7 +158,7 @@ module SupplyChain
         penalty += 5
       end
 
-      [penalty, max_score].min
+      [ penalty, max_score ].min
     end
 
     def calculate_supply_chain_score
@@ -177,7 +177,7 @@ module SupplyChain
       direct_deps = sbom.components.where(dependency_type: "direct").count
       score += 10 if direct_deps > 100
 
-      [score, 100].min
+      [ score, 100 ].min
     end
 
     def update_component_risk_scores
@@ -207,7 +207,7 @@ module SupplyChain
         adjustment += 0.5
       end
 
-      [[base_score + adjustment, 0].max, 10].min.round(2)
+      [ [ base_score + adjustment, 0 ].max, 10 ].min.round(2)
     end
 
     def build_context_factors(vuln)

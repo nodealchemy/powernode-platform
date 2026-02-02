@@ -152,7 +152,7 @@ module Mcp
       return 0 unless allow_overage
       return 0 if overage_rate_per_container.nil?
 
-      overage_count = [container_count - max_containers_per_day, 0].max
+      overage_count = [ container_count - max_containers_per_day, 0 ].max
       (overage_count * overage_rate_per_container).round(2)
     end
 

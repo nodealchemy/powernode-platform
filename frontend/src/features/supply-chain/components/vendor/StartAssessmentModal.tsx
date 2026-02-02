@@ -46,7 +46,7 @@ export const StartAssessmentModal: React.FC<StartAssessmentModalProps> = ({
       setStarting(true);
       await onStart(selectedType);
       onClose();
-    } catch (err) {
+    } catch {
       // Error is silently ignored to keep modal open
     } finally {
       setStarting(false);

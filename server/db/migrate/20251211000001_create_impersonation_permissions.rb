@@ -34,8 +34,8 @@ class CreateImpersonationPermissions < ActiveRecord::Migration[8.0]
 
   def down
     Permission.where(
-      resource: ['users', 'impersonation'],
-      action: ['impersonate', 'view']
+      resource: [ 'users', 'impersonation' ],
+      action: [ 'impersonate', 'view' ]
     ).destroy_all
   end
 end

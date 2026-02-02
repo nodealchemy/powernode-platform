@@ -159,7 +159,7 @@ RSpec.describe SupplyChain::VendorMonitoringJob, type: :job do
       it "broadcasts events returned from monitor_vendor!" do
         event1 = create(:supply_chain_vendor_monitoring_event, vendor: vendor, account: account)
         event2 = create(:supply_chain_vendor_monitoring_event, vendor: vendor, account: account)
-        allow(risk_service).to receive(:monitor_vendor!).and_return([event1, event2])
+        allow(risk_service).to receive(:monitor_vendor!).and_return([ event1, event2 ])
 
         described_class.perform_now(account.id)
 
@@ -754,7 +754,7 @@ RSpec.describe SupplyChain::VendorMonitoringJob, type: :job do
         vendor.update!(
           next_assessment_due: 1.day.ago,
           contract_end_date: 30.days.from_now.to_date,
-          certifications: [{ "name" => "ISO27001", "expires_at" => 15.days.from_now.iso8601 }]
+          certifications: [ { "name" => "ISO27001", "expires_at" => 15.days.from_now.iso8601 } ]
         )
 
         expect {

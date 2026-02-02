@@ -231,7 +231,7 @@ RSpec.describe Ai::Memory::FactualMemoryService, type: :service do
     it 'skips existing facts unless overwrite is true' do
       service.store(key: 'existing', value: 'original')
 
-      facts_to_import = [{ key: 'existing', value: 'new_value' }]
+      facts_to_import = [ { key: 'existing', value: 'new_value' } ]
       result = service.import(facts_to_import, overwrite: false)
 
       expect(result[:skipped]).to eq(1)

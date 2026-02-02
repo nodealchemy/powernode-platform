@@ -11,7 +11,7 @@ module RateLimiting
 
   def check_and_increment_rate_limit
     return unless should_rate_limit?
-    return if ENV['DISABLE_RATE_LIMITING'] == 'true'
+    return if ENV["DISABLE_RATE_LIMITING"] == "true"
 
     key = rate_limit_key
     current_count = Rails.cache.read(key) || 0

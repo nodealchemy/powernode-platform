@@ -4,12 +4,12 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::SupplyChain::RiskAssessments', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['supply_chain.read', 'supply_chain.write']) }
-  let(:admin_user) { create(:user, account: account, permissions: ['supply_chain.read', 'supply_chain.write', 'supply_chain.admin']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['supply_chain.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'supply_chain.read', 'supply_chain.write' ]) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'supply_chain.read', 'supply_chain.write', 'supply_chain.admin' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'supply_chain.read' ]) }
   let(:unauthorized_user) { create(:user, account: account, permissions: []) }
   let(:other_account) { create(:account) }
-  let(:other_user) { create(:user, account: other_account, permissions: ['supply_chain.read']) }
+  let(:other_user) { create(:user, account: other_account, permissions: [ 'supply_chain.read' ]) }
 
   let(:headers) { auth_headers_for(user) }
   let(:admin_headers) { auth_headers_for(admin_user) }
@@ -146,9 +146,9 @@ RSpec.describe 'Api::V1::SupplyChain::RiskAssessments', type: :request do
           compliance_score: 90,
           operational_score: 88,
           valid_until: 1.year.from_now.to_date,
-          findings: ['Strong security posture', 'Good compliance framework'],
-          recommendations: ['Continue monitoring', 'Review annually'],
-          evidence: ['SOC2 Report']
+          findings: [ 'Strong security posture', 'Good compliance framework' ],
+          recommendations: [ 'Continue monitoring', 'Review annually' ],
+          evidence: [ 'SOC2 Report' ]
         }
       }
     end

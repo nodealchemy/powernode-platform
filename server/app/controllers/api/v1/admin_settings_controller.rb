@@ -268,10 +268,10 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   def security_config_params
     params.require(:security_config).permit(
-      csrf: [:enabled, :token_name, :protection_method, :require_ssl],
-      jwt: [:access_token_ttl, :refresh_token_ttl, :algorithm, :blacklist_enabled, :require_fresh_tokens_for_sensitive_operations],
-      authentication: [:max_failed_attempts, :lockout_duration, :require_2fa_for_admin, :session_timeout],
-      api_security: [:rate_limiting_enabled, :cors_enabled, :require_api_key_for_write_operations, allowed_origins: []]
+      csrf: [ :enabled, :token_name, :protection_method, :require_ssl ],
+      jwt: [ :access_token_ttl, :refresh_token_ttl, :algorithm, :blacklist_enabled, :require_fresh_tokens_for_sensitive_operations ],
+      authentication: [ :max_failed_attempts, :lockout_duration, :require_2fa_for_admin, :session_timeout ],
+      api_security: [ :rate_limiting_enabled, :cors_enabled, :require_api_key_for_write_operations, allowed_origins: [] ]
     )
   end
 

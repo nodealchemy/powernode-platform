@@ -51,56 +51,36 @@ export interface ImpersonationApiResponse<T> {
 export const impersonationApi = {
   // Start impersonating a user
   async startImpersonation(request: ImpersonationRequest): Promise<ImpersonationApiResponse<ImpersonationStartResponse>> {
-    try {
-      const response = await api.post('/impersonations', request);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.post('/impersonations', request);
+    return response.data;
   },
 
   // Stop impersonation
   async stopImpersonation(sessionToken: string): Promise<ImpersonationApiResponse<{ duration: number }>> {
-    try {
-      const response = await api.delete('/impersonations', {
-        data: { session_token: sessionToken }
-      });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.delete('/impersonations', {
+      data: { session_token: sessionToken }
+    });
+    return response.data;
   },
 
   // Get active impersonation sessions
   async getActiveSessions(): Promise<ImpersonationApiResponse<ImpersonationSession[]>> {
-    try {
-      const response = await api.get('/impersonations');
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get('/impersonations');
+    return response.data;
   },
 
   // Get impersonation history
   async getHistory(limit?: number): Promise<ImpersonationApiResponse<ImpersonationSession[]>> {
-    try {
-      const response = await api.get('/impersonations/history', { 
-        params: { limit } 
-      });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get('/impersonations/history', {
+      params: { limit }
+    });
+    return response.data;
   },
 
   // Get users available for impersonation
   async getImpersonatableUsers(): Promise<ImpersonationApiResponse<UserSummary[]>> {
-    try {
-      const response = await api.get('/impersonations/users');
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get('/impersonations/users');
+    return response.data;
   },
 
   // Validate impersonation token
@@ -110,12 +90,8 @@ export const impersonationApi = {
   }> & {
     valid?: boolean;
   }> {
-    try {
-      const response = await api.post('/impersonations/validate', { token });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.post('/impersonations/validate', { token });
+    return response.data;
   }
 };
 

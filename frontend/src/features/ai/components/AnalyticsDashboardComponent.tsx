@@ -125,7 +125,7 @@ export const AnalyticsDashboardComponent: React.FC = () => {
 
       setAnalyticsData(transformedData);
 
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Analytics Error',
@@ -139,7 +139,7 @@ export const AnalyticsDashboardComponent: React.FC = () => {
 
   const handleRefresh = useCallback(() => {
     loadAnalyticsData(false);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   const handleExportData = useCallback(async () => {
     try {
@@ -169,7 +169,7 @@ export const AnalyticsDashboardComponent: React.FC = () => {
         });
       }
 
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Export Failed',
@@ -196,14 +196,14 @@ export const AnalyticsDashboardComponent: React.FC = () => {
   // Initial load
   useEffect(() => {
     loadAnalyticsData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
   
   // Reload when filters change
   useEffect(() => {
     if (analyticsData) { // Only reload if already loaded initially
       loadAnalyticsData(false);
     }
-  }, [timeRange, selectedProvider]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [timeRange, selectedProvider]);  
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },

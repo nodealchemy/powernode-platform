@@ -22,8 +22,8 @@ module Api
           repositories = apply_filters(repositories)
 
           # Pagination
-          page = [params[:page].to_i, 1].max
-          per_page = [[params[:per_page].to_i, 100].min, 20].max
+          page = [ params[:page].to_i, 1 ].max
+          per_page = [ [ params[:per_page].to_i, 100 ].min, 20 ].max
           total = repositories.count
           repositories = repositories.offset((page - 1) * per_page).limit(per_page)
 
@@ -184,8 +184,8 @@ module Api
           pipelines = pipelines.where(ref: params[:ref]) if params[:ref].present?
 
           # Pagination
-          page = [params[:page].to_i, 1].max
-          per_page = [[params[:per_page].to_i, 100].min, 10].max
+          page = [ params[:page].to_i, 1 ].max
+          per_page = [ [ params[:per_page].to_i, 100 ].min, 10 ].max
           total = pipelines.count
           pipelines = pipelines.offset((page - 1) * per_page).limit(per_page)
 

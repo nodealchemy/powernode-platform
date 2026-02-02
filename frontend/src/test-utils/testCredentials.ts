@@ -54,7 +54,7 @@ class TestCredentialsLoader {
         this.credentials = JSON.parse(content);
         return this.credentials || {};
       }
-    } catch (error) {
+    } catch {
       console.warn('⚠️ Failed to load test credentials:', error);
     }
 

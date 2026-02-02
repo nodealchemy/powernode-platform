@@ -86,7 +86,7 @@ module Mcp
         # NOTE: In production, this would use a JSON Schema validator library
         # like json-schema gem
 
-        return { valid: false, errors: ["schema is required for schema validation"] } if schema.blank?
+        return { valid: false, errors: [ "schema is required for schema validation" ] } if schema.blank?
 
         # Simplified schema validation simulation
         {
@@ -105,7 +105,7 @@ module Mcp
 
         {
           valid: valid,
-          errors: valid ? [] : ["Expected type #{expected_type}, got #{actual_type}"],
+          errors: valid ? [] : [ "Expected type #{expected_type}, got #{actual_type}" ],
           expected_type: expected_type,
           actual_type: actual_type
         }
@@ -116,27 +116,27 @@ module Mcp
         return { valid: true, errors: [] } if format_type.blank? || input.nil?
 
         valid = case format_type
-                when "email"
+        when "email"
                   input.to_s.match?(/\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i)
-                when "url"
+        when "url"
                   input.to_s.match?(%r{\Ahttps?://}i)
-                when "uuid"
+        when "uuid"
                   input.to_s.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
-                when "date"
+        when "date"
                   Date.parse(input.to_s) rescue false
-                when "datetime", "iso8601"
+        when "datetime", "iso8601"
                   Time.iso8601(input.to_s) rescue false
-                when "phone"
+        when "phone"
                   input.to_s.match?(/\A\+?[\d\s\-()]{10,}\z/)
-                when "ip"
+        when "ip"
                   input.to_s.match?(/\A\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\z/)
-                else
+        else
                   true
-                end
+        end
 
         {
           valid: !!valid,
-          errors: valid ? [] : ["Value does not match #{format_type} format"],
+          errors: valid ? [] : [ "Value does not match #{format_type} format" ],
           format: format_type
         }
       end
@@ -149,7 +149,7 @@ module Mcp
         numeric_input = input.to_f rescue nil
 
         if numeric_input.nil?
-          return { valid: false, errors: ["Value must be numeric for range validation"] }
+          return { valid: false, errors: [ "Value must be numeric for range validation" ] }
         end
 
         errors << "Value must be >= #{min}" if min && numeric_input < min
@@ -174,11 +174,11 @@ module Mcp
 
           {
             valid: valid,
-            errors: valid ? [] : ["Value does not match pattern #{pattern}"],
+            errors: valid ? [] : [ "Value does not match pattern #{pattern}" ],
             pattern: pattern
           }
         rescue RegexpError => e
-          { valid: false, errors: ["Invalid regex pattern: #{e.message}"] }
+          { valid: false, errors: [ "Invalid regex pattern: #{e.message}" ] }
         end
       end
 
@@ -188,11 +188,11 @@ module Mcp
         if fields.empty?
           # Just check if input exists
           valid = !input.nil? && input != ""
-          return { valid: valid, errors: valid ? [] : ["Value is required"] }
+          return { valid: valid, errors: valid ? [] : [ "Value is required" ] }
         end
 
         # Check required fields in object
-        return { valid: false, errors: ["Input must be an object to check required fields"] } unless input.is_a?(Hash)
+        return { valid: false, errors: [ "Input must be an object to check required fields" ] } unless input.is_a?(Hash)
 
         missing = fields.reject { |f| input.key?(f.to_s) || input.key?(f.to_sym) }
 

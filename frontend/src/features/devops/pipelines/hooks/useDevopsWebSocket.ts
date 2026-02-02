@@ -83,7 +83,7 @@ class DevopsWebSocketManager {
         try {
           const data = JSON.parse(event.data);
           this.handleMessage(data);
-        } catch (error) {
+        } catch {
           // Ignore parse errors
         }
       };
@@ -98,7 +98,7 @@ class DevopsWebSocketManager {
       this.ws.onerror = () => {
         // Error handled by onclose
       };
-    } catch (error) {
+    } catch {
       this.scheduleReconnect();
     }
   }
@@ -150,7 +150,7 @@ class DevopsWebSocketManager {
       handlers.forEach((handler) => {
         try {
           handler(event);
-        } catch (error) {
+        } catch {
           // Ignore handler errors
         }
       });

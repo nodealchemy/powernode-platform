@@ -170,7 +170,7 @@ export const ProfilePage: React.FC = () => {
 
       setPreferences({ user_preferences: settingsData.user_preferences || {} });
       setNotifications({ notification_preferences: settingsData.notification_preferences || {} });
-    } catch (_error) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: 'Failed to load settings'
@@ -208,7 +208,7 @@ export const ProfilePage: React.FC = () => {
       requestSettingsSync();
       
       showSuccess('Preferences updated successfully');
-    } catch (_error) {
+    } catch {
       showError('Failed to update preferences');
     } finally {
       setSaving(false);
@@ -226,7 +226,7 @@ export const ProfilePage: React.FC = () => {
       requestSettingsSync();
       
       showSuccess('Theme updated successfully');
-    } catch (_error) {
+    } catch {
       showError('Failed to update theme');
     } finally {
       setSaving(false);
@@ -243,7 +243,7 @@ export const ProfilePage: React.FC = () => {
       requestSettingsSync();
       
       showSuccess('Notification preferences updated');
-    } catch (_error) {
+    } catch {
       showError('Failed to update notifications');
     } finally {
       setSaving(false);
@@ -271,7 +271,7 @@ export const ProfilePage: React.FC = () => {
         email: profileForm.email
       });
       showSuccess('Profile updated successfully');
-    } catch (error: unknown) {
+    } catch {
       const errorMsg = error instanceof Error ? error.message : 'Failed to update profile';
       showError(errorMsg);
     } finally {
@@ -320,7 +320,7 @@ export const ProfilePage: React.FC = () => {
         const errorMessage = response.message || response.error || 'Failed to change password';
         showError(errorMessage);
       }
-    } catch (error: unknown) {
+    } catch {
       // Handle network errors or other exceptions
       const errorMsg = error instanceof Error ? error.message : 'Failed to change password';
       showError(errorMsg);
@@ -409,7 +409,7 @@ export const ProfilePage: React.FC = () => {
 
   
   // Update active tab when URL changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(() => {
     const newActiveTab = getActiveTabFromPath();
     if (newActiveTab !== activeTab) {

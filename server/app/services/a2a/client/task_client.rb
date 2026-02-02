@@ -195,11 +195,11 @@ module A2a
 
       def build_message(input)
         if input.is_a?(String)
-          { role: "user", parts: [{ type: "text", text: input }] }
+          { role: "user", parts: [ { type: "text", text: input } ] }
         elsif input.is_a?(Hash) && input["text"].present?
-          { role: "user", parts: [{ type: "text", text: input["text"] }] }
+          { role: "user", parts: [ { type: "text", text: input["text"] } ] }
         else
-          { role: "user", parts: [{ type: "data", data: input }] }
+          { role: "user", parts: [ { type: "data", data: input } ] }
         end
       end
 

@@ -146,7 +146,7 @@ export function KnowledgeBaseArticleEditor() {
   // Functions moved into useEffect to avoid dependency issues
 
   // Handle form field updates
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const updateField = (field: keyof ArticleFormData, value: any) => {
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
@@ -229,7 +229,7 @@ export function KnowledgeBaseArticleEditor() {
       if (isNewArticle) {
         navigate(`/app/content/kb/articles/${article.id}/edit`);
       }
-    } catch (error: unknown) {
+    } catch {
       const apiError = error as { response?: { data?: { error?: string } } };
       const errorMessage = apiError.response?.data?.error || 'Failed to save article';
       dispatch(addNotification({ type: 'error', message: errorMessage }));

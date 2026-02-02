@@ -141,7 +141,7 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
 
     describe ".ordered" do
       it "orders by priority descending, then created_at ascending" do
-        result = described_class.ordered.where(id: [high_priority_policy.id, low_priority_policy.id])
+        result = described_class.ordered.where(id: [ high_priority_policy.id, low_priority_policy.id ])
         expect(result.first).to eq(high_priority_policy)
         expect(result.last).to eq(low_priority_policy)
       end
@@ -173,7 +173,7 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
       it "preserves existing jsonb values" do
         allowed_licenses = %w[MIT Apache-2.0]
         denied_licenses = %w[GPL-3.0-only]
-        exception_packages = [{ "package" => "test", "license" => "MIT", "reason" => "test" }]
+        exception_packages = [ { "package" => "test", "license" => "MIT", "reason" => "test" } ]
         metadata = { "key" => "value" }
         policy = create(:supply_chain_license_policy,
                        account: account,
@@ -388,7 +388,7 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
 
     describe "#allowed_license?" do
       context "when license is in denied list" do
-        before { policy.update!(denied_licenses: ["GPL-3.0-only"]) }
+        before { policy.update!(denied_licenses: [ "GPL-3.0-only" ]) }
 
         it "returns false" do
           expect(policy.allowed_license?("GPL-3.0-only")).to be false
@@ -404,7 +404,7 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
       end
 
       context "when allowed_licenses is populated" do
-        before { policy.update!(allowed_licenses: ["MIT", "Apache-2.0"]) }
+        before { policy.update!(allowed_licenses: [ "MIT", "Apache-2.0" ]) }
 
         it "returns true for licenses in allowlist" do
           expect(policy.allowed_license?("MIT")).to be true
@@ -418,7 +418,7 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
     end
 
     describe "#denied_license?" do
-      before { policy.update!(denied_licenses: ["GPL-3.0-only", "AGPL-3.0-only"]) }
+      before { policy.update!(denied_licenses: [ "GPL-3.0-only", "AGPL-3.0-only" ]) }
 
       it "returns true for licenses in denylist" do
         expect(policy.denied_license?("GPL-3.0-only")).to be true
@@ -437,14 +437,14 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
       end
 
       it "prevents duplicates" do
-        policy.update!(allowed_licenses: ["MIT"])
+        policy.update!(allowed_licenses: [ "MIT" ])
         policy.add_allowed_license("MIT")
         expect(policy.reload.allowed_licenses.count("MIT")).to eq(1)
       end
     end
 
     describe "#remove_allowed_license" do
-      before { policy.update!(allowed_licenses: ["MIT", "Apache-2.0"]) }
+      before { policy.update!(allowed_licenses: [ "MIT", "Apache-2.0" ]) }
 
       it "removes a license from the allowed list" do
         policy.remove_allowed_license("MIT")
@@ -460,14 +460,14 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
       end
 
       it "prevents duplicates" do
-        policy.update!(denied_licenses: ["GPL-3.0-only"])
+        policy.update!(denied_licenses: [ "GPL-3.0-only" ])
         policy.add_denied_license("GPL-3.0-only")
         expect(policy.reload.denied_licenses.count("GPL-3.0-only")).to eq(1)
       end
     end
 
     describe "#remove_denied_license" do
-      before { policy.update!(denied_licenses: ["GPL-3.0-only", "AGPL-3.0-only"]) }
+      before { policy.update!(denied_licenses: [ "GPL-3.0-only", "AGPL-3.0-only" ]) }
 
       it "removes a license from the denied list" do
         policy.remove_denied_license("GPL-3.0-only")
@@ -606,7 +606,7 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
       before do
         policy.update!(
           policy_type: "denylist",
-          denied_licenses: ["GPL-3.0-only"],
+          denied_licenses: [ "GPL-3.0-only" ],
           exception_packages: [
             { "package" => "test-pkg", "license" => "GPL-3.0-only", "reason" => "Required" }
           ]
@@ -626,7 +626,7 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
       before do
         policy.update!(
           policy_type: "allowlist",
-          allowed_licenses: ["MIT", "Apache-2.0"]
+          allowed_licenses: [ "MIT", "Apache-2.0" ]
         )
       end
 
@@ -661,7 +661,7 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
       before do
         policy.update!(
           policy_type: "denylist",
-          denied_licenses: ["GPL-3.0-only", "AGPL-3.0-only"]
+          denied_licenses: [ "GPL-3.0-only", "AGPL-3.0-only" ]
         )
       end
 
@@ -691,8 +691,8 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
       before do
         policy.update!(
           policy_type: "hybrid",
-          allowed_licenses: ["MIT", "Apache-2.0"],
-          denied_licenses: ["GPL-3.0-only"]
+          allowed_licenses: [ "MIT", "Apache-2.0" ],
+          denied_licenses: [ "GPL-3.0-only" ]
         )
       end
 
@@ -824,9 +824,9 @@ RSpec.describe SupplyChain::LicensePolicy, type: :model do
              is_active: true,
              is_default: false,
              priority: 5,
-             allowed_licenses: ["MIT", "Apache-2.0"],
-             denied_licenses: ["GPL-3.0-only"],
-             exception_packages: [{ "package" => "test", "license" => "MIT", "reason" => "test" }],
+             allowed_licenses: [ "MIT", "Apache-2.0" ],
+             denied_licenses: [ "GPL-3.0-only" ],
+             exception_packages: [ { "package" => "test", "license" => "MIT", "reason" => "test" } ],
              block_copyleft: true,
              block_strong_copyleft: false,
              block_unknown: true)

@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Credits', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.credits.read', 'ai.credits.manage']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.credits.read', 'ai.credits.manage' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(user) }
 
@@ -155,7 +155,7 @@ RSpec.describe 'Api::V1::Ai::Credits', type: :request do
     context 'when purchase fails' do
       before do
         allow(credit_service).to receive(:initiate_purchase).and_return(nil)
-        allow(credit_service).to receive(:errors).and_return(['Insufficient funds'])
+        allow(credit_service).to receive(:errors).and_return([ 'Insufficient funds' ])
       end
 
       it 'returns error response' do
@@ -471,7 +471,7 @@ RSpec.describe 'Api::V1::Ai::Credits', type: :request do
     context 'when reseller is not enabled' do
       before do
         allow(credit_service).to receive(:get_reseller_stats).and_return(nil)
-        allow(credit_service).to receive(:errors).and_return(['Reseller not enabled'])
+        allow(credit_service).to receive(:errors).and_return([ 'Reseller not enabled' ])
       end
 
       it 'returns error response' do

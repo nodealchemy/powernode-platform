@@ -219,7 +219,7 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
           const errorMsg = response.error || 'Failed to load live metrics';
           setError(errorMsg);
         }
-      } catch (err) {
+      } catch {
         // Provide more specific error messages for API failures
         let userError = 'Failed to load live metrics';
         if (err instanceof Error) {
@@ -249,7 +249,7 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
       // If no permission, set loading to false immediately
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [accountId, canViewAnalytics]); // Add permission dependency
 
   // Connection status indicator

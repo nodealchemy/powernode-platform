@@ -114,7 +114,7 @@ RSpec.describe SupplyChain::VendorMonitoringEvent, type: :model do
       end
 
       it "preserves existing recommended_actions" do
-        actions = [{ id: SecureRandom.uuid, action: "Test", status: "pending" }]
+        actions = [ { id: SecureRandom.uuid, action: "Test", status: "pending" } ]
         event = create(:supply_chain_vendor_monitoring_event, recommended_actions: actions)
         # JSONB stores as strings, not symbols
         expect(event.recommended_actions.first["action"]).to eq("Test")
@@ -122,7 +122,7 @@ RSpec.describe SupplyChain::VendorMonitoringEvent, type: :model do
       end
 
       it "preserves existing affected_services" do
-        services = ["Service A", "Service B"]
+        services = [ "Service A", "Service B" ]
         event = create(:supply_chain_vendor_monitoring_event, affected_services: services)
         expect(event.affected_services).to eq(services)
       end
@@ -739,9 +739,9 @@ RSpec.describe SupplyChain::VendorMonitoringEvent, type: :model do
     end
 
     it "includes affected services" do
-      event.update!(affected_services: ["Service A", "Service B"])
+      event.update!(affected_services: [ "Service A", "Service B" ])
       detailed = event.detailed_event
-      expect(detailed[:affected_services]).to eq(["Service A", "Service B"])
+      expect(detailed[:affected_services]).to eq([ "Service A", "Service B" ])
     end
 
     it "includes acknowledged_by email" do
@@ -1017,7 +1017,7 @@ RSpec.describe SupplyChain::VendorMonitoringEvent, type: :model do
       end
 
       it "includes recommended actions when provided" do
-        actions = [{ action: "Review incident", priority: "high" }]
+        actions = [ { action: "Review incident", priority: "high" } ]
         event = described_class.create_security_incident(
           vendor: vendor,
           account: account,

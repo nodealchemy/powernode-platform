@@ -41,7 +41,7 @@ FactoryBot.define do
 
     trait :with_domain_whitelist do
       allow_network_access { true }
-      allowed_egress_domains { ['api.openai.com', 'api.anthropic.com', '*.github.com'] }
+      allowed_egress_domains { [ 'api.openai.com', 'api.anthropic.com', '*.github.com' ] }
     end
 
     trait :near_limit do

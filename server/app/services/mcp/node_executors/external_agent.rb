@@ -34,9 +34,9 @@ module Mcp
 
         external_agent = if agent_id.present?
                            ExternalAgent.find_by(id: agent_id, account_id: account.id)
-                         elsif agent_url.present?
+        elsif agent_url.present?
                            find_or_create_agent_by_url(agent_url)
-                         end
+        end
 
         unless external_agent
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
@@ -224,13 +224,13 @@ module Mcp
 
         # Handle nested paths like "previous.output.data"
         result = case parts.first
-                 when "previous"
+        when "previous"
                    previous_results&.dig(*parts[1..].map(&:to_s))
-                 when "input"
+        when "input"
                    input_data&.dig(*parts[1..].map(&:to_s))
-                 else
+        else
                    get_variable(parts.first)&.dig(*parts[1..].map(&:to_s))
-                 end
+        end
 
         result
       end

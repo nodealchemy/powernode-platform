@@ -118,11 +118,11 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
         before do
           allow(policy).to receive(:evaluate_component).with(component1).and_return({
                                                                                        compliant: false,
-                                                                                       violations: [{ type: "denied", message: "License denied by policy" }]
+                                                                                       violations: [ { type: "denied", message: "License denied by policy" } ]
                                                                                      })
           allow(policy).to receive(:evaluate_component).with(component2).and_return({
                                                                                        compliant: false,
-                                                                                       violations: [{ type: "copyleft", message: "Copyleft license not allowed" }]
+                                                                                       violations: [ { type: "copyleft", message: "Copyleft license not allowed" } ]
                                                                                      })
         end
 
@@ -182,7 +182,7 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
         before do
           allow(policy).to receive(:evaluate_component).and_return({
                                                                       compliant: false,
-                                                                      violations: [{ type: "unknown", message: "Unknown license" }]
+                                                                      violations: [ { type: "unknown", message: "Unknown license" } ]
                                                                     })
         end
 
@@ -291,7 +291,7 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
       before do
         allow(custom_policy).to receive(:evaluate_component).and_return({
                                                                            compliant: false,
-                                                                           violations: [{ type: "denied", message: "Denied" }]
+                                                                           violations: [ { type: "denied", message: "Denied" } ]
                                                                          })
       end
 
@@ -671,7 +671,7 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
                            dependency_type: "transitive")
         allow(policy).to receive(:evaluate_component).and_return({
                                                                     compliant: false,
-                                                                    violations: [{ type: "denied", message: "Denied" }]
+                                                                    violations: [ { type: "denied", message: "Denied" } ]
                                                                   })
 
         service.evaluate!
@@ -686,7 +686,7 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
                            dependency_type: "transitive")
         allow(policy).to receive(:evaluate_component).and_return({
                                                                     compliant: false,
-                                                                    violations: [{ type: "copyleft", message: "Copyleft" }]
+                                                                    violations: [ { type: "copyleft", message: "Copyleft" } ]
                                                                   })
 
         service.evaluate!
@@ -701,7 +701,7 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
                            dependency_type: "transitive")
         allow(policy).to receive(:evaluate_component).and_return({
                                                                     compliant: false,
-                                                                    violations: [{ type: "incompatible", message: "Incompatible" }]
+                                                                    violations: [ { type: "incompatible", message: "Incompatible" } ]
                                                                   })
 
         service.evaluate!
@@ -716,7 +716,7 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
                            dependency_type: "transitive")
         allow(policy).to receive(:evaluate_component).and_return({
                                                                     compliant: false,
-                                                                    violations: [{ type: "unknown", message: "Unknown" }]
+                                                                    violations: [ { type: "unknown", message: "Unknown" } ]
                                                                   })
 
         service.evaluate!
@@ -733,7 +733,7 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
                            dependency_type: "direct")
         allow(policy).to receive(:evaluate_component).and_return({
                                                                     compliant: false,
-                                                                    violations: [{ type: "denied", message: "Denied" }]
+                                                                    violations: [ { type: "denied", message: "Denied" } ]
                                                                   })
 
         service.evaluate!
@@ -748,7 +748,7 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
                            dependency_type: "direct")
         allow(policy).to receive(:evaluate_component).and_return({
                                                                     compliant: false,
-                                                                    violations: [{ type: "incompatible", message: "Incompatible" }]
+                                                                    violations: [ { type: "incompatible", message: "Incompatible" } ]
                                                                   })
 
         service.evaluate!
@@ -763,7 +763,7 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
                            dependency_type: "transitive")
         allow(policy).to receive(:evaluate_component).and_return({
                                                                     compliant: false,
-                                                                    violations: [{ type: "denied", message: "Denied" }]
+                                                                    violations: [ { type: "denied", message: "Denied" } ]
                                                                   })
 
         service.evaluate!
@@ -778,7 +778,7 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
                            dependency_type: "dev")
         allow(policy).to receive(:evaluate_component).and_return({
                                                                     compliant: false,
-                                                                    violations: [{ type: "copyleft", message: "Copyleft" }]
+                                                                    violations: [ { type: "copyleft", message: "Copyleft" } ]
                                                                   })
 
         service.evaluate!
@@ -881,7 +881,7 @@ RSpec.describe SupplyChain::LicenseComplianceService, type: :service do
       allow(SupplyChain::LicensePolicy).to receive(:default_for_account).with(account).and_return(policy)
       allow(policy).to receive(:evaluate_component).and_return({
                                                                   compliant: false,
-                                                                  violations: [{ type: "denied", message: "Denied" }]
+                                                                  violations: [ { type: "denied", message: "Denied" } ]
                                                                 })
     end
 

@@ -39,9 +39,9 @@ class CreateDevopsAiConfigs < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :devops_ai_configs, [:account_id, :name], unique: true
-    add_index :devops_ai_configs, [:account_id, :config_type]
-    add_index :devops_ai_configs, [:account_id, :is_default], where: "(is_default = true)"
+    add_index :devops_ai_configs, [ :account_id, :name ], unique: true
+    add_index :devops_ai_configs, [ :account_id, :config_type ]
+    add_index :devops_ai_configs, [ :account_id, :is_default ], where: "(is_default = true)"
     add_index :devops_ai_configs, :status
     add_index :devops_ai_configs, :provider
 

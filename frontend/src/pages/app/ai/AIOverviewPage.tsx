@@ -11,7 +11,7 @@ export const AIOverviewPage: React.FC = () => {
   const [isLiveUpdates, setIsLiveUpdates] = useState(false);
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       // Trigger data refresh if needed

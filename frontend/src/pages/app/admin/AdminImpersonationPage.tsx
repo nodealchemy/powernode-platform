@@ -23,7 +23,7 @@ export const AdminImpersonationPage: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'admin',
     onDataUpdate: () => {
       // Trigger data refresh if needed

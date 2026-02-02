@@ -28,7 +28,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
   # User with plans.manage permission
   let(:plan_manager_user) do
     user = create(:user, account: account)
-    user.permissions = [plans_manage_permission]
+    user.permissions = [ plans_manage_permission ]
     user.save!
     user
   end
@@ -36,7 +36,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
   # User with admin.billing.read permission
   let(:billing_viewer_user) do
     user = create(:user, account: account)
-    user.permissions = [admin_billing_view_permission]
+    user.permissions = [ admin_billing_view_permission ]
     user.save!
     user
   end

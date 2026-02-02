@@ -49,7 +49,7 @@ module Ai
     scope :searchable, -> { where.not(content_text: nil) }
     scope :successful_outcomes, -> { where(outcome_success: true) }
     scope :failed_outcomes, -> { where(outcome_success: false) }
-    scope :with_tag, ->(tag) { where("context_tags @> ?", [tag].to_json) }
+    scope :with_tag, ->(tag) { where("context_tags @> ?", [ tag ].to_json) }
     scope :with_embedding, -> { where.not(embedding: nil) }
 
     # ==================== Callbacks ====================
@@ -223,17 +223,17 @@ module Ai
     end
 
     def boost_importance!(amount = 0.1)
-      new_score = [importance_score + amount, 1.0].min
+      new_score = [ importance_score + amount, 1.0 ].min
       update!(importance_score: new_score)
     end
 
     def reduce_importance!(amount = 0.1)
-      new_score = [importance_score - amount, 0.0].max
+      new_score = [ importance_score - amount, 0.0 ].max
       update!(importance_score: new_score)
     end
 
     def version_history
-      versions = [self]
+      versions = [ self ]
       current = self
 
       while current.previous_version.present?
@@ -283,7 +283,7 @@ module Ai
       return if days_since_update < 1
 
       decay = relevance_decay_rate * days_since_update
-      self.importance_score = [importance_score - decay, 0.0].max
+      self.importance_score = [ importance_score - decay, 0.0 ].max
       self.last_relevance_update = Time.current
     end
 

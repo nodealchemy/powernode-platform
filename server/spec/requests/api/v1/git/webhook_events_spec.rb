@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Git::WebhookEvents', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['git.webhooks.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'git.webhooks.read' ]) }
   let(:no_permission_user) { create(:user, account: account, permissions: []) }
   let(:other_account) { create(:account) }
   let(:other_user) { create(:user, account: other_account) }

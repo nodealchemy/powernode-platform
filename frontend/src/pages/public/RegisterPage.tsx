@@ -78,7 +78,7 @@ export const RegisterPage: React.FC = () => {
           navigate('/plans');
         }
       }
-    } catch (error: unknown) {
+    } catch {
       // Redirect back to plan selection if plan loading fails
       navigate('/plans');
     }
@@ -115,7 +115,8 @@ export const RegisterPage: React.FC = () => {
     setFormData(updatedFormData);
     
     // Preserve form data in sessionStorage (except password)
-    const { password: _, ...dataToPreserve } = updatedFormData;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _password, ...dataToPreserve } = updatedFormData;
     sessionStorage.setItem('registrationFormData', JSON.stringify(dataToPreserve));
     
     if (error) {
@@ -159,7 +160,7 @@ export const RegisterPage: React.FC = () => {
         message: 'Registration successful! Welcome to Powernode.',
       }));
       navigate('/dashboard', { replace: true });
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = getErrorMessage(error);
       dispatch(addNotification({
         type: 'error',

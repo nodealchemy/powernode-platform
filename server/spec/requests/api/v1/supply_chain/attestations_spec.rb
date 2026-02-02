@@ -8,12 +8,12 @@ RSpec.describe "Api::V1::SupplyChain::Attestations", type: :request do
 
   # User with supply_chain.read permission only
   let(:read_only_user) do
-    create(:user, account: account, permissions: ["supply_chain.read"])
+    create(:user, account: account, permissions: [ "supply_chain.read" ])
   end
 
   # User with both read and write permissions
   let(:read_write_user) do
-    create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"])
+    create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ])
   end
 
   # User without supply chain permissions
@@ -250,7 +250,7 @@ RSpec.describe "Api::V1::SupplyChain::Attestations", type: :request do
           subject_name: "app:test-application",
           subject_digest: "sha256:#{SecureRandom.hex(32)}",
           builder_id: "https://github.com/actions/runner",
-          materials: [{ uri: "git+https://github.com/example/repo" }],
+          materials: [ { uri: "git+https://github.com/example/repo" } ],
           source_repository: "https://github.com/example/repo",
           source_commit: SecureRandom.hex(20),
           source_branch: "main"

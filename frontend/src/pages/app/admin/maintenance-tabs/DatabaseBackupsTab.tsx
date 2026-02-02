@@ -16,7 +16,7 @@ export const DatabaseBackupsTab: React.FC<DatabaseBackupsTabProps> = ({
       await maintenanceApi.createBackup();
       showNotification('Backup created successfully', 'success');
       onRefresh();
-    } catch (_error: unknown) {
+    } catch {
       showNotification('Failed to create backup', 'error');
     }
   };

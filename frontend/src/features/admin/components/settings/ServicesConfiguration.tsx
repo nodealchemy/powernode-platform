@@ -68,7 +68,7 @@ export const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ cl
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const refreshHealthStatus = useCallback(async () => {
@@ -78,7 +78,7 @@ export const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ cl
     } catch {
       showNotification('Failed to refresh health status', 'error');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   useEffect(() => {
@@ -96,7 +96,7 @@ export const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ cl
       await servicesApi.updateConfiguration('service_discovery_config', newConfig);
       setServiceDiscoveryConfig(newConfig);
       showNotification('Service discovery configuration updated successfully', 'success');
-    } catch (error) {
+    } catch {
       showNotification('Failed to update service discovery configuration', 'error');
       throw error;
     }
@@ -184,8 +184,8 @@ export const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ cl
 
       setShowURLMappingModal(false);
       setEditingMapping(null);
-    } catch (error) {
-      throw error; // Re-throw to let modal handle the error
+    } catch {
+      // Error propagated to modal
     }
   };
 

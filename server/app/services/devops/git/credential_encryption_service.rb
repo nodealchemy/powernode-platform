@@ -74,7 +74,7 @@ module Devops
       end
     end
   end
-end
+  end
 
 # Backwards compatibility alias
 GitCredentialEncryptionService = Devops::Git::CredentialEncryptionService unless defined?(GitCredentialEncryptionService)

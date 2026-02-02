@@ -31,7 +31,7 @@ class CreateAiA2aTaskEvents < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_a2a_task_events, [:ai_a2a_task_id, :created_at], name: "idx_a2a_events_task_time"
+    add_index :ai_a2a_task_events, [ :ai_a2a_task_id, :created_at ], name: "idx_a2a_events_task_time"
     add_index :ai_a2a_task_events, :event_type
     add_index :ai_a2a_task_events, :event_id
 

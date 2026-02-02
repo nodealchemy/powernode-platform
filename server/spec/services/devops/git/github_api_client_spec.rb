@@ -464,7 +464,7 @@ RSpec.describe Devops::Git::GithubApiClient do
           .to_return(
             status: 200,
             body: {
-              required_status_checks: { strict: true, contexts: ['ci/build'] },
+              required_status_checks: { strict: true, contexts: [ 'ci/build' ] },
               enforce_admins: { enabled: true },
               required_pull_request_reviews: { required_approving_review_count: 2 },
               restrictions: nil
@@ -505,14 +505,14 @@ RSpec.describe Devops::Git::GithubApiClient do
       stub_request(:put, 'https://api.github.com/repos/owner/repo/branches/main/protection')
         .with(
           body: hash_including(
-            required_status_checks: { strict: true, contexts: ['ci/build'] },
+            required_status_checks: { strict: true, contexts: [ 'ci/build' ] },
             enforce_admins: true
           )
         )
         .to_return(
           status: 200,
           body: {
-            required_status_checks: { strict: true, contexts: ['ci/build'] },
+            required_status_checks: { strict: true, contexts: [ 'ci/build' ] },
             enforce_admins: { enabled: true }
           }.to_json,
           headers: { 'Content-Type' => 'application/json' }
@@ -521,7 +521,7 @@ RSpec.describe Devops::Git::GithubApiClient do
 
     it 'updates branch protection and returns success' do
       result = client.update_branch_protection('owner', 'repo', 'main',
-                                               required_status_checks: { strict: true, contexts: ['ci/build'] },
+                                               required_status_checks: { strict: true, contexts: [ 'ci/build' ] },
                                                enforce_admins: true)
 
       expect(result[:success]).to be true

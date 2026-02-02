@@ -36,7 +36,7 @@ FactoryBot.define do
       result_message { "Signature verification completed" }
       verification_details do
         {
-          checks: [{ name: "signature", passed: true }],
+          checks: [ { name: "signature", passed: true } ],
           algorithm: "ECDSA-P256",
           key_id: "key-#{SecureRandom.hex(8)}"
         }
@@ -48,7 +48,7 @@ FactoryBot.define do
       result_message { "Rekor transparency log verification completed" }
       verification_details do
         {
-          checks: [{ name: "rekor_log", passed: true }],
+          checks: [ { name: "rekor_log", passed: true } ],
           log_id: SecureRandom.hex(32),
           log_index: rand(1000000..9999999)
         }
@@ -60,7 +60,7 @@ FactoryBot.define do
       result_message { "Predicate structure validation completed" }
       verification_details do
         {
-          checks: [{ name: "predicate", passed: true }],
+          checks: [ { name: "predicate", passed: true } ],
           predicate_type: "https://slsa.dev/provenance/v1"
         }
       end
@@ -71,7 +71,7 @@ FactoryBot.define do
       result_message { "Verification chain integrity confirmed" }
       verification_details do
         {
-          checks: [{ name: "chain_integrity", passed: true }],
+          checks: [ { name: "chain_integrity", passed: true } ],
           chain_length: rand(1..10)
         }
       end
@@ -83,7 +83,7 @@ FactoryBot.define do
     trait :passed do
       result { "passed" }
       result_message { "Verification passed successfully" }
-      verification_details { { checks: [{ name: "signature", passed: true }], all_passed: true, errors: [] } }
+      verification_details { { checks: [ { name: "signature", passed: true } ], all_passed: true, errors: [] } }
     end
 
     trait :failed do
@@ -91,9 +91,9 @@ FactoryBot.define do
       result_message { "Verification failed: Invalid signature" }
       verification_details do
         {
-          checks: [{ name: "signature", passed: false }],
+          checks: [ { name: "signature", passed: false } ],
           all_passed: false,
-          errors: ["Signature verification failed", "Key mismatch detected"]
+          errors: [ "Signature verification failed", "Key mismatch detected" ]
         }
       end
     end
@@ -101,7 +101,7 @@ FactoryBot.define do
     trait :skipped do
       result { "skipped" }
       result_message { "Verification skipped - no signature present" }
-      verification_details { { checks: [{ name: "signature", passed: false, skipped: true }], reason: "No signature to verify" } }
+      verification_details { { checks: [ { name: "signature", passed: false, skipped: true } ], reason: "No signature to verify" } }
     end
 
     # ============================================
@@ -124,9 +124,9 @@ FactoryBot.define do
       result_message { "Signature verification failed" }
       verification_details do
         {
-          checks: [{ name: "signature", passed: false }],
+          checks: [ { name: "signature", passed: false } ],
           all_passed: false,
-          errors: ["Invalid signature: key mismatch"]
+          errors: [ "Invalid signature: key mismatch" ]
         }
       end
     end
@@ -137,9 +137,9 @@ FactoryBot.define do
       result_message { "Rekor log verification failed" }
       verification_details do
         {
-          checks: [{ name: "rekor_log", passed: false }],
+          checks: [ { name: "rekor_log", passed: false } ],
           all_passed: false,
-          errors: ["Entry not found in transparency log"]
+          errors: [ "Entry not found in transparency log" ]
         }
       end
     end
@@ -150,9 +150,9 @@ FactoryBot.define do
       result_message { "Predicate validation failed" }
       verification_details do
         {
-          checks: [{ name: "predicate", passed: false }],
+          checks: [ { name: "predicate", passed: false } ],
           all_passed: false,
-          errors: ["Invalid predicate structure: missing required fields"]
+          errors: [ "Invalid predicate structure: missing required fields" ]
         }
       end
     end
@@ -163,9 +163,9 @@ FactoryBot.define do
       result_message { "Verification chain integrity check failed" }
       verification_details do
         {
-          checks: [{ name: "chain_integrity", passed: false }],
+          checks: [ { name: "chain_integrity", passed: false } ],
           all_passed: false,
-          errors: ["Hash chain broken: previous hash mismatch"]
+          errors: [ "Hash chain broken: previous hash mismatch" ]
         }
       end
     end
@@ -210,7 +210,7 @@ FactoryBot.define do
             { name: "rekor_log", passed: false }
           ],
           all_passed: false,
-          errors: ["Rekor log entry not found"]
+          errors: [ "Rekor log entry not found" ]
         }
       end
     end

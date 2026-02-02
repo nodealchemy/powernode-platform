@@ -35,11 +35,11 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :sbom_id], unique: true, name: "idx_sboms_account_sbom_id"
-      t.index [:repository_id, :commit_sha], name: "idx_sboms_repo_commit"
-      t.index [:account_id, :status], name: "idx_sboms_account_status"
-      t.index [:created_at], name: "idx_sboms_created_at"
-      t.index [:metadata], using: :gin, name: "idx_sboms_metadata"
+      t.index [ :account_id, :sbom_id ], unique: true, name: "idx_sboms_account_sbom_id"
+      t.index [ :repository_id, :commit_sha ], name: "idx_sboms_repo_commit"
+      t.index [ :account_id, :status ], name: "idx_sboms_account_status"
+      t.index [ :created_at ], name: "idx_sboms_created_at"
+      t.index [ :metadata ], using: :gin, name: "idx_sboms_metadata"
     end
 
     # SBOM Components (individual dependencies)
@@ -71,11 +71,11 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:sbom_id, :purl], unique: true, name: "idx_sbom_components_sbom_purl"
-      t.index [:account_id, :ecosystem], name: "idx_sbom_components_account_ecosystem"
-      t.index [:purl], name: "idx_sbom_components_purl"
-      t.index [:has_known_vulnerabilities], name: "idx_sbom_components_has_vulns"
-      t.index [:metadata], using: :gin, name: "idx_sbom_components_metadata"
+      t.index [ :sbom_id, :purl ], unique: true, name: "idx_sbom_components_sbom_purl"
+      t.index [ :account_id, :ecosystem ], name: "idx_sbom_components_account_ecosystem"
+      t.index [ :purl ], name: "idx_sbom_components_purl"
+      t.index [ :has_known_vulnerabilities ], name: "idx_sbom_components_has_vulns"
+      t.index [ :metadata ], using: :gin, name: "idx_sbom_components_metadata"
     end
 
     # SBOM Vulnerabilities (CVE findings)
@@ -109,11 +109,11 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:sbom_id, :vulnerability_id, :component_id], unique: true, name: "idx_sbom_vulns_unique"
-      t.index [:account_id, :severity], name: "idx_sbom_vulns_account_severity"
-      t.index [:vulnerability_id], name: "idx_sbom_vulns_vuln_id"
-      t.index [:remediation_status], name: "idx_sbom_vulns_status"
-      t.index [:context_factors], using: :gin, name: "idx_sbom_vulns_context"
+      t.index [ :sbom_id, :vulnerability_id, :component_id ], unique: true, name: "idx_sbom_vulns_unique"
+      t.index [ :account_id, :severity ], name: "idx_sbom_vulns_account_severity"
+      t.index [ :vulnerability_id ], name: "idx_sbom_vulns_vuln_id"
+      t.index [ :remediation_status ], name: "idx_sbom_vulns_status"
+      t.index [ :context_factors ], using: :gin, name: "idx_sbom_vulns_context"
     end
 
     # SBOM Diffs (drift detection)
@@ -137,8 +137,8 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:base_sbom_id, :target_sbom_id], unique: true, name: "idx_sbom_diffs_base_target"
-      t.index [:account_id, :created_at], name: "idx_sbom_diffs_account_created"
+      t.index [ :base_sbom_id, :target_sbom_id ], unique: true, name: "idx_sbom_diffs_base_target"
+      t.index [ :account_id, :created_at ], name: "idx_sbom_diffs_account_created"
     end
 
     # ============================================
@@ -165,8 +165,8 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :source], unique: true, name: "idx_vuln_feeds_account_source"
-      t.index [:sync_status], name: "idx_vuln_feeds_sync_status"
+      t.index [ :account_id, :source ], unique: true, name: "idx_vuln_feeds_account_source"
+      t.index [ :sync_status ], name: "idx_vuln_feeds_sync_status"
     end
 
     # Remediation Plans
@@ -196,8 +196,8 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :status], name: "idx_remediation_plans_account_status"
-      t.index [:sbom_id], name: "idx_remediation_plans_sbom"
+      t.index [ :account_id, :status ], name: "idx_remediation_plans_account_status"
+      t.index [ :sbom_id ], name: "idx_remediation_plans_sbom"
     end
 
     # ============================================
@@ -231,9 +231,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :key_id], unique: true, name: "idx_signing_keys_account_key_id"
-      t.index [:fingerprint], unique: true, name: "idx_signing_keys_fingerprint"
-      t.index [:status], name: "idx_signing_keys_status"
+      t.index [ :account_id, :key_id ], unique: true, name: "idx_signing_keys_account_key_id"
+      t.index [ :fingerprint ], unique: true, name: "idx_signing_keys_fingerprint"
+      t.index [ :status ], name: "idx_signing_keys_status"
     end
 
     # Attestations (SLSA provenance records)
@@ -271,10 +271,10 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :attestation_id], unique: true, name: "idx_attestations_account_id"
-      t.index [:subject_digest], name: "idx_attestations_subject_digest"
-      t.index [:verification_status], name: "idx_attestations_verification"
-      t.index [:predicate], using: :gin, name: "idx_attestations_predicate"
+      t.index [ :account_id, :attestation_id ], unique: true, name: "idx_attestations_account_id"
+      t.index [ :subject_digest ], name: "idx_attestations_subject_digest"
+      t.index [ :verification_status ], name: "idx_attestations_verification"
+      t.index [ :predicate ], using: :gin, name: "idx_attestations_predicate"
     end
 
     # Build Provenance (detailed build metadata)
@@ -306,9 +306,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:attestation_id], unique: true, name: "idx_build_provenance_attestation"
-      t.index [:builder_id], name: "idx_build_provenance_builder"
-      t.index [:materials], using: :gin, name: "idx_build_provenance_materials"
+      t.index [ :attestation_id ], unique: true, name: "idx_build_provenance_attestation"
+      t.index [ :builder_id ], name: "idx_build_provenance_builder"
+      t.index [ :materials ], using: :gin, name: "idx_build_provenance_materials"
     end
 
     # Verification Logs (tamper-evident audit chain)
@@ -329,9 +329,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:attestation_id, :created_at], name: "idx_verification_logs_attestation_time"
-      t.index [:log_hash], unique: true, name: "idx_verification_logs_hash"
-      t.index [:previous_log_hash], name: "idx_verification_logs_prev_hash"
+      t.index [ :attestation_id, :created_at ], name: "idx_verification_logs_attestation_time"
+      t.index [ :log_hash ], unique: true, name: "idx_verification_logs_hash"
+      t.index [ :previous_log_hash ], name: "idx_verification_logs_prev_hash"
     end
 
     # ============================================
@@ -373,11 +373,11 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :digest], unique: true, name: "idx_container_images_account_digest"
-      t.index [:registry, :repository, :tag], name: "idx_container_images_registry_repo_tag"
-      t.index [:status], name: "idx_container_images_status"
-      t.index [:is_deployed], name: "idx_container_images_deployed"
-      t.index [:labels], using: :gin, name: "idx_container_images_labels"
+      t.index [ :account_id, :digest ], unique: true, name: "idx_container_images_account_digest"
+      t.index [ :registry, :repository, :tag ], name: "idx_container_images_registry_repo_tag"
+      t.index [ :status ], name: "idx_container_images_status"
+      t.index [ :is_deployed ], name: "idx_container_images_deployed"
+      t.index [ :labels ], using: :gin, name: "idx_container_images_labels"
     end
 
     # Image Policies (allowlist/enforcement)
@@ -405,9 +405,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :name], unique: true, name: "idx_image_policies_account_name"
-      t.index [:policy_type], name: "idx_image_policies_type"
-      t.index [:is_active], name: "idx_image_policies_active"
+      t.index [ :account_id, :name ], unique: true, name: "idx_image_policies_account_name"
+      t.index [ :policy_type ], name: "idx_image_policies_type"
+      t.index [ :is_active ], name: "idx_image_policies_active"
     end
 
     # Vulnerability Scans (image scan results)
@@ -439,9 +439,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:container_image_id, :created_at], name: "idx_vuln_scans_image_created"
-      t.index [:account_id, :status], name: "idx_vuln_scans_account_status"
-      t.index [:vulnerabilities], using: :gin, name: "idx_vuln_scans_vulns"
+      t.index [ :container_image_id, :created_at ], name: "idx_vuln_scans_image_created"
+      t.index [ :account_id, :status ], name: "idx_vuln_scans_account_status"
+      t.index [ :vulnerabilities ], using: :gin, name: "idx_vuln_scans_vulns"
     end
 
     # CVE Monitors (continuous monitoring)
@@ -467,10 +467,10 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :name], unique: true, name: "idx_cve_monitors_account_name"
-      t.index [:scope_type, :scope_id], name: "idx_cve_monitors_scope"
-      t.index [:is_active], name: "idx_cve_monitors_active"
-      t.index [:next_run_at], name: "idx_cve_monitors_next_run"
+      t.index [ :account_id, :name ], unique: true, name: "idx_cve_monitors_account_name"
+      t.index [ :scope_type, :scope_id ], name: "idx_cve_monitors_scope"
+      t.index [ :is_active ], name: "idx_cve_monitors_active"
+      t.index [ :next_run_at ], name: "idx_cve_monitors_next_run"
     end
 
     # ============================================
@@ -499,9 +499,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:spdx_id], unique: true, name: "idx_licenses_spdx_id"
-      t.index [:category], name: "idx_licenses_category"
-      t.index [:is_copyleft], name: "idx_licenses_copyleft"
+      t.index [ :spdx_id ], unique: true, name: "idx_licenses_spdx_id"
+      t.index [ :category ], name: "idx_licenses_category"
+      t.index [ :is_copyleft ], name: "idx_licenses_copyleft"
     end
 
     # License Policies
@@ -530,9 +530,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :name], unique: true, name: "idx_license_policies_account_name"
-      t.index [:is_active], name: "idx_license_policies_active"
-      t.index [:is_default], where: "is_default = true", name: "idx_license_policies_default"
+      t.index [ :account_id, :name ], unique: true, name: "idx_license_policies_account_name"
+      t.index [ :is_active ], name: "idx_license_policies_active"
+      t.index [ :is_default ], where: "is_default = true", name: "idx_license_policies_default"
     end
 
     # License Detections
@@ -557,9 +557,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:sbom_component_id], name: "idx_license_detections_component"
-      t.index [:license_id], name: "idx_license_detections_license"
-      t.index [:detection_source], name: "idx_license_detections_source"
+      t.index [ :sbom_component_id ], name: "idx_license_detections_component"
+      t.index [ :license_id ], name: "idx_license_detections_license"
+      t.index [ :detection_source ], name: "idx_license_detections_source"
     end
 
     # License Violations
@@ -588,9 +588,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :status], name: "idx_license_violations_account_status"
-      t.index [:sbom_id], name: "idx_license_violations_sbom"
-      t.index [:violation_type], name: "idx_license_violations_type"
+      t.index [ :account_id, :status ], name: "idx_license_violations_account_status"
+      t.index [ :sbom_id ], name: "idx_license_violations_sbom"
+      t.index [ :violation_type ], name: "idx_license_violations_type"
     end
 
     # Attributions (NOTICE file entries)
@@ -616,8 +616,8 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:sbom_component_id], unique: true, name: "idx_attributions_component"
-      t.index [:account_id], name: "idx_attributions_account"
+      t.index [ :sbom_component_id ], unique: true, name: "idx_attributions_component"
+      t.index [ :account_id ], name: "idx_attributions_account"
     end
 
     # ============================================
@@ -658,10 +658,10 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :slug], unique: true, name: "idx_vendors_account_slug"
-      t.index [:risk_tier], name: "idx_vendors_risk_tier"
-      t.index [:status], name: "idx_vendors_status"
-      t.index [:certifications], using: :gin, name: "idx_vendors_certifications"
+      t.index [ :account_id, :slug ], unique: true, name: "idx_vendors_account_slug"
+      t.index [ :risk_tier ], name: "idx_vendors_risk_tier"
+      t.index [ :status ], name: "idx_vendors_status"
+      t.index [ :certifications ], using: :gin, name: "idx_vendors_certifications"
     end
 
     # Risk Assessments
@@ -691,9 +691,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:vendor_id, :created_at], name: "idx_risk_assessments_vendor_created"
-      t.index [:account_id, :status], name: "idx_risk_assessments_account_status"
-      t.index [:assessment_type], name: "idx_risk_assessments_type"
+      t.index [ :vendor_id, :created_at ], name: "idx_risk_assessments_vendor_created"
+      t.index [ :account_id, :status ], name: "idx_risk_assessments_account_status"
+      t.index [ :assessment_type ], name: "idx_risk_assessments_type"
     end
 
     # Questionnaire Templates (SOC 2, ISO 27001)
@@ -716,9 +716,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :name], unique: true, where: "account_id IS NOT NULL", name: "idx_questionnaire_templates_account_name"
-      t.index [:template_type], name: "idx_questionnaire_templates_type"
-      t.index [:is_system], name: "idx_questionnaire_templates_system"
+      t.index [ :account_id, :name ], unique: true, where: "account_id IS NOT NULL", name: "idx_questionnaire_templates_account_name"
+      t.index [ :template_type ], name: "idx_questionnaire_templates_type"
+      t.index [ :is_system ], name: "idx_questionnaire_templates_system"
     end
 
     # Questionnaire Responses
@@ -749,9 +749,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:vendor_id, :template_id], name: "idx_questionnaire_responses_vendor_template"
-      t.index [:access_token], unique: true, name: "idx_questionnaire_responses_token"
-      t.index [:status], name: "idx_questionnaire_responses_status"
+      t.index [ :vendor_id, :template_id ], name: "idx_questionnaire_responses_vendor_template"
+      t.index [ :access_token ], unique: true, name: "idx_questionnaire_responses_token"
+      t.index [ :status ], name: "idx_questionnaire_responses_status"
     end
 
     # Vendor Monitoring Events
@@ -781,10 +781,10 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:vendor_id, :created_at], name: "idx_vendor_events_vendor_created"
-      t.index [:account_id, :severity], name: "idx_vendor_events_account_severity"
-      t.index [:event_type], name: "idx_vendor_events_type"
-      t.index [:is_acknowledged], name: "idx_vendor_events_acknowledged"
+      t.index [ :vendor_id, :created_at ], name: "idx_vendor_events_vendor_created"
+      t.index [ :account_id, :severity ], name: "idx_vendor_events_account_severity"
+      t.index [ :event_type ], name: "idx_vendor_events_type"
+      t.index [ :is_acknowledged ], name: "idx_vendor_events_acknowledged"
     end
 
     # ============================================
@@ -817,10 +817,10 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:slug], unique: true, name: "idx_scan_templates_slug"
-      t.index [:category], name: "idx_scan_templates_category"
-      t.index [:status], name: "idx_scan_templates_status"
-      t.index [:is_public], name: "idx_scan_templates_public"
+      t.index [ :slug ], unique: true, name: "idx_scan_templates_slug"
+      t.index [ :category ], name: "idx_scan_templates_category"
+      t.index [ :status ], name: "idx_scan_templates_status"
+      t.index [ :is_public ], name: "idx_scan_templates_public"
     end
 
     # Scan Instances (per-account instances)
@@ -846,9 +846,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :scan_template_id], unique: true, name: "idx_scan_instances_account_template"
-      t.index [:status], name: "idx_scan_instances_status"
-      t.index [:next_execution_at], name: "idx_scan_instances_next_execution"
+      t.index [ :account_id, :scan_template_id ], unique: true, name: "idx_scan_instances_account_template"
+      t.index [ :status ], name: "idx_scan_instances_status"
+      t.index [ :next_execution_at ], name: "idx_scan_instances_next_execution"
     end
 
     # Scan Executions (execution tracking)
@@ -874,9 +874,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:execution_id], unique: true, name: "idx_scan_executions_execution_id"
-      t.index [:scan_instance_id, :created_at], name: "idx_scan_executions_instance_created"
-      t.index [:account_id, :status], name: "idx_scan_executions_account_status"
+      t.index [ :execution_id ], unique: true, name: "idx_scan_executions_execution_id"
+      t.index [ :scan_instance_id, :created_at ], name: "idx_scan_executions_instance_created"
+      t.index [ :account_id, :status ], name: "idx_scan_executions_account_status"
     end
 
     # Reports (compliance exports)
@@ -905,9 +905,9 @@ class CreateSupplyChainTables < ActiveRecord::Migration[8.0]
 
       t.timestamps null: false
 
-      t.index [:account_id, :report_type], name: "idx_reports_account_type"
-      t.index [:status], name: "idx_reports_status"
-      t.index [:created_at], name: "idx_reports_created"
+      t.index [ :account_id, :report_type ], name: "idx_reports_account_type"
+      t.index [ :status ], name: "idx_reports_status"
+      t.index [ :created_at ], name: "idx_reports_created"
     end
 
     # ============================================

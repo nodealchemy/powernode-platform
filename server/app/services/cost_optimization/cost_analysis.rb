@@ -57,7 +57,7 @@ module CostOptimization
     end
 
     def calculate_monthly_projection(daily_cost)
-      recent_days = [@time_range.to_i.days, 30].min
+      recent_days = [ @time_range.to_i.days, 30 ].min
       recent_daily_costs = (0..recent_days - 1).map do |days_ago|
         day_start = days_ago.days.ago.beginning_of_day
         day_end = days_ago.days.ago.end_of_day
@@ -97,7 +97,7 @@ module CostOptimization
                              .max_by { |_, cost| cost }
       top_cost_driver = top_driver&.first || "None"
 
-      daily_avg = total_cost / [time_period.to_i / 86400, 1].max
+      daily_avg = total_cost / [ time_period.to_i / 86400, 1 ].max
       next_month_projection = daily_avg * 30
 
       {
@@ -117,7 +117,7 @@ module CostOptimization
         forecast: {
           next_month_projected_cost: next_month_projection,
           confidence_interval: { low: next_month_projection * 0.8, high: next_month_projection * 1.2 },
-          key_assumptions: ["Based on current usage patterns", "Assumes no major changes in workload"]
+          key_assumptions: [ "Based on current usage patterns", "Assumes no major changes in workload" ]
         }
       }
     end

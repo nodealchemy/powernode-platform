@@ -45,14 +45,14 @@ RSpec.describe Ai::TracingService do
       span = service.start_span(
         name: "LLM Call",
         type: "llm_call",
-        input: { messages: ["Hello"] }
+        input: { messages: [ "Hello" ] }
       )
 
       expect(span[:span_id]).to start_with("span_")
       expect(span[:name]).to eq("LLM Call")
       expect(span[:type]).to eq("llm_call")
       expect(span[:status]).to eq("running")
-      expect(span[:input]).to eq({ messages: ["Hello"] })
+      expect(span[:input]).to eq({ messages: [ "Hello" ] })
       expect(span[:parent_span_id]).to eq(service.current_trace[:root_span_id])
     end
 
@@ -137,7 +137,7 @@ RSpec.describe Ai::TracingService do
       service.record_llm_call(
         provider: "openai",
         model: "gpt-4",
-        messages: [{ role: "user", content: "Hello" }],
+        messages: [ { role: "user", content: "Hello" } ],
         response: { content: "Hi there!" },
         tokens: { prompt: 10, completion: 5 },
         cost: 0.0005

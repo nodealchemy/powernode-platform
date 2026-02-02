@@ -49,7 +49,7 @@ export const MaintenanceModeControl: React.FC<MaintenanceModeControlProps> = ({ 
         'success'
       );
       onUpdate();
-    } catch (error) {
+    } catch {
       showNotification('Failed to update maintenance mode', 'error');
     } finally {
       setLoading(false);
@@ -63,7 +63,7 @@ export const MaintenanceModeControl: React.FC<MaintenanceModeControlProps> = ({ 
       showNotification('Maintenance window scheduled successfully', 'success');
       setScheduled(false);
       onUpdate();
-    } catch (error) {
+    } catch {
       showNotification('Failed to schedule maintenance', 'error');
     } finally {
       setLoading(false);
@@ -328,7 +328,7 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
       await maintenanceApi.createBackup();
       showNotification('Backup created successfully', 'success');
       onRefresh();
-    } catch (error) {
+    } catch {
       showNotification('Failed to create backup', 'error');
     } finally {
       setCreatingBackup(false);
@@ -345,7 +345,7 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
       await maintenanceApi.deleteBackup(backupId);
       showNotification('Backup deleted successfully', 'success');
       onRefresh();
-    } catch (error) {
+    } catch {
       showNotification('Failed to delete backup', 'error');
     } finally {
       setLoading(false);
@@ -356,7 +356,7 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
     try {
       const downloadUrl = await maintenanceApi.downloadBackup(backupId);
       window.open(downloadUrl, '_blank');
-    } catch (error) {
+    } catch {
       showNotification('Failed to download backup', 'error');
     }
   };
@@ -497,7 +497,7 @@ export const DataCleanupManager: React.FC<DataCleanupProps> = ({ stats, onRefres
         'success'
       );
       onRefresh();
-    } catch (error) {
+    } catch {
       showNotification('Cleanup failed', 'error');
     } finally {
       setLoading(false);

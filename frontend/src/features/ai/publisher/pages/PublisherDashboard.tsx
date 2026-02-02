@@ -52,7 +52,7 @@ export const PublisherDashboard: React.FC = () => {
       setDashboardStats(dashboardResponse.data);
       setEarnings(earningsResponse.data);
       setPayouts(payoutsResponse.data);
-    } catch (error: unknown) {
+    } catch {
       const message = error instanceof Error ? error.message : 'Failed to load publisher data';
       if (message.includes('not found') || message.includes('404')) {
         // No publisher profile - could redirect to setup

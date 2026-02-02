@@ -208,44 +208,44 @@ module Chat
         when "image"
           event[:content] = message.dig("image", "caption") || "[Image]"
           event[:message_type] = "image"
-          event[:attachments] = [{
+          event[:attachments] = [ {
             type: "image",
             file_id: message.dig("image", "id"),
             mime_type: message.dig("image", "mime_type")
-          }]
+          } ]
         when "audio", "voice"
           event[:content] = "[Voice message]"
           event[:message_type] = "audio"
-          event[:attachments] = [{
+          event[:attachments] = [ {
             type: "audio",
             file_id: message.dig(message["type"], "id"),
             mime_type: message.dig(message["type"], "mime_type")
-          }]
+          } ]
         when "video"
           event[:content] = message.dig("video", "caption") || "[Video]"
           event[:message_type] = "video"
-          event[:attachments] = [{
+          event[:attachments] = [ {
             type: "video",
             file_id: message.dig("video", "id"),
             mime_type: message.dig("video", "mime_type")
-          }]
+          } ]
         when "document"
           event[:content] = message.dig("document", "caption") || "[Document]"
           event[:message_type] = "document"
-          event[:attachments] = [{
+          event[:attachments] = [ {
             type: "document",
             file_id: message.dig("document", "id"),
             filename: message.dig("document", "filename"),
             mime_type: message.dig("document", "mime_type")
-          }]
+          } ]
         when "sticker"
           event[:content] = "[Sticker]"
           event[:message_type] = "sticker"
-          event[:attachments] = [{
+          event[:attachments] = [ {
             type: "image",
             file_id: message.dig("sticker", "id"),
             mime_type: message.dig("sticker", "mime_type")
-          }]
+          } ]
         when "location"
           location = message["location"]
           event[:content] = "[Location: #{location['name'] || 'Shared location'}]"

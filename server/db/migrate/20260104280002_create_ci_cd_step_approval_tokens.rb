@@ -28,11 +28,11 @@ class CreateCiCdStepApprovalTokens < ActiveRecord::Migration[8.0]
     add_index :ci_cd_step_approval_tokens, :token_digest, unique: true
 
     # Index for finding pending tokens by step execution
-    add_index :ci_cd_step_approval_tokens, [:step_execution_id, :status],
+    add_index :ci_cd_step_approval_tokens, [ :step_execution_id, :status ],
               name: "idx_approval_tokens_on_step_execution_and_status"
 
     # Index for expiry job to find expired tokens
-    add_index :ci_cd_step_approval_tokens, [:status, :expires_at],
+    add_index :ci_cd_step_approval_tokens, [ :status, :expires_at ],
               name: "idx_approval_tokens_pending_expiry",
               where: "status = 'pending'"
 

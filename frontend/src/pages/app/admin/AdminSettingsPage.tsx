@@ -33,7 +33,7 @@ export const AdminSettingsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'admin',
     onDataUpdate: () => {
       // Trigger data refresh if needed

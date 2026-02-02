@@ -35,7 +35,7 @@ module Chat
 
         # URL verification challenge
         if data["type"] == "url_verification"
-          return [{ type: "url_verification", challenge: data["challenge"] }]
+          return [ { type: "url_verification", challenge: data["challenge"] } ]
         end
 
         # Event callback

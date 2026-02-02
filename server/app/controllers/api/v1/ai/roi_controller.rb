@@ -18,7 +18,7 @@ module Api
         include AuditLogging
 
         before_action :validate_permissions
-        before_action :set_time_range, only: [:dashboard, :trends, :by_workflow, :by_agent, :by_provider, :cost_breakdown]
+        before_action :set_time_range, only: [ :dashboard, :trends, :by_workflow, :by_agent, :by_provider, :cost_breakdown ]
 
         # ==========================================================================
         # DASHBOARD
@@ -173,7 +173,7 @@ module Api
         # GET /api/v1/ai/roi/attributions
         def attributions
           page = params[:page]&.to_i || 1
-          per_page = [params[:per_page]&.to_i || 50, 200].min
+          per_page = [ params[:per_page]&.to_i || 50, 200 ].min
 
           attributions = ::Ai::CostAttribution.for_account(current_user.account)
                                                .order(attribution_date: :desc, created_at: :desc)
@@ -207,7 +207,7 @@ module Api
         # GET /api/v1/ai/roi/metrics
         def metrics
           page = params[:page]&.to_i || 1
-          per_page = [params[:per_page]&.to_i || 30, 100].min
+          per_page = [ params[:per_page]&.to_i || 30, 100 ].min
 
           metrics = ::Ai::RoiMetric.for_account(current_user.account)
                                     .order(period_date: :desc)

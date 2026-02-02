@@ -10,7 +10,7 @@ module ProviderTesting
           overall_status: connection_result[:success] ? "healthy" : "unhealthy",
           health_score: connection_result[:success] ? 0.9 : 0.0,
           key_findings: generate_key_findings(connection_result),
-          critical_issues: connection_result[:success] ? [] : [connection_result[:error_details]]
+          critical_issues: connection_result[:success] ? [] : [ connection_result[:error_details] ]
         },
         test_results: {
           connection_test: connection_result,
@@ -26,7 +26,7 @@ module ProviderTesting
             rating: connection_result[:success] ? "excellent" : "poor"
           },
           capability_analysis: {
-            supported_features: ["text_generation", "chat"],
+            supported_features: [ "text_generation", "chat" ],
             rating: "good"
           },
           comparison_with_benchmarks: {
@@ -88,7 +88,7 @@ module ProviderTesting
           priority: "critical",
           category: "connectivity",
           description: "Fix connection issues: #{connection_result[:error_details]}",
-          implementation_steps: ["Check API credentials", "Verify network connectivity", "Review provider status"]
+          implementation_steps: [ "Check API credentials", "Verify network connectivity", "Review provider status" ]
         }
       end
 
@@ -97,7 +97,7 @@ module ProviderTesting
           priority: "medium",
           category: "performance",
           description: "Optimize response times",
-          implementation_steps: ["Consider using streaming", "Implement request caching", "Use batch requests"]
+          implementation_steps: [ "Consider using streaming", "Implement request caching", "Use batch requests" ]
         }
       end
 

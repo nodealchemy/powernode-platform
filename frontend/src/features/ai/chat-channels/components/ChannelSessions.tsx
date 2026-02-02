@@ -71,7 +71,7 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
       const response = await chatChannelsApi.getSessions(filters);
       setSessions(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load sessions');
     } finally {
       setLoading(false);
@@ -96,7 +96,7 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
       await chatChannelsApi.closeSession(session.id);
       loadSessions();
       onCloseSession?.(session);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to close session');
     }
   };

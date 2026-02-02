@@ -87,7 +87,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
           setStatus('completed');
           onComplete?.(jobData);
         }
-      } catch (error: unknown) {
+      } catch {
         if (isMounted) {
           const errorMessage = error instanceof Error ? error.message : 'Job failed';
           setError(errorMessage);
@@ -261,7 +261,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
               </h4>
               {(result.services?.length ?? 0) > 0 ? (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  { }
                   {result.services?.map((service: any, index: number) => (
                     <div key={index} className="flex items-center justify-between p-2 bg-theme-surface rounded">
                       <div>

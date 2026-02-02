@@ -67,7 +67,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
       const response = await agentCardsApiService.getAgentCards(filters);
       setCards(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load agent cards');
     } finally {
       setLoading(false);

@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class VendorMonitoringEventsController < BaseController
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:acknowledge, :resolve]
-        before_action :set_event, only: [:show, :acknowledge, :resolve]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :acknowledge, :resolve ]
+        before_action :set_event, only: [ :show, :acknowledge, :resolve ]
 
         # GET /api/v1/supply_chain/vendor_monitoring_events
         def index

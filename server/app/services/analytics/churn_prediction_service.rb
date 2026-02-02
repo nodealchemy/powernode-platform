@@ -124,7 +124,7 @@ module Analytics
       probability = 1.0 / (1.0 + Math.exp(-log_odds))
 
       # Clamp between 0 and 1
-      [[probability, 0.0].max, 1.0].min.round(4)
+      [ [ probability, 0.0 ].max, 1.0 ].min.round(4)
     end
 
     def identify_contributing_factors(features)

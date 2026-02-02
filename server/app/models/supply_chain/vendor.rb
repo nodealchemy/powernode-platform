@@ -150,11 +150,11 @@ module SupplyChain
 
     def update_risk_score!(score)
       tier = case score
-             when 80..100 then "critical"
-             when 60..79 then "high"
-             when 30..59 then "medium"
-             else "low"
-             end
+      when 80..100 then "critical"
+      when 60..79 then "high"
+      when 30..59 then "medium"
+      else "low"
+      end
 
       update!(risk_score: score, risk_tier: tier)
     end
@@ -178,11 +178,11 @@ module SupplyChain
 
     def schedule_next_assessment!(months = nil)
       months ||= case risk_tier
-                 when "critical" then 3
-                 when "high" then 6
-                 when "medium" then 12
-                 else 24
-                 end
+      when "critical" then 3
+      when "high" then 6
+      when "medium" then 12
+      else 24
+      end
 
       update!(next_assessment_due: months.months.from_now)
     end
@@ -203,7 +203,7 @@ module SupplyChain
         added_at: Time.current.iso8601
       }
 
-      self.certifications = (certifications + [cert])
+      self.certifications = (certifications + [ cert ])
       save!
     end
 

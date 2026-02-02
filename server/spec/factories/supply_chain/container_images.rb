@@ -94,7 +94,7 @@ FactoryBot.define do
     # ============================================
     trait :deployed do
       is_deployed { true }
-      deployment_contexts { ["production", "us-east-1"] }
+      deployment_contexts { [ "production", "us-east-1" ] }
     end
 
     trait :not_deployed do
@@ -104,12 +104,12 @@ FactoryBot.define do
 
     trait :deployed_to_production do
       is_deployed { true }
-      deployment_contexts { ["production", "kubernetes/prod-cluster"] }
+      deployment_contexts { [ "production", "kubernetes/prod-cluster" ] }
     end
 
     trait :deployed_to_staging do
       is_deployed { true }
-      deployment_contexts { ["staging", "kubernetes/staging-cluster"] }
+      deployment_contexts { [ "staging", "kubernetes/staging-cluster" ] }
     end
 
     # ============================================

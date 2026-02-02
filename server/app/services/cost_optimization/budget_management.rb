@@ -10,9 +10,9 @@ module CostOptimization
                            .where.not(cost_usd: nil)
 
       current_spending = executions.sum(:cost_usd) || BigDecimal("0")
-      remaining_budget = [monthly_budget - current_spending, BigDecimal("0")].max
+      remaining_budget = [ monthly_budget - current_spending, BigDecimal("0") ].max
 
-      days_elapsed = [(end_date.to_date - start_date.to_date).to_i, 1].max
+      days_elapsed = [ (end_date.to_date - start_date.to_date).to_i, 1 ].max
       daily_avg = current_spending / days_elapsed
       projected_monthly = daily_avg * 30
 
@@ -63,7 +63,7 @@ module CostOptimization
     private
 
     def generate_budget_tier_actions(target)
-      target > 0 ? ["Reduce usage", "Optimize providers"] : ["Maintain current efficiency"]
+      target > 0 ? [ "Reduce usage", "Optimize providers" ] : [ "Maintain current efficiency" ]
     end
 
     def determine_suggested_budget_tier(cost)

@@ -57,10 +57,10 @@ class CreateAiA2aTasks < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_a2a_tasks, :task_id, unique: true
-    add_index :ai_a2a_tasks, [:account_id, :status]
-    add_index :ai_a2a_tasks, [:from_agent_id, :status]
-    add_index :ai_a2a_tasks, [:to_agent_id, :status]
-    add_index :ai_a2a_tasks, [:ai_workflow_run_id, :sequence_number]
+    add_index :ai_a2a_tasks, [ :account_id, :status ]
+    add_index :ai_a2a_tasks, [ :from_agent_id, :status ]
+    add_index :ai_a2a_tasks, [ :to_agent_id, :status ]
+    add_index :ai_a2a_tasks, [ :ai_workflow_run_id, :sequence_number ]
     add_index :ai_a2a_tasks, :created_at
     add_index :ai_a2a_tasks, :is_external
 

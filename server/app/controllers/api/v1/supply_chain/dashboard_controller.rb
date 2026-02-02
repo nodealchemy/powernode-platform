@@ -67,7 +67,7 @@ module Api
             vendors: {
               total: current_account.supply_chain_vendors.count,
               active: current_account.supply_chain_vendors.where(status: "active").count,
-              high_risk: current_account.supply_chain_vendors.where(risk_tier: ["critical", "high"]).count
+              high_risk: current_account.supply_chain_vendors.where(risk_tier: [ "critical", "high" ]).count
             }
           }
         end
@@ -262,7 +262,7 @@ module Api
 
           # License compliance
           violations = current_account.supply_chain_license_violations.where(status: "open").count
-          scores << [100 - (violations * 10), 0].max
+          scores << [ 100 - (violations * 10), 0 ].max
 
           # Vendor compliance
           vendors = current_account.supply_chain_vendors.where(status: "active")

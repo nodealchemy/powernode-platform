@@ -173,7 +173,7 @@ const SbomDetailPageContent: React.FC = () => {
       setLoading(true);
       const data = await sbomsApi.get(id);
       setSbom(data);
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to fetch SBOM', 'error');
     } finally {
       setLoading(false);
@@ -191,7 +191,7 @@ const SbomDetailPageContent: React.FC = () => {
       });
       setComponents(data.components);
       setComponentsPagination(data.pagination);
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to fetch components', 'error');
     } finally {
       setComponentsLoading(false);
@@ -209,7 +209,7 @@ const SbomDetailPageContent: React.FC = () => {
       });
       setVulnerabilities(data.vulnerabilities);
       setVulnerabilitiesPagination(data.pagination);
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to fetch vulnerabilities', 'error');
     } finally {
       setVulnerabilitiesLoading(false);
@@ -240,7 +240,7 @@ const SbomDetailPageContent: React.FC = () => {
       a.click();
       window.URL.revokeObjectURL(url);
       showNotification(`SBOM exported as ${format.toUpperCase()}`, 'success');
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to export SBOM', 'error');
     }
   };
@@ -320,7 +320,7 @@ const SbomDetailPageContent: React.FC = () => {
       const updated = await sbomsApi.rescan(id);
       setSbom(updated);
       showNotification('SBOM re-scan initiated', 'success');
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to re-scan SBOM', 'error');
     }
   };
@@ -337,7 +337,7 @@ const SbomDetailPageContent: React.FC = () => {
           await sbomsApi.delete(id);
           showNotification('SBOM deleted successfully', 'success');
           navigate('/app/supply-chain/sboms');
-        } catch (err) {
+        } catch {
           showNotification(err instanceof Error ? err.message : 'Failed to delete SBOM', 'error');
         }
       },

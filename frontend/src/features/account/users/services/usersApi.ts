@@ -250,7 +250,7 @@ class UsersApiService {
         });
       }
       return this.getFallbackRoles();
-    } catch (error) {
+    } catch {
       // Fallback to all roles but mark permission restrictions
       try {
         const allRolesResponse = await api.get('/roles');
@@ -272,8 +272,9 @@ class UsersApiService {
               };
             });
         }
-      } catch (fallbackError) {
-      }
+      } catch {
+    // Error silently ignored
+  }
       return this.getFallbackRoles();
     }
   }

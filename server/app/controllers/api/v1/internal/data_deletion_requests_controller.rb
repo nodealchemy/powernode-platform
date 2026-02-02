@@ -4,7 +4,7 @@ module Api
   module V1
     module Internal
       class DataDeletionRequestsController < InternalBaseController
-        before_action :set_deletion_request, only: [:show, :update]
+        before_action :set_deletion_request, only: [ :show, :update ]
 
         # GET /api/v1/internal/data_deletion_requests/:id
         def show

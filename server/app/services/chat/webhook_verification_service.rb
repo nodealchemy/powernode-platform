@@ -106,8 +106,8 @@ module Chat
       message = timestamp + body
 
       begin
-        verify_key = Ed25519::VerifyKey.new([public_key].pack("H*"))
-        verify_key.verify([signature].pack("H*"), message)
+        verify_key = Ed25519::VerifyKey.new([ public_key ].pack("H*"))
+        verify_key.verify([ signature ].pack("H*"), message)
       rescue Ed25519::VerifyError, ArgumentError => e
         raise InvalidSignature, "Discord Ed25519 verification failed: #{e.message}"
       end

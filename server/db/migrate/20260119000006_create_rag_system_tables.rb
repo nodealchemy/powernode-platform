@@ -38,7 +38,7 @@ class CreateRagSystemTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_knowledge_bases, [:account_id, :name], unique: true
+    add_index :ai_knowledge_bases, [ :account_id, :name ], unique: true
     add_index :ai_knowledge_bases, :status
     add_index :ai_knowledge_bases, :is_public
 
@@ -68,8 +68,8 @@ class CreateRagSystemTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_documents, [:knowledge_base_id, :status]
-    add_index :ai_documents, [:knowledge_base_id, :name]
+    add_index :ai_documents, [ :knowledge_base_id, :status ]
+    add_index :ai_documents, [ :knowledge_base_id, :name ]
     add_index :ai_documents, :source_type
     add_index :ai_documents, :checksum
 
@@ -93,8 +93,8 @@ class CreateRagSystemTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_document_chunks, [:document_id, :sequence_number], unique: true
-    add_index :ai_document_chunks, [:knowledge_base_id, :created_at]
+    add_index :ai_document_chunks, [ :document_id, :sequence_number ], unique: true
+    add_index :ai_document_chunks, [ :knowledge_base_id, :created_at ]
 
     # ==========================================================================
     # RAG QUERIES - Query history and analytics
@@ -122,8 +122,8 @@ class CreateRagSystemTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_rag_queries, [:account_id, :created_at]
-    add_index :ai_rag_queries, [:knowledge_base_id, :created_at]
+    add_index :ai_rag_queries, [ :account_id, :created_at ]
+    add_index :ai_rag_queries, [ :knowledge_base_id, :created_at ]
     add_index :ai_rag_queries, :status
 
     # ==========================================================================
@@ -148,8 +148,8 @@ class CreateRagSystemTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_data_connectors, [:account_id, :connector_type]
-    add_index :ai_data_connectors, [:knowledge_base_id, :status]
+    add_index :ai_data_connectors, [ :account_id, :connector_type ]
+    add_index :ai_data_connectors, [ :knowledge_base_id, :status ]
     add_index :ai_data_connectors, :next_sync_at
 
     # ==========================================================================

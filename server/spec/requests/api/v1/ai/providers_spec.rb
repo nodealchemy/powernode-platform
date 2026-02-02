@@ -4,10 +4,10 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Providers', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['ai.providers.read']) }
-  let(:user_with_create_permission) { create(:user, account: account, permissions: ['ai.providers.read', 'ai.providers.create']) }
-  let(:user_with_update_permission) { create(:user, account: account, permissions: ['ai.providers.read', 'ai.providers.update']) }
-  let(:user_with_delete_permission) { create(:user, account: account, permissions: ['ai.providers.read', 'ai.providers.delete']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'ai.providers.read' ]) }
+  let(:user_with_create_permission) { create(:user, account: account, permissions: [ 'ai.providers.read', 'ai.providers.create' ]) }
+  let(:user_with_update_permission) { create(:user, account: account, permissions: [ 'ai.providers.read', 'ai.providers.update' ]) }
+  let(:user_with_delete_permission) { create(:user, account: account, permissions: [ 'ai.providers.read', 'ai.providers.delete' ]) }
   let(:user_with_credential_permissions) do
     create(:user, account: account, permissions: [
       'ai.providers.read', 'ai.credentials.read', 'ai.credentials.create',
@@ -70,7 +70,7 @@ RSpec.describe 'Api::V1::Ai::Providers', type: :request do
         data = json_response_data
 
         provider_types = data['items'].map { |p| p['provider_type'] }
-        expect(provider_types.uniq).to eq(['openai'])
+        expect(provider_types.uniq).to eq([ 'openai' ])
       end
 
       it 'filters by is_active' do
@@ -85,7 +85,7 @@ RSpec.describe 'Api::V1::Ai::Providers', type: :request do
         data = json_response_data
 
         active_statuses = data['items'].map { |p| p['is_active'] }
-        expect(active_statuses.uniq).to eq([true])
+        expect(active_statuses.uniq).to eq([ true ])
       end
     end
 
@@ -179,8 +179,8 @@ RSpec.describe 'Api::V1::Ai::Providers', type: :request do
             provider_type: 'custom',
             api_base_url: 'https://api.test.com/v1',
             api_endpoint: 'https://api.test.com/v1/chat/completions',
-            capabilities: ['text_generation'],
-            supported_models: [{ id: 'test-model', name: 'Test Model' }],
+            capabilities: [ 'text_generation' ],
+            supported_models: [ { id: 'test-model', name: 'Test Model' } ],
             configuration_schema: { type: 'object', properties: {} }
           }
         }
@@ -345,7 +345,7 @@ RSpec.describe 'Api::V1::Ai::Providers', type: :request do
         data = json_response_data
 
         active_statuses = data['providers'].map { |p| p['is_active'] }
-        expect(active_statuses.uniq).to eq([true])
+        expect(active_statuses.uniq).to eq([ true ])
       end
     end
   end

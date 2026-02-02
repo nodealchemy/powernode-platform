@@ -108,7 +108,7 @@ module Mcp
         read_only_root: read_only_root,
         privileged: privileged,
         allow_network: allow_network,
-        cap_drop: security_options.dig("cap_drop") || ["ALL"],
+        cap_drop: security_options.dig("cap_drop") || [ "ALL" ],
         cap_add: security_options.dig("cap_add") || [],
         no_new_privileges: security_options.dig("no_new_privileges") != false
       }

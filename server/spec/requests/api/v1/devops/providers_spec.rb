@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::Providers', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['devops.providers.read']) }
-  let(:user_with_write_permission) { create(:user, account: account, permissions: ['devops.providers.read', 'devops.providers.write']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'devops.providers.read' ]) }
+  let(:user_with_write_permission) { create(:user, account: account, permissions: [ 'devops.providers.read', 'devops.providers.write' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/devops/providers' do
@@ -44,7 +44,7 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
         response_data = json_response
 
         types = response_data['data']['providers'].map { |p| p['provider_type'] }
-        expect(types.uniq).to eq(['gitlab'])
+        expect(types.uniq).to eq([ 'gitlab' ])
       end
 
       it 'filters by is_active' do

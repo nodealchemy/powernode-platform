@@ -60,7 +60,7 @@ export const CreateAttestationModal: React.FC<CreateAttestationModalProps> = ({
         predicate,
       });
       onClose();
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to create attestation');
     } finally {
       setCreating(false);

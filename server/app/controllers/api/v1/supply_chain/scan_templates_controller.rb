@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class ScanTemplatesController < BaseController
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :install, :publish, :unpublish]
-        before_action :set_scan_template, only: [:show, :update, :destroy, :install, :publish, :unpublish]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :install, :publish, :unpublish ]
+        before_action :set_scan_template, only: [ :show, :update, :destroy, :install, :publish, :unpublish ]
 
         # GET /api/v1/supply_chain/scan_templates
         def index

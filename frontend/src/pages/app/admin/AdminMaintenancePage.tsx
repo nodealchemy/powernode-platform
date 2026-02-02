@@ -33,7 +33,7 @@ export const AdminMaintenancePage: React.FC = () => {
   const { showNotification } = useNotifications();
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'admin',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -131,7 +131,7 @@ export const AdminMaintenancePage: React.FC = () => {
       {
         id: 'refresh',
         label: 'Refresh',
-        onClick: () => { (actions.refreshData && actions.refreshData()) || loadMaintenanceData(); },
+        onClick: () => { if (actions.refreshData) { actions.refreshData(); } else { loadMaintenanceData(); } },
         variant: 'secondary',
         icon: RefreshCw
       }
@@ -142,7 +142,7 @@ export const AdminMaintenancePage: React.FC = () => {
         baseActions.push({
           id: 'create-backup',
           label: 'Create Backup',
-          onClick: () => { actions.createBackup && actions.createBackup(); },
+          onClick: () => { if (actions.createBackup) actions.createBackup(); },
           variant: 'primary',
           icon: Plus
         });
@@ -151,7 +151,7 @@ export const AdminMaintenancePage: React.FC = () => {
         baseActions.push({
           id: 'run-cleanup',
           label: 'Run Cleanup',
-          onClick: () => { actions.runCleanup && actions.runCleanup(); },
+          onClick: () => { if (actions.runCleanup) actions.runCleanup(); },
           variant: 'primary',
           icon: Trash2
         });
@@ -160,7 +160,7 @@ export const AdminMaintenancePage: React.FC = () => {
         baseActions.push({
           id: 'create-schedule',
           label: 'New Schedule',
-          onClick: () => { actions.createSchedule && actions.createSchedule(); },
+          onClick: () => { if (actions.createSchedule) actions.createSchedule(); },
           variant: 'primary',
           icon: Plus
         });

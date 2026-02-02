@@ -64,7 +64,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
       setCredentials([]);
       loadProvider();
     }
-  }, [isOpen, providerId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, providerId]);  
 
   const loadProvider = async () => {
     try {
@@ -88,7 +88,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
 
       // Load existing credentials
       await loadCredentials();
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Loading Failed',
@@ -112,7 +112,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
         credentialsData = (response as { credentials: AiProviderCredential[] }).credentials || [];
       }
       setCredentials(credentialsData);
-    } catch (error) {
+    } catch {
       // Don't show error notification for credentials - it's not critical
     }
   };
@@ -223,7 +223,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
 
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Update Failed',
@@ -265,7 +265,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
         title: 'Credential Deleted',
         message: 'Credential has been deleted successfully'
       });
-    } catch (error: unknown) {
+    } catch {
       // Extract specific error message from validation response
       let errorMessage = 'Failed to delete credential. Please try again.';
 
@@ -323,7 +323,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
 
       // Reload credentials to update test status
       await loadCredentials();
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Test Failed',
@@ -386,7 +386,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
       });
 
       handleCancelEditCredential();
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Update Failed',
@@ -408,7 +408,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
         title: 'Default Updated',
         message: 'Credential is now the default for this provider'
       });
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Update Failed',

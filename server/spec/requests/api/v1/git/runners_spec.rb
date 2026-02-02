@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Git::Runners', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['git.runners.read', 'git.runners.manage', 'git.runners.token']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['git.runners.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'git.runners.read', 'git.runners.manage', 'git.runners.token' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'git.runners.read' ]) }
   let(:no_permission_user) { create(:user, account: account, permissions: []) }
   let(:other_account) { create(:account) }
   let(:other_user) { create(:user, account: other_account) }
@@ -290,12 +290,12 @@ RSpec.describe 'Api::V1::Git::Runners', type: :request do
     context 'with proper permissions' do
       before do
         allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
-        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(set_runner_labels: { success: true, labels: ['label1', 'label2'] }))
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(set_runner_labels: { success: true, labels: [ 'label1', 'label2' ] }))
       end
 
       it 'updates runner labels' do
         put "/api/v1/git/runners/#{runner.id}/labels",
-            params: { labels: ['label1', 'label2'] },
+            params: { labels: [ 'label1', 'label2' ] },
             headers: headers,
             as: :json
 
@@ -325,7 +325,7 @@ RSpec.describe 'Api::V1::Git::Runners', type: :request do
     context 'without git.runners.manage permission' do
       it 'returns forbidden error' do
         put "/api/v1/git/runners/#{runner.id}/labels",
-            params: { labels: ['label1'] },
+            params: { labels: [ 'label1' ] },
             headers: read_only_headers,
             as: :json
 

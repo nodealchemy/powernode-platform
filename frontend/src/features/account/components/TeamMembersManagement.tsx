@@ -21,7 +21,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
 
   useEffect(() => {
     loadTeamMembers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [accountId]);
 
   const loadTeamMembers = async () => {
@@ -32,8 +32,9 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       if (response.success) {
         setTeamMembers(response.data);
       }
-    } catch (error) {
-    } finally {
+    } catch {
+    // Error silently ignored
+  } finally {
       setLoading(false);
     }
   };
@@ -50,8 +51,9 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       setShowEditModal(false);
       setSelectedMember(null);
       setSelectedRole('');
-    } catch (error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   const handleRemoveMember = async (userId: string) => {
@@ -64,8 +66,9 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       try {
         await usersApi.removeFromAccount(userId, accountId || currentUser?.account?.id);
         loadTeamMembers();
-      } catch (error) {
-      }
+      } catch {
+    // Error silently ignored
+  }
     }
   };
 

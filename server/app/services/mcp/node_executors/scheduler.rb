@@ -137,9 +137,9 @@ module Mcp
 
           scheduled_time = if context[:datetime].is_a?(String)
                             tz.parse(context[:datetime])
-                          else
+          else
                             context[:datetime]
-                          end
+          end
 
           # Check if time is in the past
           if scheduled_time < Time.current
@@ -169,9 +169,9 @@ module Mcp
         # Relative scheduling based on another variable
         reference_time = if context[:relative_to].is_a?(String)
                           Time.parse(context[:relative_to]) rescue nil
-                        else
+        else
                           context[:relative_to]
-                        end
+        end
 
         raise ArgumentError, "Could not parse relative_to as datetime" if reference_time.nil?
 
@@ -241,7 +241,7 @@ module Mcp
         if result[:next_execution]
           output_base[:next_execution] = result[:next_execution].iso8601
           data_base[:next_execution] = result[:next_execution].iso8601
-          data_base[:seconds_until_execution] = [(result[:next_execution] - Time.current).to_i, 0].max
+          data_base[:seconds_until_execution] = [ (result[:next_execution] - Time.current).to_i, 0 ].max
         end
 
         if result[:skipped]
@@ -256,9 +256,9 @@ module Mcp
 
         workflow_state = if result[:status] == "scheduled" && context[:resume_workflow]
                           "paused_for_schedule"
-                        else
+        else
                           "continuing"
-                        end
+        end
 
         {
           output: output_base,

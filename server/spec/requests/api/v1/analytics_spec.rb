@@ -9,15 +9,15 @@ RSpec.describe 'Api::V1::Analytics', type: :request do
   let(:plan) { create(:plan) }
 
   let(:analytics_reader) do
-    create(:user, account: account, permissions: ['ai.analytics.read'])
+    create(:user, account: account, permissions: [ 'ai.analytics.read' ])
   end
 
   let(:analytics_exporter) do
-    create(:user, account: account, permissions: ['ai.analytics.read', 'ai.analytics.export'])
+    create(:user, account: account, permissions: [ 'ai.analytics.read', 'ai.analytics.export' ])
   end
 
   let(:admin_user) do
-    create(:user, account: account, permissions: ['admin.access'])
+    create(:user, account: account, permissions: [ 'admin.access' ])
   end
 
   let(:regular_user) do

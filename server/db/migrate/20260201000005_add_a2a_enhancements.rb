@@ -10,7 +10,7 @@ class AddA2aEnhancements < ActiveRecord::Migration[8.0]
     add_column :ai_a2a_tasks, :execution_order, :integer
 
     add_index :ai_a2a_tasks, :dag_execution_id, where: "dag_execution_id IS NOT NULL"
-    add_index :ai_a2a_tasks, [:dag_execution_id, :execution_order], where: "dag_execution_id IS NOT NULL"
+    add_index :ai_a2a_tasks, [ :dag_execution_id, :execution_order ], where: "dag_execution_id IS NOT NULL"
 
     # Add chat gateway integration to A2A tasks
     add_column :ai_a2a_tasks, :chat_session_id, :uuid
@@ -56,7 +56,7 @@ class AddA2aEnhancements < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_dag_executions, :status
-    add_index :ai_dag_executions, [:account_id, :status]
+    add_index :ai_dag_executions, [ :account_id, :status ]
 
     add_check_constraint :ai_dag_executions, "status IN ('pending', 'running', 'completed', 'failed', 'cancelled')", name: "ai_dag_executions_status_check"
 

@@ -4,9 +4,9 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::AgentMemory', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.memory.read', 'ai.memory.write']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['ai.memory.read']) }
-  let(:manage_user) { create(:user, account: account, permissions: ['ai.memory.read', 'ai.memory.write', 'ai.memory.manage']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.memory.read', 'ai.memory.write' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'ai.memory.read' ]) }
+  let(:manage_user) { create(:user, account: account, permissions: [ 'ai.memory.read', 'ai.memory.write', 'ai.memory.manage' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(user) }
 

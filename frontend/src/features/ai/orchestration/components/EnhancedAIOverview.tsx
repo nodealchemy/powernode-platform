@@ -197,7 +197,7 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
       }
     );
     return unsubscribe;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Subscribe once on mount
+     
   }, []);
 
   // Track connection attempt after initial delay
@@ -359,7 +359,7 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
 
       setStats(overviewStats);
 
-    } catch (error) {
+    } catch {
       // More detailed error handling
       let errorMessage = 'Failed to load AI system data';
       if (error instanceof Error) {
@@ -385,7 +385,7 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
   }, []);
 
   // Initial load - run once on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Run only on mount
+   
   useEffect(() => {
     // Force reset WebSocket monitor to ensure fresh connection with auth
     resetAIOrchestrationMonitor();

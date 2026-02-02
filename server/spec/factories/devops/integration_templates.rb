@@ -21,12 +21,12 @@ FactoryBot.define do
           "api_endpoint" => { "type" => "string" },
           "timeout" => { "type" => "integer", "default" => 30 }
         },
-        "required" => ["api_endpoint"]
+        "required" => [ "api_endpoint" ]
       }
     end
 
     credential_requirements { {} }
-    capabilities { ["execute", "test"] }
+    capabilities { [ "execute", "test" ] }
     input_schema { {} }
     output_schema { {} }
     default_configuration { { "timeout" => 30 } }
@@ -42,7 +42,7 @@ FactoryBot.define do
           "required" => true
         }
       end
-      capabilities { ["execute", "test", "validate"] }
+      capabilities { [ "execute", "test", "validate" ] }
     end
 
     trait :webhook do
@@ -53,9 +53,9 @@ FactoryBot.define do
           "type" => "object",
           "properties" => {
             "webhook_url" => { "type" => "string" },
-            "method" => { "type" => "string", "enum" => ["POST", "PUT"] }
+            "method" => { "type" => "string", "enum" => [ "POST", "PUT" ] }
           },
-          "required" => ["webhook_url"]
+          "required" => [ "webhook_url" ]
         }
       end
     end
@@ -89,7 +89,7 @@ FactoryBot.define do
         {
           "type" => "api_key",
           "required" => true,
-          "scopes" => ["read", "write"]
+          "scopes" => [ "read", "write" ]
         }
       end
     end

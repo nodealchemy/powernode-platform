@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class SbomsController < BaseController
-        before_action :require_read_permission, only: [:index, :show, :components, :vulnerabilities, :compliance_status, :statistics]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :export, :correlate_vulnerabilities, :calculate_risk]
-        before_action :set_sbom, only: [:show, :update, :destroy, :components, :vulnerabilities, :export, :compliance_status, :correlate_vulnerabilities, :calculate_risk]
+        before_action :require_read_permission, only: [ :index, :show, :components, :vulnerabilities, :compliance_status, :statistics ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :export, :correlate_vulnerabilities, :calculate_risk ]
+        before_action :set_sbom, only: [ :show, :update, :destroy, :components, :vulnerabilities, :export, :compliance_status, :correlate_vulnerabilities, :calculate_risk ]
 
         # GET /api/v1/supply_chain/sboms
         def index

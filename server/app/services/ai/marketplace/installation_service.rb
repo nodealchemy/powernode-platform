@@ -137,7 +137,7 @@ module Ai
 
         # Pagination
         page = options[:page]&.to_i || 1
-        per_page = [options[:per_page]&.to_i || 25, 100].min
+        per_page = [ options[:per_page]&.to_i || 25, 100 ].min
 
         total_count = subscriptions.count
         subscriptions = subscriptions.offset((page - 1) * per_page).limit(per_page)

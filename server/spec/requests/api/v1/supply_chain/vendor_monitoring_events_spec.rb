@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::SupplyChain::VendorMonitoringEvents', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['supply_chain.read']) }
-  let(:write_user) { create(:user, account: account, permissions: ['supply_chain.write']) }
+  let(:user) { create(:user, account: account, permissions: [ 'supply_chain.read' ]) }
+  let(:write_user) { create(:user, account: account, permissions: [ 'supply_chain.write' ]) }
   let(:headers) { auth_headers_for(user) }
   let(:write_headers) { auth_headers_for(write_user) }
 
@@ -153,7 +153,7 @@ RSpec.describe 'Api::V1::SupplyChain::VendorMonitoringEvents', type: :request do
       it 'includes detailed information' do
         monitoring_event.update!(
           description: 'Detailed description',
-          recommended_actions: [{ 'action' => 'action1' }, { 'action' => 'action2' }],
+          recommended_actions: [ { 'action' => 'action1' }, { 'action' => 'action2' } ],
           metadata: { source: 'test' }
         )
 

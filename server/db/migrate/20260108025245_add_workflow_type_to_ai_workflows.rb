@@ -15,7 +15,7 @@ class AddWorkflowTypeToAiWorkflows < ActiveRecord::Migration[8.0]
     add_index :ai_workflows, :workflow_type, name: "index_ai_workflows_on_workflow_type"
 
     # Composite index for account + type filtering
-    add_index :ai_workflows, [:account_id, :workflow_type], name: "index_ai_workflows_on_account_id_and_workflow_type"
+    add_index :ai_workflows, [ :account_id, :workflow_type ], name: "index_ai_workflows_on_account_id_and_workflow_type"
   end
 
   def down

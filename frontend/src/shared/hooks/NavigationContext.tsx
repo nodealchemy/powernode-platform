@@ -33,11 +33,12 @@ const menuReducer = (state: MenuState, action: MenuAction): MenuState => {
       return { ...state, isMobileOpen: action.payload };
     case 'UPDATE_STATE':
       return { ...state, ...action.payload };
-    case 'EXPAND_SECTIONS':
+    case 'EXPAND_SECTIONS': {
       // Only add sections that aren't already expanded (doesn't re-expand collapsed sections)
       const sectionsToAdd = action.payload.filter(id => !state.expandedSections.includes(id));
       if (sectionsToAdd.length === 0) return state;
       return { ...state, expandedSections: [...state.expandedSections, ...sectionsToAdd] };
+    }
     default:
       return state;
   }
@@ -74,7 +75,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
 
   // Build navigation config based on user permissions
   const buildNavigationConfig = useCallback((): NavigationConfig => {
-    let config = { ...defaultNavigationConfig };
+    const config = { ...defaultNavigationConfig };
 
     // Add admin sections if user has admin permissions
     if (hasAdminPermissions && adminNavigationOverrides.sections) {
@@ -131,7 +132,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     if (activeSectionIds.length > 0) {
       dispatch({ type: 'EXPAND_SECTIONS', payload: activeSectionIds });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [location.pathname, buildNavigationConfig]); // Only run on navigation, not on expandedSections changes
 
   // Clean up old navigation state and load saved state
@@ -172,7 +173,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
             expandedSections: []
           }});
         }
-      } catch (error) {
+      } catch {
         localStorage.removeItem(storageKey);
         dispatch({ type: 'UPDATE_STATE', payload: {
           expandedSections: []

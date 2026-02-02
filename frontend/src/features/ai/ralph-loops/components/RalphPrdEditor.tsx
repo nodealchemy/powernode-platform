@@ -315,7 +315,7 @@ export const RalphPrdEditor: React.FC<RalphPrdEditorProps> = ({
       onChange(importedTasks);
       setJsonMode(false);
       setJsonError(null);
-    } catch (err) {
+    } catch {
       setJsonError(err instanceof Error ? err.message : 'Invalid JSON');
     }
   };

@@ -56,7 +56,7 @@ module Mcp
 
     def remaining_requests
       return nil if monthly_request_limit.nil?
-      [monthly_request_limit - requests_used_this_month, 0].max
+      [ monthly_request_limit - requests_used_this_month, 0 ].max
     end
 
     def reset_monthly_usage!

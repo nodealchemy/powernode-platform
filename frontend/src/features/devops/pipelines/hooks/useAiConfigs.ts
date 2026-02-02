@@ -62,7 +62,7 @@ export function useAiConfigs(params: UseAiProvidersForDevopsParams = {}) {
         default_id: defaultProvider?.id || null,
         by_provider: byProvider,
       });
-    } catch (err) {
+    } catch {
       const message = err instanceof Error ? err.message : 'Failed to fetch AI providers';
       setError(message);
     } finally {
@@ -77,7 +77,7 @@ export function useAiConfigs(params: UseAiProvidersForDevopsParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchProviders();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.provider_type, params.is_active]);
 
   const setDefaultConfig = async (id: string) => {
@@ -114,7 +114,7 @@ export function useAiConfigs(params: UseAiProvidersForDevopsParams = {}) {
       showNotification('Default AI provider for DevOps updated', 'success');
       await fetchProviders();
       return updated;
-    } catch (err) {
+    } catch {
       showNotification('Failed to set default AI provider', 'error');
       return null;
     }
@@ -145,7 +145,7 @@ export function useAiConfig(id: string | null) {
       setError(null);
       const data = await providersApi.getProvider(id);
       setProvider(data);
-    } catch (err) {
+    } catch {
       const message = err instanceof Error ? err.message : 'Failed to fetch AI provider';
       setError(message);
     } finally {
@@ -158,7 +158,7 @@ export function useAiConfig(id: string | null) {
       hasLoadedRef.current = id;
       fetchProvider();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
   return {

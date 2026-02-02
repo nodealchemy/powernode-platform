@@ -5,7 +5,7 @@ module Api
     module Internal
       module Git
         class RepositoriesController < InternalBaseController
-          before_action :set_repository, except: [:create]
+          before_action :set_repository, except: [ :create ]
           before_action :validate_internal_permissions
 
           # POST /api/v1/internal/git/repositories

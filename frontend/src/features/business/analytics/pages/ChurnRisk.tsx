@@ -26,7 +26,7 @@ export const ChurnRiskPage: React.FC = () => {
       ]);
       setPredictions(predictionsResponse.data);
       setSummary(summaryResponse.data);
-    } catch (error: unknown) {
+    } catch {
       const message = error instanceof Error ? error.message : 'Failed to load predictions';
       showNotification(message, 'error');
     } finally {
@@ -43,7 +43,7 @@ export const ChurnRiskPage: React.FC = () => {
       await predictiveAnalyticsApi.predictChurn();
       showNotification('Churn predictions updated', 'success');
       fetchData();
-    } catch (error: unknown) {
+    } catch {
       const message = error instanceof Error ? error.message : 'Failed to run predictions';
       showNotification(message, 'error');
     }

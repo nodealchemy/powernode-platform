@@ -125,8 +125,9 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
           return newSet;
         });
       }, 2000);
-    } catch (error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   const SortButton: React.FC<{ column: string; children: React.ReactNode }> = ({ column, children }) => (

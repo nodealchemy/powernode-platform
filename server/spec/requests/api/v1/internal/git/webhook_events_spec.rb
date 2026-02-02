@@ -137,7 +137,7 @@ RSpec.describe 'Api::V1::Internal::Git::WebhookEvents', type: :request do
         event_record = webhook_event
 
         allow_any_instance_of(Devops::GitWebhookEvent).to receive(:update).and_return(false)
-        allow_any_instance_of(Devops::GitWebhookEvent).to receive_message_chain(:errors, :full_messages).and_return(['Invalid status'])
+        allow_any_instance_of(Devops::GitWebhookEvent).to receive_message_chain(:errors, :full_messages).and_return([ 'Invalid status' ])
 
         patch api_v1_internal_git_webhook_event_path(event_record),
               params: { status: 'invalid' },
@@ -275,7 +275,7 @@ RSpec.describe 'Api::V1::Internal::Git::WebhookEvents', type: :request do
 
         # Stub the private find_matching_triggers to return our trigger directly
         allow_any_instance_of(Api::V1::Internal::Git::WebhookEventsController)
-          .to receive(:find_matching_triggers).and_return([git_workflow_trigger])
+          .to receive(:find_matching_triggers).and_return([ git_workflow_trigger ])
         allow_any_instance_of(Devops::GitWorkflowTrigger).to receive(:trigger!).and_return(workflow_run)
         allow_any_instance_of(Devops::GitWorkflowTrigger).to receive(:workflow).and_return(workflow_obj)
 
@@ -293,7 +293,7 @@ RSpec.describe 'Api::V1::Internal::Git::WebhookEvents', type: :request do
         workflow_run = double('WorkflowRun', run_id: 'run-123')
 
         allow_any_instance_of(Api::V1::Internal::Git::WebhookEventsController)
-          .to receive(:find_matching_triggers).and_return([git_workflow_trigger])
+          .to receive(:find_matching_triggers).and_return([ git_workflow_trigger ])
         allow_any_instance_of(Devops::GitWorkflowTrigger).to receive(:trigger!).and_return(workflow_run)
         allow_any_instance_of(Devops::GitWorkflowTrigger).to receive(:workflow).and_return(workflow_obj)
 
@@ -309,7 +309,7 @@ RSpec.describe 'Api::V1::Internal::Git::WebhookEvents', type: :request do
 
       it 'continues on trigger errors' do
         allow_any_instance_of(Api::V1::Internal::Git::WebhookEventsController)
-          .to receive(:find_matching_triggers).and_return([git_workflow_trigger])
+          .to receive(:find_matching_triggers).and_return([ git_workflow_trigger ])
         allow_any_instance_of(Devops::GitWorkflowTrigger).to receive(:trigger!).and_raise(StandardError.new('Trigger failed'))
         allow_any_instance_of(Devops::GitWorkflowTrigger).to receive(:workflow).and_return(workflow_obj)
 

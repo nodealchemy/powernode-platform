@@ -36,8 +36,8 @@ class CreateGovernanceSuiteTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_compliance_policies, [:account_id, :name], unique: true
-    add_index :ai_compliance_policies, [:account_id, :status]
+    add_index :ai_compliance_policies, [ :account_id, :name ], unique: true
+    add_index :ai_compliance_policies, [ :account_id, :status ]
     add_index :ai_compliance_policies, :policy_type
     add_index :ai_compliance_policies, :enforcement_level
     add_index :ai_compliance_policies, :is_system
@@ -70,8 +70,8 @@ class CreateGovernanceSuiteTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_policy_violations, :violation_id, unique: true
-    add_index :ai_policy_violations, [:account_id, :status]
-    add_index :ai_policy_violations, [:policy_id, :created_at]
+    add_index :ai_policy_violations, [ :account_id, :status ]
+    add_index :ai_policy_violations, [ :policy_id, :created_at ]
     add_index :ai_policy_violations, :severity
     add_index :ai_policy_violations, :source_type
 
@@ -95,8 +95,8 @@ class CreateGovernanceSuiteTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_approval_chains, [:account_id, :name], unique: true
-    add_index :ai_approval_chains, [:account_id, :status]
+    add_index :ai_approval_chains, [ :account_id, :name ], unique: true
+    add_index :ai_approval_chains, [ :account_id, :status ]
     add_index :ai_approval_chains, :trigger_type
 
     # ==========================================================================
@@ -121,8 +121,8 @@ class CreateGovernanceSuiteTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_approval_requests, :request_id, unique: true
-    add_index :ai_approval_requests, [:account_id, :status]
-    add_index :ai_approval_requests, [:approval_chain_id, :created_at]
+    add_index :ai_approval_requests, [ :account_id, :status ]
+    add_index :ai_approval_requests, [ :approval_chain_id, :created_at ]
     add_index :ai_approval_requests, :expires_at
 
     # ==========================================================================
@@ -139,8 +139,8 @@ class CreateGovernanceSuiteTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_approval_decisions, [:approval_request_id, :step_number]
-    add_index :ai_approval_decisions, [:approver_id, :created_at]
+    add_index :ai_approval_decisions, [ :approval_request_id, :step_number ]
+    add_index :ai_approval_decisions, [ :approver_id, :created_at ]
 
     # ==========================================================================
     # DATA CLASSIFICATIONS - PII/sensitive data tracking
@@ -163,7 +163,7 @@ class CreateGovernanceSuiteTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_data_classifications, [:account_id, :name], unique: true
+    add_index :ai_data_classifications, [ :account_id, :name ], unique: true
     add_index :ai_data_classifications, :classification_level
     add_index :ai_data_classifications, :is_system
 
@@ -187,8 +187,8 @@ class CreateGovernanceSuiteTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_data_detections, :detection_id, unique: true
-    add_index :ai_data_detections, [:account_id, :created_at]
-    add_index :ai_data_detections, [:classification_id, :created_at]
+    add_index :ai_data_detections, [ :account_id, :created_at ]
+    add_index :ai_data_detections, [ :classification_id, :created_at ]
     add_index :ai_data_detections, :source_type
     add_index :ai_data_detections, :action_taken
 
@@ -215,7 +215,7 @@ class CreateGovernanceSuiteTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_compliance_reports, :report_id, unique: true
-    add_index :ai_compliance_reports, [:account_id, :report_type]
+    add_index :ai_compliance_reports, [ :account_id, :report_type ]
     add_index :ai_compliance_reports, :status
     add_index :ai_compliance_reports, :generated_at
 
@@ -242,8 +242,8 @@ class CreateGovernanceSuiteTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_compliance_audit_entries, :entry_id, unique: true
-    add_index :ai_compliance_audit_entries, [:account_id, :occurred_at]
-    add_index :ai_compliance_audit_entries, [:resource_type, :resource_id]
+    add_index :ai_compliance_audit_entries, [ :account_id, :occurred_at ]
+    add_index :ai_compliance_audit_entries, [ :resource_type, :resource_id ]
     add_index :ai_compliance_audit_entries, :action_type
     add_index :ai_compliance_audit_entries, :outcome
 

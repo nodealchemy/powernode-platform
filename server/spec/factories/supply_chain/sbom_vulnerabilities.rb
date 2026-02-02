@@ -138,7 +138,7 @@ FactoryBot.define do
           "poc_available" => true
         }
       end
-      contextual_score { [cvss_score + 2.5, 10.0].min }
+      contextual_score { [ cvss_score + 2.5, 10.0 ].min }
     end
 
     trait :poc_available do
@@ -155,7 +155,7 @@ FactoryBot.define do
           "not_reachable" => true
         }
       end
-      contextual_score { [cvss_score - 1.0, 0.0].max }
+      contextual_score { [ cvss_score - 1.0, 0.0 ].max }
     end
 
     trait :behind_auth do

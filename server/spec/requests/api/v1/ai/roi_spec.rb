@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Roi', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.roi.read', 'ai.roi.manage']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['ai.roi.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.roi.read', 'ai.roi.manage' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'ai.roi.read' ]) }
 
   let(:headers) { auth_headers_for(user) }
   let(:read_only_headers) { auth_headers_for(read_only_user) }
@@ -89,7 +89,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
   describe 'GET /api/v1/ai/roi/trends' do
     context 'with proper permissions' do
       it 'returns trend data' do
-        trends = [{ date: '2024-01-01', roi: 1.5 }]
+        trends = [ { date: '2024-01-01', roi: 1.5 } ]
         allow(roi_service).to receive(:roi_trends).and_return(trends)
 
         get '/api/v1/ai/roi/trends', headers: headers, as: :json
@@ -104,7 +104,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
   describe 'GET /api/v1/ai/roi/daily_metrics' do
     context 'with proper permissions' do
       it 'returns daily metrics' do
-        metrics = [{ date: '2024-01-01', cost: 10 }]
+        metrics = [ { date: '2024-01-01', cost: 10 } ]
         allow(roi_service).to receive(:daily_metrics).and_return(metrics)
 
         get '/api/v1/ai/roi/daily_metrics', headers: headers, as: :json
@@ -129,7 +129,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
   describe 'GET /api/v1/ai/roi/by_workflow' do
     context 'with proper permissions' do
       it 'returns ROI by workflow' do
-        workflow_data = [{ workflow_id: 'w1', roi: 2.0 }]
+        workflow_data = [ { workflow_id: 'w1', roi: 2.0 } ]
         allow(roi_service).to receive(:roi_by_workflow).and_return(workflow_data)
 
         get '/api/v1/ai/roi/by_workflow', headers: headers, as: :json
@@ -144,7 +144,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
   describe 'GET /api/v1/ai/roi/by_agent' do
     context 'with proper permissions' do
       it 'returns ROI by agent' do
-        agent_data = [{ agent_id: 'a1', roi: 1.8 }]
+        agent_data = [ { agent_id: 'a1', roi: 1.8 } ]
         allow(roi_service).to receive(:roi_by_agent).and_return(agent_data)
 
         get '/api/v1/ai/roi/by_agent', headers: headers, as: :json
@@ -159,7 +159,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
   describe 'GET /api/v1/ai/roi/by_provider' do
     context 'with proper permissions' do
       it 'returns cost by provider' do
-        provider_data = [{ provider: 'openai', cost: 50 }]
+        provider_data = [ { provider: 'openai', cost: 50 } ]
         allow(roi_service).to receive(:cost_by_provider).and_return(provider_data)
 
         get '/api/v1/ai/roi/by_provider', headers: headers, as: :json
@@ -290,7 +290,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
   describe 'GET /api/v1/ai/roi/recommendations' do
     context 'with proper permissions' do
       it 'returns recommendations' do
-        recommendations = [{ type: 'cost_reduction', suggestion: 'Use smaller model' }]
+        recommendations = [ { type: 'cost_reduction', suggestion: 'Use smaller model' } ]
         allow(roi_service).to receive(:recommendations).and_return(recommendations)
 
         get '/api/v1/ai/roi/recommendations', headers: headers, as: :json

@@ -71,7 +71,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
       if (a2aResponse) {
         setA2aJson(a2aResponse);
       }
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load agent card');
     } finally {
       setLoading(false);
@@ -85,7 +85,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
       const response = await agentCardsApiService.publishAgentCard(cardId);
       setCard(response.agent_card);
       addNotification({ type: 'success', title: 'Published', message: response.message });
-    } catch (err) {
+    } catch {
       addNotification({ type: 'error', title: 'Error', message: 'Failed to publish agent card' });
     } finally {
       setActionLoading(null);
@@ -99,7 +99,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
       const response = await agentCardsApiService.deprecateAgentCard(cardId);
       setCard(response.agent_card);
       addNotification({ type: 'success', title: 'Deprecated', message: response.message });
-    } catch (err) {
+    } catch {
       addNotification({ type: 'error', title: 'Error', message: 'Failed to deprecate agent card' });
     } finally {
       setActionLoading(null);
@@ -113,7 +113,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
       const response = await agentCardsApiService.refreshMetrics(cardId);
       setCard(response.agent_card);
       addNotification({ type: 'success', title: 'Refreshed', message: 'Metrics updated' });
-    } catch (err) {
+    } catch {
       addNotification({ type: 'error', title: 'Error', message: 'Failed to refresh metrics' });
     } finally {
       setActionLoading(null);

@@ -80,7 +80,7 @@ export const createNodeToolsHandlers = (
     try {
       await navigator.clipboard.writeText(text);
       onNotify?.('Copied to clipboard', 'success');
-    } catch (error) {
+    } catch {
       onNotify?.('Failed to copy to clipboard', 'error');
     }
   };

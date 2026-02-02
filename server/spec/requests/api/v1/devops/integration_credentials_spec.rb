@@ -4,10 +4,10 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['devops.integrations.credentials.read']) }
-  let(:user_with_create_permission) { create(:user, account: account, permissions: ['devops.integrations.credentials.read', 'devops.integrations.credentials.create']) }
-  let(:user_with_update_permission) { create(:user, account: account, permissions: ['devops.integrations.credentials.read', 'devops.integrations.credentials.update']) }
-  let(:user_with_delete_permission) { create(:user, account: account, permissions: ['devops.integrations.credentials.read', 'devops.integrations.credentials.delete']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'devops.integrations.credentials.read' ]) }
+  let(:user_with_create_permission) { create(:user, account: account, permissions: [ 'devops.integrations.credentials.read', 'devops.integrations.credentials.create' ]) }
+  let(:user_with_update_permission) { create(:user, account: account, permissions: [ 'devops.integrations.credentials.read', 'devops.integrations.credentials.update' ]) }
+  let(:user_with_delete_permission) { create(:user, account: account, permissions: [ 'devops.integrations.credentials.read', 'devops.integrations.credentials.delete' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/devops/integration_credentials' do
@@ -99,7 +99,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
           credential: {
             name: 'Test Credential',
             credential_type: 'oauth',
-            scopes: ['read', 'write'],
+            scopes: [ 'read', 'write' ],
             credentials: { token: 'test_token' },
             metadata: { provider: 'github' }
           }

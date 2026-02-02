@@ -187,7 +187,7 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
       it 'discovers services via DNS' do
         discovery_config = {
           enabled: true,
-          methods: ['dns'],
+          methods: [ 'dns' ],
           dns_config: { enabled: true }
         }
 
@@ -207,7 +207,7 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
       it 'discovers services via consul' do
         discovery_config = {
           enabled: true,
-          methods: ['consul'],
+          methods: [ 'consul' ],
           consul_config: { enabled: true }
         }
 
@@ -226,10 +226,10 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
       it 'discovers services via port scan' do
         discovery_config = {
           enabled: true,
-          methods: ['port_scan'],
+          methods: [ 'port_scan' ],
           port_scan_config: {
             enabled: true,
-            port_ranges: { backend: [3000, 3100] }
+            port_ranges: { backend: [ 3000, 3100 ] }
           }
         }
 
@@ -248,7 +248,7 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
       it 'discovers services via kubernetes' do
         discovery_config = {
           enabled: true,
-          methods: ['kubernetes'],
+          methods: [ 'kubernetes' ],
           kubernetes_config: { enabled: true }
         }
 

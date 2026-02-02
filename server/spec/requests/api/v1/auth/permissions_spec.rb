@@ -106,7 +106,7 @@ RSpec.describe 'Api::V1::Auth::Permissions', type: :request do
 
         expect(response_data['data']['type']).to eq('service')
         expect(response_data['data']['service']).to eq('worker')
-        expect(response_data['data']['permissions']).to eq(['*'])
+        expect(response_data['data']['permissions']).to eq([ '*' ])
         expect(response_data['data']['permission_version']).to eq('service')
       end
     end
@@ -126,7 +126,7 @@ RSpec.describe 'Api::V1::Auth::Permissions', type: :request do
     let(:perm_headers) { auth_headers_for(user_with_permissions) }
 
     before do
-      allow_any_instance_of(User).to receive(:permission_names).and_return(['users.read', 'users.create'])
+      allow_any_instance_of(User).to receive(:permission_names).and_return([ 'users.read', 'users.create' ])
     end
 
     context 'checking single permission' do

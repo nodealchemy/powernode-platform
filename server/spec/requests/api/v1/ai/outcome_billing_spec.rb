@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::OutcomeBilling', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.billing.read', 'ai.billing.manage']) }
-  let(:limited_user) { create(:user, account: account, permissions: ['ai.billing.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.billing.read', 'ai.billing.manage' ]) }
+  let(:limited_user) { create(:user, account: account, permissions: [ 'ai.billing.read' ]) }
   let(:headers) { auth_headers_for(user) }
   let(:limited_headers) { auth_headers_for(limited_user) }
 
@@ -64,7 +64,7 @@ RSpec.describe 'Api::V1::Ai::OutcomeBilling', type: :request do
         allow_any_instance_of(Ai::OutcomeBillingService).to receive(:get_definition)
           .and_return(nil)
         allow_any_instance_of(Ai::OutcomeBillingService).to receive(:errors)
-          .and_return(['Not found'])
+          .and_return([ 'Not found' ])
 
         get "/api/v1/ai/outcome_billing/definitions/#{SecureRandom.uuid}", headers: headers, as: :json
 
@@ -101,7 +101,7 @@ RSpec.describe 'Api::V1::Ai::OutcomeBilling', type: :request do
         allow_any_instance_of(Ai::OutcomeBillingService).to receive(:create_definition)
           .and_return(nil)
         allow_any_instance_of(Ai::OutcomeBillingService).to receive(:errors)
-          .and_return(['Name is required'])
+          .and_return([ 'Name is required' ])
 
         post '/api/v1/ai/outcome_billing/definitions',
              params: { name: nil },
@@ -316,7 +316,7 @@ RSpec.describe 'Api::V1::Ai::OutcomeBilling', type: :request do
   end
 
   describe 'POST /api/v1/ai/outcome_billing/records/mark_billed' do
-    let(:record_ids) { [SecureRandom.uuid, SecureRandom.uuid] }
+    let(:record_ids) { [ SecureRandom.uuid, SecureRandom.uuid ] }
 
     context 'with proper permissions' do
       it 'marks records as billed' do

@@ -2,7 +2,6 @@
 
 # Internal API for review notification operations
 class Api::V1::Internal::ReviewNotificationsController < Api::V1::Internal::InternalBaseController
-
   # GET /api/v1/internal/review_notifications/:id
   def show
     notification = Review::Notification.find(params[:id])

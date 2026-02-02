@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::PipelineRuns', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['devops.pipeline_runs.read']) }
-  let(:user_with_write_permission) { create(:user, account: account, permissions: ['devops.pipeline_runs.read', 'devops.pipeline_runs.write']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'devops.pipeline_runs.read' ]) }
+  let(:user_with_write_permission) { create(:user, account: account, permissions: [ 'devops.pipeline_runs.read', 'devops.pipeline_runs.write' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/devops/pipeline_runs' do
@@ -59,7 +59,7 @@ RSpec.describe 'Api::V1::Devops::PipelineRuns', type: :request do
         response_data = json_response
 
         statuses = response_data['data']['pipeline_runs'].map { |r| r['status'] }
-        expect(statuses.uniq).to eq(['failure'])
+        expect(statuses.uniq).to eq([ 'failure' ])
       end
 
       it 'filters by trigger_type' do

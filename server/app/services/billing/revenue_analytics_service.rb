@@ -207,10 +207,10 @@ module Billing
 
       all_subs = if @account
                    sub = @account.subscription
-                   sub ? [sub] : []
-                 else
+                   sub ? [ sub ] : []
+      else
                    Subscription.all.to_a
-                 end
+      end
 
       # Group subscriptions by signup month
       cohorts = all_subs
@@ -278,7 +278,7 @@ module Billing
 
       CSV.generate do |csv|
         # Headers
-        csv << ["Date", "MRR ($)", "ARR ($)", "Active Subscriptions", "Growth Rate (%)", "New MRR ($)", "Churned MRR ($)", "Net New MRR ($)"]
+        csv << [ "Date", "MRR ($)", "ARR ($)", "Active Subscriptions", "Growth Rate (%)", "New MRR ($)", "Churned MRR ($)", "Net New MRR ($)" ]
 
         # Data rows
         trend_data.each do |row|
@@ -298,12 +298,12 @@ module Billing
         # Summary row
         if trend_data.any?
           csv << []
-          csv << ["Summary"]
-          csv << ["Current MRR", format("%.2f", current_mrr)]
-          csv << ["Current ARR", format("%.2f", current_arr)]
-          csv << ["Active Subscriptions", active_subscriptions_count]
-          csv << ["Churn Rate", format("%.4f", churn_rate)]
-          csv << ["ARPU", format("%.2f", calculate_arpu)]
+          csv << [ "Summary" ]
+          csv << [ "Current MRR", format("%.2f", current_mrr) ]
+          csv << [ "Current ARR", format("%.2f", current_arr) ]
+          csv << [ "Active Subscriptions", active_subscriptions_count ]
+          csv << [ "Churn Rate", format("%.4f", churn_rate) ]
+          csv << [ "ARPU", format("%.2f", calculate_arpu) ]
         end
       end
     end
@@ -315,7 +315,7 @@ module Billing
     def account_subscriptions_active
       if @account
         sub = @account.subscription
-        sub&.active? ? [sub] : []
+        sub&.active? ? [ sub ] : []
       else
         Subscription.active.to_a
       end
@@ -325,7 +325,7 @@ module Billing
     def account_subscriptions_all
       if @account
         sub = @account.subscription
-        sub ? [sub] : []
+        sub ? [ sub ] : []
       else
         Subscription.all.to_a
       end
@@ -334,10 +334,10 @@ module Billing
     def generate_mrr_trend_from_subscriptions(start_date, end_date)
       all_subscriptions = if @account
                             sub = @account.subscription
-                            (sub && sub.created_at <= end_date) ? [sub] : []
-                          else
+                            (sub && sub.created_at <= end_date) ? [ sub ] : []
+      else
                             Subscription.where("created_at <= ?", end_date).to_a
-                          end
+      end
 
       trend_data = []
       current_date = start_date

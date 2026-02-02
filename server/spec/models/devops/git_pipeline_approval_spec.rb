@@ -328,7 +328,7 @@ RSpec.describe Devops::GitPipelineApproval, type: :model do
     end
 
     context 'when user is in required_approvers' do
-      let(:approval) { create(:git_pipeline_approval, :pending, pipeline: pipeline, account: account, required_approvers: [user.id]) }
+      let(:approval) { create(:git_pipeline_approval, :pending, pipeline: pipeline, account: account, required_approvers: [ user.id ]) }
 
       it 'returns true' do
         expect(approval.can_user_approve?(user)).to be true
@@ -337,7 +337,7 @@ RSpec.describe Devops::GitPipelineApproval, type: :model do
 
     context 'when user is not in required_approvers' do
       let(:other_user) { create(:user, account: account) }
-      let(:approval) { create(:git_pipeline_approval, :pending, pipeline: pipeline, account: account, required_approvers: [other_user.id]) }
+      let(:approval) { create(:git_pipeline_approval, :pending, pipeline: pipeline, account: account, required_approvers: [ other_user.id ]) }
 
       it 'returns false' do
         expect(approval.can_user_approve?(user)).to be false

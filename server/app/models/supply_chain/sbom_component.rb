@@ -126,7 +126,7 @@ module SupplyChain
         else 0
         end
       end
-      base_score += [vuln_score, 50].min
+      base_score += [ vuln_score, 50 ].min
 
       # License risk factor (0-20 points)
       case license_compliance_status
@@ -139,9 +139,9 @@ module SupplyChain
       base_score += 15 if is_outdated
 
       # Transitive dependency factor (0-15 points)
-      base_score += [depth * 3, 15].min if transitive?
+      base_score += [ depth * 3, 15 ].min if transitive?
 
-      self.risk_score = [base_score, 100].min
+      self.risk_score = [ base_score, 100 ].min
     end
 
     def check_for_updates
@@ -174,7 +174,7 @@ module SupplyChain
         "name" => name,
         "version" => version,
         "purl" => purl,
-        "licenses" => license_spdx_id ? [{ "license" => { "id" => license_spdx_id } }] : [],
+        "licenses" => license_spdx_id ? [ { "license" => { "id" => license_spdx_id } } ] : [],
         "properties" => [
           { "name" => "dependency:type", "value" => dependency_type },
           { "name" => "dependency:depth", "value" => depth.to_s }

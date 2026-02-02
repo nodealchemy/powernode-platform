@@ -6,7 +6,7 @@ module Api
       class EventsController < ApplicationController
         before_action :authenticate_request
         before_action :require_webhook_permission
-        before_action :set_event, only: [:show, :update, :processing, :processed, :failed]
+        before_action :set_event, only: [ :show, :update, :processing, :processed, :failed ]
 
         # GET /api/v1/webhooks/events/:id
         def show
@@ -104,8 +104,8 @@ module Api
 
         def calculate_next_retry(event)
           # Exponential backoff: 1min, 5min, 30min, 2hr, 8hr
-          delays = [1.minute, 5.minutes, 30.minutes, 2.hours, 8.hours]
-          delay = delays[[event.attempts - 1, delays.length - 1].min]
+          delays = [ 1.minute, 5.minutes, 30.minutes, 2.hours, 8.hours ]
+          delay = delays[[ event.attempts - 1, delays.length - 1 ].min]
           Time.current + delay
         end
 

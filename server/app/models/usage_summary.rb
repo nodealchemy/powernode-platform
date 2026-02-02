@@ -100,13 +100,13 @@ class UsageSummary < ApplicationRecord
   def quota_usage_percent
     return 0 unless quota_limit && quota_limit > 0
 
-    [(quota_used / quota_limit * 100).round(1), 100].min
+    [ (quota_used / quota_limit * 100).round(1), 100 ].min
   end
 
   def included_quantity
     return total_quantity unless quota_limit
 
-    [total_quantity, quota_limit].min
+    [ total_quantity, quota_limit ].min
   end
 
   def summary

@@ -4,10 +4,10 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['git.pipelines.read']) }
-  let(:user_with_trigger_permission) { create(:user, account: account, permissions: ['git.pipelines.read', 'git.pipelines.trigger']) }
-  let(:user_with_cancel_permission) { create(:user, account: account, permissions: ['git.pipelines.read', 'git.pipelines.cancel']) }
-  let(:user_with_logs_permission) { create(:user, account: account, permissions: ['git.pipelines.read', 'git.pipelines.logs']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'git.pipelines.read' ]) }
+  let(:user_with_trigger_permission) { create(:user, account: account, permissions: [ 'git.pipelines.read', 'git.pipelines.trigger' ]) }
+  let(:user_with_cancel_permission) { create(:user, account: account, permissions: [ 'git.pipelines.read', 'git.pipelines.cancel' ]) }
+  let(:user_with_logs_permission) { create(:user, account: account, permissions: [ 'git.pipelines.read', 'git.pipelines.logs' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   let(:provider) { create(:git_provider, :github) }
@@ -60,7 +60,7 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
         response_data = json_response
 
         repo_ids = response_data['data']['items'].map { |p| p['repository_id'] }
-        expect(repo_ids.uniq).to eq([other_repo.id])
+        expect(repo_ids.uniq).to eq([ other_repo.id ])
       end
 
       it 'filters by status' do
@@ -74,7 +74,7 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
         response_data = json_response
 
         statuses = response_data['data']['items'].map { |p| p['status'] }
-        expect(statuses.uniq).to eq(['in_progress'])
+        expect(statuses.uniq).to eq([ 'in_progress' ])
       end
 
       it 'filters by conclusion' do
@@ -88,7 +88,7 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
         response_data = json_response
 
         conclusions = response_data['data']['items'].map { |p| p['conclusion'] }
-        expect(conclusions.uniq).to eq(['failure'])
+        expect(conclusions.uniq).to eq([ 'failure' ])
       end
     end
 

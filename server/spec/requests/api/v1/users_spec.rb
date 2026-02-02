@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::Users', type: :request do
   let(:account) { create(:account) }
   let(:other_account) { create(:account) }
-  let(:admin_user) { create(:user, account: account, permissions: ['admin.user.read', 'admin.user.create', 'admin.user.delete', 'users.read', 'users.update']) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'admin.user.read', 'admin.user.create', 'admin.user.delete', 'users.read', 'users.update' ]) }
   let(:regular_user) { create(:user, account: account) }
   let(:plan) { create(:plan) }
 
@@ -117,7 +117,7 @@ RSpec.describe 'Api::V1::Users', type: :request do
     end
 
     context 'when accessing another user with users.read permission' do
-      let(:user_with_permission) { create(:user, account: account, permissions: ['users.read']) }
+      let(:user_with_permission) { create(:user, account: account, permissions: [ 'users.read' ]) }
       let(:headers) { auth_headers_for(user_with_permission) }
 
       it 'returns the other user data' do
@@ -284,7 +284,7 @@ RSpec.describe 'Api::V1::Users', type: :request do
     end
 
     context 'when updating another user with users.update permission' do
-      let(:user_with_permission) { create(:user, account: account, permissions: ['users.read', 'users.update']) }
+      let(:user_with_permission) { create(:user, account: account, permissions: [ 'users.read', 'users.update' ]) }
       let(:headers) { auth_headers_for(user_with_permission) }
 
       it 'updates the other user successfully' do

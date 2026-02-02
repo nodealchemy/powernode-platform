@@ -97,7 +97,7 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
           user_id: user.id,
           deletion_type: 'full',
           reason: 'GDPR deletion request',
-          data_types_to_delete: ['profile', 'activity', 'audit_logs']
+          data_types_to_delete: [ 'profile', 'activity', 'audit_logs' ]
         }
       }
     end
@@ -216,7 +216,7 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
         patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
               params: {
                 action_type: 'complete',
-                deletion_log: [{ type: 'profile', count: 1 }, { type: 'activities', count: 100 }, { type: 'files', count: 49 }]
+                deletion_log: [ { type: 'profile', count: 1 }, { type: 'activities', count: 100 }, { type: 'files', count: 49 } ]
               },
               headers: internal_headers,
               as: :json

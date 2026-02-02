@@ -192,7 +192,7 @@ module Devops
     # Faraday treats paths starting with "/" as absolute, ignoring the base URL's path.
     # By removing the leading slash, the path is appended to the base URL's path.
     def normalize_path(path)
-      path.to_s.sub(/\A\//, '')
+      path.to_s.sub(/\A\//, "")
     end
 
     def handle_response(response, raw: false)
@@ -301,11 +301,11 @@ module Devops
           end
         elsif current_hunk
           line_type = case line[0]
-                      when "+" then "addition"
-                      when "-" then "deletion"
-                      when " " then "context"
-                      else "context"
-                      end
+          when "+" then "addition"
+          when "-" then "deletion"
+          when " " then "context"
+          else "context"
+          end
 
           diff_line = {
             type: line_type,
@@ -333,5 +333,5 @@ module Devops
       hunks
     end
   end
-end
+  end
 end

@@ -31,8 +31,8 @@ module Security
         message = "#{timestamp}#{payload}"
 
         begin
-          signature_bytes = [signature].pack("H*")
-          key_bytes = [public_key].pack("H*")
+          signature_bytes = [ signature ].pack("H*")
+          key_bytes = [ public_key ].pack("H*")
 
           verify_key = Ed25519::VerifyKey.new(key_bytes)
           verify_key.verify(signature_bytes, message)

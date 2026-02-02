@@ -328,7 +328,7 @@ RSpec.describe 'Api::V1::Reports', type: :request do
       {
         report_type: 'revenue_report',
         frequency: 'monthly',
-        recipients: ['user@example.com'],
+        recipients: [ 'user@example.com' ],
         format: 'pdf'
       }
     end

@@ -80,7 +80,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
       it "accepts supported CycloneDX 1.5 format" do
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
-        allow(npm_generator).to receive(:generate).and_return({ components: [component_data], vulnerabilities: [] })
+        allow(npm_generator).to receive(:generate).and_return({ components: [ component_data ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path, format: "cyclonedx_1_5")
@@ -91,7 +91,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
       it "accepts supported CycloneDX 1.6 format" do
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
-        allow(npm_generator).to receive(:generate).and_return({ components: [component_data], vulnerabilities: [] })
+        allow(npm_generator).to receive(:generate).and_return({ components: [ component_data ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path, format: "cyclonedx_1_6")
@@ -102,7 +102,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
       it "accepts supported SPDX 2.3 format" do
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
-        allow(npm_generator).to receive(:generate).and_return({ components: [component_data], vulnerabilities: [] })
+        allow(npm_generator).to receive(:generate).and_return({ components: [ component_data ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path, format: "spdx_2_3")
@@ -124,7 +124,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
       it "detects npm ecosystem from package.json" do
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
-        allow(npm_generator).to receive(:generate).and_return({ components: [component_data], vulnerabilities: [] })
+        allow(npm_generator).to receive(:generate).and_return({ components: [ component_data ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path)
@@ -137,7 +137,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         File.write(File.join(source_path, "Gemfile"), "")
         gem_generator = instance_double("SupplyChain::Generators::GemGenerator")
         allow(SupplyChain::Generators::GemGenerator).to receive(:new).and_return(gem_generator)
-        allow(gem_generator).to receive(:generate).and_return({ components: [component_data.merge(ecosystem: "gem")], vulnerabilities: [] })
+        allow(gem_generator).to receive(:generate).and_return({ components: [ component_data.merge(ecosystem: "gem") ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path)
@@ -149,7 +149,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         File.write(File.join(source_path, "requirements.txt"), "")
         pip_generator = instance_double("SupplyChain::Generators::PipGenerator")
         allow(SupplyChain::Generators::PipGenerator).to receive(:new).and_return(pip_generator)
-        allow(pip_generator).to receive(:generate).and_return({ components: [component_data.merge(ecosystem: "pip")], vulnerabilities: [] })
+        allow(pip_generator).to receive(:generate).and_return({ components: [ component_data.merge(ecosystem: "pip") ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path)
@@ -161,7 +161,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         File.write(File.join(source_path, "Pipfile"), "")
         pip_generator = instance_double("SupplyChain::Generators::PipGenerator")
         allow(SupplyChain::Generators::PipGenerator).to receive(:new).and_return(pip_generator)
-        allow(pip_generator).to receive(:generate).and_return({ components: [component_data.merge(ecosystem: "pip")], vulnerabilities: [] })
+        allow(pip_generator).to receive(:generate).and_return({ components: [ component_data.merge(ecosystem: "pip") ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path)
@@ -173,7 +173,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         File.write(File.join(source_path, "pom.xml"), "")
         maven_generator = instance_double("SupplyChain::Generators::MavenGenerator")
         allow(SupplyChain::Generators::MavenGenerator).to receive(:new).and_return(maven_generator)
-        allow(maven_generator).to receive(:generate).and_return({ components: [component_data.merge(ecosystem: "maven")], vulnerabilities: [] })
+        allow(maven_generator).to receive(:generate).and_return({ components: [ component_data.merge(ecosystem: "maven") ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path)
@@ -185,7 +185,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         File.write(File.join(source_path, "go.mod"), "")
         go_generator = instance_double("SupplyChain::Generators::GoGenerator")
         allow(SupplyChain::Generators::GoGenerator).to receive(:new).and_return(go_generator)
-        allow(go_generator).to receive(:generate).and_return({ components: [component_data.merge(ecosystem: "go")], vulnerabilities: [] })
+        allow(go_generator).to receive(:generate).and_return({ components: [ component_data.merge(ecosystem: "go") ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path)
@@ -197,7 +197,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         File.write(File.join(source_path, "Cargo.toml"), "")
         cargo_generator = instance_double("SupplyChain::Generators::CargoGenerator")
         allow(SupplyChain::Generators::CargoGenerator).to receive(:new).and_return(cargo_generator)
-        allow(cargo_generator).to receive(:generate).and_return({ components: [component_data.merge(ecosystem: "cargo")], vulnerabilities: [] })
+        allow(cargo_generator).to receive(:generate).and_return({ components: [ component_data.merge(ecosystem: "cargo") ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path)
@@ -211,14 +211,14 @@ RSpec.describe SupplyChain::SbomGenerationService do
 
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:generate).and_return({
-          components: [component_data],
+          components: [ component_data ],
           vulnerabilities: []
         })
 
         gem_generator = instance_double("SupplyChain::Generators::GemGenerator")
         allow(SupplyChain::Generators::GemGenerator).to receive(:new).and_return(gem_generator)
         allow(gem_generator).to receive(:generate).and_return({
-          components: [component_data.merge(ecosystem: "gem", purl: "pkg:gem/rails@7.0.0")],
+          components: [ component_data.merge(ecosystem: "gem", purl: "pkg:gem/rails@7.0.0") ],
           vulnerabilities: []
         })
 
@@ -242,17 +242,17 @@ RSpec.describe SupplyChain::SbomGenerationService do
     context "custom ecosystem list" do
       it "uses provided ecosystems list instead of detection" do
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
-        allow(npm_generator).to receive(:generate).and_return({ components: [component_data], vulnerabilities: [] })
+        allow(npm_generator).to receive(:generate).and_return({ components: [ component_data ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
-        sbom = service.generate(source_path: source_path, ecosystems: ["npm"])
+        sbom = service.generate(source_path: source_path, ecosystems: [ "npm" ])
 
         expect(sbom.status).to eq("completed")
       end
 
       it "raises error for unsupported ecosystem in custom list" do
         expect do
-          service.generate(source_path: source_path, ecosystems: ["invalid"])
+          service.generate(source_path: source_path, ecosystems: [ "invalid" ])
         end.to raise_error(
           SupplyChain::SbomGenerationService::GenerationError,
           /Unsupported ecosystem: invalid/
@@ -264,7 +264,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
       before do
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
-        allow(npm_generator).to receive(:generate).and_return({ components: [component_data], vulnerabilities: [] })
+        allow(npm_generator).to receive(:generate).and_return({ components: [ component_data ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
       end
 
@@ -288,7 +288,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         service = described_class.new(account: account, options: { user: user })
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
-        allow(npm_generator).to receive(:generate).and_return({ components: [component_data], vulnerabilities: [] })
+        allow(npm_generator).to receive(:generate).and_return({ components: [ component_data ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path)
@@ -300,7 +300,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         service = described_class.new(account: account, options: { branch: "main", commit_sha: "abc123" })
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
-        allow(npm_generator).to receive(:generate).and_return({ components: [component_data], vulnerabilities: [] })
+        allow(npm_generator).to receive(:generate).and_return({ components: [ component_data ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path)
@@ -313,7 +313,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         service = described_class.new(account: account, options: { name: "Custom SBOM Name" })
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
-        allow(npm_generator).to receive(:generate).and_return({ components: [component_data], vulnerabilities: [] })
+        allow(npm_generator).to receive(:generate).and_return({ components: [ component_data ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path)
@@ -326,7 +326,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         service = described_class.new(account: account, repository: repo, options: { branch: "main" })
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
-        allow(npm_generator).to receive(:generate).and_return({ components: [component_data], vulnerabilities: [] })
+        allow(npm_generator).to receive(:generate).and_return({ components: [ component_data ], vulnerabilities: [] })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
         sbom = service.generate(source_path: source_path)
@@ -343,7 +343,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
       it "persists components from generator results" do
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:generate).and_return({
-          components: [component_data],
+          components: [ component_data ],
           vulnerabilities: []
         })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
@@ -389,8 +389,8 @@ RSpec.describe SupplyChain::SbomGenerationService do
       it "persists vulnerabilities linked to components" do
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:generate).and_return({
-          components: [component_data],
-          vulnerabilities: [vulnerability_data]
+          components: [ component_data ],
+          vulnerabilities: [ vulnerability_data ]
         })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
@@ -411,8 +411,8 @@ RSpec.describe SupplyChain::SbomGenerationService do
         orphan_vuln = vulnerability_data.merge(component_purl: "pkg:npm/nonexistent@1.0.0")
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:generate).and_return({
-          components: [component_data],
-          vulnerabilities: [orphan_vuln]
+          components: [ component_data ],
+          vulnerabilities: [ orphan_vuln ]
         })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
@@ -424,8 +424,8 @@ RSpec.describe SupplyChain::SbomGenerationService do
       it "updates vulnerability count in SBOM" do
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:generate).and_return({
-          components: [component_data],
-          vulnerabilities: [vulnerability_data]
+          components: [ component_data ],
+          vulnerabilities: [ vulnerability_data ]
         })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
 
@@ -440,7 +440,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:generate).and_return({
-          components: [component_data],
+          components: [ component_data ],
           vulnerabilities: []
         })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
@@ -512,7 +512,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:generate).and_return({
-          components: [component_data],
+          components: [ component_data ],
           vulnerabilities: []
         })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
@@ -582,7 +582,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:generate).and_return({
-          components: [component_data],
+          components: [ component_data ],
           vulnerabilities: []
         })
       end
@@ -601,7 +601,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         File.write(File.join(source_path, "package.json"), '{}')
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:generate).and_return({
-          components: [component_data],
+          components: [ component_data ],
           vulnerabilities: []
         })
         allow_any_instance_of(SupplyChain::RiskCalculationService).to receive(:calculate!)
@@ -675,7 +675,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
 
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data]
+          components: [ component_data ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -691,7 +691,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
 
         allow(SupplyChain::Generators::GemGenerator).to receive(:new).and_return(gem_generator)
         allow(gem_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data.merge(ecosystem: "gem")]
+          components: [ component_data.merge(ecosystem: "gem") ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -706,7 +706,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
 
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data]
+          components: [ component_data ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -721,7 +721,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
 
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data]
+          components: [ component_data ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -737,7 +737,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         pip_generator = instance_double("SupplyChain::Generators::PipGenerator")
         allow(SupplyChain::Generators::PipGenerator).to receive(:new).and_return(pip_generator)
         allow(pip_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data.merge(ecosystem: "pip")]
+          components: [ component_data.merge(ecosystem: "pip") ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -753,7 +753,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         pip_generator = instance_double("SupplyChain::Generators::PipGenerator")
         allow(SupplyChain::Generators::PipGenerator).to receive(:new).and_return(pip_generator)
         allow(pip_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data.merge(ecosystem: "pip")]
+          components: [ component_data.merge(ecosystem: "pip") ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -769,7 +769,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         pip_generator = instance_double("SupplyChain::Generators::PipGenerator")
         allow(SupplyChain::Generators::PipGenerator).to receive(:new).and_return(pip_generator)
         allow(pip_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data.merge(ecosystem: "pip")]
+          components: [ component_data.merge(ecosystem: "pip") ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -785,7 +785,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         go_generator = instance_double("SupplyChain::Generators::GoGenerator")
         allow(SupplyChain::Generators::GoGenerator).to receive(:new).and_return(go_generator)
         allow(go_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data.merge(ecosystem: "go")]
+          components: [ component_data.merge(ecosystem: "go") ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -801,7 +801,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         cargo_generator = instance_double("SupplyChain::Generators::CargoGenerator")
         allow(SupplyChain::Generators::CargoGenerator).to receive(:new).and_return(cargo_generator)
         allow(cargo_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data.merge(ecosystem: "cargo")]
+          components: [ component_data.merge(ecosystem: "cargo") ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -817,7 +817,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         maven_generator = instance_double("SupplyChain::Generators::MavenGenerator")
         allow(SupplyChain::Generators::MavenGenerator).to receive(:new).and_return(maven_generator)
         allow(maven_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data.merge(ecosystem: "maven")]
+          components: [ component_data.merge(ecosystem: "maven") ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -835,12 +835,12 @@ RSpec.describe SupplyChain::SbomGenerationService do
 
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data]
+          components: [ component_data ]
         })
 
         allow(SupplyChain::Generators::GemGenerator).to receive(:new).and_return(gem_generator)
         allow(gem_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data.merge(ecosystem: "gem", purl: "pkg:gem/rails@7.0.0")]
+          components: [ component_data.merge(ecosystem: "gem", purl: "pkg:gem/rails@7.0.0") ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -858,7 +858,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
 
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data]
+          components: [ component_data ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles)
@@ -875,7 +875,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
 
         allow(SupplyChain::Generators::NpmGenerator).to receive(:new).and_return(npm_generator)
         allow(npm_generator).to receive(:parse_lockfile).and_return({
-          components: [component_data]
+          components: [ component_data ]
         })
 
         sbom = service.generate_from_lockfiles(lockfiles: lockfiles, format: "cyclonedx_1_6")
@@ -949,7 +949,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
 
     context "merging multiple SBOMs" do
       it "creates new SBOM with components from all source SBOMs" do
-        merged = service.merge_sboms(sbom_ids: [sbom1.id, sbom2.id])
+        merged = service.merge_sboms(sbom_ids: [ sbom1.id, sbom2.id ])
 
         expect(merged).to be_a(SupplyChain::Sbom)
         expect(merged.status).to eq("completed")
@@ -957,13 +957,13 @@ RSpec.describe SupplyChain::SbomGenerationService do
       end
 
       it "uses format from first SBOM when not specified" do
-        merged = service.merge_sboms(sbom_ids: [sbom1.id, sbom2.id])
+        merged = service.merge_sboms(sbom_ids: [ sbom1.id, sbom2.id ])
 
         expect(merged.format).to eq("cyclonedx_1_5")
       end
 
       it "uses specified format when provided" do
-        merged = service.merge_sboms(sbom_ids: [sbom1.id, sbom2.id], format: "spdx_2_3")
+        merged = service.merge_sboms(sbom_ids: [ sbom1.id, sbom2.id ], format: "spdx_2_3")
 
         expect(merged.format).to eq("spdx_2_3")
       end
@@ -980,7 +980,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
           ecosystem: "npm"
         )
 
-        merged = service.merge_sboms(sbom_ids: [sbom1.id, sbom2.id])
+        merged = service.merge_sboms(sbom_ids: [ sbom1.id, sbom2.id ])
 
         expect(merged.components.count).to eq(2)
         expect(merged.components.pluck(:purl).uniq.count).to eq(2)
@@ -1007,7 +1007,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
           ecosystem: "npm"
         )
 
-        merged = service.merge_sboms(sbom_ids: [sbom1.id, sbom2.id])
+        merged = service.merge_sboms(sbom_ids: [ sbom1.id, sbom2.id ])
 
         lodash_component = merged.components.find_by(name: "lodash")
         expect(lodash_component.version).to eq("4.17.21")
@@ -1033,7 +1033,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
           ecosystem: "npm"
         )
 
-        merged = service.merge_sboms(sbom_ids: [sbom1.id, sbom2.id])
+        merged = service.merge_sboms(sbom_ids: [ sbom1.id, sbom2.id ])
 
         test_component = merged.components.find_by(name: "test")
         expect(test_component.version).to eq("v2.0.0")
@@ -1058,7 +1058,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
           ecosystem: "npm"
         )
 
-        merged = service.merge_sboms(sbom_ids: [sbom1.id, sbom2.id])
+        merged = service.merge_sboms(sbom_ids: [ sbom1.id, sbom2.id ])
 
         # Should not raise error, picks one version
         expect(merged.components.where(name: "invalid").count).to eq(1)
@@ -1080,7 +1080,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
         other_sbom = create(:supply_chain_sbom, account: other_account)
 
         expect do
-          service.merge_sboms(sbom_ids: [other_sbom.id])
+          service.merge_sboms(sbom_ids: [ other_sbom.id ])
         end.to raise_error(
           SupplyChain::SbomGenerationService::GenerationError,
           "No SBOMs found to merge"
@@ -1088,7 +1088,7 @@ RSpec.describe SupplyChain::SbomGenerationService do
       end
 
       it "filters out non-existent SBOM IDs" do
-        merged = service.merge_sboms(sbom_ids: [sbom1.id, "non-existent-id"])
+        merged = service.merge_sboms(sbom_ids: [ sbom1.id, "non-existent-id" ])
 
         expect(merged.components.count).to eq(1)
       end
@@ -1096,13 +1096,13 @@ RSpec.describe SupplyChain::SbomGenerationService do
 
     context "merged SBOM properties" do
       it "sets correct component count" do
-        merged = service.merge_sboms(sbom_ids: [sbom1.id, sbom2.id])
+        merged = service.merge_sboms(sbom_ids: [ sbom1.id, sbom2.id ])
 
         expect(merged.component_count).to eq(2)
       end
 
       it "generates proper document structure" do
-        merged = service.merge_sboms(sbom_ids: [sbom1.id, sbom2.id])
+        merged = service.merge_sboms(sbom_ids: [ sbom1.id, sbom2.id ])
 
         doc = merged.document
         expect(doc["bomFormat"]).to eq("CycloneDX")

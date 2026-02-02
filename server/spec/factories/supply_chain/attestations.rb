@@ -91,13 +91,13 @@ FactoryBot.define do
     trait :verified do
       verification_status { "verified" }
       verified_at { Time.current }
-      verification_results { { success: true, checks: [{ name: "signature", passed: true }], errors: [] } }
+      verification_results { { success: true, checks: [ { name: "signature", passed: true } ], errors: [] } }
     end
 
     trait :failed do
       verification_status { "failed" }
       verified_at { Time.current }
-      verification_results { { success: false, checks: [{ name: "signature", passed: false }], errors: ["Invalid signature"] } }
+      verification_results { { success: false, checks: [ { name: "signature", passed: false } ], errors: [ "Invalid signature" ] } }
     end
 
     trait :expired do

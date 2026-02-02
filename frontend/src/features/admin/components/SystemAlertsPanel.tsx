@@ -43,8 +43,9 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
       if (response.success && response.data) {
         setAlerts(response.data);
       }
-    } catch (error) {
-    } finally {
+    } catch {
+    // Error silently ignored
+  } finally {
       setLoading(false);
     }
   };
@@ -64,7 +65,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
       } else {
         showNotification(response.error || 'Failed to dismiss alert', 'error');
       }
-    } catch (error) {
+    } catch {
       showNotification('Failed to dismiss alert', 'error');
     } finally {
       setDismissingAlerts(prev => {

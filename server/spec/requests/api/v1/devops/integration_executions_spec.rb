@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['devops.integrations.read']) }
-  let(:user_with_execute_permission) { create(:user, account: account, permissions: ['devops.integrations.read', 'devops.integrations.execute']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'devops.integrations.read' ]) }
+  let(:user_with_execute_permission) { create(:user, account: account, permissions: [ 'devops.integrations.read', 'devops.integrations.execute' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/devops/integration_executions' do
@@ -59,7 +59,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationExecutions', type: :request do
         response_data = json_response
 
         statuses = response_data['data']['executions'].map { |e| e['status'] }
-        expect(statuses.uniq).to eq(['failed'])
+        expect(statuses.uniq).to eq([ 'failed' ])
       end
     end
 

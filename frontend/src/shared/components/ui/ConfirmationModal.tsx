@@ -130,14 +130,11 @@ export const useConfirmation = () => {
   const handleConfirm = async () => {
     if (!options) return;
 
+    setLoading(true);
     try {
-      setLoading(true);
       await options.onConfirm();
       setIsOpen(false);
       setOptions(null);
-    } catch (error) {
-      // Let the caller handle errors via their onConfirm
-      throw error;
     } finally {
       setLoading(false);
     }

@@ -225,8 +225,8 @@ module Ai
     # Update latency statistics
     def update_latency_stats(latency_ms)
       # Simple implementation - for production, use proper percentile calculation
-      self.min_latency_ms = [min_latency_ms, latency_ms].compact.min
-      self.max_latency_ms = [max_latency_ms, latency_ms].compact.max
+      self.min_latency_ms = [ min_latency_ms, latency_ms ].compact.min
+      self.max_latency_ms = [ max_latency_ms, latency_ms ].compact.max
 
       # Running average for avg_latency_ms
       if avg_latency_ms.nil? || request_count.zero?

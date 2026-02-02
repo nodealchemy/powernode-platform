@@ -49,7 +49,7 @@ module Devops
     scope :needs_sync, -> { where("last_synced_at IS NULL OR last_synced_at < ?", 1.hour.ago) }
     scope :by_owner, ->(owner) { where(owner: owner) }
     scope :by_language, ->(lang) { where("languages ? :lang", lang: lang) }
-    scope :with_topic, ->(topic) { where("topics @> ?", [topic].to_json) }
+    scope :with_topic, ->(topic) { where("topics @> ?", [ topic ].to_json) }
 
     # Callbacks
     before_create :generate_webhook_secret
@@ -204,9 +204,9 @@ module Devops
     def wildcard_match?(branch_name, pattern)
       # Convert wildcard pattern to regex: * becomes .*, ? becomes .
       regex_pattern = Regexp.escape(pattern)
-                            .gsub('\*\*', '.*')  # ** matches any path including /
-                            .gsub('\*', '[^/]*') # * matches anything except /
-                            .gsub('\?', '.')     # ? matches single char
+                            .gsub('\*\*', ".*")  # ** matches any path including /
+                            .gsub('\*', "[^/]*") # * matches anything except /
+                            .gsub('\?', ".")     # ? matches single char
       Regexp.new("\\A#{regex_pattern}\\z").match?(branch_name)
     rescue RegexpError
       false
@@ -217,6 +217,5 @@ module Devops
     rescue RegexpError
       false
     end
-
   end
 end

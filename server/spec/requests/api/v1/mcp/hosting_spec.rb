@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['mcp.hosting.read', 'mcp.hosting.write']) }
+  let(:user) { create(:user, account: account, permissions: [ 'mcp.hosting.read', 'mcp.hosting.write' ]) }
   let(:headers) { auth_headers_for(user) }
 
   let(:hosting_service) { instance_double(Mcp::HostingService) }
@@ -71,7 +71,7 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
 
     it 'returns not found error when server does not exist' do
       allow(hosting_service).to receive(:get_server).with(server_id).and_return(nil)
-      allow(hosting_service).to receive(:errors).and_return(['Server not found'])
+      allow(hosting_service).to receive(:errors).and_return([ 'Server not found' ])
 
       get "/api/v1/mcp/hosting/servers/#{server_id}", headers: headers, as: :json
 
@@ -102,7 +102,7 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
 
     it 'returns error when creation fails' do
       allow(hosting_service).to receive(:create_server).and_return(nil)
-      allow(hosting_service).to receive(:errors).and_return(['Name cannot be blank'])
+      allow(hosting_service).to receive(:errors).and_return([ 'Name cannot be blank' ])
 
       post '/api/v1/mcp/hosting/servers', params: server_params, headers: headers, as: :json
 
@@ -125,7 +125,7 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
 
     it 'returns error when update fails' do
       allow(hosting_service).to receive(:update_server).and_return(nil)
-      allow(hosting_service).to receive(:errors).and_return(['Update failed'])
+      allow(hosting_service).to receive(:errors).and_return([ 'Update failed' ])
 
       patch "/api/v1/mcp/hosting/servers/#{server_id}", params: update_params, headers: headers, as: :json
 
@@ -146,7 +146,7 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
 
     it 'returns error when deletion fails' do
       allow(hosting_service).to receive(:delete_server).and_return(nil)
-      allow(hosting_service).to receive(:errors).and_return(['Cannot delete running server'])
+      allow(hosting_service).to receive(:errors).and_return([ 'Cannot delete running server' ])
 
       delete "/api/v1/mcp/hosting/servers/#{server_id}", headers: headers, as: :json
 
@@ -269,8 +269,8 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
     let(:server_id) { SecureRandom.uuid }
     let(:metrics_data) do
       {
-        cpu_usage: [{ timestamp: Time.current, value: 45.2 }],
-        memory_usage: [{ timestamp: Time.current, value: 60.5 }]
+        cpu_usage: [ { timestamp: Time.current, value: 45.2 } ],
+        memory_usage: [ { timestamp: Time.current, value: 60.5 } ]
       }
     end
 

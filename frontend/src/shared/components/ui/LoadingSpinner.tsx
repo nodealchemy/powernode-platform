@@ -22,7 +22,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     xl: 'h-16 w-16'
   };
 
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedSizeClasses = sizeClasses[size] || sizeClasses.md;
   
   return (

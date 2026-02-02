@@ -164,7 +164,7 @@ RSpec.describe BaaS::ApiKey, type: :model do
   end
 
   describe "#has_scope?" do
-    let(:api_key) { create(:baas_api_key, baas_tenant: tenant, scopes: ["read", "write"]) }
+    let(:api_key) { create(:baas_api_key, baas_tenant: tenant, scopes: [ "read", "write" ]) }
 
     it "returns true when scope is present" do
       expect(api_key.has_scope?("read")).to be true
@@ -175,7 +175,7 @@ RSpec.describe BaaS::ApiKey, type: :model do
     end
 
     it "returns true for any scope when wildcard is present" do
-      api_key.update!(scopes: ["*"])
+      api_key.update!(scopes: [ "*" ])
       expect(api_key.has_scope?("anything")).to be true
     end
   end

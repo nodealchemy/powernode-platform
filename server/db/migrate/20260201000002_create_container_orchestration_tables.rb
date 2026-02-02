@@ -44,7 +44,7 @@ class CreateContainerOrchestrationTables < ActiveRecord::Migration[8.0]
     add_index :mcp_container_templates, :slug, unique: true
     add_index :mcp_container_templates, :visibility
     add_index :mcp_container_templates, :status
-    add_index :mcp_container_templates, [:account_id, :name], unique: true, where: "account_id IS NOT NULL"
+    add_index :mcp_container_templates, [ :account_id, :name ], unique: true, where: "account_id IS NOT NULL"
 
     add_check_constraint :mcp_container_templates, "visibility IN ('private', 'account', 'public')", name: "mcp_templates_visibility_check"
     add_check_constraint :mcp_container_templates, "status IN ('active', 'deprecated', 'archived')", name: "mcp_templates_status_check"
@@ -101,7 +101,7 @@ class CreateContainerOrchestrationTables < ActiveRecord::Migration[8.0]
     add_index :mcp_container_instances, :execution_id, unique: true
     add_index :mcp_container_instances, :status
     add_index :mcp_container_instances, :gitea_workflow_run_id
-    add_index :mcp_container_instances, [:account_id, :status]
+    add_index :mcp_container_instances, [ :account_id, :status ]
     add_index :mcp_container_instances, :created_at
 
     add_check_constraint :mcp_container_instances,
@@ -159,7 +159,7 @@ class CreateContainerOrchestrationTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :mcp_secret_references, [:account_id, :name], unique: true
+    add_index :mcp_secret_references, [ :account_id, :name ], unique: true
     add_index :mcp_secret_references, :secret_type
     add_index :mcp_secret_references, :vault_path
     add_index :mcp_secret_references, :expires_at, where: "expires_at IS NOT NULL"

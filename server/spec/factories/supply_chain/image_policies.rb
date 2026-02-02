@@ -15,14 +15,14 @@ FactoryBot.define do
     max_critical_vulns { nil }
     max_high_vulns { nil }
     match_rules { {} }
-    rules { { "allowed_registries" => ["gcr.io", "docker.io"] } }
+    rules { { "allowed_registries" => [ "gcr.io", "docker.io" ] } }
     metadata { {} }
 
     trait :registry_allowlist do
       policy_type { "registry_allowlist" }
       rules do
         {
-          "allowed_registries" => ["gcr.io", "docker.io"],
+          "allowed_registries" => [ "gcr.io", "docker.io" ],
           "denied_registries" => []
         }
       end
@@ -80,9 +80,9 @@ FactoryBot.define do
     trait :with_registry_matching do
       match_rules do
         {
-          "registries" => ["gcr.io", "docker.io"],
-          "repositories" => ["project/.*"],
-          "tags" => ["v[0-9]+\\..*"]
+          "registries" => [ "gcr.io", "docker.io" ],
+          "repositories" => [ "project/.*" ],
+          "tags" => [ "v[0-9]+\\..*" ]
         }
       end
     end

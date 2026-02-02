@@ -39,7 +39,7 @@ export const ContainerImageDetailPage: React.FC = () => {
       setActionLoading(true);
       await containerImagesApi.scan(id);
       refresh();
-    } catch (err) {
+    } catch {
       // Error handling via global notification
     } finally {
       setActionLoading(false);
@@ -52,7 +52,7 @@ export const ContainerImageDetailPage: React.FC = () => {
       setActionLoading(true);
       await containerImagesApi.verify(id);
       refresh();
-    } catch (err) {
+    } catch {
       // Error handling via global notification
     } finally {
       setActionLoading(false);
@@ -68,7 +68,7 @@ export const ContainerImageDetailPage: React.FC = () => {
       setActionLoading(true);
       await containerImagesApi.quarantine(id, reason);
       refresh();
-    } catch (err) {
+    } catch {
       // Error handling via global notification
     } finally {
       setActionLoading(false);

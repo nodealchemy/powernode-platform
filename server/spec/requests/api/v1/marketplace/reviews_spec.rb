@@ -63,7 +63,7 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
     end
 
     context 'with moderator permissions' do
-      let(:moderator) { create(:user, account: account, permissions: ['marketplace.moderate']) }
+      let(:moderator) { create(:user, account: account, permissions: [ 'marketplace.moderate' ]) }
       let(:moderator_headers) { auth_headers_for(moderator) }
 
       it 'includes pending reviews when requested' do
@@ -256,7 +256,7 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
 
   describe 'POST /api/v1/marketplace/reviews/:id/approve' do
     let(:review) { create(:marketplace_review, :pending, reviewable: workflow_template) }
-    let(:moderator) { create(:user, account: account, permissions: ['marketplace.moderate']) }
+    let(:moderator) { create(:user, account: account, permissions: [ 'marketplace.moderate' ]) }
     let(:moderator_headers) { auth_headers_for(moderator) }
 
     context 'with moderator permissions' do
@@ -280,7 +280,7 @@ RSpec.describe 'Api::V1::Marketplace::Reviews', type: :request do
 
   describe 'POST /api/v1/marketplace/reviews/:id/reject' do
     let(:review) { create(:marketplace_review, :pending, reviewable: workflow_template) }
-    let(:moderator) { create(:user, account: account, permissions: ['marketplace.moderate']) }
+    let(:moderator) { create(:user, account: account, permissions: [ 'marketplace.moderate' ]) }
     let(:moderator_headers) { auth_headers_for(moderator) }
 
     context 'with moderator permissions' do

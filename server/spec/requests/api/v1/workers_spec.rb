@@ -283,7 +283,7 @@ RSpec.describe 'Api::V1::Workers', type: :request do
 
       expect_success_response
       data = json_response_data
-      expect(data['status']).to be_in(['healthy', 'warning', 'error'])
+      expect(data['status']).to be_in([ 'healthy', 'warning', 'error' ])
       expect(data['checks']).to be_a(Hash)
       expect(data['checks']).to have_key('connectivity')
       expect(data['checks']).to have_key('authentication')

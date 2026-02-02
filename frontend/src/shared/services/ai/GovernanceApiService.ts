@@ -173,9 +173,7 @@ export interface ViolationFilters extends QueryFilters {
   severity?: string;
 }
 
-export interface ApprovalRequestFilters extends QueryFilters {
-  // status already in QueryFilters
-}
+export type ApprovalRequestFilters = QueryFilters;
 
 export interface AuditFilters extends QueryFilters {
   action_type?: string;

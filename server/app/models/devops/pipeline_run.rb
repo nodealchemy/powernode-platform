@@ -10,10 +10,10 @@ module Devops
     # ============================================
     # Associations
     # ============================================
-    belongs_to :pipeline, class_name: 'Devops::Pipeline', foreign_key: :ci_cd_pipeline_id
-    belongs_to :triggered_by, class_name: 'User', optional: true
+    belongs_to :pipeline, class_name: "Devops::Pipeline", foreign_key: :ci_cd_pipeline_id
+    belongs_to :triggered_by, class_name: "User", optional: true
 
-    has_many :step_executions, class_name: 'Devops::StepExecution', foreign_key: :ci_cd_pipeline_run_id, dependent: :destroy
+    has_many :step_executions, class_name: "Devops::StepExecution", foreign_key: :ci_cd_pipeline_run_id, dependent: :destroy
 
     # ============================================
     # Validations
@@ -27,11 +27,11 @@ module Devops
     # ============================================
     scope :recent, -> { order(created_at: :desc) }
     scope :by_status, ->(status) { where(status: status) }
-    scope :pending, -> { where(status: 'pending') }
-    scope :running, -> { where(status: 'running') }
+    scope :pending, -> { where(status: "pending") }
+    scope :running, -> { where(status: "running") }
     scope :completed, -> { where(status: %w[success failure cancelled]) }
-    scope :successful, -> { where(status: 'success') }
-    scope :failed, -> { where(status: 'failure') }
+    scope :successful, -> { where(status: "success") }
+    scope :failed, -> { where(status: "failure") }
 
     # ============================================
     # Callbacks
@@ -47,7 +47,7 @@ module Devops
 
     def start!
       update!(
-        status: 'running',
+        status: "running",
         started_at: Time.current
       )
     end
@@ -63,17 +63,17 @@ module Devops
 
     def cancel!
       update!(
-        status: 'cancelled',
+        status: "cancelled",
         completed_at: Time.current
       )
     end
 
     def pending?
-      status == 'pending'
+      status == "pending"
     end
 
     def running?
-      status == 'running'
+      status == "running"
     end
 
     def completed?
@@ -81,15 +81,15 @@ module Devops
     end
 
     def successful?
-      status == 'success'
+      status == "success"
     end
 
     def failed?
-      status == 'failure'
+      status == "failure"
     end
 
     def cancelled?
-      status == 'cancelled'
+      status == "cancelled"
     end
 
     def can_cancel?
@@ -113,7 +113,7 @@ module Devops
     end
 
     def ordered_step_executions
-      step_executions.joins(:pipeline_step).order('devops_pipeline_steps.position ASC')
+      step_executions.joins(:pipeline_step).order("devops_pipeline_steps.position ASC")
     end
 
     def trigger_context_value(key)
@@ -121,15 +121,15 @@ module Devops
     end
 
     def pr_number
-      trigger_context_value('pr_number')
+      trigger_context_value("pr_number")
     end
 
     def commit_sha
-      trigger_context_value('commit_sha')
+      trigger_context_value("commit_sha")
     end
 
     def branch
-      trigger_context_value('branch')
+      trigger_context_value("branch")
     end
 
     def enqueue_execution

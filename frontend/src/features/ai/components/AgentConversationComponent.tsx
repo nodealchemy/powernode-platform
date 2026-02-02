@@ -117,7 +117,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       }));
 
       setMessages(messages.reverse()); // Reverse to show oldest first
-    } catch (error) {
+    } catch {
       // Use a ref for addNotification to avoid dependency issues
       addNotification({
         type: 'error',
@@ -155,8 +155,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
             }
           });
           // Auto-scroll will trigger via useEffect when messages.length changes
-        } else {
-            }
+        }
         break;
 
       case 'ai_response_streaming':
@@ -249,7 +248,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       // The WebSocket message_created event will replace this optimistic message
 
       // The real-time channel will handle both user message echo and AI responses
-    } catch (error) {
+    } catch {
 
       // Remove optimistic message on error
       setMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
@@ -310,8 +309,9 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         title: 'Copied',
         message: 'Message copied to clipboard'
       });
-    } catch (error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   }, []); // Remove addNotification dependency
 
   const handleRegenerateResponse = useCallback(async (messageId: string) => {
@@ -343,7 +343,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
             : msg
         ));
       }
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Regeneration Failed',
@@ -379,7 +379,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           ? { ...msg, metadata: { ...msg.metadata, user_rating: result.rating } }
           : msg
       ));
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Rating Failed',

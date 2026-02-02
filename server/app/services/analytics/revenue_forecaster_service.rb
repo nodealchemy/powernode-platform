@@ -90,9 +90,9 @@ module Analytics
 
       total_customers = if account
                           account.subscription&.status&.in?(%w[active trialing]) ? 1 : 0
-                        else
+      else
                           Subscription.active.count
-                        end
+      end
 
       {
         current_mrr: calculate_current_mrr,
@@ -116,11 +116,11 @@ module Analytics
 
       direction = if avg_change > 100
                     "growing"
-                  elsif avg_change < -100
+      elsif avg_change < -100
                     "declining"
-                  else
+      else
                     "stable"
-                  end
+      end
 
       { direction: direction, rate: avg_change.round(2) }
     end
@@ -166,7 +166,7 @@ module Analytics
 
       # Calculate confidence interval (wider for further forecasts)
       confidence_level = 95 - (months_out * 2) # Confidence decreases over time
-      confidence_level = [confidence_level, 70].max
+      confidence_level = [ confidence_level, 70 ].max
 
       variance = projected_mrr * (0.05 + months_out * 0.02) # Variance increases over time
       lower_bound = projected_mrr - variance

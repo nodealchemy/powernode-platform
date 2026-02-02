@@ -215,9 +215,8 @@ export const useAiStreamingWebSocket = ({
         break;
 
       default:
-        if (process.env.NODE_ENV === 'development') {
-          console.debug('[AiStreamingWebSocket] Unknown event type:', (event as { type?: string }).type);
-        }
+        // Unknown event type - ignored
+        break;
     }
   }, []);
 

@@ -16,7 +16,7 @@ module A2a
         scope = scope.where(status: input["status"]) if input["status"].present?
 
         page = (input["page"] || 1).to_i
-        per_page = [(input["per_page"] || 20).to_i, 100].min
+        per_page = [ (input["per_page"] || 20).to_i, 100 ].min
 
         pipelines = scope.offset((page - 1) * per_page).limit(per_page)
 
@@ -67,7 +67,7 @@ module A2a
                                      .where(ai_workflow_nodes: { name: input["job_name"] })
                                      .first
                  node_execution&.metadata&.dig("logs") || ""
-               else
+        else
                  # Get all logs
                  run.node_executions.order(:started_at).map do |ne|
                    {
@@ -78,7 +78,7 @@ module A2a
                      completed_at: ne.completed_at&.iso8601
                    }
                  end
-               end
+        end
 
         {
           output: {

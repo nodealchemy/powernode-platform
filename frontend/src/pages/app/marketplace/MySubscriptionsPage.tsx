@@ -47,7 +47,7 @@ export const MySubscriptionsPage: React.FC = () => {
 
       const response = await marketplaceApi.getSubscriptions(params);
       setSubscriptions(response.data || []);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -72,7 +72,7 @@ export const MySubscriptionsPage: React.FC = () => {
         message: 'Your subscription has been paused.'
       });
       loadSubscriptions();
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -93,7 +93,7 @@ export const MySubscriptionsPage: React.FC = () => {
         message: 'Your subscription has been resumed.'
       });
       loadSubscriptions();
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -118,7 +118,7 @@ export const MySubscriptionsPage: React.FC = () => {
         message: 'Your subscription has been cancelled.'
       });
       loadSubscriptions();
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',

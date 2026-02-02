@@ -58,7 +58,7 @@ export const WorkflowExecutionSummaryModal: React.FC<WorkflowExecutionSummaryMod
 
       const response = await workflowsApi.getExecutionMetrics(startDate, endDate);
       setMetrics(response.metrics);
-    } catch (error) {
+    } catch {
       setError('Failed to load execution summary. Please try again.');
       addNotification({
         type: 'error',
@@ -79,7 +79,7 @@ export const WorkflowExecutionSummaryModal: React.FC<WorkflowExecutionSummaryMod
       setError(null);
       loadMetrics();
     }
-  }, [isOpen, workflowId, dateRange]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, workflowId, dateRange]);  
 
   // Format duration
   const formatDuration = (ms: number): string => {

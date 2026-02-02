@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class ReportsController < BaseController
-        before_action :require_read_permission, only: [:index, :show, :download]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :regenerate, :generate_sbom, :generate_attribution, :generate_compliance, :generate_vulnerability, :generate_vendor_risk]
-        before_action :set_report, only: [:show, :update, :destroy, :download, :regenerate]
+        before_action :require_read_permission, only: [ :index, :show, :download ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :regenerate, :generate_sbom, :generate_attribution, :generate_compliance, :generate_vulnerability, :generate_vendor_risk ]
+        before_action :set_report, only: [ :show, :update, :destroy, :download, :regenerate ]
 
         # GET /api/v1/supply_chain/reports
         def index
@@ -147,7 +147,7 @@ module Api
 
         # POST /api/v1/supply_chain/reports/generate_attribution
         def generate_attribution
-          sbom_ids = params[:sbom_ids] || [params[:sbom_id]]
+          sbom_ids = params[:sbom_ids] || [ params[:sbom_id] ]
 
           report = current_account.supply_chain_reports.create!(
             name: params[:name] || "Attribution Report",
@@ -284,7 +284,7 @@ module Api
           begin
             WorkerJobService.enqueue_job(
               "SupplyChain::ReportGenerationJob",
-              args: [report.id],
+              args: [ report.id ],
               queue: "supply_chain_default"
             )
           rescue WorkerJobService::WorkerServiceError => e

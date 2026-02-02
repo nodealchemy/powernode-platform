@@ -64,7 +64,7 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
       const response = await communityAgentsApi.getFederationPartners(filters);
       setPartners(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load federation partners');
     } finally {
       setLoading(false);
@@ -79,7 +79,7 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
     try {
       await communityAgentsApi.verifyFederationKey(partner.id);
       loadPartners();
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to verify partner');
     }
   };
@@ -88,7 +88,7 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
     try {
       await communityAgentsApi.syncFederationPartner(partner.id);
       loadPartners();
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to sync agents');
     }
   };

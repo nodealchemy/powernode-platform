@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class ImagePoliciesController < BaseController
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :evaluate]
-        before_action :set_image_policy, only: [:show, :update, :destroy, :evaluate]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :evaluate ]
+        before_action :set_image_policy, only: [ :show, :update, :destroy, :evaluate ]
 
         # GET /api/v1/supply_chain/image_policies
         def index

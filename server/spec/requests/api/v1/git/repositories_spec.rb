@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Git::Repositories', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['git.repositories.read', 'git.repositories.delete', 'git.repositories.sync', 'git.repositories.webhooks.manage', 'git.pipelines.read']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['git.repositories.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'git.repositories.read', 'git.repositories.delete', 'git.repositories.sync', 'git.repositories.webhooks.manage', 'git.pipelines.read' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'git.repositories.read' ]) }
   let(:no_permission_user) { create(:user, account: account, permissions: []) }
   let(:other_account) { create(:account) }
   let(:other_user) { create(:user, account: other_account) }
@@ -253,7 +253,7 @@ RSpec.describe 'Api::V1::Git::Repositories', type: :request do
     context 'with proper permissions' do
       before do
         allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
-        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(list_branches: [{ name: 'main' }, { name: 'develop' }]))
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(list_branches: [ { name: 'main' }, { name: 'develop' } ]))
       end
 
       it 'returns list of branches' do
@@ -290,7 +290,7 @@ RSpec.describe 'Api::V1::Git::Repositories', type: :request do
     context 'with proper permissions' do
       before do
         allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
-        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(list_commits: [{ sha: 'abc123', message: 'Initial commit' }]))
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(list_commits: [ { sha: 'abc123', message: 'Initial commit' } ]))
       end
 
       it 'returns list of commits' do

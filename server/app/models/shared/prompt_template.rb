@@ -60,7 +60,7 @@ module Shared
     scope :system_templates, -> { where(is_system: true) }
     scope :user_templates, -> { where(is_system: false) }
     scope :by_category, ->(category) { where(category: category) }
-    scope :for_domain, ->(domain) { where(domain: [domain, "general"]) }
+    scope :for_domain, ->(domain) { where(domain: [ domain, "general" ]) }
     scope :for_ai_workflow, -> { for_domain("ai_workflow") }
     scope :for_cicd, -> { for_domain("cicd") }
     scope :latest_versions, -> { where(parent_template_id: nil) }

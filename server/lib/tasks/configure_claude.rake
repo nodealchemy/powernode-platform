@@ -57,7 +57,7 @@ namespace :ai do
       },
       is_active: true,
       is_default: true,
-      access_scopes: ["*"],
+      access_scopes: [ "*" ],
       rate_limits: { "requests_per_minute" => 60 }
     )
 

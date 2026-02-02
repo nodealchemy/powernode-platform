@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class LicenseDetectionsController < BaseController
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:mark_review]
-        before_action :set_detection, only: [:show, :mark_review]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :mark_review ]
+        before_action :set_detection, only: [ :show, :mark_review ]
 
         # GET /api/v1/supply_chain/license_detections
         def index

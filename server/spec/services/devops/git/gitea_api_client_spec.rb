@@ -189,7 +189,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
         .with(query: { page: 1, limit: 30 })
         .to_return(
           status: 200,
-          body: [{ id: 1, name: 'org-repo', full_name: 'myorg/org-repo', owner: { login: 'myorg' } }].to_json,
+          body: [ { id: 1, name: 'org-repo', full_name: 'myorg/org-repo', owner: { login: 'myorg' } } ].to_json,
           headers: { 'Content-Type' => 'application/json' }
         )
     end
@@ -876,7 +876,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
             name: 'act-runner-1',
             status: 'online',
             busy: false,
-            labels: [{ name: 'ubuntu-latest' }, { name: 'docker' }],
+            labels: [ { name: 'ubuntu-latest' }, { name: 'docker' } ],
             version: '0.2.6',
             os: 'linux',
             arch: 'amd64'
@@ -885,7 +885,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
             id: 11,
             name: 'act-runner-2',
             busy: true,
-            labels: ['self-hosted', 'arm64'],
+            labels: [ 'self-hosted', 'arm64' ],
             version: '0.2.6',
             os: 'linux',
             arch: 'arm64'
@@ -912,7 +912,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
         expect(runners.first['name']).to eq('act-runner-1')
         expect(runners.first['status']).to eq('online')
         expect(runners.first['busy']).to be false
-        expect(runners.first['labels']).to eq(['ubuntu-latest', 'docker'])
+        expect(runners.first['labels']).to eq([ 'ubuntu-latest', 'docker' ])
         expect(runners.first['os']).to eq('linux')
         expect(runners.first['arch']).to eq('amd64')
       end
@@ -981,7 +981,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
             name: 'act-runner-1',
             status: 'online',
             busy: false,
-            labels: [{ name: 'ubuntu-latest' }],
+            labels: [ { name: 'ubuntu-latest' } ],
             version: '0.2.6'
           }.to_json,
           headers: { 'Content-Type' => 'application/json' }
@@ -1209,7 +1209,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
               enable_push_whitelist: false,
               enable_merge_whitelist: false,
               enable_status_check: true,
-              status_check_contexts: ['ci/build'],
+              status_check_contexts: [ 'ci/build' ],
               required_approvals: 2,
               block_on_rejected_reviews: true,
               dismiss_stale_approvals: true,

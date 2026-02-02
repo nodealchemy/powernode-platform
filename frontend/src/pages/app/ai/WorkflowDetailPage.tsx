@@ -57,7 +57,7 @@ export const WorkflowDetailPage: React.FC = () => {
         setLoading(true);
         const response = await workflowsApi.getWorkflow(id);
         setWorkflow(response);
-      } catch (error) {
+      } catch {
         addNotification({
           type: 'error',
           title: 'Error',
@@ -80,7 +80,7 @@ export const WorkflowDetailPage: React.FC = () => {
       setRunsLoading(true);
       const response = await workflowsApi.getRuns(id, { workflow_id: id });
       setWorkflowRuns(response.items);
-    } catch (error) {
+    } catch {
       // Error handled silently - runs may not be available
     } finally {
       setRunsLoading(false);
@@ -95,7 +95,7 @@ export const WorkflowDetailPage: React.FC = () => {
   useEffect(() => {
     if (!id || !isConnected) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const handleWorkflowUpdate = (message: any) => {
       // Extract event type (AiOrchestrationChannel uses 'event' field)
       const eventType = message.event || message.type;
@@ -194,7 +194,7 @@ export const WorkflowDetailPage: React.FC = () => {
 
       // Navigate to execution monitoring
       navigate(`/app/ai/workflows/${workflow.id}/runs/${response.run_id}`);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Execution Failed',
@@ -223,7 +223,7 @@ export const WorkflowDetailPage: React.FC = () => {
           message: `Found ${response.errors?.length || 0} errors and ${response.warnings?.length || 0} warnings.`
         });
       }
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Validation Failed',
@@ -255,7 +255,7 @@ export const WorkflowDetailPage: React.FC = () => {
         title: 'Export Complete',
         message: 'Workflow has been exported successfully.'
       });
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Export Failed',
@@ -290,7 +290,7 @@ export const WorkflowDetailPage: React.FC = () => {
       // Reload the workflow to reflect the updated state
       const response = await workflowsApi.getWorkflow(workflow.id);
       setWorkflow(response);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Conversion Failed',
@@ -315,7 +315,7 @@ export const WorkflowDetailPage: React.FC = () => {
       // Reload to show updated state
       const response = await workflowsApi.getWorkflow(workflow.id);
       setWorkflow(response);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Conversion Failed',

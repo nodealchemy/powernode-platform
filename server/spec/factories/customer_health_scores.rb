@@ -29,7 +29,7 @@ FactoryBot.define do
       health_status { "at_risk" }
       at_risk { true }
       risk_level { "high" }
-      risk_factors { ["low_engagement", "payment_issues"] }
+      risk_factors { [ "low_engagement", "payment_issues" ] }
     end
 
     trait :critical do
@@ -37,7 +37,7 @@ FactoryBot.define do
       health_status { "critical" }
       at_risk { true }
       risk_level { "critical" }
-      risk_factors { ["no_activity", "payment_failures", "support_escalations"] }
+      risk_factors { [ "no_activity", "payment_failures", "support_escalations" ] }
     end
 
     trait :needs_attention do

@@ -29,7 +29,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
       const data = await devopsSchedulesApi.getAll(params);
       setSchedules(data.schedules);
       setMeta(data.meta);
-    } catch (err) {
+    } catch {
       const message = err instanceof Error ? err.message : 'Failed to fetch schedules';
       setError(message);
     } finally {
@@ -44,7 +44,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchSchedules();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.pipeline_id, params.is_active]);
 
   const createSchedule = async (data: DevopsScheduleFormData) => {
@@ -53,7 +53,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
       showNotification('Schedule created successfully', 'success');
       await fetchSchedules();
       return schedule;
-    } catch (err) {
+    } catch {
       showNotification('Failed to create schedule', 'error');
       return null;
     }
@@ -65,7 +65,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
       showNotification('Schedule updated successfully', 'success');
       await fetchSchedules();
       return schedule;
-    } catch (err) {
+    } catch {
       showNotification('Failed to update schedule', 'error');
       return null;
     }
@@ -77,7 +77,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
       showNotification('Schedule deleted successfully', 'success');
       await fetchSchedules();
       return true;
-    } catch (err) {
+    } catch {
       showNotification('Failed to delete schedule', 'error');
       return false;
     }
@@ -92,7 +92,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
       );
       await fetchSchedules();
       return schedule;
-    } catch (err) {
+    } catch {
       showNotification('Failed to toggle schedule', 'error');
       return null;
     }
@@ -127,7 +127,7 @@ export function useSchedule(id: string | null) {
       setError(null);
       const data = await devopsSchedulesApi.getById(id, true);
       setSchedule(data);
-    } catch (err) {
+    } catch {
       const message = err instanceof Error ? err.message : 'Failed to fetch schedule';
       setError(message);
     } finally {
@@ -140,7 +140,7 @@ export function useSchedule(id: string | null) {
       hasLoadedRef.current = id;
       fetchSchedule();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
   const updateSchedule = async (data: Partial<DevopsScheduleFormData>) => {
@@ -151,7 +151,7 @@ export function useSchedule(id: string | null) {
       showNotification('Schedule updated successfully', 'success');
       setSchedule(updated);
       return updated;
-    } catch (err) {
+    } catch {
       showNotification('Failed to update schedule', 'error');
       return null;
     }

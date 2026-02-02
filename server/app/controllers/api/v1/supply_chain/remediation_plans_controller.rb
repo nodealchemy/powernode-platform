@@ -4,10 +4,10 @@ module Api
   module V1
     module SupplyChain
       class RemediationPlansController < BaseController
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :execute, :generate_pr]
-        before_action :require_admin_permission, only: [:approve, :reject]
-        before_action :set_remediation_plan, only: [:show, :update, :destroy, :approve, :reject, :execute, :generate_pr]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :execute, :generate_pr ]
+        before_action :require_admin_permission, only: [ :approve, :reject ]
+        before_action :set_remediation_plan, only: [ :show, :update, :destroy, :approve, :reject, :execute, :generate_pr ]
 
         # GET /api/v1/supply_chain/remediation_plans
         def index

@@ -135,7 +135,7 @@ module A2a
         scope = scope.where(ai_tool: input["ai_tool"]) if input["ai_tool"].present?
 
         page = (input["page"] || 1).to_i
-        per_page = [(input["per_page"] || 20).to_i, 100].min
+        per_page = [ (input["per_page"] || 20).to_i, 100 ].min
 
         loops = scope.offset((page - 1) * per_page).limit(per_page)
 
@@ -207,7 +207,7 @@ module A2a
         scope = scope.where(status: input["status"]) if input["status"].present?
         scope = scope.where(ralph_task_id: input["task_id"]) if input["task_id"].present?
 
-        limit = [(input["limit"] || 20).to_i, 100].min
+        limit = [ (input["limit"] || 20).to_i, 100 ].min
 
         {
           output: {

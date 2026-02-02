@@ -80,7 +80,7 @@ module Mcp
         if resolved.is_a?(Array)
           resolved.map { |r| resolve_value(r) }.compact
         else
-          [resolved].compact
+          [ resolved ].compact
         end
       end
 

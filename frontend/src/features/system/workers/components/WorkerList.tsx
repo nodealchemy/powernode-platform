@@ -5,7 +5,7 @@ interface WorkerListProps {
   workers: Worker[];
   selectedWorker: Worker | null;
   onWorkerSelect: (worker: Worker) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onWorkerUpdate: (workerId: string, data: any) => Promise<any>;
   onWorkerDelete: (workerId: string) => Promise<void>;
   onTokenRegenerate: (workerId: string) => Promise<string>;

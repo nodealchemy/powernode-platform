@@ -26,13 +26,13 @@ FactoryBot.define do
         ]
       }
     end
-    trigger_config { { "event_types" => ["pull_request", "push"] } }
+    trigger_config { { "event_types" => [ "pull_request", "push" ] } }
     input_schema { { "type" => "object", "properties" => { "repository_url" => { "type" => "string" } } } }
     output_schema { { "type" => "object", "properties" => { "review_summary" => { "type" => "string" } } } }
     variables { [] }
     secrets_required { [] }
-    integrations_required { ["github"] }
-    tags { ["code-review", "quality"] }
+    integrations_required { [ "github" ] }
+    tags { [ "code-review", "quality" ] }
     is_system { false }
     is_featured { false }
     installation_count { 0 }
@@ -93,8 +93,8 @@ FactoryBot.define do
       template_type { "security_scan" }
       name { "Security Vulnerability Scanner" }
       description { "AI-powered security vulnerability detection" }
-      integrations_required { ["github", "sonarqube"] }
-      tags { ["security", "vulnerability", "scan"] }
+      integrations_required { [ "github", "sonarqube" ] }
+      tags { [ "security", "vulnerability", "scan" ] }
     end
 
     trait :test_generation do
@@ -102,7 +102,7 @@ FactoryBot.define do
       template_type { "test_generation" }
       name { "Automated Test Generator" }
       description { "AI-powered unit test generation" }
-      tags { ["testing", "automation", "unit-tests"] }
+      tags { [ "testing", "automation", "unit-tests" ] }
     end
 
     trait :deployment_validation do
@@ -110,7 +110,7 @@ FactoryBot.define do
       template_type { "deployment_validation" }
       name { "Deployment Validator" }
       description { "Pre-deployment validation and risk assessment" }
-      tags { ["deployment", "validation", "risk"] }
+      tags { [ "deployment", "validation", "risk" ] }
     end
 
     trait :release_notes do
@@ -118,11 +118,11 @@ FactoryBot.define do
       template_type { "release_notes" }
       name { "Release Notes Generator" }
       description { "Automated release notes generation from commits" }
-      tags { ["release", "documentation", "changelog"] }
+      tags { [ "release", "documentation", "changelog" ] }
     end
 
     trait :with_secrets do
-      secrets_required { ["GITHUB_TOKEN", "SONARQUBE_TOKEN"] }
+      secrets_required { [ "GITHUB_TOKEN", "SONARQUBE_TOKEN" ] }
     end
 
     trait :with_variables do

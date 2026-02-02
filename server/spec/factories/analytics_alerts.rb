@@ -16,7 +16,7 @@ FactoryBot.define do
     last_checked_at { nil }
     last_triggered_at { nil }
     auto_resolve { false }
-    notification_channels { ["email:admin@example.com"] }
+    notification_channels { [ "email:admin@example.com" ] }
     metadata { {} }
 
     trait :with_account do
@@ -67,11 +67,11 @@ FactoryBot.define do
     end
 
     trait :with_slack do
-      notification_channels { ["email:admin@example.com", "slack:#alerts"] }
+      notification_channels { [ "email:admin@example.com", "slack:#alerts" ] }
     end
 
     trait :with_webhook do
-      notification_channels { ["email:admin@example.com", "webhook:https://example.com/webhook"] }
+      notification_channels { [ "email:admin@example.com", "webhook:https://example.com/webhook" ] }
     end
   end
 end

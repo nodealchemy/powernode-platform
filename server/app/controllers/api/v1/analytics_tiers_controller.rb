@@ -4,8 +4,8 @@ module Api
   module V1
     class AnalyticsTiersController < ApplicationController
       skip_before_action :authenticate_request, only: [ :index, :show ]
-      before_action -> { require_permission("billing.read") }, only: [:current, :comparison, :feature_gates]
-      before_action -> { require_permission("billing.manage") }, only: [:upgrade]
+      before_action -> { require_permission("billing.read") }, only: [ :current, :comparison, :feature_gates ]
+      before_action -> { require_permission("billing.manage") }, only: [ :upgrade ]
 
       # GET /api/v1/analytics/tiers
       def index

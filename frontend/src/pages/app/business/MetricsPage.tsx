@@ -4,7 +4,7 @@ import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 
 export const MetricsPage: React.FC = () => {
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'business',
     onDataUpdate: () => {
       // Trigger data refresh if needed

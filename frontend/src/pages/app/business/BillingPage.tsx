@@ -40,7 +40,7 @@ export const BillingPage: React.FC = () => {
   });
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'business',
     subscribeToSubscriptions: true,
     onDataUpdate: () => {
@@ -77,7 +77,7 @@ export const BillingPage: React.FC = () => {
 
       setShowCreateInvoice(false);
       await loadBillingData(); // Refresh data
-    } catch (_error) {
+    } catch {
       // Error handling could be added here
     } finally {
       setLoading(false);

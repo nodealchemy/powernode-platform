@@ -88,7 +88,7 @@ class ResellerCommission < ApplicationRecord
     return 0 if available? || paid?
     return nil unless available_at
 
-    [(available_at.to_date - Date.current).to_i, 0].max
+    [ (available_at.to_date - Date.current).to_i, 0 ].max
   end
 
   private

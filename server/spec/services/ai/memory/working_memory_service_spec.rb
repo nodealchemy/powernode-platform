@@ -26,7 +26,7 @@ RSpec.describe Ai::Memory::WorkingMemoryService, type: :service do
     end
 
     it 'stores and retrieves hash values' do
-      data = { 'name' => 'test', 'items' => [1, 2, 3] }
+      data = { 'name' => 'test', 'items' => [ 1, 2, 3 ] }
       service.store('data', data)
 
       expect(service.retrieve('data')).to eq(data)

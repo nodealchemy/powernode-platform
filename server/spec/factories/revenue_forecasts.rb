@@ -22,7 +22,7 @@ FactoryBot.define do
     accuracy_percentage { nil }
     model_version { "1.0" }
     assumptions { { "growth_rate" => 0.05, "churn_rate" => 0.03, "expansion_rate" => 0.02 } }
-    contributing_factors { [{ "factor" => "growth", "impact" => 0.05 }] }
+    contributing_factors { [ { "factor" => "growth", "impact" => 0.05 } ] }
     generated_at { Time.current }
 
     trait :with_account do

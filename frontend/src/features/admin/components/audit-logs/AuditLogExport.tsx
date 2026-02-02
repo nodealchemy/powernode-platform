@@ -143,7 +143,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
         throw new Error(response.error || 'Export failed');
       }
       
-    } catch (error) {
+    } catch {
       // Error handled by notification
       setIsExporting(false);
       setExportProgress(0);
@@ -154,7 +154,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const updateExportOptions = (key: keyof ExportOptions, value: any) => {
     setExportOptions(prev => ({ ...prev, [key]: value }));
   };

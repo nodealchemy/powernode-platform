@@ -38,7 +38,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
       
       setData(overviewData.data || null);
       setServicesHealth(healthStatus);
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load admin overview data';
       console.error('Admin overview load error:', error);
       setError(errorMessage);
@@ -198,7 +198,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                 await adminSettingsApi.updateSettings({ maintenance_mode: false });
                 showNotification('Maintenance mode disabled successfully', 'success');
                 await loadOverviewData(); // Refresh the data
-              } catch (_error) {
+              } catch {
                 showNotification('Failed to disable maintenance mode', 'error');
               }
             }

@@ -159,7 +159,7 @@ class AdminSettingsApi {
       }
       // Handle case where data is returned directly
       return { success: true, data: responseData };
-    } catch (error: unknown) {
+    } catch {
       const errorMessage =
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||

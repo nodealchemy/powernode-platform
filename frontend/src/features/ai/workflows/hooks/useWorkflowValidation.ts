@@ -70,7 +70,7 @@ export const useWorkflowValidation = (
       const response = await validationApi.validateWorkflow(workflowId);
       setValidationResult(response.validation_result);
       return response.validation_result;
-    } catch (error) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'Validation failed';
       setError(errorMessage);
       return null;

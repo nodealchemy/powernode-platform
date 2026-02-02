@@ -57,7 +57,7 @@ module Mcp
           /mkfs/, # Format disk
           /dd\s+if=.*of=\/dev/, # dd to devices
           /shutdown|reboot|halt/, # System commands
-          /chmod\s+777\s+\//, # Dangerous permissions
+          /chmod\s+777\s+\// # Dangerous permissions
         ]
 
         dangerous_patterns.each do |pattern|

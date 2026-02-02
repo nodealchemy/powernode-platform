@@ -159,7 +159,7 @@ RSpec.describe CustomerHealthScore, type: :model do
 
   describe "#primary_risk_factor" do
     it "returns first risk factor" do
-      score = build(:customer_health_score, risk_factors: ["low_engagement", "payment_issues"])
+      score = build(:customer_health_score, risk_factors: [ "low_engagement", "payment_issues" ])
       expect(score.primary_risk_factor).to eq("low_engagement")
     end
 

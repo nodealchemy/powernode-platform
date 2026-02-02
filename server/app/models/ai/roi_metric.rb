@@ -89,7 +89,7 @@ module Ai
       {
         break_even_tasks: total_cost_usd.positive? ? (total_cost_usd / (value_per_task_usd || 1)).ceil : 0,
         current_tasks: tasks_completed,
-        tasks_to_break_even: [0, (total_cost_usd / (value_per_task_usd || 1)).ceil - tasks_completed].max,
+        tasks_to_break_even: [ 0, (total_cost_usd / (value_per_task_usd || 1)).ceil - tasks_completed ].max,
         is_profitable: positive_roi?
       }
     end

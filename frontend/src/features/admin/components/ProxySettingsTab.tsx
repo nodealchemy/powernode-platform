@@ -23,14 +23,14 @@ export const ProxySettingsTab: React.FC = () => {
   useEffect(() => {
     loadConfig();
     loadDetection();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const loadConfig = async () => {
     try {
       const data = await proxySettingsApi.getUrlConfig();
       setConfig(data);
-    } catch (error) {
+    } catch {
       showError('Failed to load proxy configuration');
     } finally {
       setLoading(false);
@@ -57,7 +57,7 @@ export const ProxySettingsTab: React.FC = () => {
       
       // Reload detection after config change
       await loadDetection();
-    } catch (error) {
+    } catch {
       showError('Failed to save configuration');
     } finally {
       setSaving(false);
@@ -84,7 +84,7 @@ export const ProxySettingsTab: React.FC = () => {
     try {
       await proxySettingsApi.downloadConfigAsFile();
       showSuccess('Configuration exported successfully');
-    } catch (_error) {
+    } catch {
       showError('Failed to export configuration');
     }
   };
@@ -96,7 +96,7 @@ export const ProxySettingsTab: React.FC = () => {
       setConfig(updatedConfig);
       showSuccess('Configuration imported successfully');
       await loadDetection();
-    } catch (_error) {
+    } catch {
       showError('Failed to import configuration');
     }
   };

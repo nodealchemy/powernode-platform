@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class ScanInstancesController < BaseController
-        before_action :require_read_permission, only: [:index, :show, :executions]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :execute]
-        before_action :set_scan_instance, only: [:show, :update, :destroy, :execute, :executions]
+        before_action :require_read_permission, only: [ :index, :show, :executions ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :execute ]
+        before_action :set_scan_instance, only: [ :show, :update, :destroy, :execute, :executions ]
 
         # GET /api/v1/supply_chain/scan_instances
         def index

@@ -99,7 +99,7 @@ const AppContent: React.FC = () => {
               } else {
                 localStorage.removeItem('impersonationToken');
               }
-            } catch (impersonationError) {
+            } catch {
               localStorage.removeItem('impersonationToken');
             }
           }
@@ -107,7 +107,7 @@ const AppContent: React.FC = () => {
           // If no valid impersonation session, proceed with regular authentication
           try {
             await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
-          } catch (error) {
+          } catch {
             
             // Check if this error indicates invalid tokens that should be cleared immediately
             if (isTokenInvalidError(error)) {
@@ -130,7 +130,7 @@ const AppContent: React.FC = () => {
                     } else {
                       localStorage.removeItem('impersonationToken');
                     }
-                  } catch (impersonationError) {
+                  } catch {
                     localStorage.removeItem('impersonationToken');
                   }
                 }
@@ -152,7 +152,7 @@ const AppContent: React.FC = () => {
             }
           }
         }
-      } catch (error) {
+      } catch {
         dispatch(clearAuth());
       } finally {
         clearTimeout(timeoutId);
@@ -162,7 +162,7 @@ const AppContent: React.FC = () => {
     };
 
     void initializeAuth();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [dispatch]); // Remove access_token, refresh_token, user to prevent infinite loop
 
   const handleAuthFallback = () => {

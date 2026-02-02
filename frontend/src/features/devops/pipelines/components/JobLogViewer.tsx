@@ -127,7 +127,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
         .map(step => `=== ${step.step_name} (${step.status}) ===\n${step.logs || ''}${step.error_message ? `\nError: ${step.error_message}` : ''}`)
         .join('\n\n');
       setPollingLogs(combinedLogs);
-    } catch (err) {
+    } catch {
       setPollingError(err instanceof Error ? err.message : 'Failed to fetch logs');
     } finally {
       setPollingLoading(false);

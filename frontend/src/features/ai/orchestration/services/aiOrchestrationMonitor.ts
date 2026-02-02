@@ -70,7 +70,7 @@ class AIOrchestrationMonitor {
       let user: { account?: { id?: string } } | null = null;
       try {
         user = JSON.parse(userStr);
-      } catch (e) {
+      } catch {
         return;
       }
 
@@ -109,7 +109,7 @@ class AIOrchestrationMonitor {
         try {
           const data = JSON.parse(event.data);
           this.handleMessage(data);
-        } catch (error) {
+        } catch {
           // Error parsing WebSocket message - handled silently
         }
       };
@@ -127,7 +127,7 @@ class AIOrchestrationMonitor {
         // WebSocket connection error - reconnect will be attempted
       };
 
-    } catch (error) {
+    } catch {
       this.scheduleReconnect();
     }
   }
@@ -190,7 +190,7 @@ class AIOrchestrationMonitor {
     this.eventHandlers.forEach(handler => {
       try {
         handler(event);
-      } catch (error) {
+      } catch {
         // Error in event handler - handled silently
       }
     });
@@ -200,7 +200,7 @@ class AIOrchestrationMonitor {
     this.metricsHandlers.forEach(handler => {
       try {
         handler(metrics);
-      } catch (error) {
+      } catch {
         // Error in metrics handler - handled silently
       }
     });

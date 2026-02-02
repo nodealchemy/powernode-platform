@@ -127,7 +127,7 @@ RSpec.describe Analytics::RevenueForecasterService, type: :service do
 
     describe "#analyze_trends" do
       it "analyzes revenue trends" do
-        data = { mrr_history: [{ date: 3.months.ago, mrr: 10_000 }, { date: 2.months.ago, mrr: 11_000 }, { date: 1.month.ago, mrr: 12_000 }] }
+        data = { mrr_history: [ { date: 3.months.ago, mrr: 10_000 }, { date: 2.months.ago, mrr: 11_000 }, { date: 1.month.ago, mrr: 12_000 } ] }
 
         trends = service.send(:analyze_trends, data)
 

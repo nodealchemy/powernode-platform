@@ -41,7 +41,7 @@ export const AcceptInvitationPage: React.FC = () => {
       } else {
         setError(response.message || 'Invitation not found or expired');
       }
-    } catch (error: unknown) {
+    } catch {
       setError('Failed to load invitation details');
     } finally {
       setIsLoading(false);
@@ -119,7 +119,7 @@ export const AcceptInvitationPage: React.FC = () => {
           setFormErrors(errorMap);
         }
       }
-    } catch (error: unknown) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setIsSubmitting(false);

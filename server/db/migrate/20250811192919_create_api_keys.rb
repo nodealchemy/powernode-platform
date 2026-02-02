@@ -15,7 +15,7 @@ class CreateApiKeys < ActiveRecord::Migration[8.0]
       t.integer :rate_limit_per_day
       t.json :allowed_ips
       t.json :metadata
-      
+
       # Association columns
       t.references :created_by, null: true, foreign_key: { to_table: :users }, type: :string
       t.references :account, null: true, foreign_key: true, type: :string
@@ -30,12 +30,12 @@ class CreateApiKeys < ActiveRecord::Migration[8.0]
     add_index :api_keys, :expires_at
     add_index :api_keys, :last_used_at
     add_index :api_keys, :usage_count
-    add_index :api_keys, [:status, :expires_at]
-    
+    add_index :api_keys, [ :status, :expires_at ]
+
     # Add check constraint for status
     execute <<-SQL
-      ALTER TABLE api_keys 
-      ADD CONSTRAINT api_keys_status_check 
+      ALTER TABLE api_keys#{' '}
+      ADD CONSTRAINT api_keys_status_check#{' '}
       CHECK (status IN ('active', 'revoked', 'expired'));
     SQL
   end

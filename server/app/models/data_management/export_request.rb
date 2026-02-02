@@ -147,7 +147,7 @@ module DataManagement
 
       # Estimate based on typical processing time
       estimated_completion = created_at + 1.hour
-      [estimated_completion - Time.current, 0].max
+      [ estimated_completion - Time.current, 0 ].max
     end
 
     private

@@ -156,7 +156,7 @@ FactoryBot.define do
 
     trait :with_many_dependencies do
       materials do
-        deps = [{ uri: source_repository, digest: { sha256: source_commit } }]
+        deps = [ { uri: source_repository, digest: { sha256: source_commit } } ]
         10.times do
           deps << {
             uri: "pkg:npm/#{Faker::Internet.slug}@#{Faker::App.semantic_version}",
@@ -199,7 +199,7 @@ FactoryBot.define do
           dockerfile: "Dockerfile",
           build_args: { NODE_ENV: "production" },
           target: "production",
-          platforms: ["linux/amd64", "linux/arm64"]
+          platforms: [ "linux/amd64", "linux/arm64" ]
         }
       end
     end

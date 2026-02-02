@@ -752,7 +752,7 @@ RSpec.describe SupplyChain::RiskCalculationService, type: :service do
 
       context "from references with exploit keyword" do
         before do
-          vulnerability.update!(references: ["https://example.com/exploit-poc"])
+          vulnerability.update!(references: [ "https://example.com/exploit-poc" ])
         end
 
         it "increases score by 1.0" do
@@ -764,7 +764,7 @@ RSpec.describe SupplyChain::RiskCalculationService, type: :service do
 
       context "from references with poc keyword" do
         before do
-          vulnerability.update!(references: ["https://example.com/poc-code"])
+          vulnerability.update!(references: [ "https://example.com/poc-code" ])
         end
 
         it "increases score by 1.0" do
@@ -940,7 +940,7 @@ RSpec.describe SupplyChain::RiskCalculationService, type: :service do
         factors = vulnerability.reload.context_factors
 
         expect(factors["exploit_in_wild"]).to eq(true)
-        expect(factors["poc_available"]).to be_in([true, false])
+        expect(factors["poc_available"]).to be_in([ true, false ])
         expect(factors["code_reachable"]).to eq(true)
         expect(factors["behind_auth"]).to eq(true)
         expect(factors["dependency_depth"]).to eq(3)

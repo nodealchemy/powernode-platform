@@ -111,7 +111,7 @@ module Schedulable
     timestamp = next_run_timestamp
     return nil unless timestamp.present?
 
-    [(timestamp - Time.current).to_i, 0].max
+    [ (timestamp - Time.current).to_i, 0 ].max
   end
 
   # Human-readable cron description

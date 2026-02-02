@@ -54,7 +54,7 @@ export interface WorkflowExportData {
 }
 
 // Import workflow data structure (flexible interface for various import sources)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export type WorkflowImportData = Record<string, any>;
 
 // Dry run result structure

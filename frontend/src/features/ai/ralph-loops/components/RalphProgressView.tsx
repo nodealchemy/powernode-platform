@@ -32,7 +32,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
       setError(null);
       const response = await ralphLoopsApi.getProgress(loopId);
       setProgress(response);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load progress');
     } finally {
       setLoading(false);

@@ -60,7 +60,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
             message: `${provider.name} has been deleted successfully`
           });
           onUpdate();
-        } catch (error) {
+        } catch {
           addNotification({
             type: 'error',
             title: 'Delete Failed',
@@ -90,7 +90,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       if (response.success) {
         onUpdate();
       }
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Test Failed',
@@ -113,7 +113,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       });
       
       onUpdate();
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Sync Failed',

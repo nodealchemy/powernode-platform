@@ -140,7 +140,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
       const response = await workerApi.regenerateToken(worker.id);
       setNewToken(response.new_token);
       setShowToken(true);
-    } catch (error) {
+    } catch {
       if (process.env.NODE_ENV === 'development') {
         console.error('[WorkerDetailsPanel] Token regeneration failed:', error);
       }
@@ -163,7 +163,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
           await workerApi.revokeWorker(worker.id);
           break;
       }
-    } catch (error) {
+    } catch {
       if (process.env.NODE_ENV === 'development') {
         console.error('[WorkerDetailsPanel] Status change failed:', action, error);
       }
@@ -177,7 +177,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
       await copyToClipboard(token);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch {
       // Clipboard copy failure is non-critical - user can manually copy
     }
   };
@@ -188,7 +188,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
       await onDelete(worker.id);
       setShowDeleteConfirm(false);
       onClose();
-    } catch (error) {
+    } catch {
       if (process.env.NODE_ENV === 'development') {
         console.error('[WorkerDetailsPanel] Worker deletion failed:', error);
       }
@@ -265,7 +265,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
         }
       }, 30000); // 30 seconds as per API response
 
-    } catch (error: unknown) {
+    } catch {
       setTestResults({
         status: 'error',
         checks: {

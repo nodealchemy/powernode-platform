@@ -27,7 +27,7 @@ export const BaaSDashboard: React.FC = () => {
       setTenant(tenantResponse.data);
       setStats(dashboardResponse.data);
       setApiKeys(keysResponse.data);
-    } catch (error: unknown) {
+    } catch {
       const message = error instanceof Error ? error.message : 'Failed to load BaaS data';
       if (message.includes('not found') || message.includes('401')) {
         showNotification('Set up your BaaS tenant to get started', 'info');
@@ -52,7 +52,7 @@ export const BaaSDashboard: React.FC = () => {
       });
       showNotification(`API Key created. Key: ${result.data.key}`, 'success');
       fetchData();
-    } catch (error: unknown) {
+    } catch {
       const message = error instanceof Error ? error.message : 'Failed to create API key';
       showNotification(message, 'error');
     }
@@ -63,7 +63,7 @@ export const BaaSDashboard: React.FC = () => {
       await baasApi.revokeApiKey(keyId);
       showNotification('API key revoked', 'success');
       fetchData();
-    } catch (error: unknown) {
+    } catch {
       const message = error instanceof Error ? error.message : 'Failed to revoke API key';
       showNotification(message, 'error');
     }

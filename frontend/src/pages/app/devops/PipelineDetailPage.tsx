@@ -35,7 +35,7 @@ export const PipelineDetailPage: React.FC = () => {
   const { showNotification } = useNotifications();
   const { currentUser } = useAuth();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     subscribeToDevops: true,
     onDataUpdate: () => {
@@ -62,7 +62,7 @@ export const PipelineDetailPage: React.FC = () => {
       ]);
       setPipeline(pipelineData);
       setRuns(runsData.pipeline_runs || []);
-    } catch (error) {
+    } catch {
       showNotification('Failed to load pipeline', 'error');
     } finally {
       setLoading(false);
@@ -81,7 +81,7 @@ export const PipelineDetailPage: React.FC = () => {
       const run = await devopsPipelinesApi.trigger(id);
       showNotification('Pipeline triggered successfully', 'success');
       navigate(`/app/devops/pipelines/${id}/runs/${run.id}`);
-    } catch (error) {
+    } catch {
       showNotification('Failed to trigger pipeline', 'error');
     } finally {
       setTriggering(false);
@@ -95,7 +95,7 @@ export const PipelineDetailPage: React.FC = () => {
       const newPipeline = await devopsPipelinesApi.duplicate(id);
       showNotification('Pipeline duplicated successfully', 'success');
       navigate(`/app/devops/pipelines/${newPipeline.id}`);
-    } catch (error) {
+    } catch {
       showNotification('Failed to duplicate pipeline', 'error');
     }
   };
@@ -115,7 +115,7 @@ export const PipelineDetailPage: React.FC = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showNotification('Pipeline YAML exported', 'success');
-    } catch (error) {
+    } catch {
       showNotification('Failed to export pipeline', 'error');
     }
   };
@@ -131,7 +131,7 @@ export const PipelineDetailPage: React.FC = () => {
       await devopsPipelinesApi.delete(id);
       showNotification('Pipeline deleted', 'success');
       navigate('/app/devops/pipelines');
-    } catch (error) {
+    } catch {
       showNotification('Failed to delete pipeline', 'error');
     }
   };

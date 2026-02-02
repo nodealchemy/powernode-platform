@@ -4,7 +4,7 @@ import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 
 export const AIAnalyticsPage: React.FC = () => {
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       // Trigger data refresh if needed

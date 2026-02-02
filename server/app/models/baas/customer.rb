@@ -52,12 +52,12 @@ module BaaS
     end
 
     def deduct_balance(amount_cents)
-      new_balance = [balance_cents - amount_cents, 0].max
+      new_balance = [ balance_cents - amount_cents, 0 ].max
       update!(balance_cents: new_balance)
     end
 
     def full_address
-      [address_line1, address_line2, city, state, postal_code, country]
+      [ address_line1, address_line2, city, state, postal_code, country ]
         .compact
         .reject(&:blank?)
         .join(", ")

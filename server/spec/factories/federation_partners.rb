@@ -13,7 +13,7 @@ FactoryBot.define do
     agent_count { 0 }
     capabilities do
       {
-        'supported_protocols' => ['a2a-v0.3'],
+        'supported_protocols' => [ 'a2a-v0.3' ],
         'max_concurrent_tasks' => 10
       }
     end

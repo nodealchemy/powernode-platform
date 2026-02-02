@@ -58,7 +58,7 @@ class AnalyticsTierService
     return 0 unless tier.api_access
     return Float::INFINITY if tier.unlimited_api_calls?
 
-    [tier.api_calls_per_day - daily_calls_used, 0].max
+    [ tier.api_calls_per_day - daily_calls_used, 0 ].max
   end
 
   # Upgrade account tier

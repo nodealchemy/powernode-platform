@@ -7,9 +7,9 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :sync, :attach_pipeline, :detach_pipeline]
-        before_action :set_repository, only: [:show, :update, :destroy, :sync, :attach_pipeline, :detach_pipeline]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :sync, :attach_pipeline, :detach_pipeline ]
+        before_action :set_repository, only: [ :show, :update, :destroy, :sync, :attach_pipeline, :detach_pipeline ]
 
         # GET /api/v1/devops/repositories
         def index
@@ -121,7 +121,7 @@ module Api
           begin
             WorkerJobService.enqueue_job(
               "Devops::ProviderSyncJob",
-              args: [@repository.devops_provider_id, { repository_id: @repository.id }],
+              args: [ @repository.devops_provider_id, { repository_id: @repository.id } ],
               queue: "devops_default"
             )
             job_queued = true

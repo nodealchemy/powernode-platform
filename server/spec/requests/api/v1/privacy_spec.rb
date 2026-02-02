@@ -55,7 +55,7 @@ RSpec.describe 'Api::V1::Privacy', type: :request do
       {
         format: 'json',
         export_type: 'full',
-        include_data_types: ['profile', 'payments']
+        include_data_types: [ 'profile', 'payments' ]
       }
     end
 

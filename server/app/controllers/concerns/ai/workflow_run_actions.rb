@@ -306,7 +306,7 @@ module Ai
         end
       end
 
-      [deleted_count, deleted_run_ids]
+      [ deleted_count, deleted_run_ids ]
     end
   end
 end

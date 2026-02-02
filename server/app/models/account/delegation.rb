@@ -15,7 +15,7 @@ class Account::Delegation < ApplicationRecord
     has_many :permissions, through: :delegation_permissions
 
     # Validations
-    validates :delegated_by_id, uniqueness: { scope: [:account_id, :delegated_user_id],
+    validates :delegated_by_id, uniqueness: { scope: [ :account_id, :delegated_user_id ],
                                              message: "has already delegated to this user for this account" }
     validates :status, presence: true, inclusion: { in: %w[active inactive revoked] }
 

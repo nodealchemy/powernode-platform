@@ -126,6 +126,7 @@ describe('SbomDiffPage', () => {
     jest.clearAllMocks();
 
     // Mock useParams
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const useParams = require('react-router-dom').useParams;
     useParams.mockReturnValue({ id: 'sbom-source', diffId: 'diff-123' });
 
@@ -538,7 +539,8 @@ describe('SbomDiffPage', () => {
     });
 
     it('handles null SBOM ID', () => {
-      const useParams = require('react-router-dom').useParams;
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const useParams = require('react-router-dom').useParams;
       useParams.mockReturnValue({ id: null, diffId: 'diff-123' });
 
       renderWithRouter(<SbomDiffPage />);
@@ -547,7 +549,8 @@ describe('SbomDiffPage', () => {
     });
 
     it('handles null diff ID', () => {
-      const useParams = require('react-router-dom').useParams;
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const useParams = require('react-router-dom').useParams;
       useParams.mockReturnValue({ id: 'sbom-source', diffId: null });
 
       renderWithRouter(<SbomDiffPage />);
@@ -556,7 +559,8 @@ describe('SbomDiffPage', () => {
     });
 
     it('handles missing URL parameters', () => {
-      const useParams = require('react-router-dom').useParams;
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const useParams = require('react-router-dom').useParams;
       useParams.mockReturnValue({});
 
       renderWithRouter(<SbomDiffPage />);

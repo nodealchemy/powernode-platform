@@ -23,7 +23,7 @@ module Devops
     # ============================================
     validates :name, presence: true
     validates :slug, presence: true, uniqueness: { scope: :account_id },
-                     format: { with: /\A[a-z0-9\-_]+\z/, message: 'only allows lowercase letters, numbers, hyphens, and underscores' }
+                     format: { with: /\A[a-z0-9\-_]+\z/, message: "only allows lowercase letters, numbers, hyphens, and underscores" }
     validates :pipeline_type, presence: true, inclusion: { in: %w[review implement security deploy custom] }
     validates :timeout_minutes, numericality: { greater_than: 0, less_than_or_equal_to: 360 }
     validates :version, numericality: { greater_than: 0 }
@@ -52,23 +52,23 @@ module Devops
       return false unless triggers.present?
 
       case event_type
-      when 'pull_request'
-        triggers.dig('pull_request')&.include?(event_data[:action])
-      when 'push'
-        branches = triggers.dig('push', 'branches') || []
+      when "pull_request"
+        triggers.dig("pull_request")&.include?(event_data[:action])
+      when "push"
+        branches = triggers.dig("push", "branches") || []
         branches.any? { |pattern| File.fnmatch(pattern, event_data[:branch]) }
-      when 'issue_comment'
-        triggers.dig('issue_comment')&.include?(event_data[:action])
-      when 'issue'
-        triggers.dig('issue')&.include?(event_data[:action])
-      when 'release'
-        triggers.dig('release')&.include?(event_data[:action])
-      when 'schedule'
-        triggers['schedule'].present?
-      when 'manual'
-        triggers['manual'] != false
-      when 'workflow_dispatch'
-        triggers['workflow_dispatch'].present?
+      when "issue_comment"
+        triggers.dig("issue_comment")&.include?(event_data[:action])
+      when "issue"
+        triggers.dig("issue")&.include?(event_data[:action])
+      when "release"
+        triggers.dig("release")&.include?(event_data[:action])
+      when "schedule"
+        triggers["schedule"].present?
+      when "manual"
+        triggers["manual"] != false
+      when "workflow_dispatch"
+        triggers["workflow_dispatch"].present?
       else
         false
       end
@@ -77,7 +77,7 @@ module Devops
     def trigger_run!(trigger_type:, trigger_context: {}, triggered_by: nil)
       runs.create!(
         run_number: next_run_number,
-        status: 'pending',
+        status: "pending",
         trigger_type: trigger_type,
         trigger_context: trigger_context,
         triggered_by: triggered_by
@@ -87,7 +87,7 @@ module Devops
     def next_run_number
       last_run = runs.order(created_at: :desc).first
       if last_run
-        last_number = last_run.run_number.to_s.split('-').last.to_i
+        last_number = last_run.run_number.to_s.split("-").last.to_i
         "#{slug}-#{last_number + 1}"
       else
         "#{slug}-1"
@@ -103,7 +103,7 @@ module Devops
     end
 
     def runner_label
-      runner_labels&.first || 'ubuntu-latest'
+      runner_labels&.first || "ubuntu-latest"
     end
 
     def generate_workflow_yaml
@@ -165,7 +165,7 @@ module Devops
     def system_pipelines_immutable
       return unless is_system? && (steps_changed? || triggers_changed?)
 
-      errors.add(:base, 'cannot modify system pipeline configuration')
+      errors.add(:base, "cannot modify system pipeline configuration")
     end
   end
 end

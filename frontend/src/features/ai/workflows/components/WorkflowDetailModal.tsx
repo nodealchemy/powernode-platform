@@ -117,7 +117,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
       setExpandedRuns(new Set());
       loadWorkflowRuns();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isOpen, workflowId, initialTab]);
 
   // Subscribe to WebSocket for real-time updates
@@ -199,7 +199,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
         title: 'Workflow Updated',
         message: 'Workflow has been updated successfully.'
       });
-    } catch (err) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Update Failed',

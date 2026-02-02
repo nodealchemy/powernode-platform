@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
 class Api::V1::AuditLogsController < ApplicationController
-  skip_before_action :authenticate_request, only: [:create]
-  before_action -> { require_permission("audit_logs.read") }, only: [:index, :show, :stats, :security_summary, :compliance_summary, :activity_timeline, :risk_analysis]
-  before_action -> { require_permission("audit_logs.export") }, only: [:export]
-  before_action :authenticate_worker_or_admin, only: [:create]
+  skip_before_action :authenticate_request, only: [ :create ]
+  before_action -> { require_permission("audit_logs.read") }, only: [ :index, :show, :stats, :security_summary, :compliance_summary, :activity_timeline, :risk_analysis ]
+  before_action -> { require_permission("audit_logs.export") }, only: [ :export ]
+  before_action :authenticate_worker_or_admin, only: [ :create ]
 
   # GET /api/v1/audit_logs
   def index
     page = params[:page] || 1
-    per_page = [params[:per_page]&.to_i || 50, 200].min
+    per_page = [ params[:per_page]&.to_i || 50, 200 ].min
 
     logs = AuditLog.includes(:user, :account)
                    .apply_filters(audit_log_filters)

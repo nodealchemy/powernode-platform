@@ -8,9 +8,9 @@ module Devops
     # Associations
     # ============================================
     belongs_to :account
-    belongs_to :provider, class_name: 'Devops::Provider', foreign_key: :ci_cd_provider_id
+    belongs_to :provider, class_name: "Devops::Provider", foreign_key: :ci_cd_provider_id
 
-    has_many :pipeline_repositories, class_name: 'Devops::PipelineRepository', foreign_key: :ci_cd_repository_id, dependent: :destroy
+    has_many :pipeline_repositories, class_name: "Devops::PipelineRepository", foreign_key: :ci_cd_repository_id, dependent: :destroy
     has_many :pipelines, through: :pipeline_repositories
 
     # ============================================
@@ -25,7 +25,7 @@ module Devops
     # ============================================
     scope :active, -> { where(is_active: true) }
     scope :by_provider, ->(provider_id) { where(devops_provider_id: provider_id) }
-    scope :needs_sync, -> { where('last_synced_at IS NULL OR last_synced_at < ?', 1.hour.ago) }
+    scope :needs_sync, -> { where("last_synced_at IS NULL OR last_synced_at < ?", 1.hour.ago) }
 
     # ============================================
     # Instance Methods
@@ -35,7 +35,7 @@ module Devops
       provider_type = provider.provider_type
 
       case provider_type
-      when 'gitea', 'github', 'gitlab'
+      when "gitea", "github", "gitlab"
         "#{provider.base_url}/#{full_name}.git"
       else
         "#{provider.base_url}/#{full_name}"
@@ -47,11 +47,11 @@ module Devops
       host = URI.parse(provider.base_url).host
 
       case provider_type
-      when 'github'
+      when "github"
         "git@github.com:#{full_name}.git"
-      when 'gitlab'
+      when "gitlab"
         "git@#{host}:#{full_name}.git"
-      when 'gitea'
+      when "gitea"
         "git@#{host}:#{full_name}.git"
       else
         clone_url
@@ -63,11 +63,11 @@ module Devops
     end
 
     def owner
-      full_name.split('/').first
+      full_name.split("/").first
     end
 
     def repo_name
-      full_name.split('/').last
+      full_name.split("/").last
     end
 
     def sync_from_provider!
@@ -87,12 +87,12 @@ module Devops
     end
 
     def protected_branch?(branch_name)
-      protected_branches = settings.dig('protected_branches') || []
+      protected_branches = settings.dig("protected_branches") || []
       protected_branches.any? { |pattern| File.fnmatch(pattern, branch_name) }
     end
 
     def requires_review_for_path?(file_path)
-      review_paths = settings.dig('review_required_paths') || []
+      review_paths = settings.dig("review_required_paths") || []
       review_paths.any? { |pattern| File.fnmatch(pattern, file_path, File::FNM_PATHNAME) }
     end
 

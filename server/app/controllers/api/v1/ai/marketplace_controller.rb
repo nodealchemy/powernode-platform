@@ -20,10 +20,10 @@ module Api
       class MarketplaceController < ApplicationController
         include AuditLogging
 
-        skip_before_action :authenticate_request, only: [:index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template]
-        before_action :authenticate_request, except: [:index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template]
-        before_action :set_template, only: [:show, :update, :destroy, :install, :publish, :rate, :validate_template, :template_analytics]
-        before_action :validate_permissions, except: [:index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template]
+        skip_before_action :authenticate_request, only: [ :index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template ]
+        before_action :authenticate_request, except: [ :index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template ]
+        before_action :set_template, only: [ :show, :update, :destroy, :install, :publish, :rate, :validate_template, :template_analytics ]
+        before_action :validate_permissions, except: [ :index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template ]
 
         # ===================================================================
         # TEMPLATES - PRIMARY RESOURCE CRUD

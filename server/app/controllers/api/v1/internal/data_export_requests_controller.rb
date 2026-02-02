@@ -4,7 +4,7 @@ module Api
   module V1
     module Internal
       class DataExportRequestsController < InternalBaseController
-        before_action :set_export_request, only: [:show, :update]
+        before_action :set_export_request, only: [ :show, :update ]
 
         # GET /api/v1/internal/data_export_requests/:id
         def show

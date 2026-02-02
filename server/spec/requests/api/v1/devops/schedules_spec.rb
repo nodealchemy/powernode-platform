@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::Schedules', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['devops.schedules.read']) }
-  let(:user_with_write_permission) { create(:user, account: account, permissions: ['devops.schedules.read', 'devops.schedules.write']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'devops.schedules.read' ]) }
+  let(:user_with_write_permission) { create(:user, account: account, permissions: [ 'devops.schedules.read', 'devops.schedules.write' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/devops/schedules' do

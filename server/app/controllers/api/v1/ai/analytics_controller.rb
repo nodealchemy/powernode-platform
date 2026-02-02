@@ -161,7 +161,7 @@ module Api
         # GET /api/v1/ai/analytics/reports
         def reports_index
           page = params[:page]&.to_i || 1
-          per_page = [params[:per_page]&.to_i || 20, 100].min
+          per_page = [ params[:per_page]&.to_i || 20, 100 ].min
 
           reports = ReportRequest.where(account: @account_scope)
                                  .order(created_at: :desc)
@@ -365,14 +365,14 @@ module Api
 
         def set_time_range
           @time_range = case params[:time_range]
-                        when "1h" then 1.hour
-                        when "24h", "1d" then 1.day
-                        when "7d", "1w" then 1.week
-                        when "30d", "1m" then 30.days
-                        when "90d", "3m" then 90.days
-                        when "1y" then 1.year
-                        else 30.days
-                        end
+          when "1h" then 1.hour
+          when "24h", "1d" then 1.day
+          when "7d", "1w" then 1.week
+          when "30d", "1m" then 30.days
+          when "90d", "3m" then 90.days
+          when "1y" then 1.year
+          else 30.days
+          end
         end
 
         def set_account_scope

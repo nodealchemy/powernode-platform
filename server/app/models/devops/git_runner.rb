@@ -47,7 +47,7 @@ module Devops
     scope :for_repository, ->(repository_id) { where(git_repository_id: repository_id) }
     scope :recently_seen, -> { where("last_seen_at >= ?", 5.minutes.ago) }
     scope :stale, -> { where("last_seen_at < ?", 5.minutes.ago).or(where(last_seen_at: nil)) }
-    scope :with_label, ->(label) { where("labels @> ?", [label].to_json) }
+    scope :with_label, ->(label) { where("labels @> ?", [ label ].to_json) }
 
     # Callbacks
     before_save :update_status_from_busy

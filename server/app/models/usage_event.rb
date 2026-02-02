@@ -105,9 +105,9 @@ class UsageEvent < ApplicationRecord
 
       usage_percent = if quota.soft_limit
                         (quota.current_usage / quota.soft_limit * 100).to_i
-                      elsif quota.hard_limit
+      elsif quota.hard_limit
                         (quota.current_usage / quota.hard_limit * 100).to_i
-                      end
+      end
 
       return unless usage_percent
 

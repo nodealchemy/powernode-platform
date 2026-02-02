@@ -142,7 +142,7 @@ RSpec.describe 'Api::V1::Roles', type: :request do
     let(:headers) { auth_headers_for(admin_user) }
 
     context 'with admin.role.create permission' do
-      let(:role_user) { create(:user, account: account, permissions: ['admin.role.create', 'admin.role.read']) }
+      let(:role_user) { create(:user, account: account, permissions: [ 'admin.role.create', 'admin.role.read' ]) }
       let(:role_headers) { auth_headers_for(role_user) }
 
       # The controller permits only :name and :description but Role validates :display_name presence.
@@ -183,7 +183,7 @@ RSpec.describe 'Api::V1::Roles', type: :request do
         permission = create(:permission)
 
         post '/api/v1/roles',
-             params: { role: { name: 'custom_perms', description: 'Test' }, permission_ids: [permission.id] },
+             params: { role: { name: 'custom_perms', description: 'Test' }, permission_ids: [ permission.id ] },
              headers: role_headers, as: :json
 
         expect_success_response
@@ -239,7 +239,7 @@ RSpec.describe 'Api::V1::Roles', type: :request do
         permission = create(:permission)
 
         patch "/api/v1/roles/#{custom_role.id}",
-              params: { role: { description: 'Test' }, permission_ids: [permission.id] },
+              params: { role: { description: 'Test' }, permission_ids: [ permission.id ] },
               headers: headers,
               as: :json
 
@@ -338,7 +338,7 @@ RSpec.describe 'Api::V1::Roles', type: :request do
   end
 
   describe 'POST /api/v1/roles/:role_id/assign_to_user/:user_id' do
-    let(:assign_user) { create(:user, account: account, permissions: ['admin.role.assign']) }
+    let(:assign_user) { create(:user, account: account, permissions: [ 'admin.role.assign' ]) }
     let(:assign_headers) { auth_headers_for(assign_user) }
     let(:target_user) { create(:user, account: account) }
     let(:role) { create(:role, is_system: false) }
@@ -382,7 +382,7 @@ RSpec.describe 'Api::V1::Roles', type: :request do
   end
 
   describe 'DELETE /api/v1/roles/:role_id/remove_from_user/:user_id' do
-    let(:assign_user) { create(:user, account: account, permissions: ['admin.role.assign']) }
+    let(:assign_user) { create(:user, account: account, permissions: [ 'admin.role.assign' ]) }
     let(:assign_headers) { auth_headers_for(assign_user) }
     let(:target_user) { create(:user, account: account) }
     let(:role) { create(:role, is_system: false) }

@@ -78,7 +78,7 @@ module Chat
     def extend!(additional_time)
       return false if permanent?
 
-      new_expires_at = [expires_at, Time.current].max + additional_time
+      new_expires_at = [ expires_at, Time.current ].max + additional_time
       update!(expires_at: new_expires_at)
     end
 
@@ -94,11 +94,11 @@ module Chat
     def close_active_sessions!
       sessions = if channel_specific?
                    channel.sessions.where(platform_user_id: platform_user_id)
-                 else
+      else
                    Chat::Session.joins(:channel)
                                 .where(chat_channels: { account_id: account_id })
                                 .where(platform_user_id: platform_user_id)
-                 end
+      end
 
       sessions.open.find_each do |session|
         session.block!(reason: reason)

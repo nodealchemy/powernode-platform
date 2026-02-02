@@ -71,7 +71,7 @@ const EmailVerificationPage: React.FC = () => {
           message: data.error || 'Verification failed'
         });
       }
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = ErrorHandler.getUserMessage(error);
       setVerificationResult({
         success: false,

@@ -52,9 +52,9 @@ module Ai
       current_weight = usage_count - 1
       new_avg = if current_weight.positive? && average_rating.present?
                   ((average_rating * current_weight) + new_rating) / total_ratings
-                else
+      else
                   new_rating
-                end
+      end
       update!(average_rating: new_avg)
     end
 

@@ -73,7 +73,7 @@ module CostOptimization
     end
 
     def normalized_cost(cost)
-      [cost / BigDecimal("0.1"), BigDecimal("1")].min.to_f
+      [ cost / BigDecimal("0.1"), BigDecimal("1") ].min.to_f
     end
 
     def base_executions_query
@@ -88,16 +88,16 @@ module CostOptimization
     end
 
     def calculate_efficiency_score(avg_cost, avg_response_time, success_rate)
-      cost_score = [100 - (avg_cost * 1000), 0].max
-      time_score = [100 - (avg_response_time / 100), 0].max
+      cost_score = [ 100 - (avg_cost * 1000), 0 ].max
+      time_score = [ 100 - (avg_response_time / 100), 0 ].max
       success_score = success_rate
 
       (cost_score * 0.4 + time_score * 0.3 + success_score * 0.3).round(2)
     end
 
     def calculate_efficiency_score_from_metrics(cost_per_token, response_time, success_rate)
-      cost_score = [1.0 - (cost_per_token.to_f * 10000), 0].max
-      time_score = [1.0 - (response_time.to_f / 10000), 0].max
+      cost_score = [ 1.0 - (cost_per_token.to_f * 10000), 0 ].max
+      time_score = [ 1.0 - (response_time.to_f / 10000), 0 ].max
       (cost_score * 0.3 + time_score * 0.2 + success_rate * 0.5).round(2)
     end
 
@@ -105,9 +105,9 @@ module CostOptimization
       provider_metrics = provider_metrics.to_h.symbolize_keys
       weights = weights.to_h.symbolize_keys
 
-      cost_score = 1.0 - [provider_metrics[:cost_per_token].to_f * 10000, 1.0].min
+      cost_score = 1.0 - [ provider_metrics[:cost_per_token].to_f * 10000, 1.0 ].min
       quality_score = provider_metrics[:quality_score].to_f
-      speed_score = 1.0 - [provider_metrics[:response_time_ms].to_f / 5000, 1.0].min
+      speed_score = 1.0 - [ provider_metrics[:response_time_ms].to_f / 5000, 1.0 ].min
       reliability_score = provider_metrics[:reliability_score].to_f
 
       (cost_score * (weights[:cost] || 0.25) +

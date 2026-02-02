@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::Permissions', type: :request do
   let(:account) { create(:account) }
   let(:admin_user) { create(:user, :admin, account: account) }
-  let(:user_with_role_view) { create(:user, account: account, permissions: ['admin.role.view']) }
+  let(:user_with_role_view) { create(:user, account: account, permissions: [ 'admin.role.view' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   before do

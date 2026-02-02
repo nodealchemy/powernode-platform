@@ -61,7 +61,7 @@ const MyFilesPage: React.FC = () => {
 
       const response = await filesApi.getFiles(params);
       setFiles(response.files);
-    } catch (error) {
+    } catch {
       dispatch(addNotification({ type: 'error', message: 'Failed to load files' }));
     } finally {
       setLoading(false);
@@ -81,7 +81,7 @@ const MyFilesPage: React.FC = () => {
       if (defaultProvider) {
         setSelectedStorageId(defaultProvider.id);
       }
-    } catch (error) {
+    } catch {
       // Storage provider loading failed - continue with default settings
     }
   };
@@ -91,7 +91,7 @@ const MyFilesPage: React.FC = () => {
     try {
       const stats = await filesApi.getStats();
       setFileStats(stats);
-    } catch (error) {
+    } catch {
       // File stats loading failed - continue without stats
     }
   };
@@ -120,7 +120,7 @@ const MyFilesPage: React.FC = () => {
     try {
       await filesApi.downloadFile(file.id, file.filename);
       dispatch(addNotification({ type: 'success', message: `Downloading ${file.filename}` }));
-    } catch (error) {
+    } catch {
       dispatch(addNotification({ type: 'error', message: 'Download failed' }));
     }
   };
@@ -138,7 +138,7 @@ const MyFilesPage: React.FC = () => {
       dispatch(addNotification({ type: 'success', message: 'File deleted successfully' }));
       void loadFiles();
       void loadFileStats();
-    } catch (error) {
+    } catch {
       dispatch(addNotification({ type: 'error', message: 'Failed to delete file' }));
     }
   };
@@ -149,7 +149,7 @@ const MyFilesPage: React.FC = () => {
     for (const file of selectedFileObjects) {
       try {
         await filesApi.downloadFile(file.id, file.filename);
-      } catch (error) {
+      } catch {
         dispatch(addNotification({ type: 'error', message: `Failed to download ${file.filename}` }));
       }
     }
@@ -167,7 +167,7 @@ const MyFilesPage: React.FC = () => {
       try {
         await filesApi.deleteFile(file.id);
         successCount++;
-      } catch (error) {
+      } catch {
         dispatch(addNotification({ type: 'error', message: `Failed to delete ${file.filename}` }));
       }
     }

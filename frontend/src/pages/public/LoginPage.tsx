@@ -40,8 +40,8 @@ export const LoginPage: React.FC = () => {
   const [requires2FA, setRequires2FA] = useState(false);
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [touched, _setTouched] = useState({ email: false, password: false });
-  const [errors, _setErrors] = useState({ email: '', password: '' });
+  const [touched] = useState({ email: false, password: false });
+  const [errors] = useState({ email: '', password: '' });
   const [copyrightText, setCopyrightText] = useState<string>('');
   
   // Clear error when component unmounts or user navigates away
@@ -59,7 +59,7 @@ export const LoginPage: React.FC = () => {
         const copyright = await settingsApi.getCopyright();
         const formattedCopyright = settingsApi.formatCopyright(copyright);
         setCopyrightText(formattedCopyright);
-      } catch (error) {
+      } catch {
         // Fallback to default copyright text
         setCopyrightText(`© ${new Date().getFullYear()} Everett C. Haimes III. All rights reserved.`);
       }
@@ -108,7 +108,7 @@ export const LoginPage: React.FC = () => {
           navigate(from, { replace: true });
         }, 100);
       }
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: ErrorHandler.getUserMessage(error),
@@ -141,7 +141,7 @@ export const LoginPage: React.FC = () => {
       setTimeout(() => {
         navigate(from, { replace: true });
       }, 100);
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: 'Failed to load user data. Please try logging in again.',

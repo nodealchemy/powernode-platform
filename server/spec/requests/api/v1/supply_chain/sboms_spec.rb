@@ -7,12 +7,12 @@ RSpec.describe "Api::V1::SupplyChain::Sboms", type: :request do
 
   # User with supply_chain.read permission only
   let(:supply_chain_reader) do
-    create(:user, account: account, permissions: ["supply_chain.read"])
+    create(:user, account: account, permissions: [ "supply_chain.read" ])
   end
 
   # User with both supply_chain.read and supply_chain.write permissions
   let(:supply_chain_writer) do
-    create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"])
+    create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ])
   end
 
   # User without supply_chain permissions
@@ -210,7 +210,7 @@ RSpec.describe "Api::V1::SupplyChain::Sboms", type: :request do
           name: "Test Application SBOM",
           version: "1.0.0",
           source_path: "/tmp/test-app",
-          ecosystems: ["npm"],
+          ecosystems: [ "npm" ],
           format: "cyclonedx_1_5"
         }
       end

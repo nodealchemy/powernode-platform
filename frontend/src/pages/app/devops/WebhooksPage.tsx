@@ -36,7 +36,7 @@ const WebhookManagementPage: React.FC = () => {
   const { showNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -92,12 +92,12 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         showNotification(response.error || 'Failed to load webhooks', 'error');
       }
-    } catch (_error) {
+    } catch {
       showNotification('An unexpected error occurred while loading webhooks', 'error');
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [pagination.per_page, canReadWebhooks]);
 
   // Load detailed stats
@@ -111,8 +111,9 @@ const WebhookManagementPage: React.FC = () => {
       if (response.success && response.data) {
         setDetailedStats(response.data);
       }
-    } catch (_error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   }, [canReadWebhooks]);
 
   // Initial load
@@ -144,7 +145,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         showNotification(response.error || 'Failed to create webhook', 'error');
       }
-    } catch (_error) {
+    } catch {
       showNotification('An unexpected error occurred while creating the webhook', 'error');
     }
   };
@@ -174,7 +175,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         showNotification(response.error || 'Failed to update webhook', 'error');
       }
-    } catch (_error) {
+    } catch {
       showNotification('An unexpected error occurred while updating the webhook', 'error');
     }
   };
@@ -207,7 +208,7 @@ const WebhookManagementPage: React.FC = () => {
           } else {
             showNotification(response.error || 'Failed to delete webhook', 'error');
           }
-        } catch (_error) {
+        } catch {
           showNotification('An unexpected error occurred while deleting the webhook', 'error');
         }
       }
@@ -230,7 +231,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         showNotification(response.error || 'Failed to update webhook status', 'error');
       }
-    } catch (_error) {
+    } catch {
       showNotification('An unexpected error occurred while updating webhook status', 'error');
     }
   };
@@ -250,7 +251,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         showNotification(response.error || 'Failed to retry failed deliveries', 'error');
       }
-    } catch (_error) {
+    } catch {
       showNotification('An unexpected error occurred while retrying failed deliveries', 'error');
     }
   };

@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::EmailSettings', type: :request do
   let(:account) { create(:account) }
-  let(:admin_user) { create(:user, account: account, permissions: ['admin.settings.email']) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'admin.settings.email' ]) }
   let(:regular_user) { create(:user, account: account) }
   let(:admin_headers) { auth_headers_for(admin_user) }
   let(:user_headers) { auth_headers_for(regular_user) }

@@ -58,7 +58,7 @@ export const RoiDashboard: React.FC = () => {
       setRecommendations(recommendationsData);
       setComparison(comparisonData);
 
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'ROI Error',
@@ -77,14 +77,14 @@ export const RoiDashboard: React.FC = () => {
   // Initial load
   useEffect(() => {
     loadData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   // Reload when filters change
   useEffect(() => {
     if (dashboardData) {
       loadData(false);
     }
-  }, [timeRange, hourlyRate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [timeRange, hourlyRate]);  
 
   const formatCurrency = (amount: number) => {
     if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;

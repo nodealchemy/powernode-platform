@@ -157,7 +157,7 @@ module Devops
       nil
     end
   end
-end
+  end
 
 # Backwards compatibility alias
 GitProviderTestService = Devops::Git::ProviderTestService unless defined?(GitProviderTestService)

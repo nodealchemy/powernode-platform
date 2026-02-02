@@ -7,7 +7,7 @@ RSpec.describe Api::V1::Git::WebhookEventsController, type: :controller do
   let(:user) { create(:user, account: account) }
 
   # Permission users
-  let(:webhook_read_user) { create(:user, account: account, permissions: ['git.webhooks.read']) }
+  let(:webhook_read_user) { create(:user, account: account, permissions: [ 'git.webhooks.read' ]) }
   let(:user_without_permissions) { create(:user, account: account, permissions: []) }
 
   let(:provider) { create(:git_provider, :github) }

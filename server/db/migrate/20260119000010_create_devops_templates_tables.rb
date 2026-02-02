@@ -45,7 +45,7 @@ class CreateDevopsTemplatesTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_devops_templates, :slug, unique: true
-    add_index :ai_devops_templates, [:status, :visibility]
+    add_index :ai_devops_templates, [ :status, :visibility ]
     add_index :ai_devops_templates, :category
     add_index :ai_devops_templates, :template_type
     add_index :ai_devops_templates, :is_system
@@ -71,7 +71,7 @@ class CreateDevopsTemplatesTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_devops_template_installations, [:account_id, :devops_template_id], unique: true, name: "idx_devops_installations_account_template"
+    add_index :ai_devops_template_installations, [ :account_id, :devops_template_id ], unique: true, name: "idx_devops_installations_account_template"
     add_index :ai_devops_template_installations, :status
 
     # ==========================================================================
@@ -103,8 +103,8 @@ class CreateDevopsTemplatesTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_pipeline_executions, :execution_id, unique: true
-    add_index :ai_pipeline_executions, [:account_id, :status]
-    add_index :ai_pipeline_executions, [:repository_id, :created_at]
+    add_index :ai_pipeline_executions, [ :account_id, :status ]
+    add_index :ai_pipeline_executions, [ :repository_id, :created_at ]
     add_index :ai_pipeline_executions, :pipeline_type
     add_index :ai_pipeline_executions, :trigger_source
 
@@ -138,7 +138,7 @@ class CreateDevopsTemplatesTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_deployment_risks, :assessment_id, unique: true
-    add_index :ai_deployment_risks, [:account_id, :created_at]
+    add_index :ai_deployment_risks, [ :account_id, :created_at ]
     add_index :ai_deployment_risks, :risk_level
     add_index :ai_deployment_risks, :target_environment
     add_index :ai_deployment_risks, :status
@@ -178,8 +178,8 @@ class CreateDevopsTemplatesTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_code_reviews, :review_id, unique: true
-    add_index :ai_code_reviews, [:account_id, :created_at]
-    add_index :ai_code_reviews, [:repository_id, :pull_request_number]
+    add_index :ai_code_reviews, [ :account_id, :created_at ]
+    add_index :ai_code_reviews, [ :repository_id, :pull_request_number ]
     add_index :ai_code_reviews, :status
 
     # ==========================================================================

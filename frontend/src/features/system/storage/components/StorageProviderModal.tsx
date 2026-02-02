@@ -260,7 +260,7 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
     }
 
     switch (formData.provider_type) {
-      case 'local':
+      case 'local': {
         const localConfig = formData.configuration as LocalStorageConfig;
         return (
           <>
@@ -286,11 +286,12 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
             </div>
           </>
         );
+      }
 
       case 's3':
         return renderS3ConfigFields(false);
 
-      case 'azure_blob':
+      case 'azure_blob': {
         const azureConfig = formData.configuration as AzureBlobStorageConfig;
         return (
           <>
@@ -327,8 +328,9 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
             />
           </>
         );
+      }
 
-      case 'gcs':
+      case 'gcs': {
         const gcsConfig = formData.configuration as GCSStorageConfig;
         return (
           <>
@@ -370,8 +372,9 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
             />
           </>
         );
+      }
 
-      case 'nfs':
+      case 'nfs': {
         const nfsConfig = formData.configuration as NFSStorageConfig;
         return (
           <>
@@ -418,8 +421,9 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
             />
           </>
         );
+      }
 
-      case 'smb':
+      case 'smb': {
         const smbConfig = formData.configuration as SMBStorageConfig;
         return (
           <>
@@ -477,6 +481,7 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
             />
           </>
         );
+      }
 
       default:
         return null;

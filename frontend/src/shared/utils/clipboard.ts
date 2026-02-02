@@ -61,11 +61,11 @@ export const copyToClipboard = async (text: string, options?: {
     
     // Fallback for older browsers or non-HTTPS contexts
     return execCommandFallback(text, showAlert, successMessage);
-  } catch (error) {
+  } catch {
     // If clipboard API fails, try execCommand fallback
     try {
       return execCommandFallback(text, showAlert, successMessage);
-    } catch (fallbackError) {
+    } catch {
       // Last resort: show the text in a prompt for manual copying
       const result = window.prompt('Unable to copy automatically. Please copy this text manually:', text);
       

@@ -90,7 +90,7 @@ RSpec.describe 'Api::V1::Accounts', type: :request do
 
     context 'when accessing another account with accounts.read permission' do
       let(:user_with_permission) do
-        create(:user, account: account, permissions: ['accounts.read'])
+        create(:user, account: account, permissions: [ 'accounts.read' ])
       end
       let(:headers) { auth_headers_for(user_with_permission) }
 
@@ -109,7 +109,7 @@ RSpec.describe 'Api::V1::Accounts', type: :request do
 
     context 'when account does not exist' do
       let(:user_with_permission) do
-        create(:user, account: account, permissions: ['accounts.read'])
+        create(:user, account: account, permissions: [ 'accounts.read' ])
       end
       let(:headers) { auth_headers_for(user_with_permission) }
 

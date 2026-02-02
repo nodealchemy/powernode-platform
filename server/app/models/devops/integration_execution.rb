@@ -154,7 +154,7 @@ module Devops
 
     def all_attempts
       root = root_execution
-      [root] + root.retry_executions.order(:attempt_number)
+      [ root ] + root.retry_executions.order(:attempt_number)
     end
 
     private

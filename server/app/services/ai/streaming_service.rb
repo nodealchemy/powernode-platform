@@ -332,7 +332,7 @@ class Ai::StreamingService
     # Estimate based on typical response sizes
     # Most responses are 100-500 tokens, so ~50-250 chunks
     estimated_total = 200
-    [(@buffer.size.to_f / estimated_total * 100).round(2), 99].min
+    [ (@buffer.size.to_f / estimated_total * 100).round(2), 99 ].min
   end
 
   def estimate_tokens(text)

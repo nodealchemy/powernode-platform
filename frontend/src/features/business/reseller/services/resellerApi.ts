@@ -30,7 +30,7 @@ export const resellerApi = {
     try {
       const response = await api.get('/api/v1/resellers/me');
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -40,7 +40,7 @@ export const resellerApi = {
     try {
       const response = await api.post('/api/v1/resellers', data);
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -50,7 +50,7 @@ export const resellerApi = {
     try {
       const response = await api.get(`/api/v1/resellers/${resellerId}/dashboard`);
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -69,7 +69,7 @@ export const resellerApi = {
     try {
       const response = await api.get(`/api/v1/resellers/${resellerId}/commissions`, { params });
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -86,7 +86,7 @@ export const resellerApi = {
     try {
       const response = await api.get(`/api/v1/resellers/${resellerId}/referrals`, { params });
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -103,7 +103,7 @@ export const resellerApi = {
     try {
       const response = await api.get(`/api/v1/resellers/${resellerId}/payouts`, { params });
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -113,7 +113,7 @@ export const resellerApi = {
     try {
       const response = await api.post(`/api/v1/resellers/${resellerId}/request_payout`, { amount });
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -123,7 +123,7 @@ export const resellerApi = {
     try {
       const response = await api.get('/api/v1/resellers/tiers');
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -136,7 +136,7 @@ export const resellerApi = {
     try {
       const response = await api.patch(`/api/v1/resellers/${resellerId}`, data);
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -151,7 +151,7 @@ export const resellerApi = {
     try {
       const response = await api.get('/api/v1/resellers', { params });
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -161,7 +161,7 @@ export const resellerApi = {
     try {
       const response = await api.post(`/api/v1/resellers/${resellerId}/approve`);
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -171,7 +171,7 @@ export const resellerApi = {
     try {
       const response = await api.post(`/api/v1/resellers/${resellerId}/activate`);
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -181,7 +181,7 @@ export const resellerApi = {
     try {
       const response = await api.post(`/api/v1/resellers/${resellerId}/suspend`, { reason });
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -191,7 +191,7 @@ export const resellerApi = {
     try {
       const response = await api.post(`/api/v1/resellers/payouts/${payoutId}/process`);
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },

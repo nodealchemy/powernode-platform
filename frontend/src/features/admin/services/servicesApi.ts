@@ -504,7 +504,7 @@ export const servicesApi = {
           } else {
             setTimeout(poll, intervalMs);
           }
-        } catch (error) {
+        } catch {
           reject(error);
         }
       };

@@ -175,14 +175,14 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       cost_trend: { current_period_cost: 10.50, previous_period_cost: 8.0, change_percentage: 31.25 },
       cost_by_provider: [],
       cost_by_agent: [],
-      cost_by_workflow: [{ workflow_id: 'w1', workflow_name: 'Test', total_cost: 10.50 }],
+      cost_by_workflow: [ { workflow_id: 'w1', workflow_name: 'Test', total_cost: 10.50 } ],
       cost_by_model: [],
       daily_costs: {},
       budget_status: {},
       optimization_potential: {
         current_cost: 10.50,
         potential_savings: 2.10,
-        optimization_areas: ['Use cheaper models for simple tasks'],
+        optimization_areas: [ 'Use cheaper models for simple tasks' ],
         total_potential_savings: 2.10,
         opportunities: []
       },
@@ -253,7 +253,7 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       },
       bottlenecks: {
         slow_workflows: [],
-        recommendations: ['Consider optimizing long-running workflows']
+        recommendations: [ 'Consider optimizing long-running workflows' ]
       },
       sla_compliance: {},
       performance_trends: {}
@@ -276,9 +276,9 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
 
     # --- ReportService stubs ---
     allow_any_instance_of(Ai::Analytics::ReportService).to receive(:available_reports).and_return([
-      { id: 'executive_summary', name: 'Executive Summary', description: 'High-level overview', category: 'summary', formats: ['json', 'csv', 'pdf'] },
-      { id: 'cost_analysis', name: 'Cost Analysis', description: 'Detailed cost breakdown', category: 'cost', formats: ['json', 'csv'] },
-      { id: 'performance_analysis', name: 'Performance Analysis', description: 'Performance metrics', category: 'performance', formats: ['json', 'csv'] }
+      { id: 'executive_summary', name: 'Executive Summary', description: 'High-level overview', category: 'summary', formats: [ 'json', 'csv', 'pdf' ] },
+      { id: 'cost_analysis', name: 'Cost Analysis', description: 'Detailed cost breakdown', category: 'cost', formats: [ 'json', 'csv' ] },
+      { id: 'performance_analysis', name: 'Performance Analysis', description: 'Performance metrics', category: 'performance', formats: [ 'json', 'csv' ] }
     ])
 
     allow_any_instance_of(Ai::Analytics::ReportService).to receive(:generate).and_return({

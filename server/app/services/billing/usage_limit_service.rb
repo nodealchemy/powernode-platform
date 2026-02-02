@@ -51,7 +51,7 @@ module Billing
           limit: limit,
           unlimited: is_unlimited,
           percentage: is_unlimited ? 0 : (current.to_f / limit * 100).round(1),
-          available: is_unlimited ? Float::INFINITY : [limit - current, 0].max
+          available: is_unlimited ? Float::INFINITY : [ limit - current, 0 ].max
         }
       end
     end

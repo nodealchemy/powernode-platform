@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['devops.repositories.read']) }
-  let(:user_with_write_permission) { create(:user, account: account, permissions: ['devops.repositories.read', 'devops.repositories.write']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'devops.repositories.read' ]) }
+  let(:user_with_write_permission) { create(:user, account: account, permissions: [ 'devops.repositories.read', 'devops.repositories.write' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
   let(:provider) { create(:devops_provider, account: account) }
 

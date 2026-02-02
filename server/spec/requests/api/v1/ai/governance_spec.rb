@@ -157,7 +157,7 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
       {
         name: 'New Approval Chain',
         trigger_type: 'manual',
-        steps: [{ order: 1, approver_role: 'manager' }]
+        steps: [ { order: 1, approver_role: 'manager' } ]
       }
     end
 
@@ -262,7 +262,7 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
       {
         name: 'PII',
         classification_level: 'high',
-        detection_patterns: ['ssn', 'email'],
+        detection_patterns: [ 'ssn', 'email' ],
         handling_requirements: { encrypt: true }
       }
     end
@@ -359,7 +359,7 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
       allow_any_instance_of(Ai::GovernanceService).to receive(:get_compliance_summary)
         .and_return({ total_policies: 5, active_policies: 3, violations: 2 })
 
-      get "/api/v1/ai/governance/summary?start_date=#{30.days.ago.to_s}&end_date=#{Time.current.to_s}", headers: headers, as: :json
+      get "/api/v1/ai/governance/summary?start_date=#{30.days.ago}&end_date=#{Time.current}", headers: headers, as: :json
 
       expect_success_response
     end

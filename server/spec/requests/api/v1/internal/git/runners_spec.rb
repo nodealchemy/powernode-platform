@@ -28,7 +28,7 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
             status: 'online',
             busy: false,
             runner_scope: 'repository',
-            labels: ['ubuntu', 'self-hosted'],
+            labels: [ 'ubuntu', 'self-hosted' ],
             os: 'Linux',
             architecture: 'x64',
             version: '2.300.0'
@@ -39,7 +39,7 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
             status: 'online',
             busy: true,
             runner_scope: 'organization',
-            labels: ['macos'],
+            labels: [ 'macos' ],
             os: 'macOS',
             architecture: 'arm64'
           }
@@ -87,7 +87,7 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
         post sync_api_v1_internal_git_runners_path,
              params: {
                credential_id: credential.id,
-               runners: [runners_data.first]
+               runners: [ runners_data.first ]
              },
              headers: internal_headers
 
@@ -123,7 +123,7 @@ RSpec.describe 'Api::V1::Internal::Git::Runners', type: :request do
         post sync_api_v1_internal_git_runners_path,
              params: {
                credential_id: credential.id,
-               runners: [{ external_id: 'runner-1' }]
+               runners: [ { external_id: 'runner-1' } ]
              },
              headers: internal_headers
 

@@ -59,7 +59,7 @@ FactoryBot.define do
           "metadata" => {
             "timestamp" => Time.current.iso8601,
             "supplier" => { "name" => "Test Supplier" },
-            "authors" => [{ "name" => "Test Author" }]
+            "authors" => [ { "name" => "Test Author" } ]
           },
           "dependencies" => [
             { "ref" => "pkg:npm/lodash@4.17.21", "dependsOn" => [] }
@@ -208,9 +208,9 @@ FactoryBot.define do
           "version" => 1,
           "metadata" => {
             "timestamp" => Time.current.iso8601,
-            "tools" => [{ "vendor" => "Powernode", "name" => "SBOM Generator", "version" => "1.0.0" }],
-            "supplier" => { "name" => Faker::Company.name, "url" => [Faker::Internet.url] },
-            "authors" => [{ "name" => Faker::Name.name, "email" => Faker::Internet.email }]
+            "tools" => [ { "vendor" => "Powernode", "name" => "SBOM Generator", "version" => "1.0.0" } ],
+            "supplier" => { "name" => Faker::Company.name, "url" => [ Faker::Internet.url ] },
+            "authors" => [ { "name" => Faker::Name.name, "email" => Faker::Internet.email } ]
           },
           "components" => Array.new(5) do |i|
             {
@@ -218,7 +218,7 @@ FactoryBot.define do
               "name" => Faker::Internet.slug,
               "version" => Faker::App.semantic_version,
               "purl" => "pkg:npm/#{Faker::Internet.slug}@#{Faker::App.semantic_version}",
-              "licenses" => [{ "license" => { "id" => "MIT" } }]
+              "licenses" => [ { "license" => { "id" => "MIT" } } ]
             }
           end,
           "dependencies" => []

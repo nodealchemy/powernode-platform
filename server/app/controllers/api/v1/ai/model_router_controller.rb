@@ -17,8 +17,8 @@ module Api
         include AuditLogging
 
         before_action :validate_permissions
-        before_action :set_routing_rule, only: [:show_rule, :update_rule, :destroy_rule, :toggle_rule]
-        before_action :set_time_range, only: [:statistics, :cost_analysis, :decisions]
+        before_action :set_routing_rule, only: [ :show_rule, :update_rule, :destroy_rule, :toggle_rule ]
+        before_action :set_time_range, only: [ :statistics, :cost_analysis, :decisions ]
 
         # ==========================================================================
         # ROUTING RULES MANAGEMENT
@@ -27,7 +27,7 @@ module Api
         # GET /api/v1/ai/model_router/rules
         def rules_index
           page = params[:page]&.to_i || 1
-          per_page = [params[:per_page]&.to_i || 20, 100].min
+          per_page = [ params[:per_page]&.to_i || 20, 100 ].min
 
           rules = current_user.account.ai_model_routing_rules
                               .order(priority: :asc, created_at: :desc)
@@ -173,7 +173,7 @@ module Api
         # GET /api/v1/ai/model_router/decisions
         def decisions
           page = params[:page]&.to_i || 1
-          per_page = [params[:per_page]&.to_i || 50, 200].min
+          per_page = [ params[:per_page]&.to_i || 50, 200 ].min
 
           decisions = ::Ai::RoutingDecision.for_account(current_user.account)
                                            .where("created_at >= ?", @time_range.ago)
@@ -310,7 +310,7 @@ module Api
         # GET /api/v1/ai/model_router/optimizations
         def optimizations_index
           page = params[:page]&.to_i || 1
-          per_page = [params[:per_page]&.to_i || 20, 100].min
+          per_page = [ params[:per_page]&.to_i || 20, 100 ].min
 
           logs = ::Ai::CostOptimizationLog.for_account(current_user.account)
                                           .order(created_at: :desc)

@@ -158,7 +158,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
       it 'returns validation error' do
         allow_any_instance_of(User).to receive(:reset_password!).and_return(false)
         allow_any_instance_of(User).to receive(:errors).and_return(
-          double(full_messages: ['Password is too weak'])
+          double(full_messages: [ 'Password is too weak' ])
         )
 
         post '/api/v1/auth/reset-password',

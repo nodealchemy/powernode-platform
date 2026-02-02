@@ -89,7 +89,7 @@ module Api
             allow_overage: quota.allow_overage,
             overage_rate: quota.overage_rate_per_container,
             current_overage_cost: service.overage_cost,
-            containers_over_limit: [quota.containers_used_today - quota.max_containers_per_day, 0].max
+            containers_over_limit: [ quota.containers_used_today - quota.max_containers_per_day, 0 ].max
           )
         end
 

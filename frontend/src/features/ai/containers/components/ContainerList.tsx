@@ -62,7 +62,7 @@ export const ContainerList: React.FC<ContainerListProps> = ({
       const response = await containerExecutionApi.getContainers(filters);
       setContainers(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load containers');
     } finally {
       setLoading(false);
@@ -90,7 +90,7 @@ export const ContainerList: React.FC<ContainerListProps> = ({
       await containerExecutionApi.cancelContainer(container.id);
       loadContainers();
       onCancelContainer?.(container);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to cancel container');
     }
   };

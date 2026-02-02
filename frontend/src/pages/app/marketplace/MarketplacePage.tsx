@@ -44,7 +44,7 @@ export const MarketplacePage: React.FC = () => {
 
         const response = await marketplaceApi.getItems(filters);
         setItems(response.data || []);
-      } catch (error) {
+      } catch {
         console.error('Failed to load marketplace items:', error);
         addNotification({
           type: 'error',
@@ -57,7 +57,7 @@ export const MarketplacePage: React.FC = () => {
     };
 
     loadItems();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [selectedTypes, searchQuery]);
 
   const handleViewDetails = useCallback((itemId: string) => {
@@ -82,7 +82,7 @@ export const MarketplacePage: React.FC = () => {
 
       // Refresh items by updating search (triggers useEffect)
       setSearchQuery(prev => prev); // Trigger re-fetch
-    } catch (error) {
+    } catch {
       console.error('Failed to subscribe to item:', error);
       addNotification({
         type: 'error',

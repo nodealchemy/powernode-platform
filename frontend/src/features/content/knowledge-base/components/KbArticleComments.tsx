@@ -30,15 +30,16 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
 
   useEffect(() => {
     loadComments();
-  }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [articleId]);  
 
   const loadComments = async () => {
     try {
       setIsLoading(true);
       const response = await knowledgeBaseApi.getArticleComments(articleId, { per_page: 50 });
       setComments(response.data.data.comments);
-    } catch (error) {
-    } finally {
+    } catch {
+    // Error silently ignored
+  } finally {
       setIsLoading(false);
     }
   };
@@ -62,7 +63,7 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
       setComments(prev => [response.data.data, ...prev]);
       setNewComment('');
       showSuccess('Comment posted successfully');
-    } catch (error) {
+    } catch {
       showError('Failed to post comment. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -100,7 +101,7 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
       setReplyContent('');
       setReplyTo(null);
       showSuccess('Reply posted successfully');
-    } catch (error) {
+    } catch {
       showError('Failed to post reply. Please try again.');
     } finally {
       setIsSubmitting(false);

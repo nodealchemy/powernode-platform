@@ -47,12 +47,12 @@ module Ai
     end
 
     def full_path
-      (ancestors.map(&:name) + [name]).join(" > ")
+      (ancestors.map(&:name) + [ name ]).join(" > ")
     end
 
     def update_template_count!
       # Count templates in this category and all child categories
-      category_ids = [id] + descendants.pluck(:id)
+      category_ids = [ id ] + descendants.pluck(:id)
       count = Ai::AgentTemplate.published.where(category: category_ids.map(&:to_s)).count
       update!(template_count: count)
     end
@@ -60,7 +60,7 @@ module Ai
     private
 
     def descendants
-      children.flat_map { |child| [child] + child.send(:descendants) }
+      children.flat_map { |child| [ child ] + child.send(:descendants) }
     end
 
     def generate_slug

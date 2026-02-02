@@ -85,14 +85,14 @@ export const URLMappingModal: React.FC<URLMappingModalProps> = ({
       await onSave(mappingData);
       onClose();
       showNotification(`URL mapping ${mapping ? 'updated' : 'created'} successfully`, 'success');
-    } catch (error) {
+    } catch {
       showNotification(`Failed to ${mapping ? 'update' : 'create'} URL mapping`, 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const updateFormData = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };

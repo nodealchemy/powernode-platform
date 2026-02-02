@@ -7,9 +7,9 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :toggle]
-        before_action :set_schedule, only: [:show, :update, :destroy, :toggle]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :toggle ]
+        before_action :set_schedule, only: [ :show, :update, :destroy, :toggle ]
 
         # GET /api/v1/devops/schedules
         def index

@@ -35,7 +35,7 @@ export function usePipelineRuns(params: UsePipelineRunsParams = {}) {
       const data = await devopsPipelineRunsApi.getAll(params);
       setRuns(data.pipeline_runs);
       setMeta(data.meta);
-    } catch (err) {
+    } catch {
       const message = err instanceof Error ? err.message : 'Failed to fetch pipeline runs';
       setError(message);
     } finally {
@@ -71,7 +71,7 @@ export function usePipelineRuns(params: UsePipelineRunsParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchRuns();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.pipeline_id, params.status, params.trigger_type, params.page, params.per_page]);
 
   const cancelRun = async (id: string) => {
@@ -146,7 +146,7 @@ export function usePipelineRun(id: string | null) {
       setError(null);
       const data = await devopsPipelineRunsApi.getById(id);
       setRun(data);
-    } catch (err) {
+    } catch {
       const message = err instanceof Error ? err.message : 'Failed to fetch pipeline run';
       setError(message);
     } finally {
@@ -161,7 +161,7 @@ export function usePipelineRun(id: string | null) {
       setLogsLoading(true);
       const data = await devopsPipelineRunsApi.getLogs(id);
       setLogs(data.logs);
-    } catch (err) {
+    } catch {
       // Logs might not be available yet
     } finally {
       setLogsLoading(false);
@@ -177,7 +177,7 @@ export function usePipelineRun(id: string | null) {
       fetchRun();
       fetchLogs();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
   // WebSocket integration for live updates on this specific run

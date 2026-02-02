@@ -107,12 +107,12 @@ class AddWebhookEnhancements < ActiveRecord::Migration[8.0]
                comment: "Response time in milliseconds"
 
     # Add index for circuit breaker queries
-    add_index :webhook_endpoints, [:circuit_broken_at],
+    add_index :webhook_endpoints, [ :circuit_broken_at ],
               where: "circuit_broken_at IS NOT NULL",
               name: "index_webhook_endpoints_on_circuit_broken"
 
     # Add index for account webhooks queries
-    add_index :account_git_webhook_configs, [:account_id, :status],
+    add_index :account_git_webhook_configs, [ :account_id, :status ],
               name: "index_account_git_webhooks_on_account_status"
   end
 

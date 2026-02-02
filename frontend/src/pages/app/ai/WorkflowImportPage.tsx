@@ -81,7 +81,7 @@ export const WorkflowImportPage: React.FC = () => {
   const { hasPermission } = usePermissions();
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -196,7 +196,7 @@ export const WorkflowImportPage: React.FC = () => {
             message: `Found ${errors.length} validation error(s)`
           });
         }
-      } catch (error) {
+      } catch {
         setValidationErrors([{
           field: 'file',
           message: error instanceof Error ? error.message : 'Invalid file format'
@@ -269,7 +269,7 @@ export const WorkflowImportPage: React.FC = () => {
 
       // Navigate to the new workflow
       navigate(`/app/ai/workflows/${result.id}`);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Import Failed',

@@ -163,9 +163,9 @@ RSpec.describe Ai::Memory::ExperientialMemoryService, type: :service do
 
   describe '#by_tag' do
     before do
-      service.store(content: 'Tagged 1', tags: ['summarization'])
-      service.store(content: 'Tagged 2', tags: ['summarization'])
-      service.store(content: 'Other tag', tags: ['translation'])
+      service.store(content: 'Tagged 1', tags: [ 'summarization' ])
+      service.store(content: 'Tagged 2', tags: [ 'summarization' ])
+      service.store(content: 'Other tag', tags: [ 'translation' ])
     end
 
     it 'returns memories with matching tag' do

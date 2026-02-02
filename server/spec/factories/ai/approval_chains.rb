@@ -17,7 +17,7 @@ FactoryBot.define do
       [
         {
           "name" => "Manager Approval",
-          "approvers" => ["*"],
+          "approvers" => [ "*" ],
           "required_approvals" => 1
         }
       ]
@@ -71,17 +71,17 @@ FactoryBot.define do
         [
           {
             "name" => "Team Lead Approval",
-            "approvers" => ["*"],
+            "approvers" => [ "*" ],
             "required_approvals" => 1
           },
           {
             "name" => "Manager Approval",
-            "approvers" => ["*"],
+            "approvers" => [ "*" ],
             "required_approvals" => 1
           },
           {
             "name" => "Director Approval",
-            "approvers" => ["*"],
+            "approvers" => [ "*" ],
             "required_approvals" => 1
           }
         ]

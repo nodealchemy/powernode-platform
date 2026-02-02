@@ -36,12 +36,12 @@ FactoryBot.define do
           'webSearch' => false
         },
         'authentication' => {
-          'schemes' => ['bearer']
+          'schemes' => [ 'bearer' ]
         }
       }
     end
-    categories { ['automation', 'general'] }
-    tags { ['ai', 'agent'] }
+    categories { [ 'automation', 'general' ] }
+    tags { [ 'ai', 'agent' ] }
 
     trait :public do
       visibility { 'public' }
@@ -93,8 +93,8 @@ FactoryBot.define do
     trait :code_analysis do
       name { 'Code Analyzer' }
       description { 'Analyzes code for bugs, security issues, and improvements' }
-      categories { ['development', 'security'] }
-      tags { ['code', 'analysis', 'security'] }
+      categories { [ 'development', 'security' ] }
+      tags { [ 'code', 'analysis', 'security' ] }
       agent_card do
         {
           'name' => 'Code Analyzer',
@@ -110,7 +110,7 @@ FactoryBot.define do
             'fileProcessing' => true,
             'gitIntegration' => true
           },
-          'authentication' => { 'schemes' => ['bearer'] }
+          'authentication' => { 'schemes' => [ 'bearer' ] }
         }
       end
     end
@@ -118,8 +118,8 @@ FactoryBot.define do
     trait :data_processing do
       name { 'Data Processor' }
       description { 'Processes and transforms data files' }
-      categories { ['data', 'automation'] }
-      tags { ['data', 'etl', 'processing'] }
+      categories { [ 'data', 'automation' ] }
+      tags { [ 'data', 'etl', 'processing' ] }
       agent_card do
         {
           'name' => 'Data Processor',
@@ -135,7 +135,7 @@ FactoryBot.define do
             'fileProcessing' => true,
             'batchProcessing' => true
           },
-          'authentication' => { 'schemes' => ['bearer'] }
+          'authentication' => { 'schemes' => [ 'bearer' ] }
         }
       end
     end

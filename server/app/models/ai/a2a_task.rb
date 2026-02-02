@@ -229,7 +229,7 @@ module Ai
           name: artifact["name"],
           mimeType: artifact["mime_type"] || artifact["mimeType"],
           uri: artifact["uri"],
-          parts: artifact["parts"] || [{ type: "text", text: artifact["content"] }]
+          parts: artifact["parts"] || [ { type: "text", text: artifact["content"] } ]
         }.compact
       end
     end
@@ -249,11 +249,11 @@ module Ai
     def add_to_history(role:, content:, parts: nil)
       message_entry = {
         "role" => role,
-        "parts" => parts || [{ "type" => "text", "text" => content.to_s }],
+        "parts" => parts || [ { "type" => "text", "text" => content.to_s } ],
         "timestamp" => Time.current.iso8601
       }
 
-      self.history = (history || []) + [message_entry]
+      self.history = (history || []) + [ message_entry ]
       save!
     end
 
@@ -264,11 +264,11 @@ module Ai
         "name" => name,
         "mime_type" => mime_type,
         "uri" => uri,
-        "parts" => parts || (content ? [{ "type" => "text", "text" => content }] : []),
+        "parts" => parts || (content ? [ { "type" => "text", "text" => content } ] : []),
         "created_at" => Time.current.iso8601
       }.compact
 
-      self.artifacts = (artifacts || []) + [artifact]
+      self.artifacts = (artifacts || []) + [ artifact ]
       save!
 
       record_event("artifact_added", {

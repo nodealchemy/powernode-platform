@@ -234,6 +234,7 @@ describe('SbomDetailPage', () => {
     jest.clearAllMocks();
 
     // Mock useParams
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const useParams = require('react-router-dom').useParams;
     useParams.mockReturnValue({ id: 'sbom-123' });
 

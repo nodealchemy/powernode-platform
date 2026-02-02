@@ -72,7 +72,7 @@ export const AuditLogChart: React.FC<AuditLogChartProps> = ({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="p-1 bg-theme-interactive-primary bg-opacity-10 rounded">
-            {/* eslint-disable-next-line security/detect-object-injection */}
+            { }
             {chartIcon[type]}
           </div>
           <h3 className="text-lg font-semibold text-theme-primary">{title}</h3>

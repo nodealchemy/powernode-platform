@@ -7,11 +7,11 @@ RSpec.describe 'Api::V1::Customers', type: :request do
   let(:plan) { create(:plan) }
 
   let(:user) do
-    create(:user, account: account, permissions: ['customers.read', 'customers.manage'])
+    create(:user, account: account, permissions: [ 'customers.read', 'customers.manage' ])
   end
 
   let(:reader_user) do
-    create(:user, account: account, permissions: ['customers.read'])
+    create(:user, account: account, permissions: [ 'customers.read' ])
   end
 
   let(:regular_user) do

@@ -153,7 +153,7 @@ RSpec.describe SupplyChain::BuildProvenance, type: :model do
 
   describe "#material_count" do
     it "returns the number of materials" do
-      provenance = build(:supply_chain_build_provenance, materials: [{ uri: "a" }, { uri: "b" }])
+      provenance = build(:supply_chain_build_provenance, materials: [ { uri: "a" }, { uri: "b" } ])
       expect(provenance.material_count).to eq(2)
     end
 
@@ -175,7 +175,7 @@ RSpec.describe SupplyChain::BuildProvenance, type: :model do
     end
 
     it "preserves existing materials" do
-      provenance.update!(materials: [{ "uri" => "existing" }])
+      provenance.update!(materials: [ { "uri" => "existing" } ])
       provenance.add_material(uri: "new", digest: { sha256: "def456" })
       provenance.reload
       expect(provenance.material_count).to eq(2)
@@ -205,14 +205,14 @@ RSpec.describe SupplyChain::BuildProvenance, type: :model do
     it "returns material matching source_repository" do
       provenance = build(:supply_chain_build_provenance,
                         source_repository: "https://github.com/org/repo",
-                        materials: [{ "uri" => "https://github.com/org/repo" }])
+                        materials: [ { "uri" => "https://github.com/org/repo" } ])
       expect(provenance.source_material).to be_present
     end
 
     it "falls back to git URI" do
       provenance = build(:supply_chain_build_provenance,
                         source_repository: nil,
-                        materials: [{ "uri" => "git+https://github.com/org/repo" }])
+                        materials: [ { "uri" => "git+https://github.com/org/repo" } ])
       expect(provenance.source_material).to be_present
     end
   end
@@ -241,7 +241,7 @@ RSpec.describe SupplyChain::BuildProvenance, type: :model do
              account: account,
              builder_id: "https://github.com/actions/runner",
              builder_version: "v2.300.0",
-             materials: [{ "uri" => "https://github.com/org/repo", "digest" => "sha256:abc" }],
+             materials: [ { "uri" => "https://github.com/org/repo", "digest" => "sha256:abc" } ],
              invocation: { "parameters" => { "workflow" => "build" } },
              build_started_at: 1.hour.ago,
              build_finished_at: Time.current)

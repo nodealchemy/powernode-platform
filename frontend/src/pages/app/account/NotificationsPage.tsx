@@ -69,7 +69,7 @@ export const NotificationsPage: React.FC = () => {
   }, []);
 
   // WebSocket connection for real-time notifications
-  const { isConnected: _wsConnected } = useNotificationWebSocket({
+  useNotificationWebSocket({
     onNewNotification: handleNewNotification,
     onNotificationRead: handleNotificationRead
   });
@@ -85,12 +85,12 @@ export const NotificationsPage: React.FC = () => {
       setNotifications(response.notifications);
       setUnreadCount(response.unread_count);
       setTotalPages(response.pagination.total_pages);
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to load notifications', 'error');
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [page, filter]);
 
   useEffect(() => {

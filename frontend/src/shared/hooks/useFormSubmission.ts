@@ -140,7 +140,7 @@ export function useFormSubmission<T = unknown, R = unknown>(
       }
 
       return result;
-    } catch (error: unknown) {
+    } catch {
       // Check if request was aborted
       if (abortControllerRef.current?.signal.aborted) {
         return null;
@@ -254,7 +254,7 @@ export function useApiFormSubmission<T = unknown, R = unknown>(
     for (let attempt = 0; attempt <= retryAttempts; attempt++) {
       try {
         return await apiEndpoint(data);
-      } catch (error: unknown) {
+      } catch {
         lastError = error;
 
         // Don't retry on validation errors (4xx)
@@ -348,7 +348,7 @@ export function useMultiStepFormSubmission<T = unknown, R = unknown>(
       }
 
       return finalResult;
-    } catch (error: unknown) {
+    } catch {
       const errorMsg = getErrorMessage(error);
       
       setState({
@@ -413,7 +413,7 @@ export function useOptimisticFormSubmission<T = unknown, R = unknown>(
     try {
       const result = await submitFn(data);
       return result;
-    } catch (error: unknown) {
+    } catch {
       // Rollback on error
       rollback();
       throw error;

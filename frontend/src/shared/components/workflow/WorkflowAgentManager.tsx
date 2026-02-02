@@ -54,7 +54,7 @@ export const WorkflowAgentManager: React.FC<WorkflowAgentManagerProps> = ({
         per_page: 100
       });
       setAvailableAgents(response.items || []);
-    } catch (error) {
+    } catch {
       console.error('Failed to load agents:', error);
     } finally {
       setLoadingAgents(false);
@@ -380,7 +380,7 @@ const EditAssignmentModal: React.FC<EditAssignmentModalProps> = ({
         priority,
         configuration
       });
-    } catch (error) {
+    } catch {
       // Handle JSON parse error
       console.error('Invalid JSON configuration:', error);
     }

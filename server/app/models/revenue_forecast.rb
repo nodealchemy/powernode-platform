@@ -33,7 +33,7 @@ class RevenueForecast < ApplicationRecord
     return unless has_actuals? && projected_mrr.present? && projected_mrr > 0
 
     accuracy = 100 - ((actual_mrr - projected_mrr).abs / projected_mrr * 100)
-    update!(accuracy_percentage: [accuracy, 0].max.round(2))
+    update!(accuracy_percentage: [ accuracy, 0 ].max.round(2))
   end
 
   def within_confidence_interval?(actual_value)

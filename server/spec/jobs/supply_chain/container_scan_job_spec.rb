@@ -284,7 +284,7 @@ RSpec.describe SupplyChain::ContainerScanJob, type: :job do
                 policy_name: "Failed Policy",
                 passed: false,
                 skipped: false,
-                violations: [{ severity: "high" }]
+                violations: [ { severity: "high" } ]
               },
               {
                 policy_id: SecureRandom.uuid,

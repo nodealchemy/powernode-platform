@@ -269,12 +269,12 @@ RSpec.describe SupplyChain::CveMonitoringJob, type: :job do
       expect(SupplyChain::VulnerabilityCorrelationService).to receive(:new).with(sbom: sbom).and_call_original
 
       job = described_class.new
-      job.send(:check_for_new_cves, [sbom])
+      job.send(:check_for_new_cves, [ sbom ])
     end
 
     it "returns only vulnerabilities created within 1 day" do
       job = described_class.new
-      new_cves = job.send(:check_for_new_cves, [sbom])
+      new_cves = job.send(:check_for_new_cves, [ sbom ])
 
       expect(new_cves.length).to eq(1)
       expect(new_cves.first[:vulnerability_id]).to eq("CVE-2024-5678")
@@ -282,7 +282,7 @@ RSpec.describe SupplyChain::CveMonitoringJob, type: :job do
 
     it "includes all required CVE details" do
       job = described_class.new
-      new_cves = job.send(:check_for_new_cves, [sbom])
+      new_cves = job.send(:check_for_new_cves, [ sbom ])
 
       cve = new_cves.first
       expect(cve).to include(
@@ -301,7 +301,7 @@ RSpec.describe SupplyChain::CveMonitoringJob, type: :job do
       new_vulnerability.update!(created_at: 3.days.ago)
 
       job = described_class.new
-      new_cves = job.send(:check_for_new_cves, [sbom])
+      new_cves = job.send(:check_for_new_cves, [ sbom ])
 
       expect(new_cves).to be_empty
     end
@@ -317,7 +317,7 @@ RSpec.describe SupplyChain::CveMonitoringJob, type: :job do
         created_at: 2.hours.ago)
 
       job = described_class.new
-      new_cves = job.send(:check_for_new_cves, [sbom, sbom2])
+      new_cves = job.send(:check_for_new_cves, [ sbom, sbom2 ])
 
       expect(new_cves.length).to eq(2)
     end
@@ -677,7 +677,7 @@ RSpec.describe SupplyChain::CveMonitoringJob, type: :job do
 
       it "broadcasts alerts for new vulnerabilities" do
         job = described_class.new
-        job.send(:check_sboms_for_monitor, monitor, [sbom])
+        job.send(:check_sboms_for_monitor, monitor, [ sbom ])
 
         expect(SupplyChainChannel).to have_received(:broadcast_cve_alert).with(account, hash_including(severity: "high"))
       end
@@ -695,7 +695,7 @@ RSpec.describe SupplyChain::CveMonitoringJob, type: :job do
 
       it "does not broadcast alerts for old vulnerabilities" do
         job = described_class.new
-        job.send(:check_sboms_for_monitor, monitor, [sbom])
+        job.send(:check_sboms_for_monitor, monitor, [ sbom ])
 
         expect(SupplyChainChannel).not_to have_received(:broadcast_cve_alert)
       end
@@ -713,7 +713,7 @@ RSpec.describe SupplyChain::CveMonitoringJob, type: :job do
 
       it "does not broadcast alerts for low severity vulnerabilities" do
         job = described_class.new
-        job.send(:check_sboms_for_monitor, monitor, [sbom])
+        job.send(:check_sboms_for_monitor, monitor, [ sbom ])
 
         expect(SupplyChainChannel).not_to have_received(:broadcast_cve_alert)
       end
@@ -732,7 +732,7 @@ RSpec.describe SupplyChain::CveMonitoringJob, type: :job do
 
       it "checks vulnerabilities from last 1 day" do
         job = described_class.new
-        job.send(:check_sboms_for_monitor, monitor, [sbom])
+        job.send(:check_sboms_for_monitor, monitor, [ sbom ])
 
         expect(SupplyChainChannel).to have_received(:broadcast_cve_alert)
       end

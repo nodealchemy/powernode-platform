@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::ValidationStatistics', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.workflows.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.workflows.read' ]) }
   let(:headers) { auth_headers_for(user) }
 
   describe 'GET /api/v1/ai/validation_statistics' do

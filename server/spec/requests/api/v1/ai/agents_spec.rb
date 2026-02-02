@@ -4,12 +4,12 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Agents', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['ai.agents.read']) }
-  let(:user_with_create_permission) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.create']) }
-  let(:user_with_update_permission) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.update']) }
-  let(:user_with_delete_permission) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.delete']) }
-  let(:user_with_execute_permission) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.execute']) }
-  let(:user_with_update_and_execute_permission) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.update', 'ai.agents.execute']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'ai.agents.read' ]) }
+  let(:user_with_create_permission) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.create' ]) }
+  let(:user_with_update_permission) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.update' ]) }
+  let(:user_with_delete_permission) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.delete' ]) }
+  let(:user_with_execute_permission) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.execute' ]) }
+  let(:user_with_update_and_execute_permission) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.update', 'ai.agents.execute' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/ai/agents' do
@@ -57,7 +57,7 @@ RSpec.describe 'Api::V1::Ai::Agents', type: :request do
         data = json_response_data
 
         statuses = data['items'].map { |a| a['status'] }
-        expect(statuses.uniq).to eq(['inactive'])
+        expect(statuses.uniq).to eq([ 'inactive' ])
       end
 
       it 'filters by agent_type' do
@@ -71,7 +71,7 @@ RSpec.describe 'Api::V1::Ai::Agents', type: :request do
         data = json_response_data
 
         agent_types = data['items'].map { |a| a['agent_type'] }
-        expect(agent_types.uniq).to eq(['code_assistant'])
+        expect(agent_types.uniq).to eq([ 'code_assistant' ])
       end
 
       it 'searches by name' do
@@ -173,7 +173,7 @@ RSpec.describe 'Api::V1::Ai::Agents', type: :request do
             description: 'A test agent for processing',
             agent_type: 'assistant',
             ai_provider_id: provider.id,
-            mcp_capabilities: ['text_generation']
+            mcp_capabilities: [ 'text_generation' ]
           }
         }
       end
@@ -379,7 +379,7 @@ RSpec.describe 'Api::V1::Ai::Agents', type: :request do
 
         expect(data['items'].length).to eq(2)
         creator_ids = data['items'].map { |a| a['created_by']&.dig('id') }
-        expect(creator_ids.uniq).to eq([user_with_read_permission.id])
+        expect(creator_ids.uniq).to eq([ user_with_read_permission.id ])
       end
     end
   end

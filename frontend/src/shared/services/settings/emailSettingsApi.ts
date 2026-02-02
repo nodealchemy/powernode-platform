@@ -59,7 +59,7 @@ export const emailSettingsApi = {
       
       // Fallback for backward compatibility
       return response.data.data || response.data || { message: 'Test email queued successfully', status: 'success' };
-    } catch (error) {
+    } catch {
       // Re-throw with structured error information
       if (isErrorWithResponse(error) && error.response?.data) {
         const errorData = error.response.data;

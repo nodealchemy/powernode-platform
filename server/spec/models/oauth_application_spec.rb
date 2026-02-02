@@ -178,7 +178,7 @@ RSpec.describe OauthApplication, type: :model do
     describe '#scopes_list' do
       it 'returns array of scopes' do
         oauth_app.scopes = 'read write admin'
-        expect(oauth_app.scopes_list).to eq(['read', 'write', 'admin'])
+        expect(oauth_app.scopes_list).to eq([ 'read', 'write', 'admin' ])
       end
 
       it 'handles empty scopes' do

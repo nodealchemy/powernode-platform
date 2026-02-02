@@ -151,11 +151,11 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
       form.setValue('is_active', agent.status === 'active');
       form.setValue('mcp_capabilities', agent.mcp_capabilities || []);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only sync form when agent data changes
+     
   }, [agent, isOpen]);
 
   // Load providers, stats, and capabilities on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when modal opens
+   
   useEffect(() => {
     if (isOpen && agent) {
       loadProviders();
@@ -223,7 +223,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
         }
 
         setPreviousProviderId(form.values.ai_provider_id);
-      } catch (error) {
+      } catch {
         // Fall back to provider from list if detail fetch fails
         const provider = providers.find(p => p.id === form.values.ai_provider_id);
         setSelectedProvider(provider || null);
@@ -231,7 +231,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
     };
 
     fetchProviderDetails();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only react to provider selection
+     
   }, [form.values.ai_provider_id]);
 
   const loadProviders = async () => {
@@ -241,7 +241,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
       const providersData = response.items || [];
 
       setProviders(providersData);
-    } catch (error) {
+    } catch {
       setProviders([]); // Set empty array on error
       addNotification({
         type: 'error',
@@ -260,7 +260,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
       setLoadingStats(true);
       const stats = await agentsApi.getAgentStats(agent.id);
       setAgentStats(stats);
-    } catch (error) {
+    } catch {
       // Check if it's a 404 (endpoint not implemented) and handle gracefully
       const httpError = error as { response?: { status?: number } };
       const is404 = httpError?.response?.status === 404;
@@ -298,7 +298,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
         message: 'AI agent deleted successfully'
       });
       onClose();
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',

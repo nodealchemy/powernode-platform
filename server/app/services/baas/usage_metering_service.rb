@@ -162,7 +162,7 @@ module BaaS
 
       # Pagination
       page = params[:page] || 1
-      per_page = [params[:per_page]&.to_i || 25, 100].min
+      per_page = [ params[:per_page]&.to_i || 25, 100 ].min
       paginated = records.page(page).per(per_page)
 
       {

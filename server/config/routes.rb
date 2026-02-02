@@ -38,7 +38,7 @@ Rails.application.routes.draw do
     namespace :baas do
       namespace :v1 do
         # Tenant management
-        resource :tenant, only: [:show, :create, :update], controller: "tenants" do
+        resource :tenant, only: [ :show, :create, :update ], controller: "tenants" do
           get :dashboard
           get :limits
           get :billing_configuration
@@ -46,17 +46,17 @@ Rails.application.routes.draw do
         end
 
         # API Keys
-        resources :api_keys, only: [:index, :show, :create, :update, :destroy] do
+        resources :api_keys, only: [ :index, :show, :create, :update, :destroy ] do
           member do
             post :roll
           end
         end
 
         # Customers
-        resources :customers, only: [:index, :show, :create, :update, :destroy], param: :id
+        resources :customers, only: [ :index, :show, :create, :update, :destroy ], param: :id
 
         # Subscriptions
-        resources :subscriptions, only: [:index, :show, :create, :update], param: :id do
+        resources :subscriptions, only: [ :index, :show, :create, :update ], param: :id do
           member do
             post :cancel
             post :pause
@@ -65,7 +65,7 @@ Rails.application.routes.draw do
         end
 
         # Invoices
-        resources :invoices, only: [:index, :show, :create, :update, :destroy], param: :id do
+        resources :invoices, only: [ :index, :show, :create, :update, :destroy ], param: :id do
           member do
             post :finalize
             post :pay
@@ -76,7 +76,7 @@ Rails.application.routes.draw do
         end
 
         # Usage events/metering
-        resources :usage_events, only: [:create], controller: "usage" do
+        resources :usage_events, only: [ :create ], controller: "usage" do
           collection do
             post :batch
           end
@@ -122,7 +122,7 @@ Rails.application.routes.draw do
 
       # DevOps Approval Tokens (public, token-based auth)
       namespace :devops do
-        resources :approval_tokens, only: [:show], param: :token do
+        resources :approval_tokens, only: [ :show ], param: :token do
           member do
             post :approve
             post :reject
@@ -132,7 +132,7 @@ Rails.application.routes.draw do
 
       # AI Workflow Approval Tokens (public, token-based auth)
       namespace :ai_workflows do
-        resources :approval_tokens, only: [:show], param: :token do
+        resources :approval_tokens, only: [ :show ], param: :token do
           member do
             post :approve
             post :reject
@@ -168,7 +168,7 @@ Rails.application.routes.draw do
         resources :review_notifications, only: [ :show, :update ]
 
         # DevOps Approval Tokens (for worker service)
-        resources :approval_tokens, only: [:show], param: :step_execution_id do
+        resources :approval_tokens, only: [ :show ], param: :step_execution_id do
           member do
             post :create_tokens
           end
@@ -365,7 +365,7 @@ Rails.application.routes.draw do
         end
 
         # AI Workflow approval management for worker service
-        resources :ai_workflow_approvals, only: [:show], param: :node_execution_id do
+        resources :ai_workflow_approvals, only: [ :show ], param: :node_execution_id do
           member do
             post :create_tokens
           end
@@ -940,7 +940,7 @@ Rails.application.routes.draw do
 
       # Analytics tiers (controller is Api::V1::AnalyticsTiersController, not under analytics namespace)
       scope "analytics" do
-        resources :tiers, only: [:index, :show], controller: "analytics_tiers", param: :slug do
+        resources :tiers, only: [ :index, :show ], controller: "analytics_tiers", param: :slug do
           collection do
             get :current
             get :comparison
@@ -964,7 +964,7 @@ Rails.application.routes.draw do
         end
       end
       get "usage/meters/:slug", to: "usage#meter"
-      resources :usage_events, only: [:create], path: "usage_events", controller: "usage" do
+      resources :usage_events, only: [ :create ], path: "usage_events", controller: "usage" do
         collection do
           post :batch, to: "usage#track_events_batch"
         end
@@ -1773,7 +1773,7 @@ Rails.application.routes.draw do
         # ===================================================================
         # 5.5 EXECUTION TRACES - Debugging & tracing
         # ===================================================================
-        resources :execution_traces, only: [:index, :show] do
+        resources :execution_traces, only: [ :index, :show ] do
           member do
             get :spans
             get :timeline
@@ -1892,7 +1892,7 @@ Rails.application.routes.draw do
         # ===================================================================
         # Publisher-specific routes for marketplace publishers
         get "publisher/me", controller: "publisher", action: :me, as: :publisher_me
-        resources :publisher, only: [:index, :show, :create], controller: "publisher" do
+        resources :publisher, only: [ :index, :show, :create ], controller: "publisher" do
           member do
             get :dashboard
             get :analytics
@@ -2642,7 +2642,7 @@ Rails.application.routes.draw do
         end
 
         # Resource quotas
-        resource :quotas, controller: "quotas", only: [:show, :update] do
+        resource :quotas, controller: "quotas", only: [ :show, :update ] do
           post :reset_usage
           get :usage_history
           get :overage
@@ -2656,13 +2656,13 @@ Rails.application.routes.draw do
         # ===================================================================
 
         resources :mcp_servers, only: [] do
-          resources :resources, controller: "resources", only: [:index, :show] do
+          resources :resources, controller: "resources", only: [ :index, :show ] do
             member do
               post :read
             end
           end
 
-          resources :prompts, controller: "prompts", only: [:index, :show] do
+          resources :prompts, controller: "prompts", only: [ :index, :show ] do
             member do
               post :execute
             end
@@ -2755,11 +2755,11 @@ Rails.application.routes.draw do
           end
 
           # Nested runs
-          resources :runs, controller: "pipeline_runs", only: [:index]
+          resources :runs, controller: "pipeline_runs", only: [ :index ]
         end
 
         # Pipeline Runs (top-level for direct access)
-        resources :pipeline_runs, only: [:index, :show] do
+        resources :pipeline_runs, only: [ :index, :show ] do
           member do
             post :cancel
             post :retry
@@ -2849,14 +2849,14 @@ Rails.application.routes.draw do
           end
 
           # Nested components
-          resources :components, only: [:index, :show] do
+          resources :components, only: [ :index, :show ] do
             member do
               get :vulnerabilities
             end
           end
 
           # Nested vulnerabilities
-          resources :vulnerabilities, only: [:index, :show, :update] do
+          resources :vulnerabilities, only: [ :index, :show, :update ] do
             member do
               post :suppress
               post :unsuppress
@@ -2865,11 +2865,11 @@ Rails.application.routes.draw do
           end
 
           # SBOM Diffs
-          resources :diffs, only: [:index, :show, :create]
+          resources :diffs, only: [ :index, :show, :create ]
         end
 
         # Vulnerability Feeds
-        resources :vulnerability_feeds, only: [:index, :show] do
+        resources :vulnerability_feeds, only: [ :index, :show ] do
           member do
             post :sync
           end
@@ -2904,7 +2904,7 @@ Rails.application.routes.draw do
         end
 
         # Build Provenance
-        resources :build_provenance, only: [:index, :show] do
+        resources :build_provenance, only: [ :index, :show ] do
           member do
             post :verify_reproducibility
           end
@@ -2949,7 +2949,7 @@ Rails.application.routes.draw do
         end
 
         # Vulnerability Scans
-        resources :vulnerability_scans, only: [:index, :show] do
+        resources :vulnerability_scans, only: [ :index, :show ] do
           member do
             get :details
           end
@@ -2969,7 +2969,7 @@ Rails.application.routes.draw do
         end
 
         # License Management
-        resources :licenses, only: [:index, :show] do
+        resources :licenses, only: [ :index, :show ] do
           collection do
             get :categories
             post :check_compatibility
@@ -2982,7 +2982,7 @@ Rails.application.routes.draw do
           end
         end
 
-        resources :license_detections, only: [:index, :show] do
+        resources :license_detections, only: [ :index, :show ] do
           member do
             post :mark_review
           end
@@ -3023,7 +3023,7 @@ Rails.application.routes.draw do
           end
 
           # Nested assessments
-          resources :assessments, controller: "risk_assessments", only: [:index, :show, :create] do
+          resources :assessments, controller: "risk_assessments", only: [ :index, :show, :create ] do
             member do
               post :submit_for_review
               post :complete
@@ -3031,7 +3031,7 @@ Rails.application.routes.draw do
           end
 
           # Nested questionnaires
-          resources :questionnaires, controller: "questionnaire_responses", only: [:index, :show, :create] do
+          resources :questionnaires, controller: "questionnaire_responses", only: [ :index, :show, :create ] do
             member do
               post :send_reminder
               post :submit
@@ -3051,7 +3051,7 @@ Rails.application.routes.draw do
         end
 
         # Questionnaire Responses (top-level access)
-        resources :questionnaire_responses, only: [:index, :show, :update] do
+        resources :questionnaire_responses, only: [ :index, :show, :update ] do
           member do
             post :submit
             post :review
@@ -3068,7 +3068,7 @@ Rails.application.routes.draw do
         end
 
         # Vendor Monitoring Events
-        resources :vendor_monitoring_events, only: [:index, :show] do
+        resources :vendor_monitoring_events, only: [ :index, :show ] do
           member do
             post :acknowledge
             post :resolve
@@ -3100,7 +3100,7 @@ Rails.application.routes.draw do
         end
 
         # Scan Executions
-        resources :scan_executions, only: [:index, :show] do
+        resources :scan_executions, only: [ :index, :show ] do
           member do
             post :cancel
             get :logs
@@ -3128,7 +3128,6 @@ Rails.application.routes.draw do
         get :analytics, to: "dashboard#analytics"
         get :compliance_summary, to: "dashboard#compliance_summary"
       end
-
     end
   end
 

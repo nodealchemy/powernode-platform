@@ -198,10 +198,10 @@ module Devops
         # Check if attestation exists
         attestation = if sbom.present?
                         sbom.attestations.first
-                      else
+        else
                         # Try to find attestation from context
                         context[:attestation_id].present? ? SupplyChain::Attestation.find_by(id: context[:attestation_id]) : nil
-                      end
+        end
 
         unless attestation.present?
           violations << "No attestation found"
@@ -266,7 +266,7 @@ module Devops
           when "outdated_dependencies"
             sbom = get_sbom(account, config)
             if sbom
-              outdated_ratio = sbom.components.where(is_outdated: true).count.to_f / [sbom.component_count, 1].max
+              outdated_ratio = sbom.components.where(is_outdated: true).count.to_f / [ sbom.component_count, 1 ].max
               if outdated_ratio > (policy["max_ratio"] || 0.3)
                 violations << "Outdated dependency ratio (#{(outdated_ratio * 100).round(1)}%) exceeds maximum (#{(policy['max_ratio'] * 100).round(1)}%)"
               end

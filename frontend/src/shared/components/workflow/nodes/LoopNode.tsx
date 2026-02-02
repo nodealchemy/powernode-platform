@@ -1,6 +1,6 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
-import { RotateCcw, Hash, Infinity } from 'lucide-react';
+import { RotateCcw, Hash, Infinity as InfinityIcon } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
 import { NodeActionsMenu } from '../NodeActionsMenu';
 import { useWorkflowContext } from '../WorkflowContext';
@@ -17,7 +17,7 @@ export const LoopNode: React.FC<NodeProps<LoopNodeType>> = ({
       case 'count':
         return <Hash className="h-4 w-4" />;
       case 'infinite':
-        return <Infinity className="h-4 w-4" />;
+        return <InfinityIcon className="h-4 w-4" />;
       default:
         return <RotateCcw className="h-4 w-4" />;
     }

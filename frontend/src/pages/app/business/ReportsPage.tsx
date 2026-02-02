@@ -58,7 +58,7 @@ export const ReportsPage: React.FC = () => {
   const [builderStep, setBuilderStep] = useState<1 | 2 | 3 | 4>(1);
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'business',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -113,12 +113,12 @@ export const ReportsPage: React.FC = () => {
       setTemplates(templatesResponse.data || []);
       setRequests(requestsResponse.data || []);
       isInitialLoad.current = false;
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to load reports data', 'error');
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [templates?.length, requests?.length]);
 
   // Load data on mount with StrictMode protection
@@ -158,7 +158,7 @@ export const ReportsPage: React.FC = () => {
       setShowRequestModal(false);
       setSelectedTemplate(null);
 
-    } catch (err) {
+    } catch {
       showNotification(err instanceof Error ? err.message : 'Failed to submit report request', 'error');
     } finally {
       setIsSubmitting(false);
@@ -170,8 +170,9 @@ export const ReportsPage: React.FC = () => {
     
     try {
       await reportsService.downloadReport(request.id);
-    } catch (error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   const handleCancelRequest = async (requestId: string) => {
@@ -181,8 +182,9 @@ export const ReportsPage: React.FC = () => {
       // Refresh requests list
       const response = await reportsService.getRequests();
       setRequests(response.data);
-    } catch (error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   const categorizedTemplates = (templates || []).reduce((acc, template) => {

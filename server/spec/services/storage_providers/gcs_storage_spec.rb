@@ -99,7 +99,7 @@ RSpec.describe StorageProviders::GcsStorage, type: :service do
   describe '#upload_file' do
     let(:file_content) { 'Test file content for GCS upload' }
     let(:temp_file) do
-      file = Tempfile.new(['test', '.txt'])
+      file = Tempfile.new([ 'test', '.txt' ])
       file.write(file_content)
       file.rewind
       file
@@ -183,7 +183,7 @@ RSpec.describe StorageProviders::GcsStorage, type: :service do
   end
 
   describe '#list_files' do
-    let(:file_list) { [gcs_file] }
+    let(:file_list) { [ gcs_file ] }
 
     it 'returns list of files' do
       allow(bucket).to receive(:files).and_return(file_list)

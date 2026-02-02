@@ -5,9 +5,9 @@ require "rails_helper"
 RSpec.describe "Api::V1::SupplyChain::Vendors", type: :request do
   let(:account) { create(:account) }
   let(:other_account) { create(:account) }
-  let(:read_user) { create(:user, account: account, permissions: ["supply_chain.read"]) }
-  let(:write_user) { create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"]) }
-  let(:other_user) { create(:user, account: other_account, permissions: ["supply_chain.read", "supply_chain.write"]) }
+  let(:read_user) { create(:user, account: account, permissions: [ "supply_chain.read" ]) }
+  let(:write_user) { create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ]) }
+  let(:other_user) { create(:user, account: other_account, permissions: [ "supply_chain.read", "supply_chain.write" ]) }
 
   before(:each) do
     Rails.cache.clear
@@ -789,7 +789,7 @@ RSpec.describe "Api::V1::SupplyChain::Vendors", type: :request do
       end
 
       it "includes certifications" do
-        vendor.update!(certifications: [{ name: "SOC 2 Type II", verified: true }])
+        vendor.update!(certifications: [ { name: "SOC 2 Type II", verified: true } ])
 
         get "/api/v1/supply_chain/vendors/#{vendor.id}/risk_profile", headers: headers, as: :json
 

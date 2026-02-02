@@ -270,7 +270,7 @@ module Ai
         base += 0.1 if context["workflow_run_id"].present?
         base += 0.1 if context["duration_ms"].present?
         base += 0.1 if context["from_agent_id"].present?
-        [base, 1.0].min
+        [ base, 1.0 ].min
       end
 
       def build_search_scope(tags: nil, outcome_filter: nil)
@@ -352,7 +352,7 @@ module Ai
 
       def merge_entries(target, source)
         # Combine importance scores
-        target.importance_score = [target.importance_score, source.importance_score].max
+        target.importance_score = [ target.importance_score, source.importance_score ].max
 
         # Merge access counts
         target.access_count += source.access_count
@@ -362,7 +362,7 @@ module Ai
 
         # Add merge note to metadata
         target.metadata = target.metadata.merge(
-          "merged_from" => (target.metadata["merged_from"] || []) + [source.id]
+          "merged_from" => (target.metadata["merged_from"] || []) + [ source.id ]
         )
 
         target.save!

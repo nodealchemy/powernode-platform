@@ -4,7 +4,7 @@ require "rails_helper"
 
 RSpec.describe "Api::V1::SupplyChain::Dashboard", type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ["supply_chain.read"]) }
+  let(:user) { create(:user, account: account, permissions: [ "supply_chain.read" ]) }
   let(:user_without_permission) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(user) }
 
@@ -184,7 +184,7 @@ RSpec.describe "Api::V1::SupplyChain::Dashboard", type: :request do
 
     context "when user belongs to different account" do
       let(:other_account) { create(:account) }
-      let(:other_user) { create(:user, account: other_account, permissions: ["supply_chain.read"]) }
+      let(:other_user) { create(:user, account: other_account, permissions: [ "supply_chain.read" ]) }
       let(:other_headers) { auth_headers_for(other_user) }
 
       before do
@@ -356,7 +356,7 @@ RSpec.describe "Api::V1::SupplyChain::Dashboard", type: :request do
 
         expect(response_data["overall_status"]).to include(
           "score" => kind_of(Numeric),
-          "status" => be_in(["good", "warning", "critical"])
+          "status" => be_in([ "good", "warning", "critical" ])
         )
       end
 
@@ -495,7 +495,7 @@ RSpec.describe "Api::V1::SupplyChain::Dashboard", type: :request do
         if response_data["recommendations"].any?
           recommendation = response_data["recommendations"].first
           expect(recommendation).to include(
-            "priority" => be_in(["critical", "high", "medium", "low"]),
+            "priority" => be_in([ "critical", "high", "medium", "low" ]),
             "category" => kind_of(String),
             "recommendation" => kind_of(String),
             "action" => kind_of(String)
@@ -569,7 +569,7 @@ RSpec.describe "Api::V1::SupplyChain::Dashboard", type: :request do
 
   describe "data isolation between accounts" do
     let(:other_account) { create(:account) }
-    let(:other_user) { create(:user, account: other_account, permissions: ["supply_chain.read"]) }
+    let(:other_user) { create(:user, account: other_account, permissions: [ "supply_chain.read" ]) }
 
     before do
       # Create data for main account

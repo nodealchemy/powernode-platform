@@ -24,7 +24,7 @@ FactoryBot.define do
     end
     authentication do
       {
-        'schemes' => ['bearer']
+        'schemes' => [ 'bearer' ]
       }
     end
 
@@ -67,9 +67,9 @@ FactoryBot.define do
       capabilities do
         {
           'skills' => [
-            { 'id' => 'summarize', 'name' => 'Summarize', 'tags' => ['analysis'] },
-            { 'id' => 'translate', 'name' => 'Translate', 'tags' => ['transformation'] },
-            { 'id' => 'generate', 'name' => 'Generate Content', 'tags' => ['generation'] }
+            { 'id' => 'summarize', 'name' => 'Summarize', 'tags' => [ 'analysis' ] },
+            { 'id' => 'translate', 'name' => 'Translate', 'tags' => [ 'transformation' ] },
+            { 'id' => 'generate', 'name' => 'Generate Content', 'tags' => [ 'generation' ] }
           ],
           'streaming' => true,
           'push_notifications' => true

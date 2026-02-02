@@ -21,9 +21,9 @@ class CreateAiExecutionTraces < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_execution_traces, [:account_id, :started_at]
-    add_index :ai_execution_traces, [:account_id, :trace_type]
-    add_index :ai_execution_traces, [:account_id, :status]
+    add_index :ai_execution_traces, [ :account_id, :started_at ]
+    add_index :ai_execution_traces, [ :account_id, :trace_type ]
+    add_index :ai_execution_traces, [ :account_id, :status ]
     add_index :ai_execution_traces, :root_span_id
 
     create_table :ai_execution_trace_spans, id: :uuid do |t|
@@ -48,8 +48,8 @@ class CreateAiExecutionTraces < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_execution_trace_spans, :parent_span_id
-    add_index :ai_execution_trace_spans, [:execution_trace_id, :started_at]
-    add_index :ai_execution_trace_spans, [:execution_trace_id, :span_type]
-    add_index :ai_execution_trace_spans, [:execution_trace_id, :status]
+    add_index :ai_execution_trace_spans, [ :execution_trace_id, :started_at ]
+    add_index :ai_execution_trace_spans, [ :execution_trace_id, :span_type ]
+    add_index :ai_execution_trace_spans, [ :execution_trace_id, :status ]
   end
 end

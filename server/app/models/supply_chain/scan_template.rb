@@ -50,7 +50,7 @@ module SupplyChain
     scope :license_templates, -> { where(category: "license") }
     scope :popular, -> { order(install_count: :desc) }
     scope :top_rated, -> { order(average_rating: :desc) }
-    scope :for_ecosystem, ->(eco) { where("supported_ecosystems @> ?", [eco].to_json) }
+    scope :for_ecosystem, ->(eco) { where("supported_ecosystems @> ?", [ eco ].to_json) }
     scope :available_for_account, ->(account) { where(is_public: true).or(where(account_id: account.id)).or(system_templates) }
     scope :alphabetical, -> { order(name: :asc) }
 
@@ -179,14 +179,14 @@ module SupplyChain
         expected_type = field_schema[:type]
 
         type_valid = case expected_type
-                     when "string" then value.is_a?(String)
-                     when "integer" then value.is_a?(Integer)
-                     when "number" then value.is_a?(Numeric)
-                     when "boolean" then value.in?([true, false])
-                     when "array" then value.is_a?(Array)
-                     when "object" then value.is_a?(Hash)
-                     else true
-                     end
+        when "string" then value.is_a?(String)
+        when "integer" then value.is_a?(Integer)
+        when "number" then value.is_a?(Numeric)
+        when "boolean" then value.in?([ true, false ])
+        when "array" then value.is_a?(Array)
+        when "object" then value.is_a?(Hash)
+        else true
+        end
 
         errors << "Field #{field} must be of type #{expected_type}" unless type_valid
 

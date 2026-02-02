@@ -183,7 +183,7 @@ class WorkerJobService
       delay = options.delete(:delay) || 0
 
       # Ensure args is always an array
-      job_args = [job_args] unless job_args.is_a?(Array)
+      job_args = [ job_args ] unless job_args.is_a?(Array)
 
       payload = {
         "job_class" => job_class,
@@ -253,7 +253,7 @@ class WorkerJobService
     def enqueue_devops_step_execution(step_execution_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Devops::StepExecutionJob",
-        "args" => [step_execution_id],
+        "args" => [ step_execution_id ],
         "queue" => "devops_default"
       })
     end
@@ -262,7 +262,7 @@ class WorkerJobService
     def enqueue_devops_pipeline_execution(pipeline_run_id, options = {})
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Devops::PipelineExecutionJob",
-        "args" => [pipeline_run_id, options],
+        "args" => [ pipeline_run_id, options ],
         "queue" => "devops_high"
       })
     end
@@ -271,7 +271,7 @@ class WorkerJobService
     def enqueue_devops_approval_notification(step_execution_id, recipients)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Devops::ApprovalNotificationJob",
-        "args" => [step_execution_id, recipients],
+        "args" => [ step_execution_id, recipients ],
         "queue" => "email"
       })
     end
@@ -280,7 +280,7 @@ class WorkerJobService
     def enqueue_devops_provider_sync(provider_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Devops::ProviderSyncJob",
-        "args" => [provider_id],
+        "args" => [ provider_id ],
         "queue" => "devops_default"
       })
     end
@@ -289,7 +289,7 @@ class WorkerJobService
     def enqueue_devops_integration_execution(execution_id, input = {}, context = {})
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Devops::IntegrationExecutionJob",
-        "args" => [{ execution_id: execution_id, input: input, context: context }],
+        "args" => [ { execution_id: execution_id, input: input, context: context } ],
         "queue" => "integrations"
       })
     end

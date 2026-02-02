@@ -63,7 +63,7 @@ module ProviderTesting
 
       payload = {
         model: config["model"] || "gpt-3.5-turbo",
-        messages: [{ role: "user", content: @test_config[:test_message] }],
+        messages: [ { role: "user", content: @test_config[:test_message] } ],
         max_tokens: 50
       }
 
@@ -89,7 +89,7 @@ module ProviderTesting
 
       payload = {
         model: config["model"] || "claude-3-haiku-20240307",
-        messages: [{ role: "user", content: @test_config[:test_message] }],
+        messages: [ { role: "user", content: @test_config[:test_message] } ],
         max_tokens: 50
       }
 
@@ -108,7 +108,7 @@ module ProviderTesting
 
       payload = {
         model: config["model"] || "llama2",
-        messages: [{ role: "user", content: @test_config[:test_message] }]
+        messages: [ { role: "user", content: @test_config[:test_message] } ]
       }
 
       response = make_http_request(
@@ -186,7 +186,7 @@ module ProviderTesting
       test_model = "claude-3-haiku-20240307"
       payload = {
         model: test_model,
-        messages: [{ role: "user", content: "Hi" }],
+        messages: [ { role: "user", content: "Hi" } ],
         max_tokens: 10
       }
 
@@ -222,7 +222,7 @@ module ProviderTesting
         test_model = "grok-3"
         payload = {
           model: test_model,
-          messages: [{ role: "user", content: 'Hello, respond with just "OK"' }],
+          messages: [ { role: "user", content: 'Hello, respond with just "OK"' } ],
           max_tokens: 10,
           temperature: 0
         }
@@ -237,7 +237,7 @@ module ProviderTesting
         if response.success?
           {
             success: true,
-            provider_info: { status: "active", api_version: "v1", models_available: ["grok-3", "grok-vision"] },
+            provider_info: { status: "active", api_version: "v1", models_available: [ "grok-3", "grok-vision" ] },
             model_info: { test_model: test_model }
           }
         else

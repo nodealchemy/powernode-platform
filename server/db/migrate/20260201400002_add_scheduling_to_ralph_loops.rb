@@ -52,7 +52,7 @@ class AddSchedulingToRalphLoops < ActiveRecord::Migration[8.0]
     # Indexes for efficient scheduling queries
     add_index :ai_ralph_loops, :scheduling_mode
     add_index :ai_ralph_loops, :next_scheduled_at
-    add_index :ai_ralph_loops, [:schedule_paused, :next_scheduled_at],
+    add_index :ai_ralph_loops, [ :schedule_paused, :next_scheduled_at ],
               name: "index_ralph_loops_on_schedule_state"
     add_index :ai_ralph_loops, :webhook_token, unique: true, where: "webhook_token IS NOT NULL"
 

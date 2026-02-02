@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::Pipelines', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['devops.pipelines.read']) }
-  let(:user_with_write_permission) { create(:user, account: account, permissions: ['devops.pipelines.read', 'devops.pipelines.write']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'devops.pipelines.read' ]) }
+  let(:user_with_write_permission) { create(:user, account: account, permissions: [ 'devops.pipelines.read', 'devops.pipelines.write' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/devops/pipelines' do
@@ -53,7 +53,7 @@ RSpec.describe 'Api::V1::Devops::Pipelines', type: :request do
         response_data = json_response
 
         active_statuses = response_data['data']['pipelines'].map { |p| p['is_active'] }
-        expect(active_statuses.uniq).to eq([false])
+        expect(active_statuses.uniq).to eq([ false ])
       end
     end
 

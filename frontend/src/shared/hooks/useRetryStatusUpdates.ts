@@ -72,7 +72,7 @@ export const useRetryStatusUpdates = ({
 
     const unsubscribe = subscribe({
       channel: `ai_workflow_run_${workflowRunId}`,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       onMessage: (message: any) => {
         // Handle retry status updates (including exhausted retries)
         if (message.type?.includes('retry') || message.type === 'retries_exhausted') {
@@ -122,7 +122,7 @@ export const useRetryStatusUpdates = ({
 
     const unsubscribe = subscribe({
       channel: 'ai_monitoring_channel',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       onMessage: (message: any) => {
         if (message.type?.includes('circuit_breaker')) {
           const event: CircuitBreakerEvent = {

@@ -55,9 +55,7 @@ const formatRelativeTime = (date: Date | null): string => {
   }
 };
 
-interface AnalyticsPageProps {}
-
-export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
+export const AnalyticsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
   
@@ -145,7 +143,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     }, 50);
 
     return () => clearTimeout(timeoutId);
-  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [location.pathname]);  
 
   // Load analytics data with StrictMode protection
   const loadAnalyticsData = useCallback(async (force = false) => {
@@ -175,12 +173,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
 
 
       // Try to fetch each analytics endpoint individually to identify issues
-      let analyticsData: Partial<AnalyticsData> = {};
+      const analyticsData: Partial<AnalyticsData> = {};
       
       try {
         const revenue = await analyticsService.getRevenueAnalytics(startDate, endDate);
         analyticsData.revenue = revenue.data;
-      } catch (revenueError) {
+      } catch {
         // Provide realistic fallback data for demonstration
         const fallbackData = generateFallbackRevenueData(startDate, endDate);
         analyticsData.revenue = fallbackData;
@@ -190,7 +188,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       try {
         const growth = await analyticsService.getGrowthAnalytics(startDate, endDate);
         analyticsData.growth = growth.data;
-      } catch (growthError) {
+      } catch {
         const fallbackData = generateFallbackGrowthData(startDate, endDate);
         analyticsData.growth = fallbackData;
         setUsingFallbackData(true);
@@ -199,7 +197,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       try {
         const churn = await analyticsService.getChurnAnalytics(startDate, endDate);
         analyticsData.churn = churn.data;
-      } catch (churnError) {
+      } catch {
         const fallbackData = generateFallbackChurnData(startDate, endDate);
         analyticsData.churn = fallbackData;
         setUsingFallbackData(true);
@@ -208,7 +206,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       try {
         const customers = await analyticsService.getCustomerAnalytics(startDate, endDate);
         analyticsData.customers = customers.data;
-      } catch (customerError) {
+      } catch {
         const fallbackData = generateFallbackCustomerData(startDate, endDate);
         analyticsData.customers = fallbackData;
         setUsingFallbackData(true);
@@ -217,7 +215,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       try {
         const cohorts = await analyticsService.getCohortAnalytics();
         analyticsData.cohorts = cohorts.data;
-      } catch (cohortError) {
+      } catch {
         const fallbackData = generateFallbackCohortData();
         analyticsData.cohorts = fallbackData;
         setUsingFallbackData(true);
@@ -227,13 +225,13 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       setData(analyticsData as AnalyticsData);
       isInitialLoad.current = false;
       setLastUpdated(new Date());
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [dateRange.startDate.getTime(), dateRange.endDate.getTime(), canViewAnalytics, data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dateRange.startDate.getTime(), dateRange.endDate.getTime(), canViewAnalytics, data]);  
 
   // Initial data load with StrictMode protection
   // WebSocket via useAnalyticsWebSocket handles real-time updates
@@ -242,7 +240,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       loadAnalyticsData();
     }, 0);
     return () => clearTimeout(timeoutId);
-  }, [dateRange.startDate, dateRange.endDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dateRange.startDate, dateRange.endDate]);  
 
   const handleDateRangeChange = (newDateRange: { startDate: Date; endDate: Date }) => {
     setDateRange(newDateRange);
@@ -257,7 +255,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     try {
       await analyticsService.exportAnalytics(format, reportType, dateRange);
       setShowExportModal(false);
-    } catch (_error) {
+    } catch {
       // Error handling could be added here
     }
   };

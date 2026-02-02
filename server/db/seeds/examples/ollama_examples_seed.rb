@@ -155,14 +155,14 @@ else
           "description" => "Analyze code patterns and suggest improvements",
           "priority" => 2,
           "acceptance_criteria" => "At least 3 improvement suggestions",
-          "dependencies" => ["setup"]
+          "dependencies" => [ "setup" ]
         },
         {
           "key" => "documentation",
           "description" => "Write brief documentation for the main module",
           "priority" => 1,
           "acceptance_criteria" => "Documentation covers purpose, usage, and examples",
-          "dependencies" => ["analysis"]
+          "dependencies" => [ "analysis" ]
         }
       ]
     }

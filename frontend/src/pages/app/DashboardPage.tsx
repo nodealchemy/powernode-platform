@@ -164,7 +164,7 @@ const DashboardOverview: React.FC = () => {
   }, []);
 
   // WebSocket connection for real-time dashboard updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'dashboard',
     onDataUpdate: handleDataUpdate,
     onSubscriptionUpdate: handleDataUpdate,
@@ -202,7 +202,7 @@ const DashboardOverview: React.FC = () => {
           const paypalConfigured = gatewaysOverview.gateways.paypal.enabled &&
             ['connected', 'configured'].includes(gatewaysOverview.status.paypal.status);
           hasConfiguredGateways = stripeConfigured || paypalConfigured;
-        } catch (_gatewayError) {
+        } catch {
           // If user doesn't have permission or API fails, assume no gateways configured
           hasConfiguredGateways = false;
         }
@@ -212,7 +212,7 @@ const DashboardOverview: React.FC = () => {
           setHasPlans(hasPlansConfigured);
           setHasPaymentGateways(hasConfiguredGateways);
         }
-      } catch (_error) {
+      } catch {
         if (mounted) {
           // Assume no setup on error
           setHasPlans(false);

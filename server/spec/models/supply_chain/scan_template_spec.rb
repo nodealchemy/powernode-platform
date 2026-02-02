@@ -254,7 +254,7 @@ RSpec.describe SupplyChain::ScanTemplate, type: :model do
 
       it "excludes other accounts' private templates" do
         result = described_class.available_for_account(account)
-        other_private = described_class.where.not(account_id: [account.id, nil]).where(is_public: false).first
+        other_private = described_class.where.not(account_id: [ account.id, nil ]).where(is_public: false).first
         expect(result).not_to include(other_private) if other_private
       end
     end
@@ -647,7 +647,7 @@ RSpec.describe SupplyChain::ScanTemplate, type: :model do
       context "with required fields" do
         let(:schema) do
           {
-            "required" => ["api_key", "endpoint"],
+            "required" => [ "api_key", "endpoint" ],
             "properties" => {
               "api_key" => { "type" => "string" },
               "endpoint" => { "type" => "string" }
@@ -757,7 +757,7 @@ RSpec.describe SupplyChain::ScanTemplate, type: :model do
       context "complex schema" do
         let(:schema) do
           {
-            "required" => ["api_key"],
+            "required" => [ "api_key" ],
             "properties" => {
               "api_key" => { "type" => "string" },
               "timeout" => { "type" => "integer" },

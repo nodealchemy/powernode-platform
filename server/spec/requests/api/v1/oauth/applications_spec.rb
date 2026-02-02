@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['oauth.applications.read', 'oauth.applications.manage']) }
+  let(:user) { create(:user, account: account, permissions: [ 'oauth.applications.read', 'oauth.applications.manage' ]) }
   let(:headers) { auth_headers_for(user) }
 
   let(:oauth_application) do
@@ -28,7 +28,7 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
         data = json_response_data
         expect(data['applications']).to be_an(Array)
         expect(data['applications'].length).to eq(2)
-        expect(data['applications'].map { |a| a['id'] }).to match_array([app1.id, app2.id])
+        expect(data['applications'].map { |a| a['id'] }).to match_array([ app1.id, app2.id ])
       end
 
       it 'returns pagination metadata' do
@@ -77,7 +77,7 @@ RSpec.describe 'Api::V1::Oauth::Applications', type: :request do
           'id' => oauth_application.id,
           'name' => 'Test App'
         )
-        expect(data['application']['scopes']).to match_array(['read', 'write'])
+        expect(data['application']['scopes']).to match_array([ 'read', 'write' ])
       end
 
       it 'does not include secret in show response' do

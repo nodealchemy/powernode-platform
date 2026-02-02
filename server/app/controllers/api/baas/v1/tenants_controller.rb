@@ -4,8 +4,8 @@ module Api
   module BaaS
     module V1
       class TenantsController < Api::BaaS::BaseController
-        skip_before_action :authenticate_baas_request!, only: [:create]
-        before_action :authenticate_internal!, only: [:create]
+        skip_before_action :authenticate_baas_request!, only: [ :create ]
+        before_action :authenticate_internal!, only: [ :create ]
 
         # GET /api/baas/v1/tenant
         def show

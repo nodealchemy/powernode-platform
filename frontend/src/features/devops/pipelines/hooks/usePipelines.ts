@@ -28,7 +28,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
       const data = await devopsPipelinesApi.getAll(params);
       setPipelines(data.pipelines);
       setMeta(data.meta);
-    } catch (err) {
+    } catch {
       const message = err instanceof Error ? err.message : 'Failed to fetch pipelines';
       setError(message);
     } finally {
@@ -43,7 +43,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchPipelines();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.is_active]);
 
   const createPipeline = async (data: DevopsPipelineFormData) => {
@@ -171,7 +171,7 @@ export function usePipeline(id: string | null) {
       // Pass true to include recent runs in the response
       const data = await devopsPipelinesApi.getById(id, true);
       setPipeline(data);
-    } catch (err) {
+    } catch {
       const message = err instanceof Error ? err.message : 'Failed to fetch pipeline';
       setError(message);
     } finally {
@@ -184,7 +184,7 @@ export function usePipeline(id: string | null) {
       hasLoadedRef.current = id;
       fetchPipeline();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
   const updatePipeline = async (data: Partial<DevopsPipelineFormData>) => {

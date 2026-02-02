@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class VendorsController < BaseController
-        before_action :require_read_permission, only: [:index, :show, :risk_profile, :monitoring_events, :statistics, :risk_dashboard]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :assess, :reassess]
-        before_action :set_vendor, only: [:show, :update, :destroy, :assess, :reassess, :risk_profile, :monitoring_events]
+        before_action :require_read_permission, only: [ :index, :show, :risk_profile, :monitoring_events, :statistics, :risk_dashboard ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :assess, :reassess ]
+        before_action :set_vendor, only: [ :show, :update, :destroy, :assess, :reassess, :risk_profile, :monitoring_events ]
 
         # GET /api/v1/supply_chain/vendors
         def index
@@ -229,8 +229,8 @@ module Api
             :has_baa,
             :contract_start_date,
             :contract_end_date,
-            certifications: [:name, :issuer, :issued_at, :expires_at, :certificate_url],
-            security_contacts: [:name, :email, :phone, :role],
+            certifications: [ :name, :issuer, :issued_at, :expires_at, :certificate_url ],
+            security_contacts: [ :name, :email, :phone, :role ],
             metadata: {}
           )
         end
@@ -248,7 +248,7 @@ module Api
             next_assessment_due: vendor.next_assessment_due,
             last_assessment_date: vendor.last_assessment_at,
             assessment_count: vendor.risk_assessments.count,
-            active_questionnaires: vendor.questionnaire_responses.where(status: ["sent", "in_progress"]).count,
+            active_questionnaires: vendor.questionnaire_responses.where(status: [ "sent", "in_progress" ]).count,
             metadata: vendor.metadata
           })
         end

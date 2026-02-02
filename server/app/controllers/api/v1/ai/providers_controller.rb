@@ -293,11 +293,11 @@ module Api
             )
           else
             error_message = case @provider.slug
-                           when "ollama", "remote-ollama-server"
+            when "ollama", "remote-ollama-server"
                              "Failed to sync models: Could not connect to Ollama server at #{@provider.api_base_url}. Ensure the server is running."
-                           else
+            else
                              "Failed to sync provider models. Please check the provider configuration."
-                           end
+            end
             render_error(error_message, status: :unprocessable_content)
           end
         end

@@ -25,8 +25,9 @@ export const DelegationsManagement: React.FC = () => {
       setLoading(true);
       const data = await delegationApi.getDelegations();
       setActiveDelegations(data.delegations || []);
-    } catch (error) {
-    } finally {
+    } catch {
+    // Error silently ignored
+  } finally {
       setLoading(false);
     }
   };
@@ -35,8 +36,9 @@ export const DelegationsManagement: React.FC = () => {
     try {
       const data = await delegationApi.getDelegationRequests('pending');
       setPendingRequests(data.requests || []);
-    } catch (error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   const handleCreateDelegation = async (data: CreateDelegationData) => {
@@ -44,8 +46,9 @@ export const DelegationsManagement: React.FC = () => {
       await delegationApi.createDelegation(data);
       loadDelegations();
       setShowCreateModal(false);
-    } catch (error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   const handleRevokeDelegation = async (delegationId: string) => {
@@ -54,8 +57,9 @@ export const DelegationsManagement: React.FC = () => {
         await delegationApi.revokeDelegation(delegationId);
         loadDelegations();
         setShowDetailsModal(false);
-      } catch (error) {
-      }
+      } catch {
+    // Error silently ignored
+  }
     }
   };
 
@@ -65,8 +69,9 @@ export const DelegationsManagement: React.FC = () => {
       loadRequests();
       loadDelegations();
       setShowRequestModal(false);
-    } catch (error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   const handleRejectRequest = async (requestId: string, reason: string) => {
@@ -74,8 +79,9 @@ export const DelegationsManagement: React.FC = () => {
       await delegationApi.rejectDelegationRequest(requestId, reason);
       loadRequests();
       setShowRequestModal(false);
-    } catch (error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   const getStatusBadge = (status: string) => {

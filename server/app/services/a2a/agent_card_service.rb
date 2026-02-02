@@ -43,8 +43,8 @@ module A2a
               description: "API key authentication"
             }
           },
-          defaultInputModes: ["text/plain", "application/json"],
-          defaultOutputModes: ["text/plain", "application/json"],
+          defaultInputModes: [ "text/plain", "application/json" ],
+          defaultOutputModes: [ "text/plain", "application/json" ],
           skills: build_platform_skills,
           documentation: {
             url: "#{base_url}/api-docs",
@@ -69,8 +69,8 @@ module A2a
           },
           capabilities: build_capabilities(agent_card),
           authentication: build_authentication(agent_card),
-          defaultInputModes: agent_card.default_input_modes || ["application/json"],
-          defaultOutputModes: agent_card.default_output_modes || ["application/json"],
+          defaultInputModes: agent_card.default_input_modes || [ "application/json" ],
+          defaultOutputModes: agent_card.default_output_modes || [ "application/json" ],
           skills: build_skills(agent_card),
           documentation: {
             url: agent_card.documentation_url
@@ -122,7 +122,7 @@ module A2a
 
       def build_authentication(agent_card)
         auth = agent_card.authentication || {}
-        schemes = auth["schemes"] || ["bearer"]
+        schemes = auth["schemes"] || [ "bearer" ]
 
         result = { schemes: schemes }
 

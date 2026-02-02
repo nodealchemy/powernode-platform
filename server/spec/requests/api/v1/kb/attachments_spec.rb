@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Kb::Attachments', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['kb.update', 'kb.manage']) }
-  let(:editor_user) { create(:user, account: account, permissions: ['kb.update']) }
+  let(:user) { create(:user, account: account, permissions: [ 'kb.update', 'kb.manage' ]) }
+  let(:editor_user) { create(:user, account: account, permissions: [ 'kb.update' ]) }
   let(:read_only_user) { create(:user, account: account, permissions: []) }
 
   let(:headers) { auth_headers_for(user) }

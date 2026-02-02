@@ -16,19 +16,19 @@ RSpec.describe 'Api::V1::Files', type: :request do
   let(:storage) { create(:file_storage, account: account, is_default: true) }
 
   let(:user_with_read) do
-    create(:user, account: account, permissions: ['files.read'])
+    create(:user, account: account, permissions: [ 'files.read' ])
   end
 
   let(:user_with_create) do
-    create(:user, account: account, permissions: ['files.read', 'files.create'])
+    create(:user, account: account, permissions: [ 'files.read', 'files.create' ])
   end
 
   let(:user_with_update) do
-    create(:user, account: account, permissions: ['files.read', 'files.update'])
+    create(:user, account: account, permissions: [ 'files.read', 'files.update' ])
   end
 
   let(:user_with_delete) do
-    create(:user, account: account, permissions: ['files.read', 'files.delete'])
+    create(:user, account: account, permissions: [ 'files.read', 'files.delete' ])
   end
 
   let(:regular_user) do
@@ -414,7 +414,7 @@ RSpec.describe 'Api::V1::Files', type: :request do
     context 'with files.update permission' do
       it 'adds tags to file' do
         post "/api/v1/files/#{file_object.id}/tags",
-             params: { tags: ['tag1', 'tag2'] },
+             params: { tags: [ 'tag1', 'tag2' ] },
              headers: auth_headers_for(user_with_update),
              as: :json
 
@@ -439,7 +439,7 @@ RSpec.describe 'Api::V1::Files', type: :request do
     context 'without permission' do
       it 'returns forbidden error' do
         post "/api/v1/files/#{file_object.id}/tags",
-             params: { tags: ['tag1'] },
+             params: { tags: [ 'tag1' ] },
              headers: auth_headers_for(user_with_read),
              as: :json
 
@@ -454,7 +454,7 @@ RSpec.describe 'Api::V1::Files', type: :request do
     context 'with files.update permission' do
       it 'removes tags from file' do
         delete "/api/v1/files/#{file_object.id}/tags",
-               params: { tags: ['tag1'] },
+               params: { tags: [ 'tag1' ] },
                headers: auth_headers_for(user_with_update),
                as: :json
 
@@ -466,7 +466,7 @@ RSpec.describe 'Api::V1::Files', type: :request do
     context 'without permission' do
       it 'returns forbidden error' do
         delete "/api/v1/files/#{file_object.id}/tags",
-               params: { tags: ['tag1'] },
+               params: { tags: [ 'tag1' ] },
                headers: auth_headers_for(user_with_read),
                as: :json
 

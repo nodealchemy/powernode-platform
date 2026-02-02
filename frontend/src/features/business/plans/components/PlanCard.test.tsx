@@ -78,7 +78,7 @@ describe('PlanCard', () => {
   it('displays correct pricing for yearly plans', () => {
     const yearlyPlan = {
       ...mockPlan,
-      billing_cycle: 'yearly' as 'yearly',
+      billing_cycle: 'yearly' as const,
       price_cents: 299900 // $2999.00 per year
     };
     
@@ -94,7 +94,7 @@ describe('PlanCard', () => {
   it('displays correct pricing for quarterly plans', () => {
     const quarterlyPlan = {
       ...mockPlan,
-      billing_cycle: 'quarterly' as 'quarterly',
+      billing_cycle: 'quarterly' as const,
       price_cents: 7999 // $79.99 per quarter
     };
     

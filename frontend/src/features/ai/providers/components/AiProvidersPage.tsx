@@ -82,7 +82,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
           per_page: 20
         });
       }
-    } catch (error) {
+    } catch {
       setProviders([]); // Ensure providers is always an array
       setPagination({ // Ensure pagination is always an object
         current_page: 1,
@@ -116,7 +116,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
 
   const handleRefresh = useCallback(() => {
     loadProviders(false);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   const handleSetupDefaults = useCallback(async (providerTypes?: string[]) => {
     try {
@@ -137,7 +137,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
           message: 'All selected providers already exist in your account.'
         });
       }
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Setup Failed',
@@ -145,7 +145,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
       });
     }
     setShowSetupModal(false);
-  }, [addNotification]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [addNotification]);  
 
   const handleBulkTest = useCallback(async () => {
     try {
@@ -174,7 +174,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
 
       // Refresh providers to update health status
       loadProviders(false);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Bulk Test Failed',
@@ -182,7 +182,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
       });
     }
     setShowBulkTestModal(false);
-  }, [addNotification]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [addNotification]);  
 
   const handleProviderUpdate = useCallback(() => {
     loadProviders(false);
@@ -204,7 +204,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
       });
       setSelectedProviderId(null); // Close detail modal
       loadProviders(false);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Delete Failed',
@@ -222,7 +222,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
   };
 
   // Load providers on mount and when filters or search query change
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load on mount and filter changes
+   
   useEffect(() => {
     if (isInitialMount.current) {
       // On initial mount, load data once
@@ -274,7 +274,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
     if (onActionsReady) {
       onActionsReady(pageActions);
     }
-  }, [refreshing, canTestCredentials, canCreateProviders]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refreshing, canTestCredentials, canCreateProviders]);  
 
   if (loading) {
     return <LoadingSpinner className="py-12" />;

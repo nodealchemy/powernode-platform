@@ -31,7 +31,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       setError(null);
       const response = await service_api.getService(service.id);
       setDetails(response);
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = error instanceof Error && 'response' in error &&
                           typeof (error as { response?: { data?: { error?: string } } }).response?.data?.error === 'string'
                           ? (error as { response: { data: { error: string } } }).response.data.error
@@ -52,7 +52,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       setNewToken(token);
       setShowToken(true);
       await loadServiceDetails(); // Reload to get updated details
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'Failed to regenerate token';
       addNotification({ type: 'error', message: errorMessage });
     }

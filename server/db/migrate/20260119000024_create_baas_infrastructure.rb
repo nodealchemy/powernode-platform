@@ -116,7 +116,7 @@ class CreateBaaSInfrastructure < ActiveRecord::Migration[8.0]
       t.index :key_hash, unique: true
       t.index :key_prefix
       t.index :status
-      t.index [:baas_tenant_id, :environment]
+      t.index [ :baas_tenant_id, :environment ]
       t.check_constraint "key_type IN ('secret', 'publishable', 'restricted')", name: "baas_api_keys_key_type_check"
       t.check_constraint "status IN ('active', 'revoked', 'expired')", name: "baas_api_keys_status_check"
       t.check_constraint "environment IN ('development', 'staging', 'production')", name: "baas_api_keys_environment_check"
@@ -149,9 +149,9 @@ class CreateBaaSInfrastructure < ActiveRecord::Migration[8.0]
       t.timestamps
 
       t.index :idempotency_key, unique: true, where: "idempotency_key IS NOT NULL"
-      t.index [:baas_tenant_id, :customer_external_id]
-      t.index [:baas_tenant_id, :meter_id, :event_timestamp]
-      t.index [:baas_tenant_id, :status]
+      t.index [ :baas_tenant_id, :customer_external_id ]
+      t.index [ :baas_tenant_id, :meter_id, :event_timestamp ]
+      t.index [ :baas_tenant_id, :status ]
       t.index :event_timestamp
       t.check_constraint "action IN ('set', 'increment')", name: "baas_usage_records_action_check"
       t.check_constraint "status IN ('pending', 'processed', 'invoiced', 'failed')", name: "baas_usage_records_status_check"
@@ -189,8 +189,8 @@ class CreateBaaSInfrastructure < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.timestamps
 
-      t.index [:baas_tenant_id, :external_id], unique: true
-      t.index [:baas_tenant_id, :email]
+      t.index [ :baas_tenant_id, :external_id ], unique: true
+      t.index [ :baas_tenant_id, :email ]
       t.index :stripe_customer_id, unique: true, where: "stripe_customer_id IS NOT NULL"
       t.check_constraint "status IN ('active', 'archived', 'deleted')", name: "baas_customers_status_check"
     end
@@ -228,7 +228,7 @@ class CreateBaaSInfrastructure < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.timestamps
 
-      t.index [:baas_tenant_id, :external_id], unique: true
+      t.index [ :baas_tenant_id, :external_id ], unique: true
       t.index :stripe_subscription_id, unique: true, where: "stripe_subscription_id IS NOT NULL"
       t.index :status
       t.check_constraint "status IN ('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused')", name: "baas_subscriptions_status_check"
@@ -273,7 +273,7 @@ class CreateBaaSInfrastructure < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.timestamps
 
-      t.index [:baas_tenant_id, :external_id], unique: true
+      t.index [ :baas_tenant_id, :external_id ], unique: true
       t.index :stripe_invoice_id, unique: true, where: "stripe_invoice_id IS NOT NULL"
       t.index :number
       t.index :status

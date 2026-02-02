@@ -893,7 +893,7 @@ describe('VendorRiskDashboardPage', () => {
   describe('edge cases', () => {
     it('handles missing upcoming assessments array', () => {
       const mockData = createMockDashboardData();
-      // @ts-ignore - Testing edge case
+      // @ts-expect-error - Testing edge case
       mockData.upcoming_assessments = undefined;
 
       mockUseVendorRiskDashboard.mockReturnValue({

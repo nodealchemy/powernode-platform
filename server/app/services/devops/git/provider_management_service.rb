@@ -485,7 +485,7 @@ module Devops
       end
     end
   end
-end
+  end
 
 # Backwards compatibility alias
 GitProviderManagementService = Devops::Git::ProviderManagementService unless defined?(GitProviderManagementService)

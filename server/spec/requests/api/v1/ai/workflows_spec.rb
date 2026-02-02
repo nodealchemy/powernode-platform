@@ -4,10 +4,10 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Workflows', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.create', 'ai.workflows.update', 'ai.workflows.delete', 'ai.workflows.execute', 'ai.workflows.export']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['ai.workflows.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.workflows.read', 'ai.workflows.create', 'ai.workflows.update', 'ai.workflows.delete', 'ai.workflows.execute', 'ai.workflows.export' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'ai.workflows.read' ]) }
   let(:other_account) { create(:account) }
-  let(:other_user) { create(:user, account: other_account, permissions: ['ai.workflows.read']) }
+  let(:other_user) { create(:user, account: other_account, permissions: [ 'ai.workflows.read' ]) }
 
   let(:headers) { auth_headers_for(user) }
   let(:read_only_headers) { auth_headers_for(read_only_user) }
@@ -314,7 +314,7 @@ RSpec.describe 'Api::V1::Ai::Workflows', type: :request do
 
       it 'returns validation errors if invalid' do
         allow_any_instance_of(Ai::Workflow).to receive(:validate_structure)
-          .and_return({ valid: false, errors: ['Missing start node'], warnings: [] })
+          .and_return({ valid: false, errors: [ 'Missing start node' ], warnings: [] })
 
         get "/api/v1/ai/workflows/#{workflow.id}/validate", headers: headers, as: :json
 
@@ -346,7 +346,7 @@ RSpec.describe 'Api::V1::Ai::Workflows', type: :request do
 
     context 'without ai.workflows.export permission' do
       it 'returns forbidden error' do
-        user_without_export = create(:user, account: account, permissions: ['ai.workflows.read'])
+        user_without_export = create(:user, account: account, permissions: [ 'ai.workflows.read' ])
         headers_without_export = auth_headers_for(user_without_export)
 
         get "/api/v1/ai/workflows/#{workflow.id}/export", headers: headers_without_export, as: :json

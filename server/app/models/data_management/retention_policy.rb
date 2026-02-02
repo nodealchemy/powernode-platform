@@ -17,7 +17,7 @@ module DataManagement
     # Scopes
     scope :active, -> { where(active: true) }
     scope :system_defaults, -> { where(account_id: nil) }
-    scope :for_account, ->(account) { where(account_id: [nil, account.id]).order(account_id: :desc) }
+    scope :for_account, ->(account) { where(account_id: [ nil, account.id ]).order(account_id: :desc) }
     scope :by_data_type, ->(type) { where(data_type: type) }
     scope :due_for_enforcement, -> { active.where("last_enforced_at IS NULL OR last_enforced_at < ?", 1.day.ago) }
 

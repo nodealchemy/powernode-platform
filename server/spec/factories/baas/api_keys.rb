@@ -9,7 +9,7 @@ FactoryBot.define do
     key_type { "secret" }
     environment { "production" }
     status { "active" }
-    scopes { ["read", "write"] }
+    scopes { [ "read", "write" ] }
     rate_limit_per_minute { 100 }
     rate_limit_per_day { 10000 }
     total_requests { 0 }
@@ -40,7 +40,7 @@ FactoryBot.define do
     trait :restricted do
       key_type { "restricted" }
       key_prefix { "rk_test" }
-      scopes { ["read"] }
+      scopes { [ "read" ] }
     end
 
     trait :revoked do

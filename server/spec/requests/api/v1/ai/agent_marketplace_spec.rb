@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::AgentMarketplace', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.marketplace.read']) }
-  let(:publisher_user) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.marketplace.read', 'ai.marketplace.publish']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.marketplace.read' ]) }
+  let(:publisher_user) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.marketplace.read', 'ai.marketplace.publish' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(user) }
   let(:publisher_headers) { auth_headers_for(publisher_user) }
@@ -96,7 +96,7 @@ RSpec.describe 'Api::V1::Ai::AgentMarketplace', type: :request do
 
     let(:templates_collection) do
       # Create a paginated collection that responds to map and pagination methods
-      templates = [template_double]
+      templates = [ template_double ]
       Struct.new(:templates, :current_page, :total_pages, :total_count, :limit_value) do
         include Enumerable
 
@@ -185,7 +185,7 @@ RSpec.describe 'Api::V1::Ai::AgentMarketplace', type: :request do
     end
 
     before do
-      allow(service).to receive(:list_categories).and_return([category])
+      allow(service).to receive(:list_categories).and_return([ category ])
     end
 
     context 'with permission' do
@@ -326,7 +326,7 @@ RSpec.describe 'Api::V1::Ai::AgentMarketplace', type: :request do
              rating: 5,
              title: 'Great!',
              content: 'Excellent template',
-             pros: ['Easy to use'],
+             pros: [ 'Easy to use' ],
              cons: [],
              is_verified_purchase: true,
              helpful_count: 0,

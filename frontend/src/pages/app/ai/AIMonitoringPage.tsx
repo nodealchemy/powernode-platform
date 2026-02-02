@@ -300,7 +300,7 @@ export const AIMonitoringPage: React.FC = () => {
       setIsConnected(true);
       setLastUpdate(new Date());
 
-    } catch (err) {
+    } catch {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch monitoring data';
       setIsConnected(false);
       addNotificationRef.current({
@@ -470,7 +470,7 @@ export const AIMonitoringPage: React.FC = () => {
                       title: 'Provider Test',
                       message: `Provider ${providerId} connectivity test completed`
                     });
-                  } catch (err) {
+                  } catch {
                     addNotification({
                       type: 'error',
                       title: 'Provider Test Failed',
@@ -499,7 +499,7 @@ export const AIMonitoringPage: React.FC = () => {
                       title: 'Agent Test',
                       message: `Agent ${agentId} connectivity test completed`
                     });
-                  } catch (err) {
+                  } catch {
                     addNotification({
                       type: 'error',
                       title: 'Agent Test Failed',
@@ -537,7 +537,7 @@ export const AIMonitoringPage: React.FC = () => {
                 try {
                   const alertsResponse = await monitoringApi.getAlerts();
                   setAlerts(transformAlerts(alertsResponse));
-                } catch (err) {
+                } catch {
                   addNotification({
                     type: 'error',
                     title: 'Failed to refresh alerts',

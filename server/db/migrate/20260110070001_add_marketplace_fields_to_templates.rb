@@ -28,8 +28,8 @@ class AddMarketplaceFieldsToTemplates < ActiveRecord::Migration[7.2]
     add_column :shared_prompt_templates, :rating_count, :integer, default: 0
 
     # Add indexes for marketplace queries
-    add_index :ai_workflow_templates, [:is_marketplace_published, :marketplace_status], name: 'idx_ai_workflow_templates_marketplace'
-    add_index :integration_templates, [:is_marketplace_published, :marketplace_status], name: 'idx_integration_templates_marketplace'
-    add_index :shared_prompt_templates, [:is_marketplace_published, :marketplace_status], name: 'idx_shared_prompt_templates_marketplace'
+    add_index :ai_workflow_templates, [ :is_marketplace_published, :marketplace_status ], name: 'idx_ai_workflow_templates_marketplace'
+    add_index :integration_templates, [ :is_marketplace_published, :marketplace_status ], name: 'idx_integration_templates_marketplace'
+    add_index :shared_prompt_templates, [ :is_marketplace_published, :marketplace_status ], name: 'idx_shared_prompt_templates_marketplace'
   end
 end

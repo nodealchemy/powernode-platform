@@ -7,7 +7,7 @@ RSpec.describe 'Api::V1::Activities', type: :request do
   let(:worker) { create(:worker, account: account) }
 
   let(:user_with_permission) do
-    create(:user, account: account, permissions: ['system.workers.read'])
+    create(:user, account: account, permissions: [ 'system.workers.read' ])
   end
 
   let(:user_without_permission) do
@@ -15,7 +15,7 @@ RSpec.describe 'Api::V1::Activities', type: :request do
   end
 
   let(:admin_user) do
-    create(:user, account: account, permissions: ['super_admin'])
+    create(:user, account: account, permissions: [ 'super_admin' ])
   end
 
   let!(:activities) do

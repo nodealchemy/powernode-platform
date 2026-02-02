@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Admin::Maintenance', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_maintenance_permission) { create(:user, account: account, permissions: ['admin.maintenance.mode', 'system.admin']) }
+  let(:user_with_maintenance_permission) { create(:user, account: account, permissions: [ 'admin.maintenance.mode', 'system.admin' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/admin/maintenance/mode' do

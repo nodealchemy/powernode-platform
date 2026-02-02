@@ -50,11 +50,11 @@ module Devops
         begin
           WorkerJobService.enqueue_job(
             "Devops::IntegrationExecutionJob",
-            args: [{
+            args: [ {
               execution_id: execution.id,
               input: input,
               context: context
-            }],
+            } ],
             queue: "integrations"
           )
           job_queued = true

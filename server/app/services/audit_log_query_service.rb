@@ -154,7 +154,7 @@ class AuditLogQueryService
       userActivity: user_activity,
       summary: {
         totalEvents: logs.count,
-        averagePerHour: (logs.count.to_f / [(Time.current - start_time) / 1.hour, 1].max).round(2),
+        averagePerHour: (logs.count.to_f / [ (Time.current - start_time) / 1.hour, 1 ].max).round(2),
         peakActivity: { time: peak_hour&.iso8601, count: timeline_data[peak_hour] || 0 },
         lowestActivity: { time: lowest_hour&.iso8601, count: timeline_data[lowest_hour] || 0 },
         uniqueUsers: logs.distinct.count(:user_id),
@@ -427,19 +427,19 @@ class AuditLogQueryService
 
     if log.ip_address
       recent_from_ip = AuditLog.where(ip_address: log.ip_address, created_at: log.created_at - 1.hour..log.created_at).count
-      score += [recent_from_ip / 5, 5].min
+      score += [ recent_from_ip / 5, 5 ].min
     end
 
-    [score, 10].min
+    [ score, 10 ].min
   end
 
   def calculate_overall_risk_score(high_risk_count:, medium_risk_count:, suspicious_ips_count:, off_hours_percentage:)
     score = 0
-    score += [high_risk_count * 4, 40].min
-    score += [medium_risk_count * 1, 25].min
-    score += [suspicious_ips_count * 5, 20].min
-    score += [off_hours_percentage * 0.5, 15].min
-    [score.round, 100].min
+    score += [ high_risk_count * 4, 40 ].min
+    score += [ medium_risk_count * 1, 25 ].min
+    score += [ suspicious_ips_count * 5, 20 ].min
+    score += [ off_hours_percentage * 0.5, 15 ].min
+    [ score.round, 100 ].min
   end
 
   def risk_level_from_score(score)
@@ -494,8 +494,8 @@ class AuditLogQueryService
     require "csv"
 
     CSV.generate(headers: true) do |csv|
-      csv << ["ID", "Action", "User Email", "Account", "Resource Type", "Resource ID",
-              "Source", "IP Address", "Status", "Created At", "Metadata"]
+      csv << [ "ID", "Action", "User Email", "Account", "Resource Type", "Resource ID",
+              "Source", "IP Address", "Status", "Created At", "Metadata" ]
 
       logs.each do |log|
         csv << [

@@ -24,7 +24,7 @@ export const PipelineEditPage: React.FC = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -84,7 +84,7 @@ export const PipelineEditPage: React.FC = () => {
           approval_settings: step.approval_settings,
         }))
       );
-    } catch (error) {
+    } catch {
       showNotification('Failed to load pipeline', 'error');
       navigate('/app/devops/pipelines');
     } finally {
@@ -147,7 +147,7 @@ export const PipelineEditPage: React.FC = () => {
 
       showNotification('Pipeline updated successfully', 'success');
       navigate(`/app/devops/pipelines/${id}`);
-    } catch (error) {
+    } catch {
       showNotification('Failed to update pipeline', 'error');
     } finally {
       setSaving(false);

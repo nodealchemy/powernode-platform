@@ -84,7 +84,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
         setErrors([response.error || 'Failed to create API key']);
         showNotification('Failed to create API key', 'error');
       }
-    } catch (error) {
+    } catch {
       setErrors(['An unexpected error occurred']);
       showNotification('Failed to create API key', 'error');
     } finally {

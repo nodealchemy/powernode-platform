@@ -379,7 +379,7 @@ describe('License Compliance Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync(policyData);
-        } catch (err) {
+        } catch {
           _thrownError = err as Error;
         }
       });
@@ -485,7 +485,7 @@ describe('License Compliance Hooks', () => {
             id: policyId,
             data: updateData,
           });
-        } catch (err) {
+        } catch {
           _thrownError = err as Error;
         }
       });
@@ -573,7 +573,7 @@ describe('License Compliance Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync(policyId);
-        } catch (err) {
+        } catch {
           _thrownError = err as Error;
         }
       });
@@ -679,7 +679,7 @@ describe('License Compliance Hooks', () => {
             id: policyId,
             isActive: true,
           });
-        } catch (err) {
+        } catch {
           _thrownError = err as Error;
         }
       });
@@ -1009,7 +1009,7 @@ describe('License Compliance Hooks', () => {
             id: violationId,
             note,
           });
-        } catch (err) {
+        } catch {
           _thrownError = err as Error;
         }
       });
@@ -1099,7 +1099,7 @@ describe('License Compliance Hooks', () => {
             id: violationId,
             note,
           });
-        } catch (err) {
+        } catch {
           _thrownError = err as Error;
         }
       });
@@ -1181,7 +1181,7 @@ describe('License Compliance Hooks', () => {
             id: violationId,
             justification: '',
           });
-        } catch (err) {
+        } catch {
           _thrownError = err as Error;
         }
       });
@@ -1275,7 +1275,7 @@ describe('License Compliance Hooks', () => {
           await result.current.mutateAsync({
             id: violationId,
           });
-        } catch (err) {
+        } catch {
           _thrownError = err as Error;
         }
       });
@@ -1375,7 +1375,7 @@ describe('License Compliance Hooks', () => {
             id: violationId,
             reason,
           });
-        } catch (err) {
+        } catch {
           _thrownError = err as Error;
         }
       });

@@ -8,7 +8,7 @@ import type { NodeTypeConfigProps } from './types';
 
 interface AiAgentNodeConfigProps extends NodeTypeConfigProps {
   nodeData?: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     configuration?: Record<string, any>;
   };
   isAuthenticated: boolean;

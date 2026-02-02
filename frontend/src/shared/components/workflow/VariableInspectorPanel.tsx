@@ -74,7 +74,7 @@ export const VariableInspectorPanel: React.FC<VariableInspectorPanelProps> = ({
       await navigator.clipboard.writeText(value);
       setCopiedVariable(variable.name);
       setTimeout(() => setCopiedVariable(null), 2000);
-    } catch (error) {
+    } catch {
       console.error('Failed to copy:', error);
     }
   };

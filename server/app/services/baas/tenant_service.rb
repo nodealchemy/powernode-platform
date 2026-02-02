@@ -159,9 +159,9 @@ module BaaS
         can_create_customer: tenant.can_create_customer?,
         can_create_subscription: tenant.can_create_subscription?,
         can_make_api_request: tenant.can_make_api_request?,
-        customers_remaining: tenant.max_customers ? [tenant.max_customers - tenant.total_customers, 0].max : nil,
-        subscriptions_remaining: tenant.max_subscriptions ? [tenant.max_subscriptions - tenant.total_subscriptions, 0].max : nil,
-        api_requests_remaining: tenant.max_api_requests_per_day ? [tenant.max_api_requests_per_day - tenant.api_requests_today, 0].max : nil
+        customers_remaining: tenant.max_customers ? [ tenant.max_customers - tenant.total_customers, 0 ].max : nil,
+        subscriptions_remaining: tenant.max_subscriptions ? [ tenant.max_subscriptions - tenant.total_subscriptions, 0 ].max : nil,
+        api_requests_remaining: tenant.max_api_requests_per_day ? [ tenant.max_api_requests_per_day - tenant.api_requests_today, 0 ].max : nil
       }
     end
   end

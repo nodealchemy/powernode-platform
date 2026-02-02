@@ -15,8 +15,8 @@ class CreateAiAgentCards < ActiveRecord::Migration[8.0]
       # A2A Capabilities
       t.jsonb :capabilities, default: {}, null: false  # skills, input/output schemas, supported_modes
       t.jsonb :authentication, default: {}, null: false  # supported auth methods (api_key, oauth, bearer)
-      t.jsonb :default_input_modes, default: ["application/json"], null: false
-      t.jsonb :default_output_modes, default: ["application/json"], null: false
+      t.jsonb :default_input_modes, default: [ "application/json" ], null: false
+      t.jsonb :default_output_modes, default: [ "application/json" ], null: false
 
       # External Exposure
       t.string :endpoint_url  # URL for external A2A access
@@ -43,7 +43,7 @@ class CreateAiAgentCards < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_agent_cards, [:account_id, :name], unique: true, name: "idx_agent_cards_account_name"
+    add_index :ai_agent_cards, [ :account_id, :name ], unique: true, name: "idx_agent_cards_account_name"
     add_index :ai_agent_cards, :visibility
     add_index :ai_agent_cards, :status
     add_index :ai_agent_cards, :protocol_version

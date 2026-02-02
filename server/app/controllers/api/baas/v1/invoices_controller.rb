@@ -142,7 +142,7 @@ module Api
           params.permit(
             :customer_id, :subscription_id, :external_id, :currency,
             :due_date, :period_start, :period_end, metadata: {},
-            line_items: [:description, :amount_cents, :amount, :quantity, metadata: {}]
+            line_items: [ :description, :amount_cents, :amount, :quantity, metadata: {} ]
           )
         end
 

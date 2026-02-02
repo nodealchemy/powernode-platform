@@ -143,7 +143,7 @@ export const WorkersPage: React.FC = () => {
         }
       }));
       setStats(workerStats);
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load workers';
       showNotification(errorMessage, 'error');
       setState(prev => ({
@@ -153,7 +153,7 @@ export const WorkersPage: React.FC = () => {
       }));
       setStats({ total: 0, active: 0, suspended: 0, revoked: 0, systemWorkers: 0, accountWorkers: 0, recentlyActive: 0 });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [calculateStats]);
 
   // Filter and sort workers
@@ -219,11 +219,12 @@ export const WorkersPage: React.FC = () => {
         case 'created_at':
           comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           break;
-        case 'last_seen_at':
+        case 'last_seen_at': {
           const aTime = a.last_seen_at ? new Date(a.last_seen_at).getTime() : 0;
           const bTime = b.last_seen_at ? new Date(b.last_seen_at).getTime() : 0;
           comparison = aTime - bTime;
           break;
+        }
         case 'request_count':
           comparison = a.request_count - b.request_count;
           break;
@@ -299,7 +300,7 @@ export const WorkersPage: React.FC = () => {
       await workerApi.createWorker(workerData as Parameters<typeof workerApi.createWorker>[0]);
       await loadWorkers();
       setState(prev => ({ ...prev, showCreateModal: false }));
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create worker';
       throw new Error(errorMessage);
     }
@@ -320,11 +321,11 @@ export const WorkersPage: React.FC = () => {
       }
       await loadWorkers();
       setState(prev => ({ ...prev, selectedWorkers: new Set() }));
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'Failed to perform bulk action';
       showNotification(errorMessage, 'error');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [loadWorkers]);
 
   // Redirect if no permission

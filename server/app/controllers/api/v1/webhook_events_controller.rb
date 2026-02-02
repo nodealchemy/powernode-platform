@@ -5,7 +5,7 @@ module Api
     class WebhookEventsController < ApplicationController
       before_action :authenticate_request
       before_action :require_webhook_permission
-      before_action :set_webhook_event, only: [:show, :update, :processing, :processed, :failed]
+      before_action :set_webhook_event, only: [ :show, :update, :processing, :processed, :failed ]
 
       # GET /api/v1/webhook_events/:id
       def show
@@ -112,8 +112,8 @@ module Api
       end
 
       def calculate_next_retry(event)
-        base_delays = [1.minute, 5.minutes, 30.minutes, 2.hours, 8.hours]
-        delay = base_delays[[event.retry_count - 1, base_delays.length - 1].min]
+        base_delays = [ 1.minute, 5.minutes, 30.minutes, 2.hours, 8.hours ]
+        delay = base_delays[[ event.retry_count - 1, base_delays.length - 1 ].min]
         jitter = rand(0..(delay.to_i * 0.1)).seconds
         Time.current + delay + jitter
       end

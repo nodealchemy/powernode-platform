@@ -46,7 +46,7 @@ export const TwoFactorVerification: React.FC<TwoFactorVerificationProps> = ({
       } else {
         setError(response.error || 'Invalid verification code');
       }
-    } catch (error) {
+    } catch {
       setError('Failed to verify code. Please try again.');
       onError('Failed to verify code. Please try again.');
     } finally {

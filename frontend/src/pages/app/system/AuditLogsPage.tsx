@@ -118,7 +118,7 @@ export const AuditLogsPage: React.FC = () => {
         loading: false
       }));
       
-    } catch (_error) {
+    } catch {
       setState(prev => ({
         ...prev,
         loading: false
@@ -132,8 +132,9 @@ export const AuditLogsPage: React.FC = () => {
     try {
       const response = await auditLogsApi.getSecuritySummary();
       setMetrics(response);
-    } catch (_error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   // Handle filter changes

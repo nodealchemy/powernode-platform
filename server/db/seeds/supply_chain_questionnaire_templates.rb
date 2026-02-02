@@ -93,7 +93,7 @@ soc2_template.assign_attributes(
       required: true,
       weight: 5,
       order: 2,
-      options: ["Annually", "Semi-annually", "Quarterly", "As needed", "Never"]
+      options: [ "Annually", "Semi-annually", "Quarterly", "As needed", "Never" ]
     },
     # CC6 - Access Controls
     {
@@ -122,7 +122,7 @@ soc2_template.assign_attributes(
       required: true,
       weight: 10,
       order: 2,
-      options: ["AES-256", "AES-128", "Other", "None"]
+      options: [ "AES-256", "AES-128", "Other", "None" ]
     },
     # CC7 - System Operations
     {
@@ -142,7 +142,7 @@ soc2_template.assign_attributes(
       required: true,
       weight: 5,
       order: 1,
-      options: ["Continuously", "Quarterly", "Annually", "Never"]
+      options: [ "Continuously", "Quarterly", "Annually", "Never" ]
     },
     # CC9 - Risk Mitigation
     {
@@ -162,7 +162,7 @@ soc2_template.assign_attributes(
       required: false,
       weight: 5,
       order: 1,
-      options: ["< 1 hour", "1-4 hours", "4-24 hours", "> 24 hours", "Not defined"]
+      options: [ "< 1 hour", "1-4 hours", "4-24 hours", "> 24 hours", "Not defined" ]
     }
   ],
   metadata: {
@@ -357,7 +357,7 @@ gdpr_template.assign_attributes(
       required: true,
       weight: 10,
       order: 0,
-      options: ["Names", "Email addresses", "IP addresses", "Financial data", "Health data", "Location data", "Other"]
+      options: [ "Names", "Email addresses", "IP addresses", "Financial data", "Health data", "Location data", "Other" ]
     },
     {
       id: "dh_2",
@@ -421,7 +421,7 @@ gdpr_template.assign_attributes(
       required: false,
       weight: 10,
       order: 1,
-      options: ["Standard Contractual Clauses", "Binding Corporate Rules", "Adequacy Decision", "None/Not applicable"]
+      options: [ "Standard Contractual Clauses", "Binding Corporate Rules", "Adequacy Decision", "None/Not applicable" ]
     }
   ],
   metadata: {

@@ -7,7 +7,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
   let(:user) { create(:user, account: account) }
 
   # Permission users
-  let(:runner_read_user) { create(:user, account: account, permissions: ['git.runners.read']) }
+  let(:runner_read_user) { create(:user, account: account, permissions: [ 'git.runners.read' ]) }
   let(:runner_manage_user) do
     create(:user, account: account, permissions: %w[
       git.runners.read git.runners.manage git.runners.token
@@ -335,7 +335,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
   # =============================================================================
 
   describe 'PUT #update_labels' do
-    let(:runner) { create(:git_runner, :with_repository, labels: ['linux'], credential: credential, account: account, repository: repository) }
+    let(:runner) { create(:git_runner, :with_repository, labels: [ 'linux' ], credential: credential, account: account, repository: repository) }
     let(:mock_client) { double('GitApiClient') }
 
     before do
@@ -349,10 +349,10 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
 
       it 'updates runner labels' do
         allow(mock_client).to receive(:set_runner_labels).and_return({
-          labels: ['linux', 'docker', 'self-hosted']
+          labels: [ 'linux', 'docker', 'self-hosted' ]
         })
 
-        put :update_labels, params: { id: runner.id, labels: ['linux', 'docker', 'self-hosted'] }
+        put :update_labels, params: { id: runner.id, labels: [ 'linux', 'docker', 'self-hosted' ] }
 
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
@@ -370,7 +370,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
       before { sign_in runner_read_user }
 
       it 'returns forbidden error' do
-        put :update_labels, params: { id: runner.id, labels: ['new-label'] }
+        put :update_labels, params: { id: runner.id, labels: [ 'new-label' ] }
 
         expect(response).to have_http_status(:forbidden)
       end

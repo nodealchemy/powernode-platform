@@ -59,7 +59,7 @@ export const useWebSocket = (): UseWebSocketReturn => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
     // Use environment-aware host resolution
-    let host = window.location.hostname;
+    const host = window.location.hostname;
     let port = ':3000';
 
     // Handle different development environments

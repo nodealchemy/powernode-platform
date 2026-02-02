@@ -32,7 +32,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
     try {
       const result = await webhooksApi.retryWebhookEvent(event.id);
       onRetry?.(result.event);
-    } catch (err) {
+    } catch {
       onError?.(err instanceof Error ? err.message : 'Failed to retry event');
     } finally {
       setIsRetrying(false);
@@ -45,7 +45,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
     try {
       const result = await webhooksApi.redeliverWebhookEvent(event.id);
       onRedeliver?.(result.original_event, result.new_event);
-    } catch (err) {
+    } catch {
       onError?.(err instanceof Error ? err.message : 'Failed to redeliver event');
     } finally {
       setIsRedelivering(false);

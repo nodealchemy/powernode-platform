@@ -133,7 +133,7 @@ module Ai
     end
 
     def record_tool_use!(tool_name)
-      update!(tools_used: tools_used + [tool_name])
+      update!(tools_used: tools_used + [ tool_name ])
     end
 
     # Hierarchy

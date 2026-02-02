@@ -76,7 +76,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
           ai_agent_id: agents[0].id
         }));
       }
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -87,7 +87,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when modal opens
+   
   useEffect(() => {
     if (isOpen) {
       loadAgents();
@@ -228,7 +228,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
       if (onConversationCreated) {
         onConversationCreated(conversation);
       }
-    } catch (error: unknown) {
+    } catch {
       let errorMessage = 'Failed to create conversation. Please try again.';
       let errorTitle = 'Creation Failed';
 

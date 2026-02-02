@@ -32,7 +32,7 @@ RSpec.describe 'Api::V1::Internal::Services', type: :request do
         expect_success_response
         data = json_response_data
 
-        expect(data['database']).to be_in(['healthy', 'unhealthy'])
+        expect(data['database']).to be_in([ 'healthy', 'unhealthy' ])
       end
 
       it 'includes redis health status' do
@@ -41,7 +41,7 @@ RSpec.describe 'Api::V1::Internal::Services', type: :request do
         expect_success_response
         data = json_response_data
 
-        expect(data['redis']).to be_in(['healthy', 'unhealthy'])
+        expect(data['redis']).to be_in([ 'healthy', 'unhealthy' ])
       end
 
       it 'includes timestamp of health check' do

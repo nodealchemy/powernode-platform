@@ -183,47 +183,47 @@ module Chat
           largest_photo = message["photo"].max_by { |p| p["file_size"] || 0 }
           event[:content] = message["caption"] || "[Photo]"
           event[:message_type] = "image"
-          event[:attachments] = [{
+          event[:attachments] = [ {
             type: "image",
             file_id: largest_photo["file_id"],
             mime_type: "image/jpeg"
-          }]
+          } ]
         elsif message["voice"].present?
           event[:content] = "[Voice message]"
           event[:message_type] = "audio"
-          event[:attachments] = [{
+          event[:attachments] = [ {
             type: "audio",
             file_id: message["voice"]["file_id"],
             mime_type: message["voice"]["mime_type"] || "audio/ogg",
             metadata: { duration: message["voice"]["duration"] }
-          }]
+          } ]
         elsif message["audio"].present?
           event[:content] = message["caption"] || "[Audio]"
           event[:message_type] = "audio"
-          event[:attachments] = [{
+          event[:attachments] = [ {
             type: "audio",
             file_id: message["audio"]["file_id"],
             filename: message["audio"]["file_name"],
             mime_type: message["audio"]["mime_type"]
-          }]
+          } ]
         elsif message["video"].present?
           event[:content] = message["caption"] || "[Video]"
           event[:message_type] = "video"
-          event[:attachments] = [{
+          event[:attachments] = [ {
             type: "video",
             file_id: message["video"]["file_id"],
             filename: message["video"]["file_name"],
             mime_type: message["video"]["mime_type"] || "video/mp4"
-          }]
+          } ]
         elsif message["document"].present?
           event[:content] = message["caption"] || "[Document]"
           event[:message_type] = "document"
-          event[:attachments] = [{
+          event[:attachments] = [ {
             type: "document",
             file_id: message["document"]["file_id"],
             filename: message["document"]["file_name"],
             mime_type: message["document"]["mime_type"]
-          }]
+          } ]
         elsif message["sticker"].present?
           event[:content] = message["sticker"]["emoji"] || "[Sticker]"
           event[:message_type] = "sticker"

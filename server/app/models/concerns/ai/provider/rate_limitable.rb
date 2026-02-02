@@ -53,16 +53,16 @@ module Ai
 
         # Map limit type to usage metadata key
         usage_key = case limit_type.to_sym
-                    when :requests_per_minute
+        when :requests_per_minute
                       "request_count_last_minute"
-                    when :tokens_per_minute
+        when :tokens_per_minute
                       "token_count_last_minute"
-                    else
+        else
                       "#{limit_key}_usage"
-                    end
+        end
 
         current_usage = metadata&.dig(usage_key) || 0
-        [rate_limit_value - current_usage, 0].max
+        [ rate_limit_value - current_usage, 0 ].max
       end
 
       def can_make_request?

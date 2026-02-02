@@ -26,7 +26,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
       setError(null);
       const response = await pagesApi.getPublicPage(pageSlug);
       setPage(response.data);
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = getErrorMessage(error);
       setError(errorMessage);
     } finally {

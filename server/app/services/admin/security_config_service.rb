@@ -82,7 +82,7 @@ module Admin
       {
         **test_results,
         overall_status: overall_status,
-        details: details.any? ? details : ["All security components are working correctly"]
+        details: details.any? ? details : [ "All security components are working correctly" ]
       }
     end
 

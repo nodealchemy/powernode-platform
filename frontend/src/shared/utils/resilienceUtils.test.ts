@@ -128,7 +128,7 @@ describe('resilienceUtils', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(failingOperation);
-        } catch (error) {
+        } catch {
           // Expected failures
         }
       }
@@ -143,7 +143,7 @@ describe('resilienceUtils', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(failingOperation);
-        } catch (error) {
+        } catch {
           // Expected failures
         }
       }
@@ -160,7 +160,7 @@ describe('resilienceUtils', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(failingOperation);
-        } catch (error) {
+        } catch {
           // Expected failures
         }
       }
@@ -183,7 +183,7 @@ describe('resilienceUtils', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(failingOperation);
-        } catch (error) {
+        } catch {
           // Expected failures
         }
       }
@@ -215,7 +215,7 @@ describe('resilienceUtils', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(failingOperation);
-        } catch (error) {
+        } catch {
           // Expected failures
         }
       }
@@ -687,7 +687,7 @@ describe('resilienceUtils', () => {
             retry: { maxAttempts: 1 }, // Single attempt per call
             circuitBreaker
           });
-        } catch (error) {
+        } catch {
           // Expected to fail
         }
       }

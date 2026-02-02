@@ -7,7 +7,7 @@ RSpec.describe "Api::BaaS::V1::ApiKeys", type: :request do
   let(:tenant) { create(:baas_tenant, account: account) }
   let(:service) { BaaS::ApiKeyService.new(tenant: tenant) }
   # Use an API key with api_keys scope for authentication
-  let(:admin_key_result) { service.create_key(name: "Admin Key", environment: "development", scopes: ["api_keys"]) }
+  let(:admin_key_result) { service.create_key(name: "Admin Key", environment: "development", scopes: [ "api_keys" ]) }
   let(:raw_key) { admin_key_result[:raw_key] }
 
   let(:headers) do
@@ -73,7 +73,7 @@ RSpec.describe "Api::BaaS::V1::ApiKeys", type: :request do
       {
         name: "New API Key",
         environment: "development",
-        scopes: ["read", "write"]
+        scopes: [ "read", "write" ]
       }
     end
 

@@ -14,9 +14,9 @@ module Api
       class WorkflowGitTriggersController < ApplicationController
         include AuditLogging
 
-        before_action :set_ai_workflow_trigger, only: [:index, :create]
-        before_action :set_git_trigger, only: [:show, :update, :destroy, :test]
-        before_action :set_workflow, only: [:workflow_index]
+        before_action :set_ai_workflow_trigger, only: [ :index, :create ]
+        before_action :set_git_trigger, only: [ :show, :update, :destroy, :test ]
+        before_action :set_workflow, only: [ :workflow_index ]
         before_action :validate_permissions
 
         # GET /api/v1/ai/workflow_git_triggers?trigger_id=X
@@ -246,7 +246,7 @@ module Api
                   "id" => "abc123",
                   "message" => "Test commit",
                   "added" => [],
-                  "modified" => ["README.md"],
+                  "modified" => [ "README.md" ],
                   "removed" => []
                 }
               ]

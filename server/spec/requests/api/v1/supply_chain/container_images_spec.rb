@@ -11,9 +11,9 @@ RSpec.describe "Api::V1::SupplyChain::ContainerImages", type: :request do
   let(:account) { create(:account) }
   let(:other_account) { create(:account) }
 
-  let(:read_user) { create(:user, account: account, permissions: ["supply_chain.read"]) }
-  let(:write_user) { create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"]) }
-  let(:other_account_user) { create(:user, account: other_account, permissions: ["supply_chain.read", "supply_chain.write"]) }
+  let(:read_user) { create(:user, account: account, permissions: [ "supply_chain.read" ]) }
+  let(:write_user) { create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ]) }
+  let(:other_account_user) { create(:user, account: other_account, permissions: [ "supply_chain.read", "supply_chain.write" ]) }
   let(:no_permission_user) { create(:user, account: account, permissions: []) }
 
   let(:read_headers) { auth_headers_for(read_user) }
@@ -156,7 +156,7 @@ RSpec.describe "Api::V1::SupplyChain::ContainerImages", type: :request do
           tag: "v1.0.0",
           digest: "sha256:#{SecureRandom.hex(32)}",
           is_deployed: true,
-          deployment_contexts: ["production"]
+          deployment_contexts: [ "production" ]
         }
       }
     end
@@ -221,7 +221,7 @@ RSpec.describe "Api::V1::SupplyChain::ContainerImages", type: :request do
       {
         container_image: {
           is_deployed: true,
-          deployment_contexts: ["staging", "production"]
+          deployment_contexts: [ "staging", "production" ]
         }
       }
     end

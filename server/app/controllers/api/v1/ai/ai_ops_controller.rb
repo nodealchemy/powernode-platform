@@ -18,7 +18,7 @@ module Api
         include AuditLogging
 
         before_action :validate_permissions
-        before_action :set_time_range, only: [:dashboard, :providers, :workflows, :agents, :cost_analysis]
+        before_action :set_time_range, only: [ :dashboard, :providers, :workflows, :agents, :cost_analysis ]
 
         # ==========================================================================
         # DASHBOARD
@@ -242,10 +242,10 @@ module Api
                "provider_comparison", "workflows", "agents", "cost_analysis",
                "alerts", "circuit_breakers", "real_time"
             require_permission("ai.aiops.read")
-            return if performed?
+            nil if performed?
           when "record_metrics"
             require_permission("ai.aiops.write")
-            return if performed?
+            nil if performed?
           end
         end
 

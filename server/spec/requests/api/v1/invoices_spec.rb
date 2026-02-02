@@ -11,12 +11,12 @@ RSpec.describe 'Api::V1::Invoices', type: :request do
 
   # User with billing.read permission only
   let(:billing_reader) do
-    create(:user, account: account, permissions: ['billing.read'])
+    create(:user, account: account, permissions: [ 'billing.read' ])
   end
 
   # User with billing.manage permission
   let(:billing_manager) do
-    create(:user, account: account, permissions: ['billing.read', 'billing.manage'])
+    create(:user, account: account, permissions: [ 'billing.read', 'billing.manage' ])
   end
 
   # User without billing permissions

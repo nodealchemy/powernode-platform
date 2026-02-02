@@ -55,7 +55,7 @@ const GovernancePage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       loadData();
@@ -83,7 +83,7 @@ const GovernancePage: React.FC = () => {
       setPendingApprovals(pendingRes.approval_requests || []);
       setClassifications(classificationsRes.items || []);
       setSummary(summaryRes.summary || null);
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to load governance data')
@@ -101,7 +101,7 @@ const GovernancePage: React.FC = () => {
         message: `Request ${decision}`
       }));
       loadData();
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to process approval')

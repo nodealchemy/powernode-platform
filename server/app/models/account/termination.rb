@@ -71,7 +71,7 @@ class Account::Termination < ApplicationRecord
 
       update!(
         status: "grace_period",
-        termination_log: termination_log + [{ event: "confirmed", at: Time.current.iso8601 }]
+        termination_log: termination_log + [ { event: "confirmed", at: Time.current.iso8601 } ]
       )
 
       log_status_change("confirmed")
@@ -87,7 +87,7 @@ class Account::Termination < ApplicationRecord
         cancelled_by: user,
         cancelled_at: Time.current,
         cancellation_reason: reason,
-        termination_log: termination_log + [{ event: "cancelled", by: user.id, reason: reason, at: Time.current.iso8601 }]
+        termination_log: termination_log + [ { event: "cancelled", by: user.id, reason: reason, at: Time.current.iso8601 } ]
       )
 
       # Reactivate account
@@ -104,7 +104,7 @@ class Account::Termination < ApplicationRecord
       update!(
         status: "processing",
         processing_started_at: Time.current,
-        termination_log: termination_log + [{ event: "processing_started", at: Time.current.iso8601 }]
+        termination_log: termination_log + [ { event: "processing_started", at: Time.current.iso8601 } ]
       )
 
       log_status_change("processing")
@@ -116,7 +116,7 @@ class Account::Termination < ApplicationRecord
         status: "completed",
         processed_by: processor,
         completed_at: Time.current,
-        termination_log: termination_log + [{ event: "completed", by: processor&.id, at: Time.current.iso8601 }]
+        termination_log: termination_log + [ { event: "completed", by: processor&.id, at: Time.current.iso8601 } ]
       )
 
       # Mark account as cancelled (terminated)
@@ -131,7 +131,7 @@ class Account::Termination < ApplicationRecord
       update!(
         feedback_submitted: true,
         feedback: feedback_text,
-        termination_log: termination_log + [{ event: "feedback_submitted", at: Time.current.iso8601 }]
+        termination_log: termination_log + [ { event: "feedback_submitted", at: Time.current.iso8601 } ]
       )
     end
 
@@ -167,7 +167,7 @@ class Account::Termination < ApplicationRecord
       self.status ||= "pending"
       self.requested_at ||= Time.current
       self.grace_period_ends_at ||= DEFAULT_GRACE_PERIOD_DAYS.days.from_now
-      self.termination_log ||= [{ event: "requested", at: Time.current.iso8601 }]
+      self.termination_log ||= [ { event: "requested", at: Time.current.iso8601 } ]
     end
 
     def log_termination_requested
@@ -294,7 +294,7 @@ class Account::Termination < ApplicationRecord
       return unless grace_period_ends_at
 
       # Schedule reminders at 7, 3, and 1 days before termination
-      [7, 3, 1].each do |days_before|
+      [ 7, 3, 1 ].each do |days_before|
         reminder_time = grace_period_ends_at - days_before.days
 
         # Only schedule if the reminder time is in the future
@@ -303,12 +303,12 @@ class Account::Termination < ApplicationRecord
         # Store reminder schedule in termination log for tracking
         # The AccountTerminationJob will check these and send reminders
         update_column(:termination_log,
-          termination_log + [{
+          termination_log + [ {
             event: "reminder_scheduled",
             days_before: days_before,
             scheduled_for: reminder_time.iso8601,
             at: Time.current.iso8601
-          }]
+          } ]
         )
       end
     end

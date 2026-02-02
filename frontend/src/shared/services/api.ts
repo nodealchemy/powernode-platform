@@ -63,7 +63,7 @@ const getAPIBaseURL = (): string => {
           // Direct access - use port 3000 for backend
           return `${currentProtocol}//${currentHostname}:3000${apiPath}`;
         }
-      } catch (e) {
+      } catch {
         // Fallback if URL parsing fails
         const fallback = `${currentProtocol}//${currentHostname}:3000/api/v1`;
         return fallback;
@@ -146,7 +146,7 @@ class APIClient {
             try {
               // Try to gracefully end the impersonation session
               await store.dispatch(stopImpersonation());
-            } catch (stopError) {
+            } catch {
               store.dispatch(clearAuth());
             }
             return Promise.reject(error);
@@ -202,27 +202,27 @@ class APIClient {
   }
 
   // HTTP Methods
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   async get<T = any>(url: string, config?: AxiosRequestConfig & { silentAuth?: boolean }): Promise<AxiosResponse<T>> {
     return this.client.get(url, config);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   async post<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.post(url, data, config);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   async put<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.put(url, data, config);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   async patch<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.patch(url, data, config);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.delete(url, config);
   }

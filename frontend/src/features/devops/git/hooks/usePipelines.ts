@@ -38,7 +38,7 @@ export function usePipelines(params: UsePipelinesParams) {
       setPipelines(data.pipelines);
       setPagination(data.pagination);
       setStats(data.stats);
-    } catch (err) {
+    } catch {
       setError(
         err instanceof Error ? err.message : 'Failed to fetch pipelines'
       );
@@ -124,7 +124,7 @@ export function usePipeline(repositoryId: string, pipelineId: string | null) {
       setError(null);
       const data = await gitProvidersApi.getPipeline(repositoryId, pipelineId);
       setPipeline(data);
-    } catch (err) {
+    } catch {
       setError(
         err instanceof Error ? err.message : 'Failed to fetch pipeline'
       );
@@ -164,7 +164,7 @@ export function usePipelineJobs(
         pipelineId
       );
       setJobs(data);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch jobs');
     } finally {
       setLoading(false);
@@ -206,7 +206,7 @@ export function useJobLogs(
       );
       setLogs(data.logs);
       setIsComplete(data.is_complete);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch logs');
     } finally {
       setLoading(false);

@@ -65,7 +65,7 @@ export const McpOAuthCallbackPage: React.FC = () => {
       setTimeout(() => {
         window.close();
       }, 2000);
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'OAuth callback failed';
       setResult({ success: false, error: errorMessage });
       setProcessing(false);

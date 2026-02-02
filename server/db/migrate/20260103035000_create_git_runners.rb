@@ -24,7 +24,7 @@ class CreateGitRunners < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :git_runners, [:git_provider_credential_id, :external_id], unique: true, name: 'idx_git_runners_on_credential_and_external_id'
+    add_index :git_runners, [ :git_provider_credential_id, :external_id ], unique: true, name: 'idx_git_runners_on_credential_and_external_id'
     add_index :git_runners, :status
     add_index :git_runners, :runner_scope
     add_index :git_runners, :busy

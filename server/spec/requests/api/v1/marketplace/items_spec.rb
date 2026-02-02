@@ -27,7 +27,7 @@ RSpec.describe 'Api::V1::Marketplace::Items', type: :request do
         get '/api/v1/marketplace?types=workflow_template,pipeline_template', as: :json
 
         expect_success_response
-        expect(json_response['meta']['filters']['types']).to eq(['workflow_template', 'pipeline_template'])
+        expect(json_response['meta']['filters']['types']).to eq([ 'workflow_template', 'pipeline_template' ])
       end
 
       it 'filters by search parameter' do
@@ -166,7 +166,7 @@ RSpec.describe 'Api::V1::Marketplace::Items', type: :request do
           .to receive(:subscribe)
           .and_return({
             success: false,
-            errors: ['Subscription failed']
+            errors: [ 'Subscription failed' ]
           })
 
         post "/api/v1/marketplace/workflow_template/#{workflow_template.id}/subscribe",

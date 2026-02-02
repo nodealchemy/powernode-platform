@@ -258,13 +258,13 @@ module SupplyChain
       return if severity.present? && (new_record? || !violation_type_changed?)
 
       self.severity = case violation_type
-                      when "denied" then "high"
-                      when "copyleft" then "high"
-                      when "incompatible" then "medium"
-                      when "unknown" then "medium"
-                      when "expired" then "low"
-                      else "medium"
-                      end
+      when "denied" then "high"
+      when "copyleft" then "high"
+      when "incompatible" then "medium"
+      when "unknown" then "medium"
+      when "expired" then "low"
+      else "medium"
+      end
     end
   end
 end

@@ -104,7 +104,7 @@ module Security
 
       with_retry do
         response = @client.auth_token.create(
-          policies: ["container-execution"],
+          policies: [ "container-execution" ],
           ttl: ttl,
           renewable: false,
           metadata: {

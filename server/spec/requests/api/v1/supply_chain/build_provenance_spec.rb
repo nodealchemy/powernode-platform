@@ -4,11 +4,11 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::SupplyChain::BuildProvenance', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['supply_chain.read', 'supply_chain.write']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['supply_chain.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'supply_chain.read', 'supply_chain.write' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'supply_chain.read' ]) }
   let(:unauthorized_user) { create(:user, account: account, permissions: []) }
   let(:other_account) { create(:account) }
-  let(:other_user) { create(:user, account: other_account, permissions: ['supply_chain.read']) }
+  let(:other_user) { create(:user, account: other_account, permissions: [ 'supply_chain.read' ]) }
 
   let(:headers) { auth_headers_for(user) }
   let(:read_only_headers) { auth_headers_for(read_only_user) }
@@ -95,8 +95,8 @@ RSpec.describe 'Api::V1::SupplyChain::BuildProvenance', type: :request do
     let(:provenance) do
       create(:supply_chain_build_provenance,
              account: account,
-             build_config: { 'steps' => ['build', 'test'] },
-             materials: [{ 'uri' => 'git+https://github.com/test/repo' }],
+             build_config: { 'steps' => [ 'build', 'test' ] },
+             materials: [ { 'uri' => 'git+https://github.com/test/repo' } ],
              environment: { 'os' => 'linux' })
     end
     let(:other_provenance) { create(:supply_chain_build_provenance, account: other_account) }

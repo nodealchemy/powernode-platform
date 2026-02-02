@@ -17,7 +17,7 @@ FactoryBot.define do
         {
           "step_number" => 0,
           "step_name" => "Manager Approval",
-          "approvers" => ["*"],
+          "approvers" => [ "*" ],
           "status" => "pending",
           "required_approvals" => 1,
           "current_approvals" => 0
@@ -38,7 +38,7 @@ FactoryBot.define do
           {
             "step_number" => 0,
             "step_name" => "Manager Approval",
-            "approvers" => ["*"],
+            "approvers" => [ "*" ],
             "status" => "approved",
             "required_approvals" => 1,
             "current_approvals" => 1
@@ -55,7 +55,7 @@ FactoryBot.define do
           {
             "step_number" => 0,
             "step_name" => "Manager Approval",
-            "approvers" => ["*"],
+            "approvers" => [ "*" ],
             "status" => "rejected",
             "required_approvals" => 1,
             "current_approvals" => 0
@@ -89,7 +89,7 @@ FactoryBot.define do
           {
             "step_number" => 0,
             "step_name" => "Team Lead Approval",
-            "approvers" => ["*"],
+            "approvers" => [ "*" ],
             "status" => "pending",
             "required_approvals" => 1,
             "current_approvals" => 0
@@ -97,7 +97,7 @@ FactoryBot.define do
           {
             "step_number" => 1,
             "step_name" => "Manager Approval",
-            "approvers" => ["*"],
+            "approvers" => [ "*" ],
             "status" => "pending",
             "required_approvals" => 1,
             "current_approvals" => 0

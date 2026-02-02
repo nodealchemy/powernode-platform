@@ -4,9 +4,9 @@ module Api
   module V1
     module SupplyChain
       class AttestationsController < BaseController
-        before_action :require_read_permission, only: [:index, :show, :verification_logs, :statistics]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :verify, :sign, :record_to_rekor]
-        before_action :set_attestation, only: [:show, :update, :destroy, :verify, :sign, :record_to_rekor, :verification_logs]
+        before_action :require_read_permission, only: [ :index, :show, :verification_logs, :statistics ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :verify, :sign, :record_to_rekor ]
+        before_action :set_attestation, only: [ :show, :update, :destroy, :verify, :sign, :record_to_rekor, :verification_logs ]
 
         # GET /api/v1/supply_chain/attestations
         def index
@@ -118,9 +118,9 @@ module Api
         def sign
           signing_key = if params[:signing_key_id].present?
                           current_account.supply_chain_signing_keys.active.find(params[:signing_key_id])
-                        else
+          else
                           current_account.supply_chain_signing_keys.active.first
-                        end
+          end
 
           raise "No signing key available" unless signing_key&.can_sign?
 

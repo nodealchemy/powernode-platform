@@ -50,7 +50,7 @@ module Database
     def file_size_human
       return "N/A" unless file_size_bytes
 
-      units = ["B", "KB", "MB", "GB", "TB"]
+      units = [ "B", "KB", "MB", "GB", "TB" ]
       base = 1024
       exp = (Math.log(file_size_bytes) / Math.log(base)).floor
       exp = units.length - 1 if exp >= units.length

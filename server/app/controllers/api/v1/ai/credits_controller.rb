@@ -8,7 +8,6 @@ module Api
       # Handles credit balance, purchases, transfers, and usage.
       #
       class CreditsController < ApplicationController
-
         # GET /api/v1/ai/credits/balance
         def balance
           result = credit_service.get_balance

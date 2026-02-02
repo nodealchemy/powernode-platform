@@ -105,7 +105,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
     context 'with invalid configuration' do
       before do
         allow_any_instance_of(Services::ProxyConfigService).to receive(:validate_config).and_return(
-          { valid: false, errors: ['Invalid config'] }
+          { valid: false, errors: [ 'Invalid config' ] }
         )
       end
 
@@ -314,7 +314,7 @@ RSpec.describe 'Api::V1::Services', type: :request do
       allow(AdminSetting).to receive(:service_discovery_config).and_return(
         {
           'enabled' => true,
-          'methods' => ['dns', 'port_scan']
+          'methods' => [ 'dns', 'port_scan' ]
         }
       )
     end

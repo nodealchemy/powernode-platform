@@ -285,7 +285,7 @@ module Ai
         return nil if sorted_array.empty?
 
         index = (p / 100.0 * sorted_array.length).ceil - 1
-        sorted_array[[index, 0].max]
+        sorted_array[[ index, 0 ].max]
       end
 
       def standard_deviation(values)

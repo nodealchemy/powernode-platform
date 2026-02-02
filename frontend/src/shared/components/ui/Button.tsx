@@ -65,9 +65,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       rounded === 'full' ? 'rounded-full' : 'rounded-lg'
     ].filter(Boolean);
     
-    // eslint-disable-next-line security/detect-object-injection
+     
     const selectedVariantClasses = variantClasses[variant] || variantClasses.primary;
-    // eslint-disable-next-line security/detect-object-injection
+     
     const selectedSizeClasses = sizeClasses[size] || sizeClasses.md;
     
     return (

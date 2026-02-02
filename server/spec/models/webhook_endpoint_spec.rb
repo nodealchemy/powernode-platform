@@ -75,8 +75,8 @@ RSpec.describe WebhookEndpoint, type: :model do
     end
 
     describe '.for_event_type' do
-      let!(:specific_endpoint) { create(:webhook_endpoint, account: account, event_types: ['user.created', 'payment.completed']) }
-      let!(:other_endpoint) { create(:webhook_endpoint, account: account, event_types: ['subscription.updated']) }
+      let!(:specific_endpoint) { create(:webhook_endpoint, account: account, event_types: [ 'user.created', 'payment.completed' ]) }
+      let!(:other_endpoint) { create(:webhook_endpoint, account: account, event_types: [ 'subscription.updated' ]) }
 
       it 'returns endpoints with matching specific event types' do
         results = described_class.for_event_type('user.created')
@@ -197,17 +197,17 @@ RSpec.describe WebhookEndpoint, type: :model do
       end
 
       it 'returns true when endpoint has wildcard event type' do
-        endpoint.event_types = ['*']
+        endpoint.event_types = [ '*' ]
         expect(endpoint.can_receive_event?('user.created')).to be true
       end
 
       it 'returns true when event type matches' do
-        endpoint.event_types = ['user.created', 'payment.completed']
+        endpoint.event_types = [ 'user.created', 'payment.completed' ]
         expect(endpoint.can_receive_event?('user.created')).to be true
       end
 
       it 'returns false when event type does not match' do
-        endpoint.event_types = ['payment.completed']
+        endpoint.event_types = [ 'payment.completed' ]
         expect(endpoint.can_receive_event?('user.created')).to be false
       end
 

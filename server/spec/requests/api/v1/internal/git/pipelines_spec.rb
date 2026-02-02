@@ -54,14 +54,14 @@ RSpec.describe 'Api::V1::Internal::Git::Pipelines', type: :request do
 
       it 'includes workflow configuration and metadata' do
         pipeline.update!(
-          workflow_config: { steps: ['build', 'test'] },
+          workflow_config: { steps: [ 'build', 'test' ] },
           metadata: { branch: 'main' }
         )
 
         get api_v1_internal_git_pipeline_path(pipeline), headers: internal_headers
 
         json = JSON.parse(response.body)
-        expect(json['data']['workflow_config']).to eq({ 'steps' => ['build', 'test'] })
+        expect(json['data']['workflow_config']).to eq({ 'steps' => [ 'build', 'test' ] })
         expect(json['data']['metadata']).to eq({ 'branch' => 'main' })
       end
     end
@@ -120,12 +120,12 @@ RSpec.describe 'Api::V1::Internal::Git::Pipelines', type: :request do
 
       it 'updates workflow configuration' do
         patch api_v1_internal_git_pipeline_path(pipeline),
-              params: { workflow_config: { steps: ['deploy'] } },
+              params: { workflow_config: { steps: [ 'deploy' ] } },
               headers: internal_headers
 
         expect(response).to have_http_status(:ok)
         pipeline.reload
-        expect(pipeline.workflow_config['steps']).to eq(['deploy'])
+        expect(pipeline.workflow_config['steps']).to eq([ 'deploy' ])
       end
 
       it 'updates metadata' do
@@ -145,7 +145,7 @@ RSpec.describe 'Api::V1::Internal::Git::Pipelines', type: :request do
         pipeline_record = pipeline
 
         allow_any_instance_of(Devops::GitPipeline).to receive(:update).and_return(false)
-        allow_any_instance_of(Devops::GitPipeline).to receive_message_chain(:errors, :full_messages).and_return(['Invalid status'])
+        allow_any_instance_of(Devops::GitPipeline).to receive_message_chain(:errors, :full_messages).and_return([ 'Invalid status' ])
 
         patch api_v1_internal_git_pipeline_path(pipeline_record),
               params: { status: 'invalid' },

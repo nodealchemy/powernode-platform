@@ -4,7 +4,7 @@ module Api
   module BaaS
     module V1
       class ApiKeysController < Api::BaaS::BaseController
-        before_action :require_api_keys_scope, except: [:index]
+        before_action :require_api_keys_scope, except: [ :index ]
 
         # GET /api/baas/v1/api_keys
         def index

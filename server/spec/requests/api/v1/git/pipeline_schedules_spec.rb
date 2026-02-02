@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Git::PipelineSchedules', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['git.schedules.read', 'git.schedules.manage']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['git.schedules.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'git.schedules.read', 'git.schedules.manage' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'git.schedules.read' ]) }
   let(:no_permission_user) { create(:user, account: account, permissions: []) }
   let(:other_account) { create(:account) }
 

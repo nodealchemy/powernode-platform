@@ -4,7 +4,7 @@ module Api
   module V1
     class PredictiveAnalyticsController < ApplicationController
       before_action -> { require_permission("analytics.read") }
-      before_action -> { require_permission("analytics.manage") }, only: [:create_alert, :update_alert, :delete_alert]
+      before_action -> { require_permission("analytics.manage") }, only: [ :create_alert, :update_alert, :delete_alert ]
 
       # GET /api/v1/predictive_analytics/health_scores
       def health_scores
@@ -18,7 +18,7 @@ module Api
           scope = scope.where(at_risk: params[:at_risk] == "true")
         end
 
-        paginated = scope.order(calculated_at: :desc).page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+        paginated = scope.order(calculated_at: :desc).page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
         render_success(
           paginated.map(&:summary),
@@ -38,9 +38,9 @@ module Api
       def calculate_health_score
         account = if params[:account_id]
                     Account.find(params[:account_id])
-                  else
+        else
                     current_account
-                  end
+        end
 
         service = Analytics::CustomerHealthScoreService.new(account)
         score = service.calculate_health_score
@@ -62,7 +62,7 @@ module Api
           scope = scope.high_risk
         end
 
-        paginated = scope.order(predicted_at: :desc).page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+        paginated = scope.order(predicted_at: :desc).page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
         render_success(
           paginated.map(&:summary),
@@ -82,9 +82,9 @@ module Api
       def predict_churn
         account = if params[:account_id]
                     Account.find(params[:account_id])
-                  else
+        else
                     current_account
-                  end
+        end
 
         service = Analytics::ChurnPredictionService.new(account)
         prediction = service.predict
@@ -102,7 +102,7 @@ module Api
         scope = scope.by_period(params[:period]) if params[:period].present?
         scope = scope.future if params[:future_only] == "true"
 
-        paginated = scope.order(forecast_date: :asc).page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+        paginated = scope.order(forecast_date: :asc).page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
         render_success(
           paginated.map(&:summary),
@@ -117,9 +117,9 @@ module Api
 
         service = if params[:account_id]
                     Analytics::RevenueForecasterService.new(Account.find(params[:account_id]))
-                  else
+        else
                     Analytics::RevenueForecasterService.new(nil)
-                  end
+        end
 
         forecasts = service.generate_forecast(months_ahead: months_ahead, period: period)
 
@@ -197,7 +197,7 @@ module Api
           events = events.unacknowledged
         end
 
-        paginated = events.page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+        paginated = events.page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
         render_success(
           paginated.map(&:summary),

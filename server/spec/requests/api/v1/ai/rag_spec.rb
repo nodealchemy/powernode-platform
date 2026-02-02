@@ -104,7 +104,7 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
   describe 'GET /api/v1/ai/rag/knowledge_bases' do
     context 'with authentication' do
       it 'returns list of knowledge bases' do
-        knowledge_bases = [knowledge_base]
+        knowledge_bases = [ knowledge_base ]
         knowledge_bases.define_singleton_method(:total_count) { 1 }
         allow(rag_service).to receive(:list_knowledge_bases).and_return(knowledge_bases)
 
@@ -225,7 +225,7 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
 
     context 'with authentication' do
       it 'returns list of documents' do
-        documents = [document]
+        documents = [ document ]
         documents.define_singleton_method(:total_count) { 1 }
         allow(rag_service).to receive(:list_documents).and_return(documents)
 
@@ -374,7 +374,7 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
     context 'with authentication' do
       it 'returns query history' do
         query = double('Query', query_attrs)
-        queries = [query]
+        queries = [ query ]
         queries.define_singleton_method(:total_count) { 1 }
         allow(rag_service).to receive(:get_query_history).and_return(queries)
 
@@ -396,7 +396,7 @@ RSpec.describe 'Api::V1::Ai::Rag', type: :request do
 
     context 'with authentication' do
       it 'returns list of connectors' do
-        connectors = [connector]
+        connectors = [ connector ]
         allow(rag_service).to receive(:list_connectors).and_return(connectors)
 
         get '/api/v1/ai/rag/knowledge_bases/kb123/connectors', headers: headers, as: :json

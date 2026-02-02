@@ -80,7 +80,7 @@ FactoryBot.define do
         {
           file: '.github/workflows/ci.yml',
           name: 'CI',
-          on: { push: { branches: ['main'] } }
+          on: { push: { branches: [ 'main' ] } }
         }
       end
     end

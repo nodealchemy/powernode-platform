@@ -154,11 +154,11 @@ FactoryBot.define do
     end
 
     trait :with_compatibility do
-      compatibility { { "compatible_with" => ["MIT", "Apache-2.0", "BSD-3-Clause"] } }
+      compatibility { { "compatible_with" => [ "MIT", "Apache-2.0", "BSD-3-Clause" ] } }
     end
 
     trait :with_detection_patterns do
-      detection_patterns { ["MIT License", "Permission is hereby granted"] }
+      detection_patterns { [ "MIT License", "Permission is hereby granted" ] }
     end
 
     trait :unknown do

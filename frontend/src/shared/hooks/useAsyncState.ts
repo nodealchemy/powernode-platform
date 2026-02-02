@@ -34,7 +34,7 @@ export const useAsyncState = <T = any>(
       const result = await asyncFn();
       setData(result);
       return result;
-    } catch (error) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
       setError(errorMessage);
       setData(null);
@@ -72,7 +72,7 @@ export const useLoadingState = () => {
       setError(null);
       const result = await asyncFn();
       return result;
-    } catch (error) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
       setError(errorMessage);
       return null;
@@ -122,7 +122,7 @@ export const useAsyncOperations = () => {
       const result = await asyncFn();
       updateOperation(key, { data: result, loading: false });
       return result;
-    } catch (error) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
       updateOperation(key, { error: errorMessage, loading: false });
       return null;

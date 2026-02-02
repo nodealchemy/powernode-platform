@@ -19,11 +19,11 @@ module ApiResponse
     # Determine actual data (keyword takes precedence, then positional, then extra_data)
     actual_data = if data.present?
                     data
-                  elsif positional_data.present? || positional_data.is_a?(Array)
+    elsif positional_data.present? || positional_data.is_a?(Array)
                     positional_data
-                  elsif extra_data.present?
+    elsif extra_data.present?
                     extra_data
-                  end
+    end
 
     # Support message-only responses: render_success(message: "Done")
     if actual_data.nil? && message.present?

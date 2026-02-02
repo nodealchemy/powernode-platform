@@ -285,9 +285,6 @@ export const usePageWebSocket = ({
       return [...prev, channel];
     });
 
-    if (process.env.NODE_ENV === 'development') {
-      console.debug(`[PageWebSocket] Subscribed to ${channel} (${channelName})`);
-    }
   }, [isConnected, accountId, subscribe, createMessageHandler, handleError]);
 
   // Unsubscribe from a specific channel
@@ -296,10 +293,6 @@ export const usePageWebSocket = ({
       unsubscribeRefs.current.get(channel)?.();
       unsubscribeRefs.current.delete(channel);
       setActiveChannels(prev => prev.filter(c => c !== channel));
-
-      if (process.env.NODE_ENV === 'development') {
-        console.debug(`[PageWebSocket] Unsubscribed from ${channel}`);
-      }
     }
   }, []);
 

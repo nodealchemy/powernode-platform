@@ -32,8 +32,9 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
       setLoading(true);
       const data = await delegationApi.getDelegationActivity(delegation.id);
       setActivityLog(data.activities || []);
-    } catch (error) {
-    } finally {
+    } catch {
+    // Error silently ignored
+  } finally {
       setLoading(false);
     }
   }, [delegation.id]);
@@ -49,8 +50,9 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
       const data = await delegationApi.getAvailableUsers(delegation.sourceAccountId || delegation.account.id);
       const currentUserIds = delegation.users?.map(u => u.userId) || [];
       setAvailableUsers(data.users.filter((u: DelegationUser) => !currentUserIds.includes(u.id)));
-    } catch (_error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   const handleAddUsers = async () => {
@@ -61,8 +63,9 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
       setShowAddUsers(false);
       setSelectedUsers([]);
       onUpdate();
-    } catch (_error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   const handleRemoveUser = async (userId: string) => {
@@ -70,8 +73,9 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
       try {
         await delegationApi.removeUserFromDelegation(delegation.id, userId);
         onUpdate();
-      } catch (_error) {
-      }
+      } catch {
+    // Error silently ignored
+  }
     }
   };
 

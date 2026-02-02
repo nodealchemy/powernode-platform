@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['devops.prompt_templates.read']) }
-  let(:user_with_write_permission) { create(:user, account: account, permissions: ['devops.prompt_templates.read', 'devops.prompt_templates.write']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'devops.prompt_templates.read' ]) }
+  let(:user_with_write_permission) { create(:user, account: account, permissions: [ 'devops.prompt_templates.read', 'devops.prompt_templates.write' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/devops/prompt_templates' do
@@ -42,7 +42,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
         response_data = json_response
 
         categories = response_data['data']['prompt_templates'].map { |t| t['category'] }
-        expect(categories.uniq).to eq(['deploy'])
+        expect(categories.uniq).to eq([ 'deploy' ])
       end
 
       it 'filters by is_active' do
@@ -266,7 +266,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
       before do
         allow_any_instance_of(Shared::PromptTemplate).to receive(:validate_syntax).and_return({ valid: true, errors: [] })
         allow_any_instance_of(Shared::PromptTemplate).to receive(:render).and_return('Hello World!')
-        allow_any_instance_of(Shared::PromptTemplate).to receive(:extract_variables).and_return(['name'])
+        allow_any_instance_of(Shared::PromptTemplate).to receive(:extract_variables).and_return([ 'name' ])
       end
 
       it 'previews template with variables' do
@@ -294,7 +294,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
       end
 
       it 'handles syntax errors' do
-        allow_any_instance_of(Shared::PromptTemplate).to receive(:validate_syntax).and_return({ valid: false, errors: ['Liquid syntax error'] })
+        allow_any_instance_of(Shared::PromptTemplate).to receive(:validate_syntax).and_return({ valid: false, errors: [ 'Liquid syntax error' ] })
 
         bad_template = create(:shared_prompt_template, account: account, domain: 'cicd', content: '{{ invalid', created_by: user_with_read_permission)
 

@@ -82,11 +82,11 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
       try {
         const conversationStats = await conversationsApi.getConversationStats(conversationId);
         setStats(conversationStats);
-      } catch (statsError) {
+      } catch {
         // Stats are optional - don't fail the whole load if they're not available
       }
 
-    } catch (error) {
+    } catch {
       setError('Failed to load conversation details. Please try again.');
       addNotification({
         type: 'error',
@@ -109,7 +109,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
       setError(null);
       loadConversation();
     }
-  }, [isOpen, conversationId, agentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, conversationId, agentId]);  
 
   // Handle actions
   const handleContinue = () => {
@@ -136,7 +136,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
 
       onArchive?.(conversation.id);
       onClose();
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Action Failed',
@@ -163,7 +163,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
       });
 
       onExport?.(conversation.id);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Export Failed',

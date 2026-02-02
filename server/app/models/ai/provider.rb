@@ -48,7 +48,7 @@ module Ai
     scope :active, -> { where(is_active: true) }
     scope :inactive, -> { where(is_active: false) }
     scope :by_type, ->(type) { where(provider_type: type) }
-    scope :supporting_capability, ->(capability) { where("capabilities @> ?", [capability].to_json) }
+    scope :supporting_capability, ->(capability) { where("capabilities @> ?", [ capability ].to_json) }
     scope :ordered_by_priority, -> { order(:priority_order, :name) }
     scope :with_streaming, -> { where(supports_streaming: true) }
     scope :with_functions, -> { where(supports_functions: true) }

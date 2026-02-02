@@ -75,12 +75,12 @@ module Api
           result = if @runner.repository_runner? && @runner.git_repository.present?
                      repo = @runner.git_repository
                      client.delete_runner(repo.owner, repo.name, @runner.external_id)
-                   elsif client.respond_to?(:delete_runner)
+          elsif client.respond_to?(:delete_runner)
                      # Gitea uses a different signature
                      client.delete_runner(@runner.external_id)
-                   else
+          else
                      { success: false, error: "Delete not supported for this provider" }
-                   end
+          end
 
           if result[:success] != false
             @runner.destroy
@@ -247,7 +247,7 @@ module Api
                      else
                        client.list_runners(repository.owner, repository.name)
                      end
-                   end
+          end
 
           runners_data = result.is_a?(Hash) ? result[:runners] : result
           return 0 unless runners_data.is_a?(Array)

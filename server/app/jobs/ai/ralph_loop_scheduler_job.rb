@@ -63,15 +63,15 @@ module Ai
       )
 
       result = case loop.status
-               when "pending"
+      when "pending"
                  service.start_loop
-               when "paused"
+      when "paused"
                  service.resume_loop
-               when "running"
+      when "running"
                  service.run_iteration
-               else
+      else
                  { success: false, error: "Loop in unexpected status: #{loop.status}" }
-               end
+      end
 
       if result[:success]
         handle_successful_execution(loop)

@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::AiConfigs', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_permission) { create(:user, account: account, permissions: ['devops.ai.manage']) }
+  let(:user_with_permission) { create(:user, account: account, permissions: [ 'devops.ai.manage' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/devops/ai_configs' do
@@ -50,7 +50,7 @@ RSpec.describe 'Api::V1::Devops::AiConfigs', type: :request do
         response_data = json_response
 
         statuses = response_data['data']['ai_configs'].map { |c| c['status'] }
-        expect(statuses.uniq).to eq(['inactive'])
+        expect(statuses.uniq).to eq([ 'inactive' ])
       end
 
       it 'filters by type' do
@@ -62,7 +62,7 @@ RSpec.describe 'Api::V1::Devops::AiConfigs', type: :request do
         response_data = json_response
 
         types = response_data['data']['ai_configs'].map { |c| c['config_type'] }
-        expect(types.uniq).to eq(['chat'])
+        expect(types.uniq).to eq([ 'chat' ])
       end
 
       it 'filters by provider' do
@@ -74,7 +74,7 @@ RSpec.describe 'Api::V1::Devops::AiConfigs', type: :request do
         response_data = json_response
 
         providers = response_data['data']['ai_configs'].map { |c| c['provider'] }
-        expect(providers.uniq).to eq(['anthropic'])
+        expect(providers.uniq).to eq([ 'anthropic' ])
       end
     end
 

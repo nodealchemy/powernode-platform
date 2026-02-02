@@ -8,7 +8,7 @@ export const generateFallbackRevenueData = (startDate: string, endDate: string):
   const start = new Date(startDate);
   const end = new Date(endDate);
 
-  let currentDate = new Date(start);
+  const currentDate = new Date(start);
   let baseMRR = 5000;
 
   while (currentDate <= end) {
@@ -49,7 +49,7 @@ export const generateFallbackGrowthData = (startDate: string, endDate: string): 
   const start = new Date(startDate);
   const end = new Date(endDate);
 
-  let currentDate = new Date(start);
+  const currentDate = new Date(start);
   let baseMRR = 5000;
 
   while (currentDate <= end) {
@@ -86,7 +86,7 @@ export const generateFallbackChurnData = (startDate: string, endDate: string): C
   const start = new Date(startDate);
   const end = new Date(endDate);
 
-  let currentDate = new Date(start);
+  const currentDate = new Date(start);
 
   while (currentDate <= end) {
     data.push({
@@ -128,7 +128,7 @@ export const generateFallbackCustomerData = (startDate: string, endDate: string)
   const start = new Date(startDate);
   const end = new Date(endDate);
 
-  let currentDate = new Date(start);
+  const currentDate = new Date(start);
   let totalCustomers = 100;
 
   while (currentDate <= end) {

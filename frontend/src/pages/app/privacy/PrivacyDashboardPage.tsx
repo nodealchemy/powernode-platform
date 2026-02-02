@@ -27,7 +27,7 @@ const PrivacyDashboardPage: React.FC = () => {
     try {
       const data = await privacyApi.getDashboard();
       setDashboard(data);
-    } catch (error) {
+    } catch {
       showNotification('Failed to load privacy dashboard', 'error');
     } finally {
       setLoading(false);
@@ -38,7 +38,7 @@ const PrivacyDashboardPage: React.FC = () => {
     try {
       const request = await privacyApi.getDeletionStatus();
       setDeletionRequest(request);
-    } catch (error) {
+    } catch {
       // Ignore - may not have a deletion request
     }
   };
@@ -48,7 +48,7 @@ const PrivacyDashboardPage: React.FC = () => {
       const result = await privacyApi.updateConsents(consents);
       setDashboard((prev) => prev ? { ...prev, consents: result.consents } : prev);
       showNotification('Consent preferences updated', 'success');
-    } catch (error) {
+    } catch {
       showNotification('Failed to update consent preferences', 'error');
       throw error;
     }
@@ -61,7 +61,7 @@ const PrivacyDashboardPage: React.FC = () => {
         prev ? { ...prev, export_requests: [request, ...prev.export_requests] } : prev
       );
       showNotification('Data export requested. You will be notified when it is ready.', 'success');
-    } catch (error) {
+    } catch {
       showNotification('Failed to request data export', 'error');
       throw error;
     }
@@ -79,7 +79,7 @@ const PrivacyDashboardPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       showNotification('Download started', 'success');
-    } catch (error) {
+    } catch {
       showNotification('Failed to download export', 'error');
     }
   };
@@ -89,7 +89,7 @@ const PrivacyDashboardPage: React.FC = () => {
       const request = await privacyApi.requestDeletion(options as Parameters<typeof privacyApi.requestDeletion>[0]);
       setDeletionRequest(request);
       showNotification('Data deletion request submitted', 'success');
-    } catch (error) {
+    } catch {
       showNotification('Failed to submit deletion request', 'error');
       throw error;
     }
@@ -100,7 +100,7 @@ const PrivacyDashboardPage: React.FC = () => {
       const request = await privacyApi.cancelDeletion(id);
       setDeletionRequest(request);
       showNotification('Deletion request cancelled', 'success');
-    } catch (error) {
+    } catch {
       showNotification('Failed to cancel deletion request', 'error');
     }
   };

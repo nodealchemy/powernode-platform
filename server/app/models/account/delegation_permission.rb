@@ -53,6 +53,6 @@ class Account::DelegationPermission < ApplicationRecord
         errors.add(:permission, "cannot be granted as it's not available in the delegation's role")
         throw :abort
       end
-    end
+      end
   end
 end

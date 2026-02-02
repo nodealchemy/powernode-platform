@@ -40,13 +40,13 @@ FactoryBot.define do
       end
       impact_analysis do
         {
-          "affected_services" => ["api", "worker"],
+          "affected_services" => [ "api", "worker" ],
           "estimated_users_impacted" => 1000,
           "rollback_time_estimate" => "5 minutes"
         }
       end
-      recommendations { ["Run additional integration tests", "Monitor error rates closely"] }
-      mitigations { ["Feature flag available", "Automatic rollback configured"] }
+      recommendations { [ "Run additional integration tests", "Monitor error rates closely" ] }
+      mitigations { [ "Feature flag available", "Automatic rollback configured" ] }
     end
 
     trait :approved do

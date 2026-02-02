@@ -6,9 +6,9 @@ module Api
   module V1
     module SupplyChain
       class AttributionsController < BaseController
-        before_action :require_read_permission, only: [:index, :show, :export]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :generate_notice_file]
-        before_action :set_attribution, only: [:show, :update, :destroy]
+        before_action :require_read_permission, only: [ :index, :show, :export ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :generate_notice_file ]
+        before_action :set_attribution, only: [ :show, :update, :destroy ]
 
         # GET /api/v1/supply_chain/attributions
         def index
@@ -182,7 +182,7 @@ module Api
 
         def generate_csv(attributions)
           CSV.generate(headers: true) do |csv|
-            csv << ["Package", "Version", "License", "Copyright Holder", "Copyright Year"]
+            csv << [ "Package", "Version", "License", "Copyright Holder", "Copyright Year" ]
             attributions.each do |attr|
               csv << [
                 attr.package_name,
@@ -205,7 +205,7 @@ module Api
             documentNamespace: "https://powernode.io/spdx/#{SecureRandom.uuid}",
             creationInfo: {
               created: Time.current.iso8601,
-              creators: ["Tool: Powernode"]
+              creators: [ "Tool: Powernode" ]
             },
             packages: attributions.map do |attr|
               {

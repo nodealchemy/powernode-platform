@@ -23,9 +23,9 @@ Object.defineProperty(globalThis, 'import', {
 });
 
 // Suppress testing-related console warnings that don't affect functionality
-// eslint-disable-next-line no-console
+ 
 const originalError = console.error;
-// eslint-disable-next-line no-console
+ 
 console.error = (...args: any[]) => {
   const errorMessage = typeof args[0] === 'string' ? args[0] :
                        args[0]?.message ? String(args[0].message) : '';

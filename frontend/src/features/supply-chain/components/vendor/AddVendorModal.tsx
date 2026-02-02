@@ -64,7 +64,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({ onClose, onAdd }
           : undefined,
       });
       onClose();
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to add vendor');
     } finally {
       setSaving(false);

@@ -41,7 +41,7 @@ export const ReportsOverviewPage: React.FC = () => {
   const [recentReports, setRecentReports] = useState<RecentReport[]>([]);
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'business',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -110,7 +110,7 @@ export const ReportsOverviewPage: React.FC = () => {
 
       setStats(statsResponse.data);
       setRecentReports(recentResponse.data);
-    } catch (error) {
+    } catch {
       setError(error instanceof Error ? error.message : 'Failed to load overview data');
     } finally {
       setLoading(false);

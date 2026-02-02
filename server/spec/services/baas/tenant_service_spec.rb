@@ -136,7 +136,7 @@ RSpec.describe BaaS::TenantService, type: :service do
       service.terminate_tenant
       tenant.reload
 
-      expect(tenant.api_keys.pluck(:status).uniq).to eq(["revoked"])
+      expect(tenant.api_keys.pluck(:status).uniq).to eq([ "revoked" ])
     end
   end
 

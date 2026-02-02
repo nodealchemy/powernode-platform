@@ -256,7 +256,7 @@ module Marketplace
       return 0.0 if usage_data.empty?
 
       total_usage = usage_data.sum { |_, data| data["value"] || 0 }
-      months = [subscription_age_in_days / 30.0, 1].max
+      months = [ subscription_age_in_days / 30.0, 1 ].max
       (total_usage / months).round(2)
     end
 

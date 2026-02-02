@@ -150,7 +150,7 @@ interface WeeklyActivity {
 export function DevOpsOverviewPage() {
   const navigate = useNavigate();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -226,7 +226,7 @@ export function DevOpsOverviewPage() {
           ? (apiKeysData as { data: { stats: ApiKeyStats } }).data?.stats || null
           : null
       });
-    } catch (error) {
+    } catch {
       console.error('Failed to load DevOps stats:', error);
     } finally {
       setLoading(false);

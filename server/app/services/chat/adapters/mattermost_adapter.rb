@@ -89,7 +89,7 @@ module Chat
           json: {
             channel_id: channel_id,
             message: options[:caption] || "",
-            file_ids: [file_id]
+            file_ids: [ file_id ]
           }
         )
 

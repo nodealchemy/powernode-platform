@@ -38,7 +38,7 @@ module Mcp
         body = resolve_body(configuration["body"], configuration["body_type"])
         timeout_seconds = (configuration["timeout_seconds"] || DEFAULT_TIMEOUT_SECONDS).to_i
         response_mapping = configuration["response_mapping"]
-        retry_count = [(configuration["retry_count"] || DEFAULT_RETRY_COUNT).to_i, MAX_RETRY_COUNT].min
+        retry_count = [ (configuration["retry_count"] || DEFAULT_RETRY_COUNT).to_i, MAX_RETRY_COUNT ].min
         retry_delay = (configuration["retry_delay_seconds"] || DEFAULT_RETRY_DELAY_SECONDS).to_f
 
         # Validate configuration

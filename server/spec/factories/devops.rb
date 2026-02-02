@@ -12,7 +12,7 @@ FactoryBot.define do
     steps { [] }
     environment { {} }
     secret_refs { [] }
-    runner_labels { ['ubuntu-latest'] }
+    runner_labels { [ 'ubuntu-latest' ] }
     timeout_minutes { 60 }
     allow_concurrent { false }
     features { {} }
@@ -31,7 +31,7 @@ FactoryBot.define do
     steps { [] }
     environment { {} }
     secret_refs { [] }
-    runner_labels { ['ubuntu-latest'] }
+    runner_labels { [ 'ubuntu-latest' ] }
     timeout_minutes { 60 }
     allow_concurrent { false }
     features { {} }
@@ -144,7 +144,7 @@ FactoryBot.define do
   end
 
   factory :devops_step_approval_token, class: 'Devops::StepApprovalToken' do
-    association :step_execution, factory: [:devops_step_execution, :waiting_approval]
+    association :step_execution, factory: [ :devops_step_execution, :waiting_approval ]
     recipient_email { Faker::Internet.email }
     token_digest { Digest::SHA256.hexdigest(SecureRandom.urlsafe_base64(32)) }
     status { 'pending' }

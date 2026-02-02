@@ -30,13 +30,13 @@ class UsageQuota < ApplicationRecord
   def usage_percent
     return 0 unless effective_limit && effective_limit > 0
 
-    [(current_usage / effective_limit * 100).round(1), 100].min
+    [ (current_usage / effective_limit * 100).round(1), 100 ].min
   end
 
   def remaining
     return nil unless effective_limit
 
-    [effective_limit - current_usage, 0].max
+    [ effective_limit - current_usage, 0 ].max
   end
 
   def exceeded?

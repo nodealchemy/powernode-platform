@@ -38,7 +38,7 @@ FactoryBot.define do
           }
         ],
         "features" => {},
-        "runner_labels" => ["ubuntu-latest"]
+        "runner_labels" => [ "ubuntu-latest" ]
       }
     end
 
@@ -52,11 +52,11 @@ FactoryBot.define do
     triggers do
       {
         "manual" => true,
-        "push" => { "branches" => ["main"] }
+        "push" => { "branches" => [ "main" ] }
       }
     end
 
-    tags { ["nodejs", "deployment", "production"] }
+    tags { [ "nodejs", "deployment", "production" ] }
     metadata { {} }
 
     is_public { false }

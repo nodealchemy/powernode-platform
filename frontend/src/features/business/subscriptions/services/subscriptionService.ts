@@ -45,7 +45,7 @@ class SubscriptionService {
     try {
       const response = await api.get<SubscriptionResponse>('/subscriptions');
       return response.data;
-    } catch (error: unknown) {
+    } catch {
       const httpError = error as HttpErrorResponse;
       return {
         success: false,
@@ -59,7 +59,7 @@ class SubscriptionService {
     try {
       const response = await api.get<SubscriptionResponse>(`/subscriptions/${id}`);
       return response.data;
-    } catch (error: unknown) {
+    } catch {
       const httpError = error as HttpErrorResponse;
       return {
         success: false,
@@ -73,7 +73,7 @@ class SubscriptionService {
     try {
       const response = await api.post<SubscriptionResponse>('/subscriptions', { subscription: data });
       return response.data;
-    } catch (error: unknown) {
+    } catch {
       const httpError = error as HttpErrorResponse;
       return {
         success: false,
@@ -87,7 +87,7 @@ class SubscriptionService {
     try {
       const response = await api.patch<SubscriptionResponse>(`/subscriptions/${id}`, { subscription: data });
       return response.data;
-    } catch (error: unknown) {
+    } catch {
       const httpError = error as HttpErrorResponse;
       return {
         success: false,
@@ -101,7 +101,7 @@ class SubscriptionService {
     try {
       const response = await api.delete<SubscriptionResponse>(`/subscriptions/${id}`);
       return response.data;
-    } catch (error: unknown) {
+    } catch {
       const httpError = error as HttpErrorResponse;
       return {
         success: false,

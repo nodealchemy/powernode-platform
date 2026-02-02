@@ -71,15 +71,15 @@ export const Badge: React.FC<BadgeProps> = ({
     lg: 'badge-remove-btn badge-remove-btn-lg'
   };
   
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedVariantClasses = variantClasses[variant] || variantClasses.default;
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedSizeClasses = sizeClasses[size] || sizeClasses.sm;
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedRoundedClasses = roundedClasses[rounded] || roundedClasses.full;
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedDotSizeClasses = dotSizeClasses[size] || dotSizeClasses.sm;
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedRemoveBtnClasses = removeBtnSizeClasses[size] || removeBtnSizeClasses.sm;
   
   return (

@@ -28,7 +28,7 @@ class ExternalAgent < ApplicationRecord
   scope :inactive, -> { where(status: "inactive") }
   scope :healthy, -> { where(health_status: "healthy") }
   scope :needs_health_check, -> { where("last_health_check < ? OR last_health_check IS NULL", 5.minutes.ago) }
-  scope :with_skill, ->(skill) { where("skills @> ?", [skill].to_json) }
+  scope :with_skill, ->(skill) { where("skills @> ?", [ skill ].to_json) }
   scope :with_capability, ->(cap) { where("capabilities ? ?", cap) }
   scope :search_by_name, ->(query) { where("name ILIKE ?", "%#{query}%") }
 
@@ -142,9 +142,9 @@ class ExternalAgent < ApplicationRecord
       # Update rolling average
       new_avg = if avg_response_time_ms.nil?
                   response_time_ms
-                else
+      else
                   (avg_response_time_ms * (task_count - 1) + response_time_ms) / task_count
-                end
+      end
       update_column(:avg_response_time_ms, new_avg.round(2))
     end
   end

@@ -177,7 +177,7 @@ module CostOptimization
     end
 
     def generate_agent_optimization_actions(data)
-      ["Review agent configuration", "Consider alternative providers"]
+      [ "Review agent configuration", "Consider alternative providers" ]
     end
   end
 end

@@ -4,9 +4,9 @@ module Api
   module V1
     module Ai
       class PublisherController < ApplicationController
-        before_action :set_publisher, only: [:show, :dashboard, :analytics, :earnings, :templates, :payouts, :request_payout, :stripe_setup, :stripe_status]
-        before_action -> { require_permission("ai.publisher.read") }, only: [:index, :show, :dashboard, :analytics, :earnings, :templates, :payouts]
-        before_action -> { require_permission("ai.publisher.manage") }, only: [:create, :request_payout, :stripe_setup]
+        before_action :set_publisher, only: [ :show, :dashboard, :analytics, :earnings, :templates, :payouts, :request_payout, :stripe_setup, :stripe_status ]
+        before_action -> { require_permission("ai.publisher.read") }, only: [ :index, :show, :dashboard, :analytics, :earnings, :templates, :payouts ]
+        before_action -> { require_permission("ai.publisher.manage") }, only: [ :create, :request_payout, :stripe_setup ]
 
         # GET /api/v1/ai/publisher
         def index
@@ -16,7 +16,7 @@ module Api
             publishers = publishers.where(status: params[:status])
           end
 
-          paginated = publishers.page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+          paginated = publishers.page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
           render_success(
             paginated.map { |p| publisher_data(p) },
@@ -158,7 +158,7 @@ module Api
             templates = templates.where(status: params[:status])
           end
 
-          paginated = templates.order(created_at: :desc).page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+          paginated = templates.order(created_at: :desc).page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
           render_success(
             paginated.map { |t| template_summary(t) },
@@ -176,7 +176,7 @@ module Api
                     .where(publisher: @publisher, transaction_type: "payout")
                     .order(created_at: :desc)
 
-          paginated = payouts.page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+          paginated = payouts.page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
           render_success(
             paginated.map { |p| transaction_data(p) },
@@ -261,9 +261,9 @@ module Api
         def set_publisher
           @publisher = if params[:id] == "me"
                          current_account.ai_publisher_account
-                       else
+          else
                          ::Ai::PublisherAccount.find(params[:id])
-                       end
+          end
 
           render_error("Publisher not found", status: :not_found) unless @publisher
         rescue ActiveRecord::RecordNotFound
@@ -278,7 +278,7 @@ module Api
         end
 
         def publisher_params
-          params.permit(:publisher_name, :publisher_slug, :description, :website_url, :support_email, :branding => {})
+          params.permit(:publisher_name, :publisher_slug, :description, :website_url, :support_email, branding: {})
         end
 
         def publisher_data(publisher, include_details: false)

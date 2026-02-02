@@ -5,7 +5,7 @@ module Api
     module Ai
       class ContextsController < ApplicationController
         before_action :authenticate_request
-        before_action :set_context, only: [:show, :update, :destroy, :search, :archive, :unarchive, :export, :clone]
+        before_action :set_context, only: [ :show, :update, :destroy, :search, :archive, :unarchive, :export, :clone ]
 
         # GET /api/v1/ai/contexts
         def index

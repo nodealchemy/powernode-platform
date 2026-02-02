@@ -6,11 +6,11 @@ class CreateDelegationPermissions < ActiveRecord::Migration[8.0]
 
       t.timestamps
     end
-    
+
     # Add unique index to prevent duplicate permission assignments
-    add_index :delegation_permissions, 
-              [:account_delegation_id, :permission_id], 
-              unique: true, 
+    add_index :delegation_permissions,
+              [ :account_delegation_id, :permission_id ],
+              unique: true,
               name: 'idx_unique_delegation_permission'
   end
 end

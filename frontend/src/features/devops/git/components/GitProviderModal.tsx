@@ -148,7 +148,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
       }
 
       onSuccess();
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to save provider');
     } finally {
       setLoading(false);

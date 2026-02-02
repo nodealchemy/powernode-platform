@@ -7,9 +7,9 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [:index, :show, :logs]
-        before_action :require_write_permission, only: [:cancel, :retry]
-        before_action :set_pipeline_run, only: [:show, :cancel, :retry, :logs]
+        before_action :require_read_permission, only: [ :index, :show, :logs ]
+        before_action :require_write_permission, only: [ :cancel, :retry ]
+        before_action :set_pipeline_run, only: [ :show, :cancel, :retry, :logs ]
 
         # GET /api/v1/devops/pipeline_runs
         def index
@@ -29,7 +29,7 @@ module Api
 
           # Pagination
           page = (params[:page] || 1).to_i
-          per_page = [(params[:per_page] || 20).to_i, 100].min
+          per_page = [ (params[:per_page] || 20).to_i, 100 ].min
           total = runs.count
           runs = runs.offset((page - 1) * per_page).limit(per_page)
 
@@ -102,7 +102,7 @@ module Api
           begin
             WorkerJobService.enqueue_job(
               "Devops::PipelineExecutionJob",
-              args: [new_run.id],
+              args: [ new_run.id ],
               queue: "devops_high"
             )
           rescue WorkerJobService::WorkerServiceError => e

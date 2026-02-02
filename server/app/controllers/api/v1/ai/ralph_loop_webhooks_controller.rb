@@ -36,15 +36,15 @@ module Api
           )
 
           result = case @ralph_loop.status
-                   when "pending"
+          when "pending"
                      service.start_loop
-                   when "paused"
+          when "paused"
                      service.resume_loop
-                   when "running"
+          when "running"
                      service.run_iteration
-                   else
+          else
                      { success: false, error: "Loop in terminal state: #{@ralph_loop.status}" }
-                   end
+          end
 
           if result[:success]
             # Update execution tracking

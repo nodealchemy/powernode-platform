@@ -101,7 +101,7 @@ module Api
             # Filter to repository-specific or global triggers
             if @event.git_repository_id.present?
               triggers = triggers.where(
-                git_repository_id: [nil, @event.git_repository_id]
+                git_repository_id: [ nil, @event.git_repository_id ]
               )
             else
               triggers = triggers.global

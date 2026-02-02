@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Admin::RateLimiting::RateLimitingController', type: :request do
   let(:account) { create(:account) }
-  let(:admin_user) { create(:user, account: account, permissions: ['admin.settings.security']) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'admin.settings.security' ]) }
   let(:non_admin_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(admin_user) }
   let(:non_admin_headers) { auth_headers_for(non_admin_user) }

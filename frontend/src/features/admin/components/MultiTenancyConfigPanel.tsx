@@ -219,7 +219,7 @@ export const MultiTenancyConfigPanel: React.FC<MultiTenancyConfigPanelProps> = (
       onConfigChange(updatedConfig);
       setNewPattern('');
       showSuccess(`Added wildcard pattern: ${newPattern}`);
-    } catch (error) {
+    } catch {
       showError('Failed to add wildcard pattern');
     } finally {
       setValidating(false);
@@ -236,7 +236,7 @@ export const MultiTenancyConfigPanel: React.FC<MultiTenancyConfigPanelProps> = (
       
       onConfigChange(updatedConfig);
       showSuccess(`Removed wildcard pattern: ${pattern}`);
-    } catch (error) {
+    } catch {
       showError('Failed to remove wildcard pattern');
     }
   };
@@ -253,7 +253,7 @@ export const MultiTenancyConfigPanel: React.FC<MultiTenancyConfigPanelProps> = (
       
       onConfigChange(updatedConfig);
       showSuccess(`Updated pattern: ${oldPattern} → ${newPattern}`);
-    } catch (error) {
+    } catch {
       showError('Failed to update wildcard pattern');
     }
   };

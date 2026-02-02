@@ -269,7 +269,7 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
 
       it 'completes a processing request' do
         patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
-              params: { action_type: 'complete', deletion_log: [{ type: 'profile', deleted: true }] },
+              params: { action_type: 'complete', deletion_log: [ { type: 'profile', deleted: true } ] },
               headers: internal_headers,
               as: :json
 

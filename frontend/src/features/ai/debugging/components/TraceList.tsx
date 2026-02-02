@@ -102,7 +102,7 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
 
       const data = await response.json();
       setTraces(data.data || []);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load traces');
     } finally {
       setLoading(false);

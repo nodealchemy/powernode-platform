@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::AiOps', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.aiops.read', 'ai.aiops.write']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['ai.aiops.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.aiops.read', 'ai.aiops.write' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'ai.aiops.read' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(user) }
 

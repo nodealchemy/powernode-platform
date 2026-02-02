@@ -4,7 +4,7 @@ class AddPaypalPlanIdToPlans < ActiveRecord::Migration[8.0]
     unless column_exists?(:plans, :paypal_plan_id)
       add_column :plans, :paypal_plan_id, :string
     end
-    
+
     # Add index for PayPal plan ID if not exists
     unless index_exists?(:plans, :paypal_plan_id)
       add_index :plans, :paypal_plan_id

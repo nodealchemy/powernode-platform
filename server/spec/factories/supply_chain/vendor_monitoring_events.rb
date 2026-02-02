@@ -105,7 +105,7 @@ FactoryBot.define do
     end
 
     trait :with_affected_services do
-      affected_services { ["Authentication Service", "Data Processing", "Storage System"] }
+      affected_services { [ "Authentication Service", "Data Processing", "Storage System" ] }
     end
 
     trait :old do

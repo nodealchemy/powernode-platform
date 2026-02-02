@@ -4,11 +4,11 @@ module Api
   module V1
     module SupplyChain
       class QuestionnaireResponsesController < BaseController
-        skip_before_action :authenticate_request, only: [:show_by_token, :submit_by_token]
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:update, :submit, :review, :send_reminder, :approve, :reject, :request_changes]
-        before_action :set_response, only: [:show, :update, :submit, :review, :send_reminder, :approve, :reject, :request_changes]
-        before_action :set_response_by_token, only: [:show_by_token, :submit_by_token]
+        skip_before_action :authenticate_request, only: [ :show_by_token, :submit_by_token ]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :update, :submit, :review, :send_reminder, :approve, :reject, :request_changes ]
+        before_action :set_response, only: [ :show, :update, :submit, :review, :send_reminder, :approve, :reject, :request_changes ]
+        before_action :set_response_by_token, only: [ :show_by_token, :submit_by_token ]
 
         # GET /api/v1/supply_chain/questionnaire_responses
         def index

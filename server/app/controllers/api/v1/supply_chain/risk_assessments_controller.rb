@@ -4,11 +4,11 @@ module Api
   module V1
     module SupplyChain
       class RiskAssessmentsController < BaseController
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:create]
-        before_action :require_admin_permission, only: [:submit_for_review, :complete]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :create ]
+        before_action :require_admin_permission, only: [ :submit_for_review, :complete ]
         before_action :set_vendor
-        before_action :set_assessment, only: [:show, :submit_for_review, :complete]
+        before_action :set_assessment, only: [ :show, :submit_for_review, :complete ]
 
         # GET /api/v1/supply_chain/vendors/:vendor_id/assessments
         def index

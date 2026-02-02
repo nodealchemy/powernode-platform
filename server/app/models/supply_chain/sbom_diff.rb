@@ -207,7 +207,7 @@ module SupplyChain
     # Returns a version-less key for component comparison
     # Uses ecosystem/namespace/name to uniquely identify a component across versions
     def component_comparison_key(comp)
-      [comp.ecosystem, comp.namespace, comp.name].compact.join("/")
+      [ comp.ecosystem, comp.namespace, comp.name ].compact.join("/")
     end
 
     def component_summary(comp)

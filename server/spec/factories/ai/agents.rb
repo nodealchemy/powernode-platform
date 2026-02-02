@@ -52,7 +52,7 @@ FactoryBot.define do
 
     trait :code_assistant do
       agent_type { 'code_assistant' }
-      mcp_capabilities { ['code_generation', 'code_review', 'git_operations', 'file_read', 'file_write', 'test_execution'] }
+      mcp_capabilities { [ 'code_generation', 'code_review', 'git_operations', 'file_read', 'file_write', 'test_execution' ] }
       transient do
         configuration do
           {
@@ -67,7 +67,7 @@ FactoryBot.define do
 
     trait :data_analyst do
       agent_type { 'data_analyst' }
-      mcp_capabilities { ['database_queries', 'csv_processing', 'json_processing', 'chart_generation', 'report_generation', 'data_aggregation'] }
+      mcp_capabilities { [ 'database_queries', 'csv_processing', 'json_processing', 'chart_generation', 'report_generation', 'data_aggregation' ] }
       transient do
         configuration do
           {
@@ -83,17 +83,17 @@ FactoryBot.define do
 
     trait :monitor do
       agent_type { 'monitor' }
-      mcp_capabilities { ['http_health_checks', 'log_analysis', 'metric_collection', 'alerting', 'slack_notifications', 'webhook_triggers'] }
+      mcp_capabilities { [ 'http_health_checks', 'log_analysis', 'metric_collection', 'alerting', 'slack_notifications', 'webhook_triggers' ] }
     end
 
     trait :content_generator do
       agent_type { 'content_generator' }
-      mcp_capabilities { ['text_generation', 'markdown_formatting', 'html_generation', 'email_drafting', 'seo_optimization', 'multilingual_translation'] }
+      mcp_capabilities { [ 'text_generation', 'markdown_formatting', 'html_generation', 'email_drafting', 'seo_optimization', 'multilingual_translation' ] }
     end
 
     trait :workflow_operations do
       agent_type { 'workflow_operations' }
-      mcp_capabilities { ['workflow_execution', 'task_scheduling', 'event_triggers', 'http_requests', 'database_queries', 'file_operations'] }
+      mcp_capabilities { [ 'workflow_execution', 'task_scheduling', 'event_triggers', 'http_requests', 'database_queries', 'file_operations' ] }
     end
   end
 end

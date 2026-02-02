@@ -172,7 +172,7 @@ module Ai
       return unless ralph_loop.present?
 
       ralph_loop.update_columns(
-        current_iteration: [ralph_loop.current_iteration, iteration_number].max,
+        current_iteration: [ ralph_loop.current_iteration, iteration_number ].max,
         updated_at: Time.current
       )
     end

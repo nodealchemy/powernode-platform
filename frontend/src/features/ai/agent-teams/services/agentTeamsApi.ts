@@ -45,7 +45,7 @@ export interface CreateTeamParams {
   team_config?: Record<string, any>;
 }
 
-export interface UpdateTeamParams extends Partial<CreateTeamParams> {}
+export type UpdateTeamParams = Partial<CreateTeamParams>;
 
 export interface AddMemberParams {
   agent_id: string;

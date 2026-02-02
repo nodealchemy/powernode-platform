@@ -65,7 +65,7 @@ class CreateRalphLoops < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_ralph_loops, :status
-    add_index :ai_ralph_loops, [:account_id, :status]
+    add_index :ai_ralph_loops, [ :account_id, :status ]
     add_index :ai_ralph_loops, :ai_tool
     add_index :ai_ralph_loops, :created_at
 
@@ -116,7 +116,7 @@ class CreateRalphLoops < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_ralph_tasks, [:ralph_loop_id, :task_key], unique: true
+    add_index :ai_ralph_tasks, [ :ralph_loop_id, :task_key ], unique: true
     add_index :ai_ralph_tasks, :status
     add_index :ai_ralph_tasks, :priority
 
@@ -174,7 +174,7 @@ class CreateRalphLoops < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_ralph_iterations, [:ralph_loop_id, :iteration_number], unique: true
+    add_index :ai_ralph_iterations, [ :ralph_loop_id, :iteration_number ], unique: true
     add_index :ai_ralph_iterations, :status
     add_index :ai_ralph_iterations, :git_commit_sha, where: "git_commit_sha IS NOT NULL"
 

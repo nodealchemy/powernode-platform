@@ -278,8 +278,9 @@ function AttachmentCard({ attachment }: AttachmentCardProps) {
     try {
       // In a real implementation, you'd make an API call to get the download URL
       // For now, this is a placeholder
-    } catch (error) {
-    }
+    } catch {
+    // Error silently ignored
+  }
   };
 
   return (

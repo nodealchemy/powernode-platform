@@ -256,15 +256,15 @@ export interface ExportExecutionData {
   duration: number | undefined;
   cost_usd: number | undefined;
   trigger_type: string | undefined;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   node_executions: any[];
 }
 
 export const createExportData = (
   workflowId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   run: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   nodeExecutions: any[]
 ): ExportExecutionData => {
   return {

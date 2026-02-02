@@ -4,11 +4,11 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Marketplace', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['ai.workflows.read']) }
-  let(:user_with_create_permission) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.create']) }
-  let(:user_with_update_permission) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.update']) }
-  let(:user_with_delete_permission) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.delete']) }
-  let(:user_with_manage_permission) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.manage']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'ai.workflows.read' ]) }
+  let(:user_with_create_permission) { create(:user, account: account, permissions: [ 'ai.workflows.read', 'ai.workflows.create' ]) }
+  let(:user_with_update_permission) { create(:user, account: account, permissions: [ 'ai.workflows.read', 'ai.workflows.update' ]) }
+  let(:user_with_delete_permission) { create(:user, account: account, permissions: [ 'ai.workflows.read', 'ai.workflows.delete' ]) }
+  let(:user_with_manage_permission) { create(:user, account: account, permissions: [ 'ai.workflows.read', 'ai.workflows.manage' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/ai/marketplace/templates' do
@@ -58,7 +58,7 @@ RSpec.describe 'Api::V1::Ai::Marketplace', type: :request do
         data = json_response_data
 
         categories = data['items'].map { |t| t['category'] }
-        expect(categories.uniq).to eq(['data_processing'])
+        expect(categories.uniq).to eq([ 'data_processing' ])
       end
     end
   end
@@ -396,7 +396,7 @@ RSpec.describe 'Api::V1::Ai::Marketplace', type: :request do
 
       it 'validates template count' do
         post '/api/v1/ai/marketplace/compare',
-             params: { template_ids: [templates.first.id] },
+             params: { template_ids: [ templates.first.id ] },
              headers: headers,
              as: :json
 

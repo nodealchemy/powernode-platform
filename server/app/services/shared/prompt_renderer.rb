@@ -56,7 +56,7 @@ module Shared
       Liquid::Template.parse(content)
       { valid: true, errors: [] }
     rescue Liquid::SyntaxError => e
-      { valid: false, errors: [e.message] }
+      { valid: false, errors: [ e.message ] }
     end
 
     # Extract variable names from template

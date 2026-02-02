@@ -4,9 +4,9 @@ require 'rails_helper'
 
 RSpec.describe Api::V1::SupplyChain::BaseController do
   let(:account) { create(:account) }
-  let(:user_with_read) { create(:user, account: account, permissions: ['supply_chain.read']) }
-  let(:user_with_write) { create(:user, account: account, permissions: ['supply_chain.read', 'supply_chain.write']) }
-  let(:user_with_admin) { create(:user, account: account, permissions: ['supply_chain.read', 'supply_chain.write', 'supply_chain.admin']) }
+  let(:user_with_read) { create(:user, account: account, permissions: [ 'supply_chain.read' ]) }
+  let(:user_with_write) { create(:user, account: account, permissions: [ 'supply_chain.read', 'supply_chain.write' ]) }
+  let(:user_with_admin) { create(:user, account: account, permissions: [ 'supply_chain.read', 'supply_chain.write', 'supply_chain.admin' ]) }
   let(:user_without_permissions) { create(:user, account: account, permissions: []) }
 
   # Create a simple instance for testing private methods

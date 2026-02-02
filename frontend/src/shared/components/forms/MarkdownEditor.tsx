@@ -54,7 +54,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       await onAutoSave(content);
       setLastSaved(new Date());
       lastValueRef.current = content;
-    } catch (error) {
+    } catch {
       console.error('Auto-save failed:', error);
     } finally {
       setIsSaving(false);
@@ -90,7 +90,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           const imageUrl = await onImageUpload(file);
           const imageMarkdown = `![${file.name}](${imageUrl})\n`;
           onChange(value + imageMarkdown);
-        } catch (error) {
+        } catch {
           console.error('Image upload failed:', error);
         }
       }
@@ -125,7 +125,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
               const imageUrl = await onImageUpload(files[i]);
               const imageMarkdown = `![${files[i].name}](${imageUrl})\n`;
               onChange((state.text || '') + imageMarkdown);
-            } catch (error) {
+            } catch {
               console.error('Image upload failed:', error);
             }
           }

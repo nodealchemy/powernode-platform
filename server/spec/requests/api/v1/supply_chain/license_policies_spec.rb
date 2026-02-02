@@ -7,12 +7,12 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
 
   # User with supply_chain.read permission only
   let(:supply_chain_reader) do
-    create(:user, account: account, permissions: ["supply_chain.read"])
+    create(:user, account: account, permissions: [ "supply_chain.read" ])
   end
 
   # User with both supply_chain.read and supply_chain.write permissions
   let(:supply_chain_writer) do
-    create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"])
+    create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ])
   end
 
   # User without supply_chain permissions
@@ -165,7 +165,7 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
              account: account,
              name: "Test Policy",
              policy_type: "allowlist",
-             allowed_licenses: ["MIT", "Apache-2.0"],
+             allowed_licenses: [ "MIT", "Apache-2.0" ],
              denied_licenses: [],
              is_active: true)
     end
@@ -196,7 +196,7 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
           "violation_count",
           "metadata"
         )
-        expect(data["allowed_licenses"]).to eq(["MIT", "Apache-2.0"])
+        expect(data["allowed_licenses"]).to eq([ "MIT", "Apache-2.0" ])
       end
     end
 
@@ -237,7 +237,7 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
             policy_type: "allowlist",
             enforcement_level: "warn",
             is_active: true,
-            allowed_licenses: ["MIT", "Apache-2.0", "BSD-3-Clause"],
+            allowed_licenses: [ "MIT", "Apache-2.0", "BSD-3-Clause" ],
             denied_licenses: [],
             block_copyleft: false,
             block_strong_copyleft: true
@@ -373,13 +373,13 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
 
       it "updates allowed licenses" do
         patch "/api/v1/supply_chain/license_policies/#{policy.id}",
-              params: { license_policy: { allowed_licenses: ["MIT", "Apache-2.0", "BSD-3-Clause"] } },
+              params: { license_policy: { allowed_licenses: [ "MIT", "Apache-2.0", "BSD-3-Clause" ] } },
               headers: auth_headers_for(supply_chain_writer),
               as: :json
 
         expect_success_response
         policy.reload
-        expect(policy.allowed_licenses).to match_array(["MIT", "Apache-2.0", "BSD-3-Clause"])
+        expect(policy.allowed_licenses).to match_array([ "MIT", "Apache-2.0", "BSD-3-Clause" ])
       end
 
       it "updates block_copyleft settings" do
@@ -450,7 +450,7 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
              name: "Test Policy",
              policy_type: "denylist",
              enforcement_level: "block",
-             denied_licenses: ["GPL-3.0-only", "AGPL-3.0-only"],
+             denied_licenses: [ "GPL-3.0-only", "AGPL-3.0-only" ],
              block_strong_copyleft: true)
     end
 
@@ -479,7 +479,7 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
         ])
 
         post "/api/v1/supply_chain/license_policies/#{policy.id}/evaluate",
-             params: { sbom_ids: [sbom1.id, sbom2.id] },
+             params: { sbom_ids: [ sbom1.id, sbom2.id ] },
              headers: auth_headers_for(supply_chain_reader),
              as: :json
 
@@ -497,7 +497,7 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
         allow_any_instance_of(SupplyChain::LicensePolicy).to receive(:evaluate).and_return([])
 
         post "/api/v1/supply_chain/license_policies/#{policy.id}/evaluate",
-             params: { sbom_ids: [sbom1.id] },
+             params: { sbom_ids: [ sbom1.id ] },
              headers: auth_headers_for(supply_chain_reader),
              as: :json
 
@@ -530,7 +530,7 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
         allow_any_instance_of(SupplyChain::LicensePolicy).to receive(:evaluate).and_return(violations)
 
         post "/api/v1/supply_chain/license_policies/#{policy.id}/evaluate",
-             params: { sbom_ids: [sbom1.id] },
+             params: { sbom_ids: [ sbom1.id ] },
              headers: auth_headers_for(supply_chain_reader),
              as: :json
 
@@ -565,7 +565,7 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
         allow_any_instance_of(SupplyChain::LicensePolicy).to receive(:evaluate).and_return(violations_sbom1, violations_sbom2)
 
         post "/api/v1/supply_chain/license_policies/#{policy.id}/evaluate",
-             params: { sbom_ids: [sbom1.id, sbom2.id] },
+             params: { sbom_ids: [ sbom1.id, sbom2.id ] },
              headers: auth_headers_for(supply_chain_reader),
              as: :json
 
@@ -588,7 +588,7 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
         allow_any_instance_of(SupplyChain::LicensePolicy).to receive(:evaluate).and_return([])
 
         post "/api/v1/supply_chain/license_policies/#{policy.id}/evaluate",
-             params: { sbom_ids: [sbom1.id, other_sbom.id] },
+             params: { sbom_ids: [ sbom1.id, other_sbom.id ] },
              headers: auth_headers_for(supply_chain_reader),
              as: :json
 
@@ -604,7 +604,7 @@ RSpec.describe "Api::V1::SupplyChain::LicensePolicies", type: :request do
     context "without supply_chain.read permission" do
       it "returns forbidden error" do
         post "/api/v1/supply_chain/license_policies/#{policy.id}/evaluate",
-             params: { sbom_ids: [sbom1.id] },
+             params: { sbom_ids: [ sbom1.id ] },
              headers: auth_headers_for(regular_user),
              as: :json
 

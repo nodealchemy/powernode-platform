@@ -69,17 +69,17 @@ class UsageMeter < ApplicationRecord
   def period_dates(reference_date = Date.current)
     case reset_period
     when "never"
-      [nil, nil]
+      [ nil, nil ]
     when "daily"
-      [reference_date.beginning_of_day, reference_date.end_of_day]
+      [ reference_date.beginning_of_day, reference_date.end_of_day ]
     when "weekly"
-      [reference_date.beginning_of_week, reference_date.end_of_week]
+      [ reference_date.beginning_of_week, reference_date.end_of_week ]
     when "monthly"
-      [reference_date.beginning_of_month, reference_date.end_of_month]
+      [ reference_date.beginning_of_month, reference_date.end_of_month ]
     when "yearly"
-      [reference_date.beginning_of_year, reference_date.end_of_year]
+      [ reference_date.beginning_of_year, reference_date.end_of_year ]
     else
-      [nil, nil]
+      [ nil, nil ]
     end
   end
 
@@ -125,8 +125,8 @@ class UsageMeter < ApplicationRecord
       rate = tier["price_per_unit"] || 0.0
 
       if remaining > 0 && quantity > from
-        tier_units = [remaining, to - from].min
-        tier_units = [tier_units, 0].max
+        tier_units = [ remaining, to - from ].min
+        tier_units = [ tier_units, 0 ].max
         total_cost += tier_units * rate
         remaining -= tier_units
       end

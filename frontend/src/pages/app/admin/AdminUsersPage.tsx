@@ -30,7 +30,7 @@ const AdminUsersPage: React.FC = () => {
   const { confirm, ConfirmationDialog } = useConfirmation();
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'admin',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -109,7 +109,7 @@ const AdminUsersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   useEffect(() => {
@@ -259,10 +259,11 @@ const AdminUsersPage: React.FC = () => {
             }
           });
           return;
-        case 'export':
+        case 'export': {
           const selectedUserData = filteredUsers.filter(u => selectedUsers.has(u.id));
           exportUsers(selectedUserData);
           return;
+        }
       }
 
       await loadData();
@@ -288,7 +289,7 @@ const AdminUsersPage: React.FC = () => {
         reason: 'Admin impersonation'
       })).unwrap();
       window.location.href = '/app';
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'Failed to impersonate user. Please try again.';
       showNotification(errorMessage, 'error');
     } finally {
@@ -315,7 +316,7 @@ const AdminUsersPage: React.FC = () => {
       } else {
         setFormErrors([response.message || 'Failed to create user']);
       }
-    } catch (error: unknown) {
+    } catch {
       const axiosError = error as { code?: string; response?: { status?: number; data?: { errors?: unknown; message?: string } }; message?: string };
 
       if (axiosError.code === 'ERR_NETWORK' || axiosError.code === 'ERR_FAILED') {

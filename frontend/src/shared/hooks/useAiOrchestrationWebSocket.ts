@@ -329,9 +329,7 @@ export const useAiOrchestrationWebSocket = ({
 
     // Handle subscription confirmations (skip routing)
     if (data.type === 'subscription.confirmed') {
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[AiOrchestrationWebSocket] Subscription confirmed:', data);
-      }
+      // Subscription confirmed - skip routing
       return;
     }
 
@@ -359,10 +357,6 @@ export const useAiOrchestrationWebSocket = ({
         },
         timestamp: data.timestamp || new Date().toISOString(),
       } as WorkflowRunEvent;
-
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[AiOrchestrationWebSocket] Routing event:', data.event, '->', frontendEventType, event);
-      }
 
       routeEvent(event);
     }

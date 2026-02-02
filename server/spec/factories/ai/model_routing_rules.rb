@@ -10,7 +10,7 @@ FactoryBot.define do
     is_active { true }
     conditions do
       {
-        "capabilities" => ["text_generation"],
+        "capabilities" => [ "text_generation" ],
         "max_cost_per_token" => 0.01
       }
     end
@@ -92,8 +92,8 @@ FactoryBot.define do
       rule_type { "custom" }
       conditions do
         {
-          "request_types" => ["chat", "completion"],
-          "model_patterns" => ["gpt-4.*", "claude-3.*"]
+          "request_types" => [ "chat", "completion" ],
+          "model_patterns" => [ "gpt-4.*", "claude-3.*" ]
         }
       end
     end

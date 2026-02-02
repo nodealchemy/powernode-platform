@@ -332,7 +332,7 @@ RSpec.describe SupplyChain::RemediationPlan, type: :model do
 
   describe "#has_breaking_changes?" do
     it "returns true when breaking_changes is present and not empty" do
-      plan = build(:supply_chain_remediation_plan, breaking_changes: [{ "package" => "axios" }])
+      plan = build(:supply_chain_remediation_plan, breaking_changes: [ { "package" => "axios" } ])
       expect(plan.has_breaking_changes?).to be true
     end
 
@@ -350,7 +350,7 @@ RSpec.describe SupplyChain::RemediationPlan, type: :model do
 
   describe "#target_vulnerability_count" do
     it "returns the count of target_vulnerabilities" do
-      plan = build(:supply_chain_remediation_plan, target_vulnerabilities: [{ "id" => "1" }, { "id" => "2" }])
+      plan = build(:supply_chain_remediation_plan, target_vulnerabilities: [ { "id" => "1" }, { "id" => "2" } ])
       expect(plan.target_vulnerability_count).to eq(2)
     end
 
@@ -368,7 +368,7 @@ RSpec.describe SupplyChain::RemediationPlan, type: :model do
 
   describe "#upgrade_count" do
     it "returns the count of upgrade_recommendations" do
-      plan = build(:supply_chain_remediation_plan, upgrade_recommendations: [{ "package" => "a" }, { "package" => "b" }])
+      plan = build(:supply_chain_remediation_plan, upgrade_recommendations: [ { "package" => "a" }, { "package" => "b" } ])
       expect(plan.upgrade_count).to eq(2)
     end
 
@@ -775,21 +775,21 @@ RSpec.describe SupplyChain::RemediationPlan, type: :model do
       end
 
       it "preserves existing target_vulnerabilities" do
-        vulns = [{ "id" => "CVE-2024-1234" }]
+        vulns = [ { "id" => "CVE-2024-1234" } ]
         plan = create(:supply_chain_remediation_plan, account: account, sbom: sbom, target_vulnerabilities: vulns)
         plan.reload
         expect(plan.target_vulnerabilities).to eq(vulns)
       end
 
       it "preserves existing upgrade_recommendations" do
-        upgrades = [{ "package" => "lodash" }]
+        upgrades = [ { "package" => "lodash" } ]
         plan = create(:supply_chain_remediation_plan, account: account, sbom: sbom, upgrade_recommendations: upgrades)
         plan.reload
         expect(plan.upgrade_recommendations).to eq(upgrades)
       end
 
       it "preserves existing breaking_changes" do
-        breaking = [{ "package" => "axios" }]
+        breaking = [ { "package" => "axios" } ]
         plan = create(:supply_chain_remediation_plan, account: account, sbom: sbom, breaking_changes: breaking)
         plan.reload
         expect(plan.breaking_changes).to eq(breaking)

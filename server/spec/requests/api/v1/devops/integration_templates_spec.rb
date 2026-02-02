@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Devops::IntegrationTemplates', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['devops.integrations.read']) }
-  let(:user_with_admin_permission) { create(:user, account: account, permissions: ['devops.integrations.read', 'admin.devops.integration_templates.create', 'admin.devops.integration_templates.update', 'admin.devops.integration_templates.delete']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'devops.integrations.read' ]) }
+  let(:user_with_admin_permission) { create(:user, account: account, permissions: [ 'devops.integrations.read', 'admin.devops.integration_templates.create', 'admin.devops.integration_templates.update', 'admin.devops.integration_templates.delete' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/devops/integration_templates' do
@@ -191,7 +191,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationTemplates', type: :request do
     context 'with devops.integrations.read permission' do
       it 'searches templates successfully' do
         allow(Devops::RegistryService).to receive(:search_templates).and_return(
-          double(map: [{ id: '1', name: 'Found Template' }], current_page: 1, total_pages: 1, total_count: 1, limit_value: 20)
+          double(map: [ { id: '1', name: 'Found Template' } ], current_page: 1, total_pages: 1, total_count: 1, limit_value: 20)
         )
 
         get '/api/v1/devops/integration_templates/search',
@@ -209,7 +209,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationTemplates', type: :request do
     context 'with devops.integrations.read permission' do
       it 'returns template categories' do
         allow(Devops::RegistryService).to receive(:template_categories).and_return(
-          ['ci_cd', 'version_control', 'monitoring']
+          [ 'ci_cd', 'version_control', 'monitoring' ]
         )
 
         get '/api/v1/devops/integration_templates/categories', headers: headers, as: :json
@@ -228,7 +228,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationTemplates', type: :request do
     context 'with devops.integrations.read permission' do
       it 'returns integration types' do
         allow(Devops::RegistryService).to receive(:integration_types).and_return(
-          ['rest_api', 'graphql', 'webhook']
+          [ 'rest_api', 'graphql', 'webhook' ]
         )
 
         get '/api/v1/devops/integration_templates/types', headers: headers, as: :json

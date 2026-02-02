@@ -130,7 +130,7 @@ RSpec.describe 'Api::V1::Marketplace::Subscriptions', type: :request do
           .to receive(:subscribe)
           .and_return({
             success: false,
-            errors: ['Subscription failed']
+            errors: [ 'Subscription failed' ]
           })
 
         post '/api/v1/marketplace/subscriptions', params: valid_params, headers: headers, as: :json
@@ -202,7 +202,7 @@ RSpec.describe 'Api::V1::Marketplace::Subscriptions', type: :request do
       it 'returns error when cancellation fails' do
         allow_any_instance_of(Marketplace::SubscriptionOrchestrator)
           .to receive(:unsubscribe)
-          .and_return({ success: false, errors: ['Cancellation failed'] })
+          .and_return({ success: false, errors: [ 'Cancellation failed' ] })
 
         delete "/api/v1/marketplace/subscriptions/#{subscription.id}", headers: headers, as: :json
 

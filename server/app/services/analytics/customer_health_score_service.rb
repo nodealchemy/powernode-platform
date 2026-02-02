@@ -125,7 +125,7 @@ module Analytics
       # Factor in feature adoption
       score -= (1 - metrics[:feature_adoption_rate]) * 20
 
-      [score, 0].max.round(2)
+      [ score, 0 ].max.round(2)
     end
 
     def calculate_payment_score(metrics)
@@ -142,7 +142,7 @@ module Analytics
         score -= 20
       end
 
-      [score, 0].max.round(2)
+      [ score, 0 ].max.round(2)
     end
 
     def calculate_usage_score(metrics)
@@ -162,7 +162,7 @@ module Analytics
         score -= 20
       end
 
-      [score, 0].max.round(2)
+      [ score, 0 ].max.round(2)
     end
 
     def calculate_support_score(metrics)
@@ -185,7 +185,7 @@ module Analytics
         score -= 15
       end
 
-      [score, 0].max.round(2)
+      [ score, 0 ].max.round(2)
     end
 
     def calculate_tenure_score(metrics)

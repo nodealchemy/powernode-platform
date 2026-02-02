@@ -34,9 +34,9 @@ class CreateGitWorkflowTriggers < ActiveRecord::Migration[8.0]
     add_index :git_workflow_triggers, :event_type
     add_index :git_workflow_triggers, :is_active
     add_index :git_workflow_triggers, :status
-    add_index :git_workflow_triggers, [:event_type, :is_active],
+    add_index :git_workflow_triggers, [ :event_type, :is_active ],
               name: 'index_git_workflow_triggers_on_event_type_active'
-    add_index :git_workflow_triggers, [:git_repository_id, :event_type],
+    add_index :git_workflow_triggers, [ :git_repository_id, :event_type ],
               name: 'index_git_workflow_triggers_on_repo_and_event'
   end
 end

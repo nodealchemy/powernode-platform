@@ -13,7 +13,7 @@ RSpec.describe Analytics::AlertService, type: :service do
         condition: "greater_than",
         threshold_value: 100_000,
         account: account,
-        notification_channels: ["email"]
+        notification_channels: [ "email" ]
       }
     end
 
@@ -52,7 +52,7 @@ RSpec.describe Analytics::AlertService, type: :service do
     it "evaluates the alert" do
       result = described_class.check_alert(alert)
       # Result depends on actual metric values - just ensure it runs
-      expect([true, false]).to include(result)
+      expect([ true, false ]).to include(result)
     end
 
     it "does not trigger disabled alerts" do

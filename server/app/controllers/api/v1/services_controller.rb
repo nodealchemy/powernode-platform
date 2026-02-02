@@ -36,12 +36,12 @@ class Api::V1::ServicesController < ApplicationController
   def update
     config_type = params[:config_type] || "service_config"
     config_params = case config_type
-                    when "service_config" then service_config_params.to_h
-                    when "service_discovery_config" then service_discovery_params.to_h
-                    when "service_templates" then service_templates_params.to_h
-                    else
+    when "service_config" then service_config_params.to_h
+    when "service_discovery_config" then service_discovery_params.to_h
+    when "service_templates" then service_templates_params.to_h
+    else
                       return render_error("Invalid configuration type", status: :bad_request)
-                    end
+    end
 
     result = proxy_service.update_config(config_type: config_type, config_params: config_params)
 
@@ -78,7 +78,7 @@ class Api::V1::ServicesController < ApplicationController
       return render_error("Unsupported proxy type: #{proxy_type}. Valid types: nginx, apache, traefik", status: :bad_request)
     end
 
-    result = enqueue_job(:generate_config, [proxy_type, config], "services_generate_config", { proxy_type: proxy_type, config_size: config.to_s.length })
+    result = enqueue_job(:generate_config, [ proxy_type, config ], "services_generate_config", { proxy_type: proxy_type, config_size: config.to_s.length })
 
     if result
       render_success(result.merge(proxy_type: proxy_type, message: "#{proxy_type.capitalize} configuration generation started. Use job_id to check progress."))
@@ -274,7 +274,7 @@ class Api::V1::ServicesController < ApplicationController
     job_class = get_job_class(job_type)
     return nil unless job_class
 
-    args = job_args.is_a?(Array) ? job_args + [{ job_id: job_id }] : [job_args, { job_id: job_id }]
+    args = job_args.is_a?(Array) ? job_args + [ { job_id: job_id } ] : [ job_args, { job_id: job_id } ]
     sidekiq_jid = job_class.perform_async(*args)
     BackgroundJob.create_for_sidekiq_job(sidekiq_jid, job_name, metadata)
 
@@ -284,31 +284,31 @@ class Api::V1::ServicesController < ApplicationController
   def service_config_params
     params.require(:service_config).permit(
       :enabled, :current_environment, environments: {},
-      url_mappings: [:id, :name, :pattern, :target_service, :priority, :enabled, :description, methods: []],
-      load_balancing: [:enabled, :algorithm, :health_check_interval, :failover_enabled],
-      ssl_config: [:enabled, :enforce_https, :certificate_path, :private_key_path, :hsts_enabled, :hsts_max_age, :ciphers, protocols: []],
-      cors_config: [:enabled, :credentials, :max_age, allowed_origins: [], allowed_methods: [], allowed_headers: [], exposed_headers: []],
-      headers: { security_headers: [:enabled, :x_frame_options, :x_content_type_options, :x_xss_protection, :referrer_policy], custom_headers: { request: [:name, :value, :enabled], response: [:name, :value, :enabled] } },
-      rate_limiting: [:enabled, :default_limit, :window_size, :burst_limit],
-      compression: [:enabled, :level, types: []]
+      url_mappings: [ :id, :name, :pattern, :target_service, :priority, :enabled, :description, methods: [] ],
+      load_balancing: [ :enabled, :algorithm, :health_check_interval, :failover_enabled ],
+      ssl_config: [ :enabled, :enforce_https, :certificate_path, :private_key_path, :hsts_enabled, :hsts_max_age, :ciphers, protocols: [] ],
+      cors_config: [ :enabled, :credentials, :max_age, allowed_origins: [], allowed_methods: [], allowed_headers: [], exposed_headers: [] ],
+      headers: { security_headers: [ :enabled, :x_frame_options, :x_content_type_options, :x_xss_protection, :referrer_policy ], custom_headers: { request: [ :name, :value, :enabled ], response: [ :name, :value, :enabled ] } },
+      rate_limiting: [ :enabled, :default_limit, :window_size, :burst_limit ],
+      compression: [ :enabled, :level, types: [] ]
     )
   end
 
   def service_discovery_params
     params.require(:service_discovery_config).permit(
       :enabled, methods: [],
-      dns_config: [:enabled, :timeout, :retries],
-      consul_config: [:enabled, :host, :port, :token, :datacenter],
-      port_scan_config: [:enabled, :timeout, port_ranges: {}],
-      kubernetes_config: [:enabled, :namespace, :label_selector]
+      dns_config: [ :enabled, :timeout, :retries ],
+      consul_config: [ :enabled, :host, :port, :token, :datacenter ],
+      port_scan_config: [ :enabled, :timeout, port_ranges: {} ],
+      kubernetes_config: [ :enabled, :namespace, :label_selector ]
     )
   end
 
   def service_templates_params
     params.require(:service_templates).permit(
-      nginx: [:enabled, :config_path, :reload_command, :test_command],
-      apache: [:enabled, :config_path, :reload_command, :test_command],
-      traefik: [:enabled, :config_path, :reload_command, :test_command]
+      nginx: [ :enabled, :config_path, :reload_command, :test_command ],
+      apache: [ :enabled, :config_path, :reload_command, :test_command ],
+      traefik: [ :enabled, :config_path, :reload_command, :test_command ]
     )
   end
 

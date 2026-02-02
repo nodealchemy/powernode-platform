@@ -33,9 +33,9 @@ class CreateModelRoutingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_model_routing_rules, [:account_id, :is_active, :priority],
+    add_index :ai_model_routing_rules, [ :account_id, :is_active, :priority ],
               name: "idx_routing_rules_account_active_priority"
-    add_index :ai_model_routing_rules, [:account_id, :rule_type]
+    add_index :ai_model_routing_rules, [ :account_id, :rule_type ]
     add_index :ai_model_routing_rules, :conditions, using: :gin
 
     # Add check constraint for rule_type
@@ -79,9 +79,9 @@ class CreateModelRoutingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_routing_decisions, [:account_id, :created_at]
-    add_index :ai_routing_decisions, [:selected_provider_id, :created_at]
-    add_index :ai_routing_decisions, [:strategy_used, :outcome]
+    add_index :ai_routing_decisions, [ :account_id, :created_at ]
+    add_index :ai_routing_decisions, [ :selected_provider_id, :created_at ]
+    add_index :ai_routing_decisions, [ :strategy_used, :outcome ]
     add_index :ai_routing_decisions, :outcome
     add_index :ai_routing_decisions, :created_at
 
@@ -116,9 +116,9 @@ class CreateModelRoutingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_cost_optimization_logs, [:account_id, :status]
-    add_index :ai_cost_optimization_logs, [:account_id, :optimization_type]
-    add_index :ai_cost_optimization_logs, [:resource_type, :resource_id]
+    add_index :ai_cost_optimization_logs, [ :account_id, :status ]
+    add_index :ai_cost_optimization_logs, [ :account_id, :optimization_type ]
+    add_index :ai_cost_optimization_logs, [ :resource_type, :resource_id ]
     add_index :ai_cost_optimization_logs, :created_at
 
     # Add check constraints

@@ -89,7 +89,7 @@ module A2a
             category: "workflows",
             input_schema: {
               type: "object",
-              required: ["workflow_id"],
+              required: [ "workflow_id" ],
               properties: {
                 workflow_id: { type: "string", format: "uuid" }
               }
@@ -110,7 +110,7 @@ module A2a
             category: "workflows",
             input_schema: {
               type: "object",
-              required: ["workflow_id"],
+              required: [ "workflow_id" ],
               properties: {
                 workflow_id: { type: "string", format: "uuid" },
                 input_variables: { type: "object" },
@@ -135,7 +135,7 @@ module A2a
             category: "workflows",
             input_schema: {
               type: "object",
-              required: ["name"],
+              required: [ "name" ],
               properties: {
                 name: { type: "string" },
                 description: { type: "string" },
@@ -184,7 +184,7 @@ module A2a
             category: "workflows",
             input_schema: {
               type: "object",
-              required: ["run_id"],
+              required: [ "run_id" ],
               properties: {
                 run_id: { type: "string" }
               }
@@ -205,7 +205,7 @@ module A2a
             category: "workflows",
             input_schema: {
               type: "object",
-              required: ["run_id"],
+              required: [ "run_id" ],
               properties: {
                 run_id: { type: "string" },
                 reason: { type: "string" }
@@ -257,7 +257,7 @@ module A2a
             category: "agents",
             input_schema: {
               type: "object",
-              required: ["agent_id"],
+              required: [ "agent_id" ],
               properties: {
                 agent_id: { type: "string", format: "uuid" }
               }
@@ -278,7 +278,7 @@ module A2a
             category: "agents",
             input_schema: {
               type: "object",
-              required: ["agent_id"],
+              required: [ "agent_id" ],
               properties: {
                 agent_id: { type: "string", format: "uuid" },
                 input: { type: "object" },
@@ -324,7 +324,7 @@ module A2a
             category: "a2a",
             input_schema: {
               type: "object",
-              required: ["to_agent_card_id", "message"],
+              required: [ "to_agent_card_id", "message" ],
               properties: {
                 to_agent_card_id: { type: "string" },
                 message: { type: "object" },
@@ -376,7 +376,7 @@ module A2a
             category: "devops",
             input_schema: {
               type: "object",
-              required: ["pipeline_id"],
+              required: [ "pipeline_id" ],
               properties: {
                 pipeline_id: { type: "string" },
                 variables: { type: "object" },
@@ -400,7 +400,7 @@ module A2a
             category: "devops",
             input_schema: {
               type: "object",
-              required: ["run_id"],
+              required: [ "run_id" ],
               properties: {
                 run_id: { type: "string" },
                 job_name: { type: "string" }
@@ -429,7 +429,7 @@ module A2a
             category: "memory",
             input_schema: {
               type: "object",
-              required: ["agent_id", "content"],
+              required: [ "agent_id", "content" ],
               properties: {
                 agent_id: { type: "string" },
                 content: { type: "object" },
@@ -454,7 +454,7 @@ module A2a
             category: "memory",
             input_schema: {
               type: "object",
-              required: ["agent_id"],
+              required: [ "agent_id" ],
               properties: {
                 agent_id: { type: "string" },
                 query: { type: "string" },
@@ -478,7 +478,7 @@ module A2a
             category: "memory",
             input_schema: {
               type: "object",
-              required: ["agent_id", "task"],
+              required: [ "agent_id", "task" ],
               properties: {
                 agent_id: { type: "string" },
                 task: { type: "object" },
@@ -548,7 +548,7 @@ module A2a
             category: "mcp",
             input_schema: {
               type: "object",
-              required: ["server_id", "tool_name"],
+              required: [ "server_id", "tool_name" ],
               properties: {
                 server_id: { type: "string" },
                 tool_name: { type: "string" },
@@ -622,7 +622,7 @@ module A2a
             category: "chat",
             input_schema: {
               type: "object",
-              required: ["session_id"],
+              required: [ "session_id" ],
               properties: {
                 session_id: { type: "string", format: "uuid" }
               }
@@ -665,7 +665,7 @@ module A2a
             category: "chat",
             input_schema: {
               type: "object",
-              required: ["attachment_id"],
+              required: [ "attachment_id" ],
               properties: {
                 attachment_id: { type: "string", format: "uuid" }
               }
@@ -686,7 +686,7 @@ module A2a
             category: "chat",
             input_schema: {
               type: "object",
-              required: ["attachment_id"],
+              required: [ "attachment_id" ],
               properties: {
                 attachment_id: { type: "string", format: "uuid" }
               }
@@ -844,7 +844,7 @@ module A2a
             category: "container",
             input_schema: {
               type: "object",
-              required: ["execution_id"],
+              required: [ "execution_id" ],
               properties: {
                 execution_id: { type: "string" }
               }
@@ -893,7 +893,7 @@ module A2a
             category: "ralph",
             input_schema: {
               type: "object",
-              required: ["name"],
+              required: [ "name" ],
               properties: {
                 name: { type: "string" },
                 description: { type: "string" },
@@ -922,7 +922,7 @@ module A2a
             category: "ralph",
             input_schema: {
               type: "object",
-              required: ["loop_id"],
+              required: [ "loop_id" ],
               properties: {
                 loop_id: { type: "string", format: "uuid" }
               }
@@ -944,7 +944,7 @@ module A2a
             category: "ralph",
             input_schema: {
               type: "object",
-              required: ["loop_id"],
+              required: [ "loop_id" ],
               properties: {
                 loop_id: { type: "string", format: "uuid" }
               }
@@ -966,7 +966,7 @@ module A2a
             category: "ralph",
             input_schema: {
               type: "object",
-              required: ["loop_id"],
+              required: [ "loop_id" ],
               properties: {
                 loop_id: { type: "string", format: "uuid" }
               }
@@ -988,7 +988,7 @@ module A2a
             category: "ralph",
             input_schema: {
               type: "object",
-              required: ["loop_id"],
+              required: [ "loop_id" ],
               properties: {
                 loop_id: { type: "string", format: "uuid" },
                 reason: { type: "string" }
@@ -1011,7 +1011,7 @@ module A2a
             category: "ralph",
             input_schema: {
               type: "object",
-              required: ["loop_id"],
+              required: [ "loop_id" ],
               properties: {
                 loop_id: { type: "string", format: "uuid" }
               }
@@ -1034,7 +1034,7 @@ module A2a
             category: "ralph",
             input_schema: {
               type: "object",
-              required: ["loop_id"],
+              required: [ "loop_id" ],
               properties: {
                 loop_id: { type: "string", format: "uuid" },
                 status: { type: "string", enum: %w[pending in_progress passed failed blocked skipped] }
@@ -1057,7 +1057,7 @@ module A2a
             category: "ralph",
             input_schema: {
               type: "object",
-              required: ["loop_id"],
+              required: [ "loop_id" ],
               properties: {
                 loop_id: { type: "string", format: "uuid" }
               }
@@ -1079,7 +1079,7 @@ module A2a
             category: "ralph",
             input_schema: {
               type: "object",
-              required: ["loop_id"],
+              required: [ "loop_id" ],
               properties: {
                 loop_id: { type: "string", format: "uuid" }
               }

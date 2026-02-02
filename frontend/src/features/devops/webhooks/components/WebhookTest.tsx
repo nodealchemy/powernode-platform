@@ -54,7 +54,7 @@ export const WebhookTest: React.FC<WebhookTestProps> = ({
         if (response.success && response.data) {
           setAvailableEvents(response.data.events);
         }
-      } catch (error) {
+      } catch {
         // Error handled silently - events are optional
       }
     };
@@ -79,7 +79,7 @@ export const WebhookTest: React.FC<WebhookTestProps> = ({
       } else {
         onError(response.error || 'Webhook test failed');
       }
-    } catch (error) {
+    } catch {
       onError('An unexpected error occurred during webhook test');
     } finally {
       setLoading(false);

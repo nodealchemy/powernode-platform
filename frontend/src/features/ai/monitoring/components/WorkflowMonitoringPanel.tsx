@@ -99,7 +99,7 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
 
       setLastUpdate(new Date());
       setIsLoading(false);
-    } catch (error) {
+    } catch {
       setIsLoading(false);
     }
   }, [transformDashboardToStats, transformMetricsToHealth]);

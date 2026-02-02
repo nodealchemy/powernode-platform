@@ -7,8 +7,8 @@ module Devops
     # ============================================
     # Associations
     # ============================================
-    belongs_to :pipeline, class_name: 'Devops::Pipeline', foreign_key: :ci_cd_pipeline_id
-    belongs_to :repository, class_name: 'Devops::Repository', foreign_key: :ci_cd_repository_id
+    belongs_to :pipeline, class_name: "Devops::Pipeline", foreign_key: :ci_cd_pipeline_id
+    belongs_to :repository, class_name: "Devops::Repository", foreign_key: :ci_cd_repository_id
 
     # ============================================
     # Validations
@@ -20,7 +20,7 @@ module Devops
     # ============================================
 
     def effective_configuration
-      pipeline_config = pipeline.attributes.slice('triggers', 'environment', 'features')
+      pipeline_config = pipeline.attributes.slice("triggers", "environment", "features")
       pipeline_config.deep_merge(overrides || {})
     end
 

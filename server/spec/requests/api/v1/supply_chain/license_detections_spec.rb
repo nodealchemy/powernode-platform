@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::SupplyChain::LicenseDetections', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['supply_chain.read']) }
-  let(:write_user) { create(:user, account: account, permissions: ['supply_chain.write']) }
+  let(:user) { create(:user, account: account, permissions: [ 'supply_chain.read' ]) }
+  let(:write_user) { create(:user, account: account, permissions: [ 'supply_chain.write' ]) }
   let(:unauthorized_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(user) }
   let(:write_headers) { auth_headers_for(write_user) }

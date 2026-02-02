@@ -290,7 +290,7 @@ RSpec.describe 'Api::V1::Ai::Sandboxes', type: :request do
     let(:sandbox) { create(:ai_sandbox, account: account) }
     let(:valid_params) do
       {
-        scenario_ids: ['scen1', 'scen2'],
+        scenario_ids: [ 'scen1', 'scen2' ],
         run_type: 'manual'
       }
     end
@@ -454,7 +454,7 @@ RSpec.describe 'Api::V1::Ai::Sandboxes', type: :request do
         name: 'Test A/B',
         target_type: 'workflow',
         target_id: 'w123',
-        variants: [{ name: 'A' }, { name: 'B' }]
+        variants: [ { name: 'A' }, { name: 'B' } ]
       }
     end
 
@@ -468,7 +468,7 @@ RSpec.describe 'Api::V1::Ai::Sandboxes', type: :request do
           status: 'draft',
           target_type: 'workflow',
           target_id: 'w123',
-          variants: [{ name: 'A' }, { name: 'B' }],
+          variants: [ { name: 'A' }, { name: 'B' } ],
           traffic_allocation: {},
           success_metrics: [],
           total_impressions: 0,

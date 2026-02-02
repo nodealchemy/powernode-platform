@@ -98,10 +98,10 @@ class OauthApplication < ApplicationRecord
     generator = Doorkeeper.config.application_secret_generator
     self.secret = if generator.respond_to?(:call)
                     generator.call
-                  else
+    else
                     # Default to Doorkeeper's UniqueToken generator
                     Doorkeeper::OAuth::Helpers::UniqueToken.generate
-                  end
+    end
     save!
     secret
   end

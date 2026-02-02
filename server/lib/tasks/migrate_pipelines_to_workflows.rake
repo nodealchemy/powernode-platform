@@ -221,7 +221,6 @@ namespace :pipelines do
       puts ""
     end
   end
-
 end
 
 # Helper module for pipeline migration
@@ -320,7 +319,7 @@ module PipelineMigrationHelpers
       }.merge(step_config)
     when "condition"
       {
-        "conditions" => step_config["conditions"] || [{ "field" => "status", "operator" => "equals", "value" => "success" }]
+        "conditions" => step_config["conditions"] || [ { "field" => "status", "operator" => "equals", "value" => "success" } ]
       }.merge(step_config)
     when "delay"
       {
@@ -329,7 +328,7 @@ module PipelineMigrationHelpers
       }.merge(step_config)
     when "human_approval"
       {
-        "approvers" => step_config["approvers"] || ["${{ workflow.creator }}"],
+        "approvers" => step_config["approvers"] || [ "${{ workflow.creator }}" ],
         "timeout_hours" => step_config["timeout_hours"] || 24
       }.merge(step_config)
     else
@@ -378,8 +377,8 @@ module PipelineMigrationHelpers
         is_active: true,
         configuration: {
           "event_type" => "git",
-          "event_types" => ["git_push"],
-          "branches" => branches || ["main", "develop"]
+          "event_types" => [ "git_push" ],
+          "branches" => branches || [ "main", "develop" ]
         },
         conditions: {},
         metadata: { "migrated_from" => "ci_cd_pipeline" }
@@ -389,14 +388,14 @@ module PipelineMigrationHelpers
     # Pull request trigger
     if triggers["pull_request"].present?
       pr_config = triggers["pull_request"]
-      pr_events = pr_config.is_a?(Array) ? pr_config : ["opened", "synchronize"]
+      pr_events = pr_config.is_a?(Array) ? pr_config : [ "opened", "synchronize" ]
       workflow.ai_workflow_triggers.create!(
         trigger_type: "event",
         name: "Pull Request",
         is_active: true,
         configuration: {
           "event_type" => "git",
-          "event_types" => ["git_pull_request"],
+          "event_types" => [ "git_pull_request" ],
           "pr_events" => pr_events
         },
         conditions: {},

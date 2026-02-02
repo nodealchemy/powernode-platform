@@ -4,10 +4,10 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::AgentCards', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['ai.agents.read']) }
-  let(:user_with_create_permission) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.create']) }
-  let(:user_with_update_permission) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.update']) }
-  let(:user_with_delete_permission) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.delete']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'ai.agents.read' ]) }
+  let(:user_with_create_permission) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.create' ]) }
+  let(:user_with_update_permission) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.update' ]) }
+  let(:user_with_delete_permission) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.delete' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/ai/agent_cards' do
@@ -55,7 +55,7 @@ RSpec.describe 'Api::V1::Ai::AgentCards', type: :request do
         data = json_response_data
 
         visibilities = data['items'].map { |c| c['visibility'] }
-        expect(visibilities.uniq).to eq(['public'])
+        expect(visibilities.uniq).to eq([ 'public' ])
       end
 
       it 'filters by status' do
@@ -69,7 +69,7 @@ RSpec.describe 'Api::V1::Ai::AgentCards', type: :request do
         data = json_response_data
 
         statuses = data['items'].map { |c| c['status'] }
-        expect(statuses.uniq).to eq(['deprecated'])
+        expect(statuses.uniq).to eq([ 'deprecated' ])
       end
 
       it 'searches by name' do
@@ -88,7 +88,7 @@ RSpec.describe 'Api::V1::Ai::AgentCards', type: :request do
 
       it 'filters by skill capability' do
         create(:ai_agent_card, :published, account: account, capabilities: {
-          'skills' => [{ 'id' => 'summarize', 'name' => 'Summarize' }]
+          'skills' => [ { 'id' => 'summarize', 'name' => 'Summarize' } ]
         })
 
         get '/api/v1/ai/agent_cards?skill=summarize',
@@ -156,7 +156,7 @@ RSpec.describe 'Api::V1::Ai::AgentCards', type: :request do
           visibility: 'private',
           ai_agent_id: agent.id,
           capabilities: {
-            'skills' => [{ 'id' => 'test', 'name' => 'Test Skill' }]
+            'skills' => [ { 'id' => 'test', 'name' => 'Test Skill' } ]
           }
         }
       }
@@ -309,7 +309,7 @@ RSpec.describe 'Api::V1::Ai::AgentCards', type: :request do
 
     before do
       create(:ai_agent_card, :published, account: account, capabilities: {
-        'skills' => [{ 'id' => 'summarize', 'name' => 'Summarize', 'description' => 'Summarize documents' }]
+        'skills' => [ { 'id' => 'summarize', 'name' => 'Summarize', 'description' => 'Summarize documents' } ]
       })
     end
 

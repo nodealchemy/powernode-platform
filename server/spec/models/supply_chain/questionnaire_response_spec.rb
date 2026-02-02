@@ -328,7 +328,7 @@ RSpec.describe SupplyChain::QuestionnaireResponse, type: :model do
       let(:template_with_questions) do
         create(:supply_chain_questionnaire_template,
                account: account,
-               sections: [{ "id" => "s1", "weight" => 1.0 }],
+               sections: [ { "id" => "s1", "weight" => 1.0 } ],
                questions: [
                  { "id" => "q1", "section_id" => "s1", "text" => "Q1?", "type" => "yes_no", "required" => true }
                ])

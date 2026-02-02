@@ -8,12 +8,12 @@ RSpec.describe "Api::V1::SupplyChain::Reports", type: :request do
 
   # User with supply_chain.read permission only
   let(:supply_chain_reader) do
-    create(:user, account: account, permissions: ["supply_chain.read"])
+    create(:user, account: account, permissions: [ "supply_chain.read" ])
   end
 
   # User with both supply_chain.read and supply_chain.write permissions
   let(:supply_chain_writer) do
-    create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"])
+    create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ])
   end
 
   # User without supply_chain permissions
@@ -600,7 +600,7 @@ RSpec.describe "Api::V1::SupplyChain::Reports", type: :request do
 
       it "creates report with correct parameters" do
         post "/api/v1/supply_chain/reports/generate_attribution",
-             params: { sbom_ids: [sbom.id], include_license_text: false },
+             params: { sbom_ids: [ sbom.id ], include_license_text: false },
              headers: auth_headers_for(supply_chain_writer),
              as: :json
 
@@ -608,7 +608,7 @@ RSpec.describe "Api::V1::SupplyChain::Reports", type: :request do
         report = SupplyChain::Report.last
         expect(report.report_type).to eq("attribution")
         expect(report.format).to eq("html")
-        expect(report.parameters["sbom_ids"]).to eq([sbom.id])
+        expect(report.parameters["sbom_ids"]).to eq([ sbom.id ])
         expect(report.parameters["include_license_text"]).to be false
       end
 
@@ -665,7 +665,7 @@ RSpec.describe "Api::V1::SupplyChain::Reports", type: :request do
         post "/api/v1/supply_chain/reports/generate_compliance",
              params: {
                framework: "soc2",
-               sbom_ids: ["sbom-1", "sbom-2"],
+               sbom_ids: [ "sbom-1", "sbom-2" ],
                start_date: "2024-01-01",
                end_date: "2024-12-31"
              },
@@ -677,7 +677,7 @@ RSpec.describe "Api::V1::SupplyChain::Reports", type: :request do
         expect(report.report_type).to eq("compliance")
         expect(report.format).to eq("pdf")
         expect(report.parameters["framework"]).to eq("soc2")
-        expect(report.parameters["sbom_ids"]).to eq(["sbom-1", "sbom-2"])
+        expect(report.parameters["sbom_ids"]).to eq([ "sbom-1", "sbom-2" ])
         expect(report.parameters["date_range"]["start_date"]).to eq("2024-01-01")
         expect(report.parameters["date_range"]["end_date"]).to eq("2024-12-31")
       end
@@ -721,8 +721,8 @@ RSpec.describe "Api::V1::SupplyChain::Reports", type: :request do
       it "creates report with correct parameters" do
         post "/api/v1/supply_chain/reports/generate_vulnerability",
              params: {
-               sbom_ids: ["sbom-1"],
-               container_image_ids: ["image-1"],
+               sbom_ids: [ "sbom-1" ],
+               container_image_ids: [ "image-1" ],
                severity_filter: "critical",
                include_remediation: false
              },
@@ -733,8 +733,8 @@ RSpec.describe "Api::V1::SupplyChain::Reports", type: :request do
         report = SupplyChain::Report.last
         expect(report.report_type).to eq("vulnerability")
         expect(report.format).to eq("pdf")
-        expect(report.parameters["sbom_ids"]).to eq(["sbom-1"])
-        expect(report.parameters["container_image_ids"]).to eq(["image-1"])
+        expect(report.parameters["sbom_ids"]).to eq([ "sbom-1" ])
+        expect(report.parameters["container_image_ids"]).to eq([ "image-1" ])
         expect(report.parameters["severity_filter"]).to eq("critical")
         expect(report.parameters["include_remediation"]).to be false
       end
@@ -788,7 +788,7 @@ RSpec.describe "Api::V1::SupplyChain::Reports", type: :request do
       it "creates report with correct parameters" do
         post "/api/v1/supply_chain/reports/generate_vendor_risk",
              params: {
-               vendor_ids: ["vendor-1", "vendor-2"],
+               vendor_ids: [ "vendor-1", "vendor-2" ],
                include_assessments: false,
                include_questionnaires: true
              },
@@ -799,7 +799,7 @@ RSpec.describe "Api::V1::SupplyChain::Reports", type: :request do
         report = SupplyChain::Report.last
         expect(report.report_type).to eq("vendor_risk")
         expect(report.format).to eq("pdf")
-        expect(report.parameters["vendor_ids"]).to eq(["vendor-1", "vendor-2"])
+        expect(report.parameters["vendor_ids"]).to eq([ "vendor-1", "vendor-2" ])
         expect(report.parameters["include_assessments"]).to be false
         expect(report.parameters["include_questionnaires"]).to be true
       end

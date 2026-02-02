@@ -174,8 +174,8 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
       end
 
       it "preserves existing jsonb values" do
-        match_rules = { "registries" => ["gcr.io"] }
-        rules = { "allowed_registries" => ["docker.io"] }
+        match_rules = { "registries" => [ "gcr.io" ] }
+        rules = { "allowed_registries" => [ "docker.io" ] }
         metadata = { "key" => "value" }
         policy = create(:supply_chain_image_policy,
                        account: account,
@@ -359,7 +359,7 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
       end
 
       context "when registries match rules exist" do
-        before { policy.update!(match_rules: { "registries" => ["gcr.io", "docker.io"] }) }
+        before { policy.update!(match_rules: { "registries" => [ "gcr.io", "docker.io" ] }) }
 
         it "returns true when registry matches" do
           expect(policy.matches_image?(image)).to be true
@@ -371,13 +371,13 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
         end
 
         it "supports regex patterns" do
-          policy.update!(match_rules: { "registries" => ["gcr\\.io", "docker\\.io"] })
+          policy.update!(match_rules: { "registries" => [ "gcr\\.io", "docker\\.io" ] })
           expect(policy.matches_image?(image)).to be true
         end
       end
 
       context "when repositories match rules exist" do
-        before { policy.update!(match_rules: { "repositories" => ["project/app", "project/other"] }) }
+        before { policy.update!(match_rules: { "repositories" => [ "project/app", "project/other" ] }) }
 
         it "returns true when repository matches" do
           expect(policy.matches_image?(image)).to be true
@@ -389,13 +389,13 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
         end
 
         it "supports regex patterns" do
-          policy.update!(match_rules: { "repositories" => ["project/.*"] })
+          policy.update!(match_rules: { "repositories" => [ "project/.*" ] })
           expect(policy.matches_image?(image)).to be true
         end
       end
 
       context "when tags match rules exist" do
-        before { policy.update!(match_rules: { "tags" => ["v1.0.0", "v1.0.1"] }) }
+        before { policy.update!(match_rules: { "tags" => [ "v1.0.0", "v1.0.1" ] }) }
 
         it "returns true when tag matches" do
           expect(policy.matches_image?(image)).to be true
@@ -412,7 +412,7 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
         end
 
         it "supports regex patterns" do
-          policy.update!(match_rules: { "tags" => ["v1\\..*"] })
+          policy.update!(match_rules: { "tags" => [ "v1\\..*" ] })
           expect(policy.matches_image?(image)).to be true
         end
       end
@@ -438,9 +438,9 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
       context "when multiple match rules exist" do
         before do
           policy.update!(match_rules: {
-            "registries" => ["gcr.io"],
-            "repositories" => ["project/app"],
-            "tags" => ["v1.0.0"]
+            "registries" => [ "gcr.io" ],
+            "repositories" => [ "project/app" ],
+            "tags" => [ "v1.0.0" ]
           })
         end
 
@@ -463,7 +463,7 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
                policy_type: "registry_allowlist",
                enforcement_level: "warn",
                require_signature: false,
-               rules: { "allowed_registries" => ["gcr.io", "docker.io"] })
+               rules: { "allowed_registries" => [ "gcr.io", "docker.io" ] })
       end
       let(:image) do
         build(:supply_chain_container_image,
@@ -485,7 +485,7 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
       end
 
       context "when policy does not match image" do
-        before { policy.update!(match_rules: { "registries" => ["docker.io"] }) }
+        before { policy.update!(match_rules: { "registries" => [ "docker.io" ] }) }
 
         it "returns skipped result" do
           result = policy.evaluate(image)
@@ -498,7 +498,7 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
         before { policy.update!(policy_type: "registry_allowlist") }
 
         context "with denied registries" do
-          before { policy.update!(rules: { "denied_registries" => ["gcr.io"] }) }
+          before { policy.update!(rules: { "denied_registries" => [ "gcr.io" ] }) }
 
           it "marks as failed when registry is denied" do
             result = policy.evaluate(image)
@@ -519,7 +519,7 @@ RSpec.describe SupplyChain::ImagePolicy, type: :model do
         end
 
         context "with allowed registries" do
-          before { policy.update!(rules: { "allowed_registries" => ["docker.io"] }) }
+          before { policy.update!(rules: { "allowed_registries" => [ "docker.io" ] }) }
 
           it "marks as failed when registry not in allowlist" do
             result = policy.evaluate(image)

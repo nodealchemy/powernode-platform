@@ -519,7 +519,7 @@ module Ai
         issues << "Redis connectivity issue"
       end
 
-      { score: [score, 0].max, status: determine_health_status(score), issues: issues }
+      { score: [ score, 0 ].max, status: determine_health_status(score), issues: issues }
     end
 
     def determine_health_status(score)
@@ -603,7 +603,7 @@ module Ai
 
     def hourly_cost_trend(time_range)
       hours = (time_range / 1.hour).to_i
-      hours = [hours, 24].min
+      hours = [ hours, 24 ].min
 
       (0...hours).map do |hours_ago|
         start_time = (hours_ago + 1).hours.ago

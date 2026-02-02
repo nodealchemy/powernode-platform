@@ -98,7 +98,7 @@ module Ai
         # Show last 4 digits only (for card numbers)
         value.length > 4 ? "*" * (value.length - 4) + value[-4..] : "*" * value.length
       else
-        "*" * [value.length, 10].min
+        "*" * [ value.length, 10 ].min
       end
     end
 

@@ -112,7 +112,7 @@ class Api::V1::Kb::CategoriesController < ApplicationController
 
   def authenticate_if_present
     # Authenticate if Authorization header is present
-    return unless request.headers['Authorization'].present?
+    return unless request.headers["Authorization"].present?
     authenticate_request
   end
 

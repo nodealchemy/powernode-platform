@@ -14,7 +14,7 @@ class CreateWebhookEndpoints < ActiveRecord::Migration[8.0]
       t.integer :failure_count, null: false, default: 0
       t.timestamp :last_delivery_at
       t.json :metadata
-      
+
       # Association columns
       t.references :created_by, null: true, foreign_key: { to_table: :users }, type: :string
 
@@ -25,23 +25,23 @@ class CreateWebhookEndpoints < ActiveRecord::Migration[8.0]
     add_index :webhook_endpoints, :status
     add_index :webhook_endpoints, :created_by_id
     add_index :webhook_endpoints, :last_delivery_at
-    
+
     # Add check constraints
     execute <<-SQL
-      ALTER TABLE webhook_endpoints 
-      ADD CONSTRAINT webhook_endpoints_status_check 
+      ALTER TABLE webhook_endpoints#{' '}
+      ADD CONSTRAINT webhook_endpoints_status_check#{' '}
       CHECK (status IN ('active', 'inactive'));
     SQL
-    
+
     execute <<-SQL
-      ALTER TABLE webhook_endpoints 
-      ADD CONSTRAINT webhook_endpoints_content_type_check 
+      ALTER TABLE webhook_endpoints#{' '}
+      ADD CONSTRAINT webhook_endpoints_content_type_check#{' '}
       CHECK (content_type IN ('application/json', 'application/x-www-form-urlencoded'));
     SQL
-    
+
     execute <<-SQL
-      ALTER TABLE webhook_endpoints 
-      ADD CONSTRAINT webhook_endpoints_retry_backoff_check 
+      ALTER TABLE webhook_endpoints#{' '}
+      ADD CONSTRAINT webhook_endpoints_retry_backoff_check#{' '}
       CHECK (retry_backoff IN ('linear', 'exponential'));
     SQL
   end

@@ -12,7 +12,7 @@ export const ApiKeysPage: React.FC = () => {
   const { addNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -49,7 +49,7 @@ export const ApiKeysPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to load API keys');
       }
-    } catch (_error) {
+    } catch {
       setError('Failed to load API keys');
     } finally {
       setLoading(false);
@@ -84,7 +84,7 @@ export const ApiKeysPage: React.FC = () => {
           } else {
             addNotification({ type: 'error', message: response.error || 'Failed to regenerate API key' });
           }
-        } catch (_error) {
+        } catch {
           addNotification({ type: 'error', message: 'Failed to regenerate API key' });
         }
       }
@@ -99,7 +99,7 @@ export const ApiKeysPage: React.FC = () => {
       } else {
         addNotification({ type: 'error', message: response.error || 'Failed to update API key status' });
       }
-    } catch (_error) {
+    } catch {
       addNotification({ type: 'error', message: 'Failed to update API key status' });
     }
   };

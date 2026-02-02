@@ -1114,7 +1114,7 @@ describe('useContainerImages Hook Suite', () => {
 
         const { result } = renderHook(() => useEvaluatePolicies());
 
-        let loadingStates = [];
+        const loadingStates = [];
         act(() => {
           loadingStates.push(result.current.isLoading);
           result.current.mutateAsync('image-123');
@@ -1163,7 +1163,7 @@ describe('useContainerImages Hook Suite', () => {
         await act(async () => {
           try {
             await result.current.mutateAsync('image-123');
-          } catch (e) {
+          } catch {
             // Expected to throw
           }
         });
@@ -1179,7 +1179,7 @@ describe('useContainerImages Hook Suite', () => {
         await act(async () => {
           try {
             await result.current.mutateAsync('image-123');
-          } catch (e) {
+          } catch {
             // Expected to throw
           }
         });
@@ -1208,7 +1208,7 @@ describe('useContainerImages Hook Suite', () => {
         await act(async () => {
           try {
             await result.current.mutateAsync('image-123');
-          } catch (e) {
+          } catch {
             // Expected
           }
         });

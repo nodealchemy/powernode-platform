@@ -52,11 +52,11 @@ module Ai
     def add_participant(role_id)
       return if participant_roles.include?(role_id)
 
-      update!(participant_roles: participant_roles + [role_id])
+      update!(participant_roles: participant_roles + [ role_id ])
     end
 
     def remove_participant(role_id)
-      update!(participant_roles: participant_roles - [role_id])
+      update!(participant_roles: participant_roles - [ role_id ])
     end
 
     def has_participant?(role_id)

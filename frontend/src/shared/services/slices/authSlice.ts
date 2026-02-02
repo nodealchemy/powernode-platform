@@ -94,7 +94,7 @@ export const register = createAsyncThunk(
       const response = await authApi.register(userData);
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
       return response.data.data || response.data;
-    } catch (error) {
+    } catch {
       // Handle HTTP errors properly
       if (isErrorWithResponse(error) && error.response?.data) {
         return rejectWithValue(error.response.data);
@@ -122,7 +122,7 @@ export const refreshAccessToken = createAsyncThunk(
       const response = await authApi.refreshToken(refresh_token);
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
       return response.data.data || response.data;
-    } catch (error) {
+    } catch {
       const errorMessage = isErrorWithResponse(error)
         ? (error.response?.data?.error || error.response?.data?.message || 'Token refresh failed')
         : getErrorMessage(error);
@@ -148,7 +148,7 @@ export const getCurrentUser = createAsyncThunk(
       const response = await authApi.getCurrentUser(silentAuth);
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
       return response.data.data || response.data;
-    } catch (error) {
+    } catch {
       const errorMessage = isErrorWithResponse(error)
         ? (error.response?.data?.error || error.response?.data?.message || 'Failed to get current user')
         : getErrorMessage(error);
@@ -173,7 +173,7 @@ export const resendVerificationEmail = createAsyncThunk(
       const response = await authApi.resendVerification();
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
       return response.data.data || response.data;
-    } catch (error) {
+    } catch {
       return rejectWithValue(
         isErrorWithResponse(error) && error.response?.data?.error
           ? error.response.data.error
@@ -201,7 +201,7 @@ export const startImpersonation = createAsyncThunk(
         ...response.data,
         originalUser,
       };
-    } catch (error) {
+    } catch {
       return rejectWithValue(getErrorMessage(error) || 'Failed to start impersonation');
     }
   }
@@ -224,7 +224,7 @@ export const stopImpersonation = createAsyncThunk(
       }
 
       return response.data;
-    } catch (error) {
+    } catch {
       return rejectWithValue(getErrorMessage(error) || 'Failed to stop impersonation');
     }
   }
@@ -252,7 +252,7 @@ export const checkImpersonationStatus = createAsyncThunk(
         session: response.data?.session || null,
         expires_at: response.data?.expires_at || null
       };
-    } catch (error) {
+    } catch {
       return rejectWithValue(
         isErrorWithResponse(error) && error.response?.data?.error
           ? error.response.data.error
@@ -269,7 +269,7 @@ export const verify2FA = createAsyncThunk(
       const response = await authApi.verify2FA(verificationToken, code);
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
       return response.data.data || response.data;
-    } catch (error) {
+    } catch {
       return rejectWithValue(
         isErrorWithResponse(error)
           ? (error.response?.data?.error || error.response?.data?.message || '2FA verification failed')

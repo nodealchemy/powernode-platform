@@ -193,7 +193,7 @@ RSpec.describe AnalyticsAlert, type: :model do
   describe "notification channels" do
     let(:alert) do
       create(:analytics_alert,
-        notification_channels: ["email:admin@example.com", "slack:#alerts", "webhook:https://example.com/webhook"]
+        notification_channels: [ "email:admin@example.com", "slack:#alerts", "webhook:https://example.com/webhook" ]
       )
     end
 

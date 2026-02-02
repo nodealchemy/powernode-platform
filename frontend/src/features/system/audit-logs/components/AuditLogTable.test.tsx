@@ -348,7 +348,7 @@ describe('AuditLogTable', () => {
     it('applies error style for critical severity', () => {
       // getSeverityColor handles 'critical' -> error styling
       // Use type assertion since 'critical' is not a standard level but getSeverityColor handles it
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const criticalLog = [{ ...mockLogs[0], level: 'critical' as any, status: 'success' as const }];
       const { container } = render(<AuditLogTable logs={criticalLog} />);
 
@@ -358,7 +358,7 @@ describe('AuditLogTable', () => {
 
     it('applies error style for high severity', () => {
       // getSeverityColor handles 'high' -> error styling
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const highLog = [{ ...mockLogs[0], level: 'high' as any, status: 'success' as const }];
       const { container } = render(<AuditLogTable logs={highLog} />);
 
@@ -367,7 +367,7 @@ describe('AuditLogTable', () => {
 
     it('applies warning style for medium severity', () => {
       // getSeverityColor handles 'medium' -> warning styling
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const mediumLog = [{ ...mockLogs[0], level: 'medium' as any, status: 'success' as const }];
       const { container } = render(<AuditLogTable logs={mediumLog} />);
 
@@ -376,7 +376,7 @@ describe('AuditLogTable', () => {
 
     it('applies success style for low severity', () => {
       // getSeverityColor handles 'low' -> success styling
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const lowLog = [{ ...mockLogs[0], level: 'low', status: 'error' }] as any;
       const { container } = render(<AuditLogTable logs={lowLog} />);
 

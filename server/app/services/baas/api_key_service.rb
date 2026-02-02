@@ -26,7 +26,7 @@ module BaaS
         key_hash: key_hash,
         key_type: key_type,
         environment: environment,
-        scopes: params[:scopes] || ["*"],
+        scopes: params[:scopes] || [ "*" ],
         rate_limit_per_minute: params[:rate_limit_per_minute] || 100,
         rate_limit_per_day: params[:rate_limit_per_day] || 10_000,
         expires_at: params[:expires_at],

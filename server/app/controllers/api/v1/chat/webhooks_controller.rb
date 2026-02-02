@@ -11,7 +11,7 @@ module Api
         skip_before_action :verify_authenticity_token, only: %i[receive verify], raise: false
 
         # Rate limit webhooks to prevent abuse
-        before_action :apply_webhook_rate_limit, only: [:receive]
+        before_action :apply_webhook_rate_limit, only: [ :receive ]
 
         # POST /api/v1/chat/webhooks/:token
         # Main webhook endpoint for receiving messages from chat platforms

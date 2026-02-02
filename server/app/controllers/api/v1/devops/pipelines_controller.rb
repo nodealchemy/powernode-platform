@@ -7,9 +7,9 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [:index, :show, :export_yaml]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :trigger, :duplicate]
-        before_action :set_pipeline, only: [:show, :update, :destroy, :trigger, :export_yaml, :duplicate]
+        before_action :require_read_permission, only: [ :index, :show, :export_yaml ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :trigger, :duplicate ]
+        before_action :set_pipeline, only: [ :show, :update, :destroy, :trigger, :export_yaml, :duplicate ]
 
         # GET /api/v1/devops/pipelines
         def index
@@ -93,7 +93,7 @@ module Api
         # DELETE /api/v1/devops/pipelines/:id
         def destroy
           # Check for active runs
-          if @pipeline.runs.where(status: [:pending, :running]).exists?
+          if @pipeline.runs.where(status: [ :pending, :running ]).exists?
             render_error("Cannot delete pipeline with active runs", status: :unprocessable_content)
             return
           end
@@ -142,7 +142,7 @@ module Api
           begin
             WorkerJobService.enqueue_job(
               "Devops::PipelineExecutionJob",
-              args: [run.id, execution_options],
+              args: [ run.id, execution_options ],
               queue: "devops_high"
             )
             worker_queued = true
@@ -153,9 +153,9 @@ module Api
 
           message = if worker_queued
                       "Pipeline triggered successfully"
-                    else
+          else
                       "Pipeline run created but worker service unavailable - run will not execute automatically"
-                    end
+          end
 
           render_success({
             pipeline_run: serialize_pipeline_run(run),

@@ -7,12 +7,12 @@ RSpec.describe "Api::V1::SupplyChain::CveMonitors", type: :request do
 
   # User with supply_chain.read permission only
   let(:supply_chain_reader) do
-    create(:user, account: account, permissions: ["supply_chain.read"])
+    create(:user, account: account, permissions: [ "supply_chain.read" ])
   end
 
   # User with both supply_chain.read and supply_chain.write permissions
   let(:supply_chain_writer) do
-    create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"])
+    create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ])
   end
 
   # User without supply_chain permissions
@@ -439,7 +439,7 @@ RSpec.describe "Api::V1::SupplyChain::CveMonitors", type: :request do
       end
 
       it "updates notification channels" do
-        new_channels = [{ "type" => "email", "config" => { "address" => "test@example.com" } }]
+        new_channels = [ { "type" => "email", "config" => { "address" => "test@example.com" } } ]
 
         patch "/api/v1/supply_chain/cve_monitors/#{monitor.id}",
               params: { cve_monitor: { notification_channels: new_channels } },

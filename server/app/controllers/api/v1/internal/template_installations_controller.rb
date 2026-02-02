@@ -2,7 +2,6 @@
 
 # Internal API for AI workflow template installation operations
 class Api::V1::Internal::TemplateInstallationsController < Api::V1::Internal::InternalBaseController
-
   # POST /api/v1/internal/template_installations/:id/update
   def update
     installation = ::Ai::WorkflowTemplateInstallation.find(params[:id])

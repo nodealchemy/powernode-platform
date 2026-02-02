@@ -65,7 +65,7 @@ module Authentication
 
     rescue StandardError => e
       Rails.logger.error "Authentication error: #{e.message}"
-      return render_unauthorized("Invalid access token")
+      render_unauthorized("Invalid access token")
     end
   end
 

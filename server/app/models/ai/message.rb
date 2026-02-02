@@ -161,7 +161,7 @@ module Ai
 
     def thread_messages
       # Get all messages in this thread (parent + children)
-      messages_list = [self]
+      messages_list = [ self ]
       messages_list += child_messages.ordered
       messages_list += parent_message.child_messages.ordered if parent_message
       messages_list.uniq.sort_by(&:sequence_number)
@@ -227,7 +227,7 @@ module Ai
         edited_by: edited_by&.full_name || user&.full_name
       }
 
-      new_history = (edit_history || []) + [edit_entry]
+      new_history = (edit_history || []) + [ edit_entry ]
       update_column(:edit_history, new_history)
     end
   end

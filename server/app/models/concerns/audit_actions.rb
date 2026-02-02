@@ -361,32 +361,32 @@ module AuditActions
   # =============================================================================
   MIGRATION_MAPPINGS = {
     # AI Agents legacy -> standardized
-    'ai_agents.index' => 'ai.agents.read',
-    'ai_agents.create' => 'ai.agents.create',
-    'ai_agents.update' => 'ai.agents.update',
-    'ai_agents.destroy' => 'ai.agents.delete',
-    'ai_agents.execute' => 'ai.agents.execute',
-    'ai_agents.clone' => 'ai.agents.clone',
-    'ai_agents.pause' => 'ai.agents.pause',
-    'ai_agents.resume' => 'ai.agents.resume',
-    'ai_agents.archive' => 'ai.agents.archive',
-    'ai_agents.stats' => 'ai.agents.stats',
-    'ai_agents.analytics' => 'ai.agents.analytics',
+    "ai_agents.index" => "ai.agents.read",
+    "ai_agents.create" => "ai.agents.create",
+    "ai_agents.update" => "ai.agents.update",
+    "ai_agents.destroy" => "ai.agents.delete",
+    "ai_agents.execute" => "ai.agents.execute",
+    "ai_agents.clone" => "ai.agents.clone",
+    "ai_agents.pause" => "ai.agents.pause",
+    "ai_agents.resume" => "ai.agents.resume",
+    "ai_agents.archive" => "ai.agents.archive",
+    "ai_agents.stats" => "ai.agents.stats",
+    "ai_agents.analytics" => "ai.agents.analytics",
 
     # AI Conversations legacy -> standardized
-    'ai_conversations.create' => 'ai.conversations.create',
-    'ai_conversations.update' => 'ai.conversations.update',
-    'ai_conversations.destroy' => 'ai.conversations.delete',
+    "ai_conversations.create" => "ai.conversations.create",
+    "ai_conversations.update" => "ai.conversations.update",
+    "ai_conversations.destroy" => "ai.conversations.delete",
 
     # AI Messages legacy -> standardized
-    'ai_messages.create' => 'ai.messages.create',
-    'ai_messages.update' => 'ai.messages.update',
-    'ai_messages.destroy' => 'ai.messages.delete',
-    'ai_messages.edit_content' => 'ai.messages.edit_content',
+    "ai_messages.create" => "ai.messages.create",
+    "ai_messages.update" => "ai.messages.update",
+    "ai_messages.destroy" => "ai.messages.delete",
+    "ai_messages.edit_content" => "ai.messages.edit_content",
 
     # AI Analytics legacy -> standardized
-    'ai_analytics.usage_recorded' => 'ai.analytics.usage_recorded',
-    'ai_analytics.update' => 'ai.analytics.update'
+    "ai_analytics.usage_recorded" => "ai.analytics.usage_recorded",
+    "ai_analytics.update" => "ai.analytics.update"
   }.freeze
 
   # =============================================================================
@@ -403,33 +403,33 @@ module AuditActions
 
     def actions_for_domain(domain)
       case domain.to_s
-      when 'core' then CORE_ACTIONS
-      when 'user' then USER_ACTIONS
-      when 'plan' then PLAN_ACTIONS
-      when 'account' then ACCOUNT_ACTIONS
-      when 'subscription' then SUBSCRIPTION_ACTIONS
-      when 'payment' then PAYMENT_ACTIONS
-      when 'api' then API_ACTIONS
-      when 'system' then SYSTEM_ACTIONS
-      when 'security' then SECURITY_ACTIONS
-      when 'compliance' then COMPLIANCE_ACTIONS
-      when 'notification' then NOTIFICATION_ACTIONS
-      when 'ai_agent' then AI_AGENT_ACTIONS
-      when 'ai_conversation' then AI_CONVERSATION_ACTIONS
-      when 'ai_message' then AI_MESSAGE_ACTIONS
-      when 'ai_analytics' then AI_ANALYTICS_ACTIONS
-      when 'ai_provider' then AI_PROVIDER_ACTIONS
-      when 'ai_workflow' then AI_WORKFLOW_ACTIONS
-      when 'ai_prompt_template' then AI_PROMPT_TEMPLATE_ACTIONS
-      when 'ai_marketplace' then AI_MARKETPLACE_ACTIONS
-      when 'ai_monitoring' then AI_MONITORING_ACTIONS
-      when 'ai_agent_team' then AI_AGENT_TEAM_ACTIONS
-      when 'app' then APP_ACTIONS
-      when 'devops' then DEVOPS_ACTIONS
-      when 'mcp' then MCP_ACTIONS
-      when 'invitation' then INVITATION_ACTIONS
-      when 'site_setting' then SITE_SETTING_ACTIONS
-      when 'supply_chain' then SUPPLY_CHAIN_ACTIONS
+      when "core" then CORE_ACTIONS
+      when "user" then USER_ACTIONS
+      when "plan" then PLAN_ACTIONS
+      when "account" then ACCOUNT_ACTIONS
+      when "subscription" then SUBSCRIPTION_ACTIONS
+      when "payment" then PAYMENT_ACTIONS
+      when "api" then API_ACTIONS
+      when "system" then SYSTEM_ACTIONS
+      when "security" then SECURITY_ACTIONS
+      when "compliance" then COMPLIANCE_ACTIONS
+      when "notification" then NOTIFICATION_ACTIONS
+      when "ai_agent" then AI_AGENT_ACTIONS
+      when "ai_conversation" then AI_CONVERSATION_ACTIONS
+      when "ai_message" then AI_MESSAGE_ACTIONS
+      when "ai_analytics" then AI_ANALYTICS_ACTIONS
+      when "ai_provider" then AI_PROVIDER_ACTIONS
+      when "ai_workflow" then AI_WORKFLOW_ACTIONS
+      when "ai_prompt_template" then AI_PROMPT_TEMPLATE_ACTIONS
+      when "ai_marketplace" then AI_MARKETPLACE_ACTIONS
+      when "ai_monitoring" then AI_MONITORING_ACTIONS
+      when "ai_agent_team" then AI_AGENT_TEAM_ACTIONS
+      when "app" then APP_ACTIONS
+      when "devops" then DEVOPS_ACTIONS
+      when "mcp" then MCP_ACTIONS
+      when "invitation" then INVITATION_ACTIONS
+      when "site_setting" then SITE_SETTING_ACTIONS
+      when "supply_chain" then SUPPLY_CHAIN_ACTIONS
       else []
       end
     end

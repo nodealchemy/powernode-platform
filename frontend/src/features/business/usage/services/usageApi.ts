@@ -23,7 +23,7 @@ export const usageApi = {
     try {
       const response = await api.get('/api/v1/usage/dashboard');
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -33,7 +33,7 @@ export const usageApi = {
     try {
       const response = await api.get('/api/v1/usage/meters');
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -58,7 +58,7 @@ export const usageApi = {
     try {
       const response = await api.get(`/api/v1/usage/meters/${slug}`, { params });
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -68,7 +68,7 @@ export const usageApi = {
     try {
       const response = await api.get('/api/v1/usage/quotas');
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -84,7 +84,7 @@ export const usageApi = {
     try {
       const response = await api.post('/api/v1/usage/quotas', params);
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -94,7 +94,7 @@ export const usageApi = {
     try {
       const response = await api.post('/api/v1/usage/quotas/reset');
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -107,7 +107,7 @@ export const usageApi = {
     try {
       const response = await api.get('/api/v1/usage/history', { params });
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -120,7 +120,7 @@ export const usageApi = {
     try {
       const response = await api.get('/api/v1/usage/billing_summary', { params });
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -130,7 +130,7 @@ export const usageApi = {
     try {
       const response = await api.post('/api/v1/usage_events', event);
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -140,7 +140,7 @@ export const usageApi = {
     try {
       const response = await api.post('/api/v1/usage_events/batch', { events });
       return response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },
@@ -157,7 +157,7 @@ export const usageApi = {
         responseType: params.format === 'csv' ? 'blob' : 'json',
       });
       return params.format === 'csv' ? response.data : response.data;
-    } catch (error) {
+    } catch {
       return { success: false, error: getErrorMessage(error) };
     }
   },

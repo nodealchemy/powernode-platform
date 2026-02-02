@@ -233,7 +233,7 @@ RSpec.describe 'Api::V1::StorageProviders', type: :request do
 
   describe 'GET /api/v1/storage/supported' do
     it 'returns list of supported providers' do
-      allow(StorageProviderFactory).to receive(:supported_providers).and_return(['local', 's3'])
+      allow(StorageProviderFactory).to receive(:supported_providers).and_return([ 'local', 's3' ])
       allow(StorageProviderFactory).to receive(:provider_capabilities).and_return({ versioning: true })
       allow(StorageProviderFactory).to receive(:check_dependencies).and_return({
         available: true,

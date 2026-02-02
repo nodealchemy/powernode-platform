@@ -55,7 +55,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
       const response = await ralphLoopsApi.createLoop(request);
       onCreated(response.ralph_loop.id);
       handleClose();
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to create loop');
     } finally {
       setLoading(false);

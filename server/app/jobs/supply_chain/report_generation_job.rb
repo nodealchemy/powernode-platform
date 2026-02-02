@@ -145,9 +145,9 @@ module SupplyChain
 
       vendors = if params[:vendor_ids].present?
                   report.account.supply_chain_vendors.where(id: params[:vendor_ids])
-                else
+      else
                   report.account.supply_chain_vendors.where(status: "active")
-                end
+      end
 
       vendor_data = vendors.map do |vendor|
         data = {

@@ -48,7 +48,7 @@ export const integrationsApi = {
 
       const response = await api.get(`/devops/integration_templates?${params}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch templates'),
@@ -74,7 +74,7 @@ export const integrationsApi = {
 
       const response = await api.get(`/devops/integration_templates/search?${params}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to search templates'),
@@ -86,7 +86,7 @@ export const integrationsApi = {
     try {
       const response = await api.get(`/devops/integration_templates/${id}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch template'),
@@ -98,7 +98,7 @@ export const integrationsApi = {
     try {
       const response = await api.get('/devops/integration_templates/categories');
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch categories'),
@@ -110,7 +110,7 @@ export const integrationsApi = {
     try {
       const response = await api.get('/devops/integration_templates/types');
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch types'),
@@ -136,7 +136,7 @@ export const integrationsApi = {
 
       const response = await api.get(`/devops/integration_instances?${params}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch instances'),
@@ -148,7 +148,7 @@ export const integrationsApi = {
     try {
       const response = await api.get(`/devops/integration_instances/${id}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch instance'),
@@ -167,7 +167,7 @@ export const integrationsApi = {
         },
       });
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to create instance'),
@@ -184,7 +184,7 @@ export const integrationsApi = {
         instance: data,
       });
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to update instance'),
@@ -196,7 +196,7 @@ export const integrationsApi = {
     try {
       const response = await api.delete(`/devops/integration_instances/${id}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to delete instance'),
@@ -208,7 +208,7 @@ export const integrationsApi = {
     try {
       const response = await api.post(`/devops/integration_instances/${id}/activate`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to activate instance'),
@@ -220,7 +220,7 @@ export const integrationsApi = {
     try {
       const response = await api.post(`/devops/integration_instances/${id}/deactivate`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to deactivate instance'),
@@ -232,7 +232,7 @@ export const integrationsApi = {
     try {
       const response = await api.post(`/devops/integration_instances/${id}/test`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to test instance'),
@@ -247,7 +247,7 @@ export const integrationsApi = {
     try {
       const response = await api.post(`/devops/integration_instances/${id}/execute`, input);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to execute instance'),
@@ -259,7 +259,7 @@ export const integrationsApi = {
     try {
       const response = await api.get(`/devops/integration_instances/${id}/health`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch health'),
@@ -274,7 +274,7 @@ export const integrationsApi = {
     try {
       const response = await api.get(`/devops/integration_instances/${id}/stats?period=${period}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch stats'),
@@ -288,7 +288,7 @@ export const integrationsApi = {
     try {
       const response = await api.get(`/devops/integration_credentials?page=${page}&per_page=${perPage}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch credentials'),
@@ -300,7 +300,7 @@ export const integrationsApi = {
     try {
       const response = await api.get(`/devops/integration_credentials/${id}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch credential'),
@@ -314,7 +314,7 @@ export const integrationsApi = {
         credential: data,
       });
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to create credential'),
@@ -331,7 +331,7 @@ export const integrationsApi = {
         credential: data,
       });
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to update credential'),
@@ -343,7 +343,7 @@ export const integrationsApi = {
     try {
       const response = await api.delete(`/devops/integration_credentials/${id}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to delete credential'),
@@ -355,7 +355,7 @@ export const integrationsApi = {
     try {
       const response = await api.post(`/devops/integration_credentials/${id}/rotate`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to rotate credential'),
@@ -383,7 +383,7 @@ export const integrationsApi = {
 
       const response = await api.get(`/devops/integration_executions?${params}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch executions'),
@@ -395,7 +395,7 @@ export const integrationsApi = {
     try {
       const response = await api.get(`/devops/integration_executions/${id}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch execution'),
@@ -407,7 +407,7 @@ export const integrationsApi = {
     try {
       const response = await api.post(`/devops/integration_executions/${id}/retry`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to retry execution'),
@@ -419,7 +419,7 @@ export const integrationsApi = {
     try {
       const response = await api.post(`/devops/integration_executions/${id}/cancel`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to cancel execution'),
@@ -437,7 +437,7 @@ export const integrationsApi = {
 
       const response = await api.get(`/devops/integration_executions/stats?${params}`);
       return response.data;
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch execution stats'),

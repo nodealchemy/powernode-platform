@@ -35,7 +35,7 @@ module SupplyChain
     scope :custom_templates, -> { where(is_system: false) }
     scope :active, -> { where(is_active: true) }
     scope :by_type, ->(type) { where(template_type: type) }
-    scope :for_account, ->(account) { where(account_id: [account.id, nil]).or(where(is_system: true)) }
+    scope :for_account, ->(account) { where(account_id: [ account.id, nil ]).or(where(is_system: true)) }
     scope :alphabetical, -> { order(name: :asc) }
 
     # ============================================
@@ -109,7 +109,7 @@ module SupplyChain
         order: sections.length
       }
 
-      self.sections = (sections + [section])
+      self.sections = (sections + [ section ])
       save!
       section
     end
@@ -125,7 +125,7 @@ module SupplyChain
         **options
       }
 
-      self.questions = (questions + [question])
+      self.questions = (questions + [ question ])
       save!
       question
     end

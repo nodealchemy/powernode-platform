@@ -85,12 +85,12 @@ class CreateAgentMarketplaceTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_agent_templates, :slug, unique: true
-    add_index :ai_agent_templates, [:status, :visibility]
+    add_index :ai_agent_templates, [ :status, :visibility ]
     add_index :ai_agent_templates, :category
     add_index :ai_agent_templates, :vertical
     add_index :ai_agent_templates, :pricing_type
     add_index :ai_agent_templates, :is_featured
-    add_index :ai_agent_templates, [:average_rating, :installation_count]
+    add_index :ai_agent_templates, [ :average_rating, :installation_count ]
 
     # ==========================================================================
     # AGENT INSTALLATIONS - Installed templates per account
@@ -114,7 +114,7 @@ class CreateAgentMarketplaceTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_agent_installations, [:account_id, :agent_template_id], unique: true, name: "idx_agent_installations_account_template"
+    add_index :ai_agent_installations, [ :account_id, :agent_template_id ], unique: true, name: "idx_agent_installations_account_template"
     add_index :ai_agent_installations, :status
     add_index :ai_agent_installations, :license_expires_at
 
@@ -141,8 +141,8 @@ class CreateAgentMarketplaceTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_agent_reviews, [:agent_template_id, :account_id], unique: true
-    add_index :ai_agent_reviews, [:agent_template_id, :status, :rating]
+    add_index :ai_agent_reviews, [ :agent_template_id, :account_id ], unique: true
+    add_index :ai_agent_reviews, [ :agent_template_id, :status, :rating ]
     add_index :ai_agent_reviews, :status
 
     # ==========================================================================
@@ -163,7 +163,7 @@ class CreateAgentMarketplaceTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_marketplace_categories, :slug, unique: true
-    add_index :ai_marketplace_categories, [:parent_id, :display_order]
+    add_index :ai_marketplace_categories, [ :parent_id, :display_order ]
     add_index :ai_marketplace_categories, :is_active
 
     # ==========================================================================
@@ -187,8 +187,8 @@ class CreateAgentMarketplaceTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_marketplace_transactions, [:account_id, :created_at]
-    add_index :ai_marketplace_transactions, [:publisher_id, :status]
+    add_index :ai_marketplace_transactions, [ :account_id, :created_at ]
+    add_index :ai_marketplace_transactions, [ :publisher_id, :status ]
     add_index :ai_marketplace_transactions, :transaction_type
     add_index :ai_marketplace_transactions, :status
 

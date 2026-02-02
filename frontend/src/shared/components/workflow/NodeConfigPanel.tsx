@@ -35,12 +35,12 @@ export interface WorkflowNodeData {
   timeoutSeconds?: number;
   retryCount?: number;
   handlePositions?: HandlePositions;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   configuration?: Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   metadata?: Record<string, any>;
   _handleUpdateTimestamp?: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   [key: string]: any;
 }
 
@@ -161,7 +161,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       const agentList = extractAgentList(response);
       setAgents(agentList);
       agentsLoadedRef.current = true;
-    } catch (error: unknown) {
+    } catch {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to load available agents:', error);
       }
@@ -206,7 +206,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           return [...prev, response];
         });
       }
-    } catch (error) {
+    } catch {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to fetch agent details for ID:', agentId, error);
       }
@@ -313,7 +313,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleFieldChange = (field: keyof NodeConfiguration, value: any) => {
     setConfig(prev => ({ ...prev, [field]: value }));
     markAsChanged();
@@ -326,7 +326,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleConfigChange = (key: string, value: any) => {
     setConfig(prev => ({
       ...prev,
@@ -335,7 +335,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     markAsChanged();
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleMetadataChange = (key: string, value: any) => {
     setConfig(prev => ({
       ...prev,

@@ -136,7 +136,7 @@ RSpec.describe SupplyChain::ReportGenerationJob, type: :job do
           report_type: "attribution",
           format: "json",
           status: "pending",
-          parameters: { sbom_ids: [sbom_with_license.id], include_license_text: true }
+          parameters: { sbom_ids: [ sbom_with_license.id ], include_license_text: true }
         )
       end
 
@@ -169,7 +169,7 @@ RSpec.describe SupplyChain::ReportGenerationJob, type: :job do
       end
 
       it "excludes license text when include_license_text is false" do
-        report.update!(parameters: { sbom_ids: [sbom_with_license.id], include_license_text: false })
+        report.update!(parameters: { sbom_ids: [ sbom_with_license.id ], include_license_text: false })
         described_class.perform_now(report.id)
         report.reload
         content_preview = report.metadata["content_preview"]
@@ -271,8 +271,8 @@ RSpec.describe SupplyChain::ReportGenerationJob, type: :job do
           format: "json",
           status: "pending",
           parameters: {
-            sbom_ids: [sbom.id],
-            container_image_ids: [container_image.id]
+            sbom_ids: [ sbom.id ],
+            container_image_ids: [ container_image.id ]
           }
         )
       end
@@ -295,7 +295,7 @@ RSpec.describe SupplyChain::ReportGenerationJob, type: :job do
       end
 
       it "filters vulnerabilities by severity when specified" do
-        report.update!(parameters: { sbom_ids: [sbom.id], severity_filter: "critical" })
+        report.update!(parameters: { sbom_ids: [ sbom.id ], severity_filter: "critical" })
         described_class.perform_now(report.id)
         report.reload
         expect(report.status).to eq("completed")
@@ -344,7 +344,7 @@ RSpec.describe SupplyChain::ReportGenerationJob, type: :job do
           report_type: "vendor_risk",
           format: "json",
           status: "pending",
-          parameters: { vendor_ids: [vendor.id], include_assessments: true }
+          parameters: { vendor_ids: [ vendor.id ], include_assessments: true }
         )
       end
 
@@ -365,7 +365,7 @@ RSpec.describe SupplyChain::ReportGenerationJob, type: :job do
       end
 
       it "excludes assessments when include_assessments is false" do
-        report.update!(parameters: { vendor_ids: [vendor.id], include_assessments: false })
+        report.update!(parameters: { vendor_ids: [ vendor.id ], include_assessments: false })
         described_class.perform_now(report.id)
         report.reload
         expect(report.status).to eq("completed")
@@ -379,7 +379,7 @@ RSpec.describe SupplyChain::ReportGenerationJob, type: :job do
 
       it "filters by vendor_ids when specified" do
         other_vendor = create(:supply_chain_vendor, account: account)
-        report.update!(parameters: { vendor_ids: [vendor.id] })
+        report.update!(parameters: { vendor_ids: [ vendor.id ] })
         described_class.perform_now(report.id)
         report.reload
         expect(report.status).to eq("completed")
@@ -716,7 +716,7 @@ RSpec.describe SupplyChain::ReportGenerationJob, type: :job do
           report_type: "compliance",
           format: "json",
           status: "pending",
-          parameters: { framework: "ntia", sbom_ids: [compliant_sbom.id, non_compliant_sbom.id] }
+          parameters: { framework: "ntia", sbom_ids: [ compliant_sbom.id, non_compliant_sbom.id ] }
         )
       end
 

@@ -41,7 +41,7 @@ FactoryBot.define do
       output_data do
         {
           'result' => 'success',
-          'artifacts' => ['output.json']
+          'artifacts' => [ 'output.json' ]
         }
       end
       resource_usage do

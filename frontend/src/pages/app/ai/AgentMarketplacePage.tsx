@@ -51,7 +51,7 @@ const AgentMarketplacePage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       loadTemplates();
@@ -79,7 +79,7 @@ const AgentMarketplacePage: React.FC = () => {
       setCategories(categoriesRes.categories || []);
       setInstallations(installationsRes.items || []);
       setFeaturedTemplates(featuredRes.templates || []);
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to load marketplace data')
@@ -99,7 +99,7 @@ const AgentMarketplacePage: React.FC = () => {
 
       const data = await agentMarketplaceApi.getTemplates(filters);
       setTemplates(data.items || []);
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to load templates')
@@ -117,7 +117,7 @@ const AgentMarketplacePage: React.FC = () => {
       // Reload installations
       const installationsRes = await agentMarketplaceApi.getInstallations();
       setInstallations(installationsRes.items || []);
-    } catch (error: unknown) {
+    } catch {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to install template')

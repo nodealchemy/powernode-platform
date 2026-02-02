@@ -118,7 +118,7 @@ class CreateRevenueIntelligenceSystem < ActiveRecord::Migration[8.0]
       t.datetime :generated_at, null: false
       t.timestamps
 
-      t.index [:forecast_date, :forecast_type]
+      t.index [ :forecast_date, :forecast_type ]
       t.index :forecast_period
       t.check_constraint "forecast_type IN ('mrr', 'arr', 'customers', 'revenue')", name: "revenue_forecasts_type_check"
       t.check_constraint "forecast_period IN ('weekly', 'monthly', 'quarterly', 'yearly')", name: "revenue_forecasts_period_check"
@@ -189,7 +189,7 @@ class CreateRevenueIntelligenceSystem < ActiveRecord::Migration[8.0]
 
       t.index :event_type
       t.index :severity
-      t.index [:analytics_alert_id, :created_at]
+      t.index [ :analytics_alert_id, :created_at ]
       t.check_constraint "event_type IN ('triggered', 'resolved', 'acknowledged', 'escalated')", name: "alert_events_type_check"
       t.check_constraint "severity IN ('critical', 'high', 'medium', 'low', 'info')", name: "alert_events_severity_check"
     end

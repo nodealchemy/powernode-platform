@@ -4,10 +4,10 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Conversations', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['ai.conversations.read']) }
-  let(:user_with_create_permission) { create(:user, account: account, permissions: ['ai.conversations.read', 'ai.conversations.create']) }
-  let(:user_with_update_permission) { create(:user, account: account, permissions: ['ai.conversations.read', 'ai.conversations.update']) }
-  let(:user_with_delete_permission) { create(:user, account: account, permissions: ['ai.conversations.read', 'ai.conversations.delete']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'ai.conversations.read' ]) }
+  let(:user_with_create_permission) { create(:user, account: account, permissions: [ 'ai.conversations.read', 'ai.conversations.create' ]) }
+  let(:user_with_update_permission) { create(:user, account: account, permissions: [ 'ai.conversations.read', 'ai.conversations.update' ]) }
+  let(:user_with_delete_permission) { create(:user, account: account, permissions: [ 'ai.conversations.read', 'ai.conversations.delete' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/ai/conversations' do
@@ -53,7 +53,7 @@ RSpec.describe 'Api::V1::Ai::Conversations', type: :request do
         data = json_response_data
 
         statuses = data['conversations'].map { |c| c['status'] }
-        expect(statuses.uniq).to eq(['archived'])
+        expect(statuses.uniq).to eq([ 'archived' ])
       end
 
       it 'filters by agent_id' do
@@ -67,7 +67,7 @@ RSpec.describe 'Api::V1::Ai::Conversations', type: :request do
 
         # The response includes ai_agent object, not agent_id directly
         agent_ids = data['conversations'].map { |c| c['ai_agent']&.[]('id') }.compact
-        expect(agent_ids.uniq).to eq([agent.id])
+        expect(agent_ids.uniq).to eq([ agent.id ])
       end
 
       it 'searches by title' do

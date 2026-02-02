@@ -49,7 +49,7 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
       try {
         const response = await communityAgentsApi.getCategories();
         setCategories(response.categories || []);
-      } catch (err) {
+      } catch {
         // Ignore category load errors
       }
     };
@@ -72,7 +72,7 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
       const response = await communityAgentsApi.getAgents(filters);
       setAgents(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load agents');
     } finally {
       setLoading(false);

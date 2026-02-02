@@ -8,12 +8,12 @@ RSpec.describe "Api::V1::SupplyChain::ScanInstances", type: :request do
 
   # User with supply_chain.read permission only
   let(:supply_chain_reader) do
-    create(:user, account: account, permissions: ["supply_chain.read"])
+    create(:user, account: account, permissions: [ "supply_chain.read" ])
   end
 
   # User with both supply_chain.read and supply_chain.write permissions
   let(:supply_chain_writer) do
-    create(:user, account: account, permissions: ["supply_chain.read", "supply_chain.write"])
+    create(:user, account: account, permissions: [ "supply_chain.read", "supply_chain.write" ])
   end
 
   # User without supply_chain permissions
@@ -92,7 +92,7 @@ RSpec.describe "Api::V1::SupplyChain::ScanInstances", type: :request do
         data = json_response["data"]
 
         expect(data["scan_instances"].length).to eq(2)
-        expect(data["scan_instances"].map { |i| i["id"] }).to match_array([scan_instances[0].id, scan_instances[1].id])
+        expect(data["scan_instances"].map { |i| i["id"] }).to match_array([ scan_instances[0].id, scan_instances[1].id ])
       end
 
       it "returns all instances when active_only is not specified" do

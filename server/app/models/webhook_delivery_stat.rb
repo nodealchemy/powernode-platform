@@ -74,8 +74,8 @@ class WebhookDeliveryStat < ApplicationRecord
       return unless latency_ms
 
       # Update min/max
-      stat.min_latency_ms = [stat.min_latency_ms, latency_ms].compact.min
-      stat.max_latency_ms = [stat.max_latency_ms, latency_ms].compact.max
+      stat.min_latency_ms = [ stat.min_latency_ms, latency_ms ].compact.min
+      stat.max_latency_ms = [ stat.max_latency_ms, latency_ms ].compact.max
 
       # Update average (simple running average)
       if stat.avg_latency_ms
@@ -86,7 +86,7 @@ class WebhookDeliveryStat < ApplicationRecord
       end
 
       # Update p95 (simplified - just track if higher than current)
-      stat.p95_latency_ms = [stat.p95_latency_ms, latency_ms].compact.max
+      stat.p95_latency_ms = [ stat.p95_latency_ms, latency_ms ].compact.max
     end
 
     def calculate_success_rate(stats)

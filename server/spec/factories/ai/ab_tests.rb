@@ -18,7 +18,7 @@ FactoryBot.define do
       ]
     end
     traffic_allocation { { "control" => 0.5, "variant_a" => 0.5 } }
-    success_metrics { [{ "name" => "conversion_rate", "goal" => "maximize" }] }
+    success_metrics { [ { "name" => "conversion_rate", "goal" => "maximize" } ] }
     results { {} }
     total_impressions { 0 }
     total_conversions { 0 }

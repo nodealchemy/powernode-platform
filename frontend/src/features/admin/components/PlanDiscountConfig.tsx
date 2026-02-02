@@ -73,15 +73,15 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
     if (!validFields.includes(field) || index < 0 || index >= volumeDiscountTiers.length) return;
     
     const newTiers = [...volumeDiscountTiers];
-    // eslint-disable-next-line security/detect-object-injection
+     
     const currentTier = newTiers[index];
     if (!currentTier) return;
     
     if (field === 'min_quantity') {
-      // eslint-disable-next-line security/detect-object-injection
+       
       newTiers[index] = { ...currentTier, min_quantity: value };
     } else if (field === 'discount_percent') {
-      // eslint-disable-next-line security/detect-object-injection
+       
       newTiers[index] = { ...currentTier, discount_percent: value };
     }
     onDiscountChange('volume_discount_tiers', newTiers);

@@ -172,7 +172,7 @@ module Ai
       feature_list = features.is_a?(Array) ? features : features.split(",")
 
       feature_list.each do |feature|
-        query = query.where("features @> ?", [feature].to_json)
+        query = query.where("features @> ?", [ feature ].to_json)
       end
 
       query

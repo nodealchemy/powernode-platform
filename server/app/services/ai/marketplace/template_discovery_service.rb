@@ -57,7 +57,7 @@ module Ai
         templates = apply_discovery_sorting(templates, options[:sort_by])
 
         # Apply pagination
-        limit = [options[:limit]&.to_i || DEFAULT_LIMIT, MAX_LIMIT].min
+        limit = [ options[:limit]&.to_i || DEFAULT_LIMIT, MAX_LIMIT ].min
         offset = options[:offset]&.to_i || 0
         total_count = templates.count
         templates = templates.limit(limit).offset(offset)
@@ -184,7 +184,7 @@ module Ai
             recommendations << {
               template: template,
               recommendation_score: template.rating * 0.5 + (template.usage_count / 100.0) * 0.5,
-              recommendation_reasons: ["Popular in the community", "Highly rated"]
+              recommendation_reasons: [ "Popular in the community", "Highly rated" ]
             }
           end
         end
@@ -404,7 +404,7 @@ module Ai
         reasons << "Recently added" if template.created_at > 30.days.ago
         reasons << "Easy to get started" if template.difficulty_level == "beginner"
 
-        reasons.presence || ["Recommended for you"]
+        reasons.presence || [ "Recommended for you" ]
       end
 
       def generate_search_suggestions(query)
@@ -435,10 +435,10 @@ module Ai
 
       def generate_comparison_matrix(templates)
         {
-          ratings: templates.map { |t| [t.name, t.rating] }.to_h,
-          usage: templates.map { |t| [t.name, t.usage_count] }.to_h,
-          complexity: templates.map { |t| [t.name, t.metadata&.dig("complexity_score") || 0] }.to_h,
-          node_count: templates.map { |t| [t.name, t.metadata&.dig("node_count") || 0] }.to_h
+          ratings: templates.map { |t| [ t.name, t.rating ] }.to_h,
+          usage: templates.map { |t| [ t.name, t.usage_count ] }.to_h,
+          complexity: templates.map { |t| [ t.name, t.metadata&.dig("complexity_score") || 0 ] }.to_h,
+          node_count: templates.map { |t| [ t.name, t.metadata&.dig("node_count") || 0 ] }.to_h
         }
       end
 
@@ -470,7 +470,7 @@ module Ai
       def find_related_tags(tag)
         # Find tags that commonly appear together
         templates_with_tag = ::Ai::WorkflowTemplate.public_templates
-                                                   .where("tags @> ?", [tag].to_json)
+                                                   .where("tags @> ?", [ tag ].to_json)
                                                    .pluck(:tags)
 
         co_occurring_tags = templates_with_tag.flatten.compact

@@ -31,7 +31,7 @@ export const PageViewPage: React.FC = () => {
       setError(null);
       const response = await pagesApi.getPublicPage(slug);
       setPage(response.data);
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = getErrorMessage(error);
       setError(errorMessage);
     } finally {

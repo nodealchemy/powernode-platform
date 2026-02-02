@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::WorkflowGitTriggers', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.create', 'ai.workflows.update', 'ai.workflows.delete']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['ai.workflows.read']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.workflows.read', 'ai.workflows.create', 'ai.workflows.update', 'ai.workflows.delete' ]) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'ai.workflows.read' ]) }
 
   let(:headers) { auth_headers_for(user) }
   let(:read_only_headers) { auth_headers_for(read_only_user) }

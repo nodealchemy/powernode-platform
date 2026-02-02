@@ -294,7 +294,7 @@ class WebhookEndpoint < ApplicationRecord
   def remaining_daily_deliveries
     return Float::INFINITY if tier == "enterprise"
 
-    [tier_daily_limit - daily_count, 0].max
+    [ tier_daily_limit - daily_count, 0 ].max
   end
 
   def generate_signature(payload)
@@ -351,10 +351,10 @@ class WebhookEndpoint < ApplicationRecord
 
   def calculate_circuit_cooldown
     # Exponential backoff for circuit breaker: 1min, 5min, 15min, 1hr, 4hr (max)
-    base_minutes = [1, 5, 15, 60, 240]
+    base_minutes = [ 1, 5, 15, 60, 240 ]
     # Use consecutive failures to determine cooldown duration
-    failures_over_threshold = [consecutive_failures - (circuit_break_threshold || 5), 0].max
-    cooldown_index = [failures_over_threshold, base_minutes.length - 1].min
+    failures_over_threshold = [ consecutive_failures - (circuit_break_threshold || 5), 0 ].max
+    cooldown_index = [ failures_over_threshold, base_minutes.length - 1 ].min
     base_minutes[cooldown_index].minutes.from_now
   end
 

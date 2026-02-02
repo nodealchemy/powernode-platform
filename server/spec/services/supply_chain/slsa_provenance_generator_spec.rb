@@ -550,7 +550,7 @@ RSpec.describe SupplyChain::SlsaProvenanceGenerator do
     let(:artifact_digest) { "sha256:buildhash123" }
 
     before do
-      allow(step_executions_relation).to receive(:completed).and_return([step_execution])
+      allow(step_executions_relation).to receive(:completed).and_return([ step_execution ])
     end
 
     it "creates attestation for pipeline run" do
@@ -668,7 +668,7 @@ RSpec.describe SupplyChain::SlsaProvenanceGenerator do
       end
 
       before do
-        allow(step_executions_relation).to receive(:completed).and_return([step_execution_without_artifacts])
+        allow(step_executions_relation).to receive(:completed).and_return([ step_execution_without_artifacts ])
       end
 
       it "handles step executions without artifacts" do
@@ -684,7 +684,7 @@ RSpec.describe SupplyChain::SlsaProvenanceGenerator do
       end
 
       before do
-        allow(step_executions_relation).to receive(:completed).and_return([step_execution_nil_outputs])
+        allow(step_executions_relation).to receive(:completed).and_return([ step_execution_nil_outputs ])
       end
 
       it "handles nil outputs gracefully" do

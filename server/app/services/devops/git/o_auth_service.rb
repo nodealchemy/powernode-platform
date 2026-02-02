@@ -349,7 +349,7 @@ module Devops
       { username: nil, id: nil, avatar_url: nil }
     end
   end
-end
+  end
 
-# Backwards compatibility alias
+  # Backwards compatibility alias
 end

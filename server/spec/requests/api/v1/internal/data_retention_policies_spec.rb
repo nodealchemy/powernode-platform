@@ -64,7 +64,7 @@ RSpec.describe 'Api::V1::Internal::DataRetentionPolicies', type: :request do
         data = json_response_data
         data_types = data.map { |p| p['data_type'] }
 
-        expect(data_types).to eq(['audit_logs', 'user_sessions'])
+        expect(data_types).to eq([ 'audit_logs', 'user_sessions' ])
       end
 
       it 'includes all policy fields' do

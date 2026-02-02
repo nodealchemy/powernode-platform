@@ -6,7 +6,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
   let(:account) { create(:account) }
   let(:plan) { create(:plan, limits: { 'max_webhooks' => 100 }) }
   let(:admin_user) { create(:user, :admin, account: account) }
-  let(:user_with_webhook_permission) { create(:user, account: account, permissions: ['webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete']) }
+  let(:user_with_webhook_permission) { create(:user, account: account, permissions: [ 'webhook.read', 'webhook.create', 'webhook.update', 'webhook.delete' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   before do
@@ -135,7 +135,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
           webhook: {
             url: 'https://example.com/webhook',
             description: 'Test webhook',
-            event_types: ['user.created', 'user.updated']
+            event_types: [ 'user.created', 'user.updated' ]
           }
         }
       end
@@ -212,7 +212,7 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
 
       it 'updates event_types' do
         put "/api/v1/webhooks/#{webhook.id}",
-            params: { webhook: { event_types: ['payment.completed'] } },
+            params: { webhook: { event_types: [ 'payment.completed' ] } },
             headers: headers,
             as: :json
 

@@ -58,7 +58,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
       const response = await a2aTasksApiService.getTasks(filters);
       setTasks(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load tasks');
     } finally {
       setLoading(false);

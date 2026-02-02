@@ -502,7 +502,7 @@ module Ai
         elsif prd_data.respond_to?(:[]) && prd_data["tasks"]
           prd_data["tasks"].map { |item| normalize_task_data(item) }
         elsif prd_data.is_a?(Hash)
-          [normalize_task_data(prd_data)]
+          [ normalize_task_data(prd_data) ]
         else
           []
         end

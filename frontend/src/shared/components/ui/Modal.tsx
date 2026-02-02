@@ -139,11 +139,11 @@ export const Modal: React.FC<ModalProps> = ({
     `
   };
 
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedVariantClasses = variantClasses[variant] || variantClasses.default;
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedModalPositioning = modalPositioning[variant] || modalPositioning.default;
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedModalStyles = modalStyles[variant] || modalStyles.default;
 
   return (
@@ -184,7 +184,7 @@ export const Modal: React.FC<ModalProps> = ({
             ${variant !== 'fullscreen' && variant !== 'drawer' ? 'w-full' : ''}
             ${variant === 'drawer' ? 'w-full max-w-md' : ''}
             ${
-              // eslint-disable-next-line security/detect-object-injection
+               
               variant !== 'fullscreen' && variant !== 'drawer' ? (maxWidthClasses[effectiveMaxWidth] || maxWidthClasses.lg) : ''
             }
             ${className}

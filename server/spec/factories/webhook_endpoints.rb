@@ -6,7 +6,7 @@ FactoryBot.define do
     sequence(:url) { |n| "https://api.example#{n}.com/webhook" }
     status { 'active' }
     is_active { true }
-    event_types { ['*'] }
+    event_types { [ '*' ] }
     timeout_seconds { 30 }
     max_retries { 3 }
     retry_limit { 3 }
@@ -24,7 +24,7 @@ FactoryBot.define do
     end
 
     trait :with_specific_events do
-      event_types { ['user.created', 'payment.succeeded'] }
+      event_types { [ 'user.created', 'payment.succeeded' ] }
     end
   end
 end

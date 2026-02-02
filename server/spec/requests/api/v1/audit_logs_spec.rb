@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::AuditLogs', type: :request do
   let(:account) { create(:account) }
   let(:admin_user) { create(:user, :admin, account: account) }
-  let(:user_with_audit_permission) { create(:user, account: account, permissions: ['audit_logs.read']) }
+  let(:user_with_audit_permission) { create(:user, account: account, permissions: [ 'audit_logs.read' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   before do
@@ -61,7 +61,7 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
         logs_array = response_data['data'].is_a?(Hash) ? response_data['data']['data'] : response_data['data']
         if logs_array.is_a?(Array) && logs_array.any?
           actions = logs_array.map { |log| log['action'] }
-          expect(actions.uniq).to eq(['user_login'])
+          expect(actions.uniq).to eq([ 'user_login' ])
         end
       end
 
@@ -227,7 +227,7 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
   end
 
   describe 'POST /api/v1/audit_logs/export' do
-    let(:user_with_export_permission) { create(:user, account: account, permissions: ['audit_logs.export']) }
+    let(:user_with_export_permission) { create(:user, account: account, permissions: [ 'audit_logs.export' ]) }
     let(:headers) { auth_headers_for(user_with_export_permission) }
 
     context 'with audit_logs.export permission' do
@@ -278,7 +278,7 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
 
   describe 'POST /api/v1/audit_logs' do
     context 'with admin access' do
-      let(:admin_with_access) { create(:user, account: account, permissions: ['admin.access']) }
+      let(:admin_with_access) { create(:user, account: account, permissions: [ 'admin.access' ]) }
       let(:headers) { auth_headers_for(admin_with_access) }
 
       before do

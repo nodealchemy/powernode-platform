@@ -58,7 +58,7 @@ RSpec.describe ExternalAgent, type: :model do
         active = create(:external_agent, account: account, status: "active")
         create(:external_agent, account: account, status: "inactive")
 
-        expect(described_class.active).to eq([active])
+        expect(described_class.active).to eq([ active ])
       end
     end
 
@@ -93,7 +93,7 @@ RSpec.describe ExternalAgent, type: :model do
           card: {
             "name" => "External Agent",
             "version" => "1.0.0",
-            "skills" => [{ "id" => "test.skill", "name" => "Test" }],
+            "skills" => [ { "id" => "test.skill", "name" => "Test" } ],
             "capabilities" => { "streaming" => true }
           }
         )

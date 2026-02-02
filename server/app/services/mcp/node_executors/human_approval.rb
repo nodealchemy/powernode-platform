@@ -30,7 +30,7 @@ module Mcp
         timeout = configuration["timeout"] || 86_400 # Default 24 hours
         timeout_action = configuration["timeout_action"] || "reject"
         escalation_chain = configuration["escalation_chain"] || []
-        notification_channels = configuration["notification_channels"] || ["email"]
+        notification_channels = configuration["notification_channels"] || [ "email" ]
         context_data = configuration["context_data"] || {}
         approval_form = configuration["approval_form"]
         instructions = resolve_value(configuration["instructions"])
@@ -84,7 +84,7 @@ module Mcp
           approvers_config.map { |a| resolve_value(a) }.flatten.compact
         else
           resolved = resolve_value(approvers_config)
-          resolved.is_a?(Array) ? resolved : [resolved]
+          resolved.is_a?(Array) ? resolved : [ resolved ]
         end.compact
       end
 
@@ -94,11 +94,11 @@ module Mcp
 
         # Calculate required approvals based on type
         required_approvals = case context[:approval_type]
-                            when "any" then 1
-                            when "all" then context[:approvers].length
-                            when "majority" then (context[:approvers].length / 2.0).ceil
-                            when "quorum" then [context[:quorum_size], context[:approvers].length].min
-                            end
+        when "any" then 1
+        when "all" then context[:approvers].length
+        when "majority" then (context[:approvers].length / 2.0).ceil
+        when "quorum" then [ context[:quorum_size], context[:approvers].length ].min
+        end
 
         # Calculate deadline
         deadline = Time.current + context[:timeout].seconds

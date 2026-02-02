@@ -5,7 +5,7 @@ module Api
     module Internal
       # Internal API for worker service to manage AI workflow approval tokens
       class AiWorkflowApprovalsController < InternalBaseController
-        before_action :set_node_execution, only: [:show, :create_tokens]
+        before_action :set_node_execution, only: [ :show, :create_tokens ]
 
         # GET /api/v1/internal/ai_workflow_approvals/:node_execution_id
         # Returns node execution details for email template

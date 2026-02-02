@@ -15,19 +15,19 @@ scan_templates = [
     version: "1.0.0",
     is_system: true,
     is_public: true,
-    supported_ecosystems: ["npm", "nodejs", "javascript", "typescript"],
+    supported_ecosystems: [ "npm", "nodejs", "javascript", "typescript" ],
     average_rating: 4.8,
     install_count: 0,
     configuration_schema: {
       type: "object",
       properties: {
         include_dev_dependencies: { type: "boolean", default: false, description: "Include devDependencies in scan" },
-        severity_threshold: { type: "string", enum: ["critical", "high", "medium", "low"], default: "medium" },
+        severity_threshold: { type: "string", enum: [ "critical", "high", "medium", "low" ], default: "medium" },
         fail_on_vulnerability: { type: "boolean", default: true },
         generate_sbom: { type: "boolean", default: true },
-        sbom_format: { type: "string", enum: ["cyclonedx_1_5", "spdx_2_3"], default: "cyclonedx_1_5" }
+        sbom_format: { type: "string", enum: [ "cyclonedx_1_5", "spdx_2_3" ], default: "cyclonedx_1_5" }
       },
-      required: ["severity_threshold"]
+      required: [ "severity_threshold" ]
     },
     default_configuration: {
       include_dev_dependencies: false,
@@ -46,7 +46,7 @@ scan_templates = [
     version: "1.0.0",
     is_system: true,
     is_public: true,
-    supported_ecosystems: ["gem", "ruby", "rails", "bundler"],
+    supported_ecosystems: [ "gem", "ruby", "rails", "bundler" ],
     average_rating: 4.7,
     install_count: 0,
     configuration_schema: {
@@ -54,7 +54,7 @@ scan_templates = [
       properties: {
         include_development: { type: "boolean", default: false },
         include_test: { type: "boolean", default: false },
-        severity_threshold: { type: "string", enum: ["critical", "high", "medium", "low"], default: "medium" },
+        severity_threshold: { type: "string", enum: [ "critical", "high", "medium", "low" ], default: "medium" },
         check_bundler_audit: { type: "boolean", default: true },
         generate_sbom: { type: "boolean", default: true }
       }
@@ -76,14 +76,14 @@ scan_templates = [
     version: "1.0.0",
     is_system: true,
     is_public: true,
-    supported_ecosystems: ["pip", "python", "poetry", "pipenv"],
+    supported_ecosystems: [ "pip", "python", "poetry", "pipenv" ],
     average_rating: 4.6,
     install_count: 0,
     configuration_schema: {
       type: "object",
       properties: {
         manifest_files: { type: "array", description: "Specific manifest files to scan" },
-        severity_threshold: { type: "string", enum: ["critical", "high", "medium", "low"], default: "medium" },
+        severity_threshold: { type: "string", enum: [ "critical", "high", "medium", "low" ], default: "medium" },
         check_safety_db: { type: "boolean", default: true },
         generate_sbom: { type: "boolean", default: true }
       }
@@ -104,14 +104,14 @@ scan_templates = [
     version: "1.0.0",
     is_system: true,
     is_public: true,
-    supported_ecosystems: ["go", "golang"],
+    supported_ecosystems: [ "go", "golang" ],
     average_rating: 4.5,
     install_count: 0,
     configuration_schema: {
       type: "object",
       properties: {
         use_govulncheck: { type: "boolean", default: true },
-        severity_threshold: { type: "string", enum: ["critical", "high", "medium", "low"], default: "medium" },
+        severity_threshold: { type: "string", enum: [ "critical", "high", "medium", "low" ], default: "medium" },
         generate_sbom: { type: "boolean", default: true }
       }
     },
@@ -130,14 +130,14 @@ scan_templates = [
     version: "1.0.0",
     is_system: true,
     is_public: true,
-    supported_ecosystems: ["maven", "gradle", "java", "kotlin"],
+    supported_ecosystems: [ "maven", "gradle", "java", "kotlin" ],
     average_rating: 4.6,
     install_count: 0,
     configuration_schema: {
       type: "object",
       properties: {
-        build_tool: { type: "string", enum: ["maven", "gradle", "auto"], default: "auto" },
-        severity_threshold: { type: "string", enum: ["critical", "high", "medium", "low"], default: "medium" },
+        build_tool: { type: "string", enum: [ "maven", "gradle", "auto" ], default: "auto" },
+        severity_threshold: { type: "string", enum: [ "critical", "high", "medium", "low" ], default: "medium" },
         use_owasp_check: { type: "boolean", default: true },
         generate_sbom: { type: "boolean", default: true }
       }
@@ -158,14 +158,14 @@ scan_templates = [
     version: "1.0.0",
     is_system: true,
     is_public: true,
-    supported_ecosystems: ["cargo", "rust"],
+    supported_ecosystems: [ "cargo", "rust" ],
     average_rating: 4.7,
     install_count: 0,
     configuration_schema: {
       type: "object",
       properties: {
         use_cargo_audit: { type: "boolean", default: true },
-        severity_threshold: { type: "string", enum: ["critical", "high", "medium", "low"], default: "medium" },
+        severity_threshold: { type: "string", enum: [ "critical", "high", "medium", "low" ], default: "medium" },
         generate_sbom: { type: "boolean", default: true }
       }
     },
@@ -186,14 +186,14 @@ scan_templates = [
     version: "1.0.0",
     is_system: true,
     is_public: true,
-    supported_ecosystems: ["docker", "oci", "container"],
+    supported_ecosystems: [ "docker", "oci", "container" ],
     average_rating: 4.9,
     install_count: 0,
     configuration_schema: {
       type: "object",
       properties: {
-        scanner: { type: "string", enum: ["trivy", "grype"], default: "trivy" },
-        severity_threshold: { type: "string", enum: ["critical", "high", "medium", "low"], default: "high" },
+        scanner: { type: "string", enum: [ "trivy", "grype" ], default: "trivy" },
+        severity_threshold: { type: "string", enum: [ "critical", "high", "medium", "low" ], default: "high" },
         scan_secrets: { type: "boolean", default: true },
         scan_misconfig: { type: "boolean", default: true },
         ignore_unfixed: { type: "boolean", default: false },
@@ -220,7 +220,7 @@ scan_templates = [
     version: "1.0.0",
     is_system: true,
     is_public: true,
-    supported_ecosystems: ["npm", "gem", "pip", "maven", "go", "cargo"],
+    supported_ecosystems: [ "npm", "gem", "pip", "maven", "go", "cargo" ],
     average_rating: 4.5,
     install_count: 0,
     configuration_schema: {
@@ -240,7 +240,7 @@ scan_templates = [
       block_strong_copyleft: true,
       block_network_copyleft: true,
       allowed_licenses: [],
-      denied_licenses: ["SSPL-1.0"],
+      denied_licenses: [ "SSPL-1.0" ],
       require_osi_approved: false,
       generate_attribution: true
     }
@@ -256,7 +256,7 @@ scan_templates = [
     version: "1.0.0",
     is_system: true,
     is_public: true,
-    supported_ecosystems: ["all"],
+    supported_ecosystems: [ "all" ],
     average_rating: 4.4,
     install_count: 0,
     configuration_schema: {
@@ -284,13 +284,13 @@ scan_templates = [
     version: "1.0.0",
     is_system: true,
     is_public: true,
-    supported_ecosystems: ["all"],
+    supported_ecosystems: [ "all" ],
     average_rating: 4.3,
     install_count: 0,
     configuration_schema: {
       type: "object",
       properties: {
-        product_category: { type: "string", enum: ["default", "important_class_1", "important_class_2", "critical"], default: "default" },
+        product_category: { type: "string", enum: [ "default", "important_class_1", "important_class_2", "critical" ], default: "default" },
         require_sbom: { type: "boolean", default: true },
         require_vulnerability_process: { type: "boolean", default: true },
         max_vulnerability_age_days: { type: "integer", default: 90 }
@@ -314,20 +314,20 @@ scan_templates = [
     version: "1.0.0",
     is_system: true,
     is_public: true,
-    supported_ecosystems: ["npm", "gem", "pip", "maven", "go", "cargo", "docker"],
+    supported_ecosystems: [ "npm", "gem", "pip", "maven", "go", "cargo", "docker" ],
     average_rating: 4.9,
     install_count: 0,
     configuration_schema: {
       type: "object",
       properties: {
         generate_sbom: { type: "boolean", default: true },
-        sbom_format: { type: "string", enum: ["cyclonedx_1_5", "spdx_2_3"], default: "cyclonedx_1_5" },
+        sbom_format: { type: "string", enum: [ "cyclonedx_1_5", "spdx_2_3" ], default: "cyclonedx_1_5" },
         scan_vulnerabilities: { type: "boolean", default: true },
-        severity_threshold: { type: "string", enum: ["critical", "high", "medium", "low"], default: "high" },
+        severity_threshold: { type: "string", enum: [ "critical", "high", "medium", "low" ], default: "high" },
         check_licenses: { type: "boolean", default: true },
         block_copyleft: { type: "boolean", default: false },
         generate_attestation: { type: "boolean", default: true },
-        slsa_level: { type: "integer", enum: [1, 2, 3], default: 2 },
+        slsa_level: { type: "integer", enum: [ 1, 2, 3 ], default: 2 },
         sign_artifacts: { type: "boolean", default: true }
       }
     },

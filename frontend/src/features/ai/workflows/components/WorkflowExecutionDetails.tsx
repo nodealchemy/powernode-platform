@@ -159,7 +159,7 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
         }
         setNodeExecutions([]);
       }
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = getErrorMessage(error);
       setError(errorMessage);
 
@@ -371,7 +371,7 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
     const unsubscribe = subscribe({
       channel: 'AiOrchestrationChannel',
       params: { type: 'workflow_run', id: runId },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       onMessage: (data: any) => {
         const eventType = data.event || data.type;
 
@@ -543,7 +543,7 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
       if (!rid) throw new Error('Run ID not found');
       await workflowsApi.downloadWorkflowRun(rid, workflowId, format);
       addNotification({ type: 'success', title: 'Downloaded', message: `Workflow output downloaded as ${format.toUpperCase()}` });
-    } catch (error: unknown) {
+    } catch {
       addNotification({ type: 'error', title: 'Download Failed', message: getErrorMessage(error) });
     }
   }, [currentRun.run_id, currentRun.id, workflowId, addNotification]);
@@ -562,7 +562,7 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
       addNotification({ type: 'success', title: 'Deleted', message: `Workflow run #${rid.slice(-8)} deleted successfully` });
       setShowDeleteConfirm(false);
       if (onDelete) onDelete();
-    } catch (error: unknown) {
+    } catch {
       addNotification({ type: 'error', title: 'Delete Failed', message: getErrorMessage(error) });
     } finally {
       setIsDeleting(false);

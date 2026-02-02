@@ -104,7 +104,7 @@ export const CustomersPage: React.FC = () => {
       try {
         setLoading(true);
         await loadCustomers({ page: 1, per_page: 50 });
-      } catch (_error) {
+      } catch {
         // Error handling could be added here
       } finally {
         setLoading(false);
@@ -225,7 +225,7 @@ export const CustomersPage: React.FC = () => {
           message: response.errors?.join(', ') || 'Failed to create customer'
         });
       }
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',

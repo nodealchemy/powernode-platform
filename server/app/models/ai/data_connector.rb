@@ -67,11 +67,11 @@ module Ai
       return unless sync_frequency.present? && sync_frequency != "manual"
 
       interval = case sync_frequency
-                 when "hourly" then 1.hour
-                 when "daily" then 1.day
-                 when "weekly" then 1.week
-                 when "monthly" then 1.month
-                 else 1.day
+      when "hourly" then 1.hour
+      when "daily" then 1.day
+      when "weekly" then 1.week
+      when "monthly" then 1.month
+      else 1.day
       end
 
       update!(next_sync_at: Time.current + interval)

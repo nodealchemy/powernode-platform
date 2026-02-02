@@ -124,7 +124,7 @@ RSpec.describe SupplyChain::QuestionnaireTemplate, type: :model do
 
   describe "#section_count" do
     it "returns number of sections" do
-      template = build(:supply_chain_questionnaire_template, sections: [{ id: "s1" }, { id: "s2" }])
+      template = build(:supply_chain_questionnaire_template, sections: [ { id: "s1" }, { id: "s2" } ])
       expect(template.section_count).to eq(2)
     end
 
@@ -137,7 +137,7 @@ RSpec.describe SupplyChain::QuestionnaireTemplate, type: :model do
 
   describe "#question_count" do
     it "returns number of questions" do
-      template = build(:supply_chain_questionnaire_template, questions: [{ id: "q1" }, { id: "q2" }, { id: "q3" }])
+      template = build(:supply_chain_questionnaire_template, questions: [ { id: "q1" }, { id: "q2" }, { id: "q3" } ])
       expect(template.question_count).to eq(3)
     end
 
@@ -151,7 +151,7 @@ RSpec.describe SupplyChain::QuestionnaireTemplate, type: :model do
   describe "#questions_by_section" do
     let(:template) do
       build(:supply_chain_questionnaire_template,
-            sections: [{ "id" => "s1" }, { "id" => "s2" }],
+            sections: [ { "id" => "s1" }, { "id" => "s2" } ],
             questions: [
               { "id" => "q1", "section_id" => "s1" },
               { "id" => "q2", "section_id" => "s1" },
@@ -226,7 +226,7 @@ RSpec.describe SupplyChain::QuestionnaireTemplate, type: :model do
   end
 
   describe "#add_question" do
-    let(:template) { create(:supply_chain_questionnaire_template, account: account, sections: [{ "id" => "s1" }], questions: []) }
+    let(:template) { create(:supply_chain_questionnaire_template, account: account, sections: [ { "id" => "s1" } ], questions: []) }
 
     it "adds a question" do
       template.add_question(section_id: "s1", text: "New Question?", type: "yes_no", required: true)
@@ -244,7 +244,7 @@ RSpec.describe SupplyChain::QuestionnaireTemplate, type: :model do
     let(:template) do
       create(:supply_chain_questionnaire_template,
              account: account,
-             questions: [{ "id" => "q1" }, { "id" => "q2" }])
+             questions: [ { "id" => "q1" }, { "id" => "q2" } ])
     end
 
     it "removes the question" do
@@ -275,8 +275,8 @@ RSpec.describe SupplyChain::QuestionnaireTemplate, type: :model do
              account: account,
              name: "Original",
              is_system: true,
-             sections: [{ "id" => "s1" }],
-             questions: [{ "id" => "q1" }])
+             sections: [ { "id" => "s1" } ],
+             questions: [ { "id" => "q1" } ])
     end
 
     it "creates a copy" do

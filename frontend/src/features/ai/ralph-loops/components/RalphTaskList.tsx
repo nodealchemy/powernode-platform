@@ -132,7 +132,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
 
       const response = await ralphLoopsApi.getTasks(loopId, filters);
       setTasks(response.items || []);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load tasks');
     } finally {
       setLoading(false);

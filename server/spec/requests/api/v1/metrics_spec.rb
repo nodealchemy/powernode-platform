@@ -87,7 +87,7 @@ RSpec.describe 'Api::V1::Metrics', type: :request do
 
   describe 'GET /api/v1/metrics/application' do
     context 'with analytics.read permission' do
-      let(:analytics_user) { create(:user, account: account, permissions: ['analytics.read']) }
+      let(:analytics_user) { create(:user, account: account, permissions: [ 'analytics.read' ]) }
       let(:analytics_headers) { auth_headers_for(analytics_user) }
 
       # Stub metrics methods that depend on missing scopes/models

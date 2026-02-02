@@ -67,7 +67,7 @@ export const AuditLogMetrics: React.FC<AuditLogMetricsProps> = ({
     <div className="bg-theme-surface rounded-lg border border-theme p-4 hover:shadow-md transition-shadow duration-200">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-theme-secondary">{title}</h3>
-        {/* eslint-disable-next-line security/detect-object-injection */}
+        { }
         <div className={`p-1 rounded ${colorMap[color] || 'text-theme-secondary bg-theme-surface'}`}>
           {icon}
         </div>

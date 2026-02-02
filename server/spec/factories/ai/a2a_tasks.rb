@@ -68,7 +68,7 @@ FactoryBot.define do
             'role' => 'user',
             'parts' => [
               { 'type' => 'text', 'text' => 'Analyze this data' },
-              { 'type' => 'data', 'data' => { 'values' => [1, 2, 3] } }
+              { 'type' => 'data', 'data' => { 'values' => [ 1, 2, 3 ] } }
             ]
           },
           'context' => {

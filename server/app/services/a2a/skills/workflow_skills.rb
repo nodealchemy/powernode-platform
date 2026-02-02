@@ -17,7 +17,7 @@ module A2a
         scope = scope.where(workflow_type: input["workflow_type"]) if input["workflow_type"].present?
 
         page = (input["page"] || 1).to_i
-        per_page = [(input["per_page"] || 20).to_i, 100].min
+        per_page = [ (input["per_page"] || 20).to_i, 100 ].min
 
         workflows = scope.offset((page - 1) * per_page).limit(per_page)
 
@@ -114,7 +114,7 @@ module A2a
         scope = scope.where(status: input["status"]) if input["status"].present?
 
         page = (input["page"] || 1).to_i
-        per_page = [(input["per_page"] || 20).to_i, 100].min
+        per_page = [ (input["per_page"] || 20).to_i, 100 ].min
 
         runs = scope.offset((page - 1) * per_page).limit(per_page)
 

@@ -67,7 +67,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
       setLoading(loadingKey);
       await action();
       setShowActions(false);
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'Operation failed';
       addNotification({ type: 'error', message: errorMessage });
     } finally {

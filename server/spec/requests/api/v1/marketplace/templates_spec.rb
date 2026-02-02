@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Marketplace::Templates', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['marketplace.publish']) }
-  let(:admin_user) { create(:user, account: account, permissions: ['admin.marketplace.templates.review']) }
+  let(:user) { create(:user, account: account, permissions: [ 'marketplace.publish' ]) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'admin.marketplace.templates.review' ]) }
   let(:headers) { auth_headers_for(user) }
   let(:admin_headers) { auth_headers_for(admin_user) }
 
@@ -16,7 +16,7 @@ RSpec.describe 'Api::V1::Marketplace::Templates', type: :request do
         name: 'Test Workflow Template',
         description: 'A test template',
         category: 'productivity',
-        tags: ['test', 'workflow']
+        tags: [ 'test', 'workflow' ]
       }
     end
 

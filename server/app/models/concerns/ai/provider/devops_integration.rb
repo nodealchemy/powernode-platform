@@ -8,7 +8,7 @@ module Ai
       included do
         # DevOps-specific scopes
         scope :for_devops, -> { supporting_capability("devops_execution").or(by_type("anthropic")) }
-        scope :with_claude_code, -> { where("supported_models @> ?", ["claude-3-opus"].to_json) }
+        scope :with_claude_code, -> { where("supported_models @> ?", [ "claude-3-opus" ].to_json) }
         scope :devops_default_for_account, ->(account) {
           for_account(account).active.where("metadata @> ?", { devops_default: true }.to_json)
         }

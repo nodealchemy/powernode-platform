@@ -5,7 +5,7 @@ module Api
     module Devops
       class IntegrationExecutionsController < ApplicationController
         before_action :authenticate_request
-        before_action :set_execution, only: [:show, :retry, :cancel]
+        before_action :set_execution, only: [ :show, :retry, :cancel ]
 
         # GET /api/v1/devops/integration_executions
         def index

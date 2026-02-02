@@ -112,14 +112,14 @@ module Devops
         expected_type = spec["type"]
 
         valid = case expected_type
-                when "string" then value.is_a?(String)
-                when "integer" then value.is_a?(Integer)
-                when "number" then value.is_a?(Numeric)
-                when "boolean" then [true, false].include?(value)
-                when "array" then value.is_a?(Array)
-                when "object" then value.is_a?(Hash)
-                else true
-                end
+        when "string" then value.is_a?(String)
+        when "integer" then value.is_a?(Integer)
+        when "number" then value.is_a?(Numeric)
+        when "boolean" then [ true, false ].include?(value)
+        when "array" then value.is_a?(Array)
+        when "object" then value.is_a?(Hash)
+        else true
+        end
 
         errors_list << "#{field} must be a #{expected_type}" unless valid
       end

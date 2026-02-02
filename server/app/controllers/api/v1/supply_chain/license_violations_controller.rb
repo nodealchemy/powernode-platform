@@ -4,10 +4,10 @@ module Api
   module V1
     module SupplyChain
       class LicenseViolationsController < BaseController
-        before_action :require_read_permission, only: [:index, :show, :statistics]
-        before_action :require_write_permission, only: [:update, :resolve, :request_exception]
-        before_action :require_admin_permission, only: [:approve_exception, :reject_exception]
-        before_action :set_violation, only: [:show, :update, :resolve, :request_exception, :approve_exception, :reject_exception]
+        before_action :require_read_permission, only: [ :index, :show, :statistics ]
+        before_action :require_write_permission, only: [ :update, :resolve, :request_exception ]
+        before_action :require_admin_permission, only: [ :approve_exception, :reject_exception ]
+        before_action :set_violation, only: [ :show, :update, :resolve, :request_exception, :approve_exception, :reject_exception ]
 
         # GET /api/v1/supply_chain/license_violations
         def index

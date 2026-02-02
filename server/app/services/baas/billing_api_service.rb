@@ -66,7 +66,7 @@ module BaaS
       customers = customers.archived if params[:status] == "archived"
       customers = customers.where("email ILIKE ?", "%#{params[:email]}%") if params[:email].present?
 
-      paginated = customers.order(created_at: :desc).page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+      paginated = customers.order(created_at: :desc).page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
       {
         success: true,
@@ -153,7 +153,7 @@ module BaaS
         subscriptions = subscriptions.where(baas_customer: customer) if customer
       end
 
-      paginated = subscriptions.order(created_at: :desc).page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+      paginated = subscriptions.order(created_at: :desc).page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
       {
         success: true,
@@ -249,7 +249,7 @@ module BaaS
         invoices = invoices.where(baas_customer: customer) if customer
       end
 
-      paginated = invoices.order(created_at: :desc).page(params[:page] || 1).per([params[:per_page]&.to_i || 25, 100].min)
+      paginated = invoices.order(created_at: :desc).page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 
       {
         success: true,

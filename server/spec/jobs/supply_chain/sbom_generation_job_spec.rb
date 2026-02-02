@@ -12,7 +12,7 @@ RSpec.describe SupplyChain::SbomGenerationJob, type: :job do
   let(:options) do
     {
       source_path: "/tmp/test",
-      ecosystems: ["npm", "gem"],
+      ecosystems: [ "npm", "gem" ],
       format: "cyclonedx_1_5"
     }
   end
@@ -52,7 +52,7 @@ RSpec.describe SupplyChain::SbomGenerationJob, type: :job do
       it "calls generate on the service with correct arguments" do
         expect(service).to receive(:generate).with(
           source_path: "/tmp/test",
-          ecosystems: ["npm", "gem"],
+          ecosystems: [ "npm", "gem" ],
           format: "cyclonedx_1_5"
         ).and_return(sbom)
 
@@ -122,14 +122,14 @@ RSpec.describe SupplyChain::SbomGenerationJob, type: :job do
         let(:options_without_format) do
           {
             source_path: "/tmp/test",
-            ecosystems: ["npm"]
+            ecosystems: [ "npm" ]
           }
         end
 
         it "defaults to cyclonedx_1_5 format" do
           expect(service).to receive(:generate).with(
             source_path: "/tmp/test",
-            ecosystems: ["npm"],
+            ecosystems: [ "npm" ],
             format: "cyclonedx_1_5"
           ).and_return(sbom)
 
@@ -141,7 +141,7 @@ RSpec.describe SupplyChain::SbomGenerationJob, type: :job do
         let(:options_with_custom_format) do
           {
             source_path: "/tmp/test",
-            ecosystems: ["npm"],
+            ecosystems: [ "npm" ],
             format: "spdx_2_3"
           }
         end
@@ -149,7 +149,7 @@ RSpec.describe SupplyChain::SbomGenerationJob, type: :job do
         it "uses the specified format" do
           expect(service).to receive(:generate).with(
             source_path: "/tmp/test",
-            ecosystems: ["npm"],
+            ecosystems: [ "npm" ],
             format: "spdx_2_3"
           ).and_return(sbom)
 
@@ -319,7 +319,7 @@ RSpec.describe SupplyChain::SbomGenerationJob, type: :job do
       it "converts string keys to symbol keys with with_indifferent_access" do
         string_options = {
           "source_path" => "/tmp/test",
-          "ecosystems" => ["npm"],
+          "ecosystems" => [ "npm" ],
           "format" => "cyclonedx_1_5"
         }
 

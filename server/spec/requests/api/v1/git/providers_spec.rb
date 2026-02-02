@@ -4,10 +4,10 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Git::Providers', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['git.providers.read']) }
-  let(:user_with_create_permission) { create(:user, account: account, permissions: ['git.providers.read', 'git.providers.create']) }
-  let(:user_with_update_permission) { create(:user, account: account, permissions: ['git.providers.read', 'git.providers.update']) }
-  let(:user_with_delete_permission) { create(:user, account: account, permissions: ['git.providers.read', 'git.providers.delete']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'git.providers.read' ]) }
+  let(:user_with_create_permission) { create(:user, account: account, permissions: [ 'git.providers.read', 'git.providers.create' ]) }
+  let(:user_with_update_permission) { create(:user, account: account, permissions: [ 'git.providers.read', 'git.providers.update' ]) }
+  let(:user_with_delete_permission) { create(:user, account: account, permissions: [ 'git.providers.read', 'git.providers.delete' ]) }
   let(:user_with_credential_permissions) do
     create(:user, account: account, permissions: [
       'git.providers.read', 'git.credentials.read', 'git.credentials.create',
@@ -62,7 +62,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
         response_data = json_response
 
         provider_types = response_data['data']['providers'].map { |p| p['provider_type'] }
-        expect(provider_types.uniq).to eq(['github'])
+        expect(provider_types.uniq).to eq([ 'github' ])
       end
 
       it 'searches by name' do
@@ -152,7 +152,7 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
             slug: 'new-git-provider',
             provider_type: 'github',
             api_base_url: 'https://api.github.com',
-            capabilities: ['repos', 'branches']
+            capabilities: [ 'repos', 'branches' ]
           }
         }
       end

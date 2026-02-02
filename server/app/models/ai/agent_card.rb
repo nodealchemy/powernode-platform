@@ -53,7 +53,7 @@ module Ai
       where("capabilities->'skills' ? :skill", skill: skill)
     }
     scope :with_tag, ->(tag) {
-      where("tags @> ?", [tag].to_json)
+      where("tags @> ?", [ tag ].to_json)
     }
     scope :published, -> { where.not(published_at: nil) }
     scope :by_protocol_version, ->(version) { where(protocol_version: version) }
@@ -153,7 +153,7 @@ module Ai
     # Add a skill
     def add_skill(skill_id, skill_config = {})
       self.capabilities = capabilities.deep_merge(
-        "skills" => (skills_list + [skill_config.merge("id" => skill_id)]).uniq { |s| s["id"] || s }
+        "skills" => (skills_list + [ skill_config.merge("id" => skill_id) ]).uniq { |s| s["id"] || s }
       )
       save
     end
@@ -247,8 +247,8 @@ module Ai
       self.card_version ||= "1.0.0"
       self.capabilities ||= {}
       self.authentication ||= {}
-      self.default_input_modes ||= ["application/json"]
-      self.default_output_modes ||= ["application/json"]
+      self.default_input_modes ||= [ "application/json" ]
+      self.default_output_modes ||= [ "application/json" ]
       self.tags ||= []
     end
 
@@ -269,7 +269,7 @@ module Ai
       end
 
       # Validate streaming capability
-      if capabilities["streaming"].present? && !capabilities["streaming"].in?([true, false])
+      if capabilities["streaming"].present? && !capabilities["streaming"].in?([ true, false ])
         errors.add(:capabilities, "streaming must be a boolean")
       end
     end
@@ -304,7 +304,7 @@ module Ai
       return nil if authentication.blank?
 
       {
-        schemes: authentication["schemes"] || ["bearer"],
+        schemes: authentication["schemes"] || [ "bearer" ],
         credentials: authentication["credentials_url"]
       }.compact
     end

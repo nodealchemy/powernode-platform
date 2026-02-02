@@ -137,7 +137,7 @@ module Mcp
         timeout_seconds: timeout_seconds || template.timeout_seconds,
         sandbox_enabled: true,
         environment_variables: build_environment_variables(template, input_parameters),
-        runner_labels: template.labels["runner_labels"] || ["powernode-ai-agent"]
+        runner_labels: template.labels["runner_labels"] || [ "powernode-ai-agent" ]
       )
     end
 
@@ -231,7 +231,7 @@ module Mcp
     end
 
     def trigger_completion_callback(instance)
-      return unless instance.a2a_task.present?
+      nil unless instance.a2a_task.present?
 
       # A2A task completion is handled by instance#handle_completion callback
     end

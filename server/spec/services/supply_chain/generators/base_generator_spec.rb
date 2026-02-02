@@ -324,7 +324,7 @@ RSpec.describe SupplyChain::Generators::BaseGenerator do
 
       result = generator.send(:parse_json, json_content)
 
-      expect(result).to eq([1, 2, 3])
+      expect(result).to eq([ 1, 2, 3 ])
     end
 
     it "parses nested JSON" do

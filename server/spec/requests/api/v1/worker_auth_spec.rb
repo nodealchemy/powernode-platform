@@ -192,7 +192,7 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
       {
         user_id: user.id,
         user_email: user.email,
-        permissions: ['admin.access'],
+        permissions: [ 'admin.access' ],
         created_at: Time.current.iso8601
       }
     end

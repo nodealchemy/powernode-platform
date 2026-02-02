@@ -6,7 +6,7 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
   let(:account) { create(:account) }
   let(:plan) { create(:plan, :with_limits) }
   let(:admin_user) { create(:user, :admin, account: account) }
-  let(:user_with_account_manage) { create(:user, account: account, permissions: ['account.manage']) }
+  let(:user_with_account_manage) { create(:user, account: account, permissions: [ 'account.manage' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   before do
@@ -149,7 +149,7 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
         {
           api_key: {
             name: 'Test API Key',
-            scopes: ['read', 'write']
+            scopes: [ 'read', 'write' ]
           }
         }
       end
@@ -219,7 +219,7 @@ RSpec.describe 'Api::V1::ApiKeys', type: :request do
 
       it 'updates scopes' do
         put "/api/v1/api_keys/#{api_key.id}",
-            params: { api_key: { scopes: ['admin'] } },
+            params: { api_key: { scopes: [ 'admin' ] } },
             headers: headers,
             as: :json
 

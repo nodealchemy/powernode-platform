@@ -7,7 +7,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
   let(:user) { create(:user, account: account) }
 
   # Permission users
-  let(:schedule_read_user) { create(:user, account: account, permissions: ['git.schedules.read']) }
+  let(:schedule_read_user) { create(:user, account: account, permissions: [ 'git.schedules.read' ]) }
   let(:schedule_manage_user) do
     create(:user, account: account, permissions: %w[
       git.schedules.read git.schedules.manage

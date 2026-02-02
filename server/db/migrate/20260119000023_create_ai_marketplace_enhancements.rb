@@ -35,7 +35,7 @@ class CreateAiMarketplaceEnhancements < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_marketplace_moderations, :status
-    add_index :ai_marketplace_moderations, [:agent_template_id, :status]
+    add_index :ai_marketplace_moderations, [ :agent_template_id, :status ]
     add_index :ai_marketplace_moderations, :submitted_at
 
     # Template usage metrics for analytics
@@ -71,7 +71,7 @@ class CreateAiMarketplaceEnhancements < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_template_usage_metrics, [:agent_template_id, :metric_date], unique: true, name: "idx_template_metrics_date"
+    add_index :ai_template_usage_metrics, [ :agent_template_id, :metric_date ], unique: true, name: "idx_template_metrics_date"
     add_index :ai_template_usage_metrics, :metric_date
 
     # Marketplace purchases (one-time purchases separate from subscriptions)
@@ -107,7 +107,7 @@ class CreateAiMarketplaceEnhancements < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_marketplace_purchases, [:account_id, :agent_template_id]
+    add_index :ai_marketplace_purchases, [ :account_id, :agent_template_id ]
     add_index :ai_marketplace_purchases, :status
     add_index :ai_marketplace_purchases, :created_at
 
@@ -138,7 +138,7 @@ class CreateAiMarketplaceEnhancements < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_publisher_earnings_snapshots, [:publisher_id, :snapshot_date], unique: true, name: "idx_publisher_earnings_date"
+    add_index :ai_publisher_earnings_snapshots, [ :publisher_id, :snapshot_date ], unique: true, name: "idx_publisher_earnings_date"
     add_index :ai_publisher_earnings_snapshots, :snapshot_date
 
     # Add Stripe Connect fields to publisher accounts

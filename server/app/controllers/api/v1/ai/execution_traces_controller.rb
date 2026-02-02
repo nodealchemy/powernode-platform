@@ -9,7 +9,7 @@ module Api
       # and monitoring AI operations.
       class ExecutionTracesController < ApplicationController
         before_action :authenticate_user!
-        before_action :set_trace, only: [:show, :spans, :timeline]
+        before_action :set_trace, only: [ :show, :spans, :timeline ]
 
         # GET /api/v1/ai/execution_traces
         # List recent execution traces

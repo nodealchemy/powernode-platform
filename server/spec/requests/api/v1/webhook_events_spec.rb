@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::WebhookEvents', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['webhooks.manage']) }
+  let(:user) { create(:user, account: account, permissions: [ 'webhooks.manage' ]) }
   let(:limited_user) { create(:user, account: account, permissions: []) }
   let(:other_account) { create(:account) }
 

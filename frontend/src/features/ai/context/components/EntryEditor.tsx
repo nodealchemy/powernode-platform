@@ -125,7 +125,7 @@ export function EntryEditor({
     try {
       JSON.parse(value);
       setJsonError(null);
-    } catch (e) {
+    } catch {
       setJsonError('Invalid JSON');
     }
     setFormData({ ...formData, content: value as unknown as Record<string, unknown> });

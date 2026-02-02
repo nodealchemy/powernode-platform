@@ -14,7 +14,7 @@ export const PipelinesPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { showNotification } = useNotifications();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     subscribeToDevops: true,
     onDataUpdate: () => {

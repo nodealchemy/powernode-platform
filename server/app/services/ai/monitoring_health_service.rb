@@ -158,7 +158,7 @@ module Ai
         status: recent_completions > 0 || recent_starts == 0 ? "healthy" : "degraded",
         recent_completions: recent_completions,
         recent_starts: recent_starts,
-        estimated_backlog: [recent_starts - recent_completions, 0].max,
+        estimated_backlog: [ recent_starts - recent_completions, 0 ].max,
         last_activity: last_worker_activity_time
       }
     end
@@ -500,7 +500,7 @@ module Ai
                                  .order(created_at: :desc)
                                  .first&.created_at
 
-      [recent_completion, recent_message].compact.max
+      [ recent_completion, recent_message ].compact.max
     end
   end
 end

@@ -93,7 +93,7 @@ export abstract class BaseApiService {
     try {
       const data = await operation();
       return { success: true, data };
-    } catch (error) {
+    } catch {
       return { success: false, error: this.handleError(error, context) };
     }
   }

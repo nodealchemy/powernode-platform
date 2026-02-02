@@ -40,9 +40,9 @@ class CreateIntegrationInstances < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :integration_instances, [:account_id, :slug], unique: true
+    add_index :integration_instances, [ :account_id, :slug ], unique: true
     add_index :integration_instances, :status
     add_index :integration_instances, :health_status
-    add_index :integration_instances, [:account_id, :status], name: "idx_instances_account_status"
+    add_index :integration_instances, [ :account_id, :status ], name: "idx_instances_account_status"
   end
 end

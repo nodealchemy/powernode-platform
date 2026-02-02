@@ -93,7 +93,7 @@ class ChurnPrediction < ApplicationRecord
 
       base_days = 90
       days = (base_days * (1 - probability)).round
-      [days, 7].max # Minimum 7 days
+      [ days, 7 ].max # Minimum 7 days
     end
   end
 end

@@ -29,7 +29,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [_showCreateModal, setShowCreateModal] = useState(false);
+  const [, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const fetchWebhooks = async (page = 1) => {
@@ -52,7 +52,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
       const result = await accountWebhooksApi.getAccountWebhooks(params);
       setWebhooks(result.webhooks);
       setPagination(result.pagination);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to load webhooks');
     } finally {
       setIsLoading(false);
@@ -68,7 +68,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
     try {
       const result = await accountWebhooksApi.toggleAccountWebhookStatus(webhook.id);
       setWebhooks((prev) => prev.map((w) => (w.id === webhook.id ? result.webhook : w)));
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to toggle status');
     } finally {
       setActionLoading(null);
@@ -84,7 +84,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
     try {
       await accountWebhooksApi.deleteAccountWebhook(webhook.id);
       setWebhooks((prev) => prev.filter((w) => w.id !== webhook.id));
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to delete webhook');
     } finally {
       setActionLoading(null);
@@ -96,7 +96,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
     try {
       await accountWebhooksApi.testAccountWebhook(webhook.id);
       // Could show a success message here
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to test webhook');
     } finally {
       setActionLoading(null);

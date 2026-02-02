@@ -147,12 +147,12 @@ module SupplyChain
 
     def determine_severity(violation_type, component)
       base_severity = case violation_type
-                      when "denied" then "high"
-                      when "copyleft" then "high"
-                      when "incompatible" then "medium"
-                      when "unknown" then "medium"
-                      else "low"
-                      end
+      when "denied" then "high"
+      when "copyleft" then "high"
+      when "incompatible" then "medium"
+      when "unknown" then "medium"
+      else "low"
+      end
 
       # Increase severity for direct dependencies
       if component.direct? && base_severity != "critical"
@@ -170,11 +170,11 @@ module SupplyChain
     def update_component_compliance_status(component, result)
       status = if result[:compliant]
                  "compliant"
-               elsif result[:violations]&.any? { |v| v[:type] == "unknown" }
+      elsif result[:violations]&.any? { |v| v[:type] == "unknown" }
                  "unknown"
-               else
+      else
                  "non_compliant"
-               end
+      end
 
       component.update!(license_compliance_status: status) if component.license_compliance_status != status
     end

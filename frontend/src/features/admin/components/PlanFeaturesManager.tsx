@@ -66,7 +66,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
       if (comparisonResponse.success && 'data' in comparisonResponse && comparisonResponse.data) {
         setComparison(comparisonResponse.data);
       }
-    } catch (error) {
+    } catch {
       // Error handled by notification
       showNotification('Failed to load plan features data', 'error');
     } finally {
@@ -91,7 +91,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
       } else {
         showNotification(response.error || 'Failed to create feature', 'error');
       }
-    } catch (error) {
+    } catch {
       showNotification('Failed to create feature', 'error');
     }
   };
@@ -109,7 +109,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
       } else {
         showNotification(response.error || 'Failed to update feature', 'error');
       }
-    } catch (error) {
+    } catch {
       showNotification('Failed to update feature', 'error');
     }
   };
@@ -128,7 +128,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
       } else {
         showNotification(response.error || 'Failed to delete feature', 'error');
       }
-    } catch (error) {
+    } catch {
       showNotification('Failed to delete feature', 'error');
     }
   };
@@ -155,7 +155,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
       } else {
         showNotification(response.error || 'Failed to update plan limit', 'error');
       }
-    } catch (error) {
+    } catch {
       showNotification('Failed to update plan limit', 'error');
     }
   };

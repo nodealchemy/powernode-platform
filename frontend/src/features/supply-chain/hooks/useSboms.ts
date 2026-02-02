@@ -59,7 +59,7 @@ export function useSboms(options: UseSbomsOptions = {}) {
       });
       setSboms(result.sboms);
       setPagination(result.pagination);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch SBOMs');
     } finally {
       setLoading(false);
@@ -91,7 +91,7 @@ export function useSbom(id: string | null) {
       setError(null);
       const result = await sbomsApi.get(id);
       setSbom(result);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch SBOM');
     } finally {
       setLoading(false);
@@ -143,7 +143,7 @@ export function useUpdateVulnerabilityStatus() {
       setError(null);
       const result = await sbomsApi.updateVulnerabilityStatus(sbomId, vulnId, status);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to update status';
       setError(errorMsg);
       throw err;
@@ -165,7 +165,7 @@ export function useSuppressVulnerability() {
       setError(null);
       const result = await sbomsApi.suppressVulnerability(sbomId, vulnId);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to suppress vulnerability';
       setError(errorMsg);
       throw err;
@@ -187,7 +187,7 @@ export function useUnsuppressVulnerability() {
       setError(null);
       const result = await sbomsApi.unsuppressVulnerability(sbomId, vulnId);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to unsuppress vulnerability';
       setError(errorMsg);
       throw err;
@@ -217,7 +217,7 @@ export function useMarkFalsePositive() {
       setError(null);
       const result = await sbomsApi.markFalsePositive(sbomId, vulnId, reason);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to mark false positive';
       setError(errorMsg);
       throw err;
@@ -247,7 +247,7 @@ export function useSbomCompliance(sbomId: string | null) {
       setError(null);
       const result = await sbomsApi.getComplianceStatus(sbomId);
       setCompliance(result);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch compliance');
     } finally {
       setLoading(false);
@@ -271,7 +271,7 @@ export function useCalculateRisk() {
       setError(null);
       const result = await sbomsApi.calculateRisk(sbomId);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to calculate risk';
       setError(errorMsg);
       throw err;
@@ -293,7 +293,7 @@ export function useCorrelateVulnerabilities() {
       setError(null);
       const result = await sbomsApi.correlateVulnerabilities(sbomId);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to correlate vulnerabilities';
       setError(errorMsg);
       throw err;
@@ -325,7 +325,7 @@ export function useSbomStatistics() {
       setError(null);
       const result = await sbomsApi.getStatistics();
       setStatistics(result);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch statistics');
     } finally {
       setLoading(false);
@@ -360,7 +360,7 @@ export function useSbomDiffs(sbomId: string | null) {
       setError(null);
       const result = await sbomsApi.listDiffs(sbomId);
       setDiffs(result);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch diffs');
     } finally {
       setLoading(false);
@@ -399,7 +399,7 @@ export function useSbomDiff(sbomId: string | null, diffId: string | null) {
       setError(null);
       const result = await sbomsApi.getDiff(sbomId, diffId);
       setDiff(result);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch diff');
     } finally {
       setLoading(false);
@@ -429,7 +429,7 @@ export function useCreateSbomDiff() {
       setError(null);
       const result = await sbomsApi.createDiff(sbomId, compareSbomId);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create diff';
       setError(errorMsg);
       throw err;

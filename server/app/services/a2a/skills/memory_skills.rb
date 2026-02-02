@@ -15,13 +15,13 @@ module A2a
         memory_type = input["memory_type"] || "factual"
 
         memory_service = case memory_type
-                         when "experiential"
+        when "experiential"
                            Memory::ExperientialMemoryService.new(agent: agent, account: @account)
-                         when "procedural"
+        when "procedural"
                            Memory::ProceduralMemoryService.new(agent: agent, account: @account)
-                         else
+        else
                            Memory::FactualMemoryService.new(agent: agent, account: @account)
-                         end
+        end
 
         memory = memory_service.store(
           content: input["content"],
@@ -45,9 +45,9 @@ module A2a
 
         memories = if input["query"].present?
                      retriever.search(query: input["query"], limit: input["limit"] || 10)
-                   else
+        else
                      retriever.recent(limit: input["limit"] || 10)
-                   end
+        end
 
         {
           output: {

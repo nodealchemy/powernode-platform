@@ -53,10 +53,10 @@ RSpec.describe BaaS::ApiKeyService, type: :service do
       result = service.create_key(
         name: "Read Only Key",
         environment: "development",
-        scopes: ["read"]
+        scopes: [ "read" ]
       )
 
-      expect(result[:api_key].scopes).to eq(["read"])
+      expect(result[:api_key].scopes).to eq([ "read" ])
     end
   end
 

@@ -66,14 +66,14 @@ RSpec.describe Ai::A2a::Service, type: :service do
       end
 
       it 'filters by skill' do
-        agent_card.update!(capabilities: { 'skills' => ['summarize'] })
+        agent_card.update!(capabilities: { 'skills' => [ 'summarize' ] })
 
         result = service.discover_agents(skill: 'summarize')
         expect(result[:agents].any? { |a| a[:name] == 'Test Agent' }).to be true
       end
 
       it 'filters by tag' do
-        agent_card.update!(tags: ['research'])
+        agent_card.update!(tags: [ 'research' ])
 
         result = service.discover_agents(tag: 'research')
         expect(result[:agents].any? { |a| a[:name] == 'Test Agent' }).to be true
@@ -120,7 +120,7 @@ RSpec.describe Ai::A2a::Service, type: :service do
       before { agent_card }
 
       it 'returns agents capable of handling the task' do
-        allow(Ai::AgentCard).to receive(:find_agents_for_task).and_return([agent_card])
+        allow(Ai::AgentCard).to receive(:find_agents_for_task).and_return([ agent_card ])
 
         result = service.find_agents_for_task('summarize this document')
         expect(result).to be_an(Array)
@@ -130,7 +130,7 @@ RSpec.describe Ai::A2a::Service, type: :service do
 
   describe 'Task Submission' do
     describe '#submit_task' do
-      let(:message) { { role: 'user', parts: [{ type: 'text', text: 'Hello agent' }] } }
+      let(:message) { { role: 'user', parts: [ { type: 'text', text: 'Hello agent' } ] } }
 
       it 'creates a new A2A task' do
         expect {
@@ -184,7 +184,7 @@ RSpec.describe Ai::A2a::Service, type: :service do
 
     describe '#submit_external_task' do
       let(:endpoint_url) { 'https://external-agent.example.com/a2a' }
-      let(:message) { { role: 'user', parts: [{ type: 'text', text: 'External task' }] } }
+      let(:message) { { role: 'user', parts: [ { type: 'text', text: 'External task' } ] } }
 
       it 'creates an external task' do
         expect {
@@ -343,7 +343,7 @@ RSpec.describe Ai::A2a::Service, type: :service do
              to_agent_card: agent_card,
              to_agent: agent,
              status: 'pending',
-             message: { 'role' => 'user', 'parts' => [{ 'type' => 'text', 'text' => 'Hello' }] },
+             message: { 'role' => 'user', 'parts' => [ { 'type' => 'text', 'text' => 'Hello' } ] },
              input: { 'text' => 'Hello' })
     end
 

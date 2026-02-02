@@ -30,7 +30,7 @@ export function useLicensePolicies(options: UseLicensePoliciesOptions = {}) {
       const result = await licenseComplianceApi.listPolicies(options);
       setPolicies(result.policies);
       setPagination(result.pagination);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch license policies');
     } finally {
       setLoading(false);
@@ -61,7 +61,7 @@ export function useLicensePolicy(id: string) {
       setError(null);
       const result = await licenseComplianceApi.getPolicy(id);
       setPolicy(result);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch license policy');
     } finally {
       setLoading(false);
@@ -90,7 +90,7 @@ export function useCreateLicensePolicy() {
       setError(null);
       const result = await licenseComplianceApi.createPolicy(data);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create license policy';
       setError(errorMsg);
       throw err;
@@ -116,7 +116,7 @@ export function useUpdateLicensePolicy() {
       setError(null);
       const result = await licenseComplianceApi.updatePolicy(id, data);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to update license policy';
       setError(errorMsg);
       throw err;
@@ -141,7 +141,7 @@ export function useDeleteLicensePolicy() {
       setLoading(true);
       setError(null);
       await licenseComplianceApi.deletePolicy(id);
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to delete license policy';
       setError(errorMsg);
       throw err;
@@ -167,7 +167,7 @@ export function useToggleLicensePolicyActive() {
       setError(null);
       const result = await licenseComplianceApi.togglePolicyActive(id, isActive);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to toggle policy active state';
       setError(errorMsg);
       throw err;
@@ -204,7 +204,7 @@ export function useLicenseViolations(options: UseLicenseViolationsOptions = {}) 
       const result = await licenseComplianceApi.listViolations(options);
       setViolations(result.violations);
       setPagination(result.pagination);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch license violations');
     } finally {
       setLoading(false);
@@ -235,7 +235,7 @@ export function useLicenseViolation(id: string) {
       setError(null);
       const result = await licenseComplianceApi.getViolation(id);
       setViolation(result);
-    } catch (err) {
+    } catch {
       setError(err instanceof Error ? err.message : 'Failed to fetch license violation');
     } finally {
       setLoading(false);
@@ -264,7 +264,7 @@ export function useResolveViolation() {
       setError(null);
       const result = await licenseComplianceApi.resolveViolation(id, note);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to resolve violation';
       setError(errorMsg);
       throw err;
@@ -290,7 +290,7 @@ export function useGrantViolationException() {
       setError(null);
       const result = await licenseComplianceApi.grantException(id, note);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to grant exception';
       setError(errorMsg);
       throw err;
@@ -325,7 +325,7 @@ export function useRequestException() {
       setError(null);
       const result = await licenseComplianceApi.requestException(id, justification, expiresAt);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to request exception';
       setError(errorMsg);
       throw err;
@@ -355,7 +355,7 @@ export function useApproveException() {
       setError(null);
       const result = await licenseComplianceApi.approveException(id, notes, expiresAt);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to approve exception';
       setError(errorMsg);
       throw err;
@@ -383,7 +383,7 @@ export function useRejectException() {
       setError(null);
       const result = await licenseComplianceApi.rejectException(id, reason);
       return result;
-    } catch (err) {
+    } catch {
       const errorMsg = err instanceof Error ? err.message : 'Failed to reject exception';
       setError(errorMsg);
       throw err;

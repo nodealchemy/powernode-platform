@@ -244,7 +244,7 @@ module SupplyChain
         "documentNamespace" => "https://spdx.org/spdxdocs/#{SecureRandom.uuid}",
         "creationInfo" => {
           "created" => Time.current.iso8601,
-          "creators" => ["Tool: Powernode-SupplyChainManager-1.0.0", "Organization: #{account.name}"]
+          "creators" => [ "Tool: Powernode-SupplyChainManager-1.0.0", "Organization: #{account.name}" ]
         },
         "packages" => components.map { |c| component_to_spdx(c) },
         "relationships" => build_spdx_relationships(components)
@@ -286,7 +286,7 @@ module SupplyChain
     def build_licenses(spdx_id)
       return [] unless spdx_id.present?
 
-      [{ "license" => { "id" => spdx_id } }]
+      [ { "license" => { "id" => spdx_id } } ]
     end
 
     def build_dependency_graph(components)

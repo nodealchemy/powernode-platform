@@ -6,7 +6,7 @@ module Api
       class AiConfigsController < ApplicationController
         before_action :authenticate_request
         before_action :require_devops_permission
-        before_action :set_ai_config, only: [:show, :update, :destroy, :set_default]
+        before_action :set_ai_config, only: [ :show, :update, :destroy, :set_default ]
 
         # GET /api/v1/devops/ai_configs
         def index

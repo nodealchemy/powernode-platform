@@ -29,7 +29,7 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
       setError(null);
       const response = await workerApi.getWorkerActivities(workerId, filters);
       setData(response);
-    } catch (error: unknown) {
+    } catch {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load activities';
       setError(errorMessage);
     } finally {

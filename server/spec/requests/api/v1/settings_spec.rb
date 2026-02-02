@@ -106,7 +106,7 @@ RSpec.describe 'Api::V1::Settings', type: :request do
       it 'returns error when update fails' do
         allow_any_instance_of(SettingsUpdateService).to receive(:call).and_return({
           success: false,
-          errors: ['Invalid settings']
+          errors: [ 'Invalid settings' ]
         })
 
         put '/api/v1/settings', params: valid_params, headers: headers, as: :json

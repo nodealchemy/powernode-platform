@@ -10,8 +10,8 @@ export interface TeamExecutionUpdate {
   status?: string;
   progress?: number;
   current_member?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  result?: any;
+
+  result?: unknown;
   error?: string;
   timestamp: string;
 }
@@ -37,15 +37,10 @@ export const useTeamExecutionWebSocket = (options: UseTeamExecutionWebSocketOpti
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/cable`;
 
-      if (process.env.NODE_ENV === 'development') {
-      }
-
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        if (process.env.NODE_ENV === 'development') {
-        }
         setIsConnected(true);
 
         // Subscribe to team execution channel
@@ -67,21 +62,16 @@ export const useTeamExecutionWebSocket = (options: UseTeamExecutionWebSocketOpti
           if (data.type === 'ping') return;
           if (data.type === 'welcome') return;
           if (data.type === 'confirm_subscription') {
-            if (process.env.NODE_ENV === 'development') {
-            }
             return;
           }
 
           if (data.message) {
             const update: TeamExecutionUpdate = data.message;
 
-            if (process.env.NODE_ENV === 'development') {
-            }
-
             setLastUpdate(update);
             onUpdate?.(update);
           }
-        } catch (error) {
+        } catch {
           // Error parsing message - handled silently
         }
       };
@@ -91,15 +81,11 @@ export const useTeamExecutionWebSocket = (options: UseTeamExecutionWebSocketOpti
       };
 
       ws.onclose = () => {
-        if (process.env.NODE_ENV === 'development') {
-        }
         setIsConnected(false);
 
         // Attempt to reconnect after 3 seconds
         if (enabled) {
           reconnectTimeoutRef.current = setTimeout(() => {
-            if (process.env.NODE_ENV === 'development') {
-            }
             connect();
           }, 3000);
         }

@@ -36,16 +36,18 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
         e.preventDefault();
         setActiveTab(tabId);
         break;
-      case 'ArrowLeft':
+      case 'ArrowLeft': {
         e.preventDefault();
         const prevIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
         setActiveTab(tabs[prevIndex] as 'basic' | 'features' | 'discounts');
         break;
-      case 'ArrowRight':
+      }
+      case 'ArrowRight': {
         e.preventDefault();
         const nextIndex = currentIndex < tabs.length - 1 ? currentIndex + 1 : 0;
         setActiveTab(tabs[nextIndex] as 'basic' | 'features' | 'discounts');
         break;
+      }
       case 'Home':
         e.preventDefault();
         setActiveTab('basic');
@@ -168,7 +170,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
       
       onSaved();
       onClose();
-    } catch (error: unknown) {
+    } catch {
       const errorMsg = error instanceof Error ? error.message : 'Failed to save plan';
       showError(errorMsg);
     } finally {

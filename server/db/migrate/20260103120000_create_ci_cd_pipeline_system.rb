@@ -30,8 +30,8 @@ class CreateCiCdPipelineSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ci_cd_providers, [:account_id, :name], unique: true
-    add_index :ci_cd_providers, [:account_id, :is_default], where: 'is_default = true'
+    add_index :ci_cd_providers, [ :account_id, :name ], unique: true
+    add_index :ci_cd_providers, [ :account_id, :is_default ], where: 'is_default = true'
 
     # ============================================
     # AI Provider Configurations for CI/CD
@@ -59,9 +59,9 @@ class CreateCiCdPipelineSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ci_cd_ai_configs, [:account_id, :name], unique: true
-    add_index :ci_cd_ai_configs, [:account_id, :is_default], where: 'is_default = true'
-    add_index :ci_cd_ai_configs, [:account_id, :priority]
+    add_index :ci_cd_ai_configs, [ :account_id, :name ], unique: true
+    add_index :ci_cd_ai_configs, [ :account_id, :is_default ], where: 'is_default = true'
+    add_index :ci_cd_ai_configs, [ :account_id, :priority ]
 
     # ============================================
     # Prompt Templates (reusable across pipelines)
@@ -90,8 +90,8 @@ class CreateCiCdPipelineSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ci_cd_prompt_templates, [:account_id, :slug], unique: true
-    add_index :ci_cd_prompt_templates, [:account_id, :category]
+    add_index :ci_cd_prompt_templates, [ :account_id, :slug ], unique: true
+    add_index :ci_cd_prompt_templates, [ :account_id, :category ]
     add_index :ci_cd_prompt_templates, :is_system
 
     # ============================================
@@ -121,7 +121,7 @@ class CreateCiCdPipelineSystem < ActiveRecord::Migration[8.0]
       t.jsonb :secret_refs, null: false, default: []  # Names of secrets to inject
 
       # Runtime configuration
-      t.string :runner_labels, array: true, default: ['ubuntu-latest']
+      t.string :runner_labels, array: true, default: [ 'ubuntu-latest' ]
       t.integer :timeout_minutes, default: 60
       t.boolean :allow_concurrent, null: false, default: false
 
@@ -136,9 +136,9 @@ class CreateCiCdPipelineSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ci_cd_pipelines, [:account_id, :slug], unique: true
-    add_index :ci_cd_pipelines, [:account_id, :pipeline_type]
-    add_index :ci_cd_pipelines, [:account_id, :is_active]
+    add_index :ci_cd_pipelines, [ :account_id, :slug ], unique: true
+    add_index :ci_cd_pipelines, [ :account_id, :pipeline_type ]
+    add_index :ci_cd_pipelines, [ :account_id, :is_active ]
 
     # ============================================
     # Pipeline Steps (detailed step configurations)
@@ -165,8 +165,8 @@ class CreateCiCdPipelineSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ci_cd_pipeline_steps, [:ci_cd_pipeline_id, :position]
-    add_index :ci_cd_pipeline_steps, [:ci_cd_pipeline_id, :name], unique: true
+    add_index :ci_cd_pipeline_steps, [ :ci_cd_pipeline_id, :position ]
+    add_index :ci_cd_pipeline_steps, [ :ci_cd_pipeline_id, :name ], unique: true
 
     # ============================================
     # Pipeline Runs (execution history)
@@ -200,8 +200,8 @@ class CreateCiCdPipelineSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ci_cd_pipeline_runs, [:ci_cd_pipeline_id, :run_number], unique: true
-    add_index :ci_cd_pipeline_runs, [:ci_cd_pipeline_id, :status]
+    add_index :ci_cd_pipeline_runs, [ :ci_cd_pipeline_id, :run_number ], unique: true
+    add_index :ci_cd_pipeline_runs, [ :ci_cd_pipeline_id, :status ]
     add_index :ci_cd_pipeline_runs, :external_run_id
 
     # ============================================
@@ -224,7 +224,7 @@ class CreateCiCdPipelineSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ci_cd_step_executions, [:ci_cd_pipeline_run_id, :ci_cd_pipeline_step_id], unique: true,
+    add_index :ci_cd_step_executions, [ :ci_cd_pipeline_run_id, :ci_cd_pipeline_step_id ], unique: true,
               name: 'idx_step_executions_on_run_and_step'
 
     # ============================================
@@ -247,7 +247,7 @@ class CreateCiCdPipelineSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ci_cd_schedules, [:ci_cd_pipeline_id, :is_active]
+    add_index :ci_cd_schedules, [ :ci_cd_pipeline_id, :is_active ]
     add_index :ci_cd_schedules, :next_run_at, where: 'is_active = true'
 
     # ============================================
@@ -271,7 +271,7 @@ class CreateCiCdPipelineSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ci_cd_repositories, [:account_id, :full_name], unique: true
+    add_index :ci_cd_repositories, [ :account_id, :full_name ], unique: true
     add_index :ci_cd_repositories, :external_id
 
     # ============================================
@@ -286,7 +286,7 @@ class CreateCiCdPipelineSystem < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ci_cd_pipeline_repositories, [:ci_cd_pipeline_id, :ci_cd_repository_id], unique: true,
+    add_index :ci_cd_pipeline_repositories, [ :ci_cd_pipeline_id, :ci_cd_repository_id ], unique: true,
               name: 'idx_pipeline_repos_on_pipeline_and_repo'
   end
 end

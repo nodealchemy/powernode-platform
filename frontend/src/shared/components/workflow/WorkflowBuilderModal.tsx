@@ -83,14 +83,14 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
       setHasChanges(false);
       loadWorkflow();
     }
-  }, [isOpen, workflowId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, workflowId]);  
 
   const loadWorkflow = async () => {
     try {
       setLoading(true);
       const response = await workflowsApi.getWorkflow(workflowId);
       setWorkflow(response);
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -108,7 +108,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
   const [saveCount, setSaveCount] = useState(0);
 
   // Handle save from toolbar (combines data update + API save)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleToolbarSave = async (workflowData: { nodes: any[]; edges: any[]; configuration: Record<string, any> }) => {
     if (!workflow) return;
 
@@ -143,7 +143,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
       // Notify parent component of successful save without closing the modal
       onSuccess?.(response);
 
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Save Failed',
@@ -192,7 +192,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
         errors,
         warnings
       };
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Validation Error',

@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::A2aTasks', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['ai.agents.read']) }
-  let(:user_with_execute_permission) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.execute']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'ai.agents.read' ]) }
+  let(:user_with_execute_permission) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.execute' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
   describe 'GET /api/v1/ai/a2a/tasks' do
@@ -53,7 +53,7 @@ RSpec.describe 'Api::V1::Ai::A2aTasks', type: :request do
         data = json_response_data
 
         statuses = data['items'].map { |t| t['status'] }
-        expect(statuses.uniq).to eq(['completed'])
+        expect(statuses.uniq).to eq([ 'completed' ])
       end
 
       it 'filters by from_agent_id' do
@@ -184,7 +184,7 @@ RSpec.describe 'Api::V1::Ai::A2aTasks', type: :request do
           to_agent_card_id: to_agent_card.id,
           message: {
             role: 'user',
-            parts: [{ type: 'text', text: 'Process this' }]
+            parts: [ { type: 'text', text: 'Process this' } ]
           }
         }
 

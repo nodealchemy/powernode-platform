@@ -18,7 +18,7 @@ export const SystemOperationsTab: React.FC<SystemOperationsTabProps> = ({ health
       await maintenanceApi.flushCache();
       showNotification('Cache flushed successfully', 'success');
       onRefresh();
-    } catch (_error: unknown) {
+    } catch {
       showNotification('Failed to flush cache', 'error');
     } finally {
       setOperations(prev => ({ ...prev, flushingCache: false }));
@@ -31,7 +31,7 @@ export const SystemOperationsTab: React.FC<SystemOperationsTabProps> = ({ health
       const result = await maintenanceApi.optimizeDatabase();
       showNotification(`Database optimized. ${result.tables_optimized} tables optimized`, 'success');
       onRefresh();
-    } catch (_error: unknown) {
+    } catch {
       showNotification('Failed to optimize database', 'error');
     } finally {
       setOperations(prev => ({ ...prev, optimizingDb: false }));
@@ -44,7 +44,7 @@ export const SystemOperationsTab: React.FC<SystemOperationsTabProps> = ({ health
       await maintenanceApi.restartService(serviceName);
       showNotification(`${serviceName} service restarted successfully`, 'success');
       onRefresh();
-    } catch (_error: unknown) {
+    } catch {
       showNotification(`Failed to restart ${serviceName} service`, 'error');
     } finally {
       setOperations(prev => ({ ...prev, restartingService: false }));

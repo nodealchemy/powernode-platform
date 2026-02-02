@@ -34,7 +34,7 @@ class CreateSandboxTestingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_sandboxes, [:account_id, :name], unique: true
+    add_index :ai_sandboxes, [ :account_id, :name ], unique: true
     add_index :ai_sandboxes, :status
     add_index :ai_sandboxes, :sandbox_type
     add_index :ai_sandboxes, :expires_at
@@ -71,8 +71,8 @@ class CreateSandboxTestingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_test_scenarios, [:sandbox_id, :name], unique: true
-    add_index :ai_test_scenarios, [:account_id, :status]
+    add_index :ai_test_scenarios, [ :sandbox_id, :name ], unique: true
+    add_index :ai_test_scenarios, [ :account_id, :status ]
     add_index :ai_test_scenarios, :scenario_type
 
     # ==========================================================================
@@ -101,8 +101,8 @@ class CreateSandboxTestingTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_mock_responses, [:sandbox_id, :provider_type]
-    add_index :ai_mock_responses, [:sandbox_id, :is_active, :priority]
+    add_index :ai_mock_responses, [ :sandbox_id, :provider_type ]
+    add_index :ai_mock_responses, [ :sandbox_id, :is_active, :priority ]
     add_index :ai_mock_responses, :match_type
 
     # ==========================================================================
@@ -133,8 +133,8 @@ class CreateSandboxTestingTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_test_runs, :run_id, unique: true
-    add_index :ai_test_runs, [:account_id, :status]
-    add_index :ai_test_runs, [:sandbox_id, :created_at]
+    add_index :ai_test_runs, [ :account_id, :status ]
+    add_index :ai_test_runs, [ :sandbox_id, :created_at ]
     add_index :ai_test_runs, :run_type
 
     # ==========================================================================
@@ -162,8 +162,8 @@ class CreateSandboxTestingTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_test_results, :result_id, unique: true
-    add_index :ai_test_results, [:test_run_id, :status]
-    add_index :ai_test_results, [:scenario_id, :created_at]
+    add_index :ai_test_results, [ :test_run_id, :status ]
+    add_index :ai_test_results, [ :scenario_id, :created_at ]
 
     # ==========================================================================
     # RECORDED INTERACTIONS - Captured AI interactions for replay
@@ -190,7 +190,7 @@ class CreateSandboxTestingTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_recorded_interactions, :recording_id, unique: true
-    add_index :ai_recorded_interactions, [:sandbox_id, :recorded_at]
+    add_index :ai_recorded_interactions, [ :sandbox_id, :recorded_at ]
     add_index :ai_recorded_interactions, :interaction_type
 
     # ==========================================================================
@@ -220,7 +220,7 @@ class CreateSandboxTestingTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_performance_benchmarks, :benchmark_id, unique: true
-    add_index :ai_performance_benchmarks, [:account_id, :status]
+    add_index :ai_performance_benchmarks, [ :account_id, :status ]
 
     # ==========================================================================
     # A/B TEST CONFIGURATIONS - A/B testing infrastructure
@@ -249,8 +249,8 @@ class CreateSandboxTestingTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :ai_ab_tests, :test_id, unique: true
-    add_index :ai_ab_tests, [:account_id, :status]
-    add_index :ai_ab_tests, [:target_type, :target_id]
+    add_index :ai_ab_tests, [ :account_id, :status ]
+    add_index :ai_ab_tests, [ :target_type, :target_id ]
 
     # ==========================================================================
     # CONSTRAINTS

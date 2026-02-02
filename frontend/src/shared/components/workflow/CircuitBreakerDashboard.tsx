@@ -62,7 +62,7 @@ export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = (
       const response = await api.get('/ai/circuit_breakers');
       setCircuitBreakers(response.data.circuit_breakers || []);
       setHealthSummary(response.data.summary);
-    } catch (error) {
+    } catch {
       console.error('Failed to load circuit breakers:', error);
     } finally {
       setLoading(false);
@@ -78,7 +78,7 @@ export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = (
       setResetting(serviceName);
       await api.post(`/ai/circuit_breakers/${serviceName}/reset`);
       await loadCircuitBreakers();
-    } catch (error) {
+    } catch {
       console.error('Failed to reset circuit breaker:', error);
       addNotification({ type: 'error', message: 'Failed to reset circuit breaker' });
     } finally {

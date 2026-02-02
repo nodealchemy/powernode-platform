@@ -295,7 +295,7 @@ module Ai
       when "all"
         # Agent must have ALL required capabilities
         required_capabilities.each do |cap|
-          scope = scope.where("capabilities @> ?", [cap].to_json)
+          scope = scope.where("capabilities @> ?", [ cap ].to_json)
         end
       when "any"
         # Agent must have ANY required capability

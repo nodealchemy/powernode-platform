@@ -66,7 +66,7 @@ interface NodeDataWithHandles extends BaseWorkflowNodeData {
 
 export interface WorkflowBuilderProps {
   workflow?: AiWorkflow;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onSave: (workflowData: { nodes: any[]; edges: any[]; configuration: Record<string, any> }) => void;
   onValidate?: (nodes: Node[], edges: Edge[]) => Promise<{
     valid: boolean;
@@ -166,7 +166,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           setOperationsAgent(operationsAgentCandidate);
         }
         // No operations agent available - chat feature will be disabled
-      } catch (error) {
+      } catch {
         // Operations agent failed to load - chat feature will be disabled
       }
     };
@@ -276,8 +276,9 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
       if (workflow.nodes && workflow.edges) {
         // Check for duplicate node_ids in source data
         const nodeIds = workflow.nodes.map(n => n.node_id);
-        const _duplicateNodeIds = nodeIds.filter((id, index) => nodeIds.indexOf(id) !== index);
-        if (_duplicateNodeIds.length > 0) {
+        const duplicateNodeIds = nodeIds.filter((id, index) => nodeIds.indexOf(id) !== index);
+        if (duplicateNodeIds.length > 0) {
+          // Duplicate nodes detected - will be deduplicated below
         }
         // Track used IDs to prevent duplicates
         const usedNodeIds = new Set<string>();
@@ -422,7 +423,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     if (workflow && nodes.length > 0) {
       const nodesNeedingInitialization = nodes.filter(node => {
         // Only initialize flags for nodes that don't have them set yet
-        const hasFlags = node.data.hasOwnProperty('is_start_node') && node.data.hasOwnProperty('is_end_node');
+        const hasFlags = Object.hasOwn(node.data, 'is_start_node') && Object.hasOwn(node.data, 'is_end_node');
         return !hasFlags;
       });
 
@@ -430,7 +431,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         setNodes((currentNodes) =>
           currentNodes.map(node => {
             // Only set flags for nodes that need initialization
-            const needsInitialization = !node.data.hasOwnProperty('is_start_node') || !node.data.hasOwnProperty('is_end_node');
+            const needsInitialization = !Object.hasOwn(node.data, 'is_start_node') || !Object.hasOwn(node.data, 'is_end_node');
 
             if (needsInitialization) {
               const isStartNodeType = node.data.node_type === 'trigger' || node.data.node_type === 'start';
@@ -718,7 +719,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     }
 
     // Convert React Flow nodes/edges back to workflow format (using snake_case for backend)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const workflowNodes: any[] = nodes.map(node => {
       const isStartNode = Boolean(node.data.is_start_node || node.data.node_type === 'trigger' || node.data.node_type === 'start');
       const isEndNode = Boolean(node.data.is_end_node || node.data.node_type === 'end');
@@ -753,7 +754,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
       return savedNode;
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const workflowEdges: any[] = edges.map(edge => ({
       id: edge.id,
       edge_id: edge.id,
@@ -953,7 +954,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
             }, 100); // Wait for edges to render before fitting view
           }, 100); // Wait for nodes to mount before adding edges
         }, 50); // Wait for React Flow to process removal
-      } catch (error) {
+      } catch {
         // Error arranging nodes - layout will not be applied
       } finally {
         setIsArranging(false);

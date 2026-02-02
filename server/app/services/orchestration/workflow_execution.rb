@@ -342,7 +342,7 @@ module Orchestration
       return [] if visited.include?(current_node.id)
       visited.add(current_node.id)
 
-      path = [current_node]
+      path = [ current_node ]
       outgoing_edges = edges.select { |e| e.source_node_id == current_node.node_id }
 
       outgoing_edges.each do |edge|

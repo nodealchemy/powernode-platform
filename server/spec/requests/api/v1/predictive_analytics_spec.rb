@@ -3,7 +3,7 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1::PredictiveAnalytics", type: :request do
-  let(:user) { create(:user, permissions: ["analytics.read", "analytics.manage"]) }
+  let(:user) { create(:user, permissions: [ "analytics.read", "analytics.manage" ]) }
   let(:account) { user.account }
   let(:headers) { auth_headers_for(user) }
 
@@ -51,7 +51,7 @@ RSpec.describe "Api::V1::PredictiveAnalytics", type: :request do
 
       expect(response).to have_http_status(:ok)
       json_response["data"].each do |score|
-        expect(["at_risk", "critical"]).to include(score["health_status"])
+        expect([ "at_risk", "critical" ]).to include(score["health_status"])
       end
     end
 
@@ -112,7 +112,7 @@ RSpec.describe "Api::V1::PredictiveAnalytics", type: :request do
 
       expect(response).to have_http_status(:ok)
       json_response["data"].each do |prediction|
-        expect(["high", "critical"]).to include(prediction["risk_tier"])
+        expect([ "high", "critical" ]).to include(prediction["risk_tier"])
       end
     end
 
@@ -265,7 +265,7 @@ RSpec.describe "Api::V1::PredictiveAnalytics", type: :request do
         metric_name: "churn_rate",
         condition: "greater_than",
         threshold_value: 5,
-        notification_channels: ["email:admin@example.com"]
+        notification_channels: [ "email:admin@example.com" ]
       }
     end
 
@@ -285,7 +285,7 @@ RSpec.describe "Api::V1::PredictiveAnalytics", type: :request do
     it "returns error for invalid params" do
       allow(::Analytics::AlertService).to receive(:create_alert).and_return({
         success: false,
-        errors: ["Name can't be blank"]
+        errors: [ "Name can't be blank" ]
       })
 
       post "/api/v1/predictive-analytics/alerts", params: { name: "" }, headers: headers, as: :json

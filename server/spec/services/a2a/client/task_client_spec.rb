@@ -9,7 +9,7 @@ RSpec.describe A2a::Client::TaskClient do
                                                cached_card: {
                                                  "name" => "Test Agent",
                                                  "url" => "https://example.com/a2a",
-                                                 "authentication" => { "schemes" => ["bearer"] }
+                                                 "authentication" => { "schemes" => [ "bearer" ] }
                                                })
   end
   let(:client) { described_class.new(external_agent) }

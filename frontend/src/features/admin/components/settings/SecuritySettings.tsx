@@ -71,7 +71,7 @@ export const SecuritySettings: React.FC = () => {
     try {
       const response = await adminSettingsApi.getSecurityConfig();
       setConfig(response);
-    } catch (error) {
+    } catch {
       showNotification('Failed to load security configuration', 'error');
     } finally {
       setLoading(false);
@@ -87,7 +87,7 @@ export const SecuritySettings: React.FC = () => {
     try {
       const response = await adminSettingsApi.updateSecurityConfig(config);
       showNotification(response.message || 'Security configuration updated successfully', 'success');
-    } catch (error) {
+    } catch {
       showNotification('Failed to save security configuration', 'error');
     } finally {
       setSaving(false);
@@ -137,7 +137,7 @@ export const SecuritySettings: React.FC = () => {
       } else {
         showNotification(`Security test issues detected: ${response.details.join(', ')}`, 'warning');
       }
-    } catch (error) {
+    } catch {
       showNotification('Failed to test security configuration', 'error');
     } finally {
       setLoading(false);
