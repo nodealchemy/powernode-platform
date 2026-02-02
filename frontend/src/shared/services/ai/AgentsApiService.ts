@@ -228,6 +228,24 @@ class AgentsApiService extends BaseApiService {
     return this.get<any>(`${path}/statistics`);
   }
 
+  /**
+   * Get available agent capabilities (account-wide)
+   * GET /api/v1/ai/agents/capabilities
+   * Returns all unique capabilities from all agents, organized by category
+   */
+  async getCapabilities(): Promise<{
+    capabilities: string[];
+    categorized: Record<string, string[]>;
+    total_count: number;
+  }> {
+    const path = this.buildPath(this.resource);
+    return this.get<{
+      capabilities: string[];
+      categorized: Record<string, string[]>;
+      total_count: number;
+    }>(`${path}/capabilities`);
+  }
+
   // ===================================================================
   // Agent Executions - Nested Resource
   // ===================================================================

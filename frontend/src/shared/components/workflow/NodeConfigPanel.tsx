@@ -219,7 +219,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           name: 'Agent details unavailable',
           description: 'Failed to load agent details',
           agent_type: 'assistant',
-          ai_provider: { id: '', name: 'Unknown', slug: '', provider_type: '' },
+          provider: { id: '', name: 'Unknown', slug: '', provider_type: '' },
           mcp_tool_manifest: { name: '', description: '', type: '', version: '' },
           mcp_capabilities: [],
           mcp_input_schema: {},
@@ -351,8 +351,8 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
         ...config.configuration,
         agent_id: agentId,
         agent_name: selectedAgent.name,
-        model: selectedAgent.mcp_metadata?.model_config?.model || config.configuration.model,
-        provider: selectedAgent.ai_provider?.slug || config.configuration.provider
+        model: selectedAgent.model || config.configuration.model,
+        provider: selectedAgent.provider?.slug || config.configuration.provider
       };
       setConfig(prev => ({ ...prev, configuration: updatedConfig }));
       markAsChanged();

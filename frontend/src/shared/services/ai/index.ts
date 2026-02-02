@@ -56,6 +56,10 @@ import { sandboxApi } from './SandboxApiService';
 import { agentCardsApiService } from './AgentCardsApiService';
 import { a2aTasksApiService } from './A2aTasksApiService';
 import { memoryApiService } from './MemoryApiService';
+import { chatChannelsApi } from './ChatChannelsApiService';
+import { communityAgentsApi } from './CommunityAgentsApiService';
+import { containerExecutionApi } from './ContainerExecutionApiService';
+import { ralphLoopsApi } from './RalphLoopsApiService';
 
 export { BaseApiService } from './BaseApiService';
 export type {
@@ -408,6 +412,114 @@ export type {
   MemoryGraphEdge,
 } from './types/memory-types';
 
+// Re-export Chat Channels service (AI Agent Community Platform)
+export { chatChannelsApi };
+export type {
+  ChatPlatform,
+  ChannelStatus,
+  SessionStatus,
+  MessageDirection,
+  MessageType,
+  DeliveryStatus,
+  ChatChannel,
+  ChatChannelSummary,
+  CreateChannelRequest,
+  UpdateChannelRequest,
+  ChannelFilters,
+  ChatSession,
+  ChatSessionSummary,
+  SessionFilters,
+  ChatMessage,
+  ChatMessageSummary,
+  ChatMessageAttachment,
+  SendMessageRequest as ChatSendMessageRequest,
+  MessageFilters,
+  ChannelMetrics,
+  SessionStats,
+  PlatformInfo,
+} from './types/chat-types';
+
+// Re-export Community Agents service (AI Agent Community Platform)
+export { communityAgentsApi };
+export type {
+  AgentVisibility,
+  AgentStatus as CommunityAgentStatus,
+  PricingModel,
+  ReportReason,
+  ReportStatus,
+  CommunityAgent,
+  CommunityAgentSummary,
+  CreateCommunityAgentRequest,
+  UpdateCommunityAgentRequest,
+  CommunityAgentFilters,
+  CommunityAgentRating,
+  CreateRatingRequest,
+  CommunityAgentReport,
+  CreateReportRequest as CreateAgentReportRequest,
+  DiscoverAgentsRequest,
+  DiscoverAgentsResponse as CommunityDiscoverResponse,
+  FederationStatus,
+  TrustLevel,
+  FederationPartner,
+  FederationPartnerSummary,
+  CreateFederationPartnerRequest,
+  UpdateFederationPartnerRequest,
+  FederationPartnerFilters,
+  FederatedAgent,
+  VerifyFederationKeyResponse,
+} from './types/community-types';
+
+// Re-export Container Execution service (AI Agent Community Platform)
+export { containerExecutionApi };
+export type {
+  ContainerStatus,
+  TemplateVisibility,
+  TemplateStatus,
+  ContainerInstance,
+  ContainerInstanceSummary,
+  SecurityViolation,
+  ExecuteContainerRequest,
+  ContainerFilters,
+  ContainerTemplate,
+  ContainerTemplateSummary,
+  CreateContainerTemplateRequest,
+  UpdateContainerTemplateRequest,
+  TemplateFilters as ContainerTemplateFilters,
+  TemplateStats,
+  ResourceQuota,
+  QuotaStatus,
+  ResourceLimits,
+  QuotaResponse,
+  UpdateQuotaRequest,
+  UsageHistory,
+  OverageInfo,
+  ContainerStats,
+} from './types/container-types';
+
+// Re-export Ralph Loops service (Autonomous AI Agent Loops)
+export { ralphLoopsApi };
+export type {
+  RalphLoopStatus,
+  RalphTaskStatus,
+  RalphIterationStatus,
+  RalphAiTool,
+  PrdTask,
+  RalphLoop,
+  RalphLoopSummary,
+  RalphTask,
+  RalphTaskSummary,
+  RalphIteration,
+  RalphIterationSummary,
+  CreateRalphLoopRequest,
+  UpdateRalphLoopRequest,
+  RalphLoopFilters,
+  RalphTaskFilters,
+  RalphIterationFilters,
+  ParsePrdRequest,
+  RalphStatistics,
+  RalphProgress,
+} from './types/ralph-types';
+
 /**
  * Convenience object for accessing all API services
  */
@@ -441,6 +553,12 @@ export const aiApi = {
   agentCards: agentCardsApiService,
   a2aTasks: a2aTasksApiService,
   memory: memoryApiService,
+  // AI Agent Community Platform services
+  chatChannels: chatChannelsApi,
+  communityAgents: communityAgentsApi,
+  containerExecution: containerExecutionApi,
+  // Ralph Loops (Autonomous AI Agent Loops)
+  ralphLoops: ralphLoopsApi,
 } as const;
 
 export default aiApi;

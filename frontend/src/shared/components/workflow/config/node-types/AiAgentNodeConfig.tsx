@@ -49,7 +49,7 @@ export const AiAgentNodeConfig: React.FC<AiAgentNodeConfigProps> = ({
               : agents.map(agent => ({
                   value: agent.id,
                   label: agent.name,
-                  description: `${agent.agent_type} | Model: ${agent.mcp_metadata?.model_config?.model || 'Unknown'} | Provider: ${agent.ai_provider?.name || 'Unknown'}`
+                  description: `${agent.agent_type} | Model: ${agent.model || 'Unknown'} | Provider: ${agent.provider?.name || 'Unknown'}`
                 }))
           }
           placeholder={
@@ -81,13 +81,13 @@ export const AiAgentNodeConfig: React.FC<AiAgentNodeConfigProps> = ({
               <div>
                 <span className="text-theme-muted">Model:</span>
                 <span className="ml-1 text-theme-secondary font-mono">
-                  {selectedAgent.mcp_metadata?.model_config?.model || 'Not configured'}
+                  {selectedAgent.model || 'Not configured'}
                 </span>
               </div>
               <div>
                 <span className="text-theme-muted">Provider:</span>
                 <span className="ml-1 text-theme-secondary">
-                  {selectedAgent.ai_provider?.name || 'Not configured'}
+                  {selectedAgent.provider?.name || 'Not configured'}
                 </span>
               </div>
             </div>

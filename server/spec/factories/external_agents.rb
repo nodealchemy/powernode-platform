@@ -18,8 +18,10 @@ FactoryBot.define do
     trait :with_skills do
       skills do
         [
-          { "id" => "workflow.execute", "name" => "Execute Workflow", "description" => "Execute a workflow" },
-          { "id" => "data.transform", "name" => "Transform Data", "description" => "Transform data" }
+          { "id" => "code.review", "name" => "Code Review", "description" => "Review code for issues and improvements" },
+          { "id" => "data.transform", "name" => "Transform Data", "description" => "Transform data between formats" },
+          { "id" => "api.call", "name" => "API Call", "description" => "Make HTTP API requests" },
+          { "id" => "file.process", "name" => "Process Files", "description" => "Read, write, and process files" }
         ]
       end
     end
@@ -28,7 +30,9 @@ FactoryBot.define do
       capabilities do
         {
           "streaming" => true,
-          "pushNotifications" => true
+          "pushNotifications" => true,
+          "fileUpload" => true,
+          "batchProcessing" => true
         }
       end
     end

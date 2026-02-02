@@ -71,6 +71,13 @@ gem "marcel", "~> 1.0"
 gem "sys-filesystem", "~> 1.5"
 
 # ===================================================================
+# SECURITY & SECRET MANAGEMENT
+# ===================================================================
+
+# HashiCorp Vault client for secret management
+gem "vault", "~> 0.18"
+
+# ===================================================================
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]

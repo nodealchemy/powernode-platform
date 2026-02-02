@@ -101,6 +101,9 @@ class Account < ApplicationRecord
   has_many :ai_agent_cards, class_name: "Ai::AgentCard", dependent: :destroy
   has_many :ai_a2a_tasks, class_name: "Ai::A2aTask", dependent: :destroy
 
+  # AI Ralph Loops - Iterative development execution
+  has_many :ai_ralph_loops, class_name: "Ai::RalphLoop", dependent: :destroy
+
   # Marketplace subscriptions (replaces deprecated ai_workflow_template_installations)
   has_many :marketplace_subscriptions, class_name: "Marketplace::Subscription", dependent: :destroy
   has_many :workflow_template_subscriptions, -> { for_workflow_templates }, class_name: "Marketplace::Subscription"
@@ -183,6 +186,23 @@ class Account < ApplicationRecord
   has_many :supply_chain_attributions, class_name: "SupplyChain::Attribution", dependent: :destroy
   has_many :supply_chain_license_detections, class_name: "SupplyChain::LicenseDetection", dependent: :destroy
   has_many :supply_chain_build_provenances, class_name: "SupplyChain::BuildProvenance", dependent: :destroy
+
+  # Chat Gateway associations
+  has_many :chat_channels, class_name: "Chat::Channel", dependent: :destroy
+  has_many :chat_sessions, class_name: "Chat::Session", dependent: :destroy
+  has_many :chat_messages, class_name: "Chat::Message", dependent: :destroy
+  has_many :chat_blacklists, class_name: "Chat::Blacklist", dependent: :destroy
+
+  # MCP Container Orchestration associations
+  has_many :mcp_container_templates, class_name: "Mcp::ContainerTemplate", dependent: :destroy
+  has_many :mcp_container_instances, class_name: "Mcp::ContainerInstance", dependent: :destroy
+  has_many :mcp_secret_references, class_name: "Mcp::SecretReference", dependent: :destroy
+  has_one :mcp_resource_quota, class_name: "Mcp::ResourceQuota", dependent: :destroy
+
+  # Community and Federation associations
+  has_many :community_agents, class_name: "CommunityAgent", foreign_key: :owner_account_id, dependent: :destroy
+  has_many :federation_partners, class_name: "FederationPartner", dependent: :destroy
+  has_many :ai_dag_executions, class_name: "Ai::DagExecution", dependent: :destroy
 
   # Subscription-related associations
   has_many :invoices, through: :subscription

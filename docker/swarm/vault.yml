@@ -1,0 +1,114 @@
+# HashiCorp Vault Docker Swarm Deployment
+# Powernode AI Agent Community Platform
+#
+# Deploy with: docker stack deploy -c vault.yml powernode-vault
+#
+# Initial setup:
+# 1. Deploy the stack
+# 2. Initialize: docker exec <container> vault operator init -key-shares=5 -key-threshold=3
+# 3. Unseal: docker exec <container> vault operator unseal <key> (repeat 3 times)
+# 4. Configure: Run setup scripts to create policies and roles
+
+version: '3.8'
+
+services:
+  vault:
+    image: hashicorp/vault:1.18
+    hostname: vault
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: "http://127.0.0.1:8200"
+      VAULT_API_ADDR: "http://vault:8200"
+      VAULT_CLUSTER_ADDR: "https://vault:8201"
+      VAULT_LOG_LEVEL: "info"
+    volumes:
+      - vault-data:/vault/data
+      - vault-logs:/vault/logs
+      - ../../configs/vault:/vault/config:ro
+    command: server
+    networks:
+      - powernode-internal
+    ports:
+      - target: 8200
+        published: 8200
+        protocol: tcp
+        mode: host
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.vault == true
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+        order: stop-first
+      rollback_config:
+        parallelism: 1
+        delay: 30s
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.vault.rule=Host(`vault.powernode.internal`)"
+        - "traefik.http.routers.vault.tls=true"
+        - "traefik.http.services.vault.loadbalancer.server.port=8200"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Vault metrics exporter for Prometheus
+  vault-exporter:
+    image: grapeshot/vault_exporter:latest
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+    networks:
+      - powernode-internal
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.1'
+    depends_on:
+      - vault
+
+volumes:
+  vault-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/powernode/vault/data
+  vault-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/powernode/vault/logs
+
+networks:
+  powernode-internal:
+    external: true
+    name: powernode-internal

@@ -38,14 +38,14 @@ if admin_account && admin_user && claude_provider
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_capabilities = [
-      'strategic_planning',
-      'business_analysis',
-      'risk_assessment',
-      'scenario_planning',
-      'competitive_analysis',
-      'market_research',
-      'decision_support',
-      'long_term_planning'
+      'text_generation',
+      'document_analysis',
+      'data_extraction',
+      'summarization',
+      'report_writing',
+      'web_search',
+      'file_read',
+      'structured_output'
     ]
     agent.mcp_tool_manifest = {
       'name' => 'claude_strategic_planner',
@@ -129,14 +129,14 @@ if admin_account && admin_user && claude_provider
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_capabilities = [
-      'research_analysis',
-      'data_synthesis',
-      'report_generation',
-      'trend_analysis',
-      'comparative_analysis',
-      'literature_review',
-      'insights_extraction',
-      'evidence_evaluation'
+      'web_search',
+      'web_scraping',
+      'document_analysis',
+      'data_extraction',
+      'csv_processing',
+      'json_processing',
+      'summarization',
+      'citation_generation'
     ]
     agent.mcp_tool_manifest = {
       'name' => 'claude_research_analyst',
@@ -228,14 +228,14 @@ if admin_account && admin_user && claude_provider
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_capabilities = [
-      'content_creation',
-      'copywriting',
-      'storytelling',
-      'brand_voice',
-      'content_strategy',
-      'technical_writing',
-      'creative_writing',
-      'content_optimization'
+      'text_generation',
+      'markdown_formatting',
+      'html_generation',
+      'email_drafting',
+      'blog_writing',
+      'social_media_posts',
+      'seo_optimization',
+      'multilingual_translation'
     ]
     agent.mcp_tool_manifest = {
       'name' => 'claude_content_creator',

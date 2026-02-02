@@ -844,9 +844,17 @@ module Api
         end
 
         def find_default_credential
+          # First try to find the default credential
           credential = current_user.account.ai_provider_credentials
                                   .includes(:provider)
                                   .find_by(provider: @provider, is_default: true, is_active: true)
+
+          # Fall back to any active credential if no default exists
+          credential ||= current_user.account.ai_provider_credentials
+                                     .includes(:provider)
+                                     .where(provider: @provider, is_active: true)
+                                     .order(created_at: :asc)
+                                     .first
 
           unless credential
             render_error("No active credentials found for this provider", status: :not_found)

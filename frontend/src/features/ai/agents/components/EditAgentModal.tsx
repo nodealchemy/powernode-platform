@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Brain, Sparkles, BarChart3, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Brain, Sparkles, BarChart3, Trash2, Plus, X, Loader2 } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/forms/FormField';
 import { SelectField } from '@/shared/components/forms/SelectField';
 import { TextAreaField } from '@/shared/components/forms/TextAreaField';
 import { Badge } from '@/shared/components/ui/Badge';
+import { Input } from '@/shared/components/ui/Input';
 import { useForm } from '@/shared/hooks/useForm';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { agentsApi, providersApi } from '@/shared/services/ai';
@@ -29,6 +30,7 @@ interface EditAgentFormData {
   max_tokens: number;
   system_prompt: string;
   is_active: boolean;
+  mcp_capabilities: string[];
 }
 
 const AGENT_TYPES = [
@@ -54,19 +56,27 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
   const [, setLoadingStats] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Track if provider was manually changed by user (vs initial load)
+  const [previousProviderId, setPreviousProviderId] = useState<string | null>(null);
+  // Capabilities management
+  const [availableCapabilities, setAvailableCapabilities] = useState<Record<string, string[]>>({});
+  const [loadingCapabilities, setLoadingCapabilities] = useState(true);
+  const [newCapability, setNewCapability] = useState('');
   const { addNotification } = useNotifications();
 
   const form = useForm<EditAgentFormData>({
     initialValues: {
-      ai_provider_id: agent?.ai_provider.id || '',
+      ai_provider_id: agent?.provider?.id || '',
       name: agent?.name || '',
       description: agent?.description || '',
       agent_type: agent?.agent_type || 'assistant',
-      model: agent?.mcp_tool_manifest?.configuration?.model || agent?.mcp_metadata?.model_config?.model || '',
-      temperature: agent?.mcp_tool_manifest?.configuration?.temperature || agent?.mcp_metadata?.model_config?.temperature || 0.7,
-      max_tokens: agent?.mcp_tool_manifest?.configuration?.max_tokens || agent?.mcp_metadata?.model_config?.max_tokens || 2048,
-      system_prompt: agent?.mcp_tool_manifest?.configuration?.system_prompt || agent?.mcp_metadata?.model_config?.system_prompt || '',
-      is_active: agent?.status === 'active'
+      // Model config - single source of truth from backend accessors
+      model: agent?.model || '',
+      temperature: agent?.temperature ?? 0.7,
+      max_tokens: agent?.max_tokens ?? 2048,
+      system_prompt: agent?.system_prompt || '',
+      is_active: agent?.status === 'active',
+      mcp_capabilities: agent?.mcp_capabilities || []
     },
     validationRules: {
       ai_provider_id: { required: true },
@@ -99,30 +109,19 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
     onSubmit: async (values) => {
       if (!agent) return;
 
-      const modelConfig = {
-        model: values.model,
-        temperature: values.temperature,
-        max_tokens: values.max_tokens,
-        system_prompt: values.system_prompt || undefined
-      };
-
+      // Single source of truth - model config fields go directly to backend
       const updateData = {
         ai_provider_id: values.ai_provider_id,
         name: values.name,
         description: values.description || undefined,
         agent_type: values.agent_type as AiAgent['agent_type'],
-        // Save to both locations for consistency
-        mcp_metadata: {
-          model_config: modelConfig
-        },
-        mcp_tool_manifest: {
-          ...agent.mcp_tool_manifest,
-          configuration: {
-            ...agent.mcp_tool_manifest?.configuration,
-            ...modelConfig
-          }
-        },
-        status: values.is_active ? 'active' : 'inactive'
+        // Model config - backend handles storage via accessors
+        model: values.model,
+        temperature: values.temperature,
+        max_tokens: values.max_tokens,
+        system_prompt: values.system_prompt || undefined,
+        status: values.is_active ? 'active' : 'inactive',
+        mcp_capabilities: values.mcp_capabilities
       };
 
       const updatedAgent = await agentsApi.updateAgent(agent.id, updateData);
@@ -138,51 +137,102 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
   // Reset form when agent changes
   useEffect(() => {
     if (agent && isOpen) {
-      form.setValue('ai_provider_id', agent.ai_provider.id);
+      // Reset provider tracking so initial load doesn't trigger model reset
+      setPreviousProviderId(null);
+      form.setValue('ai_provider_id', agent.provider?.id || '');
       form.setValue('name', agent.name);
       form.setValue('description', agent.description || '');
       form.setValue('agent_type', agent.agent_type);
-      form.setValue('model', agent.mcp_tool_manifest?.configuration?.model || agent.mcp_metadata?.model_config?.model || '');
-      form.setValue('temperature', agent.mcp_tool_manifest?.configuration?.temperature || agent.mcp_metadata?.model_config?.temperature || 0.7);
-      form.setValue('max_tokens', agent.mcp_tool_manifest?.configuration?.max_tokens || agent.mcp_metadata?.model_config?.max_tokens || 2048);
-      form.setValue('system_prompt', agent.mcp_tool_manifest?.configuration?.system_prompt || agent.mcp_metadata?.model_config?.system_prompt || '');
+      // Model config - single source of truth from backend accessors
+      form.setValue('model', agent.model || '');
+      form.setValue('temperature', agent.temperature ?? 0.7);
+      form.setValue('max_tokens', agent.max_tokens ?? 2048);
+      form.setValue('system_prompt', agent.system_prompt || '');
       form.setValue('is_active', agent.status === 'active');
+      form.setValue('mcp_capabilities', agent.mcp_capabilities || []);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Only sync form when agent data changes
   }, [agent, isOpen]);
 
-  // Load providers and stats on mount
+  // Load providers, stats, and capabilities on mount
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when modal opens
   useEffect(() => {
     if (isOpen && agent) {
       loadProviders();
       loadAgentStats();
+      loadCapabilities();
     }
   }, [isOpen, agent]);
 
-  // Update selected provider when provider changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Only react to provider selection and list changes
+  const loadCapabilities = async () => {
+    setLoadingCapabilities(true);
+    try {
+      const response = await agentsApi.getCapabilities();
+      setAvailableCapabilities(response.categorized || {});
+    } catch {
+      setAvailableCapabilities({});
+    } finally {
+      setLoadingCapabilities(false);
+    }
+  };
+
+  const handleAddCapability = useCallback(() => {
+    const cap = newCapability.trim().toLowerCase();
+    if (cap && !form.values.mcp_capabilities.includes(cap)) {
+      form.setValue('mcp_capabilities', [...form.values.mcp_capabilities, cap]);
+      setNewCapability('');
+    }
+  }, [newCapability, form]);
+
+  const handleRemoveCapability = useCallback((cap: string) => {
+    form.setValue('mcp_capabilities', form.values.mcp_capabilities.filter(c => c !== cap));
+  }, [form]);
+
+  const handleToggleCapability = useCallback((cap: string, checked: boolean) => {
+    if (checked) {
+      if (!form.values.mcp_capabilities.includes(cap)) {
+        form.setValue('mcp_capabilities', [...form.values.mcp_capabilities, cap]);
+      }
+    } else {
+      form.setValue('mcp_capabilities', form.values.mcp_capabilities.filter(c => c !== cap));
+    }
+  }, [form]);
+
+  // Fetch provider details when provider changes (to get supported_models)
   useEffect(() => {
-    if (form.values.ai_provider_id && providers.length > 0) {
-      const provider = providers.find(p => p.id === form.values.ai_provider_id);
+    const fetchProviderDetails = async () => {
+      if (!form.values.ai_provider_id) {
+        setSelectedProvider(null);
+        return;
+      }
 
-      if (provider) {
-        setSelectedProvider(provider);
+      try {
+        // Fetch full provider details which includes supported_models
+        const providerDetail = await providersApi.getProvider(form.values.ai_provider_id);
+        setSelectedProvider(providerDetail);
 
-        // Reset model selection when provider changes if current model not supported
-        if (provider.supported_models && Array.isArray(provider.supported_models) && provider.supported_models.length > 0) {
-          const modelExists = provider.supported_models.some(model => model.id === form.values.model);
-          if (!modelExists && form.values.model) {
+        // Only reset model if user manually changed the provider (not on initial load)
+        const isProviderChange = previousProviderId !== null && previousProviderId !== form.values.ai_provider_id;
+        if (isProviderChange && providerDetail.supported_models?.length > 0) {
+          const modelInList = providerDetail.supported_models.some((model: { id: string; name: string }) =>
+            model.id === form.values.model || model.name === form.values.model
+          );
+          if (!modelInList) {
             form.setValue('model', '');
           }
         }
-      } else {
-        setSelectedProvider(null);
+
+        setPreviousProviderId(form.values.ai_provider_id);
+      } catch (error) {
+        // Fall back to provider from list if detail fetch fails
+        const provider = providers.find(p => p.id === form.values.ai_provider_id);
+        setSelectedProvider(provider || null);
       }
-    } else {
-      setSelectedProvider(null);
-    }
-  }, [form.values.ai_provider_id, providers]);
+    };
+
+    fetchProviderDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only react to provider selection
+  }, [form.values.ai_provider_id]);
 
   const loadProviders = async () => {
     try {
@@ -512,6 +562,102 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
               showCharacterCount
               helpText="Instructions that define the agent's behavior and personality"
             />
+          </div>
+
+          {/* Capabilities Management */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-theme-primary border-b border-theme pb-2">
+              Agent Capabilities
+            </h4>
+
+            {/* Selected capabilities display */}
+            {form.values.mcp_capabilities.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {form.values.mcp_capabilities.map((cap) => (
+                  <Badge
+                    key={cap}
+                    variant="info"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    {cap}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCapability(cap)}
+                      className="ml-1 hover:text-theme-status-error"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Capability selection by category */}
+            {loadingCapabilities ? (
+              <div className="flex items-center justify-center gap-2 py-8 border border-theme rounded-lg bg-theme-surface">
+                <Loader2 className="w-4 h-4 animate-spin text-theme-secondary" />
+                <span className="text-sm text-theme-secondary">Loading capabilities...</span>
+              </div>
+            ) : Object.keys(availableCapabilities).length > 0 ? (
+              <div className="max-h-48 overflow-y-auto border border-theme rounded-lg bg-theme-surface">
+                {Object.entries(availableCapabilities).map(([category, caps]) => (
+                  <div key={category} className="border-b border-theme last:border-b-0">
+                    <div className="px-3 py-2 bg-theme-surface-hover text-xs font-semibold text-theme-secondary uppercase tracking-wider">
+                      {category}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-1 p-2">
+                      {caps.map((cap) => (
+                        <label
+                          key={cap}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-theme-surface-hover p-1.5 rounded text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={form.values.mcp_capabilities.includes(cap)}
+                            onChange={(e) => handleToggleCapability(cap, e.target.checked)}
+                            className="w-4 h-4 rounded border-theme text-theme-brand focus:ring-theme-brand"
+                          />
+                          <span className="text-theme-primary truncate" title={cap}>
+                            {cap.replace(/_/g, ' ')}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-4 px-3 border border-theme rounded-lg bg-theme-surface text-center">
+                <p className="text-sm text-theme-secondary">
+                  No capabilities found. Add custom capabilities below.
+                </p>
+              </div>
+            )}
+
+            {/* Custom capability input */}
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Add custom capability..."
+                value={newCapability}
+                onChange={(e) => setNewCapability(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCapability())}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddCapability}
+                disabled={!newCapability.trim()}
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-theme-secondary">
+              Capabilities define what this agent can do and are used for task matching in Ralph Loops
+            </p>
           </div>
 
           {/* Status Toggle */}

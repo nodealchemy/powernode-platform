@@ -178,9 +178,10 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
       setLoading(true);
 
       // Check provider availability before creating conversation
-      if (agent.ai_provider) {
+      const agentProvider = agent.provider;
+      if (agentProvider) {
         try {
-          const availabilityCheck = await providersApi.checkAvailability(agent.ai_provider.id);
+          const availabilityCheck = await providersApi.checkAvailability(agentProvider.id);
           if (!availabilityCheck.availability.available) {
             setIsInitializing(false);
             setInitializationFailed(true);

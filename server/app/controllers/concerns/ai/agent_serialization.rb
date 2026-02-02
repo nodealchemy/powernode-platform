@@ -43,6 +43,12 @@ module Ai
         last_executed_at: agent.last_executed_at&.iso8601,
         created_by: serialize_agent_user(agent.creator),
         provider: agent.provider ? serialize_agent_provider(agent.provider) : nil,
+        # Model config - single source of truth via accessors
+        model: agent.model,
+        temperature: agent.temperature,
+        max_tokens: agent.max_tokens,
+        system_prompt: agent.system_prompt,
+        # Legacy fields for backwards compatibility
         mcp_tool_manifest: agent.mcp_tool_manifest,
         mcp_input_schema: agent.mcp_input_schema,
         mcp_output_schema: agent.mcp_output_schema,
@@ -55,6 +61,7 @@ module Ai
       executions = agent.executions
       serialize_agent(agent).merge(
         metadata: agent.metadata,
+        model_config: agent.model_config,
         detailed_stats: build_detailed_stats(executions)
       )
     end

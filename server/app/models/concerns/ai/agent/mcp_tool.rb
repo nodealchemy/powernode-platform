@@ -46,6 +46,56 @@ module Ai
         mcp_capabilities.include?(capability.to_s)
       end
 
+      # =============================================================================
+      # MODEL CONFIGURATION - Single Source of Truth
+      # =============================================================================
+      # The canonical location for model config is mcp_metadata.model_config
+      # These accessors provide a clean interface for reading/writing model settings
+
+      def model
+        mcp_metadata&.dig("model_config", "model")
+      end
+
+      def model=(value)
+        self.mcp_metadata ||= {}
+        self.mcp_metadata["model_config"] ||= {}
+        self.mcp_metadata["model_config"]["model"] = value
+      end
+
+      def temperature
+        mcp_metadata&.dig("model_config", "temperature") || 0.7
+      end
+
+      def temperature=(value)
+        self.mcp_metadata ||= {}
+        self.mcp_metadata["model_config"] ||= {}
+        self.mcp_metadata["model_config"]["temperature"] = value
+      end
+
+      def max_tokens
+        mcp_metadata&.dig("model_config", "max_tokens") || 2048
+      end
+
+      def max_tokens=(value)
+        self.mcp_metadata ||= {}
+        self.mcp_metadata["model_config"] ||= {}
+        self.mcp_metadata["model_config"]["max_tokens"] = value
+      end
+
+      def system_prompt
+        mcp_metadata&.dig("model_config", "system_prompt")
+      end
+
+      def system_prompt=(value)
+        self.mcp_metadata ||= {}
+        self.mcp_metadata["model_config"] ||= {}
+        self.mcp_metadata["model_config"]["system_prompt"] = value
+      end
+
+      def model_config
+        mcp_metadata&.dig("model_config") || {}
+      end
+
       # Get agent performance metrics via MCP telemetry
       def mcp_performance_metrics
         telemetry = Mcp::TelemetryService.new(account: account)

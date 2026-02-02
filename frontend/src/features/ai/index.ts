@@ -19,12 +19,38 @@ export * from './roi';
 // Publisher/marketplace
 export * from './publisher';
 
+// A2A tasks
+export * from './a2a-tasks';
+
+// Agent cards
+export * from './agent-cards';
+
+// Agent memory
+export * from './agent-memory';
+
+// Chat channels (AI Agent Community Platform)
+export * from './chat-channels';
+
+// Community agents (AI Agent Community Platform)
+export * from './community-agents';
+
+// Container execution (AI Agent Community Platform)
+export * from './containers';
+
+// Ralph Loops (Autonomous AI Agent Loops)
+export * from './ralph-loops';
+
+// Debugging/tracing
+export * from './debugging';
+
+// Monitoring
+export * from './monitoring';
+
 // Note: The following submodules have complex internal structures
 // and are typically imported directly from their subdirectories:
 // - agents: AI agent management
 // - agent-teams: Multi-agent team orchestration
 // - conversations: AI conversation interfaces
-// - monitoring: Real-time monitoring dashboards
 // - orchestration: Workflow orchestration services
 // - providers: AI provider configurations
 // - workflows: Workflow builder and execution

@@ -87,12 +87,18 @@ export interface AiAgent {
   name: string;
   description: string;
   agent_type: 'assistant' | 'code_assistant' | 'data_analyst' | 'content_generator' | 'image_generator' | 'workflow_optimizer';
-  ai_provider: {
+  // Provider info
+  provider?: {
     id: string;
     name: string;
     slug: string;
     provider_type: string;
   };
+  // Model config - single source of truth (from backend accessors)
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+  system_prompt?: string;
   // MCP Architecture fields
   mcp_tool_manifest: {
     name: string;

@@ -424,20 +424,47 @@ class Ai::ProviderClientService
 
   # Ollama chat message implementation
   def ollama_send_message(messages, model, **options)
-    url = "/api/chat"
-
     body = {
       model: model,
       messages: messages.map { |m| { role: m[:role] || m["role"], content: m[:content] || m["content"] } },
       stream: options[:stream] || false
     }
 
-    # Ollama uses different base URI
-    base_url = credentials_data["base_url"] || "http://localhost:11434"
-    full_url = "#{base_url}#{url}"
+    full_url = build_ollama_url("/api/chat")
+    request_headers = build_ollama_headers
 
-    response = HTTParty.post(full_url, headers: @headers, body: body.to_json)
+    response = HTTParty.post(full_url, headers: request_headers, body: body.to_json, timeout: 120)
     handle_ollama_chat_response(response)
+  end
+
+  # Build Ollama URL handling both standard Ollama and Open WebUI
+  def build_ollama_url(endpoint)
+    base_url = (credentials_data["base_url"] || provider.api_base_url || "http://localhost:11434").to_s.chomp("/")
+
+    # Handle Open WebUI which uses /ollama/api/... structure
+    if base_url.end_with?("/ollama")
+      "#{base_url}#{endpoint}"
+    elsif base_url.include?("webui") || base_url.include?("openwebui")
+      # Auto-detect Open WebUI and add /ollama prefix
+      "#{base_url}/ollama#{endpoint}"
+    else
+      # Standard Ollama
+      "#{base_url}#{endpoint}"
+    end
+  end
+
+  # Build headers for Ollama requests (including auth for Open WebUI)
+  def build_ollama_headers
+    headers = {
+      "Content-Type" => "application/json",
+      "User-Agent" => "Powernode-AI/1.0"
+    }
+
+    # Add auth for Open WebUI
+    api_key = credentials_data["api_key"]
+    headers["Authorization"] = "Bearer #{api_key}" if api_key.present?
+
+    headers
   end
 
   # Handle chat response from API
@@ -662,19 +689,16 @@ class Ai::ProviderClientService
 
   # Ollama implementations
   def ollama_generate_text(prompt, model, **options)
-    url = "/api/generate"
-
     body = {
       model: model,
       prompt: prompt,
       stream: false
     }
 
-    # Ollama uses different base URI
-    base_url = credentials_data["base_url"] || "http://localhost:11434"
-    full_url = "#{base_url}#{url}"
+    full_url = build_ollama_url("/api/generate")
+    request_headers = build_ollama_headers
 
-    response = HTTParty.post(full_url, headers: @headers, body: body.to_json)
+    response = HTTParty.post(full_url, headers: request_headers, body: body.to_json, timeout: 120)
 
     # Handle Ollama-specific response format
     if response.code == 200
@@ -711,7 +735,6 @@ class Ai::ProviderClientService
   end
 
   def ollama_stream_text(prompt, model, **options, &block)
-    url = "/api/chat"
     messages = options[:messages] || [ { role: "user", content: prompt } ]
 
     body = {
@@ -720,11 +743,8 @@ class Ai::ProviderClientService
       stream: true
     }
 
-    # Ollama uses different base URI
-    base_url = credentials_data["base_url"] || "http://localhost:11434"
-    full_url = "#{base_url}#{url}"
-
-    stream_response_with_ndjson(full_url, body, &block)
+    full_url = build_ollama_url("/api/chat")
+    stream_response_with_ndjson(full_url, body, build_ollama_headers, &block)
   end
 
   # Stability AI implementations
@@ -1025,7 +1045,7 @@ class Ai::ProviderClientService
   # @param url [String] Full URL to send request to
   # @param body [Hash] Request body
   # @yieldparam chunk [Hash] Parsed chunk with :type, :content, :done
-  def stream_response_with_ndjson(url, body, &block)
+  def stream_response_with_ndjson(url, body, headers = {}, &block)
     raise ArgumentError, "Block required for streaming" unless block_given?
 
     require "net/http"
@@ -1039,6 +1059,7 @@ class Ai::ProviderClientService
 
     request = Net::HTTP::Post.new(uri.request_uri)
     request["Content-Type"] = "application/json"
+    headers.each { |k, v| request[k] = v }
     request.body = body.to_json
 
     accumulated_content = ""

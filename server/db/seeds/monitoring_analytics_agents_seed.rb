@@ -27,14 +27,14 @@ if admin_account && admin_user && provider
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_capabilities = [
-      'performance_monitoring',
-      'resource_tracking',
-      'execution_analytics',
-      'bottleneck_detection',
-      'real_time_alerting',
+      'http_requests',
+      'database_queries',
+      'log_analysis',
       'metric_collection',
-      'threshold_management',
-      'performance_reporting'
+      'alerting',
+      'slack_notifications',
+      'email_notifications',
+      'json_processing'
     ]
     agent.mcp_tool_manifest = {
       'name' => 'workflow_performance_monitor',
@@ -114,14 +114,14 @@ if admin_account && admin_user && provider
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_capabilities = [
-      'advanced_analytics',
-      'predictive_modeling',
-      'trend_analysis',
-      'pattern_recognition',
-      'data_visualization',
-      'statistical_analysis',
-      'business_intelligence',
-      'forecast_generation'
+      'database_queries',
+      'sql_execution',
+      'csv_processing',
+      'chart_generation',
+      'data_aggregation',
+      'report_generation',
+      'spreadsheet_export',
+      'scheduled_tasks'
     ]
     agent.mcp_tool_manifest = {
       'name' => 'workflow_analytics_intelligence',
@@ -207,14 +207,14 @@ if admin_account && admin_user && provider
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_capabilities = [
-      'system_monitoring',
-      'health_checks',
-      'service_discovery',
-      'availability_tracking',
-      'incident_detection',
-      'recovery_coordination',
-      'uptime_monitoring',
-      'dependency_tracking'
+      'http_health_checks',
+      'tcp_port_checks',
+      'dns_resolution',
+      'ssl_certificate_check',
+      'docker_status',
+      'kubernetes_api',
+      'pagerduty_integration',
+      'webhook_triggers'
     ]
     agent.mcp_tool_manifest = {
       'name' => 'system_health_monitor',
@@ -309,14 +309,14 @@ if admin_account && admin_user && provider
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_capabilities = [
-      'quality_monitoring',
+      'test_execution',
+      'api_testing',
+      'json_schema_validation',
       'data_validation',
-      'compliance_checking',
-      'test_automation',
-      'regression_detection',
-      'quality_scoring',
-      'audit_trail_monitoring',
-      'standards_enforcement'
+      'screenshot_capture',
+      'diff_comparison',
+      'git_operations',
+      'devops_triggers'
     ]
     agent.mcp_tool_manifest = {
       'name' => 'workflow_quality_assurance',

@@ -6,7 +6,8 @@ import {
   HardDrive, Workflow, Server, GitBranch, FolderGit2,
   Puzzle, BookOpen, UserCog, Key, Shield, FileCode,
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
-  FlaskConical, ShoppingBag, Boxes
+  FlaskConical, ShoppingBag, Boxes, RotateCcw, MessagesSquare,
+  Globe, Container
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -130,13 +131,49 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 5
         },
         {
+          id: 'ai-ralph-loops',
+          name: 'Ralph Loops',
+          href: '/app/ai/ralph-loops',
+          icon: RotateCcw,
+          description: 'Autonomous AI agent loops for iterative task execution',
+          permissions: ['ai.agents.read'],
+          order: 6
+        },
+        {
+          id: 'ai-chat-channels',
+          name: 'Chat Channels',
+          href: '/app/ai/chat-channels',
+          icon: MessagesSquare,
+          description: 'Multi-platform chat gateway (WhatsApp, Telegram, Discord, Slack)',
+          permissions: ['ai.agents.read'],
+          order: 7
+        },
+        {
+          id: 'ai-community',
+          name: 'Community Agents',
+          href: '/app/ai/community',
+          icon: Globe,
+          description: 'Public agent registry and federation partners',
+          permissions: ['ai.agents.read'],
+          order: 8
+        },
+        {
+          id: 'ai-containers',
+          name: 'Containers',
+          href: '/app/ai/containers',
+          icon: Container,
+          description: 'Sandboxed container execution and resource quotas',
+          permissions: ['ai.agents.read'],
+          order: 9
+        },
+        {
           id: 'ai-conversations',
           name: 'Conversations',
           href: '/app/ai/conversations',
           icon: MessageSquare,
           description: 'AI-powered conversations',
           permissions: ['ai.conversations.read'],
-          order: 4
+          order: 10
         },
         {
           id: 'ai-workflows',

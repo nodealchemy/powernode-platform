@@ -574,6 +574,8 @@ GEM
     useragent (0.16.11)
     uuid7 (0.2.0)
       zeitwerk (~> 2.4)
+    vault (0.18.2)
+      aws-sigv4
     vcr (6.4.0)
     webmock (3.26.1)
       addressable (>= 2.8.0)
@@ -659,6 +661,7 @@ DEPENDENCIES
   thruster
   tzinfo-data
   uuid7 (~> 0.2.0)
+  vault (~> 0.18)
   vcr (~> 6.3)
   webmock (~> 3.25)
 

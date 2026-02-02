@@ -386,6 +386,16 @@ Rails.application.routes.draw do
           post :health_report
           post :reactivate_suspended_accounts
         end
+
+        # Container execution callbacks for Gitea workflow
+        scope "container_executions/:execution_id" do
+          post :complete, to: "container_executions#complete"
+          post :status, to: "container_executions#status"
+          post :logs, to: "container_executions#logs"
+          post :resource_usage, to: "container_executions#resource_usage"
+          post :security_violation, to: "container_executions#security_violation"
+          get "/", to: "container_executions#show"
+        end
       end
 
       # Authentication and registration endpoints
@@ -453,6 +463,52 @@ Rails.application.routes.draw do
           get :status
           post :regenerate_backup_codes
           get :backup_codes
+        end
+      end
+
+      # ===================================================================
+      # CHAT GATEWAY - Multi-platform chat integration
+      # ===================================================================
+      # Connects external chat platforms (Telegram, Discord, Slack, etc.)
+      # to AI agents via A2A protocol
+      # ===================================================================
+
+      namespace :chat do
+        # Webhook endpoints (public, token-authenticated)
+        scope :webhooks do
+          post ":token", to: "webhooks#receive", as: :webhook_receive
+          get ":token/verify", to: "webhooks#verify", as: :webhook_verify
+        end
+
+        # Channel management
+        resources :channels do
+          member do
+            post :connect
+            post :disconnect
+            post :test
+            post :regenerate_token
+            get :sessions
+            get :metrics
+          end
+
+          collection do
+            get :platforms
+          end
+        end
+
+        # Session management
+        resources :sessions do
+          member do
+            post :transfer
+            post :close
+            get :messages
+            post :messages, action: :send_message
+          end
+
+          collection do
+            get :active
+            get :stats
+          end
         end
       end
 
@@ -1597,6 +1653,7 @@ Rails.application.routes.draw do
             get :public_agents
             get :agent_types
             get :statistics
+            get :capabilities
           end
 
           # Nested executions (replaces ai_agent_executions)
@@ -2071,6 +2128,95 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # RALPH LOOPS - AI-Driven Iterative Development
+        # ===================================================================
+        # Implements the Ralph pattern for AI-assisted development:
+        # Parse PRD -> Execute Tasks -> Learn -> Iterate until completion
+        # Supports multiple AI tools (AMP, Claude Code)
+        # ===================================================================
+        resources :ralph_loops do
+          member do
+            post :start
+            post :pause
+            post :resume
+            post :cancel
+            post :run_iteration
+            post :parse_prd
+            get :learnings
+            get :progress
+            # Scheduling actions
+            post :pause_schedule
+            post :resume_schedule
+            post :regenerate_webhook_token
+            # Nested tasks (inside member to use :id param)
+            get :tasks
+            get "tasks/:task_id", action: :task, as: :task
+            patch "tasks/:task_id", action: :update_task, as: :update_task
+            # Nested iterations (inside member to use :id param)
+            get :iterations
+            get "iterations/:iteration_id", action: :iteration, as: :iteration
+          end
+
+          collection do
+            get :statistics
+          end
+        end
+
+        # Event-triggered Ralph Loop webhook endpoint
+        # POST /api/v1/ai/ralph_loops/webhook/:token - Trigger loop execution
+        # GET /api/v1/ai/ralph_loops/webhook/:token/status - Get loop status
+        scope "ralph_loops/webhook/:token", controller: "ralph_loop_webhooks" do
+          post "/", action: :trigger
+          get "/status", action: :status
+        end
+
+        # ===================================================================
+        # COMMUNITY AGENTS - Public agent registry and discovery
+        # ===================================================================
+        # Enables publishing, discovering, and rating AI agents across
+        # organizations. Federation support for cross-org agent sharing.
+        # ===================================================================
+        scope :community, as: :community do
+          resources :agents, controller: "community_agents" do
+            member do
+              post :publish
+              post :unpublish
+              post :rate
+              post :report
+            end
+
+            collection do
+              get :my_agents
+              get :categories
+              get :skills
+              post :discover
+            end
+          end
+        end
+
+        # ===================================================================
+        # FEDERATION - Cross-organization agent sharing
+        # ===================================================================
+        # Enables trusted organizations to share agents via mTLS and
+        # JWT-based authentication. Federation partners can discover
+        # and invoke each other's agents.
+        # ===================================================================
+        scope :federation, as: :federation do
+          resources :partners, controller: "federation" do
+            member do
+              post :verify
+              get :agents
+              post :sync
+            end
+          end
+
+          # External registration endpoints
+          post :register, to: "federation#register_external"
+          post :verify_key, to: "federation#verify_key"
+          get :discover, to: "federation#discover"
+        end
+
+        # ===================================================================
         # 12. MODEL ROUTER CONTROLLER - Intelligent AI Request Routing
         # ===================================================================
         # Routes AI requests to optimal providers based on cost, latency, quality
@@ -2456,6 +2602,71 @@ Rails.application.routes.draw do
 
           # Subscriptions
           get "subscriptions", action: :subscriptions
+        end
+
+        # ===================================================================
+        # CONTAINER ORCHESTRATION - AI Agent Execution
+        # ===================================================================
+        # Execute AI agents in sandboxed containers via Gitea runners.
+        # Integrates with HashiCorp Vault for secret injection.
+        # ===================================================================
+
+        # Container execution
+        resources :containers, controller: "containers" do
+          member do
+            post :cancel
+            get :logs
+            get :artifacts
+          end
+
+          collection do
+            post :execute
+            get :active
+            get :stats
+          end
+        end
+
+        # Container templates
+        resources :templates, controller: "templates" do
+          member do
+            post :publish
+            post :unpublish
+            get :executions
+            get :stats
+          end
+
+          collection do
+            get :categories
+            get :featured
+          end
+        end
+
+        # Resource quotas
+        resource :quotas, controller: "quotas", only: [:show, :update] do
+          post :reset_usage
+          get :usage_history
+          get :overage
+          patch :overage, action: :update_overage
+        end
+
+        # ===================================================================
+        # MCP RESOURCES & PROMPTS - Dynamic discovery from servers
+        # ===================================================================
+        # Resources and prompts are discovered dynamically from MCP servers
+        # ===================================================================
+
+        resources :mcp_servers, only: [] do
+          resources :resources, controller: "resources", only: [:index, :show] do
+            member do
+              post :read
+            end
+          end
+
+          resources :prompts, controller: "prompts", only: [:index, :show] do
+            member do
+              post :execute
+            end
+          end
         end
       end
 

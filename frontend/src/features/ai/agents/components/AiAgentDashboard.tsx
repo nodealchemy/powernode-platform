@@ -289,13 +289,13 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">AI Provider</span>
-                    <span className="text-theme-primary">{agent.ai_provider?.name || 'N/A'}</span>
+                    <span className="text-theme-primary">{agent.provider?.name || 'N/A'}</span>
                   </div>
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">Model</span>
                     <span className="text-theme-primary">
-                      {agent.mcp_metadata?.model_config?.model || 'N/A'}
+                      {agent.model || 'N/A'}
                     </span>
                   </div>
 

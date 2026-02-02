@@ -224,6 +224,32 @@ module Api
           render_success(statistics: service.account_statistics)
         end
 
+        # GET /api/v1/ai/agents/capabilities
+        # Returns all unique capabilities from agents in the account, grouped by category
+        def capabilities
+          # Get all unique capabilities from all agents in the account
+          # Filter out non-string values (some agents may have hash format)
+          all_capabilities = current_user.account.ai_agents
+            .pluck(:mcp_capabilities)
+            .flatten
+            .compact
+            .select { |cap| cap.is_a?(String) }
+            .map(&:downcase)
+            .map(&:strip)
+            .reject(&:blank?)
+            .uniq
+            .sort
+
+          # Categorize capabilities
+          categorized = categorize_capabilities(all_capabilities)
+
+          render_success(
+            capabilities: all_capabilities,
+            categorized: categorized,
+            total_count: all_capabilities.count
+          )
+        end
+
         private
 
         # =============================================================================
@@ -276,7 +302,7 @@ module Api
           return if current_worker || current_service
 
           permission_map = {
-            %w[index show my_agents public_agents agent_types statistics executions_index execution_show execution_logs conversations_index conversation_show conversation_messages stats analytics] => "ai.agents.read",
+            %w[index show my_agents public_agents agent_types statistics capabilities executions_index execution_show execution_logs conversations_index conversation_show conversation_messages stats analytics] => "ai.agents.read",
             %w[create clone] => "ai.agents.create",
             %w[update validate] => "ai.agents.update",
             %w[destroy execution_destroy] => "ai.agents.delete",
@@ -308,8 +334,10 @@ module Api
 
         def agent_update_params
           params.require(:agent).permit(
-            :name, :description, :status, :system_prompt, :temperature, :max_tokens,
-            :top_p, :frequency_penalty, :presence_penalty, :is_public,
+            :name, :description, :status, :is_public, :ai_provider_id, :agent_type,
+            # Model config - single source of truth via accessors
+            :model, :temperature, :max_tokens, :system_prompt,
+            :top_p, :frequency_penalty, :presence_penalty,
             mcp_capabilities: [], metadata: {}, mcp_tool_manifest: {}, mcp_input_schema: {}, mcp_output_schema: {}, mcp_metadata: {}
           )
         end
@@ -343,6 +371,34 @@ module Api
             "creative" => "Creative content and ideation agents",
             "specialist" => "Domain-specific specialist agents"
           }[type] || "Custom agent type"
+        end
+
+        def categorize_capabilities(capabilities)
+          categories = {
+            "Text & Content" => %w[text_generation summarization document_analysis markdown_formatting html_generation email_drafting blog_writing seo_optimization multilingual_translation social_media_posts],
+            "Data Processing" => %w[data_extraction csv_processing json_processing data_aggregation data_validation spreadsheet_export database_queries sql_execution],
+            "Web & API" => %w[web_search web_scraping http_requests http_health_checks webhook_triggers api_testing],
+            "Code & DevOps" => %w[code_generation code_review git_operations test_execution devops_triggers docker_status kubernetes_api],
+            "Files & Storage" => %w[file_read file_write file_operations screenshot_capture],
+            "Monitoring & Alerts" => %w[log_analysis metric_collection alerting slack_notifications email_notifications pagerduty_integration],
+            "Infrastructure" => %w[tcp_port_checks dns_resolution ssl_certificate_check scheduled_tasks],
+            "Reports & Output" => %w[report_generation chart_generation structured_output citation_generation diff_comparison json_schema_validation]
+          }
+
+          result = {}
+          uncategorized = capabilities.dup
+
+          categories.each do |category, known_caps|
+            matched = capabilities & known_caps
+            if matched.any?
+              result[category] = matched.sort
+              uncategorized -= matched
+            end
+          end
+
+          result["Other"] = uncategorized.sort if uncategorized.any?
+
+          result
         end
       end
     end

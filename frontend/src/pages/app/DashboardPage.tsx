@@ -99,6 +99,18 @@ import { ContextDetailPage } from './ai/ContextDetailPage';
 // Prompt Templates
 import { PromptsPage } from '@/features/ai/prompts/pages/PromptsPage';
 
+// Ralph Loops (Autonomous AI Agent Loops)
+import { RalphLoopsPage } from '@/features/ai/ralph-loops/pages/RalphLoopsPage';
+
+// Chat Channels (Multi-platform chat gateway)
+import { ChatChannelsPage } from '@/features/ai/chat-channels/pages/ChatChannelsPage';
+
+// Community Agents (Public agent registry and federation)
+import { CommunityAgentsPage } from '@/features/ai/community-agents/pages/CommunityAgentsPage';
+
+// Container Orchestration (Sandboxed AI execution)
+import { ContainersPage } from '@/features/ai/containers/pages/ContainersPage';
+
 // Integration Pages
 // IntegrationsMarketplacePage deprecated - now redirects to marketplace?types=integration
 import {
@@ -560,6 +572,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/devops-templates" element={<DevOpsTemplatesPage />} />
         <Route path="/ai/agent-cards" element={<AgentCardsPage />} />
         <Route path="/ai/a2a-tasks" element={<A2aTasksPage />} />
+        <Route path="/ai/ralph-loops" element={<RalphLoopsPage />} />
+        <Route path="/ai/chat-channels" element={<ChatChannelsPage />} />
+        <Route path="/ai/community" element={<CommunityAgentsPage />} />
+        <Route path="/ai/containers" element={<ContainersPage />} />
         <Route path="/ai/plugins" element={<Navigate to="/app/marketplace?types=plugin" replace />} />
 
         {/* Core Pages */}

@@ -374,62 +374,177 @@ class McpApiService extends BaseApiService {
   }
 
   /**
-   * Get MCP resources (placeholder - backend endpoint not yet implemented)
+   * Get MCP resources for a specific server
    */
-  async getResources(_filters?: {
+  async getResources(filters?: {
     server_id?: string;
     mime_type?: string;
     search?: string;
   }): Promise<{ resources: McpResource[] }> {
-    // Resources endpoint not yet implemented in backend
-    return { resources: [] };
+    if (!filters?.server_id) {
+      // Resources require a server_id
+      return { resources: [] };
+    }
+
+    const queryParams = new URLSearchParams();
+    if (filters?.mime_type) {
+      queryParams.append('mime_type', filters.mime_type);
+    }
+    if (filters?.search) {
+      queryParams.append('search', filters.search);
+    }
+
+    const query = queryParams.toString();
+    const url = `/mcp/mcp_servers/${filters.server_id}/resources${query ? `?${query}` : ''}`;
+
+    const response = await this.get<{
+      resources: Array<{
+        id: string;
+        uri: string;
+        name: string;
+        description?: string;
+        mime_type?: string;
+      }>;
+      mcp_server: { id: string; name: string; status: string };
+    }>(url);
+
+    return {
+      resources: response.resources.map((r) => ({
+        id: r.id,
+        server_id: filters.server_id!,
+        server_name: response.mcp_server.name,
+        uri: r.uri,
+        name: r.name,
+        description: r.description,
+        mime_type: r.mime_type
+      }))
+    };
   }
 
   /**
-   * Get specific MCP resource (placeholder)
+   * Get specific MCP resource
    */
-  async getResource(_resourceId: string): Promise<{
+  async getResource(serverId: string, resourceId: string): Promise<{
     resource: McpResource;
-    content: unknown;
   }> {
-    throw new Error('Resources endpoint not yet implemented');
+    const response = await this.get<{
+      resource: {
+        id: string;
+        uri: string;
+        name: string;
+        description?: string;
+        mime_type?: string;
+      };
+      mcp_server: { id: string; name: string };
+    }>(`/mcp/mcp_servers/${serverId}/resources/${resourceId}`);
+
+    return {
+      resource: {
+        id: response.resource.id,
+        server_id: serverId,
+        server_name: response.mcp_server.name,
+        uri: response.resource.uri,
+        name: response.resource.name,
+        description: response.resource.description,
+        mime_type: response.resource.mime_type
+      }
+    };
   }
 
   /**
-   * Read MCP resource content (placeholder)
+   * Read MCP resource content
    */
-  async readResource(_uri: string): Promise<{
+  async readResource(serverId: string, resourceId: string): Promise<{
     uri: string;
     content: unknown;
     mime_type?: string;
   }> {
-    throw new Error('Resources endpoint not yet implemented');
+    return this.post(`/mcp/mcp_servers/${serverId}/resources/${resourceId}/read`, {});
   }
 
   /**
-   * Get MCP prompts (placeholder - backend endpoint not yet implemented)
+   * Get MCP prompts for a specific server
    */
-  async getPrompts(_filters?: {
+  async getPrompts(filters?: {
     server_id?: string;
     search?: string;
   }): Promise<{ prompts: McpPrompt[] }> {
-    // Prompts endpoint not yet implemented in backend
-    return { prompts: [] };
+    if (!filters?.server_id) {
+      // Prompts require a server_id
+      return { prompts: [] };
+    }
+
+    const queryParams = new URLSearchParams();
+    if (filters?.search) {
+      queryParams.append('search', filters.search);
+    }
+
+    const query = queryParams.toString();
+    const url = `/mcp/mcp_servers/${filters.server_id}/prompts${query ? `?${query}` : ''}`;
+
+    const response = await this.get<{
+      prompts: Array<{
+        id: string;
+        name: string;
+        description?: string;
+        arguments?: Array<{
+          name: string;
+          description?: string;
+          required?: boolean;
+        }>;
+      }>;
+      mcp_server: { id: string; name: string; status: string };
+    }>(url);
+
+    return {
+      prompts: response.prompts.map((p) => ({
+        id: p.id,
+        server_id: filters.server_id!,
+        server_name: response.mcp_server.name,
+        name: p.name,
+        description: p.description,
+        arguments: p.arguments
+      }))
+    };
   }
 
   /**
-   * Get specific MCP prompt (placeholder)
+   * Get specific MCP prompt
    */
-  async getPrompt(_promptId: string): Promise<{ prompt: McpPrompt }> {
-    throw new Error('Prompts endpoint not yet implemented');
+  async getPrompt(serverId: string, promptId: string): Promise<{ prompt: McpPrompt }> {
+    const response = await this.get<{
+      prompt: {
+        id: string;
+        name: string;
+        description?: string;
+        arguments?: Array<{
+          name: string;
+          description?: string;
+          required?: boolean;
+        }>;
+      };
+      mcp_server: { id: string; name: string };
+    }>(`/mcp/mcp_servers/${serverId}/prompts/${promptId}`);
+
+    return {
+      prompt: {
+        id: response.prompt.id,
+        server_id: serverId,
+        server_name: response.mcp_server.name,
+        name: response.prompt.name,
+        description: response.prompt.description,
+        arguments: response.prompt.arguments
+      }
+    };
   }
 
   /**
-   * Execute MCP prompt (placeholder)
+   * Execute MCP prompt
    */
   async executePrompt(
-    _promptId: string,
-    _arguments: Record<string, unknown>
+    serverId: string,
+    promptId: string,
+    promptArguments: Record<string, unknown>
   ): Promise<{
     prompt_id: string;
     messages: Array<{
@@ -437,7 +552,9 @@ class McpApiService extends BaseApiService {
       content: string;
     }>;
   }> {
-    throw new Error('Prompts endpoint not yet implemented');
+    return this.post(`/mcp/mcp_servers/${serverId}/prompts/${promptId}/execute`, {
+      arguments: promptArguments
+    });
   }
 
   /**
