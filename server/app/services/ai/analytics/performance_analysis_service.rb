@@ -415,7 +415,7 @@ module Ai
       end
 
       def error_rates_by_node_type(since)
-        node_executions.where("ai_node_executions.created_at >= ?", since)
+        node_executions.where("ai_workflow_node_executions.created_at >= ?", since)
                       .joins(:node)
                       .group("ai_workflow_nodes.node_type")
                       .count
@@ -500,7 +500,7 @@ module Ai
 
       def token_utilization(since)
         total = 0
-        node_executions.where("ai_node_executions.created_at >= ?", since).pluck(:metadata).each do |metadata|
+        node_executions.where("ai_workflow_node_executions.created_at >= ?", since).pluck(:metadata).each do |metadata|
           usage = metadata&.dig("token_usage") || {}
           total += (usage["input_tokens"] || 0) + (usage["output_tokens"] || 0)
         end
@@ -523,12 +523,12 @@ module Ai
       end
 
       def find_slow_nodes(since)
-        node_executions.where("ai_node_executions.created_at >= ?", since)
+        node_executions.where("ai_workflow_node_executions.created_at >= ?", since)
                       .where(status: "completed")
                       .joins(:node)
                       .group("ai_workflow_nodes.id", "ai_workflow_nodes.name", "ai_workflow_nodes.node_type")
-                      .having("AVG(ai_node_executions.execution_time_ms) > ?", 5000)
-                      .average(:execution_time_ms)
+                      .having("AVG(ai_workflow_node_executions.duration_ms) > ?", 5000)
+                      .average(:duration_ms)
                       .map { |(id, name, type), avg| { id: id, name: name, type: type, avg_duration: avg&.to_f&.round(2) } }
       end
 
