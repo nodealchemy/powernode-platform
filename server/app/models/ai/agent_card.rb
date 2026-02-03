@@ -131,7 +131,7 @@ module Ai
         agent_id: ai_agent_id,
         protocol_version: protocol_version,
         card_version: card_version,
-        capabilities: capabilities,
+        capabilities: normalized_capabilities,
         authentication: authentication,
         default_input_modes: default_input_modes,
         default_output_modes: default_output_modes,
@@ -145,9 +145,28 @@ module Ai
       )
     end
 
-    # Skills extraction
+    # Capabilities with normalized skills for API response
+    def normalized_capabilities
+      (capabilities || {}).merge("skills" => skills_list)
+    end
+
+    # Skills extraction - normalize to consistent format
     def skills_list
-      capabilities.dig("skills") || []
+      raw_skills = capabilities.dig("skills") || []
+      raw_skills.map do |skill|
+        if skill.is_a?(String)
+          { "id" => skill, "name" => skill }
+        else
+          # Ensure consistent key names (camelCase for frontend)
+          {
+            "id" => skill["id"],
+            "name" => skill["name"],
+            "description" => skill["description"],
+            "inputSchema" => skill["inputSchema"],
+            "outputSchema" => skill["outputSchema"]
+          }.compact
+        end
+      end
     end
 
     # Add a skill

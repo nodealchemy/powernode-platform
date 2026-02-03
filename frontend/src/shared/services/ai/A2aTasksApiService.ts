@@ -53,10 +53,10 @@ class A2aTasksApiService extends BaseApiService {
 
   /**
    * Get task details
-   * GET /api/v1/ai/a2a/tasks/:task_id/details
+   * GET /api/v1/ai/a2a/tasks/:task_id
    */
   async getTaskDetails(taskId: string): Promise<{ task: A2aTask }> {
-    return this.get<{ task: A2aTask }>(`${this.basePath}/${taskId}/details`);
+    return this.get<{ task: A2aTask }>(`${this.basePath}/${taskId}`);
   }
 
   /**

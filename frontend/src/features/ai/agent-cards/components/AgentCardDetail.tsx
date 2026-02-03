@@ -349,7 +349,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                 </div>
                 <div className="text-center p-3 bg-theme-surface rounded-lg">
                   <div className="text-2xl font-bold text-theme-success">
-                    {card.task_count > 0
+                    {card.task_count > 0 && card.success_count !== undefined
                       ? `${Math.round((card.success_count / card.task_count) * 100)}%`
                       : 'N/A'}
                   </div>

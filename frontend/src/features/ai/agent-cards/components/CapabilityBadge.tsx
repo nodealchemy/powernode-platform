@@ -35,7 +35,7 @@ export const CapabilityBadge: React.FC<CapabilityBadgeProps> = ({
         size={size}
         className={cn(colors.bg, colors.text, 'border-0')}
       >
-        {skill.name || skill.id}
+        {skill.name || skill.id || 'Unnamed Skill'}
       </Badge>
       {showDescription && skill.description && (
         <span className="text-xs text-theme-muted truncate max-w-48">
@@ -47,7 +47,7 @@ export const CapabilityBadge: React.FC<CapabilityBadgeProps> = ({
 };
 
 interface CapabilityListProps {
-  skills: AgentSkill[];
+  skills: (AgentSkill | string)[];
   maxVisible?: number;
   showAll?: boolean;
   className?: string;
@@ -59,8 +59,20 @@ export const CapabilityList: React.FC<CapabilityListProps> = ({
   showAll = false,
   className,
 }) => {
-  const displaySkills = showAll ? skills : skills.slice(0, maxVisible);
-  const hiddenCount = skills.length - maxVisible;
+  // Normalize skills - they can be strings or objects from the backend
+  const normalizedSkills: AgentSkill[] = skills.map((skill, index) => {
+    if (typeof skill === 'string') {
+      return { id: skill, name: skill };
+    }
+    // Ensure skill has an id, use index as fallback
+    return {
+      ...skill,
+      id: skill.id || `skill-${index}`,
+    };
+  });
+
+  const displaySkills = showAll ? normalizedSkills : normalizedSkills.slice(0, maxVisible);
+  const hiddenCount = normalizedSkills.length - maxVisible;
 
   return (
     <div className={cn('flex flex-wrap gap-1.5', className)}>

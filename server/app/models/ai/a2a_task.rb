@@ -204,8 +204,24 @@ module Ai
       }.tap do |json|
         json[:message] = message if message.present?
         json[:error] = a2a_error if status == "failed"
-        json[:metadata] = metadata if metadata.present?
+        # Include timestamps in metadata for A2A protocol compliance
+        json[:metadata] = a2a_metadata
       end
+    end
+
+    # Build A2A-compliant metadata including timestamps
+    def a2a_metadata
+      base_metadata = metadata || {}
+      base_metadata.merge(
+        "submitted_at" => created_at&.iso8601,
+        "started_at" => started_at&.iso8601,
+        "completed_at" => completed_at&.iso8601,
+        "from_agent_id" => from_agent_id,
+        "to_agent_id" => to_agent_id,
+        "workflow_run_id" => ai_workflow_run_id,
+        "is_external" => is_external,
+        "retry_count" => retry_count
+      ).compact
     end
 
     # A2A status mapping

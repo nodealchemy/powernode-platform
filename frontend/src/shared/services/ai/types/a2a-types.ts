@@ -45,7 +45,7 @@ export interface AgentCard {
 }
 
 export interface AgentCapabilities {
-  skills?: AgentSkill[];
+  skills?: (AgentSkill | string)[];
   streaming?: boolean;
   push_notifications?: boolean;
   state_transition_history?: boolean;

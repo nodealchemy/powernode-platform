@@ -6,6 +6,7 @@ import {
   Save,
   X,
   AlertCircle,
+  CheckCircle,
 } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -56,6 +57,8 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
 }) => {
   const [loading, setLoading] = useState(!!cardId);
   const [saving, setSaving] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [agents, setAgents] = useState<AiAgent[]>([]);
 
@@ -108,14 +111,29 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
 
       if (card.capabilities?.skills && card.capabilities.skills.length > 0) {
         setSkills(
-          card.capabilities.skills.map((skill) => ({
-            id: skill.id,
-            name: skill.name || '',
-            description: skill.description || '',
-            tags: '',
-            inputSchema: skill.inputSchema ? JSON.stringify(skill.inputSchema, null, 2) : '',
-            outputSchema: skill.outputSchema ? JSON.stringify(skill.outputSchema, null, 2) : '',
-          }))
+          card.capabilities.skills.map((skill) => {
+            // Handle both string and object skills from backend
+            if (typeof skill === 'string') {
+              return {
+                id: skill,
+                name: skill,
+                description: '',
+                tags: '',
+                inputSchema: '',
+                outputSchema: '',
+              };
+            }
+            // Cast to any to access all properties reliably
+            const s = skill as Record<string, unknown>;
+            return {
+              id: String(s.id || ''),
+              name: String(s.name || ''),
+              description: String(s.description || ''),
+              tags: '',
+              inputSchema: s.inputSchema ? JSON.stringify(s.inputSchema, null, 2) : '',
+              outputSchema: s.outputSchema ? JSON.stringify(s.outputSchema, null, 2) : '',
+            };
+          })
         );
       }
     } catch (err) {
@@ -144,6 +162,64 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
       setAuthSchemes(authSchemes.filter((s) => s !== scheme));
     } else {
       setAuthSchemes([...authSchemes, scheme]);
+    }
+  };
+
+  const handleValidate = () => {
+    setValidating(true);
+    setValidationResult(null);
+    const errors: string[] = [];
+
+    // Validate name
+    if (!name.trim()) {
+      errors.push('Name is required');
+    }
+
+    // Validate endpoint URL format
+    if (endpointUrl.trim()) {
+      try {
+        new URL(endpointUrl);
+      } catch {
+        errors.push('Endpoint URL is not a valid URL');
+      }
+    }
+
+    // Validate skills
+    skills.forEach((skill, index) => {
+      const skillNum = index + 1;
+
+      // Check that skill has at least an ID or name
+      if (!skill.id.trim() && !skill.name.trim()) {
+        errors.push(`Skill ${skillNum}: Must have an ID or Name`);
+      }
+
+      // Validate input schema JSON
+      if (skill.inputSchema.trim()) {
+        try {
+          JSON.parse(skill.inputSchema);
+        } catch {
+          errors.push(`Skill ${skillNum}: Input Schema is not valid JSON`);
+        }
+      }
+
+      // Validate output schema JSON
+      if (skill.outputSchema.trim()) {
+        try {
+          JSON.parse(skill.outputSchema);
+        } catch {
+          errors.push(`Skill ${skillNum}: Output Schema is not valid JSON`);
+        }
+      }
+    });
+
+    setValidationResult({
+      valid: errors.length === 0,
+      errors,
+    });
+    setValidating(false);
+
+    if (errors.length === 0) {
+      addNotification({ type: 'success', title: 'Valid', message: 'All fields are valid' });
     }
   };
 
@@ -254,6 +330,10 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
+              <Button variant="outline" size="sm" onClick={handleValidate} disabled={validating}>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {validating ? 'Validating...' : 'Validate'}
+              </Button>
               <Button variant="primary" size="sm" onClick={handleSave} disabled={saving}>
                 <Save className="h-4 w-4 mr-2" />
                 {saving ? 'Saving...' : 'Save'}
@@ -270,6 +350,40 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
             <AlertCircle className="h-4 w-4" />
             <span>{error}</span>
           </div>
+        </div>
+      )}
+
+      {/* Validation Result */}
+      {validationResult && (
+        <div className={cn(
+          'p-4 rounded-lg border',
+          validationResult.valid
+            ? 'bg-theme-success/10 border-theme-success/30'
+            : 'bg-theme-danger/10 border-theme-danger/30'
+        )}>
+          <div className={cn(
+            'flex items-center gap-2',
+            validationResult.valid ? 'text-theme-success' : 'text-theme-danger'
+          )}>
+            {validationResult.valid ? (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                <span className="font-medium">All validations passed</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-4 w-4" />
+                <span className="font-medium">Validation errors ({validationResult.errors.length})</span>
+              </>
+            )}
+          </div>
+          {validationResult.errors.length > 0 && (
+            <ul className="mt-2 ml-6 list-disc text-sm text-theme-danger">
+              {validationResult.errors.map((err, idx) => (
+                <li key={idx}>{err}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -428,7 +542,7 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
                     onChange={(e) => handleSkillChange(index, 'inputSchema', e.target.value)}
                     placeholder='{"type": "object", "properties": {...}}'
                     className="w-full px-3 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary font-mono text-xs focus:outline-none focus:ring-2 focus:ring-theme-primary"
-                    rows={3}
+                    rows={8}
                   />
                 </div>
                 <div>
@@ -438,7 +552,7 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
                     onChange={(e) => handleSkillChange(index, 'outputSchema', e.target.value)}
                     placeholder='{"type": "object", "properties": {...}}'
                     className="w-full px-3 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary font-mono text-xs focus:outline-none focus:ring-2 focus:ring-theme-primary"
-                    rows={3}
+                    rows={8}
                   />
                 </div>
               </div>

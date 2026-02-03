@@ -19,7 +19,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { a2aTasksApiService } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
-import type { A2aTask, A2aArtifact } from '@/shared/services/ai/types/a2a-types';
+import type { A2aTaskJson, A2aArtifact } from '@/shared/services/ai/types/a2a-types';
 
 interface TaskDetailProps {
   taskId: string;
@@ -27,20 +27,21 @@ interface TaskDetailProps {
   className?: string;
 }
 
+// Map A2A protocol status states to UI config
 const statusConfig: Record<
   string,
   { icon: React.FC<{ className?: string }>; variant: 'success' | 'danger' | 'warning' | 'info' | 'outline'; label: string; color: string }
 > = {
-  pending: { icon: Clock, variant: 'outline', label: 'Pending', color: 'text-theme-muted' },
-  active: { icon: Loader2, variant: 'info', label: 'Active', color: 'text-theme-info' },
+  submitted: { icon: Clock, variant: 'outline', label: 'Submitted', color: 'text-theme-muted' },
+  working: { icon: Loader2, variant: 'info', label: 'Working', color: 'text-theme-info' },
   completed: { icon: CheckCircle, variant: 'success', label: 'Completed', color: 'text-theme-success' },
   failed: { icon: XCircle, variant: 'danger', label: 'Failed', color: 'text-theme-danger' },
-  cancelled: { icon: AlertCircle, variant: 'warning', label: 'Cancelled', color: 'text-theme-warning' },
-  input_required: { icon: AlertCircle, variant: 'warning', label: 'Input Required', color: 'text-theme-warning' },
+  canceled: { icon: AlertCircle, variant: 'warning', label: 'Cancelled', color: 'text-theme-warning' },
+  'input-required': { icon: AlertCircle, variant: 'warning', label: 'Input Required', color: 'text-theme-warning' },
 };
 
 export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, className }) => {
-  const [task, setTask] = useState<A2aTask | null>(null);
+  const [task, setTask] = useState<A2aTaskJson | null>(null);
   const [artifacts, setArtifacts] = useState<A2aArtifact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,13 +66,38 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
         a2aTasksApiService.getArtifacts(taskId).catch(() => ({ artifacts: [] })),
       ]);
 
-      setTask(taskResponse.task);
+      setTask(taskResponse.task as A2aTaskJson);
       setArtifacts(artifactsResponse.artifacts || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load task');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper to get status state from A2A format
+  const getStatusState = (): string => {
+    if (!task) return 'submitted';
+    return task.status?.state || 'submitted';
+  };
+
+  // Helper to extract timestamps from metadata
+  const getTimestamp = (key: string): string | undefined => {
+    return task?.metadata?.[key] as string | undefined;
+  };
+
+  // Helper to extract text content from message
+  const getMessageText = (): string | null => {
+    if (!task?.message?.parts) return null;
+    const textPart = task.message.parts.find(p => p.type === 'text');
+    return textPart && 'text' in textPart ? textPart.text : null;
+  };
+
+  // Helper to extract data from message
+  const getMessageData = (): Record<string, unknown> | null => {
+    if (!task?.message?.parts) return null;
+    const dataPart = task.message.parts.find(p => p.type === 'data');
+    return dataPart && 'data' in dataPart ? dataPart.data as Record<string, unknown> : null;
   };
 
   const handleCancel = async () => {
@@ -113,9 +139,12 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
     return new Date(dateStr).toLocaleString();
   };
 
-  const formatDuration = (startedAt?: string, completedAt?: string) => {
-    if (!startedAt) return 'N/A';
-    const start = new Date(startedAt).getTime();
+  const formatDuration = (startedAt?: string, completedAt?: string, submittedAt?: string) => {
+    // Use startedAt if available, otherwise fall back to submittedAt
+    const startTime = startedAt || submittedAt;
+    if (!startTime) return 'N/A';
+
+    const start = new Date(startTime).getTime();
     const end = completedAt ? new Date(completedAt).getTime() : Date.now();
     const duration = end - start;
 
@@ -148,10 +177,11 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
     );
   }
 
-  const config = statusConfig[task.status] || statusConfig.pending;
+  const statusState = getStatusState();
+  const config = statusConfig[statusState] || statusConfig.submitted;
   const StatusIcon = config.icon;
-  const canCancel = ['pending', 'active', 'input_required'].includes(task.status);
-  const needsInput = task.status === 'input_required';
+  const canCancel = ['submitted', 'working', 'input-required'].includes(statusState);
+  const needsInput = statusState === 'input-required';
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -163,10 +193,10 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
               <div
                 className={cn(
                   'p-3 rounded-xl',
-                  task.status === 'completed' && 'bg-theme-success/10',
-                  task.status === 'failed' && 'bg-theme-danger/10',
-                  task.status === 'active' && 'bg-theme-info/10',
-                  ['pending', 'cancelled', 'input_required'].includes(task.status) &&
+                  statusState === 'completed' && 'bg-theme-success/10',
+                  statusState === 'failed' && 'bg-theme-danger/10',
+                  statusState === 'working' && 'bg-theme-info/10',
+                  ['submitted', 'canceled', 'input-required'].includes(statusState) &&
                     'bg-theme-muted/10'
                 )}
               >
@@ -174,7 +204,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                   className={cn(
                     'h-6 w-6',
                     config.color,
-                    task.status === 'active' && 'animate-spin'
+                    statusState === 'working' && 'animate-spin'
                   )}
                 />
               </div>
@@ -244,7 +274,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
       )}
 
       {/* Error message */}
-      {task.status === 'failed' && (
+      {statusState === 'failed' && task.error && (
         <Card className="border-theme-danger">
           <CardHeader
             title="Error"
@@ -252,8 +282,11 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
           />
           <CardContent>
             <p className="text-sm text-theme-danger whitespace-pre-wrap">
-              {task.error_message || 'Unknown error'}
+              {task.error.message || 'Unknown error'}
             </p>
+            {task.error.code && (
+              <p className="text-xs text-theme-muted mt-1">Code: {task.error.code}</p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -261,10 +294,10 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Input */}
+          {/* Message Content */}
           <Card>
             <CardHeader
-              title="Input"
+              title="Message"
               icon={<Code className="h-5 w-5" />}
               action={
                 <Button
@@ -277,21 +310,37 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
               }
             />
             {showInput && (
-              <CardContent>
-                <pre className="bg-theme-surface-dark p-4 rounded-lg text-xs overflow-x-auto max-h-64">
-                  <code className="text-theme-primary">
-                    {JSON.stringify(task.input, null, 2) || 'null'}
-                  </code>
-                </pre>
+              <CardContent className="space-y-4">
+                {getMessageText() && (
+                  <div>
+                    <p className="text-xs text-theme-muted mb-2">Text:</p>
+                    <p className="text-sm text-theme-primary whitespace-pre-wrap">
+                      {getMessageText()}
+                    </p>
+                  </div>
+                )}
+                {getMessageData() && (
+                  <div>
+                    <p className="text-xs text-theme-muted mb-2">Data:</p>
+                    <pre className="bg-theme-surface-dark p-4 rounded-lg text-xs overflow-x-auto max-h-64">
+                      <code className="text-theme-primary">
+                        {JSON.stringify(getMessageData(), null, 2)}
+                      </code>
+                    </pre>
+                  </div>
+                )}
+                {!getMessageText() && !getMessageData() && (
+                  <p className="text-sm text-theme-muted">No message content</p>
+                )}
               </CardContent>
             )}
           </Card>
 
-          {/* Output */}
-          {task.output && Object.keys(task.output).length > 0 && (
+          {/* History */}
+          {task.history && task.history.length > 0 && (
             <Card>
               <CardHeader
-                title="Output"
+                title={`History (${task.history.length})`}
                 icon={<Code className="h-5 w-5" />}
                 action={
                   <Button
@@ -307,7 +356,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                 <CardContent>
                   <pre className="bg-theme-surface-dark p-4 rounded-lg text-xs overflow-x-auto max-h-64">
                     <code className="text-theme-primary">
-                      {JSON.stringify(task.output, null, 2)}
+                      {JSON.stringify(task.history, null, 2)}
                     </code>
                   </pre>
                 </CardContent>
@@ -358,53 +407,69 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
             <CardHeader title="Timeline" icon={<Clock className="h-5 w-5" />} />
             <CardContent className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-theme-secondary">Created</span>
+                <span className="text-theme-secondary">Submitted</span>
                 <span className="text-theme-primary">
-                  {formatDate(task.created_at)}
+                  {formatDate(getTimestamp('submitted_at'))}
                 </span>
               </div>
-              {task.started_at && (
+              {getTimestamp('started_at') && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Started</span>
                   <span className="text-theme-primary">
-                    {formatDate(task.started_at)}
+                    {formatDate(getTimestamp('started_at'))}
                   </span>
                 </div>
               )}
-              {task.completed_at && (
+              {getTimestamp('completed_at') && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Completed</span>
                   <span className="text-theme-primary">
-                    {formatDate(task.completed_at)}
+                    {formatDate(getTimestamp('completed_at'))}
                   </span>
                 </div>
               )}
               <div className="flex justify-between pt-2 border-t border-theme">
                 <span className="text-theme-secondary">Duration</span>
                 <span className="text-theme-primary font-medium">
-                  {formatDuration(task.started_at, task.completed_at)}
+                  {formatDuration(getTimestamp('started_at'), getTimestamp('completed_at'), getTimestamp('submitted_at'))}
                 </span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Details */}
+          {/* Metadata */}
           <Card>
             <CardHeader title="Details" />
             <CardContent className="space-y-3 text-sm">
-              {task.sequence_number !== undefined && (
+              {task.sessionId && (
                 <div className="flex justify-between">
-                  <span className="text-theme-secondary">Sequence #</span>
-                  <span className="text-theme-primary">
-                    {task.sequence_number}
+                  <span className="text-theme-secondary">Session</span>
+                  <span className="text-theme-primary font-mono text-xs">
+                    {task.sessionId.length > 16 ? `${task.sessionId.substring(0, 16)}...` : task.sessionId}
                   </span>
                 </div>
               )}
-              {task.workflow_run_id && (
+              {task.metadata?.role && (
+                <div className="flex justify-between">
+                  <span className="text-theme-secondary">Role</span>
+                  <span className="text-theme-primary">
+                    {String(task.metadata.role)}
+                  </span>
+                </div>
+              )}
+              {task.metadata?.team_id && (
+                <div className="flex justify-between">
+                  <span className="text-theme-secondary">Team</span>
+                  <span className="text-theme-primary font-mono text-xs">
+                    {String(task.metadata.team_id).substring(0, 8)}...
+                  </span>
+                </div>
+              )}
+              {task.metadata?.workflow_run_id && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Workflow Run</span>
                   <span className="text-theme-primary font-mono text-xs">
-                    {task.workflow_run_id.substring(0, 8)}...
+                    {String(task.metadata.workflow_run_id).substring(0, 16)}...
                   </span>
                 </div>
               )}
