@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::SubscriptionsController < ApplicationController
-  before_action :set_subscription, only: [ :show, :update, :destroy ]
+  before_action :set_subscription, only: [ :show, :update, :destroy, :pause, :resume, :preview_proration ]
 
   # GET /api/v1/subscriptions
   def index
@@ -34,7 +34,59 @@ class Api::V1::SubscriptionsController < ApplicationController
 
   # PATCH/PUT /api/v1/subscriptions/:id
   def update
-    if @subscription.update(subscription_update_params)
+    new_plan_id = params.dig(:subscription, :plan_id)
+
+    # If changing plans, calculate and include proration data
+    if new_plan_id.present? && new_plan_id != @subscription.plan_id
+      new_plan = Plan.find_by(id: new_plan_id)
+
+      unless new_plan
+        return render_error("Plan not found", status: :not_found)
+      end
+
+      unless new_plan.active?
+        return render_error("Selected plan is not available", status: :unprocessable_entity)
+      end
+
+      old_plan = @subscription.plan
+
+      # Calculate proration if we have billing period dates
+      proration = nil
+      if @subscription.current_period_end.present?
+        service = Billing::SubscriptionService.new(@subscription)
+        proration = service.calculate_proration(
+          old_plan: old_plan,
+          new_plan: new_plan,
+          billing_cycle_anchor: @subscription.current_period_end,
+          current_period_start: @subscription.current_period_start
+        )
+      end
+
+      ActiveRecord::Base.transaction do
+        @subscription.update!(subscription_update_params)
+
+        # Store plan change details in metadata for billing processing
+        plan_change_data = {
+          "old_plan_id" => old_plan.id,
+          "new_plan_id" => new_plan.id,
+          "changed_at" => Time.current.iso8601
+        }
+        plan_change_data["proration"] = proration if proration.present?
+
+        @subscription.update!(
+          metadata: @subscription.metadata.merge("last_plan_change" => plan_change_data)
+        )
+      end
+
+      response_data = subscription_data(@subscription.reload)
+      response_data[:proration] = proration if proration.present?
+
+      is_upgrade = new_plan.price_cents > old_plan.price_cents
+      render_success(
+        response_data,
+        message: is_upgrade ? "Subscription upgraded successfully" : "Subscription downgraded successfully"
+      )
+    elsif @subscription.update(subscription_update_params)
       render_success(subscription_data(@subscription))
     else
       render_validation_error(@subscription)
@@ -48,6 +100,118 @@ class Api::V1::SubscriptionsController < ApplicationController
     else
       render_validation_error(@subscription)
     end
+  end
+
+  # POST /api/v1/subscriptions/:id/pause
+  def pause
+    unless @subscription.may_pause?
+      return render_error(
+        "Subscription cannot be paused from current status: #{@subscription.status}",
+        status: :unprocessable_entity
+      )
+    end
+
+    pause_reason = params[:reason] || "User requested pause"
+
+    ActiveRecord::Base.transaction do
+      @subscription.pause!
+      @subscription.update!(
+        metadata: @subscription.metadata.merge(
+          "paused_at" => Time.current.iso8601,
+          "pause_reason" => pause_reason,
+          "paused_by_user_id" => current_user.id
+        )
+      )
+    end
+
+    render_success(
+      subscription_data(@subscription.reload),
+      message: "Subscription paused successfully"
+    )
+  rescue AASM::InvalidTransition => e
+    render_error("Failed to pause subscription: #{e.message}", status: :unprocessable_entity)
+  end
+
+  # POST /api/v1/subscriptions/:id/resume
+  def resume
+    unless @subscription.may_resume?
+      return render_error(
+        "Subscription cannot be resumed from current status: #{@subscription.status}",
+        status: :unprocessable_entity
+      )
+    end
+
+    ActiveRecord::Base.transaction do
+      @subscription.resume!
+      @subscription.update!(
+        metadata: @subscription.metadata.merge(
+          "resumed_at" => Time.current.iso8601,
+          "resumed_by_user_id" => current_user.id
+        ).except("paused_at", "pause_reason", "paused_by_user_id")
+      )
+    end
+
+    render_success(
+      subscription_data(@subscription.reload),
+      message: "Subscription resumed successfully"
+    )
+  rescue AASM::InvalidTransition => e
+    render_error("Failed to resume subscription: #{e.message}", status: :unprocessable_entity)
+  end
+
+  # GET /api/v1/subscriptions/:id/preview_proration
+  def preview_proration
+    new_plan_id = params[:new_plan_id]
+
+    unless new_plan_id.present?
+      return render_error("new_plan_id parameter is required", status: :bad_request)
+    end
+
+    new_plan = Plan.find_by(id: new_plan_id)
+
+    unless new_plan
+      return render_error("Plan not found", status: :not_found)
+    end
+
+    unless new_plan.active?
+      return render_error("Selected plan is not available", status: :unprocessable_entity)
+    end
+
+    old_plan = @subscription.plan
+
+    if old_plan.id == new_plan.id
+      return render_error("Cannot prorate to the same plan", status: :unprocessable_entity)
+    end
+
+    unless @subscription.current_period_end.present?
+      return render_error("Cannot calculate proration: subscription has no billing period end date", status: :unprocessable_entity)
+    end
+
+    service = Billing::SubscriptionService.new(@subscription)
+    proration = service.calculate_proration(
+      old_plan: old_plan,
+      new_plan: new_plan,
+      billing_cycle_anchor: @subscription.current_period_end,
+      current_period_start: @subscription.current_period_start
+    )
+
+    render_success({
+      current_plan: {
+        id: old_plan.id,
+        name: old_plan.name,
+        price_cents: old_plan.price_cents,
+        billing_cycle: old_plan.billing_cycle
+      },
+      new_plan: {
+        id: new_plan.id,
+        name: new_plan.name,
+        price_cents: new_plan.price_cents,
+        billing_cycle: new_plan.billing_cycle
+      },
+      proration: proration,
+      effective_date: Date.current.iso8601,
+      billing_cycle_end: @subscription.current_period_end&.iso8601
+    })
   end
 
   # GET /api/v1/subscriptions/by_stripe_id

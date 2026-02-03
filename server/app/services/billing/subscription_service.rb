@@ -130,31 +130,57 @@ module Billing
     end
 
     # Simple synchronous operations that don't need worker delegation
-    def calculate_proration(old_plan:, new_plan:, billing_cycle_anchor:)
-      # Simple calculation that can remain synchronous
-      days_remaining = (billing_cycle_anchor.to_date - Date.current).to_i
-      days_in_period = case new_plan.billing_cycle
-      when "monthly"
-        30
-      when "yearly"
-        365
-      when "quarterly"
-        90
-      else
-        30
-      end
+    def calculate_proration(old_plan:, new_plan:, billing_cycle_anchor:, current_period_start: nil)
+      # Use current_period_start if provided, otherwise use current date
+      period_start = current_period_start || Date.current
+      billing_anchor = billing_cycle_anchor.to_date
 
-      return 0 if days_remaining <= 0 || days_in_period <= 0
+      # Calculate days remaining in the current billing period
+      days_remaining = (billing_anchor - Date.current).to_i
+      return { proration_amount_cents: 0, days_remaining: 0, proration_factor: 0.0 } if days_remaining <= 0
+
+      # Calculate actual calendar days in the billing period
+      days_in_period = calculate_actual_billing_period_days(new_plan.billing_cycle, period_start)
+      return { proration_amount_cents: 0, days_remaining: 0, proration_factor: 0.0 } if days_in_period <= 0
 
       proration_factor = days_remaining.to_f / days_in_period
+
+      # Calculate prorated amounts
       new_amount = new_plan.price_cents * proration_factor
       old_refund = old_plan.price_cents * proration_factor
 
+      # Net proration: positive means customer owes more, negative means credit
+      proration_amount = (new_amount - old_refund).round
+
       {
-        proration_amount_cents: (new_amount - old_refund).round,
+        proration_amount_cents: proration_amount,
         days_remaining: days_remaining,
-        proration_factor: proration_factor
+        days_in_period: days_in_period,
+        proration_factor: proration_factor.round(4),
+        new_plan_prorated_cents: new_amount.round,
+        old_plan_credit_cents: old_refund.round,
+        is_upgrade: new_plan.price_cents > old_plan.price_cents
       }
+    end
+
+    # Calculate actual calendar days in a billing period
+    def calculate_actual_billing_period_days(billing_cycle, start_date)
+      start_date = start_date.to_date if start_date.respond_to?(:to_date)
+
+      case billing_cycle
+      when "monthly"
+        # Use actual days in the month (handles Feb, 30/31 day months)
+        ((start_date >> 1) - start_date).to_i
+      when "quarterly"
+        # Use actual days in 3 months
+        ((start_date >> 3) - start_date).to_i
+      when "yearly"
+        # Use actual days in the year (handles leap years: 365 or 366)
+        ((start_date >> 12) - start_date).to_i
+      else
+        # Fallback to standard 30 days
+        30
+      end
     end
 
     def format_currency(amount_cents)

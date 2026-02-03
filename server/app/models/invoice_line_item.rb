@@ -60,16 +60,11 @@ class InvoiceLineItem < ApplicationRecord
     billing_cycle = invoice&.subscription&.plan&.billing_cycle
     return 1.0 unless billing_cycle
 
-    case billing_cycle
-    when "monthly"
-      total_days / 30.0
-    when "quarterly"
-      total_days / 90.0
-    when "yearly"
-      total_days / 365.0
-    else
-      1.0
-    end
+    # Calculate actual days in the billing period using calendar-aware logic
+    period_days = calculate_billing_period_days(billing_cycle, period_start.to_date)
+    return 1.0 if period_days <= 0
+
+    total_days.to_f / period_days
   end
 
   def is_prorated?
@@ -77,6 +72,24 @@ class InvoiceLineItem < ApplicationRecord
   end
 
   private
+
+  # Calculate actual calendar days in a billing period
+  def calculate_billing_period_days(billing_cycle, start_date)
+    case billing_cycle
+    when "monthly"
+      # Use actual days in the month
+      ((start_date >> 1) - start_date).to_i
+    when "quarterly"
+      # Use actual days in 3 months
+      ((start_date >> 3) - start_date).to_i
+    when "yearly"
+      # Use actual days in the year (handles leap years)
+      ((start_date >> 12) - start_date).to_i
+    else
+      # Fallback to standard 30 days
+      30
+    end
+  end
 
   def calculate_total
     self.total_amount_cents = quantity * unit_amount_cents

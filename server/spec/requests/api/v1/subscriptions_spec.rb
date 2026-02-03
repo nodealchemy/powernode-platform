@@ -576,6 +576,324 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
     end
   end
 
+  describe 'POST /api/v1/subscriptions/:id/pause' do
+    let!(:subscription) { create(:subscription, :active, account: account, plan: plan) }
+
+    context 'with authentication' do
+      context 'when subscription can be paused' do
+        it 'pauses the subscription' do
+          post "/api/v1/subscriptions/#{subscription.id}/pause", headers: headers, as: :json
+
+          expect_success_response
+          json = json_response
+          expect(json['data']['status']).to eq('paused')
+          expect(json['message']).to eq('Subscription paused successfully')
+        end
+
+        it 'updates subscription status to paused' do
+          post "/api/v1/subscriptions/#{subscription.id}/pause", headers: headers, as: :json
+
+          expect(subscription.reload.status).to eq('paused')
+        end
+
+        it 'stores pause metadata' do
+          post "/api/v1/subscriptions/#{subscription.id}/pause",
+               params: { reason: 'Customer vacation' },
+               headers: headers,
+               as: :json
+
+          subscription.reload
+          expect(subscription.metadata['paused_at']).to be_present
+          expect(subscription.metadata['pause_reason']).to eq('Customer vacation')
+          expect(subscription.metadata['paused_by_user_id']).to eq(user.id)
+        end
+
+        it 'uses default reason when none provided' do
+          post "/api/v1/subscriptions/#{subscription.id}/pause", headers: headers, as: :json
+
+          subscription.reload
+          expect(subscription.metadata['pause_reason']).to eq('User requested pause')
+        end
+      end
+
+      context 'when subscription cannot be paused' do
+        it 'returns error for canceled subscription' do
+          # Cancel the subscription first
+          subscription.cancel!
+
+          post "/api/v1/subscriptions/#{subscription.id}/pause", headers: headers, as: :json
+
+          expect(response).to have_http_status(:unprocessable_entity)
+          json = json_response
+          expect(json['error']).to include('cannot be paused')
+        end
+      end
+
+      context 'when subscription is already paused' do
+        it 'returns error' do
+          # Pause the subscription first
+          subscription.pause!
+
+          post "/api/v1/subscriptions/#{subscription.id}/pause", headers: headers, as: :json
+
+          expect(response).to have_http_status(:unprocessable_entity)
+          json = json_response
+          expect(json['error']).to include('cannot be paused')
+        end
+      end
+
+      context 'when subscription belongs to different account' do
+        let(:other_account) { create(:account) }
+        let(:other_subscription) { create(:subscription, :active, account: other_account) }
+
+        it 'returns not found error' do
+          post "/api/v1/subscriptions/#{other_subscription.id}/pause", headers: headers, as: :json
+
+          expect_error_response('Subscription not found', 404)
+        end
+      end
+    end
+
+    context 'without authentication' do
+      it 'returns unauthorized error' do
+        post "/api/v1/subscriptions/#{subscription.id}/pause", as: :json
+
+        expect_error_response('Access token required', 401)
+      end
+    end
+  end
+
+  describe 'POST /api/v1/subscriptions/:id/resume' do
+    let!(:subscription) { create(:subscription, :paused, account: account, plan: plan) }
+
+    context 'with authentication' do
+      context 'when subscription can be resumed' do
+        it 'resumes the subscription' do
+          post "/api/v1/subscriptions/#{subscription.id}/resume", headers: headers, as: :json
+
+          expect_success_response
+          json = json_response
+          expect(json['data']['status']).to eq('active')
+          expect(json['message']).to eq('Subscription resumed successfully')
+        end
+
+        it 'updates subscription status to active' do
+          post "/api/v1/subscriptions/#{subscription.id}/resume", headers: headers, as: :json
+
+          expect(subscription.reload.status).to eq('active')
+        end
+
+        it 'stores resume metadata and clears pause metadata' do
+          # First add some pause metadata
+          subscription.update!(metadata: {
+            'paused_at' => 1.week.ago.iso8601,
+            'pause_reason' => 'Customer vacation',
+            'paused_by_user_id' => user.id
+          })
+
+          post "/api/v1/subscriptions/#{subscription.id}/resume", headers: headers, as: :json
+
+          subscription.reload
+          expect(subscription.metadata['resumed_at']).to be_present
+          expect(subscription.metadata['resumed_by_user_id']).to eq(user.id)
+          # Pause metadata should be removed
+          expect(subscription.metadata['paused_at']).to be_nil
+          expect(subscription.metadata['pause_reason']).to be_nil
+          expect(subscription.metadata['paused_by_user_id']).to be_nil
+        end
+      end
+
+      context 'when subscription cannot be resumed' do
+        it 'returns error for active subscription' do
+          # Resume the subscription to active first
+          subscription.resume!
+
+          post "/api/v1/subscriptions/#{subscription.id}/resume", headers: headers, as: :json
+
+          expect(response).to have_http_status(:unprocessable_entity)
+          json = json_response
+          expect(json['error']).to include('cannot be resumed')
+        end
+      end
+
+      context 'when subscription is canceled' do
+        it 'returns error' do
+          # Cancel the subscription (paused -> canceled)
+          subscription.cancel!
+
+          post "/api/v1/subscriptions/#{subscription.id}/resume", headers: headers, as: :json
+
+          expect(response).to have_http_status(:unprocessable_entity)
+          json = json_response
+          expect(json['error']).to include('cannot be resumed')
+        end
+      end
+
+      context 'when subscription belongs to different account' do
+        let(:other_account) { create(:account) }
+        let(:other_subscription) { create(:subscription, :paused, account: other_account) }
+
+        it 'returns not found error' do
+          post "/api/v1/subscriptions/#{other_subscription.id}/resume", headers: headers, as: :json
+
+          expect_error_response('Subscription not found', 404)
+        end
+      end
+    end
+
+    context 'without authentication' do
+      it 'returns unauthorized error' do
+        post "/api/v1/subscriptions/#{subscription.id}/resume", as: :json
+
+        expect_error_response('Access token required', 401)
+      end
+    end
+  end
+
+  describe 'GET /api/v1/subscriptions/:id/preview_proration' do
+    let(:basic_plan) { create(:plan, name: 'Basic', price_cents: 1500) }
+    let(:pro_plan) { create(:plan, name: 'Pro', price_cents: 4900) }
+    let!(:subscription) do
+      create(:subscription, :active,
+             account: account,
+             plan: basic_plan,
+             current_period_start: Date.current.beginning_of_month,
+             current_period_end: Date.current.end_of_month + 1.day)
+    end
+
+    context 'with authentication' do
+      context 'with valid parameters' do
+        it 'returns proration preview for upgrade' do
+          get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=#{pro_plan.id}",
+              headers: headers
+
+          expect_success_response
+          json = json_response
+          expect(json['data']).to include(
+            'current_plan' => hash_including('id' => basic_plan.id, 'name' => basic_plan.name),
+            'new_plan' => hash_including('id' => pro_plan.id, 'name' => pro_plan.name),
+            'proration' => be_present,
+            'effective_date' => be_present,
+            'billing_cycle_end' => be_present
+          )
+        end
+
+        it 'returns proration details' do
+          get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=#{pro_plan.id}",
+              headers: headers
+
+          json = json_response
+          proration = json['data']['proration']
+          expect(proration).to include(
+            'proration_amount_cents' => be_a(Integer),
+            'days_remaining' => be_a(Integer),
+            'days_in_period' => be_a(Integer),
+            'proration_factor' => be_a(Numeric),
+            'is_upgrade' => true
+          )
+        end
+
+        it 'shows positive proration for upgrade' do
+          get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=#{pro_plan.id}",
+              headers: headers
+
+          json = json_response
+          # Upgrade from basic (1500) to pro (4900) should have positive proration
+          expect(json['data']['proration']['proration_amount_cents']).to be >= 0
+          expect(json['data']['proration']['is_upgrade']).to be true
+        end
+
+        it 'shows negative proration for downgrade' do
+          # Create subscription on pro plan
+          subscription.update!(plan: pro_plan)
+
+          get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=#{basic_plan.id}",
+              headers: headers
+
+          json = json_response
+          # Downgrade from pro (4900) to basic (1500) should have negative proration (credit)
+          expect(json['data']['proration']['proration_amount_cents']).to be <= 0
+          expect(json['data']['proration']['is_upgrade']).to be false
+        end
+      end
+
+      context 'with missing parameters' do
+        it 'returns error when new_plan_id is missing' do
+          get "/api/v1/subscriptions/#{subscription.id}/preview_proration",
+              headers: headers
+
+          expect(response).to have_http_status(:bad_request)
+          json = json_response
+          expect(json['error']).to include('new_plan_id parameter is required')
+        end
+      end
+
+      context 'with invalid plan' do
+        it 'returns error for non-existent plan' do
+          get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=nonexistent-plan-id",
+              headers: headers
+
+          expect_error_response('Plan not found', 404)
+        end
+
+        it 'returns error for same plan' do
+          get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=#{basic_plan.id}",
+              headers: headers
+
+          expect(response).to have_http_status(:unprocessable_entity)
+          json = json_response
+          expect(json['error']).to include('Cannot prorate to the same plan')
+        end
+
+        it 'returns error for inactive plan' do
+          inactive_plan = create(:plan, status: 'inactive')
+
+          get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=#{inactive_plan.id}",
+              headers: headers
+
+          expect(response).to have_http_status(:unprocessable_entity)
+          json = json_response
+          expect(json['error']).to include('plan is not available')
+        end
+      end
+
+      context 'when subscription has no billing period end' do
+        before do
+          subscription.update!(current_period_end: nil)
+        end
+
+        it 'returns error' do
+          get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=#{pro_plan.id}",
+              headers: headers
+
+          expect(response).to have_http_status(:unprocessable_entity)
+          json = json_response
+          expect(json['error']).to include('no billing period end date')
+        end
+      end
+
+      context 'when subscription belongs to different account' do
+        let(:other_account) { create(:account) }
+        let(:other_subscription) { create(:subscription, :active, account: other_account, plan: basic_plan) }
+
+        it 'returns not found error' do
+          get "/api/v1/subscriptions/#{other_subscription.id}/preview_proration?new_plan_id=#{pro_plan.id}",
+              headers: headers
+
+          expect_error_response('Subscription not found', 404)
+        end
+      end
+    end
+
+    context 'without authentication' do
+      it 'returns unauthorized error' do
+        get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=#{pro_plan.id}"
+
+        expect_error_response('Access token required', 401)
+      end
+    end
+  end
+
   describe 'subscription data integrity' do
     let!(:subscription) do
       create(:subscription, :active,
