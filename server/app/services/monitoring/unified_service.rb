@@ -21,11 +21,19 @@ module Monitoring
   #   dashboard = service.get_dashboard_metrics(time_range: 1.hour)
   #
   class UnifiedService
-  include BaseAiService
-  include AiMonitoringConcern
+    include BaseAiService
+    include AiMonitoringConcern
 
-  # Component types for monitoring
-  COMPONENTS = %w[system providers agents workflows conversations costs resources].freeze
+    # Component types for monitoring
+    COMPONENTS = %w[system providers agents workflows conversations costs resources].freeze
+
+    # Explicit initialize to ensure account is set
+    def initialize(account: nil, user: nil, **options)
+      @account = account
+      @user = user
+      @logger = Rails.logger
+      @options = options
+    end
 
   # =============================================================================
   # UNIFIED DASHBOARD
@@ -343,7 +351,7 @@ module Monitoring
   def count_active_workflows
     return 0 unless @account
 
-    @account.ai_workflows.with_active_runs.count
+    @account.ai_workflows.where(is_active: true).count
   end
 
   def count_active_agents
