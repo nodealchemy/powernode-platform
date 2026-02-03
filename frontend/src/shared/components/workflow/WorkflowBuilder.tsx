@@ -423,7 +423,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     if (workflow && nodes.length > 0) {
       const nodesNeedingInitialization = nodes.filter(node => {
         // Only initialize flags for nodes that don't have them set yet
-        const hasFlags = Object.hasOwn(node.data, 'is_start_node') && Object.hasOwn(node.data, 'is_end_node');
+        const hasFlags = ('is_start_node' in node.data) && ('is_end_node' in node.data);
         return !hasFlags;
       });
 
@@ -431,7 +431,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         setNodes((currentNodes) =>
           currentNodes.map(node => {
             // Only set flags for nodes that need initialization
-            const needsInitialization = !Object.hasOwn(node.data, 'is_start_node') || !Object.hasOwn(node.data, 'is_end_node');
+            const needsInitialization = !('is_start_node' in node.data) || !('is_end_node' in node.data);
 
             if (needsInitialization) {
               const isStartNodeType = node.data.node_type === 'trigger' || node.data.node_type === 'start';

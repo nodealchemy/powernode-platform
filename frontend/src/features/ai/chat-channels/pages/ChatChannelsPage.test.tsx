@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
+import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 import { ChatChannelsPage } from './ChatChannelsPage';
 
 // Mock the API service
@@ -92,7 +93,9 @@ describe('ChatChannelsPage', () => {
     return render(
       <Provider store={store}>
         <BrowserRouter>
-          <ChatChannelsPage {...props} />
+          <BreadcrumbProvider>
+            <ChatChannelsPage {...props} />
+          </BreadcrumbProvider>
         </BrowserRouter>
       </Provider>
     );

@@ -105,7 +105,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
                       <span className="text-xs font-medium text-theme-text-secondary min-w-6">
                         {idx + 1}.
                       </span>
-                      <p className="text-sm text-theme-text-primary">{learning.text}</p>
+                      <p className="text-sm text-theme-text-primary">{learning}</p>
                     </div>
                   ))}
                 </div>

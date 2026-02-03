@@ -245,8 +245,7 @@ describe('ErrorBoundary', () => {
 
   it('shows technical details in development mode', () => {
     const originalEnv = process.env.NODE_ENV;
-    // @ts-expect-error: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = 'development';
+        process.env.NODE_ENV = 'development';
 
     renderWithProviders(
       <ErrorBoundary showDetails={true}>
@@ -261,14 +260,12 @@ describe('ErrorBoundary', () => {
     fireEvent.click(detailsButton);
     expect(screen.getByText('Development error details')).toBeInTheDocument();
 
-    // @ts-expect-error: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = originalEnv;
+        process.env.NODE_ENV = originalEnv;
   });
 
   it('hides technical details in production mode', () => {
     const originalEnv = process.env.NODE_ENV;
-    // @ts-expect-error: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = 'production';
+        process.env.NODE_ENV = 'production';
 
     renderWithProviders(
       <ErrorBoundary>
@@ -279,14 +276,12 @@ describe('ErrorBoundary', () => {
 
     expect(screen.queryByText(/Technical Details/)).not.toBeInTheDocument();
 
-    // @ts-expect-error: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = originalEnv;
+        process.env.NODE_ENV = originalEnv;
   });
 
   it('can be forced to show details regardless of environment', () => {
     const originalEnv = process.env.NODE_ENV;
-    // @ts-expect-error: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = 'production';
+        process.env.NODE_ENV = 'production';
 
     renderWithProviders(
       <ErrorBoundary showDetails={true}>
@@ -297,8 +292,7 @@ describe('ErrorBoundary', () => {
 
     expect(screen.getByText(/Technical Details/)).toBeInTheDocument();
 
-    // @ts-expect-error: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = originalEnv;
+        process.env.NODE_ENV = originalEnv;
   });
 
   it('logs error information to console', () => {

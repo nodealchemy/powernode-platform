@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
+import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 import { ContainersPage } from './ContainersPage';
 
 // Mock the API service
@@ -123,7 +124,9 @@ describe('ContainersPage', () => {
     return render(
       <Provider store={store}>
         <BrowserRouter>
-          <ContainersPage {...props} />
+          <BreadcrumbProvider>
+            <ContainersPage {...props} />
+          </BreadcrumbProvider>
         </BrowserRouter>
       </Provider>
     );

@@ -114,7 +114,7 @@ export const getTokenExpiry = (token: string): Date | null => {
     const parts = token.split('.');
     const payload = JSON.parse(atob(parts[1]));
     
-    if (!Object.hasOwn(payload, 'exp') || payload.exp === null || payload.exp === undefined) return null;
+    if (!('exp' in payload) || payload.exp === null || payload.exp === undefined) return null;
     
     const expNumber = Number(payload.exp);
     if (isNaN(expNumber)) return null;

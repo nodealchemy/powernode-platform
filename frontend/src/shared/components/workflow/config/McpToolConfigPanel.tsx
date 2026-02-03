@@ -101,9 +101,9 @@ export const McpToolConfigPanel: React.FC<McpToolConfigPanelProps> = ({
       const parsed = JSON.parse(value);
       onConfigChange('parameters', parsed);
       setJsonError(null);
-    } catch (_error) {
+    } catch (parseError) {
       // Invalid JSON, don't update parameters
-      setJsonError(e instanceof Error ? e.message : 'Invalid JSON');
+      setJsonError(parseError instanceof Error ? parseError.message : 'Invalid JSON');
     }
   }, [onConfigChange]);
 

@@ -196,10 +196,10 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
       if (result.imported_count > 0) {
         onSuccess();
       }
-    } catch (_err) {
+    } catch (err) {
       setImportResult({
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to import repositories',
+        message: err instanceof Error ? err.message : 'Failed to import repositories',
       });
     } finally {
       setImporting(false);

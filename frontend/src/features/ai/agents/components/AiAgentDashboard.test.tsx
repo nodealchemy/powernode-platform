@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
+import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 import { AiAgentDashboard } from './AiAgentDashboard';
 import { agentsApi } from '@/shared/services/ai';
 
@@ -220,7 +221,9 @@ describe('AiAgentDashboard', () => {
     return render(
       <Provider store={store}>
         <BrowserRouter>
-          <AiAgentDashboard />
+          <BreadcrumbProvider>
+            <AiAgentDashboard />
+          </BreadcrumbProvider>
         </BrowserRouter>
       </Provider>
     );

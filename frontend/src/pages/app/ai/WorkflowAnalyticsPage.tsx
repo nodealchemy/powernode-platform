@@ -73,7 +73,7 @@ export const WorkflowAnalyticsPage: React.FC = () => {
       let statisticsResponse;
       try {
         statisticsResponse = await workflowsApi.getWorkflowStatistics();
-      } catch (_error) {
+      } catch (statsError) {
         console.error('Statistics API failed:', statsError);
         const errorMessage = statsError instanceof Error ? statsError.message : 'Unknown error';
         throw new Error(`Statistics API failed: ${errorMessage}`);
