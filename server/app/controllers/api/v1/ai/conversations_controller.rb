@@ -171,6 +171,110 @@ module Api
           render_error("Failed to duplicate conversation: #{e.message}", status: :unprocessable_content)
         end
 
+        # POST /api/v1/ai/agents/:agent_id/conversations/:id/send_message
+        # Send a message in a conversation and get AI response
+        def send_message
+          # Find agent and conversation from nested route
+          agent = current_user.account.ai_agents.find(params[:agent_id])
+          conversation = agent.conversations.find(params[:id])
+
+          # Validate conversation can receive messages
+          unless conversation.can_send_message?
+            return render_error("Conversation is not active", status: :unprocessable_content)
+          end
+
+          # Validate message content
+          content = message_params[:content]
+          if content.blank?
+            return render_error("Message content cannot be blank", status: :unprocessable_content)
+          end
+
+          # Create user message
+          user_message = conversation.add_user_message(
+            content,
+            user: current_user,
+            message_type: message_params[:message_type] || "text",
+            content_metadata: message_params[:metadata] || {}
+          )
+
+          # Build conversation history for AI
+          messages_for_ai = build_messages_for_ai(conversation, agent)
+
+          # Get AI response from provider
+          assistant_response = generate_ai_response(agent, messages_for_ai)
+
+          if assistant_response[:success]
+            # Create assistant message
+            assistant_message = conversation.add_assistant_message(
+              assistant_response[:content],
+              message_type: "text",
+              token_count: assistant_response[:usage]&.dig(:total_tokens) || 0,
+              cost_usd: calculate_cost(assistant_response[:usage], agent.provider),
+              processing_metadata: {
+                model: assistant_response[:model],
+                finish_reason: assistant_response[:finish_reason],
+                usage: assistant_response[:usage]
+              }
+            )
+
+            render_success({
+              user_message: serialize_message(user_message),
+              assistant_message: serialize_message(assistant_message),
+              conversation: {
+                id: conversation.id,
+                message_count: conversation.reload.message_count,
+                total_tokens: conversation.total_tokens,
+                total_cost: conversation.total_cost&.to_f
+              }
+            })
+
+            log_audit_event("ai.conversations.send_message", conversation,
+              user_message_id: user_message.id,
+              assistant_message_id: assistant_message.id
+            )
+          else
+            # AI response failed - still return user message but with error
+            render_success({
+              user_message: serialize_message(user_message),
+              assistant_message: nil,
+              error: assistant_response[:error],
+              conversation: {
+                id: conversation.id,
+                message_count: conversation.reload.message_count
+              }
+            }, status: :partial_content)
+          end
+        rescue ActiveRecord::RecordNotFound
+          render_error("Agent or conversation not found", status: :not_found)
+        rescue ActiveRecord::RecordInvalid => e
+          render_error("Failed to create message: #{e.message}", status: :unprocessable_content)
+        rescue StandardError => e
+          Rails.logger.error "[CONVERSATIONS] send_message error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+          render_internal_error("Failed to send message", exception: e)
+        end
+
+        # GET /api/v1/ai/agents/:agent_id/conversations/:id/messages
+        # Get all messages in a conversation
+        def messages
+          agent = current_user.account.ai_agents.find(params[:agent_id])
+          conversation = agent.conversations.includes(messages: :user).find(params[:id])
+
+          messages = conversation.messages.ordered
+          messages = messages.page(params[:page] || 1).per(params[:per_page] || 50)
+
+          render_success({
+            messages: messages.map { |m| serialize_message(m) },
+            pagination: {
+              current_page: messages.current_page,
+              per_page: messages.limit_value,
+              total_pages: messages.total_pages,
+              total_count: messages.total_count
+            }
+          })
+        rescue ActiveRecord::RecordNotFound
+          render_error("Agent or conversation not found", status: :not_found)
+        end
+
         # GET /api/v1/ai/conversations/:id/stats
         def stats
           # Calculate statistics from messages
@@ -236,9 +340,9 @@ module Api
 
         def validate_permissions
           case action_name
-          when "index", "show", "stats"
+          when "index", "show", "stats", "messages"
             require_permission("ai.conversations.read")
-          when "create", "duplicate"
+          when "create", "duplicate", "send_message"
             require_permission("ai.conversations.create")
           when "update", "archive", "unarchive"
             require_permission("ai.conversations.update")
@@ -257,6 +361,119 @@ module Api
             participants: [],
             metadata: {}
           )
+        end
+
+        def message_params
+          params.require(:message).permit(:content, :message_type, metadata: {})
+        end
+
+        # =============================================================================
+        # AI MESSAGE GENERATION
+        # =============================================================================
+
+        # Build messages array for AI provider from conversation history
+        def build_messages_for_ai(conversation, agent)
+          messages = []
+
+          # Add system prompt from agent if available
+          if agent.system_prompt.present?
+            messages << { role: "system", content: agent.system_prompt }
+          end
+
+          # Add conversation history (limit to last 20 messages for context window)
+          conversation.messages.ordered.last(20).each do |msg|
+            messages << { role: msg.role, content: msg.content }
+          end
+
+          messages
+        end
+
+        # Generate AI response using provider client
+        def generate_ai_response(agent, messages)
+          provider = agent.provider
+          model = agent.model || provider.default_model
+
+          # Get active credential for provider
+          credential = provider.provider_credentials.where(is_active: true).first
+          unless credential
+            return { success: false, error: "No active credentials configured for provider #{provider.name}" }
+          end
+
+          # Get provider client service (requires credential, not provider)
+          client = ::Ai::ProviderClientService.new(credential)
+
+          # Send messages to provider
+          result = client.send_message(messages, {
+            model: model,
+            temperature: agent.temperature || 0.7,
+            max_tokens: agent.max_tokens || 2048
+          })
+
+          if result[:success]
+            # Extract content from response - ProviderClientService returns :response, not :data
+            response_data = result[:response]
+            content = extract_content_from_response(response_data)
+
+            {
+              success: true,
+              content: content,
+              model: model,
+              usage: response_data&.dig(:usage),
+              finish_reason: response_data&.dig(:choices, 0, :finish_reason) || "stop"
+            }
+          else
+            {
+              success: false,
+              error: result[:error] || "Failed to generate AI response"
+            }
+          end
+        rescue StandardError => e
+          Rails.logger.error "[CONVERSATIONS] AI response generation error: #{e.message}"
+          { success: false, error: "AI service error: #{e.message}" }
+        end
+
+        # Extract text content from various provider response formats
+        def extract_content_from_response(data)
+          return "" unless data
+
+          # Handle different response structures
+          if data.is_a?(String)
+            data
+          elsif data[:content].is_a?(Array)
+            # Anthropic format: content is array of content blocks
+            data[:content].map { |c| c[:text] || c["text"] }.compact.join("\n")
+          elsif data[:content].is_a?(String)
+            data[:content]
+          elsif data[:choices].is_a?(Array)
+            # OpenAI format: choices array with message
+            data[:choices].first&.dig(:message, :content) ||
+              data[:choices].first&.dig("message", "content") || ""
+          elsif data[:message].is_a?(Hash)
+            # Ollama format
+            data[:message][:content] || data[:message]["content"] || ""
+          elsif data[:response]
+            # Simple response format
+            data[:response]
+          else
+            data.to_s
+          end
+        end
+
+        # Calculate cost based on token usage
+        def calculate_cost(usage, provider)
+          return 0.0 unless usage
+
+          # Get token counts
+          input_tokens = usage[:prompt_tokens] || usage["prompt_tokens"] || 0
+          output_tokens = usage[:completion_tokens] || usage["completion_tokens"] || 0
+
+          # Get pricing from provider (defaults for common providers)
+          pricing = provider.pricing_info || {}
+          input_cost_per_1k = pricing["input_cost_per_1k_tokens"] || 0.0
+          output_cost_per_1k = pricing["output_cost_per_1k_tokens"] || 0.0
+
+          # Calculate cost
+          ((input_tokens / 1000.0) * input_cost_per_1k + (output_tokens / 1000.0) * output_cost_per_1k).round(6)
         end
 
         # =============================================================================
