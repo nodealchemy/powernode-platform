@@ -123,8 +123,8 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
                 outputSchema: '',
               };
             }
-            // Cast to any to access all properties reliably
-            const s = skill as Record<string, unknown>;
+            // Cast through unknown to access all properties reliably
+            const s = skill as unknown as Record<string, unknown>;
             return {
               id: String(s.id || ''),
               name: String(s.name || ''),

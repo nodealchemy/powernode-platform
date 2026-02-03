@@ -12,10 +12,9 @@ import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer'
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAiMonitoringWebSocket, DashboardStats, SystemAlert } from '@/shared/hooks/useAiMonitoringWebSocket';
-import { monitoringApi } from '@/shared/services/ai/MonitoringApiService';
+import { monitoringApi, HealthStatus } from '@/shared/services/ai/MonitoringApiService';
 import {
   MonitoringDashboardData,
-  SystemHealthData,
   Alert,
   ResourceUtilization,
   ProviderMetrics,
@@ -26,7 +25,6 @@ import {
 // Import monitoring utilities and components
 import {
   transformDashboardData,
-  transformHealthData,
   transformAlerts,
   getMonitoringBreadcrumbs,
   MONITORING_TABS,
@@ -59,7 +57,7 @@ export const AIMonitoringPage: React.FC = () => {
 
   // State management
   const [dashboardData, setDashboardData] = useState<MonitoringDashboardData | null>(null);
-  const [systemHealth, setSystemHealth] = useState<SystemHealthData | null>(null);
+  const [systemHealth, setSystemHealth] = useState<HealthStatus | null>(null);
   const [providers, setProviders] = useState<ProviderMetrics[]>([]);
   const [agents, setAgents] = useState<AgentMetrics[]>([]);
   const [conversations] = useState<ConversationMetrics[]>([]);
@@ -178,8 +176,8 @@ export const AIMonitoringPage: React.FC = () => {
       // Transform and set dashboard data
       setDashboardData(transformDashboardData(dashboardResponse));
 
-      // Transform and set health data
-      setSystemHealth(transformHealthData(healthResponse));
+      // Use native health data directly from backend
+      setSystemHealth(healthResponse);
 
       // Transform providers from dashboard
       if (dashboardResponse.providers) {
@@ -311,7 +309,7 @@ export const AIMonitoringPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [canViewMonitoring, transformDashboardData, transformHealthData, transformAlerts]);
+  }, [canViewMonitoring]);
 
   // Initialize monitoring - fetch initial data only (WebSocket handles real-time updates)
   useEffect(() => {

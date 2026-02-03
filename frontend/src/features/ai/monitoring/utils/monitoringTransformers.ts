@@ -1,7 +1,6 @@
-import { MonitoringDashboard, HealthStatus, Alert as ApiAlert } from '@/shared/services/ai/MonitoringApiService';
+import { MonitoringDashboard, Alert as ApiAlert } from '@/shared/services/ai/MonitoringApiService';
 import {
   MonitoringDashboardData,
-  SystemHealthData,
   Alert
 } from '@/shared/types/monitoring';
 
@@ -21,41 +20,6 @@ export const transformDashboardData = (dashboard: MonitoringDashboard): Monitori
     timestamp: new Date().toISOString(),
     health_score: dashboard.system_health?.uptime_percentage || 100,
     components: {}
-  };
-};
-
-/**
- * Transform API health status to internal SystemHealthData type
- */
-export const transformHealthData = (health: HealthStatus): SystemHealthData => {
-  const statusScore = health.status === 'healthy' ? 95 : health.status === 'degraded' ? 70 : 40;
-  const defaultComponentHealth = {
-    health_score: statusScore,
-    status: health.status === 'healthy' ? 'healthy' as const : 'degraded' as const,
-    active_count: 0,
-    issues: []
-  };
-
-  return {
-    overall_health: statusScore,
-    status: health.status === 'healthy' ? 'excellent' : health.status === 'degraded' ? 'fair' : 'critical',
-    components: {
-      providers: defaultComponentHealth,
-      agents: defaultComponentHealth,
-      workflows: defaultComponentHealth,
-      conversations: defaultComponentHealth,
-      infrastructure: defaultComponentHealth
-    },
-    alerts: {
-      active: 0,
-      high_priority: 0,
-      medium_priority: 0,
-      low_priority: 0,
-      by_component: {},
-      recent_count: 0
-    },
-    recommendations: [],
-    last_updated: health.timestamp
   };
 };
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { Activity, Clock } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Select } from '@/shared/components/ui/Select';
-import { SystemHealthData } from '@/shared/types/monitoring';
+import { HealthStatus } from '@/shared/services/ai/MonitoringApiService';
 import {
   getHealthScoreColor,
   getConnectionStatusColor,
@@ -13,7 +13,7 @@ interface MonitoringStatusBarProps {
   isConnected: boolean;
   isRealTimeEnabled: boolean;
   wsConnected: boolean;
-  systemHealth: SystemHealthData | null;
+  systemHealth: HealthStatus | null;
   lastUpdate: Date | null;
   timeRange: string;
   onTimeRangeChange: (value: string) => void;
@@ -28,6 +28,14 @@ export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
   timeRange,
   onTimeRangeChange
 }) => {
+  // Derive display status label from health score
+  const getStatusLabel = (score: number): string => {
+    if (score >= 90) return 'excellent';
+    if (score >= 70) return 'good';
+    if (score >= 50) return 'fair';
+    return 'critical';
+  };
+
   return (
     <div className="flex items-center justify-between bg-theme-surface border border-theme-border rounded-lg p-4">
       <div className="flex items-center gap-4">
@@ -43,13 +51,15 @@ export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
           <div className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-theme-muted" />
             <span className="text-sm text-theme-muted">System Health:</span>
-            <span className={`text-sm font-medium ${getHealthScoreColor(systemHealth.overall_health)}`}>
-              {systemHealth.overall_health.toFixed(1)}%
+            <span className={`text-sm font-medium ${getHealthScoreColor(systemHealth.health_score)}`}>
+              {systemHealth.health_score.toFixed(1)}%
             </span>
-            <Badge variant={systemHealth.status === 'excellent' ? 'success' :
-                          systemHealth.status === 'good' ? 'info' :
-                          systemHealth.status === 'fair' ? 'warning' : 'danger'}>
-              {systemHealth.status}
+            <Badge variant={
+              systemHealth.health_score >= 90 ? 'success' :
+              systemHealth.health_score >= 70 ? 'info' :
+              systemHealth.health_score >= 50 ? 'warning' : 'danger'
+            }>
+              {getStatusLabel(systemHealth.health_score)}
             </Badge>
           </div>
         )}

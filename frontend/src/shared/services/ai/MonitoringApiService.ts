@@ -82,23 +82,78 @@ export interface HealthComponentStatus {
   response_time_ms?: number;
 }
 
+/**
+ * Native backend health response format
+ * Matches Rails Ai::MonitoringHealthService#comprehensive_health_check output
+ */
 export interface HealthStatus {
+  // Overall status
   status: 'healthy' | 'degraded' | 'unhealthy' | 'critical';
+  health_score: number;
   timestamp: string;
   time_range_seconds?: number;
-  health_score?: number;
-  system?: HealthComponentStatus;
-  database?: HealthComponentStatus;
-  redis?: HealthComponentStatus;
-  providers?: HealthComponentStatus;
-  workers?: HealthComponentStatus;
-   
-  circuit_breakers?: any;
-  // Legacy field for backwards compatibility
-  services?: Record<string, {
+
+  // System component
+  system: {
     status: 'healthy' | 'degraded' | 'unhealthy';
-    message?: string;
-  }>;
+    uptime?: number;
+    active_workflows: number;
+    active_agents: number;
+    running_executions: number;
+  };
+
+  // Database component
+  database: {
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    connection?: string;
+    connection_pool?: {
+      size: number;
+      connections: number;
+      busy: number;
+      idle: number;
+      available: number;
+    };
+    error?: string;
+  };
+
+  // Redis component
+  redis: {
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    used_memory?: string;
+    connected_clients?: number;
+    error?: string;
+  };
+
+  // Providers component
+  providers: {
+    total_providers: number;
+    healthy_providers: number;
+    providers: Array<{
+      id: string;
+      name: string;
+      provider_type: string;
+      status: 'active' | 'inactive';
+      has_credentials: boolean;
+      is_healthy: boolean;
+    }>;
+  };
+
+  // Workers component
+  workers: {
+    status: 'healthy' | 'degraded';
+    recent_completions: number;
+    recent_starts: number;
+    estimated_backlog: number;
+    last_activity?: string;
+  };
+
+  // Circuit breakers summary
+  circuit_breakers?: {
+    total: number;
+    healthy: number;
+    degraded: number;
+    unhealthy: number;
+  };
 }
 
 export interface MetricsData {

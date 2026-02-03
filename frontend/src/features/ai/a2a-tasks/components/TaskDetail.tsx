@@ -66,7 +66,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
         a2aTasksApiService.getArtifacts(taskId).catch(() => ({ artifacts: [] })),
       ]);
 
-      setTask(taskResponse.task as A2aTaskJson);
+      setTask(taskResponse.task as unknown as A2aTaskJson);
       setArtifacts(artifactsResponse.artifacts || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load task');
@@ -449,27 +449,27 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                   </span>
                 </div>
               )}
-              {task.metadata?.role && (
+              {Boolean(task.metadata?.role) && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Role</span>
                   <span className="text-theme-primary">
-                    {String(task.metadata.role)}
+                    {String(task.metadata?.role)}
                   </span>
                 </div>
               )}
-              {task.metadata?.team_id && (
+              {Boolean(task.metadata?.team_id) && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Team</span>
                   <span className="text-theme-primary font-mono text-xs">
-                    {String(task.metadata.team_id).substring(0, 8)}...
+                    {String(task.metadata?.team_id).substring(0, 8)}...
                   </span>
                 </div>
               )}
-              {task.metadata?.workflow_run_id && (
+              {Boolean(task.metadata?.workflow_run_id) && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Workflow Run</span>
                   <span className="text-theme-primary font-mono text-xs">
-                    {String(task.metadata.workflow_run_id).substring(0, 16)}...
+                    {String(task.metadata?.workflow_run_id).substring(0, 16)}...
                   </span>
                 </div>
               )}
