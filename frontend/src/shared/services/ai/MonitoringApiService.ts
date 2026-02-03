@@ -96,6 +96,13 @@ export interface MonitoringDashboard {
     message: string;
     timestamp: string;
   }>;
+  // Resource utilization data
+  resources?: {
+    cpu: { usage_percent: number; idle_percent: number; load_average: string };
+    memory: { total_mb: number; used_mb: number; free_mb: number; usage_percent: number };
+    database: { status: string; connection_count: number };
+    redis: { status: string; used_memory: string; connected_clients: number };
+  };
 }
 
 export interface HealthComponentStatus {
@@ -171,7 +178,7 @@ export interface HealthStatus {
 
   // Circuit breakers summary
   circuit_breakers?: {
-    total: number;
+    total_services: number;
     healthy: number;
     degraded: number;
     unhealthy: number;
@@ -280,6 +287,12 @@ class MonitoringApiService extends BaseApiService {
             failed_runs?: number;
           };
         };
+        resources?: {
+          cpu?: { usage_percent?: number; idle_percent?: number; load_average?: string };
+          memory?: { total_mb?: number; used_mb?: number; free_mb?: number; usage_percent?: number };
+          database?: { status?: string; connection_count?: number };
+          redis?: { status?: string; used_memory?: string; connected_clients?: number };
+        };
       };
     }
 
@@ -374,17 +387,73 @@ class MonitoringApiService extends BaseApiService {
         avg_duration: w.avg_duration || 0,
         total_cost: parseFloat(w.total_cost || '0')
       })),
-      alerts: []
+      alerts: [],
+      // Include resource utilization data from backend
+      resources: dashboard?.components?.resources ? {
+        cpu: {
+          usage_percent: dashboard.components.resources.cpu?.usage_percent || 0,
+          idle_percent: dashboard.components.resources.cpu?.idle_percent || 0,
+          load_average: dashboard.components.resources.cpu?.load_average || '0'
+        },
+        memory: {
+          total_mb: dashboard.components.resources.memory?.total_mb || 0,
+          used_mb: dashboard.components.resources.memory?.used_mb || 0,
+          free_mb: dashboard.components.resources.memory?.free_mb || 0,
+          usage_percent: dashboard.components.resources.memory?.usage_percent || 0
+        },
+        database: {
+          status: dashboard.components.resources.database?.status || 'unknown',
+          connection_count: dashboard.components.resources.database?.connection_count || 0
+        },
+        redis: {
+          status: dashboard.components.resources.redis?.status || 'unknown',
+          used_memory: dashboard.components.resources.redis?.used_memory || '0',
+          connected_clients: dashboard.components.resources.redis?.connected_clients || 0
+        }
+      } : undefined
     };
   }
 
   /**
    * Get system metrics
    * GET /api/v1/ai/monitoring/metrics
+   * Transforms nested backend response to flat MetricsData array
    */
   async getMetrics(timeRange?: string): Promise<MetricsData[]> {
     const queryString = timeRange ? `?time_range=${timeRange}` : '';
-    return this.get<MetricsData[]>(`${this.basePath}/metrics${queryString}`);
+
+    interface BackendMetricsResponse {
+      metrics: {
+        system?: {
+          performance?: {
+            avg_response_time?: number;
+            requests_per_second?: number;
+            active_connections?: { total?: number };
+          };
+          errors?: { error_rate?: number };
+        };
+        resources?: {
+          cpu?: { usage_percent?: number };
+          memory?: { usage_percent?: number };
+        };
+      };
+      timestamp?: string;
+    }
+
+    const response = await this.get<BackendMetricsResponse>(`${this.basePath}/metrics`);
+
+    // Transform nested backend response to flat MetricsData format
+    const metricsData: MetricsData = {
+      cpu_usage: response?.metrics?.resources?.cpu?.usage_percent || 0,
+      memory_usage: response?.metrics?.resources?.memory?.usage_percent || 0,
+      active_connections: response?.metrics?.system?.performance?.active_connections?.total || 0,
+      request_rate: response?.metrics?.system?.performance?.requests_per_second || 0,
+      error_rate: response?.metrics?.system?.errors?.error_rate || 0,
+      avg_response_time: response?.metrics?.system?.performance?.avg_response_time || 0,
+      timestamp: response?.timestamp || new Date().toISOString()
+    };
+
+    return [metricsData];
   }
 
   /**

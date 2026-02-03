@@ -318,8 +318,8 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
               </div>
               <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme-border">
                 <span className="text-sm text-theme-muted">Total</span>
-                <Badge variant="outline" size="sm">
-                  {healthData.circuit_breakers.total}
+                <Badge variant="info" size="sm">
+                  {healthData.circuit_breakers.total_services}
                 </Badge>
               </div>
             </div>

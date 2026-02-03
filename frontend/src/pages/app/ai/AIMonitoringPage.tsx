@@ -62,7 +62,7 @@ export const AIMonitoringPage: React.FC = () => {
   const [agents, setAgents] = useState<AgentMetrics[]>([]);
   const [conversations] = useState<ConversationMetrics[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [resources] = useState<ResourceUtilization | null>(null);
+  const [resources, setResources] = useState<ResourceUtilization | null>(null);
 
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -178,6 +178,59 @@ export const AIMonitoringPage: React.FC = () => {
 
       // Use native health data directly from backend
       setSystemHealth(healthResponse);
+
+      // Set resource utilization data from dashboard
+      if (dashboardResponse.resources) {
+        const dbConnections = dashboardResponse.resources.database.connection_count || 5;
+        setResources({
+          system: {
+            cpu_usage: dashboardResponse.resources.cpu.usage_percent,
+            memory_usage: dashboardResponse.resources.memory.usage_percent,
+            disk_usage: 0,
+            network_usage: 0
+          },
+          database: {
+            connection_pool: {
+              size: dbConnections,
+              used: dbConnections,
+              available: 0
+            },
+            query_performance: {
+              avg_query_time: 0,
+              slow_queries: 0,
+              deadlocks: 0
+            },
+            storage_usage: {
+              total_size: 1000,
+              used_size: 100,
+              free_size: 900
+            }
+          },
+          redis: {
+            memory_usage: {
+              used: parseFloat(dashboardResponse.resources.redis.used_memory) || 0,
+              peak: 0,
+              limit: 0
+            },
+            connection_count: dashboardResponse.resources.redis.connected_clients,
+            hit_rate: 100
+          },
+          sidekiq: {
+            queue_sizes: {},
+            worker_utilization: {
+              busy: 0,
+              idle: 0,
+              total: 0
+            },
+            failed_jobs: 0
+          },
+          actioncable: {
+            connection_count: 0,
+            subscription_count: 0,
+            message_throughput: 0
+          }
+        });
+      }
 
       // Transform providers from dashboard
       if (dashboardResponse.providers) {
