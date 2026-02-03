@@ -28,11 +28,13 @@ module Monitoring
     COMPONENTS = %w[system providers agents workflows conversations costs resources].freeze
 
     # Explicit initialize to ensure account is set
+    # Note: Can't call super due to ActiveModel::Model conflict with BaseAiService
     def initialize(account: nil, user: nil, **options)
       @account = account
       @user = user
       @logger = Rails.logger
       @options = options
+      @telemetry = Mcp::TelemetryService.new(service_name: self.class.name, account: @account)
     end
 
   # =============================================================================
@@ -162,7 +164,7 @@ module Monitoring
 
     {
       total_providers: providers.count,
-      active_providers: providers.where(status: "active").count,
+      active_providers: providers.where(is_active: true).count,
       providers: providers.map { |provider| provider_summary(provider, time_range) },
       aggregated: aggregate_provider_metrics(providers, time_range)
     }
@@ -172,7 +174,7 @@ module Monitoring
     {
       id: provider.id,
       name: provider.name,
-      status: provider.status,
+      status: provider.is_active ? "active" : "inactive",
       executions: count_provider_executions(provider, time_range),
       success_rate: calculate_provider_success_rate(provider, time_range),
       avg_response_time: get_provider_avg_response_time(provider, time_range),
@@ -393,7 +395,7 @@ module Monitoring
   end
 
   def get_provider_health_percentage
-    providers = get_account_providers.where(status: "active")
+    providers = get_account_providers.where(is_active: true)
     return 100 if providers.empty?
 
     healthy_count = providers.count { |p| provider_is_healthy?(p) }
@@ -482,10 +484,9 @@ module Monitoring
   end
 
   def get_circuit_breaker_status(provider)
-    breaker = Monitoring::CircuitBreaker.find_by(
-      service: "ai_provider_#{provider.id}",
-      circuit_type: "provider"
-    )
+    # circuit_breakers table has: service, provider, name columns (not circuit_type)
+    breaker = Monitoring::CircuitBreaker.find_by(service: "ai_provider_#{provider.id}") ||
+              Monitoring::CircuitBreaker.find_by(name: "provider_#{provider.slug}")
 
     return "closed" unless breaker
 
