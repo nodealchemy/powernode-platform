@@ -123,7 +123,8 @@ describe('ChatChannelsPage', () => {
       fireEvent.click(screen.getByTestId('select-channel-btn'));
 
       await waitFor(() => {
-        expect(screen.getByText('Test Channel')).toBeInTheDocument();
+        // Title appears in multiple places (page title + breadcrumb), so use getAllByText
+        expect(screen.getAllByText('Test Channel').length).toBeGreaterThan(0);
         expect(screen.getByTestId('channel-metrics')).toBeInTheDocument();
         expect(screen.getByTestId('channel-sessions')).toBeInTheDocument();
       });
@@ -163,8 +164,8 @@ describe('ChatChannelsPage', () => {
         expect(screen.getByTestId('channel-metrics')).toBeInTheDocument();
       });
 
-      // Click back button
-      fireEvent.click(screen.getByText('Back'));
+      // Click back button (component uses "Back to List")
+      fireEvent.click(screen.getByText('Back to List'));
 
       await waitFor(() => {
         expect(screen.getByTestId('channel-list')).toBeInTheDocument();

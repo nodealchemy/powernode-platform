@@ -318,18 +318,26 @@ export function calculateDiscountedPrice(
   let discountType: 'annual' | 'promotional' | null = null;
   let originalPriceCents = priceCents;
 
-  // Apply annual discount when viewing yearly billing for monthly plans
+  // Apply annual pricing when viewing yearly billing for monthly plans
   if (
     displayBillingCycle === 'yearly' &&
-    discountInfo.billing_cycle === 'monthly' &&
-    discountInfo.has_annual_discount &&
-    discountInfo.annual_discount_percent
+    discountInfo.billing_cycle === 'monthly'
   ) {
-    const annualDiscountPercent = parseFloat(String(discountInfo.annual_discount_percent));
     originalPriceCents = priceCents * 12;
-    discountedPriceCents = Math.round(originalPriceCents * (1 - annualDiscountPercent / 100));
-    discountPercent = annualDiscountPercent;
-    discountType = 'annual';
+
+    // Apply explicit annual discount if configured
+    if (discountInfo.has_annual_discount && discountInfo.annual_discount_percent) {
+      const annualDiscountPercent = parseFloat(String(discountInfo.annual_discount_percent));
+      discountedPriceCents = Math.round(originalPriceCents * (1 - annualDiscountPercent / 100));
+      discountPercent = annualDiscountPercent;
+      discountType = 'annual';
+    } else {
+      // Apply default 10% annual discount for yearly billing view
+      const defaultAnnualDiscount = 10;
+      discountedPriceCents = Math.round(originalPriceCents * (1 - defaultAnnualDiscount / 100));
+      discountPercent = defaultAnnualDiscount;
+      discountType = 'annual';
+    }
   }
   // Apply promotional discount (only if no code required)
   else if (

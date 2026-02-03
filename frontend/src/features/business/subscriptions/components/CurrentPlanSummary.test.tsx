@@ -91,7 +91,7 @@ describe('CurrentPlanSummary', () => {
     it('shows formatted price', () => {
       render(<CurrentPlanSummary {...defaultProps} />);
 
-      expect(screen.getByText('$49.00/monthly')).toBeInTheDocument();
+      expect(screen.getByText('$49.00/month')).toBeInTheDocument();
     });
 
     it('shows billing cycle', () => {

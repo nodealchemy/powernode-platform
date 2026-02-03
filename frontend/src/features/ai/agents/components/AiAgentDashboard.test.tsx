@@ -127,12 +127,15 @@ describe('AiAgentDashboard', () => {
       agent_type: 'content_generator',
       status: 'active',
       is_active: true,
-      ai_provider: {
+      // Component uses 'provider' not 'ai_provider'
+      provider: {
         id: 'provider-1',
         name: 'OpenAI',
         slug: 'openai',
         provider_type: 'text_generation'
       },
+      // Component uses 'model' directly
+      model: 'gpt-4',
       mcp_tool_manifest: {
         name: 'data_processor',
         description: 'Data processing agent',
@@ -167,12 +170,15 @@ describe('AiAgentDashboard', () => {
       agent_type: 'content_generator',
       status: 'inactive',
       is_active: false,
-      ai_provider: {
+      // Component uses 'provider' not 'ai_provider'
+      provider: {
         id: 'provider-2',
         name: 'Anthropic',
         slug: 'anthropic',
         provider_type: 'text_generation'
       },
+      // Component uses 'model' directly
+      model: 'claude-3-opus',
       mcp_tool_manifest: {
         name: 'content_generator',
         description: 'Content generation agent',
