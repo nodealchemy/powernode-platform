@@ -18,7 +18,7 @@ module Api
         # GET /api/v1/ai/conversations
         def index
           conversations = current_user.account.ai_conversations
-                                    .includes(:user, :agent, :provider, :participant_users)
+                                    .includes(:user, :agent, :provider)
                                     .order(last_activity_at: :desc)
 
           conversations = apply_filters(conversations)
@@ -224,7 +224,7 @@ module Api
 
         def set_conversation
           @conversation = current_user.account.ai_conversations
-                           .includes(:user, :agent, :provider, :participant_users, messages: [:user])
+                           .includes(:user, :agent, :provider, messages: [:user])
                            .find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Conversation not found", status: :not_found)
@@ -338,13 +338,8 @@ module Api
             summary: conversation.summary,
             websocket_channel: conversation.websocket_channel,
             websocket_session_id: conversation.websocket_session_id,
-            participants: conversation.is_collaborative? ? conversation.participant_users.map { |u|
-              {
-                id: u.id,
-                name: u.full_name,
-                email: u.email
-              }
-            } : [],
+            # participants is stored as JSONB array in the database
+            participants: conversation.is_collaborative? ? (conversation.participants || []) : [],
             recent_messages: conversation.messages.recent.limit(10).map { |m| serialize_message(m) },
             metadata: {
               can_send_message: conversation.can_send_message?,

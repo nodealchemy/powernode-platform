@@ -251,13 +251,15 @@ module Ai
 
       def calculate_total_cost(since)
         workflow_cost = workflow_runs.where("ai_workflow_runs.created_at >= ?", since).sum(:total_cost).to_f
-        agent_cost = agent_executions.where("ai_agent_executions.created_at >= ?", since).sum(:total_cost).to_f
+        # ai_agent_executions uses cost_usd column, not total_cost
+        agent_cost = agent_executions.where("ai_agent_executions.created_at >= ?", since).sum(:cost_usd).to_f
         (workflow_cost + agent_cost).round(6)
       end
 
       def calculate_period_cost(start_time, end_time)
         workflow_cost = workflow_runs.where(ai_workflow_runs: { created_at: start_time..end_time }).sum(:total_cost).to_f
-        agent_cost = agent_executions.where(ai_agent_executions: { created_at: start_time..end_time }).sum(:total_cost).to_f
+        # ai_agent_executions uses cost_usd column, not total_cost
+        agent_cost = agent_executions.where(ai_agent_executions: { created_at: start_time..end_time }).sum(:cost_usd).to_f
         (workflow_cost + agent_cost).round(6)
       end
 
