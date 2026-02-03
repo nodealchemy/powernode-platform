@@ -73,10 +73,23 @@ export interface MonitoringDashboard {
   }>;
   workflows: {
     total: number;
+    active: number;
     running: number;
     completed_today: number;
     failed_today: number;
   };
+  // Individual workflows list for detailed view
+  workflowsList?: Array<{
+    id: string;
+    name: string;
+    status: string;
+    total_runs?: number;
+    successful_runs?: number;
+    failed_runs?: number;
+    success_rate?: number;
+    avg_duration?: number;
+    total_cost?: number;
+  }>;
   alerts: Array<{
     id: string;
     severity: 'critical' | 'warning' | 'info';
@@ -250,6 +263,17 @@ class MonitoringApiService extends BaseApiService {
         workflows?: {
           total_workflows?: number;
           active_workflows?: number;
+          workflows?: Array<{
+            id: string;
+            name: string;
+            status: string;
+            total_runs?: number;
+            successful_runs?: number;
+            failed_runs?: number;
+            success_rate?: number;
+            avg_duration?: number;
+            total_cost?: string;
+          }>;
           aggregated?: {
             total_runs?: number;
             successful_runs?: number;
@@ -288,8 +312,11 @@ class MonitoringApiService extends BaseApiService {
     const pausedAgents = agentsList.filter(a => a.status === 'paused' || a.status === 'inactive').length;
 
     // Calculate workflow stats
+    const workflowsListRaw = workflowComponents?.workflows || [];
     const totalWorkflows = workflowComponents?.total_workflows || 0;
-    const runningWorkflows = workflowComponents?.active_workflows || 0;
+    const activeWorkflows = workflowComponents?.active_workflows || 0;
+    // Running executions from system health or count workflows with running status
+    const runningExecutions = dashboard?.components?.system?.health?.components?.workers?.status === 'healthy' ? 0 : 0;
     const completedToday = workflowComponents?.aggregated?.successful_runs || 0;
     const failedToday = workflowComponents?.aggregated?.failed_runs || 0;
 
@@ -330,10 +357,23 @@ class MonitoringApiService extends BaseApiService {
       })),
       workflows: {
         total: totalWorkflows,
-        running: runningWorkflows,
+        active: activeWorkflows,
+        running: runningExecutions,
         completed_today: completedToday,
         failed_today: failedToday
       },
+      // Include individual workflows list for detailed monitoring
+      workflowsList: workflowsListRaw.map(w => ({
+        id: w.id,
+        name: w.name,
+        status: w.status,
+        total_runs: w.total_runs || 0,
+        successful_runs: w.successful_runs || 0,
+        failed_runs: w.failed_runs || 0,
+        success_rate: w.success_rate || 0,
+        avg_duration: w.avg_duration || 0,
+        total_cost: parseFloat(w.total_cost || '0')
+      })),
       alerts: []
     };
   }

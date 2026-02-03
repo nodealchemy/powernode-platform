@@ -45,7 +45,7 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
   const transformDashboardToStats = useCallback((dashboard: MonitoringDashboard): WorkflowMonitoringData['stats'] => {
     return {
       totalWorkflows: dashboard.workflows?.total || 0,
-      activeWorkflows: dashboard.workflows?.running || 0,
+      activeWorkflows: dashboard.workflows?.active || 0,
       runningExecutions: dashboard.workflows?.running || 0,
       completedToday: dashboard.workflows?.completed_today || 0,
       failedToday: dashboard.workflows?.failed_today || 0,
@@ -53,6 +53,9 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
       recentExecutions: []
     };
   }, []);
+
+  // Store workflows list for detailed view
+  const [workflowsList, setWorkflowsList] = useState<MonitoringDashboard['workflowsList']>([]);
 
   // Transform API metrics data to health format
   const transformMetricsToHealth = useCallback((metrics: MetricsData): WorkflowHealthData['health'] => {
@@ -79,6 +82,7 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
       ]);
 
       setStats(transformDashboardToStats(dashboardResponse));
+      setWorkflowsList(dashboardResponse.workflowsList || []);
 
       const latestMetrics = Array.isArray(metricsResponse) && metricsResponse.length > 0
         ? metricsResponse[metricsResponse.length - 1]
@@ -470,6 +474,49 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
             <div className="text-center py-8 text-theme-muted">
               <Play className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No active executions</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Workflows List */}
+      <Card>
+        <CardTitle className="flex items-center gap-2 p-4 pb-0">
+          <Zap className="h-5 w-5" />
+          All Workflows ({workflowsList.length})
+        </CardTitle>
+        <CardContent className="pt-4">
+          {workflowsList.length > 0 ? (
+            <div className="space-y-3">
+              {workflowsList.map(workflow => (
+                <div key={workflow.id} className="border border-theme-border rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-theme-primary">{workflow.name}</h4>
+                      <div className="flex items-center gap-4 mt-1 text-sm text-theme-muted">
+                        <span>Runs: {workflow.total_runs || 0}</span>
+                        <span className="text-theme-success">✓ {workflow.successful_runs || 0}</span>
+                        <span className="text-theme-danger">✗ {workflow.failed_runs || 0}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={workflow.status === 'active' ? 'success' : 'outline'}>
+                        {workflow.status}
+                      </Badge>
+                      {(workflow.success_rate ?? 0) > 0 && (
+                        <Badge variant="outline">
+                          {workflow.success_rate?.toFixed(0)}% success
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-theme-muted">
+              <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No workflows configured</p>
             </div>
           )}
         </CardContent>
