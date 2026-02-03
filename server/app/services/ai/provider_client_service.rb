@@ -539,7 +539,15 @@ class Ai::ProviderClientService
         provider: provider.name
       }
     else
-      error_msg = response.parsed_response&.dig("error") || "Unknown error"
+      # Safely extract error message - parsed_response could be String, Hash, or nil
+      parsed = response.parsed_response
+      error_msg = if parsed.is_a?(Hash)
+                    parsed.dig("error") || parsed["message"] || "Unknown error"
+                  elsif parsed.is_a?(String)
+                    parsed
+                  else
+                    "Unknown error"
+                  end
       {
         success: false,
         error: error_msg.is_a?(Hash) ? error_msg.to_json : error_msg.to_s,
@@ -620,7 +628,9 @@ class Ai::ProviderClientService
     compatible_models = provider.supported_models.select do |model|
       provider.capabilities.include?(capability)
     end
-    compatible_models.first&.dig("id")
+    first_model = compatible_models.first
+    # Handle both Hash ({"id": "model"}) and String ("model") formats
+    first_model.is_a?(Hash) ? first_model.dig("id") || first_model["name"] : first_model
   end
 
   # OpenAI implementations
@@ -843,9 +853,18 @@ class Ai::ProviderClientService
         provider: provider.name
       }
     else
+      # Safely extract error message - parsed_response could be String, Hash, or nil
+      parsed = response.parsed_response
+      error_msg = if parsed.is_a?(Hash)
+                    parsed.dig("error") || parsed["message"] || "Unknown error occurred"
+                  elsif parsed.is_a?(String)
+                    parsed
+                  else
+                    "Unknown error occurred"
+                  end
       {
         success: false,
-        error: response.parsed_response&.dig("error") || "Unknown error occurred",
+        error: error_msg.is_a?(Hash) ? error_msg.to_json : error_msg.to_s,
         status_code: response.code,
         provider: provider.name
       }

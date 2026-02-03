@@ -89,9 +89,9 @@ class Ai::MemoryManagementService
 
     # Consolidate similar memories
     def consolidate_memories(context:, similarity_threshold: 0.9)
-      return { consolidated: 0 } unless context.ai_context_entries.count > 1
+      return { consolidated: 0 } unless context.context_entries.count > 1
 
-      entries = context.ai_context_entries.active.where.not(embedding: nil).to_a
+      entries = context.context_entries.active.where.not(embedding: nil).to_a
       consolidated = 0
 
       entries.each_with_index do |entry, i|
@@ -211,7 +211,7 @@ class Ai::MemoryManagementService
 
     # Get context health metrics
     def context_health(context:)
-      entries = context.ai_context_entries
+      entries = context.context_entries
 
       {
         entry_count: entries.count,
@@ -231,7 +231,7 @@ class Ai::MemoryManagementService
 
     # Export memories for backup
     def export_memories(account:, format: :json, include_embeddings: false)
-      contexts = Ai::PersistentContext.where(account: account).includes(:ai_context_entries)
+      contexts = Ai::PersistentContext.where(account: account).includes(:context_entries)
 
       data = {
         exported_at: Time.current.iso8601,
@@ -240,7 +240,7 @@ class Ai::MemoryManagementService
         contexts: contexts.map do |context|
           {
             context: context.context_summary,
-            entries: context.ai_context_entries.map do |entry|
+            entries: context.context_entries.map do |entry|
               snapshot = entry.entry_snapshot
               snapshot[:embedding] = entry.embedding if include_embeddings
               snapshot
@@ -289,14 +289,14 @@ class Ai::MemoryManagementService
 
     # Sync context between agents
     def sync_context(from_context:, to_context:, entry_types: nil, min_importance: nil)
-      scope = from_context.ai_context_entries.active
+      scope = from_context.context_entries.active
       scope = scope.by_type(entry_types) if entry_types.present?
       scope = scope.where("importance_score >= ?", min_importance) if min_importance.present?
 
       synced = 0
 
       scope.find_each do |entry|
-        existing = to_context.ai_context_entries.find_by(entry_key: entry.entry_key)
+        existing = to_context.context_entries.find_by(entry_key: entry.entry_key)
 
         if existing.present?
           # Update if source is newer
@@ -310,7 +310,7 @@ class Ai::MemoryManagementService
           end
         else
           # Create new entry
-          to_context.ai_context_entries.create!(
+          to_context.context_entries.create!(
             entry_key: entry.entry_key,
             entry_type: entry.entry_type,
             content: entry.content,
@@ -329,7 +329,7 @@ class Ai::MemoryManagementService
     private
 
     def cleanup_old_entries(context, max_age)
-      old_entries = context.ai_context_entries
+      old_entries = context.context_entries
         .active
         .where("created_at < ?", max_age.ago)
         .order(importance_score: :asc)
@@ -352,14 +352,14 @@ class Ai::MemoryManagementService
     end
 
     def enforce_entry_limit(context, max_entries)
-      current_count = context.ai_context_entries.active.count
+      current_count = context.context_entries.active.count
       return { archived: 0, deleted: 0 } if current_count <= max_entries
 
       excess = current_count - max_entries
       policy = context.retention_policy
 
       # Remove lowest importance entries first
-      entries_to_remove = context.ai_context_entries
+      entries_to_remove = context.context_entries
         .active
         .order(importance_score: :asc, last_accessed_at: :asc)
         .limit(excess)
@@ -456,7 +456,7 @@ class Ai::MemoryManagementService
       issues = []
 
       if policy["max_entries"].present?
-        current = context.ai_context_entries.active.count
+        current = context.context_entries.active.count
         if current > policy["max_entries"]
           issues << "over_limit"
         elsif current > policy["max_entries"] * 0.9
@@ -465,7 +465,7 @@ class Ai::MemoryManagementService
       end
 
       if policy["max_age_days"].present?
-        old_count = context.ai_context_entries
+        old_count = context.context_entries
           .active
           .where("created_at < ?", policy["max_age_days"].days.ago)
           .count
@@ -494,7 +494,7 @@ class Ai::MemoryManagementService
         context_type: context_data[:context_type]
       )
 
-      existing&.ai_context_entries&.destroy_all
+      existing&.context_entries&.destroy_all
       existing || find_or_create_context(account, context_data)
     end
 
@@ -517,7 +517,7 @@ class Ai::MemoryManagementService
     end
 
     def import_entry(context, entry_data, strategy)
-      existing = context.ai_context_entries.find_by(entry_key: entry_data[:entry_key])
+      existing = context.context_entries.find_by(entry_key: entry_data[:entry_key])
 
       if existing.present? && strategy == :merge
         existing.update!(
@@ -525,7 +525,7 @@ class Ai::MemoryManagementService
           metadata: existing.metadata.deep_merge(entry_data[:metadata] || {})
         )
       else
-        context.ai_context_entries.create!(
+        context.context_entries.create!(
           entry_key: entry_data[:entry_key],
           entry_type: entry_data[:entry_type],
           content: entry_data[:content],

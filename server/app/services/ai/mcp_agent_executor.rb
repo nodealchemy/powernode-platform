@@ -93,10 +93,18 @@ class Ai::McpAgentExecutor
     # ✅ FIX: Check for provider errors before processing
     # Provider client returns either:
     # - Success: { success: true, data: { content: [...], usage: {...} } }
+    # - Failure: { success: false, error: "message string", status_code: 404 }
     # - Failure: { success: false, error: { type: '...', message: '...' }, status_code: 404 }
     unless result[:success]
-      error_message = result.dig(:error, "message") || result.dig(:error, :message) || "Unknown provider error"
-      error_type = result.dig(:error, "type") || result.dig(:error, :type) || "unknown_error"
+      # Handle both String and Hash error formats
+      error_data = result[:error]
+      if error_data.is_a?(Hash)
+        error_message = error_data["message"] || error_data[:message] || "Unknown provider error"
+        error_type = error_data["type"] || error_data[:type] || "unknown_error"
+      else
+        error_message = error_data.to_s.presence || "Unknown provider error"
+        error_type = "provider_error"
+      end
       status_code = result[:status_code] || 500
 
       @logger.error "[MCP_AGENT_EXECUTOR] ❌ Provider error: #{error_message} (#{error_type}, status: #{status_code})"
@@ -118,8 +126,9 @@ class Ai::McpAgentExecutor
     end
 
     # Provider client returns { success: true, data: { content: [...], usage: {...} } }
-    # Extract the actual response data
-    response_data = result[:data] || result["data"] || {}
+    # Extract the actual response data - ensure it's a Hash
+    raw_data = result[:data] || result["data"]
+    response_data = raw_data.is_a?(Hash) ? raw_data : {}
 
     # 🔍 DIAGNOSTIC: Log the extracted response_data
     @logger.info "[MCP_AGENT_EXECUTOR] 🔍 Extracted response_data:"
@@ -131,7 +140,11 @@ class Ai::McpAgentExecutor
     # For Anthropic, content is an array of content blocks
     content_text = if response_data["content"].is_a?(Array)
                      @logger.info "[MCP_AGENT_EXECUTOR] 🔍 Content is array with #{response_data['content'].length} blocks"
-                     response_data["content"].map { |block| block["text"] }.join
+                     response_data["content"].map { |block| block.is_a?(Hash) ? block["text"] : block.to_s }.join
+    elsif raw_data.is_a?(String)
+                     # Handle case where provider returned a raw string
+                     @logger.info "[MCP_AGENT_EXECUTOR] 🔍 Raw data is a string, using directly"
+                     raw_data
     else
                      @logger.info "[MCP_AGENT_EXECUTOR] 🔍 Content is not array, trying alternate extraction"
                      response_data["content"] || response_data["text"] || result[:content] || result[:text]
@@ -180,6 +193,9 @@ class Ai::McpAgentExecutor
       }
     )
 
+    # Ensure response is a Hash before using dig
+    response = {} unless response.is_a?(Hash)
+
     {
       "output" => response.dig("choices", 0, "message", "content"),
       "metadata" => {
@@ -203,6 +219,9 @@ class Ai::McpAgentExecutor
       }
     )
 
+    # Ensure response is a Hash before using dig
+    response = {} unless response.is_a?(Hash)
+
     {
       "output" => response.dig("content", 0, "text"),
       "metadata" => {
@@ -225,6 +244,9 @@ class Ai::McpAgentExecutor
         num_predict: context[:max_tokens] || 1000
       }
     )
+
+    # Ensure response is a Hash before using dig
+    response = {} unless response.is_a?(Hash)
 
     {
       "output" => response["response"],

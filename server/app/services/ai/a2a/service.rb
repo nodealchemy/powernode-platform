@@ -364,16 +364,34 @@ module Ai
 
         mcp_result = executor.execute(input_parameters)
 
+        # Ensure mcp_result is a Hash before calling dig
+        mcp_result = {} unless mcp_result.is_a?(Hash)
+
         # Extract output from MCP response format
         # MCP returns: { "result" => { "output" => "...", "metadata" => {...} }, "telemetry" => {...} }
-        output_text = mcp_result.dig("result", "output") || mcp_result.dig(:result, :output) || ""
+        # Handle both success and error cases
+        result_data = mcp_result["result"] || mcp_result[:result]
+        output_text = if result_data.is_a?(Hash)
+                        result_data["output"] || result_data[:output] || ""
+                      elsif result_data.is_a?(String)
+                        result_data
+                      else
+                        ""
+                      end
+
+        # Extract metadata safely
+        metadata = if result_data.is_a?(Hash)
+                     result_data["metadata"] || result_data[:metadata] || {}
+                   else
+                     {}
+                   end
 
         # Return in format expected by execute_task_sync
         {
           output: { "text" => output_text, "raw" => mcp_result },
           artifacts: [],
-          metadata: mcp_result.dig("result", "metadata") || {},
-          telemetry: mcp_result["telemetry"] || {}
+          metadata: metadata,
+          telemetry: mcp_result["telemetry"] || mcp_result[:telemetry] || {}
         }
       end
 
@@ -415,11 +433,30 @@ module Ai
         agent = task.to_agent
         return unless agent
 
+        # Safely extract task_type from message parts
+        task_type = if task.message.is_a?(Hash) && task.message["parts"].is_a?(Array)
+                      task.message["parts"].first&.dig("type") || "unknown"
+                    else
+                      "unknown"
+                    end
+
+        # Safely extract input text
+        input_text = if task.input.is_a?(Hash)
+                       task.input["text"] || task.input[:text] || task.input.to_json
+                     elsif task.input.is_a?(String)
+                       task.input
+                     else
+                       task.input.to_s
+                     end
+
+        # Safely extract output
+        output_json = task.output.is_a?(Hash) ? task.output.to_json : task.output.to_s
+
         Memory::ExperientialMemoryService.new(agent: agent, account: @account).store(
           content: {
-            "task_type" => task.message.dig("parts", 0, "type") || "unknown",
-            "input_summary" => task.input["text"]&.truncate(200),
-            "output_summary" => task.output.to_json.truncate(200),
+            "task_type" => task_type,
+            "input_summary" => input_text&.truncate(200),
+            "output_summary" => output_json.truncate(200),
             "success" => success,
             "error" => error,
             "duration_ms" => task.duration_ms
