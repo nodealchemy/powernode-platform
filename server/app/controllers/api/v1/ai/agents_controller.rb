@@ -103,8 +103,10 @@ module Api
 
         # POST /api/v1/ai/agents/:id/execute
         def execute
+          # Convert ActionController::Parameters to Hash for JSON schema validation
+          input_params = params[:input_parameters]&.to_unsafe_h || {}
           result = management_service.execute(
-            input_parameters: params[:input_parameters] || {},
+            input_parameters: input_params,
             provider_id: params[:ai_provider_id]
           )
 

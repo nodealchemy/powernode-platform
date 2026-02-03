@@ -279,7 +279,7 @@ module Ai
     # ==================== Task Management ====================
 
     def next_task
-      ralph_tasks.pending.order(priority: :desc, position: :asc).first
+      ralph_tasks.pending.order(priority: :desc, position: :asc).find(&:dependencies_satisfied?)
     end
 
     def blocked_tasks
