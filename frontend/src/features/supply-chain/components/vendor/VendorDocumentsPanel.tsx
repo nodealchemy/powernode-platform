@@ -60,7 +60,7 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
       const category = selectedCategory === 'all' ? undefined : selectedCategory;
       const response = await supplyChainFilesApi.getVendorDocuments(vendorId, category);
       setFiles(response.files || []);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load documents', 'error');
     } finally {
       setLoading(false);
@@ -95,7 +95,7 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
 
       showNotification('Document uploaded successfully', 'success');
       fetchDocuments();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to upload document', 'error');
     } finally {
       setUploading(false);
@@ -109,7 +109,7 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
   const handleDownload = async (file: FileObject) => {
     try {
       await supplyChainFilesApi.downloadFile(file.id, file.filename);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to download file', 'error');
     }
   };
@@ -120,7 +120,7 @@ export const VendorDocumentsPanel: React.FC<VendorDocumentsPanelProps> = ({
       await supplyChainFilesApi.deleteFile(fileId);
       showNotification('Document deleted successfully', 'success');
       fetchDocuments();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to delete document', 'error');
     } finally {
       setDeletingId(null);

@@ -626,7 +626,7 @@ describe('Vendor Risk Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync(createData);
-        } catch {
+        } catch (err) {
           caughtError = (err as Error).message;
         }
       });
@@ -649,7 +649,7 @@ describe('Vendor Risk Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync(createData);
-        } catch {
+        } catch (_err) {
           // Expected
         }
       });
@@ -739,7 +739,7 @@ describe('Vendor Risk Hooks', () => {
             id: 'vendor-123',
             data: { status: 'inactive' },
           });
-        } catch {
+        } catch (err) {
           caughtError = (err as Error).message;
         }
       });
@@ -816,7 +816,7 @@ describe('Vendor Risk Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync('vendor-123');
-        } catch {
+        } catch (err) {
           caughtError = (err as Error).message;
         }
       });
@@ -833,7 +833,7 @@ describe('Vendor Risk Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync('vendor-123');
-        } catch {
+        } catch (_err) {
           // Expected
         }
       });
@@ -905,7 +905,7 @@ describe('Vendor Risk Hooks', () => {
             vendorId: 'vendor-123',
             assessmentType: 'renewal',
           });
-        } catch {
+        } catch (err) {
           caughtError = (err as Error).message;
         }
       });
@@ -1028,7 +1028,7 @@ describe('Vendor Risk Hooks', () => {
             vendorId: 'vendor-123',
             templateId: 'template-456',
           });
-        } catch {
+        } catch (err) {
           caughtError = (err as Error).message;
         }
       });
@@ -1048,7 +1048,7 @@ describe('Vendor Risk Hooks', () => {
             vendorId: 'vendor-123',
             templateId: 'template-456',
           });
-        } catch {
+        } catch (_err) {
           // Expected
         }
       });

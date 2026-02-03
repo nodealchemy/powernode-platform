@@ -32,7 +32,7 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
       setError(null);
       const response = await memoryApiService.getStats(agentId);
       setStats(response);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load stats');
     } finally {
       setLoading(false);

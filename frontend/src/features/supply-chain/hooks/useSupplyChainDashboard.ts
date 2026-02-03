@@ -12,7 +12,7 @@ export function useSupplyChainDashboard() {
       setError(null);
       const dashboard = await supplyChainApi.getDashboard();
       setData(dashboard);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch dashboard');
     } finally {
       setLoading(false);

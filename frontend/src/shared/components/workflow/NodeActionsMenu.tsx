@@ -98,7 +98,7 @@ export const createNodeActionsHandlers = (
     try {
       await navigator.clipboard.writeText(text);
       onNotify?.('Copied to clipboard', 'success');
-    } catch {
+    } catch (_error) {
       onNotify?.('Failed to copy to clipboard', 'error');
     }
   };

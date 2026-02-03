@@ -632,7 +632,7 @@ describe('Attestation Hooks', () => {
             id: 'att_1',
             signingKeyId: 'invalid_key',
           });
-        } catch {
+        } catch (_error) {
           // Error is expected
         }
       });
@@ -650,7 +650,7 @@ describe('Attestation Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync({ id: 'att_already_signed' });
-        } catch {
+        } catch (_error) {
           // Error is expected
         }
       });
@@ -679,7 +679,7 @@ describe('Attestation Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync({ id: 'att_1' });
-        } catch {
+        } catch (_error) {
           // Error is expected
         }
       });
@@ -698,7 +698,7 @@ describe('Attestation Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync({ id: 'att_1' });
-        } catch {
+        } catch (_error) {
           // Expected
         }
       });
@@ -1075,7 +1075,7 @@ describe('Attestation Hooks', () => {
             subject_digest: '',
             predicate: {},
           });
-        } catch {
+        } catch (_error) {
           // Error is expected
         }
       });
@@ -1115,7 +1115,7 @@ describe('Attestation Hooks', () => {
             subject_digest: 'sha256:test',
             predicate: {},
           });
-        } catch {
+        } catch (_error) {
           // Error is expected
         }
       });
@@ -1139,7 +1139,7 @@ describe('Attestation Hooks', () => {
             subject_digest: 'sha256:test',
             predicate: {},
           });
-        } catch {
+        } catch (_error) {
           // Expected
         }
       });

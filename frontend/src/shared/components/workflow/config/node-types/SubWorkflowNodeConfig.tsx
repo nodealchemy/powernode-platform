@@ -86,7 +86,7 @@ export const SubWorkflowNodeConfig: React.FC<NodeTypeConfigProps> = ({
             try {
               const parsed = JSON.parse(e.target.value);
               handleConfigChange('input_mapping', parsed);
-            } catch {
+            } catch (_error) {
               handleConfigChange('input_mapping', e.target.value);
             }
           }}
@@ -109,7 +109,7 @@ export const SubWorkflowNodeConfig: React.FC<NodeTypeConfigProps> = ({
             try {
               const parsed = JSON.parse(e.target.value);
               handleConfigChange('output_mapping', parsed);
-            } catch {
+            } catch (_error) {
               handleConfigChange('output_mapping', e.target.value);
             }
           }}

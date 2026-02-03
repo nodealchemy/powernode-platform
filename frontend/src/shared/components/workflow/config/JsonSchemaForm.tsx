@@ -473,7 +473,7 @@ const ObjectField: React.FC<ObjectFieldProps> = ({
         onChange={(e) => {
           try {
             onChange(JSON.parse(e.target.value));
-          } catch {
+          } catch (_error) {
             // Invalid JSON, don't update
           }
         }}

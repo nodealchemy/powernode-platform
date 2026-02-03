@@ -26,7 +26,7 @@ export const UsageDashboard: React.FC = () => {
       } else {
         setError(result.error || 'Failed to load usage data');
       }
-    } catch {
+    } catch (_error) {
       setError('An error occurred while loading data');
       addNotification({ type: 'error', message: 'Failed to load usage data' });
     } finally {
@@ -59,7 +59,7 @@ export const UsageDashboard: React.FC = () => {
         URL.revokeObjectURL(url);
         addNotification({ type: 'success', message: 'Export downloaded successfully' });
       }
-    } catch {
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to export data' });
     }
   };

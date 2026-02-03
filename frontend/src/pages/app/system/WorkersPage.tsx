@@ -143,7 +143,7 @@ export const WorkersPage: React.FC = () => {
         }
       }));
       setStats(workerStats);
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load workers';
       showNotification(errorMessage, 'error');
       setState(prev => ({
@@ -300,7 +300,7 @@ export const WorkersPage: React.FC = () => {
       await workerApi.createWorker(workerData as Parameters<typeof workerApi.createWorker>[0]);
       await loadWorkers();
       setState(prev => ({ ...prev, showCreateModal: false }));
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create worker';
       throw new Error(errorMessage);
     }
@@ -321,7 +321,7 @@ export const WorkersPage: React.FC = () => {
       }
       await loadWorkers();
       setState(prev => ({ ...prev, selectedWorkers: new Set() }));
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to perform bulk action';
       showNotification(errorMessage, 'error');
     }

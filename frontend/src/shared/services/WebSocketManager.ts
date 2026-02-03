@@ -106,7 +106,7 @@ export class WebSocketManager {
     this.stateListeners.forEach(listener => {
       try {
         listener(isConnected, error);
-      } catch {
+      } catch (_error) {
         // Prevent listener errors from affecting other listeners
       }
     });
@@ -202,7 +202,7 @@ export class WebSocketManager {
         this.handleError(error);
       };
 
-    } catch {
+    } catch (error) {
       this.isConnecting = false;
       this.isConnected = false;
       this.notifyStateListeners(false, `Failed to create WebSocket: ${error}`);
@@ -264,14 +264,14 @@ export class WebSocketManager {
           subscriptions.forEach(sub => {
             try {
               sub.onMessage?.(data.message);
-            } catch {
+            } catch (error) {
               console.error('[WebSocket] Handler error:', error);
             }
           });
         }
       }
 
-    } catch {
+    } catch (error) {
       console.error('[WebSocket] Message parsing error:', error);
     }
   }
@@ -401,7 +401,7 @@ export class WebSocketManager {
     try {
       this.ws.send(JSON.stringify(message));
       return true;
-    } catch {
+    } catch (_error) {
       return false;
     }
   }
@@ -433,7 +433,7 @@ export class WebSocketManager {
 
     try {
       this.ws.send(JSON.stringify(subscribeMessage));
-    } catch {
+    } catch (_error) {
       // Ignore send errors
     }
   }
@@ -454,7 +454,7 @@ export class WebSocketManager {
 
     try {
       this.ws.send(JSON.stringify(unsubscribeMessage));
-    } catch {
+    } catch (_error) {
       // Ignore send errors
     }
   }

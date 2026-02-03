@@ -99,7 +99,7 @@ const AppContent: React.FC = () => {
               } else {
                 localStorage.removeItem('impersonationToken');
               }
-            } catch {
+            } catch (_error) {
               localStorage.removeItem('impersonationToken');
             }
           }
@@ -107,7 +107,7 @@ const AppContent: React.FC = () => {
           // If no valid impersonation session, proceed with regular authentication
           try {
             await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
-          } catch {
+          } catch (error) {
             
             // Check if this error indicates invalid tokens that should be cleared immediately
             if (isTokenInvalidError(error)) {
@@ -130,7 +130,7 @@ const AppContent: React.FC = () => {
                     } else {
                       localStorage.removeItem('impersonationToken');
                     }
-                  } catch {
+                  } catch (_error) {
                     localStorage.removeItem('impersonationToken');
                   }
                 }
@@ -152,7 +152,7 @@ const AppContent: React.FC = () => {
             }
           }
         }
-      } catch {
+      } catch (_error) {
         dispatch(clearAuth());
       } finally {
         clearTimeout(timeoutId);

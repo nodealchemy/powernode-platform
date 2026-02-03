@@ -49,7 +49,7 @@ export const ContextInjectionPreview: React.FC<ContextInjectionPreviewProps> = (
 
       const result = await memoryApiService.getContextInjection(agentId, request);
       setResponse(result);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate context');
     } finally {
       setLoading(false);

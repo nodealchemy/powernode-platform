@@ -2,6 +2,8 @@
 
 module Mcp
   class ContainerInstance < ApplicationRecord
+    self.table_name = "mcp_container_instances"
+
     # Concerns
     include Auditable
 

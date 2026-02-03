@@ -82,11 +82,11 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
       try {
         const conversationStats = await conversationsApi.getConversationStats(conversationId);
         setStats(conversationStats);
-      } catch {
+      } catch (_error) {
         // Stats are optional - don't fail the whole load if they're not available
       }
 
-    } catch {
+    } catch (_error) {
       setError('Failed to load conversation details. Please try again.');
       addNotification({
         type: 'error',
@@ -136,7 +136,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
 
       onArchive?.(conversation.id);
       onClose();
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Action Failed',
@@ -163,7 +163,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
       });
 
       onExport?.(conversation.id);
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Export Failed',

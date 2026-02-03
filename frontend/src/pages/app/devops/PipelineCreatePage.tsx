@@ -97,7 +97,7 @@ export const PipelineCreatePage: React.FC = () => {
 
       showNotification('Pipeline created successfully', 'success');
       navigate(`/app/devops/pipelines/${pipeline.id}`);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to create pipeline', 'error');
     } finally {
       setSaving(false);

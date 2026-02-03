@@ -466,7 +466,7 @@ export class McpClient {
     handlers.forEach(handler => {
       try {
         handler(params);
-      } catch {
+      } catch (_error) {
         // Ignore event handler errors
       }
     });
@@ -476,7 +476,7 @@ export class McpClient {
     allHandlers.forEach(handler => {
       try {
         handler({ type: eventType, ...params });
-      } catch {
+      } catch (_error) {
         // Ignore generic event handler errors
       }
     });

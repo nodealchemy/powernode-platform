@@ -121,7 +121,7 @@ export const WorkflowsPage: React.FC = () => {
       if (response.pagination.per_page && response.pagination.per_page !== perPage) {
         setPerPage(response.pagination.per_page);
       }
-    } catch {
+    } catch (error) {
       console.error('Failed to load workflows:', error);
       // Reset to empty state on error
       setWorkflows([]);
@@ -294,7 +294,7 @@ export const WorkflowsPage: React.FC = () => {
       });
       // Refresh workflow list after duplication
       loadWorkflows(1, perPage);
-    } catch {
+    } catch (error) {
       console.error('Failed to duplicate workflow:', error);
       addNotification({
         type: 'error',
@@ -328,7 +328,7 @@ export const WorkflowsPage: React.FC = () => {
       });
       // Refresh workflow list after deletion
       loadWorkflows(1, perPage);
-    } catch {
+    } catch (error) {
       console.error('Failed to delete workflow:', error);
       addNotification({
         type: 'error',

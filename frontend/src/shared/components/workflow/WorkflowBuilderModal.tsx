@@ -90,7 +90,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
       setLoading(true);
       const response = await workflowsApi.getWorkflow(workflowId);
       setWorkflow(response);
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -143,7 +143,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
       // Notify parent component of successful save without closing the modal
       onSuccess?.(response);
 
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Save Failed',
@@ -192,7 +192,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
         errors,
         warnings
       };
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Validation Error',

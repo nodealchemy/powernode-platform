@@ -87,7 +87,7 @@ const RepositoryCard: React.FC<{
           if (defaultBranch) {
             setSelectedBranch(defaultBranch.name);
           }
-        } catch {
+        } catch (_error) {
           // Silently fail
         } finally {
           setLoadingBranches(false);
@@ -126,7 +126,7 @@ const RepositoryCard: React.FC<{
               date: date ? new Date(date).toLocaleDateString() : ''
             };
           }));
-        } catch {
+        } catch (_error) {
           // Silently fail
         } finally {
           setLoadingCommits(false);
@@ -150,7 +150,7 @@ const RepositoryCard: React.FC<{
             state: pr.state || '',
             author: pr.author || ''
           })));
-        } catch {
+        } catch (_error) {
           // Silently fail
         } finally {
           setLoadingPRs(false);
@@ -194,13 +194,13 @@ const RepositoryCard: React.FC<{
                   activity.set(date, (activity.get(date) || 0) + 1);
                 }
               });
-            } catch {
+            } catch (_error) {
               // Continue with other branches if one fails
             }
           }
 
           setActivityData(activity);
-        } catch {
+        } catch (_error) {
           // Silently fail
         } finally {
           setLoadingActivity(false);
@@ -798,7 +798,7 @@ export function RepositoriesPage() {
       });
       setRepositories(data.repositories);
       setPagination(data.pagination);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load repositories', 'error');
     } finally {
       setLoading(false);
@@ -809,7 +809,7 @@ export function RepositoriesPage() {
     try {
       const data = await gitProvidersApi.getProviders();
       setProviders(data);
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   };
@@ -842,7 +842,7 @@ export function RepositoriesPage() {
       await gitProvidersApi.configureWebhook(repoId);
       showNotification('Webhook configured successfully', 'success');
       fetchRepositories();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to configure webhook', 'error');
     }
   };
@@ -855,7 +855,7 @@ export function RepositoriesPage() {
       await gitProvidersApi.deleteRepository(repoId);
       showNotification('Repository removed', 'success');
       setRepositories(repositories.filter(r => r.id !== repoId));
-    } catch {
+    } catch (_error) {
       showNotification('Failed to remove repository', 'error');
     }
   };

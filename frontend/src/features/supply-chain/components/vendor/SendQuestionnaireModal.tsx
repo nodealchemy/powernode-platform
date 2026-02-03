@@ -69,7 +69,7 @@ export const SendQuestionnaireModal: React.FC<SendQuestionnaireModalProps> = ({
       setSending(true);
       await onSend(selectedTemplateId);
       onClose();
-    } catch {
+    } catch (_error) {
       // Error is silently ignored to keep modal open
     } finally {
       setSending(false);

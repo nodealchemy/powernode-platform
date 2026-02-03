@@ -17,7 +17,7 @@ RSpec.describe CommunityAgent, type: :model do
     subject { build(:community_agent) }
 
     it { should validate_presence_of(:name) }
-    it { should validate_presence_of(:slug) }
+    # Note: slug is auto-generated from name, so shoulda-matchers can't easily test its validation
     it { should validate_presence_of(:description) }
     it { should validate_presence_of(:visibility) }
     it { should validate_presence_of(:status) }

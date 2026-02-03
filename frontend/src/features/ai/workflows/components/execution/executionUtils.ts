@@ -120,7 +120,7 @@ export const getFormattedOutput = (
                 try {
                   const parsed = JSON.parse(markdownOutput);
                   return extractContent(parsed, depth + 1);
-                } catch {
+                } catch (_error) {
                   return markdownOutput;
                 }
               }
@@ -139,7 +139,7 @@ export const getFormattedOutput = (
                 try {
                   const parsed = JSON.parse(writerOutput);
                   return extractContent(parsed, depth + 1);
-                } catch {
+                } catch (_error) {
                   return writerOutput;
                 }
               }
@@ -158,7 +158,7 @@ export const getFormattedOutput = (
                 try {
                   const parsed = JSON.parse(editorOutput);
                   return extractContent(parsed, depth + 1);
-                } catch {
+                } catch (_error) {
                   return editorOutput;
                 }
               }

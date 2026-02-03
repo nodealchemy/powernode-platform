@@ -31,16 +31,20 @@ module Ai
         Thread.current[progress_key] = true
 
         begin
-          executions = node_executions
+          # Use with_lock to prevent race conditions during progress updates
+          with_lock do
+            executions = node_executions
 
-          new_completed = executions.where(status: %w[completed skipped]).count
-          new_failed = executions.where(status: "failed").count
+            new_completed = executions.where(status: %w[completed skipped]).count
+            new_failed = executions.where(status: "failed").count
 
-          if completed_nodes != new_completed || failed_nodes != new_failed
-            update!(
-              completed_nodes: new_completed,
-              failed_nodes: new_failed
-            )
+            if completed_nodes != new_completed || failed_nodes != new_failed
+              # Use update_columns for atomic update without callbacks
+              update_columns(
+                completed_nodes: new_completed,
+                failed_nodes: new_failed
+              )
+            end
           end
         ensure
           Thread.current[progress_key] = nil

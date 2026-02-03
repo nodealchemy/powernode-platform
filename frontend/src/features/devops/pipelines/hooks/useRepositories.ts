@@ -29,7 +29,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       const data = await devopsRepositoriesApi.getAll(params);
       setRepositories(data.repositories);
       setMeta(data.meta);
-    } catch {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch repositories';
       setError(message);
     } finally {
@@ -53,7 +53,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       showNotification('Repository created successfully', 'success');
       await fetchRepositories();
       return repository;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to create repository', 'error');
       return null;
     }
@@ -65,7 +65,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       showNotification('Repository updated successfully', 'success');
       await fetchRepositories();
       return repository;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to update repository', 'error');
       return null;
     }
@@ -77,7 +77,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       showNotification('Repository deleted successfully', 'success');
       await fetchRepositories();
       return true;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to delete repository', 'error');
       return false;
     }
@@ -89,7 +89,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       showNotification(result.message || 'Repository synced', 'success');
       await fetchRepositories();
       return result;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to sync repository', 'error');
       return null;
     }
@@ -101,7 +101,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       showNotification('Pipeline attached successfully', 'success');
       await fetchRepositories();
       return repository;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to attach pipeline', 'error');
       return null;
     }
@@ -113,7 +113,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       showNotification('Pipeline detached successfully', 'success');
       await fetchRepositories();
       return repository;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to detach pipeline', 'error');
       return null;
     }
@@ -150,7 +150,7 @@ export function useRepository(id: string | null) {
       setError(null);
       const data = await devopsRepositoriesApi.getById(id, true);
       setRepository(data);
-    } catch {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch repository';
       setError(message);
     } finally {
@@ -174,7 +174,7 @@ export function useRepository(id: string | null) {
       showNotification('Repository updated successfully', 'success');
       setRepository(updated);
       return updated;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to update repository', 'error');
       return null;
     }

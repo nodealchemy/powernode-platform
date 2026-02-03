@@ -2,6 +2,8 @@
 
 module Chat
   class Message < ApplicationRecord
+    self.table_name = "chat_messages"
+
     # Concerns
     include Auditable
 
@@ -42,6 +44,7 @@ module Chat
     scope :failed, -> { where(delivery_status: "failed") }
     scope :recent, -> { order(created_at: :desc) }
     scope :chronological, -> { order(created_at: :asc) }
+    scope :by_type, ->(type) { where(message_type: type) }
 
     # Callbacks
     after_create :sync_to_ai_conversation, if: -> { session.ai_conversation.present? }
@@ -63,6 +66,23 @@ module Chat
 
     def media?
       !text?
+    end
+
+    # Delivery status checks
+    def pending?
+      delivery_status == "pending"
+    end
+
+    def delivered?
+      delivery_status == "delivered"
+    end
+
+    def failed?
+      delivery_status == "failed"
+    end
+
+    def read?
+      delivery_status == "read"
     end
 
     def has_attachments?

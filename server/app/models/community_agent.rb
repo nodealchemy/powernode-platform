@@ -114,13 +114,14 @@ class CommunityAgent < ApplicationRecord
   end
 
   def refresh_rating!
-    stats = ratings.where.not(hidden: true).select(
-      "AVG(rating) as avg, COUNT(*) as count"
-    ).first
+    stats = ratings.where.not(hidden: true)
+                   .pick(Arel.sql("AVG(rating), COUNT(*)"))
+
+    avg, count = stats || [ 0, 0 ]
 
     update!(
-      avg_rating: stats.avg || 0,
-      rating_count: stats.count
+      avg_rating: avg || 0,
+      rating_count: count
     )
 
     update_reputation!
@@ -205,6 +206,7 @@ class CommunityAgent < ApplicationRecord
 
   def generate_slug
     return if slug.present?
+    return if name.blank?
 
     base_slug = name.parameterize
     self.slug = base_slug
@@ -229,7 +231,7 @@ class CommunityAgent < ApplicationRecord
 
   def link_agent_card
     return if agent_card.present?
-    return unless agent.agent_card.present?
+    return unless agent.respond_to?(:agent_card) && agent.agent_card.present?
 
     update!(agent_card: agent.agent_card)
   end

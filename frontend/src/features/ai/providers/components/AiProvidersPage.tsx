@@ -82,7 +82,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
           per_page: 20
         });
       }
-    } catch {
+    } catch (_error) {
       setProviders([]); // Ensure providers is always an array
       setPagination({ // Ensure pagination is always an object
         current_page: 1,
@@ -137,7 +137,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
           message: 'All selected providers already exist in your account.'
         });
       }
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Setup Failed',
@@ -174,7 +174,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
 
       // Refresh providers to update health status
       loadProviders(false);
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Bulk Test Failed',
@@ -204,7 +204,7 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
       });
       setSelectedProviderId(null); // Close detail modal
       loadProviders(false);
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Delete Failed',

@@ -226,7 +226,7 @@ export function DevOpsOverviewPage() {
           ? (apiKeysData as { data: { stats: ApiKeyStats } }).data?.stats || null
           : null
       });
-    } catch {
+    } catch (error) {
       console.error('Failed to load DevOps stats:', error);
     } finally {
       setLoading(false);
@@ -272,13 +272,13 @@ export function DevOpsOverviewPage() {
                 activity.set(date, (activity.get(date) || 0) + 1);
               }
             });
-          } catch {
+          } catch (_error) {
             // Continue with other repos
           }
         }
 
         setActivityData(activity);
-      } catch {
+      } catch (_error) {
         // Silently fail
       } finally {
         setLoadingActivity(false);

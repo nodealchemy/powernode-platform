@@ -2,6 +2,8 @@
 
 module Chat
   class Channel < ApplicationRecord
+    self.table_name = "chat_channels"
+
     # Concerns
     include Auditable
     include VaultCredential

@@ -92,7 +92,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         showNotification(response.error || 'Failed to load webhooks', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('An unexpected error occurred while loading webhooks', 'error');
     } finally {
       setLoading(false);
@@ -111,7 +111,7 @@ const WebhookManagementPage: React.FC = () => {
       if (response.success && response.data) {
         setDetailedStats(response.data);
       }
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   }
   }, [canReadWebhooks]);
@@ -145,7 +145,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         showNotification(response.error || 'Failed to create webhook', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('An unexpected error occurred while creating the webhook', 'error');
     }
   };
@@ -175,7 +175,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         showNotification(response.error || 'Failed to update webhook', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('An unexpected error occurred while updating the webhook', 'error');
     }
   };
@@ -208,7 +208,7 @@ const WebhookManagementPage: React.FC = () => {
           } else {
             showNotification(response.error || 'Failed to delete webhook', 'error');
           }
-        } catch {
+        } catch (_error) {
           showNotification('An unexpected error occurred while deleting the webhook', 'error');
         }
       }
@@ -231,7 +231,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         showNotification(response.error || 'Failed to update webhook status', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('An unexpected error occurred while updating webhook status', 'error');
     }
   };
@@ -251,7 +251,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         showNotification(response.error || 'Failed to retry failed deliveries', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('An unexpected error occurred while retrying failed deliveries', 'error');
     }
   };

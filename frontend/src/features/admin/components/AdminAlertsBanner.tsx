@@ -35,7 +35,7 @@ export const AdminAlertsBanner: React.FC<AdminAlertsBannerProps> = ({
       if (response.success && response.data) {
         setAlerts(response.data);
       }
-    } catch {
+    } catch (_error) {
       // Silent fail - banner is supplementary
     } finally {
       setLoading(false);

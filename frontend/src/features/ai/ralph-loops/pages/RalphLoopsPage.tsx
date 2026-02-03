@@ -16,6 +16,8 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Loading } from '@/shared/components/ui/Loading';
 import { Modal } from '@/shared/components/ui/Modal';
+import { Input } from '@/shared/components/ui/Input';
+import { Button } from '@/shared/components/ui/Button';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { RalphLoopList } from '../components/RalphLoopList';
 import { RalphIterationList } from '../components/RalphIterationList';
@@ -36,9 +38,7 @@ import type {
   RalphScheduleConfig,
 } from '@/shared/services/ai/types/ralph-types';
 
-interface RalphLoopsPageProps {
-  onConfigureLoop?: (loop: RalphLoop) => void;
-}
+type RalphLoopsPageProps = Record<string, never>;
 
 const statusConfig: Record<RalphLoopStatus, {
   variant: 'success' | 'warning' | 'danger' | 'info' | 'outline';
@@ -52,18 +52,24 @@ const statusConfig: Record<RalphLoopStatus, {
   cancelled: { variant: 'outline', label: 'Cancelled' },
 };
 
-export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
-  onConfigureLoop,
-}) => {
+export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
   const [selectedLoop, setSelectedLoop] = useState<RalphLoop | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('tasks');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showScheduleConfigModal, setShowScheduleConfigModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [editedTasks, setEditedTasks] = useState<PrdTask[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    name: '',
+    description: '',
+    max_iterations: 50,
+    repository_url: '',
+  });
+  const [settingsLoading, setSettingsLoading] = useState(false);
   const { showNotification } = useNotification();
 
   const loadLoop = async (loopId: string) => {
@@ -73,7 +79,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       const response = await ralphLoopsApi.getLoop(loopId);
       setSelectedLoop(response.ralph_loop);
       setEditedTasks(response.ralph_loop.prd_json?.tasks || []);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load loop');
     } finally {
       setLoading(false);
@@ -138,7 +144,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
     try {
       await ralphLoopsApi.startLoop(selectedLoop.id);
       loadLoop(selectedLoop.id);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start loop');
     }
   };
@@ -148,7 +154,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
     try {
       await ralphLoopsApi.pauseLoop(selectedLoop.id);
       loadLoop(selectedLoop.id);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to pause loop');
     }
   };
@@ -158,7 +164,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
     try {
       await ralphLoopsApi.resumeLoop(selectedLoop.id);
       loadLoop(selectedLoop.id);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to resume loop');
     }
   };
@@ -168,8 +174,19 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
     try {
       await ralphLoopsApi.cancelLoop(selectedLoop.id);
       loadLoop(selectedLoop.id);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to cancel loop');
+    }
+  };
+
+  const handleReset = async () => {
+    if (!selectedLoop) return;
+    try {
+      await ralphLoopsApi.resetLoop(selectedLoop.id);
+      showNotification('Loop reset successfully', 'success');
+      loadLoop(selectedLoop.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset loop');
     }
   };
 
@@ -178,7 +195,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
     try {
       await ralphLoopsApi.runIteration(selectedLoop.id);
       loadLoop(selectedLoop.id);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to run iteration');
     }
   };
@@ -193,7 +210,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       });
       showNotification(`PRD tasks saved successfully (${tasks.length} tasks)`, 'success');
       loadLoop(selectedLoop.id);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save PRD');
     }
   };
@@ -210,7 +227,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       await ralphLoopsApi.pauseSchedule(selectedLoop.id);
       showNotification('Schedule paused successfully', 'success');
       loadLoop(selectedLoop.id);
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to pause schedule', 'error');
     } finally {
       setScheduleLoading(false);
@@ -224,7 +241,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       await ralphLoopsApi.resumeSchedule(selectedLoop.id);
       showNotification('Schedule resumed successfully', 'success');
       loadLoop(selectedLoop.id);
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to resume schedule', 'error');
     } finally {
       setScheduleLoading(false);
@@ -238,7 +255,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       await ralphLoopsApi.regenerateWebhookToken(selectedLoop.id);
       showNotification('Webhook token regenerated successfully', 'success');
       loadLoop(selectedLoop.id);
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to regenerate token', 'error');
     } finally {
       setScheduleLoading(false);
@@ -259,12 +276,43 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       showNotification('Schedule configuration saved successfully', 'success');
       setShowScheduleConfigModal(false);
       loadLoop(selectedLoop.id);
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to save schedule configuration', 'error');
     } finally {
       setScheduleLoading(false);
     }
   }, [selectedLoop, showNotification]);
+
+  const handleOpenSettings = useCallback(() => {
+    if (!selectedLoop) return;
+    setSettingsForm({
+      name: selectedLoop.name,
+      description: selectedLoop.description || '',
+      max_iterations: selectedLoop.max_iterations,
+      repository_url: selectedLoop.repository_url || '',
+    });
+    setShowSettingsModal(true);
+  }, [selectedLoop]);
+
+  const handleSaveSettings = useCallback(async () => {
+    if (!selectedLoop) return;
+    try {
+      setSettingsLoading(true);
+      await ralphLoopsApi.updateLoop(selectedLoop.id, {
+        name: settingsForm.name,
+        description: settingsForm.description || undefined,
+        max_iterations: settingsForm.max_iterations,
+        repository_url: settingsForm.repository_url || undefined,
+      });
+      showNotification('Settings saved successfully', 'success');
+      setShowSettingsModal(false);
+      loadLoop(selectedLoop.id);
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Failed to save settings', 'error');
+    } finally {
+      setSettingsLoading(false);
+    }
+  }, [selectedLoop, settingsForm, showNotification]);
 
   // Build breadcrumbs based on current view
   const getBreadcrumbs = () => {
@@ -299,7 +347,17 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       const isRunning = selectedLoop.status === 'running';
       const isPaused = selectedLoop.status === 'paused';
       const canRunIteration = selectedLoop.status === 'pending' || selectedLoop.status === 'paused';
+      const canReset = ['cancelled', 'completed', 'failed'].includes(selectedLoop.status);
 
+      if (canReset) {
+        actions.push({
+          id: 'reset',
+          label: 'Reset',
+          onClick: handleReset,
+          variant: 'outline',
+          icon: RotateCcw,
+        });
+      }
       if (canStart) {
         actions.push({
           id: 'start',
@@ -346,7 +404,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
       actions.push({
         id: 'settings',
         label: 'Settings',
-        onClick: () => onConfigureLoop?.(selectedLoop),
+        onClick: handleOpenSettings,
         variant: 'secondary',
         icon: Settings,
       });
@@ -536,6 +594,96 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = ({
             onChange={handleSaveScheduleConfig}
             onCancel={() => setShowScheduleConfigModal(false)}
           />
+        </Modal>
+
+        {/* Settings Modal */}
+        <Modal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          title="Loop Settings"
+          icon={<Settings className="w-5 h-5 text-theme-brand-primary" />}
+          size="md"
+          footer={
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setShowSettingsModal(false)}
+                disabled={settingsLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleSaveSettings}
+                disabled={settingsLoading || !settingsForm.name.trim()}
+              >
+                {settingsLoading ? 'Saving...' : 'Save Settings'}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                Name *
+              </label>
+              <Input
+                value={settingsForm.name}
+                onChange={(e) => setSettingsForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Loop name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                Description
+              </label>
+              <Input
+                value={settingsForm.description}
+                onChange={(e) => setSettingsForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Optional description..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                Max Iterations
+              </label>
+              <Input
+                type="number"
+                value={settingsForm.max_iterations}
+                onChange={(e) => setSettingsForm(prev => ({ ...prev, max_iterations: parseInt(e.target.value) || 50 }))}
+                min={1}
+                max={1000}
+              />
+              <p className="text-xs text-theme-text-secondary mt-1">
+                Maximum number of AI iterations before stopping
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                Repository URL
+              </label>
+              <Input
+                value={settingsForm.repository_url}
+                onChange={(e) => setSettingsForm(prev => ({ ...prev, repository_url: e.target.value }))}
+                placeholder="https://github.com/user/repo"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                AI Tool
+              </label>
+              <div className="text-sm text-theme-text-secondary p-2 bg-theme-bg-secondary rounded">
+                {selectedLoop.ai_tool === 'claude_code' ? 'Claude Code' : 'Amp CLI'}
+              </div>
+              <p className="text-xs text-theme-text-secondary mt-1">
+                AI tool cannot be changed after creation
+              </p>
+            </div>
+          </div>
         </Modal>
       </PageContainer>
     );

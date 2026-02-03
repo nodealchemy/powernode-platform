@@ -82,7 +82,7 @@ export const McpPromptConfigPanel: React.FC<McpPromptConfigPanelProps> = ({
     try {
       const parsed = JSON.parse(value);
       onConfigChange('arguments', parsed);
-    } catch {
+    } catch (_error) {
       // Invalid JSON, don't update arguments
     }
   }, [onConfigChange]);

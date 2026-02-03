@@ -207,7 +207,7 @@ export const AiAgentNodeConfig: React.FC<AiAgentNodeConfigProps> = ({
             try {
               const parsed = JSON.parse(e.target.value);
               handleConfigChange('input_mapping', parsed);
-            } catch {
+            } catch (_error) {
               handleConfigChange('input_mapping', e.target.value);
             }
           }}

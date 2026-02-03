@@ -27,7 +27,7 @@ export const AnalyticsExport: React.FC<AnalyticsExportProps> = ({ dateRange, onE
       } else {
         setInternalIsOpen(false);
       }
-    } catch {
+    } catch (_error) {
       // You could add a toast notification here
     } finally {
       setIsExporting(false);

@@ -49,7 +49,7 @@ export const AiOpsDashboard: React.FC = () => {
       setHealthData(health);
       setRealTimeData(realTime);
 
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'AIOps Error',

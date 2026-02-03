@@ -16,24 +16,24 @@ RSpec.describe 'Chat Channels API', type: :request do
       get '/api/v1/chat/channels', headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['items'].length).to eq(2)
-      expect(json_response['items'].map { |c| c['id'] }).to contain_exactly(telegram_channel.id, discord_channel.id)
+      expect(json_response['data']['items'].length).to eq(2)
+      expect(json_response['data']['items'].map { |c| c['id'] }).to contain_exactly(telegram_channel.id, discord_channel.id)
     end
 
     it 'filters by platform' do
       get '/api/v1/chat/channels', params: { platform: 'telegram' }, headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['items'].length).to eq(1)
-      expect(json_response['items'].first['platform']).to eq('telegram')
+      expect(json_response['data']['items'].length).to eq(1)
+      expect(json_response['data']['items'].first['platform']).to eq('telegram')
     end
 
     it 'filters by status' do
       get '/api/v1/chat/channels', params: { status: 'connected' }, headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['items'].length).to eq(1)
-      expect(json_response['items'].first['status']).to eq('connected')
+      expect(json_response['data']['items'].length).to eq(1)
+      expect(json_response['data']['items'].first['status']).to eq('connected')
     end
 
     it 'requires authentication' do
@@ -50,8 +50,8 @@ RSpec.describe 'Chat Channels API', type: :request do
       get "/api/v1/chat/channels/#{channel.id}", headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['channel']['id']).to eq(channel.id)
-      expect(json_response['channel']['name']).to eq(channel.name)
+      expect(json_response['data']['channel']['id']).to eq(channel.id)
+      expect(json_response['data']['channel']['name']).to eq(channel.name)
     end
 
     it 'returns 404 for non-existent channel' do
@@ -85,8 +85,8 @@ RSpec.describe 'Chat Channels API', type: :request do
       }.to change(Chat::Channel, :count).by(1)
 
       expect(response).to have_http_status(:created)
-      expect(json_response['channel']['name']).to eq('My Telegram Bot')
-      expect(json_response['channel']['platform']).to eq('telegram')
+      expect(json_response['data']['channel']['name']).to eq('My Telegram Bot')
+      expect(json_response['data']['channel']['platform']).to eq('telegram')
     end
 
     it 'validates required fields' do
@@ -111,7 +111,7 @@ RSpec.describe 'Chat Channels API', type: :request do
             headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['channel']['name']).to eq('Updated Name')
+      expect(json_response['data']['channel']['name']).to eq('Updated Name')
       expect(channel.reload.name).to eq('Updated Name')
     end
 
@@ -170,7 +170,7 @@ RSpec.describe 'Chat Channels API', type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(channel.reload.webhook_token).not_to eq(old_token)
-      expect(json_response['webhook_url']).to include(channel.reload.webhook_token)
+      expect(json_response['data']['webhook_url']).to include(channel.reload.webhook_token)
     end
   end
 
@@ -183,15 +183,15 @@ RSpec.describe 'Chat Channels API', type: :request do
       get "/api/v1/chat/channels/#{channel.id}/sessions", headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['items'].length).to eq(2)
+      expect(json_response['data']['items'].length).to eq(2)
     end
 
     it 'filters by status' do
       get "/api/v1/chat/channels/#{channel.id}/sessions", params: { status: 'active' }, headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['items'].length).to eq(1)
-      expect(json_response['items'].first['status']).to eq('active')
+      expect(json_response['data']['items'].length).to eq(1)
+      expect(json_response['data']['items'].first['status']).to eq('active')
     end
   end
 
@@ -202,7 +202,7 @@ RSpec.describe 'Chat Channels API', type: :request do
       get "/api/v1/chat/channels/#{channel.id}/metrics", headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['metrics']).to include('total_sessions', 'active_sessions', 'status')
+      expect(json_response['data']['metrics']).to include('total_sessions', 'active_sessions', 'status')
     end
   end
 
@@ -211,7 +211,7 @@ RSpec.describe 'Chat Channels API', type: :request do
       get '/api/v1/chat/channels/platforms', headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['platforms'].map { |p| p['id'] }).to include('telegram', 'discord', 'slack', 'whatsapp', 'mattermost')
+      expect(json_response['data']['platforms'].map { |p| p['id'] }).to include('telegram', 'discord', 'slack', 'whatsapp', 'mattermost')
     end
   end
 end

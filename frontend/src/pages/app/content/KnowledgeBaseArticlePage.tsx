@@ -46,7 +46,7 @@ export default function KnowledgeBaseArticlePage() {
       const response = await api.getArticle(id);
       setArticle(response.data.data.article);
       setRelatedArticles(response.data.data.related_articles || []);
-    } catch {
+    } catch (error) {
       if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'status' in error.response) {
         const status = (error.response as { status: number }).status;
         if (status === 404) {

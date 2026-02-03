@@ -94,7 +94,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
       setSystemSettings(updatedSettings);
       calculateSecurityScores(updatedSettings);
       showNotification('Security settings updated successfully', 'success');
-    } catch {
+    } catch (_error) {
       showNotification('Failed to update security settings', 'error');
     } finally {
       setSaving(false);

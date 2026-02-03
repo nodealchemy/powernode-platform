@@ -18,7 +18,7 @@ module Api
         # GET /api/v1/ai/conversations
         def index
           conversations = current_user.account.ai_conversations
-                                    .includes(:user, :agent, :provider)
+                                    .includes(:user, :agent, :provider, :participant_users)
                                     .order(last_activity_at: :desc)
 
           conversations = apply_filters(conversations)
@@ -223,7 +223,9 @@ module Api
         # =============================================================================
 
         def set_conversation
-          @conversation = current_user.account.ai_conversations.find(params[:id])
+          @conversation = current_user.account.ai_conversations
+                           .includes(:user, :agent, :provider, :participant_users, messages: [:user])
+                           .find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Conversation not found", status: :not_found)
         end

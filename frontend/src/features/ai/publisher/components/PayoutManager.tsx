@@ -48,7 +48,7 @@ export const PayoutManager: React.FC<PayoutManagerProps> = ({
       try {
         const response = await publisherApi.getStripeStatus(publisherId);
         setStripeStatus(response.data);
-      } catch {
+      } catch (_error) {
         // Stripe not connected
       }
     };
@@ -73,7 +73,7 @@ export const PayoutManager: React.FC<PayoutManagerProps> = ({
       setIsRequestModalOpen(false);
       setPayoutAmount('');
       onPayoutRequested?.();
-    } catch {
+    } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to request payout';
       showNotification(message, 'error');
     } finally {
@@ -94,7 +94,7 @@ export const PayoutManager: React.FC<PayoutManagerProps> = ({
 
       // Redirect to Stripe onboarding
       window.location.href = response.data.onboarding_url;
-    } catch {
+    } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to setup Stripe';
       showNotification(message, 'error');
     } finally {

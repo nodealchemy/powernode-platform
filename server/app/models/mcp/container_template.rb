@@ -2,6 +2,8 @@
 
 module Mcp
   class ContainerTemplate < ApplicationRecord
+    self.table_name = "mcp_container_templates"
+
     # Concerns
     include Auditable
 
@@ -22,6 +24,7 @@ module Mcp
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }
+    validates :name, uniqueness: { scope: :account_id }
     validates :slug, presence: true, uniqueness: true, format: { with: /\A[a-z0-9\-]+\z/ }
     validates :image_name, presence: true
     validates :visibility, presence: true, inclusion: { in: VISIBILITIES }
@@ -185,6 +188,7 @@ module Mcp
 
     def generate_slug
       return if slug.present?
+      return if name.blank?
 
       base_slug = name.parameterize
       self.slug = base_slug

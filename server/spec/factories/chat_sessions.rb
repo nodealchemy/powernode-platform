@@ -7,8 +7,8 @@ FactoryBot.define do
     status { 'active' }
     message_count { 0 }
     last_activity_at { Time.current }
-    context_window { [] }
-    session_metadata do
+    context_window { {} }
+    user_metadata do
       {
         'user_name' => Faker::Name.name,
         'language' => 'en'

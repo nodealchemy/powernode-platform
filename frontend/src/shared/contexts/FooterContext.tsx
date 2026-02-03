@@ -36,7 +36,7 @@ export const FooterProvider: React.FC<FooterProviderProps> = ({ children }) => {
       } else {
         setError('Failed to load footer data');
       }
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load footer data';
       setError(errorMessage);
       

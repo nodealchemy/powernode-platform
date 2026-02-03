@@ -327,7 +327,8 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
   end
 
   describe '.provider_usage_summary' do
-    let(:provider) { create(:ai_provider) }
+    let(:provider) { create(:ai_provider, account: account) }
+    let(:agent) { create(:ai_agent, account: account, provider: provider) }
 
     it 'returns usage summary for provider and account' do
       summary = described_class.provider_usage_summary(
@@ -360,6 +361,47 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
       expect(summary[:daily_breakdown]).to be_an(Array)
       expect(summary[:daily_breakdown]).not_to be_empty
+    end
+
+    it 'returns zero values when no executions exist' do
+      summary = described_class.provider_usage_summary(
+        provider,
+        account,
+        7.days
+      )
+
+      expect(summary[:total_requests]).to eq(0)
+      expect(summary[:successful_requests]).to eq(0)
+      expect(summary[:failed_requests]).to eq(0)
+      expect(summary[:total_tokens]).to eq(0)
+      expect(summary[:success_rate]).to eq(0.0)
+    end
+
+    context 'with real execution data' do
+      before do
+        # Create test executions
+        create(:ai_agent_execution, agent: agent, status: 'completed',
+               result: { 'usage' => { 'prompt_tokens' => 100, 'completion_tokens' => 50 }, 'cost' => 0.01 })
+        create(:ai_agent_execution, agent: agent, status: 'completed',
+               result: { 'usage' => { 'prompt_tokens' => 200, 'completion_tokens' => 100 }, 'cost' => 0.02 })
+        create(:ai_agent_execution, agent: agent, status: 'failed',
+               result: { 'error' => 'timeout' })
+      end
+
+      it 'calculates correct totals from real execution data' do
+        summary = described_class.provider_usage_summary(
+          provider,
+          account,
+          30.days
+        )
+
+        expect(summary[:total_requests]).to eq(3)
+        expect(summary[:successful_requests]).to eq(2)
+        expect(summary[:failed_requests]).to eq(1)
+        expect(summary[:total_tokens]).to eq(450) # 100+50 + 200+100
+        expect(summary[:total_cost]).to eq(0.03)
+        expect(summary[:success_rate]).to eq(66.7) # 2/3 * 100
+      end
     end
   end
 

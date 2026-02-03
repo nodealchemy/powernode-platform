@@ -169,7 +169,7 @@ export const FileTransformNodeConfig: React.FC<NodeTypeConfigProps> = ({
             try {
               const parsed = JSON.parse(e.target.value);
               handleConfigChange('field_mapping', parsed);
-            } catch {
+            } catch (_error) {
               handleConfigChange('field_mapping', e.target.value);
             }
           }}

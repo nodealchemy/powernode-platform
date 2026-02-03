@@ -53,7 +53,7 @@ export const ExportConfigurationModal: React.FC<ExportConfigurationModalProps> =
       setShowJobProgress(true);
       showNotification('Configuration generation started', 'info');
       setGenerating(false);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to start configuration generation', 'error');
       setGenerating(false);
     }
@@ -77,7 +77,7 @@ export const ExportConfigurationModal: React.FC<ExportConfigurationModalProps> =
     try {
       await navigator.clipboard.writeText(generatedConfig.config);
       showNotification('Configuration copied to clipboard', 'success');
-    } catch {
+    } catch (_error) {
       showNotification('Failed to copy to clipboard', 'error');
     }
   };

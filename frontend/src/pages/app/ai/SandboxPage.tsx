@@ -98,7 +98,7 @@ const SandboxPage: React.FC = () => {
       if (sandboxesRes.items && sandboxesRes.items.length > 0 && !selectedSandbox) {
         setSelectedSandbox(sandboxesRes.items[0]);
       }
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to load sandbox data')
@@ -118,7 +118,7 @@ const SandboxPage: React.FC = () => {
       setScenarios(scenariosRes.items || []);
       setRuns(runsRes.items || []);
       setBenchmarks(benchmarksRes.items || []);
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to load sandbox details')
@@ -138,7 +138,7 @@ const SandboxPage: React.FC = () => {
       }));
       setSandboxes([...sandboxes, result.sandbox]);
       setSelectedSandbox(result.sandbox);
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to create sandbox')
@@ -158,7 +158,7 @@ const SandboxPage: React.FC = () => {
         message: 'Test run started'
       }));
       setRuns([result.run, ...runs]);
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to start test run')

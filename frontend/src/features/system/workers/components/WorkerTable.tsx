@@ -125,7 +125,7 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
           return newSet;
         });
       }, 2000);
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   }
   };

@@ -91,7 +91,7 @@ export const VendorsPage: React.FC = () => {
       showNotification('Vendor created successfully', 'success');
       setShowAddModal(false);
       refresh();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to create vendor', 'error');
     }
   };
@@ -107,7 +107,7 @@ export const VendorsPage: React.FC = () => {
       setShowAssessmentModal(false);
       setSelectedVendorId(null);
       refresh();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to start assessment', 'error');
     }
   };

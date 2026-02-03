@@ -166,7 +166,7 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
       showNotification(`${gateway.charAt(0).toUpperCase() + gateway.slice(1)} configuration updated successfully`, 'success');
       onConfigured();
       onClose();
-    } catch {
+    } catch (error) {
       let errorMessage = `Failed to update ${gateway} configuration`;
       
       const httpError = error as { response?: { data?: { error?: string }; status?: number } };

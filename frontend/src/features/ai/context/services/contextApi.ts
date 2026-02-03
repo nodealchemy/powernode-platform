@@ -47,7 +47,7 @@ export const contextApi = {
 
       const response = await api.get(`/ai/contexts?${params}`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch contexts'),
@@ -59,7 +59,7 @@ export const contextApi = {
     try {
       const response = await api.get(`/ai/contexts/${id}`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch context'),
@@ -71,7 +71,7 @@ export const contextApi = {
     try {
       const response = await api.post('/ai/contexts', { context: data });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to create context'),
@@ -83,7 +83,7 @@ export const contextApi = {
     try {
       const response = await api.patch(`/ai/contexts/${id}`, { context: data });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to update context'),
@@ -95,7 +95,7 @@ export const contextApi = {
     try {
       const response = await api.delete(`/ai/contexts/${id}`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to delete context'),
@@ -107,7 +107,7 @@ export const contextApi = {
     try {
       const response = await api.post(`/ai/contexts/${id}/archive`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to archive context'),
@@ -119,7 +119,7 @@ export const contextApi = {
     try {
       const response = await api.post(`/ai/contexts/${id}/restore`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to restore context'),
@@ -131,7 +131,7 @@ export const contextApi = {
     try {
       const response = await api.post(`/ai/contexts/${id}/clone`, { name });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to clone context'),
@@ -143,7 +143,7 @@ export const contextApi = {
     try {
       const response = await api.get(`/ai/contexts/${id}/stats`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch context stats'),
@@ -173,7 +173,7 @@ export const contextApi = {
 
       const response = await api.get(`/ai/contexts/${contextId}/entries?${params}`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch entries'),
@@ -185,7 +185,7 @@ export const contextApi = {
     try {
       const response = await api.get(`/ai/contexts/${contextId}/entries/${entryId}`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch entry'),
@@ -197,7 +197,7 @@ export const contextApi = {
     try {
       const response = await api.post(`/ai/contexts/${contextId}/entries`, { entry: data });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to create entry'),
@@ -215,7 +215,7 @@ export const contextApi = {
         entry: data,
       });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to update entry'),
@@ -230,7 +230,7 @@ export const contextApi = {
     try {
       const response = await api.delete(`/ai/contexts/${contextId}/entries/${entryId}`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to delete entry'),
@@ -247,7 +247,7 @@ export const contextApi = {
         entry_ids: entryIds,
       });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to delete entries'),
@@ -261,7 +261,7 @@ export const contextApi = {
     try {
       const response = await api.post('/ai/contexts/search', params);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to search'),
@@ -273,7 +273,7 @@ export const contextApi = {
     try {
       const response = await api.post(`/ai/contexts/${contextId}/search`, params);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to search context'),
@@ -301,7 +301,7 @@ export const contextApi = {
 
       const response = await api.get(`/ai/agents/${agentId}/memory?${params}`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to fetch agent memory'),
@@ -313,7 +313,7 @@ export const contextApi = {
     try {
       const response = await api.post(`/ai/agents/${agentId}/memory`, { entry: data });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to add memory'),
@@ -330,7 +330,7 @@ export const contextApi = {
         entry_types: entryTypes,
       });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to clear memory'),
@@ -347,7 +347,7 @@ export const contextApi = {
     try {
       const response = await api.post(`/ai/contexts/${contextId}/export`, { format });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to export context'),
@@ -364,7 +364,7 @@ export const contextApi = {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: handleApiError(error, 'Failed to import to context'),

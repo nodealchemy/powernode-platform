@@ -83,7 +83,7 @@ const DevOpsTemplatesPage: React.FC = () => {
       setRisks(risksRes.items || []);
       setReviews(reviewsRes.items || []);
       setAnalytics(analyticsRes.analytics || null);
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to load DevOps data')
@@ -103,7 +103,7 @@ const DevOpsTemplatesPage: React.FC = () => {
       // Reload installations
       const installationsRes = await devopsApi.getInstallations();
       setInstallations(installationsRes.items || []);
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to install template')
@@ -123,7 +123,7 @@ const DevOpsTemplatesPage: React.FC = () => {
         message: `Deployment ${decision}d`
       }));
       loadData();
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to process decision')

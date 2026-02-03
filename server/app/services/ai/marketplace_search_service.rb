@@ -6,6 +6,13 @@ module Ai
     DEFAULT_SORT = "installation_count"
     DEFAULT_ORDER = "desc"
 
+    # Cache TTLs
+    FEATURED_CACHE_TTL = 1.hour
+    TRENDING_CACHE_TTL = 30.minutes
+    AUTOCOMPLETE_CACHE_TTL = 24.hours
+    NEW_RELEASES_CACHE_TTL = 1.hour
+    TOP_RATED_CACHE_TTL = 1.hour
+
     def initialize(params = {})
       @params = params
     end
@@ -33,36 +40,56 @@ module Ai
     end
 
     def featured
-      base_query
-        .where(is_featured: true)
-        .order(installation_count: :desc)
-        .limit(10)
+      cache_key = "ai:marketplace:featured"
+
+      Rails.cache.fetch(cache_key, expires_in: FEATURED_CACHE_TTL) do
+        base_query
+          .where(is_featured: true)
+          .order(installation_count: :desc)
+          .limit(10)
+          .to_a
+      end
     end
 
     def trending(days: 7)
-      # Templates with most installations in recent days
-      Ai::AgentTemplate
-        .published
-        .joins(:usage_metrics)
-        .where("ai_template_usage_metrics.metric_date >= ?", days.days.ago.to_date)
-        .group("ai_agent_templates.id")
-        .select("ai_agent_templates.*, SUM(ai_template_usage_metrics.new_installations) as recent_installs")
-        .order("recent_installs DESC")
-        .limit(10)
+      cache_key = "ai:marketplace:trending:#{days}"
+
+      Rails.cache.fetch(cache_key, expires_in: TRENDING_CACHE_TTL) do
+        # Templates with most installations in recent days
+        Ai::AgentTemplate
+          .published
+          .joins(:usage_metrics)
+          .where("ai_template_usage_metrics.metric_date >= ?", days.days.ago.to_date)
+          .group("ai_agent_templates.id")
+          .select("ai_agent_templates.*, SUM(ai_template_usage_metrics.new_installations) as recent_installs")
+          .order("recent_installs DESC")
+          .limit(10)
+          .to_a
+      end
     end
 
     def new_releases(days: 30)
-      base_query
-        .where("ai_agent_templates.created_at >= ?", days.days.ago)
-        .order(created_at: :desc)
-        .limit(10)
+      cache_key = "ai:marketplace:new_releases:#{days}"
+
+      Rails.cache.fetch(cache_key, expires_in: NEW_RELEASES_CACHE_TTL) do
+        base_query
+          .where("ai_agent_templates.created_at >= ?", days.days.ago)
+          .order(created_at: :desc)
+          .limit(10)
+          .to_a
+      end
     end
 
     def top_rated(min_reviews: 5)
-      base_query
-        .where("review_count >= ?", min_reviews)
-        .order(average_rating: :desc)
-        .limit(10)
+      cache_key = "ai:marketplace:top_rated:#{min_reviews}"
+
+      Rails.cache.fetch(cache_key, expires_in: TOP_RATED_CACHE_TTL) do
+        base_query
+          .where("review_count >= ?", min_reviews)
+          .order(average_rating: :desc)
+          .limit(10)
+          .to_a
+      end
     end
 
     def by_category(category_id)
@@ -90,22 +117,37 @@ module Ai
     def autocomplete(query, limit: 10)
       return [] if query.blank? || query.length < 2
 
-      Ai::AgentTemplate
-        .published
-        .where("name ILIKE ?", "#{query}%")
-        .or(Ai::AgentTemplate.where("name ILIKE ?", "%#{query}%"))
-        .select(:id, :name, :slug, :publisher_id)
-        .includes(:publisher)
-        .order("CASE WHEN name ILIKE '#{query}%' THEN 0 ELSE 1 END", :name)
-        .limit(limit)
-        .map do |t|
-          {
-            id: t.id,
-            name: t.name,
-            slug: t.slug,
-            publisher_name: t.publisher&.publisher_name
-          }
-        end
+      # Normalize query for cache key
+      normalized_query = query.downcase.strip
+      cache_key = "ai:marketplace:autocomplete:#{normalized_query}:#{limit}"
+
+      Rails.cache.fetch(cache_key, expires_in: AUTOCOMPLETE_CACHE_TTL) do
+        Ai::AgentTemplate
+          .published
+          .where("name ILIKE ?", "#{query}%")
+          .or(Ai::AgentTemplate.where("name ILIKE ?", "%#{query}%"))
+          .select(:id, :name, :slug, :publisher_id)
+          .includes(:publisher)
+          .order(Arel.sql("CASE WHEN name ILIKE '#{ActiveRecord::Base.connection.quote_string(query)}%' THEN 0 ELSE 1 END"), :name)
+          .limit(limit)
+          .map do |t|
+            {
+              id: t.id,
+              name: t.name,
+              slug: t.slug,
+              publisher_name: t.publisher&.publisher_name
+            }
+          end
+      end
+    end
+
+    # Invalidate all marketplace search caches
+    def self.invalidate_caches
+      Rails.cache.delete_matched("ai:marketplace:featured*")
+      Rails.cache.delete_matched("ai:marketplace:trending*")
+      Rails.cache.delete_matched("ai:marketplace:new_releases*")
+      Rails.cache.delete_matched("ai:marketplace:top_rated*")
+      Rails.cache.delete_matched("ai:marketplace:autocomplete*")
     end
 
     private

@@ -155,7 +155,7 @@ export function GitProvidersPage() {
       }));
 
       setProviders(mappedProviders);
-    } catch {
+    } catch (_error) {
       // Keep empty state on error
     } finally {
       setLoading(false);
@@ -177,7 +177,7 @@ export function GitProvidersPage() {
           const provider = await gitProvidersApi.getProvider(id);
           setEditingProvider(provider);
           setIsModalOpen(true);
-        } catch {
+        } catch (_error) {
           showNotification('Failed to load provider', 'error');
           navigate('/app/devops/git');
         }
@@ -194,7 +194,7 @@ export function GitProvidersPage() {
     try {
       const credentials = await gitProvidersApi.getCredentials(providerId);
       setProviderCredentials(prev => ({ ...prev, [providerId]: credentials }));
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load credentials', 'error');
     } finally {
       setLoadingCredentials(null);
@@ -239,7 +239,7 @@ export function GitProvidersPage() {
       const provider = await gitProvidersApi.getProvider(providerId);
       setEditingProvider(provider);
       setIsModalOpen(true);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load provider', 'error');
     }
   };
@@ -259,7 +259,7 @@ export function GitProvidersPage() {
       } else {
         showNotification('No credentials found. Add credentials first.', 'warning');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to test connection', 'error');
     } finally {
       setTesting(null);
@@ -278,7 +278,7 @@ export function GitProvidersPage() {
       if (expandedProviderId === providerId) {
         setExpandedProviderId(null);
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to delete provider', 'error');
     }
   };
@@ -346,7 +346,7 @@ export function GitProvidersPage() {
       } else {
         showNotification(result.error || 'Connection test failed', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to test connection', 'error');
     } finally {
       setCredentialActionLoading(null);
@@ -359,7 +359,7 @@ export function GitProvidersPage() {
       await gitProvidersApi.makeDefaultCredential(providerId, credentialId);
       showNotification('Credential set as default', 'success');
       await fetchCredentialsForProvider(providerId);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to set default credential', 'error');
     } finally {
       setCredentialActionLoading(null);
@@ -376,7 +376,7 @@ export function GitProvidersPage() {
       showNotification('Credential deleted', 'success');
       await fetchCredentialsForProvider(providerId);
       await fetchProviders();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to delete credential', 'error');
     } finally {
       setCredentialActionLoading(null);

@@ -367,7 +367,7 @@ export function useForm<T extends Record<string, any>>(
         if (resetAfterSubmit) {
           reset();
         }
-      } catch {
+      } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'An error occurred while submitting the form';
         addNotification({
           type: 'error',

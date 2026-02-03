@@ -50,7 +50,7 @@ export const ApiCallNodeConfig: React.FC<NodeTypeConfigProps> = ({
           try {
             const parsed = JSON.parse(e.target.value);
             handleConfigChange('path_parameters', parsed);
-          } catch {
+          } catch (_error) {
             handleConfigChange('path_parameters', e.target.value);
           }
         }}
@@ -70,7 +70,7 @@ export const ApiCallNodeConfig: React.FC<NodeTypeConfigProps> = ({
           try {
             const parsed = JSON.parse(e.target.value);
             handleConfigChange('headers', parsed);
-          } catch {
+          } catch (_error) {
             handleConfigChange('headers', e.target.value);
           }
         }}
@@ -89,7 +89,7 @@ export const ApiCallNodeConfig: React.FC<NodeTypeConfigProps> = ({
           try {
             const parsed = JSON.parse(e.target.value);
             handleConfigChange('query_params', parsed);
-          } catch {
+          } catch (_error) {
             handleConfigChange('query_params', e.target.value);
           }
         }}
@@ -126,7 +126,7 @@ export const ApiCallNodeConfig: React.FC<NodeTypeConfigProps> = ({
                 try {
                   const parsed = JSON.parse(e.target.value);
                   handleConfigChange('body', parsed);
-                } catch {
+                } catch (_error) {
                   handleConfigChange('body', e.target.value);
                 }
               }

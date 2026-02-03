@@ -26,7 +26,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString + '-01'), 'MMM yyyy');
-    } catch {
+    } catch (_error) {
       return dateString;
     }
   };

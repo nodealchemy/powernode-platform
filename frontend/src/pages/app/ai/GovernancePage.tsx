@@ -83,7 +83,7 @@ const GovernancePage: React.FC = () => {
       setPendingApprovals(pendingRes.approval_requests || []);
       setClassifications(classificationsRes.items || []);
       setSummary(summaryRes.summary || null);
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to load governance data')
@@ -101,7 +101,7 @@ const GovernancePage: React.FC = () => {
         message: `Request ${decision}`
       }));
       loadData();
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to process approval')

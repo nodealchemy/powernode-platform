@@ -35,7 +35,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           setRolesLoading(true);
           const roles = await usersApi.getAvailableRoles();
           setAvailableRoles(roles);
-        } catch {
+        } catch (_error) {
           setAvailableRoles([]);
         } finally {
           setRolesLoading(false);
@@ -84,7 +84,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       
       onSuccess();
       onClose();
-    } catch {
+    } catch (error) {
       const apiError = error as { response?: { data?: { error?: string; validation_errors?: string[] } }; message?: string };
       const errorMessage = apiError.response?.data?.error || apiError.message || 'Failed to create user';
       const validationErrors = apiError.response?.data?.validation_errors || [];

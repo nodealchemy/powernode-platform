@@ -204,30 +204,29 @@ module Mcp
     end
 
     # Mark nodes as completed in the workflow run
+    # Uses find_or_create_by with transaction to prevent race conditions
     #
     # @param node_ids [Array<String>] Node IDs to mark as completed
     # @return [void]
     def mark_nodes_as_completed(node_ids)
       return if node_ids.blank?
 
-      node_ids.each do |node_id|
-        # Check if execution already exists
-        existing_execution = @workflow_run.node_executions.find_by(node_id: node_id)
-        next if existing_execution
+      # Wrap in transaction with lock on workflow_run to prevent race conditions
+      @workflow_run.with_lock do
+        node_ids.each do |node_id|
+          # Use find_or_create_by to atomically check and create
+          node = @workflow_run.workflow.nodes.find_by(node_id: node_id)
+          next unless node
 
-        # Create a completed execution record
-        node = @workflow_run.workflow.nodes.find_by(node_id: node_id)
-        next unless node
-
-        @workflow_run.node_executions.create!(
-          node: node,
-          node_id: node_id,
-          node_type: node.node_type,
-          status: "completed",
-          started_at: Time.current,
-          completed_at: Time.current,
-          output_data: { "skipped" => true, "reason" => "restored_from_checkpoint" }
-        )
+          @workflow_run.node_executions.find_or_create_by!(node_id: node_id) do |execution|
+            execution.node = node
+            execution.node_type = node.node_type
+            execution.status = "completed"
+            execution.started_at = Time.current
+            execution.completed_at = Time.current
+            execution.output_data = { "skipped" => true, "reason" => "restored_from_checkpoint" }
+          end
+        end
       end
     end
   end

@@ -54,7 +54,7 @@ export const ChurnChart: React.FC<ChurnChartProps> = ({
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString), 'MMM yyyy');
-    } catch {
+    } catch (_error) {
       return dateString;
     }
   };

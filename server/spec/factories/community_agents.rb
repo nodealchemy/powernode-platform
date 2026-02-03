@@ -2,45 +2,34 @@
 
 FactoryBot.define do
   factory :community_agent do
-    account
+    association :owner_account, factory: :account
+    association :agent, factory: :ai_agent
     sequence(:name) { |n| "Community Agent #{n}" }
     description { 'A community-published AI agent for task automation' }
     endpoint_url { 'https://agent.example.com/.well-known/agent.json' }
     visibility { 'public' }
     status { 'active' }
+    protocol_version { '0.3' }
     verified { false }
     federated { false }
     task_count { 0 }
+    success_count { 0 }
+    failure_count { 0 }
     avg_rating { 0.0 }
     rating_count { 0 }
-    agent_card do
+    capabilities do
       {
-        'name' => name,
-        'description' => description,
-        'version' => '1.0.0',
-        'skills' => [
-          {
-            'id' => 'text.generate',
-            'name' => 'Generate Text',
-            'description' => 'Generate text content based on prompts'
-          },
-          {
-            'id' => 'data.analyze',
-            'name' => 'Analyze Data',
-            'description' => 'Analyze and summarize structured data'
-          }
-        ],
-        'capabilities' => {
-          'streaming' => true,
-          'fileProcessing' => false,
-          'webSearch' => false
-        },
-        'authentication' => {
-          'schemes' => [ 'bearer' ]
-        }
+        'streaming' => true,
+        'fileProcessing' => false,
+        'webSearch' => false
       }
     end
-    categories { [ 'automation', 'general' ] }
+    authentication do
+      {
+        'schemes' => [ 'bearer' ]
+      }
+    end
+    category { 'automation' }
     tags { [ 'ai', 'agent' ] }
 
     trait :public do
@@ -93,24 +82,13 @@ FactoryBot.define do
     trait :code_analysis do
       name { 'Code Analyzer' }
       description { 'Analyzes code for bugs, security issues, and improvements' }
-      categories { [ 'development', 'security' ] }
+      category { 'analysis' }
       tags { [ 'code', 'analysis', 'security' ] }
-      agent_card do
+      capabilities do
         {
-          'name' => 'Code Analyzer',
-          'description' => 'Analyzes code for bugs, security issues, and improvements',
-          'version' => '1.0.0',
-          'skills' => [
-            { 'id' => 'code.lint', 'name' => 'Lint Code', 'description' => 'Run linting and style checks' },
-            { 'id' => 'code.review', 'name' => 'Code Review', 'description' => 'Review code for issues' },
-            { 'id' => 'security.scan', 'name' => 'Security Scan', 'description' => 'Scan for vulnerabilities' }
-          ],
-          'capabilities' => {
-            'streaming' => true,
-            'fileProcessing' => true,
-            'gitIntegration' => true
-          },
-          'authentication' => { 'schemes' => [ 'bearer' ] }
+          'streaming' => true,
+          'fileProcessing' => true,
+          'gitIntegration' => true
         }
       end
     end
@@ -118,24 +96,13 @@ FactoryBot.define do
     trait :data_processing do
       name { 'Data Processor' }
       description { 'Processes and transforms data files' }
-      categories { [ 'data', 'automation' ] }
+      category { 'automation' }
       tags { [ 'data', 'etl', 'processing' ] }
-      agent_card do
+      capabilities do
         {
-          'name' => 'Data Processor',
-          'description' => 'Processes and transforms data files',
-          'version' => '1.0.0',
-          'skills' => [
-            { 'id' => 'data.transform', 'name' => 'Transform Data', 'description' => 'Convert between formats' },
-            { 'id' => 'data.validate', 'name' => 'Validate Data', 'description' => 'Validate data schemas' },
-            { 'id' => 'data.aggregate', 'name' => 'Aggregate Data', 'description' => 'Aggregate and summarize' }
-          ],
-          'capabilities' => {
-            'streaming' => true,
-            'fileProcessing' => true,
-            'batchProcessing' => true
-          },
-          'authentication' => { 'schemes' => [ 'bearer' ] }
+          'streaming' => true,
+          'fileProcessing' => true,
+          'batchProcessing' => true
         }
       end
     end

@@ -32,7 +32,7 @@ export const AttestationDetailPage: React.FC = () => {
       showNotification('Attestation signed successfully', 'success');
       setShowSignModal(false);
       refresh();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to sign attestation', 'error');
     }
   };
@@ -43,7 +43,7 @@ export const AttestationDetailPage: React.FC = () => {
       setActionLoading(true);
       await attestationsApi.verify(id);
       refresh();
-    } catch {
+    } catch (_error) {
       // Error handling via global notification
     } finally {
       setActionLoading(false);
@@ -56,7 +56,7 @@ export const AttestationDetailPage: React.FC = () => {
       setActionLoading(true);
       await attestationsApi.recordToRekor(id);
       refresh();
-    } catch {
+    } catch (_error) {
       // Error handling via global notification
     } finally {
       setActionLoading(false);

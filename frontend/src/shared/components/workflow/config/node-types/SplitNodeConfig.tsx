@@ -87,7 +87,7 @@ export const SplitNodeConfig: React.FC<NodeTypeConfigProps> = ({
               try {
                 const parsed = JSON.parse(e.target.value);
                 handleConfigChange('conditions', parsed);
-              } catch {
+              } catch (_error) {
                 handleConfigChange('conditions', e.target.value);
               }
             }}
@@ -165,7 +165,7 @@ export const SplitNodeConfig: React.FC<NodeTypeConfigProps> = ({
               try {
                 const parsed = JSON.parse(e.target.value);
                 handleConfigChange('field_selection', parsed);
-              } catch {
+              } catch (_error) {
                 handleConfigChange('field_selection', e.target.value);
               }
             }}

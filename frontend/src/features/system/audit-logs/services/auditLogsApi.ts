@@ -157,7 +157,7 @@ export const auditLogsApi = {
 
       const response = await api.get(`/audit_logs?${params}`);
       return response.data;
-    } catch {
+    } catch (error) {
       const httpError = error as { response?: { data?: { error?: string } } };
       return {
         success: false,
@@ -179,7 +179,7 @@ export const auditLogsApi = {
       const params = timeRange ? `?time_range=${timeRange}` : '';
       const response = await api.get(`/audit_logs/security_summary${params}`);
       return response.data;
-    } catch {
+    } catch (_error) {
       return {
         totalEvents: 0,
         securityEvents: 0,
@@ -201,7 +201,7 @@ export const auditLogsApi = {
       const params = timeRange ? `?time_range=${timeRange}` : '';
       const response = await api.get(`/audit_logs/compliance_summary${params}`);
       return response.data;
-    } catch {
+    } catch (_error) {
       return {
         totalComplianceEvents: 0,
         gdprRequests: 0,
@@ -220,7 +220,7 @@ export const auditLogsApi = {
     try {
       const response = await api.get(`/audit_logs/activity_timeline?limit=${limit}`);
       return response.data;
-    } catch {
+    } catch (_error) {
       return [];
     }
   },
@@ -231,7 +231,7 @@ export const auditLogsApi = {
       const params = timeRange ? `?time_range=${timeRange}` : '';
       const response = await api.get(`/audit_logs/risk_analysis${params}`);
       return response.data;
-    } catch {
+    } catch (_error) {
       return {
         averageRiskScore: 0,
         highRiskPercentage: 0,
@@ -246,7 +246,7 @@ export const auditLogsApi = {
     try {
       const response = await api.get(`/audit_logs/${id}`);
       return response.data;
-    } catch {
+    } catch (error) {
       const httpError = error as { response?: { data?: { error?: string } } };
       return {
         success: false,
@@ -261,7 +261,7 @@ export const auditLogsApi = {
     try {
       const response = await api.get('/audit_logs/stats');
       return response.data;
-    } catch {
+    } catch (error) {
       const httpError = error as { response?: { data?: { error?: string } } };
       return {
         success: false,
@@ -290,7 +290,7 @@ export const auditLogsApi = {
     try {
       const response = await api.post('/audit_logs/export', exportOptions);
       return response.data;
-    } catch {
+    } catch (error) {
       const httpError = error as { response?: { data?: { error?: string } } };
       return {
         success: false,
@@ -310,7 +310,7 @@ export const auditLogsApi = {
         }
       });
       return response.data;
-    } catch {
+    } catch (error) {
       const httpError = error as { response?: { data?: { error?: string } } };
       return {
         success: false,

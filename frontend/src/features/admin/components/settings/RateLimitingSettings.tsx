@@ -91,7 +91,7 @@ export const RateLimitingSettings: React.FC = () => {
       };
       
       setStats(combinedStats);
-    } catch {
+    } catch (error) {
       // Fallback to basic stats if API not available
       const basicStats: RateLimitStats = {
         enabled: config.enabled,
@@ -114,7 +114,7 @@ export const RateLimitingSettings: React.FC = () => {
     try {
       setIsRefreshingStats(true);
       await loadOriginalStats();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load rate limiting stats', 'error');
     } finally {
       setIsRefreshingStats(false);
@@ -143,7 +143,7 @@ export const RateLimitingSettings: React.FC = () => {
       
       // Load stats separately to avoid circular dependency
       loadOriginalStats();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load rate limiting data', 'error');
     } finally {
       setLoading(false);
@@ -186,7 +186,7 @@ export const RateLimitingSettings: React.FC = () => {
       
       showNotification('Rate limiting settings saved successfully', 'success');
       await loadOriginalStats();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to save rate limiting settings', 'error');
     } finally {
       setSaving(false);
@@ -203,7 +203,7 @@ export const RateLimitingSettings: React.FC = () => {
       const response = await adminSettingsApi.clearUserRateLimits(identifier);
       showNotification(response.message || `Rate limits cleared for ${identifier}`, 'success');
       await loadOriginalStats();
-    } catch {
+    } catch (error) {
       const httpError = error as { response?: { status?: number; data?: { error?: string } } };
       if (httpError.response?.status === 404) {
         showNotification('Rate limiting management features are not yet fully available', 'info');
@@ -218,7 +218,7 @@ export const RateLimitingSettings: React.FC = () => {
       const response = await adminSettingsApi.disableRateLimitingTemporarily(tempDisableMinutes);
       showNotification(response.message || `Rate limiting disabled for ${tempDisableMinutes} minutes`, 'warning');
       await loadOriginalStats();
-    } catch {
+    } catch (error) {
       const httpError = error as { response?: { status?: number; data?: { error?: string } } };
       if (httpError.response?.status === 404) {
         showNotification('Emergency rate limiting controls are not yet fully available', 'info');
@@ -233,7 +233,7 @@ export const RateLimitingSettings: React.FC = () => {
       const response = await adminSettingsApi.enableRateLimiting();
       showNotification(response.message || 'Rate limiting re-enabled', 'success');
       await loadOriginalStats();
-    } catch {
+    } catch (error) {
       const httpError = error as { response?: { status?: number; data?: { error?: string } } };
       if (httpError.response?.status === 404) {
         showNotification('Emergency rate limiting controls are not yet fully available', 'info');

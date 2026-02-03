@@ -59,20 +59,44 @@ module Api
         private
 
         def generate_daily_status_history
-          # Generate last 30 days of status
+          # Query real uptime data from system health records if available
+          uptime_records = fetch_uptime_records(30)
+
           (0..29).map do |days_ago|
             date = Date.current - days_ago
-            {
-              date: date.iso8601,
-              status: days_ago < 3 ? "operational" : random_status_for_history,
-              uptime_percentage: rand(99.0..100.0).round(2)
-            }
+            record = uptime_records.find { |r| r[:date] == date }
+
+            if record
+              {
+                date: date.iso8601,
+                status: record[:status],
+                uptime_percentage: record[:uptime_percentage]
+              }
+            else
+              # Default to operational if no data exists yet
+              {
+                date: date.iso8601,
+                status: "operational",
+                uptime_percentage: 100.0
+              }
+            end
           end.reverse
         end
 
-        def random_status_for_history
-          # For demo purposes, mostly operational with occasional degraded
-          rand(10) < 9 ? "operational" : "degraded"
+        def fetch_uptime_records(days)
+          # Fetch from system health monitoring table if it exists
+          return [] unless defined?(System::UptimeRecord) && System::UptimeRecord.table_exists?
+
+          System::UptimeRecord
+            .where("recorded_at >= ?", days.days.ago.beginning_of_day)
+            .group_by_day(:recorded_at)
+            .pluck(:recorded_at, :status, "AVG(uptime_percentage)")
+            .map do |date, status, percentage|
+              { date: date.to_date, status: status, uptime_percentage: percentage.round(2) }
+            end
+        rescue StandardError
+          # Return empty if table doesn't exist or query fails
+          []
         end
       end
     end

@@ -170,7 +170,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
       
       onSaved();
       onClose();
-    } catch {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Failed to save plan';
       showError(errorMsg);
     } finally {

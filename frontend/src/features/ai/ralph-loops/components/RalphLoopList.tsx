@@ -59,7 +59,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
       const response = await ralphLoopsApi.getLoops(filters);
       setLoops(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load loops');
     } finally {
       setLoading(false);
@@ -83,7 +83,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
     try {
       await ralphLoopsApi.startLoop(loop.id);
       loadLoops();
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start loop');
     }
   };
@@ -92,7 +92,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
     try {
       await ralphLoopsApi.pauseLoop(loop.id);
       loadLoops();
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to pause loop');
     }
   };
@@ -101,7 +101,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
     try {
       await ralphLoopsApi.resumeLoop(loop.id);
       loadLoops();
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to resume loop');
     }
   };

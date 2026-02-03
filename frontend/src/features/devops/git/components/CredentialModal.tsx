@@ -108,7 +108,7 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
       }
 
       onSuccess();
-    } catch {
+    } catch (err) {
       setError(
         err instanceof Error
           ? err.message

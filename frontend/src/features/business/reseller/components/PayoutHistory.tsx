@@ -85,7 +85,7 @@ export const PayoutHistory: React.FC<PayoutHistoryProps> = ({
       } else {
         addNotification({ type: 'error', message: result.error || 'Failed to request payout' });
       }
-    } catch {
+    } catch (_error) {
       addNotification({ type: 'error', message: 'An error occurred' });
     } finally {
       setIsSubmitting(false);

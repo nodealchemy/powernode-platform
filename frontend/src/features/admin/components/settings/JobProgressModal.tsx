@@ -87,7 +87,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
           setStatus('completed');
           onComplete?.(jobData);
         }
-      } catch {
+      } catch (error) {
         if (isMounted) {
           const errorMessage = error instanceof Error ? error.message : 'Job failed';
           setError(errorMessage);

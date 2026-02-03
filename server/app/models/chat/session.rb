@@ -2,6 +2,8 @@
 
 module Chat
   class Session < ApplicationRecord
+    self.table_name = "chat_sessions"
+
     # Concerns
     include Auditable
 

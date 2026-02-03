@@ -1,6 +1,12 @@
 
 import { SubscriptionPlan, Subscription } from '@/shared/types';
 import { Check, Star, TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  calculateDiscountedPrice,
+  normalizePriceCents,
+  type BillingCycle,
+  type PlanDiscountInfo,
+} from '@/shared/utils/formatters';
 
 interface SimplePlanBrowserProps {
   plans: SubscriptionPlan[];
@@ -21,40 +27,29 @@ export const SimplePlanBrowser: React.FC<SimplePlanBrowserProps> = ({
   onBillingCycleChange,
   className = ''
 }) => {
-  const formatPrice = (priceCents: number, cycle: string) => {
-    if (priceCents === 0) return 'Free';
-
-    const price = (priceCents / 100).toFixed(2);
-    const cycleText = cycle === 'monthly' ? 'month' : 'year';
-    return `$${price}/${cycleText}`;
-  };
-
   const getPlanPriceCents = (plan: SubscriptionPlan) => {
-    return plan.price_cents || 0;
+    return normalizePriceCents(plan.price_cents);
   };
 
-  const getYearlyPrice = (plan: SubscriptionPlan) => {
+  const getPlanDiscountInfo = (plan: SubscriptionPlan): PlanDiscountInfo => ({
+    billing_cycle: plan.billing_cycle,
+    has_annual_discount: plan.has_annual_discount,
+    annual_discount_percent: plan.annual_discount_percent,
+    has_promotional_discount: plan.has_promotional_discount,
+    promotional_discount_percent: plan.promotional_discount_percent,
+    promotional_discount_code: plan.promotional_discount_code ?? undefined,
+  });
+
+  const getFormattedPrice = (plan: SubscriptionPlan) => {
     const priceCents = getPlanPriceCents(plan);
-    // Check for annual discount in plan data
-    if (plan.has_annual_discount && plan.annual_discount_percent) {
-      const discountMultiplier = 1 - (plan.annual_discount_percent / 100);
-      return Math.round(priceCents * 12 * discountMultiplier);
-    }
-    // Default to 10% yearly discount if not specified
-    const discountMultiplier = 0.9;
-    return Math.round(priceCents * 12 * discountMultiplier);
-  };
-
-  const getDisplayPrice = (plan: SubscriptionPlan) => {
-    if (billingCycle === 'yearly') {
-      return getYearlyPrice(plan);
-    }
-    return getPlanPriceCents(plan);
+    const discountInfo = getPlanDiscountInfo(plan);
+    const result = calculateDiscountedPrice(priceCents, discountInfo, billingCycle as BillingCycle, plan.currency);
+    return result.formattedDiscounted;
   };
 
   const getSavingsPercent = (plan: SubscriptionPlan) => {
     if (billingCycle === 'yearly') {
-      return plan.annual_savings_percentage || 10; // Use plan discount or default to 10%
+      return plan.annual_savings_percentage || (plan.has_annual_discount ? plan.annual_discount_percent : 10);
     }
     return 0;
   };
@@ -190,9 +185,8 @@ export const SimplePlanBrowser: React.FC<SimplePlanBrowserProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {publicPlans.map((plan) => {
           const comparison = getPlanComparison(plan);
-          const savingsPercent = getSavingsPercent(plan);
+          const savingsPercent = getSavingsPercent(plan) || 0;
           const keyFeatures = getKeyFeatures(plan);
-          const displayPrice = getDisplayPrice(plan);
 
           return (
             <div
@@ -249,7 +243,7 @@ export const SimplePlanBrowser: React.FC<SimplePlanBrowserProps> = ({
                 </h3>
                 <div className="space-y-1">
                   <p className="text-3xl font-bold text-theme-primary">
-                    {formatPrice(displayPrice, billingCycle)}
+                    {getFormattedPrice(plan)}
                   </p>
                   {savingsPercent > 0 && (
                     <p className="text-sm text-theme-success font-medium">

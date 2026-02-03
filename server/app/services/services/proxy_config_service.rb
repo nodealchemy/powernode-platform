@@ -234,23 +234,76 @@ module Services
 
       return { status: "not_found", error: "Service not found in configuration" } unless service_config
 
-      # Mock connection test - in production would make actual HTTP request
-      if service_config["host"] == "localhost" && service_config["port"].between?(3000, 6999)
-        {
-          status: "healthy",
-          response_code: 200,
-          response_time: rand(50..200),
-          error: nil
-        }
-      else
-        {
-          status: "unreachable",
-          response_code: nil,
-          response_time: nil,
-          error: "Connection timeout"
-        }
+      # Perform real connection test
+      perform_connection_test(service_config)
+    end
+
+    private
+
+    def perform_connection_test(service_config)
+      require "net/http"
+      require "timeout"
+
+      host = service_config["host"]
+      port = service_config["port"].to_i
+      protocol = service_config["protocol"] || "http"
+      health_check_path = service_config["health_check_path"] || "/"
+
+      # Skip HTTP test for non-HTTP protocols
+      return test_tcp_connection(host, port) unless %w[http https].include?(protocol)
+
+      start_time = Time.current
+
+      begin
+        Timeout.timeout(10) do
+          uri = URI("#{protocol}://#{host}:#{port}#{health_check_path}")
+          http = Net::HTTP.new(uri.host, uri.port)
+          http.use_ssl = protocol == "https"
+          http.open_timeout = 5
+          http.read_timeout = 5
+
+          response = http.get(uri.path.presence || "/")
+          response_time = ((Time.current - start_time) * 1000).round
+
+          {
+            status: response.code.to_i < 500 ? "healthy" : "degraded",
+            response_code: response.code.to_i,
+            response_time: response_time,
+            error: nil
+          }
+        end
+      rescue Timeout::Error
+        { status: "unreachable", response_code: nil, response_time: nil, error: "Connection timeout" }
+      rescue Errno::ECONNREFUSED
+        { status: "unreachable", response_code: nil, response_time: nil, error: "Connection refused" }
+      rescue StandardError => e
+        { status: "error", response_code: nil, response_time: nil, error: e.message }
       end
     end
+
+    def test_tcp_connection(host, port)
+      require "socket"
+      require "timeout"
+
+      start_time = Time.current
+
+      begin
+        Timeout.timeout(5) do
+          socket = TCPSocket.new(host, port)
+          socket.close
+          response_time = ((Time.current - start_time) * 1000).round
+          { status: "healthy", response_code: nil, response_time: response_time, error: nil }
+        end
+      rescue Timeout::Error
+        { status: "unreachable", response_code: nil, response_time: nil, error: "Connection timeout" }
+      rescue Errno::ECONNREFUSED
+        { status: "unreachable", response_code: nil, response_time: nil, error: "Connection refused" }
+      rescue StandardError => e
+        { status: "error", response_code: nil, response_time: nil, error: e.message }
+      end
+    end
+
+    public
 
     # =============================================================================
     # IMPORT/EXPORT
@@ -341,28 +394,48 @@ module Services
     # @param hours [Integer] Hours to look back
     # @return [Hash] Health history
     def health_history(service_name:, hours: 24)
-      data_points = []
-      current_time = Time.current
-
-      (hours * 2).times do |i|
-        timestamp = current_time - (i * 30).minutes
-        status = %w[healthy healthy healthy unhealthy].sample
-        response_time = status == "healthy" ? rand(50..200) : rand(500..2000)
-
-        data_points << {
-          timestamp: timestamp.iso8601,
-          status: status,
-          response_time: response_time,
-          response_code: status == "healthy" ? 200 : [ 404, 500, 502 ].sample,
-          error: status == "healthy" ? nil : "Connection timeout"
-        }
-      end
+      # Fetch real health check data from cache or database
+      data_points = fetch_health_history_data(service_name, hours)
 
       {
         service: service_name,
         timeframe: "Last #{hours} hours",
-        data_points: data_points.reverse
+        data_points: data_points
       }
+    end
+
+    # Fetch real health history data from cache or perform current test
+    # @param service_name [String] Service name
+    # @param hours [Integer] Hours to look back
+    # @return [Array<Hash>] Health data points
+    def fetch_health_history_data(service_name, hours)
+      cache_key = "service_health_history:#{service_name}:#{hours}"
+
+      # Try to fetch from cache first
+      cached_data = Rails.cache.read(cache_key)
+      return cached_data if cached_data.present?
+
+      # If no cached history, return current status only
+      config = AdminSetting.reverse_proxy_config
+      environment = config["current_environment"] || Rails.env
+      service_config = config.dig("environments", environment, service_name)
+
+      if service_config
+        current_test = perform_connection_test(service_config)
+        data_points = [ {
+          timestamp: Time.current.iso8601,
+          status: current_test[:status],
+          response_time: current_test[:response_time],
+          response_code: current_test[:response_code],
+          error: current_test[:error]
+        } ]
+
+        # Cache for 5 minutes
+        Rails.cache.write(cache_key, data_points, expires_in: 5.minutes)
+        data_points
+      else
+        []
+      end
     end
 
     # Get discovered services (mock)

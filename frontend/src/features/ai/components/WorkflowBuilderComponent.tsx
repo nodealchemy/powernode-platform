@@ -125,7 +125,7 @@ export const WorkflowBuilderComponent: React.FC = () => {
                   
                   <div className="flex items-center gap-3">
                     {getStatusBadge(step.status)}
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" aria-label={`Configure ${step.name} step`}>
                       <Settings className="h-4 w-4" />
                     </Button>
                   </div>

@@ -17,15 +17,15 @@ RSpec.describe 'Chat Sessions API', type: :request do
       get '/api/v1/chat/sessions', headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['items'].length).to eq(2)
+      expect(json_response['data']['items'].length).to eq(2)
     end
 
     it 'filters by status' do
       get '/api/v1/chat/sessions', params: { status: 'active' }, headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['items'].length).to eq(1)
-      expect(json_response['items'].first['status']).to eq('active')
+      expect(json_response['data']['items'].length).to eq(1)
+      expect(json_response['data']['items'].first['status']).to eq('active')
     end
 
     it 'filters by channel' do
@@ -35,7 +35,7 @@ RSpec.describe 'Chat Sessions API', type: :request do
       get '/api/v1/chat/sessions', params: { channel_id: channel.id }, headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['items'].length).to eq(2)
+      expect(json_response['data']['items'].length).to eq(2)
     end
   end
 
@@ -46,7 +46,7 @@ RSpec.describe 'Chat Sessions API', type: :request do
       get "/api/v1/chat/sessions/#{session.id}", headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['session']['id']).to eq(session.id)
+      expect(json_response['data']['session']['id']).to eq(session.id)
     end
 
     it 'returns 404 for session from another account' do
@@ -89,7 +89,7 @@ RSpec.describe 'Chat Sessions API', type: :request do
       get "/api/v1/chat/sessions/#{session.id}/messages", headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['items'].length).to eq(session.messages.count)
+      expect(json_response['data']['items'].length).to eq(session.messages.count)
     end
 
     it 'filters by direction' do
@@ -98,7 +98,7 @@ RSpec.describe 'Chat Sessions API', type: :request do
           headers: headers
 
       expect(response).to have_http_status(:ok)
-      json_response['items'].each do |message|
+      json_response['data']['items'].each do |message|
         expect(message['direction']).to eq('inbound')
       end
     end
@@ -128,8 +128,8 @@ RSpec.describe 'Chat Sessions API', type: :request do
       get '/api/v1/chat/sessions/active', headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['items'].length).to eq(3)
-      json_response['items'].each do |session|
+      expect(json_response['data']['items'].length).to eq(3)
+      json_response['data']['items'].each do |session|
         expect(session['status']).to eq('active')
       end
     end
@@ -144,9 +144,9 @@ RSpec.describe 'Chat Sessions API', type: :request do
       get '/api/v1/chat/sessions/stats', headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['stats']).to include('active', 'idle', 'closed', 'total')
-      expect(json_response['stats']['active']).to eq(3)
-      expect(json_response['stats']['idle']).to eq(2)
+      expect(json_response['data']['stats']).to include('active', 'idle', 'closed', 'total')
+      expect(json_response['data']['stats']['active']).to eq(3)
+      expect(json_response['data']['stats']['idle']).to eq(2)
     end
   end
 end

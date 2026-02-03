@@ -69,7 +69,7 @@ export const CheckpointHistoryViewer: React.FC<CheckpointHistoryViewerProps> = (
       setLoading(true);
       const response = await api.get(`/ai/workflow_runs/${workflowRunId}/recovery/checkpoints`);
       setCheckpoints(response.data.data.checkpoints || []);
-    } catch {
+    } catch (error) {
       console.error('Failed to load checkpoints:', error);
     } finally {
       setLoading(false);
@@ -85,7 +85,7 @@ export const CheckpointHistoryViewer: React.FC<CheckpointHistoryViewerProps> = (
       setRestoring(checkpointId);
       await api.post(`/ai/workflow_runs/${workflowRunId}/recovery/checkpoints/${checkpointId}/restore`);
       onRestore?.(checkpointId);
-    } catch {
+    } catch (error) {
       console.error('Failed to restore checkpoint:', error);
       addNotification({ type: 'error', message: 'Failed to restore from checkpoint. Please try again.' });
     } finally {

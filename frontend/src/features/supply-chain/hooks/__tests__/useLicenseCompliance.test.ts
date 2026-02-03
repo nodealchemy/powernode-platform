@@ -352,7 +352,7 @@ describe('License Compliance Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync(policyData);
-        } catch {
+        } catch (_err) {
           // Error is expected
         }
       });
@@ -379,7 +379,7 @@ describe('License Compliance Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync(policyData);
-        } catch {
+        } catch (err) {
           _thrownError = err as Error;
         }
       });
@@ -452,7 +452,7 @@ describe('License Compliance Hooks', () => {
             id: policyId,
             data: updateData,
           });
-        } catch {
+        } catch (_err) {
           // Error is expected
         }
       });
@@ -485,7 +485,7 @@ describe('License Compliance Hooks', () => {
             id: policyId,
             data: updateData,
           });
-        } catch {
+        } catch (err) {
           _thrownError = err as Error;
         }
       });
@@ -546,7 +546,7 @@ describe('License Compliance Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync(policyId);
-        } catch {
+        } catch (_err) {
           // Error is expected
         }
       });
@@ -573,7 +573,7 @@ describe('License Compliance Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync(policyId);
-        } catch {
+        } catch (err) {
           _thrownError = err as Error;
         }
       });
@@ -646,7 +646,7 @@ describe('License Compliance Hooks', () => {
             id: policyId,
             isActive: true,
           });
-        } catch {
+        } catch (_err) {
           // Error is expected
         }
       });
@@ -679,7 +679,7 @@ describe('License Compliance Hooks', () => {
             id: policyId,
             isActive: true,
           });
-        } catch {
+        } catch (err) {
           _thrownError = err as Error;
         }
       });
@@ -976,7 +976,7 @@ describe('License Compliance Hooks', () => {
             id: violationId,
             note,
           });
-        } catch {
+        } catch (_err) {
           // Error is expected
         }
       });
@@ -1009,7 +1009,7 @@ describe('License Compliance Hooks', () => {
             id: violationId,
             note,
           });
-        } catch {
+        } catch (err) {
           _thrownError = err as Error;
         }
       });
@@ -1066,7 +1066,7 @@ describe('License Compliance Hooks', () => {
             id: violationId,
             note,
           });
-        } catch {
+        } catch (_err) {
           // Error is expected
         }
       });
@@ -1099,7 +1099,7 @@ describe('License Compliance Hooks', () => {
             id: violationId,
             note,
           });
-        } catch {
+        } catch (err) {
           _thrownError = err as Error;
         }
       });
@@ -1181,7 +1181,7 @@ describe('License Compliance Hooks', () => {
             id: violationId,
             justification: '',
           });
-        } catch {
+        } catch (err) {
           _thrownError = err as Error;
         }
       });
@@ -1275,7 +1275,7 @@ describe('License Compliance Hooks', () => {
           await result.current.mutateAsync({
             id: violationId,
           });
-        } catch {
+        } catch (err) {
           _thrownError = err as Error;
         }
       });
@@ -1342,7 +1342,7 @@ describe('License Compliance Hooks', () => {
             id: violationId,
             reason,
           });
-        } catch {
+        } catch (_err) {
           // Error is expected
         }
       });
@@ -1375,7 +1375,7 @@ describe('License Compliance Hooks', () => {
             id: violationId,
             reason,
           });
-        } catch {
+        } catch (err) {
           _thrownError = err as Error;
         }
       });
@@ -1427,7 +1427,7 @@ describe('License Compliance Hooks', () => {
       await act(async () => {
         try {
           await result.current.mutateAsync(policyData);
-        } catch {
+        } catch (_err) {
           // Error is caught internally by hook
         }
       });

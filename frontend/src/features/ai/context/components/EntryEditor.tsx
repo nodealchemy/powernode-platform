@@ -65,7 +65,7 @@ export function EntryEditor({
         if (typeof formData.content === 'string') {
           JSON.parse(formData.content as string);
         }
-      } catch {
+      } catch (_error) {
         newErrors.content = 'Invalid JSON';
       }
     }
@@ -125,7 +125,7 @@ export function EntryEditor({
     try {
       JSON.parse(value);
       setJsonError(null);
-    } catch {
+    } catch (_error) {
       setJsonError('Invalid JSON');
     }
     setFormData({ ...formData, content: value as unknown as Record<string, unknown> });

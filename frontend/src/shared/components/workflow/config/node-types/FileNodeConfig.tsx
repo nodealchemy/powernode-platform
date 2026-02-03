@@ -190,7 +190,7 @@ export const FileNodeConfig: React.FC<NodeTypeConfigProps> = ({
             try {
               const parsed = JSON.parse(e.target.value);
               handleConfigChange('metadata', parsed);
-            } catch {
+            } catch (_error) {
               handleConfigChange('metadata', e.target.value);
             }
           }}

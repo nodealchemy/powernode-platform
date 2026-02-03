@@ -172,7 +172,7 @@ const RunnersPageContent: React.FC = () => {
       setRunners(data.runners);
       setStats(data.stats);
       setPagination(data.pagination);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch runners');
     } finally {
       setLoading(false);
@@ -189,7 +189,7 @@ const RunnersPageContent: React.FC = () => {
       const result = await gitProvidersApi.syncRunners();
       showNotification(`Synced ${result.synced_count} runners from providers`, 'success');
       fetchRunners();
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to sync runners', 'error');
     } finally {
       setSyncing(false);
@@ -207,7 +207,7 @@ const RunnersPageContent: React.FC = () => {
           await gitProvidersApi.deleteRunner(runner.id);
           showNotification('Runner deleted successfully', 'success');
           fetchRunners();
-        } catch {
+        } catch (err) {
           showNotification(err instanceof Error ? err.message : 'Failed to delete runner', 'error');
         }
       }

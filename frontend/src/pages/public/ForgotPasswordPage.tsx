@@ -29,7 +29,7 @@ export const ForgotPasswordPage: React.FC = () => {
         type: 'success',
         message: 'Password reset email sent. Check your inbox.',
       }));
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: ErrorHandler.getUserMessage(error),

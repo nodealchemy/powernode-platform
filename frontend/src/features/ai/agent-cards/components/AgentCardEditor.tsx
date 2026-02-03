@@ -85,7 +85,7 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
     try {
       const response = await agentsApi.getAgents({ per_page: 100 });
       setAgents(response.items || []);
-    } catch {
+    } catch (_err) {
       // Non-critical, just won't show agent options
     }
   };
@@ -118,7 +118,7 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
           }))
         );
       }
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load agent card');
     } finally {
       setLoading(false);
@@ -159,14 +159,14 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
         if (s.inputSchema.trim()) {
           try {
             skill.inputSchema = JSON.parse(s.inputSchema);
-          } catch {
+          } catch (_err) {
             // Invalid JSON, skip
           }
         }
         if (s.outputSchema.trim()) {
           try {
             skill.outputSchema = JSON.parse(s.outputSchema);
-          } catch {
+          } catch (_err) {
             // Invalid JSON, skip
           }
         }
@@ -222,7 +222,7 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
         addNotification({ type: 'success', title: 'Created', message: 'Agent card created' });
         onSave?.(response.agent_card);
       }
-    } catch {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save agent card';
       setError(message);
       addNotification({ type: 'error', title: 'Error', message });

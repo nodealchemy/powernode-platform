@@ -53,7 +53,7 @@ export const EmailConfiguration: React.FC = () => {
       setEmailSettings(normalizedSettings);
       setOriginalSettings({ ...normalizedSettings });
       setHasChanges(false);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load email settings', 'error');
     } finally {
       setLoading(false);
@@ -80,7 +80,7 @@ export const EmailConfiguration: React.FC = () => {
       setOriginalSettings({ ...emailSettings });
       setHasChanges(false);
       showNotification('Email settings updated successfully', 'success');
-    } catch {
+    } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update email settings';
       showNotification(message, 'error');
     } finally {
@@ -105,7 +105,7 @@ export const EmailConfiguration: React.FC = () => {
       setTesting(true);
       const response = await emailSettingsApi.testEmail(testEmail);
       showNotification(response.message || `Test email sent to ${testEmail}`, 'success');
-    } catch {
+    } catch (error) {
       const apiError = error as { response?: { data?: { error?: string; message?: string } } };
       let errorMessage = 'Failed to send test email';
 

@@ -166,7 +166,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           setOperationsAgent(operationsAgentCandidate);
         }
         // No operations agent available - chat feature will be disabled
-      } catch {
+      } catch (_error) {
         // Operations agent failed to load - chat feature will be disabled
       }
     };
@@ -954,7 +954,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
             }, 100); // Wait for edges to render before fitting view
           }, 100); // Wait for nodes to mount before adding edges
         }, 50); // Wait for React Flow to process removal
-      } catch {
+      } catch (_error) {
         // Error arranging nodes - layout will not be applied
       } finally {
         setIsArranging(false);

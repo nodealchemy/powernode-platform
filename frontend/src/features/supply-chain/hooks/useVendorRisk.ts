@@ -98,7 +98,7 @@ export function useVendors(options: {
       });
       setVendors(result.vendors);
       setPagination(result.pagination);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch vendors');
     } finally {
       setLoading(false);
@@ -124,7 +124,7 @@ export function useVendor(id: string | null) {
       setError(null);
       const result = await vendorRiskApi.getVendor(id);
       setVendor(result);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch vendor');
     } finally {
       setLoading(false);
@@ -156,7 +156,7 @@ export function useVendorRiskDashboard() {
       setError(null);
       const result = await vendorRiskApi.getRiskDashboard();
       setData(result);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch dashboard');
     } finally {
       setLoading(false);
@@ -191,7 +191,7 @@ export function useCreateVendor() {
       setError(null);
       const result = await vendorRiskApi.createVendor(data);
       return result;
-    } catch {
+    } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create vendor';
       setError(errorMsg);
       throw err;
@@ -213,7 +213,7 @@ export function useUpdateVendor() {
       setError(null);
       const result = await vendorRiskApi.updateVendor(id, data);
       return result;
-    } catch {
+    } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to update vendor';
       setError(errorMsg);
       throw err;
@@ -234,7 +234,7 @@ export function useDeleteVendor() {
       setLoading(true);
       setError(null);
       await vendorRiskApi.deleteVendor(id);
-    } catch {
+    } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to delete vendor';
       setError(errorMsg);
       throw err;
@@ -262,7 +262,7 @@ export function useStartAssessment() {
       setError(null);
       const result = await vendorRiskApi.startAssessment(vendorId, assessmentType);
       return result;
-    } catch {
+    } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to start assessment';
       setError(errorMsg);
       throw err;
@@ -290,7 +290,7 @@ export function useSendQuestionnaire() {
       setError(null);
       const result = await vendorRiskApi.sendQuestionnaire(vendorId, templateId);
       return result;
-    } catch {
+    } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to send questionnaire';
       setError(errorMsg);
       throw err;

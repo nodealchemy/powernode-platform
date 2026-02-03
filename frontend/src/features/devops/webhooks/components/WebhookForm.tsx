@@ -101,7 +101,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
         } else {
           setError(response.error || 'Failed to load available events');
         }
-      } catch {
+      } catch (_error) {
         setError('Failed to load available events');
       } finally {
         setLoadingEvents(false);

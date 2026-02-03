@@ -70,7 +70,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
       try {
         // eslint-disable-next-line security/detect-non-literal-regexp -- User-provided regex validation is intentional
         new RegExp(filterPattern);
-      } catch {
+      } catch (_err) {
         setError('Invalid regular expression pattern');
         return;
       }
@@ -79,7 +79,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
     setIsSubmitting(true);
     try {
       await onSave(filterType, filterType === 'none' ? undefined : filterPattern.trim());
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save branch filter');
     } finally {
       setIsSubmitting(false);

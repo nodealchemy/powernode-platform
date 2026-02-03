@@ -19,7 +19,14 @@ RSpec.describe FederationPartner, type: :model do
     it { should validate_presence_of(:status) }
     it { should validate_uniqueness_of(:organization_id) }
     it { should validate_inclusion_of(:status).in_array(FederationPartner::STATUSES) }
-    it { should validate_numericality_of(:trust_level).is_greater_than_or_equal_to(1).is_less_than_or_equal_to(5) }
+    it 'validates trust_level is within 1..5' do
+      partner = build(:federation_partner, trust_level: 0)
+      expect(partner).not_to be_valid
+      partner.trust_level = 6
+      expect(partner).not_to be_valid
+      partner.trust_level = 3
+      expect(partner).to be_valid
+    end
     it { should validate_numericality_of(:max_requests_per_hour).is_greater_than(0) }
 
     context 'endpoint_url format' do

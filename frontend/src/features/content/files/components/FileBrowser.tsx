@@ -116,7 +116,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
     try {
       await filesApi.downloadFile(file.id, file.filename);
       showNotification(`Downloading ${file.filename}`, 'success');
-    } catch {
+    } catch (_error) {
       showNotification('Download failed', 'error');
     }
   };
@@ -133,7 +133,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
       await filesApi.deleteFile(file.id);
       showNotification('File deleted successfully', 'success');
       void loadFiles(pagination.current_page);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to delete file', 'error');
     }
   };
@@ -201,7 +201,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
       showNotification(`${selectedFiles.size} files deleted successfully`, 'success');
       setSelectedFiles(new Set());
       void loadFiles(pagination.current_page);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to delete some files', 'error');
     }
   };

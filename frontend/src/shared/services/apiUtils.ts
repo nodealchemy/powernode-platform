@@ -114,7 +114,7 @@ export async function safeApiCall<T>(
   try {
     const data = await apiCall();
     return wrapSuccess(data);
-  } catch {
+  } catch (error) {
     return wrapError(error);
   }
 }

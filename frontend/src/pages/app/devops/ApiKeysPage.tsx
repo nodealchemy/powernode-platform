@@ -49,7 +49,7 @@ export const ApiKeysPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to load API keys');
       }
-    } catch {
+    } catch (_error) {
       setError('Failed to load API keys');
     } finally {
       setLoading(false);
@@ -84,7 +84,7 @@ export const ApiKeysPage: React.FC = () => {
           } else {
             addNotification({ type: 'error', message: response.error || 'Failed to regenerate API key' });
           }
-        } catch {
+        } catch (_error) {
           addNotification({ type: 'error', message: 'Failed to regenerate API key' });
         }
       }
@@ -99,7 +99,7 @@ export const ApiKeysPage: React.FC = () => {
       } else {
         addNotification({ type: 'error', message: response.error || 'Failed to update API key status' });
       }
-    } catch {
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to update API key status' });
     }
   };

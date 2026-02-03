@@ -48,7 +48,7 @@ class Webhooks::PaypalController < ApplicationController
     webhook_id = Rails.application.config.paypal[:webhook_id]
 
     # Use proper PayPal webhook signature verification
-    verifier = PaypalWebhookVerifier.new(
+    verifier = Billing::PaypalWebhookVerifier.new(
       webhook_id: webhook_id,
       event_body: payload,
       headers: extract_paypal_headers

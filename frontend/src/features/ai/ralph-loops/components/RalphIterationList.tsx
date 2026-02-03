@@ -51,7 +51,7 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
       setError(null);
       const response = await ralphLoopsApi.getIterations(loopId, { per_page: 50 });
       setIterations(response.items || []);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load iterations');
     } finally {
       setLoading(false);
@@ -74,7 +74,7 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
       setExpandedId(iteration.id);
       const response = await ralphLoopsApi.getIteration(loopId, iteration.id);
       setExpandedIteration(response.iteration);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load iteration details');
     } finally {
       setLoadingDetail(false);

@@ -35,7 +35,7 @@ export const subscriptionHistoryApi = {
     try {
       const response = await api.get('/api/v1/subscriptions/history');
       return response.data.data;
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       return { current_subscription: null, history: [], total_events: 0, error: message };
     }

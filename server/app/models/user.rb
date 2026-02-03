@@ -228,7 +228,10 @@ class User < ApplicationRecord
   def grant_permission(permission_name)
     permission = Permission.find_or_create_from_name!(permission_name)
 
-    role = roles.first || Role.create!(name: "custom_#{id}", display_name: "Custom Role", role_type: "custom")
+    role = roles.first || Role.find_or_create_by!(name: "custom_#{id}") do |r|
+      r.display_name = "Custom Role"
+      r.role_type = "custom"
+    end
     role.permissions << permission unless role.permissions.include?(permission)
     self.roles << role unless self.roles.include?(role)
     reload

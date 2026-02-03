@@ -67,7 +67,7 @@ export const ApprovalResponsePage: React.FC = () => {
       } else {
         setError(result.error || 'Failed to load approval details');
       }
-    } catch {
+    } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load approval details';
       setError(errorMessage);
     } finally {
@@ -107,7 +107,7 @@ export const ApprovalResponsePage: React.FC = () => {
       } else {
         setError(result.error || `Failed to ${approvalAction} step`);
       }
-    } catch {
+    } catch (err) {
       const errorMessage = err instanceof Error ? err.message : `Failed to ${approvalAction} step`;
       setError(errorMessage);
     } finally {

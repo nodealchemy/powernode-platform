@@ -96,7 +96,7 @@ export const MergeNodeConfig: React.FC<NodeTypeConfigProps> = ({
             try {
               const parsed = JSON.parse(e.target.value);
               handleConfigChange('default_values', parsed);
-            } catch {
+            } catch (_error) {
               handleConfigChange('default_values', e.target.value);
             }
           }}

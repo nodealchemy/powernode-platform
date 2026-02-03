@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 module Ai
+  class RagServiceError < StandardError; end
+
   class RagService
     attr_reader :account
 
@@ -346,9 +348,22 @@ module Ai
     end
 
     def generate_embedding(text, model, provider)
-      # Placeholder - would integrate with actual embedding APIs
-      # Returns a mock embedding vector
-      Array.new(1536) { rand(-1.0..1.0) }
+      embedding_service = Ai::EmbeddingService.new(account: account)
+
+      begin
+        result = embedding_service.generate(
+          text: text,
+          model: model,
+          provider: provider
+        )
+        result[:embedding]
+      rescue Ai::EmbeddingService::EmbeddingError => e
+        Rails.logger.error "[RagService] Embedding generation failed: #{e.message}"
+        raise Ai::RagServiceError, "Failed to generate embedding: #{e.message}"
+      rescue StandardError => e
+        Rails.logger.error "[RagService] Unexpected error generating embedding: #{e.message}"
+        raise Ai::RagServiceError, "Embedding service unavailable. Please configure an embedding provider."
+      end
     end
 
     def retrieve_chunks(knowledge_base, query_embedding, top_k:, threshold:, filters:)

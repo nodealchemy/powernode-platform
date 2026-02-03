@@ -2,6 +2,7 @@
 import { SubscriptionStatusIndicator } from './SubscriptionStatusIndicator';
 import { Subscription } from '@/shared/types';
 import { CreditCard, Calendar, Clock, TrendingUp } from 'lucide-react';
+import { formatSubscriptionPrice, type BillingCycle } from '@/shared/utils/formatters';
 
 interface CurrentPlanSummaryProps {
   subscription: Subscription | null;
@@ -16,40 +17,17 @@ export const CurrentPlanSummary: React.FC<CurrentPlanSummaryProps> = ({
   onManage,
   className = ''
 }) => {
-  const formatDate = (dateString: string | null | undefined) => {
+  const formatDisplayDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'Never expires';
-    
+
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Never expires';
-    
+
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
-  };
-
-  const formatPrice = (price: {cents: number; currency_iso: string} | number | null | undefined, interval?: string) => {
-    let priceCents: number;
-    
-    if (price == null) {
-      return 'Free';
-    }
-    
-    if (typeof price === 'object' && 'cents' in price) {
-      priceCents = price.cents;
-    } else if (typeof price === 'number') {
-      priceCents = price;
-    } else {
-      return 'Free';
-    }
-    
-    if (priceCents === 0 || isNaN(priceCents)) {
-      return 'Free';
-    }
-    
-    const formattedPrice = (priceCents / 100).toFixed(2);
-    return interval ? `$${formattedPrice}/${interval}` : `$${formattedPrice}`;
   };
 
   const getDaysRemaining = (subscription: Subscription): number => {
@@ -97,7 +75,7 @@ export const CurrentPlanSummary: React.FC<CurrentPlanSummaryProps> = ({
               <h4 className="font-semibold text-theme-primary">{subscription.plan.name}</h4>
             </div>
             <p className="text-2xl font-bold text-theme-primary">
-              {formatPrice(subscription.plan.price_cents, subscription.plan.billing_cycle)}
+              {formatSubscriptionPrice(subscription.plan.price_cents, subscription.plan.billing_cycle as BillingCycle, subscription.plan.currency)}
             </p>
             <p className="text-sm text-theme-secondary">
               {subscription.plan.billing_cycle} billing
@@ -129,7 +107,7 @@ export const CurrentPlanSummary: React.FC<CurrentPlanSummaryProps> = ({
                 {isTrialing ? 'Trial Ends' : 'Next Billing'}
               </p>
               <p className="text-sm text-theme-secondary">
-                {formatDate(isTrialing ? subscription.trial_end : subscription.current_period_end)}
+                {formatDisplayDate(isTrialing ? subscription.trial_end : subscription.current_period_end)}
               </p>
             </div>
           </div>

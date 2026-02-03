@@ -231,7 +231,7 @@ export function ConfigurationStep({
               onChange={(e) => {
                 try {
                   handleFieldChange(key, JSON.parse(e.target.value));
-                } catch {
+                } catch (_error) {
                   // Keep raw value if not valid JSON
                 }
               }}

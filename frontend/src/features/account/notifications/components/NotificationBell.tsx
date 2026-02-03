@@ -86,7 +86,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       const response = await notificationApi.getNotifications({ per_page: 10 });
       setNotifications(response.notifications);
       setUnreadCount(response.unread_count);
-    } catch {
+    } catch (_error) {
       // Silently fail for notifications
     }
   }, []);
@@ -96,7 +96,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     try {
       const count = await notificationApi.getUnreadCount();
       setUnreadCount(count);
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   }, []);
@@ -141,7 +141,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   };
@@ -153,7 +153,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       // Reload count after dismiss
       loadUnreadCount();
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   };
@@ -164,7 +164,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       await notificationApi.markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
-    } catch {
+    } catch (_error) {
       // Silently fail
     } finally {
       setLoading(false);

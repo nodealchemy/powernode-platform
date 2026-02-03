@@ -219,7 +219,7 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
           const errorMsg = response.error || 'Failed to load live metrics';
           setError(errorMsg);
         }
-      } catch {
+      } catch (err) {
         // Provide more specific error messages for API failures
         let userError = 'Failed to load live metrics';
         if (err instanceof Error) {

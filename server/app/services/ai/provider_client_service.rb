@@ -22,6 +22,7 @@ class Ai::ProviderClientService
   VALID_ROLES = %w[system user assistant function tool].freeze
   CIRCUIT_BREAKER_THRESHOLD = 5
   CIRCUIT_BREAKER_TIMEOUT = 60 # seconds
+  HEALTH_CHECK_CACHE_TTL = 10.minutes
 
   attr_reader :provider, :credential, :credentials_data
 
@@ -220,9 +221,18 @@ class Ai::ProviderClientService
     end
   end
 
-  # Perform a health check on the AI provider
+  # Perform a health check on the AI provider (cached for 10 minutes)
+  # @param force_refresh [Boolean] Skip cache and perform fresh check
   # @return [Hash] Health status with metrics
-  def health_check
+  def health_check(force_refresh: false)
+    cache_key = "ai:provider_health:#{provider.id}:#{credential.id}"
+
+    # Return cached result unless force refresh
+    unless force_refresh
+      cached = Rails.cache.read(cache_key)
+      return cached if cached.present?
+    end
+
     start_time = Time.current
     test_messages = [ { role: "user", content: "Hello" } ]
 
@@ -230,7 +240,7 @@ class Ai::ProviderClientService
       result = send_message(test_messages, { model: default_model_for_capability("text_generation"), max_tokens: 5 })
       response_time = ((Time.current - start_time) * 1000).round
 
-      {
+      health_result = {
         healthy: result[:success],
         response_time_ms: response_time,
         last_checked_at: Time.current.iso8601,
@@ -238,8 +248,14 @@ class Ai::ProviderClientService
         circuit_breaker_state: circuit_breaker_state,
         last_error: result[:success] ? nil : result[:error]
       }
+
+      # Cache successful checks longer, failed checks shorter
+      cache_ttl = result[:success] ? HEALTH_CHECK_CACHE_TTL : 2.minutes
+      Rails.cache.write(cache_key, health_result, expires_in: cache_ttl)
+
+      health_result
     rescue StandardError => e
-      {
+      health_result = {
         healthy: false,
         response_time_ms: ((Time.current - start_time) * 1000).round,
         last_checked_at: Time.current.iso8601,
@@ -247,7 +263,17 @@ class Ai::ProviderClientService
         circuit_breaker_state: circuit_breaker_state,
         last_error: e.message
       }
+
+      # Cache failed checks for shorter duration
+      Rails.cache.write(cache_key, health_result, expires_in: 2.minutes)
+
+      health_result
     end
+  end
+
+  # Invalidate health check cache
+  def self.invalidate_health_cache(provider_id, credential_id)
+    Rails.cache.delete("ai:provider_health:#{provider_id}:#{credential_id}")
   end
 
   private

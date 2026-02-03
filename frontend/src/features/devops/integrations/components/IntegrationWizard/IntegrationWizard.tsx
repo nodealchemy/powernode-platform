@@ -103,7 +103,7 @@ export function IntegrationWizard() {
       } else {
         showNotification(response.error || 'Failed to create integration', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('An unexpected error occurred', 'error');
     } finally {
       setIsCreating(false);

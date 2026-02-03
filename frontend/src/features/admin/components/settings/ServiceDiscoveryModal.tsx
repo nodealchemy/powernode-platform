@@ -65,7 +65,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
     try {
       const services = await servicesApi.getDiscoveredServices();
       setDiscoveredServices(services);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load discovered services', 'error');
     }
   };
@@ -80,7 +80,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
       setShowJobProgress(true);
       showNotification('Service discovery started', 'info');
       setDiscovering(false);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to start service discovery', 'error');
       setDiscovering(false);
     }
@@ -108,7 +108,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
       await onConfigUpdate(formConfig);
       showNotification('Service discovery configuration updated', 'success');
       onClose();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to update configuration', 'error');
     }
   };
@@ -133,7 +133,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
       await servicesApi.addDiscoveredService(service);
       showNotification(`Added ${service.name} to configuration`, 'success');
       loadDiscoveredServices();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to add service to configuration', 'error');
     }
   };

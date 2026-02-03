@@ -88,7 +88,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
 
       // Load existing credentials
       await loadCredentials();
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Loading Failed',
@@ -112,7 +112,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
         credentialsData = (response as { credentials: AiProviderCredential[] }).credentials || [];
       }
       setCredentials(credentialsData);
-    } catch {
+    } catch (_error) {
       // Don't show error notification for credentials - it's not critical
     }
   };
@@ -223,7 +223,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
 
       onSuccess();
       onClose();
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Update Failed',
@@ -265,7 +265,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
         title: 'Credential Deleted',
         message: 'Credential has been deleted successfully'
       });
-    } catch {
+    } catch (error) {
       // Extract specific error message from validation response
       let errorMessage = 'Failed to delete credential. Please try again.';
 
@@ -323,7 +323,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
 
       // Reload credentials to update test status
       await loadCredentials();
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Test Failed',
@@ -386,7 +386,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
       });
 
       handleCancelEditCredential();
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Update Failed',
@@ -408,7 +408,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
         title: 'Default Updated',
         message: 'Credential is now the default for this provider'
       });
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Update Failed',

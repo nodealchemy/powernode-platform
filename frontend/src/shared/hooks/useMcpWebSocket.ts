@@ -256,7 +256,7 @@ export const useMcpWebSocket = ({
 
       setProtocolInitialized(true);
       return result as { protocolVersion: string; serverInfo: Record<string, unknown> };
-    } catch {
+    } catch (error) {
       setProtocolInitialized(false);
       throw error;
     }

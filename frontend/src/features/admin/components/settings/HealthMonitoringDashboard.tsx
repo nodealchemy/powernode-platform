@@ -57,7 +57,7 @@ export const HealthMonitoringDashboard: React.FC<HealthMonitoringDashboardProps>
       setLoadingHistory(true);
       const history = await servicesApi.getServiceHealthHistory(serviceName, hours);
       setHealthHistory(history);
-    } catch {
+    } catch (_error) {
       // Error handled by notification
       showNotification('Failed to load health history', 'error');
     } finally {

@@ -168,7 +168,7 @@ export const WorkflowCreateModal: React.FC<WorkflowCreateModalProps> = ({
         navigate(`/app/ai/workflows/${response.id}/edit`);
       }
 
-    } catch {
+    } catch (error) {
       let errorMessage = 'Failed to create workflow. Please try again.';
       let errorTitle = 'Creation Failed';
 

@@ -2,6 +2,8 @@
 
 module Chat
   class Blacklist < ApplicationRecord
+    self.table_name = "chat_blacklists"
+
     # Concerns
     include Auditable
 

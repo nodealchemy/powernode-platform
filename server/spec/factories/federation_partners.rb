@@ -4,19 +4,17 @@ FactoryBot.define do
   factory :federation_partner do
     account
     sequence(:name) { |n| "Federation Partner #{n}" }
-    description { 'A trusted federation partner for agent sharing' }
+    sequence(:organization_id) { |n| "org-partner-#{n}" }
     endpoint_url { 'https://partner.example.com/a2a' }
     status { 'pending' }
     trust_level { 3 }
     max_requests_per_hour { 1000 }
-    federation_token_digest { BCrypt::Password.create('test_token') }
+    federation_token_hash { BCrypt::Password.create('test_token') }
     agent_count { 0 }
-    capabilities do
-      {
-        'supported_protocols' => [ 'a2a-v0.3' ],
-        'max_concurrent_tasks' => 10
-      }
+    allowed_capabilities do
+      [ 'a2a-v0.3', 'agent-discovery' ]
     end
+    tls_config { {} }
 
     trait :pending do
       status { 'pending' }
@@ -29,12 +27,10 @@ FactoryBot.define do
 
     trait :suspended do
       status { 'suspended' }
-      suspended_at { 1.hour.ago }
     end
 
     trait :revoked do
       status { 'revoked' }
-      revoked_at { 1.day.ago }
     end
 
     trait :high_trust do

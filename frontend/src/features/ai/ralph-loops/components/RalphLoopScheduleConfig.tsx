@@ -121,7 +121,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
       const parts = expr.split(' ');
       if (parts.length !== 5) return 'Invalid cron expression';
       return `At minute ${parts[0]} of hour ${parts[1]}, day ${parts[2]}, month ${parts[3]}, weekday ${parts[4]}`;
-    } catch {
+    } catch (_error) {
       return 'Invalid cron expression';
     }
   }, [config.cron_expression]);

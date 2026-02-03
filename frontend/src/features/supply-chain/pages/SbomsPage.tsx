@@ -67,7 +67,7 @@ const SbomsPageContent: React.FC = () => {
           await sbomsApi.delete(id);
           showNotification('SBOM deleted successfully', 'success');
           refresh();
-        } catch {
+        } catch (err) {
           showNotification(err instanceof Error ? err.message : 'Failed to delete SBOM', 'error');
         }
       },

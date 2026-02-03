@@ -46,7 +46,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       } else {
         showNotification(response.error || 'Failed to load dashboard data', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load dashboard data', 'error');
     } finally {
       setLoading(false);

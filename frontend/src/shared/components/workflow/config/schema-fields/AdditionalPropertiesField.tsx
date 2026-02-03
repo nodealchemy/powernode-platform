@@ -79,7 +79,7 @@ export const AdditionalPropertiesField: React.FC<AdditionalPropertiesFieldProps>
         if (pair.value.trim()) {
           try {
             parsedValue = JSON.parse(pair.value);
-          } catch {
+          } catch (_error) {
             // Keep as string if not valid JSON
           }
         }

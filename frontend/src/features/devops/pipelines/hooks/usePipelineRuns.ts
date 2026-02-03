@@ -35,7 +35,7 @@ export function usePipelineRuns(params: UsePipelineRunsParams = {}) {
       const data = await devopsPipelineRunsApi.getAll(params);
       setRuns(data.pipeline_runs);
       setMeta(data.meta);
-    } catch {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch pipeline runs';
       setError(message);
     } finally {
@@ -146,7 +146,7 @@ export function usePipelineRun(id: string | null) {
       setError(null);
       const data = await devopsPipelineRunsApi.getById(id);
       setRun(data);
-    } catch {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch pipeline run';
       setError(message);
     } finally {
@@ -161,7 +161,7 @@ export function usePipelineRun(id: string | null) {
       setLogsLoading(true);
       const data = await devopsPipelineRunsApi.getLogs(id);
       setLogs(data.logs);
-    } catch {
+    } catch (_err) {
       // Logs might not be available yet
     } finally {
       setLogsLoading(false);

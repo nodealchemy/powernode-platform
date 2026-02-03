@@ -117,10 +117,41 @@ module Ai
       )
     end
 
+    def reset!
+      raise InvalidTransitionError, "Cannot reset loop in #{status} status" unless can_reset?
+
+      transaction do
+        # Reset loop state
+        update!(
+          status: "pending",
+          current_iteration: 0,
+          started_at: nil,
+          completed_at: nil,
+          error_message: nil,
+          error_code: nil,
+          error_details: {}
+        )
+
+        # Reset all tasks to pending (except those that were skipped intentionally)
+        ralph_tasks.where.not(status: "skipped").update_all(
+          status: "pending",
+          error_message: nil,
+          error_code: nil,
+          execution_attempts: 0,
+          completed_in_iteration: nil,
+          iteration_completed_at: nil
+        )
+      end
+    end
+
     # ==================== State Checks ====================
 
     def can_start?
       status == "pending"
+    end
+
+    def can_reset?
+      terminal?
     end
 
     def can_pause?

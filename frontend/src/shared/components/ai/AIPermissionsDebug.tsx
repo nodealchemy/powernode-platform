@@ -89,7 +89,7 @@ export const AIPermissionsDebug: React.FC = () => {
       await navigator.clipboard.writeText(JSON.stringify(diagnosticInfo, null, 2));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } catch (error) {
       console.error('Failed to copy diagnostic info:', error);
     }
   };

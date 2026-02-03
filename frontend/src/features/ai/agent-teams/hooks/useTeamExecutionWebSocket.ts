@@ -71,7 +71,7 @@ export const useTeamExecutionWebSocket = (options: UseTeamExecutionWebSocketOpti
             setLastUpdate(update);
             onUpdate?.(update);
           }
-        } catch {
+        } catch (_error) {
           // Error parsing message - handled silently
         }
       };

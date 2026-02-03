@@ -173,7 +173,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
             expandedSections: []
           }});
         }
-      } catch {
+      } catch (_error) {
         localStorage.removeItem(storageKey);
         dispatch({ type: 'UPDATE_STATE', payload: {
           expandedSections: []

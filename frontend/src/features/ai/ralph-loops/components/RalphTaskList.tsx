@@ -132,7 +132,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
 
       const response = await ralphLoopsApi.getTasks(loopId, filters);
       setTasks(response.items || []);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load tasks');
     } finally {
       setLoading(false);
@@ -162,7 +162,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
       try {
         const response = await ralphLoopsApi.getTask(loopId, taskId);
         setTaskDetails(prev => ({ ...prev, [taskId]: response.task }));
-      } catch {
+      } catch (_error) {
         // Silently fail - details won't be shown
       } finally {
         setLoadingDetails(prev => {
@@ -251,7 +251,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
 
       setConfiguringTask(null);
       loadTasks(); // Refresh to show updated task
-    } catch {
+    } catch (_error) {
       // Error handling - could add notification here
     } finally {
       setSavingConfig(false);
@@ -266,7 +266,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
       try {
         const response = await ralphLoopsApi.getTask(loopId, taskId);
         setTaskDetails(prev => ({ ...prev, [taskId]: response.task }));
-      } catch {
+      } catch (_error) {
         // Error loading details
       } finally {
         setLoadingDetails(prev => {

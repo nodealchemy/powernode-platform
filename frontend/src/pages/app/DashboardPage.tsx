@@ -182,12 +182,12 @@ const DashboardOverview: React.FC = () => {
         try {
           const statusResponse = await plansApi.getStatus();
           hasPlansConfigured = statusResponse.data?.has_plans ?? statusResponse.data?.total_count > 0;
-        } catch {
+        } catch (_error) {
           // Fallback to checking public plans if status endpoint fails
           try {
             const publicPlansResponse = await plansApi.getPublicPlans();
             hasPlansConfigured = (publicPlansResponse.data?.plans?.length ?? 0) > 0;
-          } catch {
+          } catch (_error) {
             hasPlansConfigured = false;
           }
         }
@@ -202,7 +202,7 @@ const DashboardOverview: React.FC = () => {
           const paypalConfigured = gatewaysOverview.gateways.paypal.enabled &&
             ['connected', 'configured'].includes(gatewaysOverview.status.paypal.status);
           hasConfiguredGateways = stripeConfigured || paypalConfigured;
-        } catch {
+        } catch (_error) {
           // If user doesn't have permission or API fails, assume no gateways configured
           hasConfiguredGateways = false;
         }
@@ -212,7 +212,7 @@ const DashboardOverview: React.FC = () => {
           setHasPlans(hasPlansConfigured);
           setHasPaymentGateways(hasConfiguredGateways);
         }
-      } catch {
+      } catch (_error) {
         if (mounted) {
           // Assume no setup on error
           setHasPlans(false);

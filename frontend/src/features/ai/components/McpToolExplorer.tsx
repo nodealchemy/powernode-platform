@@ -109,7 +109,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
       if (['array', 'object'].includes(param.type) && parameters[param.name]) {
         try {
           JSON.parse(parameters[param.name]);
-        } catch {
+        } catch (_error) {
           addNotification({
             type: 'error',
             title: 'Invalid JSON',
@@ -148,7 +148,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
           case 'object':
             try {
               processedParams[param.name] = JSON.parse(value);
-            } catch {
+            } catch (_error) {
               processedParams[param.name] = value;
             }
             break;
@@ -198,7 +198,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
           message: 'This is a mock execution. Connect to a real MCP server for actual results.'
         });
       }
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 
       setExecutionResult({
@@ -341,6 +341,8 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
           <button
             onClick={() => setShowRawSchema(!showRawSchema)}
             className="text-sm text-theme-interactive-primary hover:underline flex items-center gap-1"
+            aria-label={showRawSchema ? 'Hide JSON Schema' : 'Show JSON Schema'}
+            aria-expanded={showRawSchema}
           >
             <Code className="h-4 w-4" />
             {showRawSchema ? 'Hide' : 'Show'} JSON Schema
@@ -348,6 +350,8 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
           <button
             onClick={() => setShowHistory(!showHistory)}
             className="text-sm text-theme-interactive-primary hover:underline flex items-center gap-1"
+            aria-label={showHistory ? 'Hide execution history' : 'Show execution history'}
+            aria-expanded={showHistory}
           >
             <History className="h-4 w-4" />
             {showHistory ? 'Hide' : 'Show'} History
@@ -367,6 +371,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
               size="sm"
               onClick={() => copyToClipboard(JSON.stringify(tool.input_schema, null, 2))}
               className="absolute top-2 right-2"
+              aria-label="Copy JSON schema"
             >
               <Copy className="h-4 w-4" />
             </Button>
@@ -426,6 +431,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
                   size="sm"
                   onClick={() => copyToClipboard(JSON.stringify(executionResult.result, null, 2))}
                   className="absolute top-6 right-2"
+                  aria-label="Copy execution result"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>

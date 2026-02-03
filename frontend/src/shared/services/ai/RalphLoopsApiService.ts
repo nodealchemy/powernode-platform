@@ -122,6 +122,13 @@ class RalphLoopsApiService extends BaseApiService {
   }
 
   /**
+   * Reset a terminal loop back to pending
+   */
+  async resetLoop(loopId: string): Promise<{ ralph_loop: RalphLoop; message: string }> {
+    return this.post<{ ralph_loop: RalphLoop; message: string }>(`${this.basePath}/${loopId}/reset`);
+  }
+
+  /**
    * Run a single iteration
    */
   async runIteration(loopId: string): Promise<{ iteration: RalphIteration; ralph_loop: RalphLoop }> {

@@ -37,7 +37,7 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
       setIsLoading(true);
       const response = await knowledgeBaseApi.getArticleComments(articleId, { per_page: 50 });
       setComments(response.data.data.comments);
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   } finally {
       setIsLoading(false);
@@ -63,7 +63,7 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
       setComments(prev => [response.data.data, ...prev]);
       setNewComment('');
       showSuccess('Comment posted successfully');
-    } catch {
+    } catch (_error) {
       showError('Failed to post comment. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -101,7 +101,7 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
       setReplyContent('');
       setReplyTo(null);
       showSuccess('Reply posted successfully');
-    } catch {
+    } catch (_error) {
       showError('Failed to post reply. Please try again.');
     } finally {
       setIsSubmitting(false);

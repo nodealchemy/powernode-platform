@@ -73,7 +73,7 @@ export const WorkflowAnalyticsPage: React.FC = () => {
       let statisticsResponse;
       try {
         statisticsResponse = await workflowsApi.getWorkflowStatistics();
-      } catch {
+      } catch (_error) {
         console.error('Statistics API failed:', statsError);
         const errorMessage = statsError instanceof Error ? statsError.message : 'Unknown error';
         throw new Error(`Statistics API failed: ${errorMessage}`);
@@ -96,7 +96,7 @@ export const WorkflowAnalyticsPage: React.FC = () => {
         statistics: statisticsResponse.statistics,
         executionMetrics: metricsResponse
       });
-    } catch {
+    } catch (error) {
       console.error('Failed to load analytics data:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       addNotification({

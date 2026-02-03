@@ -251,16 +251,24 @@ class Ai::WorkflowCircuitBreakerManager
       Rails.logger.warn "[CircuitBreakerManager] Pausing workflow #{workflow_run.run_id} " \
                         "due to open circuit for #{service_name}"
 
-      workflow_run.update(
-        status: "paused",
-        metadata: (workflow_run.metadata || {}).merge(
-          "paused_reason" => "circuit_breaker_open",
-          "paused_service" => service_name,
-          "paused_at" => Time.current.iso8601
-        )
-      )
+      # Use with_lock to prevent race conditions during status update
+      workflow_run.with_lock do
+        workflow_run.reload
 
-      # Broadcast pause event
+        # Only pause if not already in a terminal state
+        return if %w[completed failed cancelled].include?(workflow_run.status)
+
+        workflow_run.update!(
+          status: "paused",
+          metadata: (workflow_run.metadata || {}).merge(
+            "paused_reason" => "circuit_breaker_open",
+            "paused_service" => service_name,
+            "paused_at" => Time.current.iso8601
+          )
+        )
+      end
+
+      # Broadcast pause event (outside lock)
       ActionCable.server.broadcast(
         "ai_workflow_run_#{workflow_run.run_id}",
         {

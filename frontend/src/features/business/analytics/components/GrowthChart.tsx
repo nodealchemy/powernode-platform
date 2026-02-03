@@ -58,7 +58,7 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString), 'MMM yyyy');
-    } catch {
+    } catch (_error) {
       return dateString;
     }
   };

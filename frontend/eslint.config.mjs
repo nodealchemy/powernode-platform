@@ -111,7 +111,11 @@ export default tseslint.config(
       'no-console': ['warn', { allow: ['error', 'warn', 'info', 'group', 'groupEnd', 'trace'] }],
       'no-debugger': 'warn',
       'no-unused-vars': 'off', // Handled by TypeScript
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_'
+      }],
       'no-undef': 'off', // Handled by TypeScript
 
       // React-specific rules

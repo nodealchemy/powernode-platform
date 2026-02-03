@@ -254,7 +254,7 @@ export const CreateWorkflowModal: React.FC<CreateWorkflowModalProps> = ({
 
       onClose();
       onSuccess?.(response.id);
-    } catch {
+    } catch (error) {
       console.error('Failed to create workflow:', error);
       addNotification({
         type: 'error',

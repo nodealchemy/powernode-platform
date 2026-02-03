@@ -143,7 +143,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
         throw new Error(response.error || 'Export failed');
       }
       
-    } catch {
+    } catch (error) {
       // Error handled by notification
       setIsExporting(false);
       setExportProgress(0);

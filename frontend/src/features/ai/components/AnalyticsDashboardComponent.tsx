@@ -125,7 +125,7 @@ export const AnalyticsDashboardComponent: React.FC = () => {
 
       setAnalyticsData(transformedData);
 
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Analytics Error',
@@ -169,7 +169,7 @@ export const AnalyticsDashboardComponent: React.FC = () => {
         });
       }
 
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Export Failed',

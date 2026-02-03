@@ -84,7 +84,7 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
         } else {
           setError(response.error || 'Failed to load webhook details');
         }
-      } catch {
+      } catch (_error) {
         setError('An unexpected error occurred while loading webhook details');
       } finally {
         setLoading(false);
@@ -111,7 +111,7 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
       } else {
         setError(response.error || 'Failed to load delivery history');
       }
-    } catch {
+    } catch (_error) {
       setError('Failed to load delivery history');
     } finally {
       setLoadingDeliveries(false);
@@ -132,7 +132,7 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
     try {
       await navigator.clipboard.writeText(detailedWebhook.secret_token);
       setSuccess('Secret token copied to clipboard');
-    } catch {
+    } catch (_error) {
       setError('Failed to copy secret token');
     }
   };

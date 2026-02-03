@@ -178,7 +178,7 @@ export const AnalyticsPage: React.FC = () => {
       try {
         const revenue = await analyticsService.getRevenueAnalytics(startDate, endDate);
         analyticsData.revenue = revenue.data;
-      } catch {
+      } catch (_err) {
         // Provide realistic fallback data for demonstration
         const fallbackData = generateFallbackRevenueData(startDate, endDate);
         analyticsData.revenue = fallbackData;
@@ -188,7 +188,7 @@ export const AnalyticsPage: React.FC = () => {
       try {
         const growth = await analyticsService.getGrowthAnalytics(startDate, endDate);
         analyticsData.growth = growth.data;
-      } catch {
+      } catch (_err) {
         const fallbackData = generateFallbackGrowthData(startDate, endDate);
         analyticsData.growth = fallbackData;
         setUsingFallbackData(true);
@@ -197,7 +197,7 @@ export const AnalyticsPage: React.FC = () => {
       try {
         const churn = await analyticsService.getChurnAnalytics(startDate, endDate);
         analyticsData.churn = churn.data;
-      } catch {
+      } catch (_err) {
         const fallbackData = generateFallbackChurnData(startDate, endDate);
         analyticsData.churn = fallbackData;
         setUsingFallbackData(true);
@@ -206,7 +206,7 @@ export const AnalyticsPage: React.FC = () => {
       try {
         const customers = await analyticsService.getCustomerAnalytics(startDate, endDate);
         analyticsData.customers = customers.data;
-      } catch {
+      } catch (_err) {
         const fallbackData = generateFallbackCustomerData(startDate, endDate);
         analyticsData.customers = fallbackData;
         setUsingFallbackData(true);
@@ -215,7 +215,7 @@ export const AnalyticsPage: React.FC = () => {
       try {
         const cohorts = await analyticsService.getCohortAnalytics();
         analyticsData.cohorts = cohorts.data;
-      } catch {
+      } catch (_err) {
         const fallbackData = generateFallbackCohortData();
         analyticsData.cohorts = fallbackData;
         setUsingFallbackData(true);
@@ -225,7 +225,7 @@ export const AnalyticsPage: React.FC = () => {
       setData(analyticsData as AnalyticsData);
       isInitialLoad.current = false;
       setLastUpdated(new Date());
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
     } finally {
       setLoading(false);
@@ -255,7 +255,7 @@ export const AnalyticsPage: React.FC = () => {
     try {
       await analyticsService.exportAnalytics(format, reportType, dateRange);
       setShowExportModal(false);
-    } catch {
+    } catch (_err) {
       // Error handling could be added here
     }
   };

@@ -30,7 +30,7 @@ export const ProxySettingsTab: React.FC = () => {
     try {
       const data = await proxySettingsApi.getUrlConfig();
       setConfig(data);
-    } catch {
+    } catch (_error) {
       showError('Failed to load proxy configuration');
     } finally {
       setLoading(false);
@@ -41,7 +41,7 @@ export const ProxySettingsTab: React.FC = () => {
     try {
       const data = await proxySettingsApi.getCurrentDetection();
       setDetection(data);
-    } catch {
+    } catch (_error) {
       // Silently fail - detection status is non-critical
     }
   };
@@ -57,7 +57,7 @@ export const ProxySettingsTab: React.FC = () => {
       
       // Reload detection after config change
       await loadDetection();
-    } catch {
+    } catch (_error) {
       showError('Failed to save configuration');
     } finally {
       setSaving(false);
@@ -84,7 +84,7 @@ export const ProxySettingsTab: React.FC = () => {
     try {
       await proxySettingsApi.downloadConfigAsFile();
       showSuccess('Configuration exported successfully');
-    } catch {
+    } catch (_error) {
       showError('Failed to export configuration');
     }
   };
@@ -96,7 +96,7 @@ export const ProxySettingsTab: React.FC = () => {
       setConfig(updatedConfig);
       showSuccess('Configuration imported successfully');
       await loadDetection();
-    } catch {
+    } catch (_error) {
       showError('Failed to import configuration');
     }
   };

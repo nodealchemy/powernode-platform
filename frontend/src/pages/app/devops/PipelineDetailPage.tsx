@@ -62,7 +62,7 @@ export const PipelineDetailPage: React.FC = () => {
       ]);
       setPipeline(pipelineData);
       setRuns(runsData.pipeline_runs || []);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load pipeline', 'error');
     } finally {
       setLoading(false);
@@ -81,7 +81,7 @@ export const PipelineDetailPage: React.FC = () => {
       const run = await devopsPipelinesApi.trigger(id);
       showNotification('Pipeline triggered successfully', 'success');
       navigate(`/app/devops/pipelines/${id}/runs/${run.id}`);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to trigger pipeline', 'error');
     } finally {
       setTriggering(false);
@@ -95,7 +95,7 @@ export const PipelineDetailPage: React.FC = () => {
       const newPipeline = await devopsPipelinesApi.duplicate(id);
       showNotification('Pipeline duplicated successfully', 'success');
       navigate(`/app/devops/pipelines/${newPipeline.id}`);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to duplicate pipeline', 'error');
     }
   };
@@ -115,7 +115,7 @@ export const PipelineDetailPage: React.FC = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showNotification('Pipeline YAML exported', 'success');
-    } catch {
+    } catch (_error) {
       showNotification('Failed to export pipeline', 'error');
     }
   };
@@ -131,7 +131,7 @@ export const PipelineDetailPage: React.FC = () => {
       await devopsPipelinesApi.delete(id);
       showNotification('Pipeline deleted', 'success');
       navigate('/app/devops/pipelines');
-    } catch {
+    } catch (_error) {
       showNotification('Failed to delete pipeline', 'error');
     }
   };

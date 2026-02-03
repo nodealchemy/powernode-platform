@@ -81,7 +81,7 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
         documentation_url: '',
         status_url: ''
       });
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Creation Failed',

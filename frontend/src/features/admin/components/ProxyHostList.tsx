@@ -135,7 +135,7 @@ export const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHo
           showError(`Invalid host: ${result.validation.errors.join(', ')}`);
         }
       }
-    } catch {
+    } catch (_error) {
       showError('Failed to add trusted host');
     } finally {
       setValidating(false);
@@ -147,7 +147,7 @@ export const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHo
       const response = await proxySettingsApi.removeTrustedHost(host);
       onHostsChange(response.trusted_hosts);
       showSuccess(`Removed trusted host: ${host}`);
-    } catch {
+    } catch (_error) {
       showError('Failed to remove trusted host');
     }
   };
@@ -181,7 +181,7 @@ export const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHo
         onHostsChange(response.trusted_hosts);
       }
       showSuccess('Host order updated');
-    } catch {
+    } catch (_error) {
       // Revert on error
       onHostsChange(trustedHosts);
       showError('Failed to update host order');

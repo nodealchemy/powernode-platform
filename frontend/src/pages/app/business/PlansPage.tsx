@@ -86,7 +86,7 @@ export const PlansPage: React.FC = () => {
       const response = await plansApi.getPlan(planId);
       setSelectedPlan(response.data?.plan || null);
       setShowEditModal(true);
-    } catch {
+    } catch (_error) {
       showError('Failed to load plan details');
     }
   };
@@ -156,7 +156,7 @@ export const PlansPage: React.FC = () => {
       } else {
         showError('Failed to load plan details');
       }
-    } catch {
+    } catch (_error) {
       showError('Failed to load plan for copying');
     }
   };
@@ -166,7 +166,7 @@ export const PlansPage: React.FC = () => {
       await plansApi.togglePlanStatus(planId);
       showSuccess('Plan status updated successfully');
       loadPlans();
-    } catch {
+    } catch (_error) {
       showError('Failed to update plan status');
     }
   };
@@ -182,7 +182,7 @@ export const PlansPage: React.FC = () => {
           await plansApi.deletePlan(planId);
           showSuccess('Plan deleted successfully');
           loadPlans();
-        } catch {
+        } catch (_error) {
           showError('Failed to delete plan');
         }
       }

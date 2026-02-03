@@ -84,7 +84,7 @@ export const PipelineEditPage: React.FC = () => {
           approval_settings: step.approval_settings,
         }))
       );
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load pipeline', 'error');
       navigate('/app/devops/pipelines');
     } finally {
@@ -147,7 +147,7 @@ export const PipelineEditPage: React.FC = () => {
 
       showNotification('Pipeline updated successfully', 'success');
       navigate(`/app/devops/pipelines/${id}`);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to update pipeline', 'error');
     } finally {
       setSaving(false);

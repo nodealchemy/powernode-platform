@@ -53,7 +53,7 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({ className = ''
       setAccounts(response.accounts);
       setCurrentAccountId(response.current_account_id);
       setPrimaryAccountId(response.primary_account_id);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load accessible accounts', 'error');
     } finally {
       setLoading(false);
@@ -78,7 +78,7 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({ className = ''
 
       // Reload the page to refresh the entire app state with new account context
       window.location.reload();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to switch account', 'error');
     } finally {
       setSwitching(false);
@@ -104,7 +104,7 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({ className = ''
 
       // Reload the page to refresh the entire app state
       window.location.reload();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to switch to primary account', 'error');
     } finally {
       setSwitching(false);

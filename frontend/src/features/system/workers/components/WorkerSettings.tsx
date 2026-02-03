@@ -76,7 +76,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
     try {
       const workerConfig = await workerApi.getWorkerConfig(worker.id);
       setConfig(workerConfig);
-    } catch {
+    } catch (error) {
       // Fallback to defaults if API call fails
       const errorMessage = error instanceof Error ? error.message : 'Failed to load worker configuration';
       showNotification(errorMessage, 'error');
@@ -98,7 +98,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
       if (onUpdate) {
         await onUpdate(worker.id, result.config);
       }
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save worker settings';
       showNotification(errorMessage, 'error');
     } finally {
@@ -153,7 +153,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
       } else {
         showNotification('Worker health check failed', 'error');
       }
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Worker health check failed';
       showNotification(errorMessage, 'error');
     } finally {
@@ -173,7 +173,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
           const result = await workerApi.resetWorkerConfig(worker.id);
           setConfig(result.config);
           showNotification(result.message || 'Worker settings reset to defaults', 'success');
-        } catch {
+        } catch (_error) {
           // Fallback to local reset if API fails
           setConfig(defaultConfig);
           showNotification('Worker settings reset to defaults (locally)', 'info');

@@ -99,7 +99,7 @@ export const McpBrowserPage: React.FC = () => {
       const response = await mcpApi.getServers();
       setServers(response.servers);
       setTools(response.tools);
-    } catch {
+    } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to load MCP data:', error);
       }
@@ -191,7 +191,7 @@ export const McpBrowserPage: React.FC = () => {
         title: 'Server Connected',
         message: `Connected to ${server.name}`
       });
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Connection Failed',
@@ -210,7 +210,7 @@ export const McpBrowserPage: React.FC = () => {
         title: 'Server Disconnected',
         message: `Disconnected from ${server.name}`
       });
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Disconnect Failed',
@@ -237,7 +237,7 @@ export const McpBrowserPage: React.FC = () => {
         title: 'Server Deleted',
         message: `Deleted ${server.name}`
       });
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Delete Failed',
@@ -266,7 +266,7 @@ export const McpBrowserPage: React.FC = () => {
         title: 'Capabilities Refreshed',
         message: `Refreshed capabilities for ${server.name}`
       });
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Refresh Failed',
@@ -313,7 +313,7 @@ export const McpBrowserPage: React.FC = () => {
         });
       }
       handleServerFormClose();
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: editingServer ? 'Update Failed' : 'Create Failed',

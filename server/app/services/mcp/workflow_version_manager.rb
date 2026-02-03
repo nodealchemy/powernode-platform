@@ -13,10 +13,30 @@ module Mcp
     end
 
     # Create a new version of the workflow
+    # Uses database-level locking to prevent race conditions
     def create_version(changes:, change_summary: nil)
-      new_version = calculate_next_version(changes[:version_type] || :patch)
+      lock_timeout = 10 # seconds
 
       ActiveRecord::Base.transaction do
+        # Lock all versions of this workflow family to prevent concurrent version creation
+        # This ensures version numbers are unique and sequential
+        locked_workflows = Ai::Workflow
+          .where(account_id: account.id, name: workflow.name)
+          .order(:created_at)
+          .lock("FOR UPDATE NOWAIT")
+          .to_a
+
+        # Calculate version after acquiring lock to ensure accuracy
+        new_version = calculate_next_version(changes[:version_type] || :patch)
+
+        # Verify version doesn't already exist (race condition check)
+        if locked_workflows.any? { |w| w.version == new_version }
+          raise AiExceptions::ExecutionError.new(
+            "Version #{new_version} already exists",
+            details: { workflow_name: workflow.name, attempted_version: new_version }
+          )
+        end
+
         # Deactivate current version if requested
         workflow.update!(is_active: false) if changes[:replace_active]
 
@@ -50,6 +70,15 @@ module Mcp
 
         new_workflow
       end
+    rescue ActiveRecord::LockWaitTimeout, ActiveRecord::StatementInvalid => e
+      if e.message.include?("could not obtain lock") || e.message.include?("NOWAIT")
+        raise AiExceptions::TimeoutError.new(
+          "Could not acquire lock for version creation - another version operation is in progress",
+          timeout_seconds: lock_timeout,
+          details: { workflow_id: workflow.id, workflow_name: workflow.name }
+        )
+      end
+      raise
     end
 
     # Migrate running workflows from old to new version

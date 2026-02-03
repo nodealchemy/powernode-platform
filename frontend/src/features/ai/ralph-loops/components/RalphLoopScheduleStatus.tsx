@@ -98,7 +98,7 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
       await navigator.clipboard.writeText(webhookUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } catch (_error) {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = webhookUrl;

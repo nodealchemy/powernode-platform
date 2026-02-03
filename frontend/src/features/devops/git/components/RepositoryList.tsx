@@ -48,7 +48,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
       setMenuOpen(null);
       await action();
       showNotification({ type: 'success', message: successMessage });
-    } catch {
+    } catch (err) {
       showNotification({
         type: 'error',
         message: err instanceof Error ? err.message : 'Action failed',

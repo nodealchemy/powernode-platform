@@ -5,6 +5,7 @@ module Api
     module Chat
       class SessionsController < ApplicationController
         include AuditLogging
+        include ::Ai::ResourceFiltering
 
         before_action :set_session, only: %i[show update destroy transfer close messages send_message]
 

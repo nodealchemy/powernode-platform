@@ -76,7 +76,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
           ai_agent_id: agents[0].id
         }));
       }
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -228,7 +228,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
       if (onConversationCreated) {
         onConversationCreated(conversation);
       }
-    } catch {
+    } catch (error) {
       let errorMessage = 'Failed to create conversation. Please try again.';
       let errorTitle = 'Creation Failed';
 

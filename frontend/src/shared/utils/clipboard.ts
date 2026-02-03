@@ -61,11 +61,11 @@ export const copyToClipboard = async (text: string, options?: {
     
     // Fallback for older browsers or non-HTTPS contexts
     return execCommandFallback(text, showAlert, successMessage);
-  } catch {
+  } catch (_error) {
     // If clipboard API fails, try execCommand fallback
     try {
       return execCommandFallback(text, showAlert, successMessage);
-    } catch {
+    } catch (_error) {
       // Last resort: show the text in a prompt for manual copying
       const result = window.prompt('Unable to copy automatically. Please copy this text manually:', text);
       
@@ -88,7 +88,7 @@ export const isClipboardSupported = (): boolean => {
              typeof window !== 'undefined' && window.isSecureContext) || 
            !!(typeof document !== 'undefined' && document.queryCommandSupported && 
              document.queryCommandSupported('copy'));
-  } catch {
+  } catch (_error) {
     return false;
   }
 };

@@ -32,7 +32,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       if (response.success) {
         setTeamMembers(response.data);
       }
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   } finally {
       setLoading(false);
@@ -51,7 +51,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       setShowEditModal(false);
       setSelectedMember(null);
       setSelectedRole('');
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   }
   };
@@ -66,7 +66,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       try {
         await usersApi.removeFromAccount(userId, accountId || currentUser?.account?.id);
         loadTeamMembers();
-      } catch {
+      } catch (_error) {
     // Error silently ignored
   }
     }

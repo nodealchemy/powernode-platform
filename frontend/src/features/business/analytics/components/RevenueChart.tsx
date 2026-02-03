@@ -55,7 +55,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString), 'MMM yyyy');
-    } catch {
+    } catch (_error) {
       return dateString;
     }
   };

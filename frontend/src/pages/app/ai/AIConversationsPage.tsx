@@ -93,7 +93,7 @@ export const AIConversationsPage: React.FC = () => {
         totalCount: response.pagination.total_count,
         perPage: response.pagination.per_page
       });
-    } catch {
+    } catch (_error) {
       setConversations([]);
       setPagination({
         currentPage: 1,
@@ -117,7 +117,7 @@ export const AIConversationsPage: React.FC = () => {
       const response = await agentsApi.getAgents({ page: 1, per_page: 100 });
       // Response is PaginatedResponse<AiAgent> with items array
       setAvailableAgents(response.items || []);
-    } catch {
+    } catch (_error) {
       setAvailableAgents([]);
     }
   };
@@ -178,7 +178,7 @@ export const AIConversationsPage: React.FC = () => {
         title: 'Export Started',
         message: 'Conversation export has been initiated'
       });
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Export Failed',
@@ -202,7 +202,7 @@ export const AIConversationsPage: React.FC = () => {
       });
 
       loadConversations(pagination.currentPage, pagination.perPage);
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Action Failed',
@@ -225,7 +225,7 @@ export const AIConversationsPage: React.FC = () => {
       });
 
       loadConversations(pagination.currentPage, pagination.perPage);
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Duplicate Failed',
@@ -251,7 +251,7 @@ export const AIConversationsPage: React.FC = () => {
           });
 
           loadConversations(pagination.currentPage, pagination.perPage);
-        } catch {
+        } catch (_error) {
           addNotification({
             type: 'error',
             title: 'Delete Failed',

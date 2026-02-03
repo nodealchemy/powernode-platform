@@ -58,7 +58,7 @@ export const WorkflowExecutionSummaryModal: React.FC<WorkflowExecutionSummaryMod
 
       const response = await workflowsApi.getExecutionMetrics(startDate, endDate);
       setMetrics(response.metrics);
-    } catch {
+    } catch (_error) {
       setError('Failed to load execution summary. Please try again.');
       addNotification({
         type: 'error',

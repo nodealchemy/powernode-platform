@@ -51,7 +51,7 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
       setActivities(response.activities);
       setPagination(response.pagination);
       setSummary(response.summary);
-    } catch {
+    } catch (error) {
       const apiError = error as { response?: { data?: { error?: string } } };
       setError(apiError.response?.data?.error || 'Failed to load activities');
     } finally {

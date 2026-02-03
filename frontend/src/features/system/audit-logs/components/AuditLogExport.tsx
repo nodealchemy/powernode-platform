@@ -183,7 +183,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
         onClose();
       }, 1000);
 
-    } catch {
+    } catch (error) {
       if (progressInterval) clearInterval(progressInterval);
       setIsExporting(false);
       setExportProgress(0);

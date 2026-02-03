@@ -324,15 +324,71 @@ class Ai::DebuggingService
   end
 
   def collect_debug_logs(execution)
-    # This would collect relevant log entries
-    # For now, return structured placeholder data
+    # Collect relevant log entries from available sources
     {
-      application_logs: [],
-      provider_api_logs: [],
-      worker_logs: [],
-      system_logs: [],
-      note: "Log collection would be implemented based on logging infrastructure"
+      application_logs: fetch_application_logs(execution),
+      provider_api_logs: fetch_provider_api_logs(execution),
+      worker_logs: fetch_worker_logs(execution),
+      system_logs: []
     }
+  end
+
+  def fetch_application_logs(execution)
+    # Fetch from workflow run logs if available
+    return [] unless execution.respond_to?(:workflow_run) && execution.workflow_run
+
+    execution.workflow_run.workflow_run_logs
+      .where(created_at: (execution.started_at || 1.hour.ago)..Time.current)
+      .order(created_at: :desc)
+      .limit(50)
+      .map do |log|
+        {
+          timestamp: log.created_at.iso8601,
+          level: log.log_level,
+          message: log.message,
+          context: log.context_data
+        }
+      end
+  rescue StandardError
+    []
+  end
+
+  def fetch_provider_api_logs(execution)
+    # Fetch from AI API logs if available
+    return [] unless defined?(Ai::ApiLog) && Ai::ApiLog.table_exists?
+
+    Ai::ApiLog
+      .where(execution_id: execution.id)
+      .order(created_at: :desc)
+      .limit(20)
+      .map do |log|
+        {
+          timestamp: log.created_at.iso8601,
+          provider: log.provider_name,
+          request_type: log.request_type,
+          status: log.status,
+          duration_ms: log.duration_ms,
+          error: log.error_message
+        }
+      end
+  rescue StandardError
+    []
+  end
+
+  def fetch_worker_logs(execution)
+    # Fetch from Sidekiq job logs if execution has a job ID
+    return [] unless execution.respond_to?(:job_id) && execution.job_id.present?
+
+    cache_key = "job_logs:#{execution.job_id}"
+    cached_logs = @redis.lrange(cache_key, 0, 50)
+
+    cached_logs.map do |log_json|
+      JSON.parse(log_json, symbolize_names: true)
+    rescue JSON::ParserError
+      nil
+    end.compact
+  rescue StandardError
+    []
   end
 
   def detect_configuration_issues(execution)

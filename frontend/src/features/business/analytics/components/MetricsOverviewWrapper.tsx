@@ -33,7 +33,7 @@ export const MetricsOverviewWrapper: React.FC = () => {
       ]);
 
       setError(null);
-    } catch {
+    } catch (_error) {
       setError('Failed to load analytics data');
     } finally {
       setLoading(false);

@@ -74,7 +74,7 @@ export const TemplateList: React.FC<TemplateListProps> = ({
       const response = await containerExecutionApi.getTemplates(filters);
       setTemplates(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load templates');
     } finally {
       setLoading(false);

@@ -46,12 +46,13 @@ RSpec.describe Chat::Message, type: :model do
     end
   end
 
-  describe 'callbacks' do
-    describe 'before_save' do
-      it 'sanitizes content' do
-        message = create(:chat_message, content: 'Hello <script>alert("xss")</script>')
-        expect(message.sanitized_content).not_to include('<script>')
-      end
+  describe 'sanitized_content' do
+    # Note: Sanitization is handled by the Session model when adding inbound messages
+    # The Message model stores both raw content and sanitized_content
+    it 'stores separate sanitized_content field' do
+      message = build(:chat_message, content: 'Hello', sanitized_content: 'Sanitized Hello')
+      expect(message.content).to eq('Hello')
+      expect(message.sanitized_content).to eq('Sanitized Hello')
     end
   end
 

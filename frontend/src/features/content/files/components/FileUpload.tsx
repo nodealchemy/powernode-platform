@@ -120,7 +120,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       setTimeout(() => {
         setUploadingFiles(prev => prev.filter(f => f.file !== file));
       }, 2000);
-    } catch {
+    } catch (error) {
       const err = error as { message?: string; response?: { data?: { error?: string } } };
       // Check if it was cancelled
       if (err.message === 'Upload cancelled') {

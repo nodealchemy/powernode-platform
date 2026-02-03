@@ -99,7 +99,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
       await copyToClipboard(worker.full_token_hash || '');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   }
   };

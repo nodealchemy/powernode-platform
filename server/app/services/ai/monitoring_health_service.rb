@@ -24,6 +24,10 @@ module Ai
       workers: 0.25
     }.freeze
 
+    # Cache TTLs
+    PROVIDER_HEALTH_CACHE_TTL = 5.minutes
+    COMPREHENSIVE_HEALTH_CACHE_TTL = 2.minutes
+
     def initialize(account:)
       @account = account
     end
@@ -34,15 +38,26 @@ module Ai
 
     # Get full health check data
     # @param time_range [ActiveSupport::Duration] Time range for metrics
+    # @param skip_cache [Boolean] Force fresh data, bypassing cache
     # @return [Hash] Complete health data
-    def comprehensive_health_check(time_range: 1.hour)
+    def comprehensive_health_check(time_range: 1.hour, skip_cache: false)
+      cache_key = "ai:monitoring:comprehensive:#{account.id}:#{time_range.to_i}"
+
+      return fetch_comprehensive_health(time_range) if skip_cache
+
+      Rails.cache.fetch(cache_key, expires_in: COMPREHENSIVE_HEALTH_CACHE_TTL) do
+        fetch_comprehensive_health(time_range)
+      end
+    end
+
+    private def fetch_comprehensive_health(time_range)
       health_data = {
         timestamp: Time.current.iso8601,
         time_range_seconds: time_range.to_i,
         system: check_system_health,
         database: check_database_health,
         redis: check_redis_health,
-        providers: check_provider_health,
+        providers: check_provider_health_cached,
         workers: check_worker_health,
         circuit_breakers: circuit_breaker_summary
       }
@@ -53,6 +68,7 @@ module Ai
 
       health_data
     end
+    public
 
     # Get detailed health information for all services
     # @return [Hash] Detailed health data
@@ -148,6 +164,24 @@ module Ai
         healthy_providers: providers.count { |p| provider_healthy?(p) },
         providers: providers.map { |p| provider_health_summary(p) }
       }
+    end
+
+    # Cached version of provider health check (5-minute TTL)
+    def check_provider_health_cached
+      cache_key = "ai:monitoring:provider_health:#{account.id}"
+
+      Rails.cache.fetch(cache_key, expires_in: PROVIDER_HEALTH_CACHE_TTL) do
+        check_provider_health
+      end
+    end
+
+    # Invalidate provider health cache (call when provider status changes)
+    def self.invalidate_provider_health_cache(account_id)
+      cache_key = "ai:monitoring:provider_health:#{account_id}"
+      Rails.cache.delete(cache_key)
+
+      # Also invalidate comprehensive health cache
+      Rails.cache.delete_matched("ai:monitoring:comprehensive:#{account_id}:*")
     end
 
     def check_worker_health

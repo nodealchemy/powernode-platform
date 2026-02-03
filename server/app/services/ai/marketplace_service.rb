@@ -4,6 +4,11 @@ module Ai
   class MarketplaceService
     attr_reader :account
 
+    # Cache TTLs
+    CATEGORIES_CACHE_TTL = 1.hour
+    FEATURED_TEMPLATES_CACHE_TTL = 15.minutes
+    SEARCH_CACHE_TTL = 5.minutes
+
     def initialize(account)
       @account = account
     end
@@ -62,7 +67,11 @@ module Ai
     end
 
     def featured_templates(limit: 10)
-      Ai::AgentTemplate.published.public_templates.featured.limit(limit)
+      cache_key = "ai:marketplace:featured:#{limit}"
+
+      Rails.cache.fetch(cache_key, expires_in: FEATURED_TEMPLATES_CACHE_TTL) do
+        Ai::AgentTemplate.published.public_templates.featured.limit(limit).to_a
+      end
     end
 
     # Installation Management
@@ -123,24 +132,57 @@ module Ai
       { success: true, review: review }
     end
 
-    # Categories
+    # Categories (cached for 1 hour)
     def list_categories
-      Ai::MarketplaceCategory.active.root.ordered.includes(:children)
+      cache_key = "ai:marketplace:categories"
+
+      Rails.cache.fetch(cache_key, expires_in: CATEGORIES_CACHE_TTL) do
+        Ai::MarketplaceCategory.active.root.ordered.includes(:children).to_a
+      end
     end
 
-    # Analytics
-    def publisher_analytics(publisher, start_date: 30.days.ago, end_date: Time.current)
-      transactions = publisher.marketplace_transactions.completed.for_period(start_date, end_date)
+    # Invalidate marketplace caches (call when data changes)
+    def self.invalidate_caches
+      Rails.cache.delete("ai:marketplace:categories")
+      Rails.cache.delete_matched("ai:marketplace:featured:*")
+      Rails.cache.delete_matched("ai:marketplace:search:*")
+    end
 
-      {
-        total_revenue: transactions.sum(:gross_amount_usd),
-        total_earnings: transactions.sum(:publisher_amount_usd),
-        transaction_count: transactions.count,
-        installations: publisher.agent_templates.sum(:installation_count),
-        active_installations: publisher.agent_templates.sum(:active_installations),
-        average_rating: publisher.average_rating,
-        templates_count: publisher.total_templates
-      }
+    # Invalidate category cache only
+    def self.invalidate_categories_cache
+      Rails.cache.delete("ai:marketplace:categories")
+    end
+
+    # Invalidate featured templates cache only
+    def self.invalidate_featured_cache
+      Rails.cache.delete_matched("ai:marketplace:featured:*")
+    end
+
+    # Analytics (cached for 1 hour)
+    PUBLISHER_ANALYTICS_CACHE_TTL = 1.hour
+
+    def publisher_analytics(publisher, start_date: 30.days.ago, end_date: Time.current)
+      # Cache key includes date range for different queries
+      cache_key = "ai:marketplace:publisher_analytics:#{publisher.id}:#{start_date.to_i}:#{end_date.to_i}"
+
+      Rails.cache.fetch(cache_key, expires_in: PUBLISHER_ANALYTICS_CACHE_TTL) do
+        transactions = publisher.marketplace_transactions.completed.for_period(start_date, end_date)
+
+        {
+          total_revenue: transactions.sum(:gross_amount_usd),
+          total_earnings: transactions.sum(:publisher_amount_usd),
+          transaction_count: transactions.count,
+          installations: publisher.agent_templates.sum(:installation_count),
+          active_installations: publisher.agent_templates.sum(:active_installations),
+          average_rating: publisher.average_rating,
+          templates_count: publisher.total_templates
+        }
+      end
+    end
+
+    # Invalidate publisher analytics cache
+    def self.invalidate_publisher_analytics(publisher_id)
+      Rails.cache.delete_matched("ai:marketplace:publisher_analytics:#{publisher_id}:*")
     end
 
     private

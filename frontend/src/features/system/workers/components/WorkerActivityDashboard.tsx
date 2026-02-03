@@ -60,7 +60,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
         if (response && response.summary) {
           setRealActivityStats(response.summary);
         }
-      } catch {
+      } catch (_error) {
     // Error silently ignored
   } finally {
         setLoading(false);

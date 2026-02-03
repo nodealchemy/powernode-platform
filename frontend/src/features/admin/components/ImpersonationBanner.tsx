@@ -25,7 +25,7 @@ export const ImpersonationBanner: React.FC = () => {
       if (impersonation.isImpersonating) {
         window.location.reload();
       }
-    } catch {
+    } catch (_error) {
       // Error already logged by the action
     }
   };

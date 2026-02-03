@@ -24,7 +24,7 @@ export const CustomerHealthPage: React.FC = () => {
       ]);
       setHealthScores(scoresResponse.data);
       setSummary(summaryResponse.data);
-    } catch {
+    } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load health scores';
       showNotification(message, 'error');
     } finally {
@@ -41,7 +41,7 @@ export const CustomerHealthPage: React.FC = () => {
       await predictiveAnalyticsApi.calculateHealthScore();
       showNotification('Health scores recalculated', 'success');
       fetchData();
-    } catch {
+    } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to recalculate';
       showNotification(message, 'error');
     }

@@ -49,7 +49,7 @@ export const PlanSelectionPage: React.FC = () => {
           setSelectedPlanId(featuredPlan?.id || plans[0].id);
         }
       }
-    } catch {
+    } catch (_error) {
       // Error loading plans - handled silently
     } finally {
       setPlansLoading(false);

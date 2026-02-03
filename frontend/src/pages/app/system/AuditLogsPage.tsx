@@ -118,7 +118,7 @@ export const AuditLogsPage: React.FC = () => {
         loading: false
       }));
       
-    } catch {
+    } catch (_error) {
       setState(prev => ({
         ...prev,
         loading: false
@@ -132,7 +132,7 @@ export const AuditLogsPage: React.FC = () => {
     try {
       const response = await auditLogsApi.getSecuritySummary();
       setMetrics(response);
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   }
   };

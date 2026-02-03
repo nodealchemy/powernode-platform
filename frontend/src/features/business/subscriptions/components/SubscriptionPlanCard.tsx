@@ -1,6 +1,13 @@
 
 import { Plan } from '@/features/business/plans/services/plansApi';
 import { Button } from '@/shared/components/ui/Button';
+import {
+  calculateDiscountedPrice,
+  formatCurrency,
+  normalizePriceCents,
+  type BillingCycle,
+  type PlanDiscountInfo,
+} from '@/shared/utils/formatters';
 
 interface SubscriptionPlanCardProps {
   plan: Plan;
@@ -17,58 +24,53 @@ interface SubscriptionPlanCardProps {
   onComparisonToggle?: (planId: string) => void;
 }
 
-interface PlanWithDiscounts {
-  billing_cycle?: string;
-  has_annual_discount?: boolean;
-  annual_discount_percent?: number | string;
-  has_promotional_discount?: boolean;
-  promotional_discount_percent?: number | string;
-  promotional_discount_code?: string;
-}
+const formatPlanPrice = (plan: Plan, displayBillingCycle: BillingCycle = 'monthly') => {
+  const priceCents = normalizePriceCents(plan.price_cents);
 
-const formatPrice = (price: {cents: number; currency_iso: string} | number | null | undefined, currency?: string, interval?: string, plan?: PlanWithDiscounts, billingCycle?: string) => {
-  let priceCents: number;
-  let actualCurrency = currency;
-  
-  if (price == null) {
+  if (priceCents === 0) {
     return 'Free';
   }
-  
-  if (typeof price === 'object' && 'cents' in price) {
-    priceCents = price.cents;
-    actualCurrency = actualCurrency || price.currency_iso;
-  } else if (typeof price === 'number') {
-    priceCents = price;
-  } else {
-    return 'Free';
-  }
-  
-  if (priceCents === 0 || isNaN(priceCents)) {
-    return 'Free';
-  }
-  
-  // Apply discounts based on badge display logic (matches badge logic)
-  if (plan && billingCycle === 'yearly' && plan.billing_cycle === 'monthly' && plan.has_annual_discount) {
-    // When viewing yearly, apply annual discount
-    const discountPercent = plan.annual_discount_percent ? parseFloat(plan.annual_discount_percent.toString()) : 0;
-    if (interval === 'yearly' || interval === 'year') {
-      priceCents = priceCents * 12 * (1 - discountPercent / 100);
-    }
-  } else if (plan && billingCycle === 'monthly' && plan.has_promotional_discount && plan.promotional_discount_percent && !plan.promotional_discount_code) {
-    // When viewing monthly with promotional discount (only if no code required), apply promotional discount
-    const discountPercent = parseFloat(plan.promotional_discount_percent.toString());
-    priceCents = priceCents * (1 - discountPercent / 100);
-  }
-  
-  const formattedPrice = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: actualCurrency || 'USD',
-  }).format(priceCents / 100);
-  
-  if (!interval) return formattedPrice;
-  
-  const intervalLabel = interval === 'yearly' ? 'year' : interval === 'quarterly' ? 'quarter' : 'month';
-  return `${formattedPrice}/${intervalLabel}`;
+
+  const discountInfo: PlanDiscountInfo = {
+    billing_cycle: plan.billing_cycle,
+    has_annual_discount: plan.has_annual_discount,
+    annual_discount_percent: plan.annual_discount_percent,
+    has_promotional_discount: plan.has_promotional_discount,
+    promotional_discount_percent: plan.promotional_discount_percent,
+    promotional_discount_code: plan.promotional_discount_code ?? undefined,
+    promotional_discount_start: plan.promotional_discount_start ?? undefined,
+    promotional_discount_end: plan.promotional_discount_end ?? undefined,
+  };
+
+  const result = calculateDiscountedPrice(priceCents, discountInfo, displayBillingCycle, plan.currency || 'USD');
+  return result.formattedDiscounted;
+};
+
+const getOriginalPrice = (plan: Plan, displayBillingCycle: BillingCycle = 'monthly') => {
+  const priceCents = normalizePriceCents(plan.price_cents);
+
+  if (priceCents === 0) return null;
+
+  const discountInfo: PlanDiscountInfo = {
+    billing_cycle: plan.billing_cycle,
+    has_annual_discount: plan.has_annual_discount,
+    annual_discount_percent: plan.annual_discount_percent,
+    has_promotional_discount: plan.has_promotional_discount,
+    promotional_discount_percent: plan.promotional_discount_percent,
+    promotional_discount_code: plan.promotional_discount_code ?? undefined,
+    promotional_discount_start: plan.promotional_discount_start ?? undefined,
+    promotional_discount_end: plan.promotional_discount_end ?? undefined,
+  };
+
+  const result = calculateDiscountedPrice(priceCents, discountInfo, displayBillingCycle, plan.currency || 'USD');
+
+  if (!result.hasDiscount) return null;
+
+  return {
+    formatted: formatCurrency(result.originalPriceCents, plan.currency || 'USD'),
+    discountPercent: result.discountPercent,
+    discountType: result.discountType,
+  };
 };
 
 
@@ -239,31 +241,21 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
       
       <div className="mt-2">
         <p className="text-3xl font-bold text-theme-primary">
-          {formatPrice(plan.price_cents, plan.currency, billingCycle === 'yearly' ? 'yearly' : plan.billing_cycle, plan as PlanWithDiscounts, billingCycle)}
+          {formatPlanPrice(plan, billingCycle as BillingCycle)}
         </p>
         {/* Show original price with strikethrough if discounted */}
-        {((billingCycle === 'yearly' && plan.has_annual_discount && plan.annual_discount_percent) ||
-          (plan.has_promotional_discount && plan.promotional_discount_percent && !plan.promotional_discount_code)) && (
-          <p className="text-sm text-theme-tertiary line-through mt-1">
-            {(() => {
-              const priceCents = plan.price_cents || 0;
-              const originalPrice = billingCycle === 'yearly' 
-                ? (priceCents * 12) / 100
-                : priceCents / 100;
-              return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: plan.currency || 'USD',
-              }).format(originalPrice);
-            })()}
-            <span className="ml-1 text-theme-success font-medium no-underline">
-              {billingCycle === 'yearly' && plan.has_annual_discount
-                ? `(${plan.annual_discount_percent}% saved)`
-                : plan.has_promotional_discount && plan.promotional_discount_percent
-                ? `(${plan.promotional_discount_percent}% off)`
-                : ''}
-            </span>
-          </p>
-        )}
+        {(() => {
+          const originalPriceInfo = getOriginalPrice(plan, billingCycle as BillingCycle);
+          if (!originalPriceInfo) return null;
+          return (
+            <p className="text-sm text-theme-tertiary line-through mt-1">
+              {originalPriceInfo.formatted}
+              <span className="ml-1 text-theme-success font-medium no-underline">
+                ({originalPriceInfo.discountPercent}% {originalPriceInfo.discountType === 'annual' ? 'saved' : 'off'})
+              </span>
+            </p>
+          );
+        })()}
       </div>
       
       {plan.trial_days > 0 && !isActive && (

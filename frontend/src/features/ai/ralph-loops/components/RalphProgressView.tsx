@@ -32,7 +32,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
       setError(null);
       const response = await ralphLoopsApi.getProgress(loopId);
       setProgress(response);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load progress');
     } finally {
       setLoading(false);
@@ -105,7 +105,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
                       <span className="text-xs font-medium text-theme-text-secondary min-w-6">
                         {idx + 1}.
                       </span>
-                      <p className="text-sm text-theme-text-primary">{learning}</p>
+                      <p className="text-sm text-theme-text-primary">{learning.text}</p>
                     </div>
                   ))}
                 </div>

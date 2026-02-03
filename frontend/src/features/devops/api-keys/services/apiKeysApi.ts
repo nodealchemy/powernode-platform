@@ -159,7 +159,7 @@ export const apiKeysApi = {
     try {
       const response = await api.get(`/api_keys?page=${page}&per_page=${perPage}`);
       return response.data;
-    } catch {
+    } catch (error) {
       const apiError = error as ApiErrorResponse;
 
       // Handle different types of errors
@@ -206,7 +206,7 @@ export const apiKeysApi = {
     try {
       const response = await api.get(`/api_keys/${id}`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: extractApiError(error, 'Failed to fetch API key')
@@ -219,7 +219,7 @@ export const apiKeysApi = {
     try {
       const response = await api.post('/api_keys', { api_key: apiKeyData });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: extractApiError(error, 'Failed to create API key')
@@ -232,7 +232,7 @@ export const apiKeysApi = {
     try {
       const response = await api.put(`/api_keys/${id}`, { api_key: apiKeyData });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: extractApiError(error, 'Failed to update API key')
@@ -245,7 +245,7 @@ export const apiKeysApi = {
     try {
       const response = await api.delete(`/api_keys/${id}`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: extractApiError(error, 'Failed to delete API key')
@@ -258,7 +258,7 @@ export const apiKeysApi = {
     try {
       const response = await api.post(`/api_keys/${id}/regenerate`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: extractApiError(error, 'Failed to regenerate API key')
@@ -271,7 +271,7 @@ export const apiKeysApi = {
     try {
       const response = await api.post(`/api_keys/${id}/toggle_status`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: extractApiError(error, 'Failed to toggle API key status')
@@ -293,7 +293,7 @@ export const apiKeysApi = {
 
       const response = await api.get(`/api_keys/usage?${params}`);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         data: {
@@ -314,7 +314,7 @@ export const apiKeysApi = {
     try {
       const response = await api.get('/api_keys/scopes');
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         data: {
@@ -331,7 +331,7 @@ export const apiKeysApi = {
     try {
       const response = await api.post('/api_keys/validate', { key });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         valid: false,

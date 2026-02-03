@@ -5,7 +5,8 @@ FactoryBot.define do
     account
     association :template, factory: :mcp_container_template
     status { 'pending' }
-    sequence(:workflow_run_id) { |n| n * 1000 }
+    sequence(:execution_id) { |n| "exec-#{SecureRandom.hex(8)}-#{n}" }
+    image_name { 'powernode/ai-agent' }
     input_parameters do
       {
         'task' => 'analyze_code',
@@ -13,8 +14,7 @@ FactoryBot.define do
       }
     end
     output_data { {} }
-    execution_logs { '' }
-    resource_usage { {} }
+    logs { '' }
     started_at { nil }
     completed_at { nil }
 
@@ -38,26 +38,25 @@ FactoryBot.define do
       status { 'completed' }
       started_at { 10.minutes.ago }
       completed_at { Time.current }
+      duration_ms { 600_000 }  # 10 minutes in milliseconds
       output_data do
         {
           'result' => 'success',
           'artifacts' => [ 'output.json' ]
         }
       end
-      resource_usage do
-        {
-          'peak_memory_mb' => 256,
-          'cpu_seconds' => 120,
-          'network_bytes' => 1024
-        }
-      end
+      memory_used_mb { 256 }
+      cpu_used_millicores { 500.0 }
+      network_bytes_in { 512 }
+      network_bytes_out { 512 }
     end
 
     trait :failed do
       status { 'failed' }
       started_at { 10.minutes.ago }
       completed_at { Time.current }
-      execution_logs { "Error: Task execution failed\nStack trace: ..." }
+      logs { "Error: Task execution failed\nStack trace: ..." }
+      error_message { "Task execution failed" }
     end
 
     trait :cancelled do
@@ -81,7 +80,7 @@ FactoryBot.define do
     end
 
     trait :with_logs do
-      execution_logs do
+      logs do
         <<~LOGS
           [2024-01-15 10:00:00] Starting container execution
           [2024-01-15 10:00:01] Loading configuration

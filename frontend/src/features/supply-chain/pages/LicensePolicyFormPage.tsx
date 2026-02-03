@@ -156,7 +156,7 @@ export const LicensePolicyFormPage: React.FC = () => {
         showNotification('License policy created successfully', 'success');
       }
       navigate('/app/supply-chain/licenses/policies');
-    } catch {
+    } catch (err) {
       showNotification(
         err instanceof Error ? err.message : 'Failed to save policy',
         'error'

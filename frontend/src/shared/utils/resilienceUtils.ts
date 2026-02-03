@@ -71,7 +71,7 @@ export async function withRetry<T>(
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await operation();
-    } catch {
+    } catch (error) {
       lastError = error;
 
       // Check if we should retry this error
@@ -120,7 +120,7 @@ export class CircuitBreaker {
       const result = await operation();
       this.onSuccess();
       return result;
-    } catch {
+    } catch (error) {
       this.onFailure();
       throw error;
     }
@@ -305,16 +305,16 @@ export async function withGracefulDegradation<T, F>(
 ): Promise<T | F> {
   try {
     return await primaryOperation();
-  } catch {
-    if (shouldUseFallback && !shouldUseFallback(error)) {
-      throw error;
+  } catch (originalError) {
+    if (shouldUseFallback && !shouldUseFallback(originalError)) {
+      throw originalError;
     }
 
     try {
       return await fallbackOperation();
     } catch {
       // Throw original error if fallback also fails
-      throw error;
+      throw originalError;
     }
   }
 }
@@ -356,7 +356,7 @@ export class HealthChecker {
         if (result.status === 'fail') {
           overallStatus = overallStatus === 'healthy' ? 'degraded' : 'unhealthy';
         }
-      } catch {
+      } catch (error) {
         results[name] = {
           status: 'fail',
           message: error instanceof Error ? error.message : 'Unknown error',

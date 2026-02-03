@@ -24,7 +24,7 @@ export const validateThemeClasses = () => {
         return { ...acc, [prop]: style.getPropertyValue(prop) };
       }, {} as Record<string, string>)
     };
-  } catch {
+  } catch (_error) {
     // Handle DOM manipulation errors gracefully
     return {
       theme: 'light' as const,
@@ -99,7 +99,7 @@ export const validateThemeConsistency = () => {
       themeElements,
       consistent: issues.length === 0
     };
-  } catch {
+  } catch (_error) {
     // Handle querySelector errors gracefully
     return {
       issues: ['DOM query error occurred'],
@@ -136,7 +136,7 @@ export const testFormTheming = () => {
     
     
     return results;
-  } catch {
+  } catch (_error) {
     // Handle querySelector errors gracefully
     return {
       forms: 0,

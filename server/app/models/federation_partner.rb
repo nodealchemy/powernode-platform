@@ -32,8 +32,22 @@ class FederationPartner < ApplicationRecord
   scope :verified, -> { where(status: "active").where.not(approved_at: nil) }
 
   # Alias for controller compatibility (initiated_by -> created_by)
-  alias_attribute :initiated_by, :created_by
-  alias_attribute :verified_at, :approved_at
+  # For attributes, use alias_attribute; for associations, define wrapper methods
+  def initiated_by
+    created_by
+  end
+
+  def initiated_by=(value)
+    self.created_by = value
+  end
+
+  def verified_at
+    approved_at
+  end
+
+  def verified_at=(value)
+    self.approved_at = value
+  end
 
   # Callbacks
   before_create :generate_federation_token

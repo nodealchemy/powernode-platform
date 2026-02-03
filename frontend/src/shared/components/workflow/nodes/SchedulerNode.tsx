@@ -45,7 +45,7 @@ export const SchedulerNode: React.FC<NodeProps<SchedulerNodeType>> = ({
       try {
         const date = new Date(config.startTime);
         return date.toLocaleString();
-      } catch {
+      } catch (_error) {
         return config.startTime;
       }
     }

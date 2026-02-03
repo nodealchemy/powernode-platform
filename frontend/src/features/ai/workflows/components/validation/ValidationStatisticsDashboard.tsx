@@ -65,7 +65,7 @@ export const ValidationStatisticsDashboard: React.FC<ValidationStatisticsDashboa
       setLoading(true);
       const response = await validationApi.getValidationStatistics('', timeRange);
       setStatistics(response.statistics as unknown as ValidationStatistics);
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Failed to Load Statistics',

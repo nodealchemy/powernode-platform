@@ -39,7 +39,7 @@ export const TwoFactorSettings: React.FC = () => {
       } else {
         setError('Failed to load two-factor authentication status');
       }
-    } catch {
+    } catch (_error) {
       setError('Failed to load two-factor authentication status');
     } finally {
       setLoading(false);
@@ -62,7 +62,7 @@ export const TwoFactorSettings: React.FC = () => {
       } else {
         setError(response.error || 'Failed to disable two-factor authentication');
       }
-    } catch {
+    } catch (_error) {
       setError('Failed to disable two-factor authentication');
     } finally {
       setIsDisabling(false);
@@ -79,7 +79,7 @@ export const TwoFactorSettings: React.FC = () => {
       } else {
         setError(response.error || 'Failed to load backup codes');
       }
-    } catch {
+    } catch (_error) {
       setError('Failed to load backup codes');
     }
   };
@@ -97,7 +97,7 @@ export const TwoFactorSettings: React.FC = () => {
       } else {
         setError(response.error || 'Failed to regenerate backup codes');
       }
-    } catch {
+    } catch (_error) {
       setError('Failed to regenerate backup codes');
     } finally {
       setIsRegenerating(false);

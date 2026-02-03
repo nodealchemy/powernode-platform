@@ -58,7 +58,7 @@ export const RoiDashboard: React.FC = () => {
       setRecommendations(recommendationsData);
       setComparison(comparisonData);
 
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'ROI Error',

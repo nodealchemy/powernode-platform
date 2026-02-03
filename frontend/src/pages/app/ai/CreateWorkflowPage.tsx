@@ -280,7 +280,7 @@ export const CreateWorkflowPage: React.FC = () => {
 
       // Navigate to the new workflow
       navigate(`/app/ai/workflows/${response.id}`);
-    } catch {
+    } catch (error) {
       console.error('Failed to create workflow:', error);
       addNotification({
         type: 'error',

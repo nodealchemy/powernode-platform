@@ -173,7 +173,7 @@ const SbomDetailPageContent: React.FC = () => {
       setLoading(true);
       const data = await sbomsApi.get(id);
       setSbom(data);
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to fetch SBOM', 'error');
     } finally {
       setLoading(false);
@@ -191,7 +191,7 @@ const SbomDetailPageContent: React.FC = () => {
       });
       setComponents(data.components);
       setComponentsPagination(data.pagination);
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to fetch components', 'error');
     } finally {
       setComponentsLoading(false);
@@ -209,7 +209,7 @@ const SbomDetailPageContent: React.FC = () => {
       });
       setVulnerabilities(data.vulnerabilities);
       setVulnerabilitiesPagination(data.pagination);
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to fetch vulnerabilities', 'error');
     } finally {
       setVulnerabilitiesLoading(false);
@@ -240,7 +240,7 @@ const SbomDetailPageContent: React.FC = () => {
       a.click();
       window.URL.revokeObjectURL(url);
       showNotification(`SBOM exported as ${format.toUpperCase()}`, 'success');
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to export SBOM', 'error');
     }
   };
@@ -251,7 +251,7 @@ const SbomDetailPageContent: React.FC = () => {
       await updateStatusMutation.mutateAsync({ sbomId: id, vulnId, status });
       showNotification('Status updated', 'success');
       fetchVulnerabilities();
-    } catch {
+    } catch (_err) {
       showNotification('Failed to update status', 'error');
     }
   };
@@ -262,7 +262,7 @@ const SbomDetailPageContent: React.FC = () => {
       await suppressMutation.mutateAsync({ sbomId: id, vulnId });
       showNotification('Vulnerability suppressed', 'success');
       fetchVulnerabilities();
-    } catch {
+    } catch (_err) {
       showNotification('Failed to suppress vulnerability', 'error');
     }
   };
@@ -275,7 +275,7 @@ const SbomDetailPageContent: React.FC = () => {
       await markFalsePositiveMutation.mutateAsync({ sbomId: id, vulnId, reason });
       showNotification('Marked as false positive', 'success');
       fetchVulnerabilities();
-    } catch {
+    } catch (_err) {
       showNotification('Failed to mark as false positive', 'error');
     }
   };
@@ -287,7 +287,7 @@ const SbomDetailPageContent: React.FC = () => {
       showNotification('Diff created successfully', 'success');
       refreshDiffs();
       navigate(`/app/supply-chain/sboms/${id}/diff/${diff.id}`);
-    } catch {
+    } catch (_err) {
       showNotification('Failed to create diff', 'error');
     }
   };
@@ -298,7 +298,7 @@ const SbomDetailPageContent: React.FC = () => {
       const result = await calculateRiskMutation.mutateAsync(id);
       showNotification(`Risk calculated: ${result.overall_score.toFixed(1)}`, 'success');
       fetchSbom();
-    } catch {
+    } catch (_err) {
       showNotification('Failed to calculate risk', 'error');
     }
   };
@@ -309,7 +309,7 @@ const SbomDetailPageContent: React.FC = () => {
       const result = await correlateVulnsMutation.mutateAsync(id);
       showNotification(`Found ${result.new_vulnerabilities} new vulnerabilities`, 'success');
       fetchVulnerabilities();
-    } catch {
+    } catch (_err) {
       showNotification('Failed to correlate vulnerabilities', 'error');
     }
   };
@@ -320,7 +320,7 @@ const SbomDetailPageContent: React.FC = () => {
       const updated = await sbomsApi.rescan(id);
       setSbom(updated);
       showNotification('SBOM re-scan initiated', 'success');
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to re-scan SBOM', 'error');
     }
   };
@@ -337,7 +337,7 @@ const SbomDetailPageContent: React.FC = () => {
           await sbomsApi.delete(id);
           showNotification('SBOM deleted successfully', 'success');
           navigate('/app/supply-chain/sboms');
-        } catch {
+        } catch (err) {
           showNotification(err instanceof Error ? err.message : 'Failed to delete SBOM', 'error');
         }
       },

@@ -77,7 +77,7 @@ export const BillingPage: React.FC = () => {
 
       setShowCreateInvoice(false);
       await loadBillingData(); // Refresh data
-    } catch {
+    } catch (_error) {
       // Error handling could be added here
     } finally {
       setLoading(false);

@@ -17,6 +17,10 @@ module Ai
     class DashboardService
       attr_reader :account, :time_range
 
+      # Cache TTLs
+      DASHBOARD_CACHE_TTL = 15.minutes
+      REAL_TIME_CACHE_TTL = 1.minute
+
       # Initialize the service
       # @param account [Account] Account to analyze
       # @param time_range [ActiveSupport::Duration] Time range for analysis
@@ -25,17 +29,27 @@ module Ai
         @time_range = time_range
       end
 
-      # Generate complete dashboard data
+      # Generate complete dashboard data (cached for 15 minutes)
+      # @param force_refresh [Boolean] Skip cache and regenerate
       # @return [Hash] Dashboard data
-      def generate
-        {
-          summary: generate_summary_metrics,
-          trends: generate_trend_data,
-          highlights: generate_highlights,
-          quick_stats: generate_quick_stats,
-          resource_usage: generate_resource_usage,
-          recent_activity: generate_recent_activity
-        }
+      def generate(force_refresh: false)
+        cache_key = "ai:dashboard:#{account.id}:#{time_range.to_i}"
+
+        return Rails.cache.fetch(cache_key, expires_in: DASHBOARD_CACHE_TTL, force: force_refresh) do
+          {
+            summary: generate_summary_metrics,
+            trends: generate_trend_data,
+            highlights: generate_highlights,
+            quick_stats: generate_quick_stats,
+            resource_usage: generate_resource_usage,
+            recent_activity: generate_recent_activity
+          }
+        end
+      end
+
+      # Invalidate dashboard cache for an account
+      def self.invalidate_cache(account_id)
+        Rails.cache.delete_matched("ai:dashboard:#{account_id}:*")
       end
 
       # Generate summary metrics
@@ -167,17 +181,22 @@ module Ai
         activities.sort_by { |a| a[:created_at] }.reverse.first(limit)
       end
 
-      # Generate real-time metrics (for live dashboards)
+      # Generate real-time metrics (for live dashboards, cached for 1 minute)
+      # @param force_refresh [Boolean] Skip cache
       # @return [Hash] Real-time metrics
-      def real_time_metrics
-        {
-          active_executions: workflow_runs.where(status: %w[running initializing]).count,
-          active_conversations: conversations.where(status: %w[active in_progress]).count,
-          queue_depth: pending_jobs_count,
-          error_rate_last_hour: calculate_error_rate(1.hour.ago),
-          avg_response_time_last_hour: calculate_avg_response_time(1.hour.ago),
-          timestamp: Time.current.iso8601
-        }
+      def real_time_metrics(force_refresh: false)
+        cache_key = "ai:dashboard:realtime:#{account.id}"
+
+        Rails.cache.fetch(cache_key, expires_in: REAL_TIME_CACHE_TTL, force: force_refresh) do
+          {
+            active_executions: workflow_runs.where(status: %w[running initializing]).count,
+            active_conversations: conversations.where(status: %w[active in_progress]).count,
+            queue_depth: pending_jobs_count,
+            error_rate_last_hour: calculate_error_rate(1.hour.ago),
+            avg_response_time_last_hour: calculate_avg_response_time(1.hour.ago),
+            timestamp: Time.current.iso8601
+          }
+        end
       end
 
       private

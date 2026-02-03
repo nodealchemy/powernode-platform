@@ -87,7 +87,7 @@ const UsersPage: React.FC = () => {
       } else {
         setUserStats(null);
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load users. Please check your connection and try again.', 'error');
     } finally {
       setLoading(false);
@@ -101,7 +101,7 @@ const UsersPage: React.FC = () => {
       setRolesLoading(true);
       const roles = await usersApi.getAvailableRoles();
       setAvailableRoles(roles);
-    } catch {
+    } catch (_error) {
       setAvailableRoles([]);
     } finally {
       setRolesLoading(false);
@@ -274,7 +274,7 @@ const UsersPage: React.FC = () => {
 
       await loadData();
       setSelectedUsers(new Set());
-    } catch {
+    } catch (_error) {
       showNotification(`Failed to ${action} selected users. Please try again.`, 'error');
     } finally {
       setActionLoading(false);
@@ -296,7 +296,7 @@ const UsersPage: React.FC = () => {
       })).unwrap();
 
       window.location.href = '/app';
-    } catch {
+    } catch (_error) {
       showNotification('Failed to impersonate user. Please try again.', 'error');
     } finally {
       setActionLoading(false);
@@ -322,7 +322,7 @@ const UsersPage: React.FC = () => {
       } else {
         setFormErrors([response.message || 'Failed to create user']);
       }
-    } catch {
+    } catch (_error) {
       setFormErrors(['Failed to create user. Please try again.']);
     } finally {
       setActionLoading(false);
@@ -350,7 +350,7 @@ const UsersPage: React.FC = () => {
       } else {
         setFormErrors([response.message || 'Failed to update user']);
       }
-    } catch {
+    } catch (_error) {
       setFormErrors(['Failed to update user. Please try again.']);
     } finally {
       setActionLoading(false);
@@ -372,7 +372,7 @@ const UsersPage: React.FC = () => {
       } else {
         showNotification(response.message || 'Failed to delete user', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to delete user. Please try again.', 'error');
     } finally {
       setActionLoading(false);
@@ -408,7 +408,7 @@ const UsersPage: React.FC = () => {
       } else {
         showNotification(response.message || `Failed to ${action} user`, 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification(`Failed to ${action} user. Please try again.`, 'error');
     } finally {
       setActionLoading(false);

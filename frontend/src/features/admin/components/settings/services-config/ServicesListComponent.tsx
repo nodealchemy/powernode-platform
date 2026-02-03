@@ -227,7 +227,7 @@ export const ServicesListComponent: React.FC<ServicesListComponentProps> = ({
       } else {
         showNotification(`${serviceName} is unreachable: ${result.error}`, 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification(`Failed to test ${serviceName}`, 'error');
     }
   };
@@ -522,7 +522,7 @@ export const ServicesListComponent: React.FC<ServicesListComponentProps> = ({
                             await servicesApi.updateConfiguration('service_config', config);
                             showNotification('Service configuration saved successfully', 'success');
                             setEditingService(null);
-                          } catch {
+                          } catch (_error) {
                             showNotification('Failed to save service configuration', 'error');
                           }
                         }}

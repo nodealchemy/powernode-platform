@@ -39,7 +39,7 @@ export const ValidationHistoryPanel: React.FC<ValidationHistoryPanelProps> = ({
       setLoading(true);
       const response = await validationApi.getValidationHistory(workflowId, 20);
       setHistory(response.validations);
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Failed to Load History',

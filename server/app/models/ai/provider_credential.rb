@@ -209,8 +209,10 @@ module Ai
     end
 
     def validate_generic_configuration
-      # At minimum, require either api_key or base_url
-      unless @credentials.key?("api_key") || @credentials.key?("base_url")
+      # At minimum, require either api_key or base_url (handle both string and symbol keys)
+      has_api_key = @credentials.key?("api_key") || @credentials.key?(:api_key)
+      has_base_url = @credentials.key?("base_url") || @credentials.key?(:base_url)
+      unless has_api_key || has_base_url
         errors.add(:credentials, "must include either api_key or base_url")
       end
     end
@@ -224,12 +226,15 @@ module Ai
     end
 
     def validate_field_formats(optional_fields)
-      # Additional format validation can be added here
-      if @credentials["api_key"].present? && @credentials["api_key"].length < 10
+      # Additional format validation can be added here (handle both string and symbol keys)
+      api_key = @credentials["api_key"] || @credentials[:api_key]
+      base_url = @credentials["base_url"] || @credentials[:base_url]
+
+      if api_key.present? && api_key.length < 10
         errors.add(:credentials, "api_key appears to be too short")
       end
 
-      if @credentials["base_url"].present? && !@credentials["base_url"].match(/\Ahttps?:\/\//)
+      if base_url.present? && !base_url.match(/\Ahttps?:\/\//)
         errors.add(:credentials, "base_url must be a valid HTTP/HTTPS URL")
       end
     end

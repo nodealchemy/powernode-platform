@@ -161,7 +161,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       const agentList = extractAgentList(response);
       setAgents(agentList);
       agentsLoadedRef.current = true;
-    } catch {
+    } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to load available agents:', error);
       }
@@ -206,7 +206,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           return [...prev, response];
         });
       }
-    } catch {
+    } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to fetch agent details for ID:', agentId, error);
       }
@@ -252,7 +252,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
   // Update config when node changes
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const { _handleUpdateTimestamp: _temp, ...cleanNodeData } = node.data || {};
 
     setConfig({
@@ -648,7 +648,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
                     try {
                       const parsed = JSON.parse(e.target.value);
                       handleFieldChange('metadata', parsed);
-                    } catch {
+                    } catch (_error) {
                       // Invalid JSON, don't update
                     }
                   }}

@@ -21,7 +21,7 @@ export const DataCleanupTab: React.FC<DataCleanupTabProps> = ({
       });
       showNotification(`Cleanup completed. ${result.cleaned_items} items cleaned`, 'success');
       onRefresh();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to run cleanup', 'error');
     }
   };

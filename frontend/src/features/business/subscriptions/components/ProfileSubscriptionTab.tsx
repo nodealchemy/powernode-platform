@@ -91,7 +91,7 @@ export const ProfileSubscriptionTab: React.FC<ProfileSubscriptionTabProps> = ({
           showNotification('Failed to create subscription. Please try again.', 'error');
         }
       }
-    } catch {
+    } catch (_error) {
       showNotification('An error occurred. Please try again.', 'error');
     }
   };

@@ -60,7 +60,7 @@ export const clearStoredTokens = (): void => {
   try {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-  } catch {
+  } catch (error) {
     // Silently handle localStorage errors (e.g., when storage is disabled)
     if (process.env.NODE_ENV === 'development') {
       console.warn('Failed to clear stored tokens:', error);
@@ -74,7 +74,7 @@ export const clearStoredTokens = (): void => {
 export const hasStoredTokens = (): boolean => {
   try {
     return !!(localStorage.getItem('access_token') || localStorage.getItem('refresh_token'));
-  } catch {
+  } catch (_error) {
     // Handle localStorage errors gracefully
     return false;
   }
@@ -120,7 +120,7 @@ export const getTokenExpiry = (token: string): Date | null => {
     if (isNaN(expNumber)) return null;
     
     return new Date(expNumber * 1000);
-  } catch {
+  } catch (_error) {
     return null;
   }
 };

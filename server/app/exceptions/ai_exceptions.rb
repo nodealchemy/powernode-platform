@@ -80,6 +80,79 @@ module AiExceptions
     end
   end
 
+  # Rate limit errors from providers
+  # Recoverable after waiting for rate limit reset
+  class RateLimitError < ProviderError
+    attr_reader :retry_after_seconds
+
+    def initialize(message, provider: nil, retry_after_seconds: nil, details: {})
+      @retry_after_seconds = retry_after_seconds
+      super(message, provider: provider, details: details.merge(retry_after_seconds: retry_after_seconds))
+      @code = "RATE_LIMIT_ERROR"
+    end
+  end
+
+  # Authentication/authorization errors with providers
+  # NOT recoverable without fixing credentials
+  class AuthenticationError < ProviderError
+    def initialize(message, provider: nil, details: {})
+      super(message, provider: provider, details: details)
+      @code = "AUTHENTICATION_ERROR"
+      @recoverable = false
+    end
+  end
+
+  # Model not found or unavailable errors
+  # NOT recoverable - requires different model selection
+  class ModelNotAvailableError < ProviderError
+    attr_reader :model_id
+
+    def initialize(message, provider: nil, model_id: nil, details: {})
+      @model_id = model_id
+      super(message, provider: provider, details: details.merge(model_id: model_id))
+      @code = "MODEL_NOT_AVAILABLE_ERROR"
+      @recoverable = false
+    end
+  end
+
+  # Workflow-specific errors
+  class WorkflowError < ServiceError
+    attr_reader :workflow_id
+
+    def initialize(message, workflow_id: nil, details: {})
+      @workflow_id = workflow_id
+      super(message, code: "WORKFLOW_ERROR", details: details.merge(workflow_id: workflow_id), recoverable: true)
+    end
+  end
+
+  # Workflow validation errors (invalid structure, missing nodes)
+  class WorkflowValidationError < WorkflowError
+    def initialize(message, workflow_id: nil, details: {})
+      super(message, workflow_id: workflow_id, details: details)
+      @code = "WORKFLOW_VALIDATION_ERROR"
+      @recoverable = false
+    end
+  end
+
+  # Agent-specific errors
+  class AgentError < ServiceError
+    attr_reader :agent_id
+
+    def initialize(message, agent_id: nil, details: {})
+      @agent_id = agent_id
+      super(message, code: "AGENT_ERROR", details: details.merge(agent_id: agent_id), recoverable: true)
+    end
+  end
+
+  # Agent configuration errors
+  class AgentConfigurationError < AgentError
+    def initialize(message, agent_id: nil, details: {})
+      super(message, agent_id: agent_id, details: details)
+      @code = "AGENT_CONFIGURATION_ERROR"
+      @recoverable = false
+    end
+  end
+
   # Timeout errors for long-running operations
   # Usually recoverable with increased timeout
   class TimeoutError < ServiceError

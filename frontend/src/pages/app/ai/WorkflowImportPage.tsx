@@ -165,7 +165,7 @@ export const WorkflowImportPage: React.FC = () => {
           // In production, you'd want to add a YAML parser library
           try {
             parsedData = JSON.parse(content) as RawImportData;
-          } catch {
+          } catch (_error) {
             setValidationErrors([{ field: 'file', message: 'YAML support requires additional library. Please convert to JSON.' }]);
             return;
           }
@@ -196,7 +196,7 @@ export const WorkflowImportPage: React.FC = () => {
             message: `Found ${errors.length} validation error(s)`
           });
         }
-      } catch {
+      } catch (error) {
         setValidationErrors([{
           field: 'file',
           message: error instanceof Error ? error.message : 'Invalid file format'
@@ -269,7 +269,7 @@ export const WorkflowImportPage: React.FC = () => {
 
       // Navigate to the new workflow
       navigate(`/app/ai/workflows/${result.id}`);
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Import Failed',

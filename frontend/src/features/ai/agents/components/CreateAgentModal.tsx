@@ -146,7 +146,7 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({
       setLoadingProviders(true);
       const { items: providersData } = await providersApi.getProviders({ status: 'active' });
       setProviders(providersData || []);
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',

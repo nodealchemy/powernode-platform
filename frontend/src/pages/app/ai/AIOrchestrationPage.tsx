@@ -58,7 +58,7 @@ export const AIOrchestrationPage: React.FC = () => {
       // For now, just simulate loading
       await new Promise(resolve => setTimeout(resolve, 500));
 
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to load AI system data', 'error');
     } finally {
       setLoading(false);

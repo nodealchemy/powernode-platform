@@ -458,9 +458,15 @@ module Api
 
         def set_template
           if current_user
-            @template = ::Ai::WorkflowTemplate.accessible_to_account(current_user.account.id).find(params[:id])
+            @template = ::Ai::WorkflowTemplate
+                          .includes(:created_by_user)
+                          .accessible_to_account(current_user.account.id)
+                          .find(params[:id])
           else
-            @template = ::Ai::WorkflowTemplate.public_templates.find(params[:id])
+            @template = ::Ai::WorkflowTemplate
+                          .includes(:created_by_user)
+                          .public_templates
+                          .find(params[:id])
           end
         rescue ActiveRecord::RecordNotFound
           render_error("Template not found", status: :not_found)

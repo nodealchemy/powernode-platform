@@ -82,7 +82,7 @@ export const ChannelMetrics: React.FC<ChannelMetricsProps> = ({
       setError(null);
       const response = await chatChannelsApi.getChannelMetrics(channelId);
       setMetrics(response.metrics);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load metrics');
     } finally {
       setLoading(false);

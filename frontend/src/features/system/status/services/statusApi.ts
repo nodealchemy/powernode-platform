@@ -63,7 +63,7 @@ export const statusApi = {
     try {
       const response = await api.get('/public/status');
       return response.data;
-    } catch {
+    } catch (error) {
       const errorMessage =
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
@@ -78,7 +78,7 @@ export const statusApi = {
     try {
       const response = await api.get('/public/status/summary');
       return response.data;
-    } catch {
+    } catch (error) {
       const errorMessage =
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
@@ -93,7 +93,7 @@ export const statusApi = {
     try {
       const response = await api.get('/public/status/history');
       return response.data;
-    } catch {
+    } catch (error) {
       const errorMessage =
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||

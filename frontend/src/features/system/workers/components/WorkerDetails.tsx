@@ -57,7 +57,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
       setError(null);
       const response = await workerApi.getWorker(worker.id);
       setDetails(response);
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load worker details';
       setError(errorMessage);
     } finally {
@@ -75,7 +75,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
       setNewToken(newTokenValue);
       setShowToken(true);
       await loadWorkerDetails();
-    } catch {
+    } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[WorkerDetails] Token regeneration failed:', error);
       }
@@ -89,7 +89,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
       if (action === 'revoke') {
         setShowConfirmRevoke(false);
       }
-    } catch {
+    } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[WorkerDetails] Status change failed:', action, error);
       }
@@ -103,7 +103,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
       const results = await workerApi.testWorkerHealth(worker.id);
       setTestResults(results);
       setShowTestResults(true);
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to test worker health';
       setTestResults({
         status: 'error',
@@ -126,7 +126,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
     try {
       await copyToClipboard(token);
       // Could add a toast notification here
-    } catch {
+    } catch (_error) {
       // Clipboard copy failure is non-critical - user can manually copy
     }
   };

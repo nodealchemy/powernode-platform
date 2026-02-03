@@ -101,7 +101,7 @@ export function KnowledgeBaseArticleEditor() {
       try {
         const response = await knowledgeBaseAdminApi.getCategories({ per_page: 100 });
         setCategories(response.data.data);
-      } catch {
+      } catch (_error) {
         dispatch(addNotification({ type: 'error', message: 'Failed to load categories' }));
       }
     };
@@ -128,7 +128,7 @@ export function KnowledgeBaseArticleEditor() {
           meta_description: article.meta_description || article.metadata?.meta_description || '',
           sort_order: article.sort_order || article.metadata?.sort_order || 0
         });
-      } catch {
+      } catch (_error) {
         dispatch(addNotification({ type: 'error', message: 'Failed to load article' }));
         navigate('/app/content/kb');
       } finally {
@@ -229,7 +229,7 @@ export function KnowledgeBaseArticleEditor() {
       if (isNewArticle) {
         navigate(`/app/content/kb/articles/${article.id}/edit`);
       }
-    } catch {
+    } catch (error) {
       const apiError = error as { response?: { data?: { error?: string } } };
       const errorMessage = apiError.response?.data?.error || 'Failed to save article';
       dispatch(addNotification({ type: 'error', message: errorMessage }));

@@ -77,23 +77,30 @@ module Mcp
       with_monitoring("state_transition", from: from_state, to: to_state) do
         log_info "State transition: #{from_state} → #{to_state}"
 
-        # Validate states
-        validate_state!(from_state)
-        validate_state!(to_state)
+        # Use row-level locking to prevent race conditions during state transitions
+        @workflow_run.with_lock do
+          # Reload to get fresh state after acquiring lock
+          @workflow_run.reload
+          @current_state = @workflow_run.status
 
-        # Validate current state matches expected
-        unless @current_state == from_state
-          raise StateTransitionError,
-                "Current state is #{@current_state}, expected #{from_state}"
+          # Validate states
+          validate_state!(from_state)
+          validate_state!(to_state)
+
+          # Validate current state matches expected
+          unless @current_state == from_state
+            raise StateTransitionError,
+                  "Current state is #{@current_state}, expected #{from_state}"
+          end
+
+          # Validate transition is allowed
+          validate_transition!(from_state, to_state)
+
+          # Perform transition (within the lock)
+          perform_transition(to_state)
         end
 
-        # Validate transition is allowed
-        validate_transition!(from_state, to_state)
-
-        # Perform transition
-        perform_transition(to_state)
-
-        # Broadcast state change
+        # Broadcast state change (outside the lock to avoid blocking)
         broadcast_state_change(from_state, to_state)
 
         log_info "State transition completed", {

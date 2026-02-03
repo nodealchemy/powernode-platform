@@ -36,7 +36,7 @@ export const CreateDiffModal: React.FC<CreateDiffModalProps> = ({
         setLoading(true);
         const result = await sbomsApi.list({ per_page: 100, status: 'completed' });
         setSboms(result.sboms.filter(s => s.id !== currentSbomId));
-      } catch {
+      } catch (_error) {
         // Error handled silently
       } finally {
         setLoading(false);

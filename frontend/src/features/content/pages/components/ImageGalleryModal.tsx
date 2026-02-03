@@ -32,7 +32,7 @@ const AuthenticatedImage: React.FC<{
         if (isMounted) {
           setBlobUrl(url);
         }
-      } catch {
+      } catch (_error) {
         if (isMounted) {
           setError(true);
         }
@@ -102,7 +102,7 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
         per_page: 50
       });
       setImages(response.files);
-    } catch {
+    } catch (_error) {
       // Error handled silently - user can retry
     } finally {
       setLoading(false);
@@ -131,7 +131,7 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
       } else {
         showNotification('Image uploaded but URL not available', 'warning');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to get image URL', 'error');
     }
   };
@@ -155,7 +155,7 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
       } else {
         showNotification('Could not get image URL', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to get image details', 'error');
     }
   };

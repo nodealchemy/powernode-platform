@@ -62,7 +62,7 @@ export function useAiConfigs(params: UseAiProvidersForDevopsParams = {}) {
         default_id: defaultProvider?.id || null,
         by_provider: byProvider,
       });
-    } catch {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch AI providers';
       setError(message);
     } finally {
@@ -114,7 +114,7 @@ export function useAiConfigs(params: UseAiProvidersForDevopsParams = {}) {
       showNotification('Default AI provider for DevOps updated', 'success');
       await fetchProviders();
       return updated;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to set default AI provider', 'error');
       return null;
     }
@@ -145,7 +145,7 @@ export function useAiConfig(id: string | null) {
       setError(null);
       const data = await providersApi.getProvider(id);
       setProvider(data);
-    } catch {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch AI provider';
       setError(message);
     } finally {

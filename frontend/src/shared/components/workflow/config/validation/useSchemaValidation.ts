@@ -105,7 +105,7 @@ export function useSchemaValidation(
       // Normalize schema if needed
       const normalizedSchema = normalizeSchemaForValidation(schema);
       return ajv.compile(normalizedSchema);
-    } catch {
+    } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.warn('Failed to compile schema:', error);
       }
@@ -166,7 +166,7 @@ export function useSchemaValidation(
 
         const errors = fieldValidator.errors || [];
         return errors.length > 0 ? formatSingleError(errors[0]) : null;
-      } catch {
+      } catch (_error) {
         return null;
       }
     },

@@ -37,7 +37,7 @@ const StorageProvidersPage: React.FC = () => {
       setRefreshing(true);
       const data = await storageApi.getProviders();
       setProviders(data);
-    } catch {
+    } catch (_error) {
       dispatch(addNotification({ type: 'error', message: 'Failed to load storage providers' }));
     } finally {
       setLoading(false);
@@ -69,7 +69,7 @@ const StorageProvidersPage: React.FC = () => {
       const fullProvider = await storageApi.getProvider(provider.id);
       setEditingProvider(fullProvider);
       setShowModal(true);
-    } catch {
+    } catch (_error) {
       dispatch(addNotification({ type: 'error', message: 'Failed to load provider configuration' }));
     }
   };
@@ -83,7 +83,7 @@ const StorageProvidersPage: React.FC = () => {
       await storageApi.deleteProvider(provider.id);
       dispatch(addNotification({ type: 'success', message: 'Storage provider deleted successfully' }));
       await loadProviders();
-    } catch {
+    } catch (_error) {
       dispatch(addNotification({ type: 'error', message: 'Failed to delete storage provider' }));
     }
   };
@@ -98,7 +98,7 @@ const StorageProvidersPage: React.FC = () => {
       const result = await storageApi.testConnection(provider.id);
       setTestResult(result);
       await loadProviders();
-    } catch {
+    } catch (error) {
       setTestResult({
         success: false,
         message: 'Failed to test connection',
@@ -122,7 +122,7 @@ const StorageProvidersPage: React.FC = () => {
       await storageApi.setDefault(provider.id);
       dispatch(addNotification({ type: 'success', message: `"${provider.name}" set as default storage provider` }));
       await loadProviders();
-    } catch {
+    } catch (_error) {
       dispatch(addNotification({ type: 'error', message: 'Failed to set default provider' }));
     }
   };
@@ -140,7 +140,7 @@ const StorageProvidersPage: React.FC = () => {
       setShowModal(false);
       setEditingProvider(null);
       await loadProviders();
-    } catch {
+    } catch (_error) {
       dispatch(addNotification({
         type: 'error',
         message: editingProvider

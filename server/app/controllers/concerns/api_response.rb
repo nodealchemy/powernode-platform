@@ -225,27 +225,29 @@ module ApiResponse
     end
 
     rescue_from ActiveRecord::RecordInvalid do |exception|
-      render_validation_error(exception.record.errors)
+      render_validation_error(exception.record.errors) unless performed?
     end
 
     rescue_from ActiveRecord::RecordNotFound do |exception|
-      render_not_found(exception.model.humanize)
+      render_not_found(exception.model.humanize) unless performed?
     end
 
     rescue_from Money::Currency::UnknownCurrency do |exception|
-      render_validation_error("Invalid currency: #{exception.message}")
+      render_validation_error("Invalid currency: #{exception.message}") unless performed?
     end
 
     rescue_from ActionController::ParameterMissing do |exception|
-      render_error(exception.message, status: :bad_request, code: "PARAMETER_MISSING")
+      render_error(exception.message, status: :bad_request, code: "PARAMETER_MISSING") unless performed?
     end
 
     rescue_from ActiveRecord::InvalidForeignKey do |exception|
-      render_error(
-        "Cannot delete this record because it is referenced by other records",
-        status: :unprocessable_content,
-        code: "FOREIGN_KEY_VIOLATION"
-      )
+      unless performed?
+        render_error(
+          "Cannot delete this record because it is referenced by other records",
+          status: :unprocessable_content,
+          code: "FOREIGN_KEY_VIOLATION"
+        )
+      end
     end
   end
 end

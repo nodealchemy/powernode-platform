@@ -28,7 +28,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     }
     
     return response.data;
-  } catch {
+  } catch (error) {
     // Re-throw with better error context
     const errorMessage = error instanceof Error ? error.message : 'API request failed';
     const responseError = error && typeof error === 'object' && 'response' in error

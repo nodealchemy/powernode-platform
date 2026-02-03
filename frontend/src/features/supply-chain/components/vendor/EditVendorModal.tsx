@@ -80,7 +80,7 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({ vendor, onClos
           : [],
       });
       onClose();
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update vendor');
     } finally {
       setSaving(false);

@@ -34,7 +34,7 @@ export const ApiCallNode: React.FC<NodeProps<ApiCallNodeType>> = ({
     try {
       const domain = new URL(url).hostname;
       return domain.replace('www.', '');
-    } catch {
+    } catch (_error) {
       return url;
     }
   };

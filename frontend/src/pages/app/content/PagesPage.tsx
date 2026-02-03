@@ -43,7 +43,7 @@ export const PagesPage: React.FC = () => {
       });
       setPages(response.data);
       setTotalPages(response.meta.total_pages);
-    } catch {
+    } catch (_error) {
       dispatch(addNotification({
         type: 'error',
         message: 'Failed to load pages'
@@ -118,7 +118,7 @@ export const PagesPage: React.FC = () => {
       setSelectedPage(response.data);
       setIsCreating(false);
       setShowEditor(true);
-    } catch {
+    } catch (_error) {
       showError('Failed to load page for editing');
     }
   };
@@ -141,7 +141,7 @@ export const PagesPage: React.FC = () => {
         showSuccess(`"${page.title}" has been published`);
       }
       loadPages();
-    } catch {
+    } catch (_error) {
       showError(`Failed to ${page.status === 'published' ? 'unpublish' : 'publish'} page`);
     }
   };
@@ -151,7 +151,7 @@ export const PagesPage: React.FC = () => {
       await pagesApi.duplicatePage(page.id);
       showSuccess(`"${page.title}" has been duplicated`);
       loadPages();
-    } catch {
+    } catch (_error) {
       showError('Failed to duplicate page');
     }
   };
@@ -167,7 +167,7 @@ export const PagesPage: React.FC = () => {
           await pagesApi.deletePage(page.id);
           showSuccess(`"${page.title}" has been deleted`);
           loadPages();
-        } catch {
+        } catch (_error) {
           showError('Failed to delete page');
         }
       }

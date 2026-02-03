@@ -20,7 +20,7 @@ export const ImpersonationBanner: React.FC = () => {
       await dispatch(stopImpersonation()).unwrap();
       // Refresh the page after successful impersonation stop to ensure clean state
       window.location.reload();
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   }
   };

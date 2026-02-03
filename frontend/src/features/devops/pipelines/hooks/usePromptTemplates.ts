@@ -29,7 +29,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
       const data = await devopsPromptTemplatesApi.getAll(params);
       setTemplates(data.prompt_templates);
       setMeta(data.meta);
-    } catch {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch prompt templates';
       setError(message);
     } finally {
@@ -53,7 +53,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
       showNotification('Prompt template created successfully', 'success');
       await fetchTemplates();
       return template;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to create prompt template', 'error');
       return null;
     }
@@ -65,7 +65,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
       showNotification('Prompt template updated successfully', 'success');
       await fetchTemplates();
       return template;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to update prompt template', 'error');
       return null;
     }
@@ -77,7 +77,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
       showNotification('Prompt template deleted successfully', 'success');
       await fetchTemplates();
       return true;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to delete prompt template', 'error');
       return false;
     }
@@ -89,7 +89,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
       showNotification('Prompt template duplicated successfully', 'success');
       await fetchTemplates();
       return template;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to duplicate prompt template', 'error');
       return null;
     }
@@ -99,7 +99,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
     try {
       const result = await devopsPromptTemplatesApi.preview(id, variables);
       return result;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to preview prompt template', 'error');
       return null;
     }
@@ -135,7 +135,7 @@ export function usePromptTemplate(id: string | null) {
       setError(null);
       const data = await devopsPromptTemplatesApi.getById(id, true);
       setTemplate(data);
-    } catch {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch prompt template';
       setError(message);
     } finally {
@@ -159,7 +159,7 @@ export function usePromptTemplate(id: string | null) {
       showNotification('Prompt template updated successfully', 'success');
       setTemplate(updated);
       return updated;
-    } catch {
+    } catch (_err) {
       showNotification('Failed to update prompt template', 'error');
       return null;
     }

@@ -37,7 +37,7 @@ export const LicenseViolationDetailPage: React.FC = () => {
         await resolveMutation.mutateAsync({ id, note: note || undefined });
         showNotification('Violation resolved successfully', 'success');
         refetch();
-      } catch {
+      } catch (_error) {
         showNotification('Failed to resolve violation', 'error');
       }
     }
@@ -51,7 +51,7 @@ export const LicenseViolationDetailPage: React.FC = () => {
         await grantExceptionMutation.mutateAsync({ id, note });
         showNotification('Exception granted successfully', 'success');
         refetch();
-      } catch {
+      } catch (_error) {
         showNotification('Failed to grant exception', 'error');
       }
     }
@@ -65,7 +65,7 @@ export const LicenseViolationDetailPage: React.FC = () => {
       setShowRequestModal(false);
       setJustification('');
       refetch();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to request exception', 'error');
     }
   };

@@ -79,7 +79,7 @@ const AgentTeamsPage: React.FC = () => {
 
       const data = await agentTeamsApi.getTeams(filters);
       setTeams(data);
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
@@ -99,7 +99,7 @@ const AgentTeamsPage: React.FC = () => {
         message: 'Team created successfully'
       }));
       await loadTeams();
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
@@ -121,7 +121,7 @@ const AgentTeamsPage: React.FC = () => {
       }));
       await loadTeams();
       setEditingTeam(null);
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
@@ -142,7 +142,7 @@ const AgentTeamsPage: React.FC = () => {
         message: 'Team deleted successfully'
       }));
       await loadTeams();
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
@@ -160,7 +160,7 @@ const AgentTeamsPage: React.FC = () => {
         // title: 'Team Execution Started',
         message: `Team "${team.name}" is now executing. Job ID: ${result.job_id}`
       }));
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',

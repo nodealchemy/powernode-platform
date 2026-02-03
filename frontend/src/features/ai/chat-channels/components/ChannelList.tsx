@@ -63,7 +63,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
       const response = await chatChannelsApi.getChannels(filters);
       setChannels(response.items || []);
       setTotalCount(response.pagination?.total_count || 0);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load channels');
     } finally {
       setLoading(false);
@@ -78,7 +78,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
     try {
       await chatChannelsApi.connectChannel(channel.id);
       loadChannels();
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect channel');
     }
   };
@@ -87,7 +87,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
     try {
       await chatChannelsApi.disconnectChannel(channel.id);
       loadChannels();
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to disconnect channel');
     }
   };

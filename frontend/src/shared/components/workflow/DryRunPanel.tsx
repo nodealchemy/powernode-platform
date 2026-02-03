@@ -62,7 +62,7 @@ export const DryRunPanel: React.FC<DryRunPanelProps> = ({
     try {
       const dryRunResult = await onExecuteDryRun(inputVariables);
       setResult(dryRunResult);
-    } catch {
+    } catch (_err) {
       const err = error as { message?: string };
       setError(err.message || 'Dry run failed');
     } finally {
@@ -108,7 +108,7 @@ export const DryRunPanel: React.FC<DryRunPanelProps> = ({
             onChange={(e) => {
               try {
                 setInputVariables(JSON.parse(e.target.value || '{}'));
-              } catch {
+              } catch (_error) {
                 // Invalid JSON, ignore
               }
             }}

@@ -96,7 +96,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
       if (data.length === 1) {
         setSelectedProviderId(data[0].id);
       }
-    } catch {
+    } catch (_err) {
       // Handle error silently
     }
   };
@@ -108,7 +108,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
       if (data.length === 1) {
         setSelectedCredentialId(data[0].id);
       }
-    } catch {
+    } catch (_err) {
       // Handle error silently
     }
   };
@@ -129,7 +129,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
       );
       setRepositories(data.repositories);
       setUsage(data.usage);
-    } catch {
+    } catch (_err) {
       setRepositories([]);
       setUsage(null);
     } finally {
@@ -196,7 +196,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
       if (result.imported_count > 0) {
         onSuccess();
       }
-    } catch {
+    } catch (_err) {
       setImportResult({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to import repositories',

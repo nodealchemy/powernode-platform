@@ -64,7 +64,7 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
       const response = await providersApi.getProvider(providerId);
       // Response is the provider object after service unwraps the { provider: {...} } envelope
       setProvider(response);
-    } catch {
+    } catch (_error) {
       setError('Failed to load provider details. Please try again.');
       addNotification({
         type: 'error',
@@ -121,7 +121,7 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
         loadProvider(); // Reload to get updated status
         onUpdate?.();
       }
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Test Failed',
@@ -148,7 +148,7 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
       
       loadProvider(); // Reload to get updated model count
       onUpdate?.();
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Sync Failed',

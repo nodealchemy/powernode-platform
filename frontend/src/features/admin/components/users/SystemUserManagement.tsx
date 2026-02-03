@@ -51,7 +51,7 @@ export const SystemUserManagement: React.FC = () => {
       if (accountsResponse?.success) {
         setAccounts(accountsResponse.data?.accounts || []);
       }
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   } finally {
       setLoading(false);
@@ -68,7 +68,7 @@ export const SystemUserManagement: React.FC = () => {
         try {
           await usersApi.suspendUser(userId);
           loadSystemData();
-        } catch {
+        } catch (_error) {
     // Error silently ignored
   }
       }
@@ -79,7 +79,7 @@ export const SystemUserManagement: React.FC = () => {
     try {
       await usersApi.activateUser(userId);
       loadSystemData();
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   }
   };
@@ -94,7 +94,7 @@ export const SystemUserManagement: React.FC = () => {
         try {
           await usersApi.deleteUser(userId);
           loadSystemData();
-        } catch {
+        } catch (_error) {
     // Error silently ignored
   }
       }

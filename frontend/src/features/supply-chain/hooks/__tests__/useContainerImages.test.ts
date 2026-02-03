@@ -1163,7 +1163,7 @@ describe('useContainerImages Hook Suite', () => {
         await act(async () => {
           try {
             await result.current.mutateAsync('image-123');
-          } catch {
+          } catch (_error) {
             // Expected to throw
           }
         });
@@ -1179,7 +1179,7 @@ describe('useContainerImages Hook Suite', () => {
         await act(async () => {
           try {
             await result.current.mutateAsync('image-123');
-          } catch {
+          } catch (_error) {
             // Expected to throw
           }
         });
@@ -1208,7 +1208,7 @@ describe('useContainerImages Hook Suite', () => {
         await act(async () => {
           try {
             await result.current.mutateAsync('image-123');
-          } catch {
+          } catch (_error) {
             // Expected
           }
         });

@@ -49,7 +49,7 @@ export const useWorkflowBuilderChat = ({
         if (operationsAgentCandidate) {
           setOperationsAgent(operationsAgentCandidate);
         }
-      } catch {
+      } catch (error) {
         if (process.env.NODE_ENV === 'development') {
           console.error('[WorkflowBuilder] Failed to load operations agent:', error);
         }

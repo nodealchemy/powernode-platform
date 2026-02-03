@@ -2,6 +2,8 @@
 
 module Chat
   class MessageAttachment < ApplicationRecord
+    self.table_name = "chat_message_attachments"
+
     # Concerns
     include Auditable
 

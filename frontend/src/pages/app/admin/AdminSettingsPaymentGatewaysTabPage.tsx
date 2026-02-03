@@ -232,7 +232,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
       setLoading(true);
       const data = await paymentGatewaysApi.getOverview();
       setOverview(data);
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load payment gateway overview';
       showNotification(errorMessage, 'error');
     } finally {
@@ -257,7 +257,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
       
       // Reload overview to get updated status
       await loadOverview();
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : `Failed to test ${gateway} connection`;
       setTestResults(prev => ({ 
         ...prev, 

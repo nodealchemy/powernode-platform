@@ -137,7 +137,7 @@ export async function withRetry<T>(
     try {
       const data = await operation();
       return { success: true, data, attempts };
-    } catch {
+    } catch (error) {
       lastError = handleApiError(error);
 
       // Check if we should retry

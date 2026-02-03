@@ -2,6 +2,8 @@
 
 module Mcp
   class ResourceQuota < ApplicationRecord
+    self.table_name = "mcp_resource_quotas"
+
     # Concerns
     include Auditable
 
@@ -40,25 +42,35 @@ module Mcp
       self.allowed_egress_domains ||= []
     end
 
-    # Usage tracking
+    # Usage tracking with race condition protection
     def increment_usage!
-      reset_usage_if_needed!
+      with_lock do
+        reset_usage_if_needed!
 
-      increment!(:containers_used_this_hour)
-      increment!(:containers_used_today)
-      increment!(:current_running_containers)
+        # Use atomic SQL updates to prevent race conditions
+        self.class.where(id: id).update_all([
+          "containers_used_this_hour = containers_used_this_hour + 1,
+           containers_used_today = containers_used_today + 1,
+           current_running_containers = current_running_containers + 1"
+        ])
+        reload
+      end
     end
 
     def decrement_running!
-      decrement!(:current_running_containers) if current_running_containers.positive?
+      # Atomic decrement with safety check to prevent negative values
+      self.class.where(id: id)
+                .where("current_running_containers > 0")
+                .update_all("current_running_containers = current_running_containers - 1")
+      reload
     end
 
     def reset_usage_if_needed!
       now = Time.current
 
-      # Reset hourly counter
+      # Reset hourly counter - already within lock from increment_usage!
       if usage_reset_at.nil? || usage_reset_at < 1.hour.ago
-        update!(
+        update_columns(
           containers_used_this_hour: 0,
           usage_reset_at: now.beginning_of_hour
         )
@@ -66,7 +78,7 @@ module Mcp
 
       # Reset daily counter
       if usage_reset_at.nil? || usage_reset_at < now.beginning_of_day
-        update!(containers_used_today: 0)
+        update_columns(containers_used_today: 0)
       end
     end
 

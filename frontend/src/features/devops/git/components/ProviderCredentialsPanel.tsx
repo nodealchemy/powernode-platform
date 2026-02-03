@@ -59,7 +59,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
           message: result.error || 'Connection test failed',
         });
       }
-    } catch {
+    } catch (err) {
       showNotification({
         type: 'error',
         message: err instanceof Error ? err.message : 'Failed to test connection',
@@ -80,7 +80,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
         type: 'success',
         message: `Credential "${credential.name}" deleted successfully`,
       });
-    } catch {
+    } catch (err) {
       showNotification({
         type: 'error',
         message: err instanceof Error ? err.message : 'Failed to delete credential',
@@ -98,7 +98,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
         type: 'success',
         message: `"${credential.name}" is now the default credential`,
       });
-    } catch {
+    } catch (err) {
       showNotification({
         type: 'error',
         message: err instanceof Error ? err.message : 'Failed to set default credential',

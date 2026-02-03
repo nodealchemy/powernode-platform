@@ -45,7 +45,7 @@ export const CreateAttestationModal: React.FC<CreateAttestationModalProps> = ({
     let predicate: Record<string, unknown>;
     try {
       predicate = JSON.parse(predicateJson);
-    } catch {
+    } catch (_err) {
       setError('Invalid JSON in predicate');
       return;
     }
@@ -60,7 +60,7 @@ export const CreateAttestationModal: React.FC<CreateAttestationModalProps> = ({
         predicate,
       });
       onClose();
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create attestation');
     } finally {
       setCreating(false);

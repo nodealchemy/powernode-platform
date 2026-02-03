@@ -35,7 +35,7 @@ export const ResellerDashboard: React.FC = () => {
       if (dashboardResult.success && dashboardResult.data) {
         setDashboardStats(dashboardResult.data);
       }
-    } catch {
+    } catch (_error) {
       setError('Failed to load reseller data');
       addNotification({ type: 'error', message: 'Failed to load reseller data' });
     } finally {

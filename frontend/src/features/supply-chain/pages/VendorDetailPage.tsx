@@ -36,7 +36,7 @@ export const VendorDetailPage: React.FC = () => {
       showNotification('Vendor updated successfully', 'success');
       setShowEditModal(false);
       refresh();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to update vendor', 'error');
     }
   };
@@ -48,7 +48,7 @@ export const VendorDetailPage: React.FC = () => {
       showNotification('Assessment started successfully', 'success');
       setShowAssessmentModal(false);
       refresh();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to start assessment', 'error');
     }
   };
@@ -60,7 +60,7 @@ export const VendorDetailPage: React.FC = () => {
       showNotification('Questionnaire sent successfully', 'success');
       setShowQuestionnaireModal(false);
       refresh();
-    } catch {
+    } catch (_error) {
       showNotification('Failed to send questionnaire', 'error');
     }
   };

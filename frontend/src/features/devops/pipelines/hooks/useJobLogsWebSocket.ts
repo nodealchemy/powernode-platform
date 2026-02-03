@@ -179,7 +179,7 @@ export function useJobLogsWebSocket({
         try {
           const data = JSON.parse(event.data);
           handleMessage(data);
-        } catch {
+        } catch (_error) {
           // Ignore parse errors
         }
       };
@@ -200,7 +200,7 @@ export function useJobLogsWebSocket({
         setConnectionMethod('disconnected');
       };
 
-    } catch {
+    } catch (_error) {
       setConnectionMethod('disconnected');
     }
   }, [enabled, jobId, repositoryId, pipelineId, handleMessage]);

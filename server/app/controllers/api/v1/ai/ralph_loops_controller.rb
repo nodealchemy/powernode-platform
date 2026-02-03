@@ -9,7 +9,7 @@ module Api
 
         before_action :set_ralph_loop, only: %i[
           show update destroy
-          start pause resume cancel
+          start pause resume cancel reset
           run_iteration
           tasks task update_task
           iterations iteration
@@ -144,6 +144,18 @@ module Api
           end
         end
 
+        # POST /api/v1/ai/ralph_loops/:id/reset
+        def reset
+          @ralph_loop.reset!
+          render_success(
+            ralph_loop: @ralph_loop.loop_summary,
+            message: "Loop reset successfully"
+          )
+          log_audit_event("ai.ralph_loops.reset", @ralph_loop)
+        rescue ::Ai::RalphLoop::InvalidTransitionError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         # POST /api/v1/ai/ralph_loops/:id/run_iteration
         def run_iteration
           result = build_execution_service.run_iteration
@@ -253,6 +265,7 @@ module Api
 
           # Get recent commits from iterations
           recent_commits = @ralph_loop.ralph_iterations
+            .includes(:ralph_task)
             .where.not(git_commit_sha: nil)
             .order(created_at: :desc)
             .limit(10)
@@ -427,7 +440,7 @@ module Api
             %w[create parse_prd] => "ai.workflows.create",
             %w[update update_task] => "ai.workflows.update",
             %w[destroy] => "ai.workflows.delete",
-            %w[start pause resume cancel run_iteration pause_schedule resume_schedule regenerate_webhook_token] => "ai.workflows.execute"
+            %w[start pause resume cancel reset run_iteration pause_schedule resume_schedule regenerate_webhook_token] => "ai.workflows.execute"
           }
 
           permission_map.each do |actions, permission|

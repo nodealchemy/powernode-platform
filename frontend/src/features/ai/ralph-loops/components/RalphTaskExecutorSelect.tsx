@@ -169,7 +169,7 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
       try {
         const response = await agentsApi.getCapabilities();
         setAvailableCapabilities(response.categorized || {});
-      } catch {
+      } catch (_error) {
         // If API fails, set empty - user can still add custom capabilities
         setAvailableCapabilities({});
       } finally {
@@ -204,7 +204,7 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
         default:
           return [];
       }
-    } catch {
+    } catch (_error) {
       return [];
     }
   }, []);

@@ -169,7 +169,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
     try {
       const response = await agentsApi.getCapabilities();
       setAvailableCapabilities(response.categorized || {});
-    } catch {
+    } catch (_error) {
       setAvailableCapabilities({});
     } finally {
       setLoadingCapabilities(false);
@@ -223,7 +223,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
         }
 
         setPreviousProviderId(form.values.ai_provider_id);
-      } catch {
+      } catch (_error) {
         // Fall back to provider from list if detail fetch fails
         const provider = providers.find(p => p.id === form.values.ai_provider_id);
         setSelectedProvider(provider || null);
@@ -241,7 +241,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
       const providersData = response.items || [];
 
       setProviders(providersData);
-    } catch {
+    } catch (_error) {
       setProviders([]); // Set empty array on error
       addNotification({
         type: 'error',
@@ -260,7 +260,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
       setLoadingStats(true);
       const stats = await agentsApi.getAgentStats(agent.id);
       setAgentStats(stats);
-    } catch {
+    } catch (error) {
       // Check if it's a 404 (endpoint not implemented) and handle gracefully
       const httpError = error as { response?: { status?: number } };
       const is404 = httpError?.response?.status === 404;
@@ -298,7 +298,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
         message: 'AI agent deleted successfully'
       });
       onClose();
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',

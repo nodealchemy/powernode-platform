@@ -76,7 +76,7 @@ const AdminUsersPage: React.FC = () => {
       setRolesLoading(true);
       const roles = await usersApi.getAvailableRoles();
       setAvailableRoles(roles);
-    } catch {
+    } catch (_error) {
       setAvailableRoles([]);
     } finally {
       setRolesLoading(false);
@@ -104,7 +104,7 @@ const AdminUsersPage: React.FC = () => {
       } else {
         setUserStats(null);
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load users. Please check your connection and try again.', 'error');
     } finally {
       setLoading(false);
@@ -268,7 +268,7 @@ const AdminUsersPage: React.FC = () => {
 
       await loadData();
       setSelectedUsers(new Set());
-    } catch {
+    } catch (_error) {
       showNotification(`Failed to ${action} selected users. Please try again.`, 'error');
     } finally {
       setActionLoading(false);
@@ -289,7 +289,7 @@ const AdminUsersPage: React.FC = () => {
         reason: 'Admin impersonation'
       })).unwrap();
       window.location.href = '/app';
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to impersonate user. Please try again.';
       showNotification(errorMessage, 'error');
     } finally {
@@ -316,7 +316,7 @@ const AdminUsersPage: React.FC = () => {
       } else {
         setFormErrors([response.message || 'Failed to create user']);
       }
-    } catch {
+    } catch (error) {
       const axiosError = error as { code?: string; response?: { status?: number; data?: { errors?: unknown; message?: string } }; message?: string };
 
       if (axiosError.code === 'ERR_NETWORK' || axiosError.code === 'ERR_FAILED') {
@@ -368,7 +368,7 @@ const AdminUsersPage: React.FC = () => {
       } else {
         setFormErrors([response.message || 'Failed to update user']);
       }
-    } catch {
+    } catch (_error) {
       setFormErrors(['Failed to update user. Please try again.']);
     } finally {
       setActionLoading(false);
@@ -390,7 +390,7 @@ const AdminUsersPage: React.FC = () => {
       } else {
         showNotification(response.message || 'Failed to delete user', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to delete user. Please try again.', 'error');
     } finally {
       setActionLoading(false);
@@ -416,7 +416,7 @@ const AdminUsersPage: React.FC = () => {
             } else {
               showNotification(response.message || 'Failed to suspend user', 'error');
             }
-          } catch {
+          } catch (_error) {
             showNotification('Failed to suspend user. Please try again.', 'error');
           } finally {
             setActionLoading(false);
@@ -441,7 +441,7 @@ const AdminUsersPage: React.FC = () => {
             } else {
               showNotification(response.message || 'Failed to activate user', 'error');
             }
-          } catch {
+          } catch (_error) {
             showNotification('Failed to activate user. Please try again.', 'error');
           } finally {
             setActionLoading(false);
@@ -473,7 +473,7 @@ const AdminUsersPage: React.FC = () => {
       } else {
         showNotification(response.message || `Failed to ${action} user`, 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification(`Failed to ${action} user. Please try again.`, 'error');
     } finally {
       setActionLoading(false);

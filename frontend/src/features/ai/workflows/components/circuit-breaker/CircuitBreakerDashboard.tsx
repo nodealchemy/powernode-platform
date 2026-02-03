@@ -100,7 +100,7 @@ export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = (
 
       const data = await onLoadMetrics();
       setInternalMetrics(data);
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Load Failed',
@@ -154,7 +154,7 @@ export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = (
       });
 
       await loadMetrics(false);
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Reset Failed',

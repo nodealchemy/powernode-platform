@@ -90,7 +90,7 @@ export const settingsApi = {
     try {
       const response = await api.get('/settings/public');
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         data: {} as PublicSettings,
@@ -104,7 +104,7 @@ export const settingsApi = {
     try {
       const response = await api.get('/settings');
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         data: {} as UserSettingsData,
@@ -118,7 +118,7 @@ export const settingsApi = {
     try {
       const response = await api.put('/settings', { settings });
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         data: {} as UserSettingsData,
@@ -138,7 +138,7 @@ export const settingsApi = {
         if (Date.now() - timestamp < 3600000) {
           return text;
         }
-      } catch {
+      } catch (_error) {
         // Invalid cache, remove it
         localStorage.removeItem('powernode_copyright');
       }
@@ -163,7 +163,7 @@ export const settingsApi = {
         this.setCachedCopyright(response.data.copyright_text);
         return response.data.copyright_text;
       }
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   }
     
@@ -190,7 +190,7 @@ export const settingsApi = {
       
       const response = await api.put('/auth/change-password', backendParams);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to change password') : 'Failed to change password',
@@ -204,7 +204,7 @@ export const settingsApi = {
     try {
       const response = await api.put('/users/profile', profileData);
       return response.data;
-    } catch {
+    } catch (error) {
       return {
         success: false,
         error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to update profile') : 'Failed to update profile',

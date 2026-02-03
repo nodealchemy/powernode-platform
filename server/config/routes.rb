@@ -889,6 +889,9 @@ Rails.application.routes.draw do
         end
         member do
           get :by_stripe_id
+          post :pause
+          post :resume
+          get :preview_proration
         end
       end
       # Subscriptions lookup by external ID
@@ -2140,6 +2143,7 @@ Rails.application.routes.draw do
             post :pause
             post :resume
             post :cancel
+            post :reset
             post :run_iteration
             post :parse_prd
             get :learnings

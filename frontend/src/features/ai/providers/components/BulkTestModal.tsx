@@ -74,7 +74,7 @@ export const BulkTestModal: React.FC<BulkTestModalProps> = ({
               }
             : r
         ));
-      } catch {
+      } catch (error) {
         setResults(prev => prev.map(r =>
           r.provider === provider.name
             ? {

@@ -64,7 +64,7 @@ class InvitationsApi {
         success: true,
         data: response.data
       };
-    } catch {
+    } catch (error) {
       const { errorMessage, errors } = getErrorInfo(error, 'Failed to fetch invitations');
 
       return {
@@ -91,7 +91,7 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation sent successfully'
       };
-    } catch {
+    } catch (error) {
       const { errorMessage, errors } = getErrorInfo(error, 'Failed to send invitation');
       return {
         success: false,
@@ -113,7 +113,7 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation resent successfully'
       };
-    } catch {
+    } catch (error) {
       const { errorMessage, errors } = getErrorInfo(error, 'Failed to resend invitation');
       return {
         success: false,
@@ -135,7 +135,7 @@ class InvitationsApi {
         data: true,
         message: 'Invitation canceled successfully'
       };
-    } catch {
+    } catch (error) {
       const { errorMessage, errors } = getErrorInfo(error, 'Failed to cancel invitation');
       return {
         success: false,
@@ -162,7 +162,7 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation accepted successfully'
       };
-    } catch {
+    } catch (error) {
       const { errorMessage, errors } = getErrorInfo(error, 'Failed to accept invitation');
       return {
         success: false,
@@ -183,7 +183,7 @@ class InvitationsApi {
         success: true,
         data: response.data
       };
-    } catch {
+    } catch (error) {
       return {
         success: false,
         data: {} as Invitation,
@@ -206,7 +206,7 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation updated successfully'
       };
-    } catch {
+    } catch (error) {
       return {
         success: false,
         data: {} as Invitation,

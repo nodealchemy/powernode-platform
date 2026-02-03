@@ -43,7 +43,7 @@ export const ApiKeyManager: React.FC = () => {
       if (response.data.success) {
         setApiKeys(response.data.data || []);
       }
-    } catch {
+    } catch (error) {
       addNotification({ type: 'error', message: getErrorMessage(error) });
     } finally {
       setLoading(false);
@@ -72,7 +72,7 @@ export const ApiKeyManager: React.FC = () => {
         loadApiKeys();
         addNotification({ type: 'success', message: 'API key created successfully' });
       }
-    } catch {
+    } catch (error) {
       addNotification({ type: 'error', message: getErrorMessage(error) });
     } finally {
       setIsCreating(false);
@@ -90,7 +90,7 @@ export const ApiKeyManager: React.FC = () => {
         loadApiKeys();
         addNotification({ type: 'success', message: 'API key revoked successfully' });
       }
-    } catch {
+    } catch (error) {
       addNotification({ type: 'error', message: getErrorMessage(error) });
     }
   };

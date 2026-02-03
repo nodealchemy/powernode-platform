@@ -85,7 +85,7 @@ export const NotificationsPage: React.FC = () => {
       setNotifications(response.notifications);
       setUnreadCount(response.unread_count);
       setTotalPages(response.pagination.total_pages);
-    } catch {
+    } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to load notifications', 'error');
     } finally {
       setLoading(false);
@@ -104,7 +104,7 @@ export const NotificationsPage: React.FC = () => {
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   };
@@ -114,7 +114,7 @@ export const NotificationsPage: React.FC = () => {
       await notificationApi.dismiss(id);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       loadNotifications();
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   };
@@ -124,7 +124,7 @@ export const NotificationsPage: React.FC = () => {
       await notificationApi.markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   };

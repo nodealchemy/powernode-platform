@@ -20,7 +20,7 @@ export function useGitProviders() {
       setError(null);
       const data = await gitProvidersApi.getProviders();
       setProviders(data);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch providers');
     } finally {
       setLoading(false);
@@ -31,7 +31,7 @@ export function useGitProviders() {
     try {
       const data = await gitProvidersApi.getAvailableProviders();
       setAvailableProviders(data);
-    } catch {
+    } catch (err) {
       console.error('Failed to fetch available providers:', err);
     }
   }, []);
@@ -64,7 +64,7 @@ export function useGitCredentials(providerId: string | null) {
       setError(null);
       const data = await gitProvidersApi.getCredentials(providerId);
       setCredentials(data);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch credentials');
     } finally {
       setLoading(false);

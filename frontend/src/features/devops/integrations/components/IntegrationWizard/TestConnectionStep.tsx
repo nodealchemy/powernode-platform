@@ -51,7 +51,7 @@ export function TestConnectionStep({
         setTestStatus('success');
         setTestMessage('Configuration validated. Ready to create integration.');
       }
-    } catch {
+    } catch (_error) {
       setTestStatus('error');
       setTestError('An unexpected error occurred during testing');
     }

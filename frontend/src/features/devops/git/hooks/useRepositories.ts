@@ -39,7 +39,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       });
       setRepositories(data.repositories);
       setPagination(data.pagination);
-    } catch {
+    } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to fetch repositories'
       );
@@ -121,7 +121,7 @@ export function useRepository(id: string | null) {
       setError(null);
       const data = await gitProvidersApi.getRepository(id);
       setRepository(data);
-    } catch {
+    } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to fetch repository'
       );

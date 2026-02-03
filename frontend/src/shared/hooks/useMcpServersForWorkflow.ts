@@ -44,7 +44,7 @@ export function useMcpServersForWorkflow(): UseMcpServersForWorkflowResult {
       setServers(response.data?.mcp_servers || []);
       setTotalServers(response.data?.meta?.total_servers || 0);
       setTotalTools(response.data?.meta?.total_tools || 0);
-    } catch {
+    } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch MCP servers';
       setError(errorMessage);
       setServers([]);

@@ -130,7 +130,7 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
       const messages = await agentsApi.getMessages(agentId, conversationId);
       setMessages(messages.reverse()); // Reverse to show oldest first
       scrollToBottom();
-    } catch {
+    } catch (_error) {
       // Error loading messages - will display empty state
     }
   }, [scrollToBottom]);
@@ -194,7 +194,7 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
             });
             return null;
           }
-        } catch {
+        } catch (_error) {
           // Error checking provider availability - continue with conversation creation
         }
       }
@@ -234,11 +234,11 @@ Position: (${node.position_x}, ${node.position_y})`;
         // Load messages to show the conversation
         loadMessages(agent.id, newConversation.id);
         return newConversation;
-      } catch {
+      } catch (_error) {
         // If message sending fails, clean up the conversation
         try {
           await agentsApi.archiveConversation(agent.id, newConversation.id);
-        } catch {
+        } catch (_error) {
           // Ignore cleanup errors
         }
         setConversation(null);
@@ -249,7 +249,7 @@ Position: (${node.position_x}, ${node.position_y})`;
         });
         return null;
       }
-    } catch {
+    } catch (error) {
       const apiError = error as { response?: { status?: number } };
       setInitializationFailed(true);
       addNotification({
@@ -338,7 +338,7 @@ Position: (${node.position_x}, ${node.position_y})`;
       // Remove temp message and add real messages
       setMessages(prev => prev.filter(m => m.id !== userMessage.id));
       loadMessages(operationsAgent.id, activeConversation.id);
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Chat Error',

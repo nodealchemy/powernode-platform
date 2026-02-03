@@ -79,7 +79,7 @@ const AgentMarketplacePage: React.FC = () => {
       setCategories(categoriesRes.categories || []);
       setInstallations(installationsRes.items || []);
       setFeaturedTemplates(featuredRes.templates || []);
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to load marketplace data')
@@ -99,7 +99,7 @@ const AgentMarketplacePage: React.FC = () => {
 
       const data = await agentMarketplaceApi.getTemplates(filters);
       setTemplates(data.items || []);
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to load templates')
@@ -117,7 +117,7 @@ const AgentMarketplacePage: React.FC = () => {
       // Reload installations
       const installationsRes = await agentMarketplaceApi.getInstallations();
       setInstallations(installationsRes.items || []);
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error, 'Failed to install template')

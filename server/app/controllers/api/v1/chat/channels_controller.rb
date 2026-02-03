@@ -5,6 +5,7 @@ module Api
     module Chat
       class ChannelsController < ApplicationController
         include AuditLogging
+        include ::Ai::ResourceFiltering
 
         before_action :set_channel, only: %i[show update destroy connect disconnect test regenerate_token sessions metrics]
 

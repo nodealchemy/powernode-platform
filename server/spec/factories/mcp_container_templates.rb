@@ -32,7 +32,7 @@ FactoryBot.define do
         'drop_capabilities' => [ 'ALL' ]
       }
     end
-    runner_labels { [ 'powernode-ai-agent' ] }
+    labels { { 'runner' => 'powernode-ai-agent' } }
 
     trait :private do
       visibility { 'private' }
@@ -79,7 +79,7 @@ FactoryBot.define do
     end
 
     trait :gpu_enabled do
-      runner_labels { [ 'powernode-gpu' ] }
+      labels { { 'runner' => 'powernode-gpu' } }
       resource_limits do
         {
           'memory_mb' => 8192,

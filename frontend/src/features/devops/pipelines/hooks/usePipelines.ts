@@ -28,7 +28,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
       const data = await devopsPipelinesApi.getAll(params);
       setPipelines(data.pipelines);
       setMeta(data.meta);
-    } catch {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch pipelines';
       setError(message);
     } finally {
@@ -171,7 +171,7 @@ export function usePipeline(id: string | null) {
       // Pass true to include recent runs in the response
       const data = await devopsPipelinesApi.getById(id, true);
       setPipeline(data);
-    } catch {
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch pipeline';
       setError(message);
     } finally {

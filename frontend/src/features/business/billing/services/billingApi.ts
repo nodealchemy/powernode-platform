@@ -106,7 +106,7 @@ class BillingApi {
     try {
       const response = await api.get('/billing');
       return response.data;
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       throw new Error(message);
     }
@@ -117,7 +117,7 @@ class BillingApi {
     try {
       const response = await api.get('/billing/subscription');
       return response.data;
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       throw new Error(message);
     }
@@ -133,7 +133,7 @@ class BillingApi {
         data: response.data.invoices,
         pagination: response.data.pagination
       };
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       throw new Error(message);
     }
@@ -161,7 +161,7 @@ class BillingApi {
         line_items: invoiceData.line_items
       });
       return response.data;
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       return { success: false, error: message, errors: [message] };
     }
@@ -172,7 +172,7 @@ class BillingApi {
     try {
       const response = await api.get('/billing/payment-methods');
       return { data: response.data.payment_methods || response.data };
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       return { data: [], error: message };
     }
@@ -190,7 +190,7 @@ class BillingApi {
         provider
       });
       return response.data;
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       return { success: false, error: message };
     }
@@ -206,7 +206,7 @@ class BillingApi {
     try {
       const response = await api.post('/billing/payment-intent', request);
       return response.data;
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       return { success: false, error: message };
     }
@@ -228,7 +228,7 @@ class BillingApi {
     try {
       const response = await api.post('/billing/payment-methods', paymentMethodData);
       return { success: true, data: response.data };
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       return { success: false, error: message };
     }
@@ -241,7 +241,7 @@ class BillingApi {
     try {
       const response = await api.delete(`/billing/payment-methods/${paymentMethodId}`);
       return { success: true, ...response.data };
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       return { success: false, error: message };
     }
@@ -254,7 +254,7 @@ class BillingApi {
     try {
       const response = await api.put(`/billing/payment-methods/${paymentMethodId}/default`);
       return { success: true, ...response.data };
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       return { success: false, error: message };
     }
@@ -287,7 +287,7 @@ class BillingApi {
         await api.get('/billing/history', { params: filters }) :
         await api.get('/billing/history');
       return { data: response.data.data || response.data, pagination: response.data.pagination };
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       return { data: [], error: message };
     }
@@ -307,7 +307,7 @@ class BillingApi {
     try {
       const response = await api.post('/billing/payments/process', paymentData);
       return response.data;
-    } catch {
+    } catch (error) {
       const message = getErrorMessage(error);
       return { success: false, error: message };
     }

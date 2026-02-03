@@ -359,7 +359,7 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
 
       setStats(overviewStats);
 
-    } catch {
+    } catch (error) {
       // More detailed error handling
       let errorMessage = 'Failed to load AI system data';
       if (error instanceof Error) {

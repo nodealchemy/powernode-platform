@@ -11,6 +11,10 @@ module Mcp
   class ToolConflictError < RegistryError; end
   class DependencyError < RegistryError; end
 
+  # Cache TTLs
+  TOOL_LIST_CACHE_TTL = 1.hour
+  CAPABILITY_SEARCH_CACHE_TTL = 1.hour
+
   attr_accessor :account
 
   def initialize(account: nil)
@@ -115,8 +119,20 @@ module Mcp
   # TOOL DISCOVERY AND QUERYING
   # =============================================================================
 
-  # List all tools with optional filtering
+  # List all tools with optional filtering (cached for 1 hour when no filters)
   def list_tools(filters = {})
+    # Use cache only for unfiltered queries
+    if filters.empty? || filters.keys == [:sort_by]
+      cache_key = "mcp:registry:tools:#{@account&.id || 'global'}:#{filters[:sort_by] || 'name'}"
+
+      return Rails.cache.fetch(cache_key, expires_in: TOOL_LIST_CACHE_TTL) do
+        tools = @tools.values
+        sort_key = filters[:sort_by] || "name"
+        tools.sort_by { |tool| tool[sort_key] || "" }
+      end
+    end
+
+    # For filtered queries, don't cache (too many variations)
     tools = @tools.values
 
     # Apply filters
@@ -131,26 +147,38 @@ module Mcp
     tools.sort_by { |tool| tool[sort_key] || "" }
   end
 
-  # Find tools by capability requirements
+  # Find tools by capability requirements (cached for 1 hour)
   def find_tools_by_capability(required_capabilities)
-    matching_tools = []
+    # Sort capabilities for consistent cache key
+    sorted_caps = required_capabilities.sort.join(",")
+    cache_key = "mcp:registry:capabilities:#{@account&.id || 'global'}:#{Digest::MD5.hexdigest(sorted_caps)}"
 
-    @capability_index.each do |capability, tool_ids|
-      if required_capabilities.include?(capability)
-        tool_ids.each do |tool_id|
-          tool = @tools[tool_id]
-          next unless tool
+    Rails.cache.fetch(cache_key, expires_in: CAPABILITY_SEARCH_CACHE_TTL) do
+      matching_tools = []
 
-          # Check if tool supports ALL required capabilities
-          tool_capabilities = tool["capabilities"] || []
-          if (required_capabilities - tool_capabilities).empty?
-            matching_tools << tool unless matching_tools.include?(tool)
+      @capability_index.each do |capability, tool_ids|
+        if required_capabilities.include?(capability)
+          tool_ids.each do |tool_id|
+            tool = @tools[tool_id]
+            next unless tool
+
+            # Check if tool supports ALL required capabilities
+            tool_capabilities = tool["capabilities"] || []
+            if (required_capabilities - tool_capabilities).empty?
+              matching_tools << tool unless matching_tools.include?(tool)
+            end
           end
         end
       end
-    end
 
-    matching_tools
+      matching_tools
+    end
+  end
+
+  # Invalidate registry caches
+  def invalidate_caches
+    Rails.cache.delete_matched("mcp:registry:tools:#{@account&.id || 'global'}:*")
+    Rails.cache.delete_matched("mcp:registry:capabilities:#{@account&.id || 'global'}:*")
   end
 
   # Get tool by ID or name

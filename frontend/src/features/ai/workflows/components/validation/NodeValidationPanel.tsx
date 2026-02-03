@@ -62,7 +62,7 @@ export const NodeValidationPanel: React.FC<NodeValidationPanelProps> = ({
         title: 'Validation Complete',
         message: `Found ${validationResult?.issues.length || 0} issues`
       });
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Validation Failed',
@@ -128,7 +128,7 @@ export const NodeValidationPanel: React.FC<NodeValidationPanelProps> = ({
       // Re-validate after auto-fix
       setSelectedIssues(new Set());
       await performValidation();
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Auto-Fix Failed',

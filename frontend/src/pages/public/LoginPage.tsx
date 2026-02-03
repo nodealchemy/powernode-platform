@@ -59,7 +59,7 @@ export const LoginPage: React.FC = () => {
         const copyright = await settingsApi.getCopyright();
         const formattedCopyright = settingsApi.formatCopyright(copyright);
         setCopyrightText(formattedCopyright);
-      } catch {
+      } catch (_error) {
         // Fallback to default copyright text
         setCopyrightText(`© ${new Date().getFullYear()} Everett C. Haimes III. All rights reserved.`);
       }
@@ -108,7 +108,7 @@ export const LoginPage: React.FC = () => {
           navigate(from, { replace: true });
         }, 100);
       }
-    } catch {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: ErrorHandler.getUserMessage(error),
@@ -141,7 +141,7 @@ export const LoginPage: React.FC = () => {
       setTimeout(() => {
         navigate(from, { replace: true });
       }, 100);
-    } catch {
+    } catch (_error) {
       dispatch(addNotification({
         type: 'error',
         message: 'Failed to load user data. Please try logging in again.',

@@ -76,22 +76,34 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   }, []);
 
   // Clean message content to remove chunked encoding artifacts
+  // Handles various forms of HTTP chunked transfer encoding markers
   const cleanMessageContent = (content: string): string => {
     if (!content) return '';
 
     // First clean markdown content for safety
     let cleaned = cleanMarkdownContent(content);
 
-    // Remove various forms of chunked encoding artifacts
-    // These can appear as trailing "0", "0\r\n", or just "0"
-    // Also handle cases where the "0" appears after punctuation
+    // Comprehensive chunked encoding cleanup
+    // Handle all variations of chunk markers that can appear in streamed responses
     cleaned = cleaned
-      ?.replace(/[\r\n]*0[\r\n]*$/, '') // Remove "0" with any line breaks at end
-      ?.replace(/^[\r\n]*0[\r\n]*/, '') // Remove leading "0" artifacts
-      ?.replace(/([.!?])\s*0\s*$/, '$1') // Remove "0" after punctuation
-      ?.replace(/\s+0\s*$/, '') // Remove trailing "0" with whitespace
-      ?.replace(/0$/, '') // Remove standalone trailing "0"
+      // Remove trailing chunk markers (hex size followed by optional CRLF)
+      ?.replace(/[\r\n]*[0-9a-fA-F]+[\r\n]*$/g, '')
+      // Remove leading chunk headers (hex size at start)
+      ?.replace(/^[\r\n]*[0-9a-fA-F]+[\r\n]+/g, '')
+      // Remove inline chunk markers between content
+      ?.replace(/\r\n[0-9a-fA-F]+\r\n/g, '')
+      // Remove "0" after punctuation (final chunk marker)
+      ?.replace(/([.!?])\s*0\s*$/g, '$1')
+      // Remove trailing whitespace + "0" patterns
+      ?.replace(/\s+0\s*$/g, '')
+      // Remove standalone trailing "0" (final chunk indicator)
+      ?.replace(/(?:^|\s)0$/g, '')
       ?.trim() || '';
+
+    // Final chunk marker check - if content is just zeros, return empty
+    if (/^0+$/.test(cleaned)) {
+      return '';
+    }
 
     return cleaned;
   };
@@ -117,7 +129,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       }));
 
       setMessages(messages.reverse()); // Reverse to show oldest first
-    } catch {
+    } catch (_error) {
       // Use a ref for addNotification to avoid dependency issues
       addNotification({
         type: 'error',
@@ -248,7 +260,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       // The WebSocket message_created event will replace this optimistic message
 
       // The real-time channel will handle both user message echo and AI responses
-    } catch {
+    } catch (_error) {
 
       // Remove optimistic message on error
       setMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
@@ -309,7 +321,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         title: 'Copied',
         message: 'Message copied to clipboard'
       });
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   }
   }, []); // Remove addNotification dependency
@@ -343,7 +355,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
             : msg
         ));
       }
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Regeneration Failed',
@@ -379,7 +391,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           ? { ...msg, metadata: { ...msg.metadata, user_rating: result.rating } }
           : msg
       ));
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Rating Failed',
@@ -420,16 +432,19 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         }`}
       >
         <div className="flex-shrink-0 flex items-start justify-center">
-          <Avatar className={`h-8 w-8 flex items-center justify-center ${
-            isUser
-              ? 'bg-theme-primary text-white'
-              : 'bg-theme-surface border border-theme text-theme-primary'
-          }`}>
+          <Avatar
+            className={`h-8 w-8 flex items-center justify-center ${
+              isUser
+                ? 'bg-theme-primary text-white'
+                : 'bg-theme-surface border border-theme text-theme-primary'
+            }`}
+            aria-hidden="true"
+          >
             <div className="flex items-center justify-center w-full h-full">
               {isUser ? (
-                <User className="h-4 w-4" />
+                <User className="h-4 w-4" aria-hidden="true" />
               ) : (
-                <Bot className="h-4 w-4" />
+                <Bot className="h-4 w-4" aria-hidden="true" />
               )}
             </div>
           </Avatar>
@@ -572,7 +587,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           </div>
 
           {isAI && !isProcessing && (
-            <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200" role="group" aria-label="Message actions">
               <div className="flex items-center bg-theme-surface/80 backdrop-blur-sm rounded-full border border-theme/20 p-1 shadow-sm">
                 <Button
                   variant="ghost"
@@ -580,8 +595,9 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
                   onClick={() => handleCopyMessage(message)}
                   className="h-7 w-7 p-0 hover:bg-theme-surface-hover rounded-full transition-all duration-200"
                   title="Copy message"
+                  aria-label="Copy message to clipboard"
                 >
-                  <Copy className="h-3.5 w-3.5" />
+                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
 
                 <Button
@@ -590,8 +606,9 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
                   onClick={() => handleRateMessage(message.id, 'thumbs_up')}
                   className="h-7 w-7 p-0 hover:bg-theme-success/10 hover:text-theme-success dark:hover:bg-theme-success/20 rounded-full transition-all duration-200"
                   title="Good response"
+                  aria-label="Rate this response as helpful"
                 >
-                  <ThumbsUp className="h-3.5 w-3.5" />
+                  <ThumbsUp className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
 
                 <Button
@@ -600,8 +617,9 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
                   onClick={() => handleRateMessage(message.id, 'thumbs_down')}
                   className="h-7 w-7 p-0 hover:bg-theme-danger/10 hover:text-theme-danger dark:hover:bg-theme-danger/20 rounded-full transition-all duration-200"
                   title="Poor response"
+                  aria-label="Rate this response as not helpful"
                 >
-                  <ThumbsDown className="h-3.5 w-3.5" />
+                  <ThumbsDown className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
 
                 <DropdownMenu
@@ -611,8 +629,9 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
                       size="xs"
                       className="h-7 w-7 p-0 hover:bg-theme-surface-hover rounded-full transition-all duration-200"
                       title="More options"
+                      aria-label="More message options"
                     >
-                      <MoreVertical className="h-3.5 w-3.5" />
+                      <MoreVertical className="h-3.5 w-3.5" aria-hidden="true" />
                     </Button>
                   }
                   items={[
@@ -723,6 +742,10 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
 
       {/* Input Area */}
       <div className="p-4 border-t border-theme/30 bg-theme-surface/40 backdrop-blur-sm">
+        {/* Screen reader instructions */}
+        <span id="message-input-instructions" className="sr-only">
+          Type your message and press Enter to send, or Shift+Enter for a new line
+        </span>
         <div className="flex gap-2 items-end">
           <div className="flex-1">
             <textarea
@@ -733,6 +756,8 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
               placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
               className="w-full min-h-[40px] max-h-[120px] px-3 py-2 border border-theme/40 rounded-lg resize-none bg-theme-surface/90 backdrop-blur-sm text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary focus:bg-theme-surface disabled:bg-theme-surface disabled:text-theme-muted transition-all duration-200"
               disabled={sending}
+              aria-label="Message input"
+              aria-describedby="message-input-instructions"
             />
           </div>
 
@@ -740,11 +765,12 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || sending}
             className="h-[40px] px-3"
+            aria-label={sending ? "Sending message" : "Send message"}
           >
             {sending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Send className="h-4 w-4" />
+              <Send className="h-4 w-4" aria-hidden="true" />
             )}
           </Button>
         </div>

@@ -15,6 +15,7 @@ FactoryBot.define do
     current_running_containers { 0 }
     containers_used_this_hour { 0 }
     containers_used_today { 0 }
+    usage_reset_at { Time.current.beginning_of_hour }
     overage_rate_per_container { nil }
     allow_overage { false }
 

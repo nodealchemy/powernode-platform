@@ -93,7 +93,7 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
         total_executions: totalExecutions,
         success_rate: Math.round(avgSuccessRate)
       });
-    } catch {
+    } catch (error) {
       // Check if it's an authentication error
       const httpError = error as { response?: { status?: number } };
       const isAuthError = httpError?.response?.status === 401;
@@ -178,7 +178,7 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
         });
       }
       loadDashboardData(); // Refresh the list
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',

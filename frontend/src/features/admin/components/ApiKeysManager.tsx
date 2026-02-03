@@ -49,7 +49,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
       } else {
         showNotification(response.error || 'Failed to load API keys', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load API keys', 'error');
     } finally {
       setLoading(false);
@@ -94,7 +94,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
       } else {
         showNotification(response.error || 'Action failed', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Action failed', 'error');
     } finally {
       setActionLoading(prev => ({ ...prev, [apiKeyId]: false }));
@@ -110,7 +110,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
       } else {
         showNotification('Failed to load API key details', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load API key details', 'error');
     }
   };

@@ -51,7 +51,7 @@ export const AdminRolesPage: React.FC = () => {
       ]);
       setRoles(rolesResponse.data || []);
       setPermissions(permissionsResponse.data || []);
-    } catch {
+    } catch (_error) {
       showNotificationRef.current('Failed to load roles', 'error');
     } finally {
       setLoading(false);
@@ -117,7 +117,7 @@ export const AdminRolesPage: React.FC = () => {
           await rolesApi.deleteRole(role.id);
           showNotification('Role deleted successfully', 'success');
           loadRoles();
-        } catch {
+        } catch (error) {
           showNotification(error instanceof Error ? error.message : 'Failed to delete role', 'error');
         }
       }

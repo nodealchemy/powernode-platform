@@ -19,7 +19,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   }
   };
@@ -35,6 +35,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
             <button
               onClick={handleCopy}
               className="flex items-center gap-1 px-2 py-1 text-xs text-theme-secondary hover:text-theme-primary transition-colors duration-200"
+              aria-label={copied ? 'Code copied' : 'Copy code to clipboard'}
             >
               {copied ? (
                 <>

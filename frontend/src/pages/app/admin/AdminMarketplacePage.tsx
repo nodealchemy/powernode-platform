@@ -115,7 +115,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
         const response = await marketplaceApi.getReviews(params);
         setReviews(response.data || []);
       }
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -207,7 +207,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
         title: 'Export Complete',
         message: `Exported ${data.length} records to ${filename}`
       });
-    } catch {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Export Failed',
@@ -226,7 +226,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
         message: `${template.name} has been approved for the marketplace`
       });
       await loadData();
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -259,7 +259,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       setRejectReason('');
       setTemplateToReject(null);
       await loadData();
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -308,7 +308,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       }
 
       await loadData();
-    } catch {
+    } catch (error) {
       addNotification({
         type: 'error',
         title: 'Error',

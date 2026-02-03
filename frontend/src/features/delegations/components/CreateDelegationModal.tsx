@@ -47,7 +47,7 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
       ]);
       setAvailableRoles(rolesData);
       setAvailablePermissions(permissionsData);
-    } catch {
+    } catch (_error) {
     // Error silently ignored
   } finally {
       setLoading(false);

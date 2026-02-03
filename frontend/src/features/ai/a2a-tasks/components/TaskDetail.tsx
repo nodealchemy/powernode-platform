@@ -67,7 +67,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
 
       setTask(taskResponse.task);
       setArtifacts(artifactsResponse.artifacts || []);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load task');
     } finally {
       setLoading(false);
@@ -80,7 +80,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
       await a2aTasksApiService.cancelTask(taskId, 'Cancelled by user');
       addNotification({ type: 'success', title: 'Cancelled', message: 'Task has been cancelled' });
       await loadTask(); // Reload to get updated task state
-    } catch {
+    } catch (_error) {
       addNotification({ type: 'error', title: 'Error', message: 'Failed to cancel task' });
     } finally {
       setActionLoading(null);
@@ -94,14 +94,14 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
       let parsedInput: unknown;
       try {
         parsedInput = JSON.parse(inputValue);
-      } catch {
+      } catch (_error) {
         parsedInput = inputValue;
       }
       await a2aTasksApiService.provideInput(taskId, parsedInput);
       setInputValue('');
       addNotification({ type: 'success', title: 'Input Sent', message: 'Input provided to task' });
       await loadTask(); // Reload to get updated task state
-    } catch {
+    } catch (_error) {
       addNotification({ type: 'error', title: 'Error', message: 'Failed to provide input' });
     } finally {
       setActionLoading(null);

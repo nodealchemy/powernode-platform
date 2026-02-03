@@ -57,7 +57,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
 
       const response = await memoryApiService.getMemories(agentId, filters);
       setMemories(response.items || []);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load memories');
     } finally {
       setLoading(false);
@@ -82,7 +82,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
         limit: 50,
       });
       setMemories(response.results || []);
-    } catch {
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed');
     } finally {
       setLoading(false);

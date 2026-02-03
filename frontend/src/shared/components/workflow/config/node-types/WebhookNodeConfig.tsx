@@ -160,7 +160,7 @@ export const WebhookNodeConfig: React.FC<NodeTypeConfigProps> = ({
           try {
             const parsed = JSON.parse(e.target.value);
             handleConfigChange('headers', parsed);
-          } catch {
+          } catch (_error) {
             handleConfigChange('headers', e.target.value);
           }
         }}
