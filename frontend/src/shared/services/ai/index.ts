@@ -92,6 +92,7 @@ export type {
   AgentAnalytics,
   AgentType,
   SendMessageRequest,
+  SendMessageResponse,
 } from './types/agent-api-types';
 
 // Re-export Conversations service (global conversations)

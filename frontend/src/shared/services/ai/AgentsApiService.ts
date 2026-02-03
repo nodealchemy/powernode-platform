@@ -14,7 +14,7 @@ import type {
   AgentStats,
   AgentAnalytics,
   AgentType,
-  SendMessageRequest,
+  SendMessageResponse,
 } from './types/agent-api-types';
 
 /**
@@ -362,15 +362,25 @@ class AgentsApiService extends BaseApiService {
   }
 
   /**
-   * Send message in conversation
+   * Send message in conversation and get AI response
    * POST /api/v1/ai/agents/:agent_id/conversations/:id/send_message
+   *
+   * @param agentId - The agent ID
+   * @param conversationId - The conversation ID
+   * @param content - The message content (string or structured request)
+   * @returns Both user message and assistant response
    */
   async sendMessage(
     agentId: string,
     conversationId: string,
-    message: SendMessageRequest
-  ): Promise<AiMessage> {
-    return this.performNestedAction<AiMessage>(
+    content: string | { content: string; message_type?: string; metadata?: Record<string, unknown> }
+  ): Promise<SendMessageResponse> {
+    // Normalize content to SendMessageRequest format
+    const message = typeof content === 'string'
+      ? { message: { content } }
+      : { message: content };
+
+    return this.performNestedAction<SendMessageResponse>(
       this.resource,
       agentId,
       'conversations',

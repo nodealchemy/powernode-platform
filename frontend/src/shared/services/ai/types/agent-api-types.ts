@@ -57,9 +57,59 @@ export interface ExecuteAgentRequest {
 }
 
 export interface SendMessageRequest {
-  content: string;
-  role?: 'user' | 'assistant' | 'system';
-  metadata?: Record<string, unknown>;
+  message: {
+    content: string;
+    message_type?: string;
+    metadata?: Record<string, unknown>;
+  };
+}
+
+export interface SendMessageResponse {
+  user_message: {
+    id: string;
+    conversation_id: string;
+    role: string;
+    content: string;
+    content_preview: string;
+    message_type: string;
+    status: string;
+    user: string | null;
+    sequence_number: number;
+    token_count: number;
+    cost_usd: string;
+    has_attachments: boolean;
+    attachment_count: number;
+    is_edited: boolean;
+    created_at: string;
+    processed_at: string | null;
+    parent_message_id: string | null;
+  };
+  assistant_message: {
+    id: string;
+    conversation_id: string;
+    role: string;
+    content: string;
+    content_preview: string;
+    message_type: string;
+    status: string;
+    user: string | null;
+    sequence_number: number;
+    token_count: number;
+    cost_usd: string;
+    has_attachments: boolean;
+    attachment_count: number;
+    is_edited: boolean;
+    created_at: string;
+    processed_at: string | null;
+    parent_message_id: string | null;
+  } | null;
+  error?: string;
+  conversation: {
+    id: string;
+    message_count: number;
+    total_tokens?: number;
+    total_cost?: number;
+  };
 }
 
 // ===================================================================
