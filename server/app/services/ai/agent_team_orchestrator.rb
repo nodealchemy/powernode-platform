@@ -361,19 +361,27 @@ class Ai::AgentTeamOrchestrator
   end
 
   def create_workflow_run(input, context)
-    workflow = team.account.ai_workflows.find_or_create_by!(
+    # Find or create workflow for this team execution
+    # Include version in the lookup to avoid uniqueness constraint issues
+    workflow = team.account.ai_workflows.find_or_initialize_by(
       name: "Team Execution: #{team.name}",
       slug: "team-execution-#{team.id}",
-      creator_id: user.id
-    ) do |w|
-      w.description = "Auto-generated workflow for team #{team.name}"
-      w.status = "active"
-      w.configuration = { "team_execution" => true }
-      w.metadata = {
-        "team_id" => team.id,
-        "team_type" => team.team_type,
-        "auto_generated" => true
-      }
+      version: "1.0.0"
+    )
+
+    unless workflow.persisted?
+      workflow.assign_attributes(
+        creator_id: user.id,
+        description: "Auto-generated workflow for team #{team.name}",
+        status: "active",
+        configuration: { "team_execution" => true },
+        metadata: {
+          "team_id" => team.id,
+          "team_type" => team.team_type,
+          "auto_generated" => true
+        }
+      )
+      workflow.save!
     end
 
     workflow.runs.create!(

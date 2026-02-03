@@ -49,6 +49,7 @@ module Ai
 
     # ==================== Callbacks ====================
     before_validation :set_position, on: :create
+    after_commit :update_loop_task_counts
 
     # ==================== State Machine Methods ====================
 
@@ -284,6 +285,18 @@ module Ai
 
       max_position = ralph_loop.ralph_tasks.maximum(:position) || 0
       self.position = max_position + 1
+    end
+
+    def update_loop_task_counts
+      # Update the parent loop's task counts whenever a task is created/updated/destroyed
+      # Skip if ralph_loop is nil (happens during cascade delete)
+      return unless ralph_loop.present?
+
+      ralph_loop.update_columns(
+        total_tasks: ralph_loop.ralph_tasks.count,
+        completed_tasks: ralph_loop.ralph_tasks.where(status: "passed").count,
+        failed_tasks: ralph_loop.ralph_tasks.where(status: "failed").count
+      )
     end
 
     # ==================== Executor Finders ====================

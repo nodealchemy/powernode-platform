@@ -53,6 +53,7 @@ module Ai
 
       message = messages.build(
         user: user,
+        ai_agent_id: ai_agent_id,
         message_id: UUID7.generate,
         role: role,
         content: content,

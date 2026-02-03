@@ -10,7 +10,7 @@ module Ai
 
     # Associations
     belongs_to :conversation, class_name: "Ai::Conversation", foreign_key: "ai_conversation_id"
-    belongs_to :agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id"
+    belongs_to :agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true
     belongs_to :user, optional: true
     belongs_to :parent_message, class_name: "Ai::Message", optional: true
     has_many :child_messages, class_name: "Ai::Message", foreign_key: "parent_message_id", dependent: :nullify

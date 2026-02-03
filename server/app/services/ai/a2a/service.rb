@@ -182,17 +182,21 @@ module Ai
         begin
           result = execute_agent(task)
           task.complete!(result: result[:output], artifacts: result[:artifacts] || [])
-          store_execution_memory(task, success: true)
         rescue StandardError => e
-          task.fail!(
-            error_message: e.message,
-            error_code: e.class.name,
-            error_details: { backtrace: e.backtrace&.first(5) }
-          )
+          # Only fail if task is not already in a terminal state
+          unless task.terminal?
+            task.fail!(
+              error_message: e.message,
+              error_code: e.class.name,
+              error_details: { backtrace: e.backtrace&.first(5) }
+            )
+          end
           store_execution_memory(task, success: false, error: e.message)
           raise ExecutionError.new(e.message)
         end
 
+        # Store success memory outside the try block to avoid state conflicts
+        store_execution_memory(task, success: true)
         task
       end
 
@@ -342,15 +346,53 @@ module Ai
         agent = task.to_agent
         raise ExecutionError.new("No agent associated with task") unless agent
 
-        context = build_execution_context(task, agent)
+        execution_context = build_execution_context(task, agent)
 
         executor = Ai::McpAgentExecutor.new(
           agent: agent,
-          account: @account,
-          context: context
+          account: @account
         )
 
-        executor.execute(input: task.input, message: task.message)
+        # Build input parameters for MCP executor
+        # Extract text from message parts or use input directly
+        input_text = extract_input_text(task)
+
+        input_parameters = {
+          "input" => input_text,
+          "context" => execution_context
+        }
+
+        mcp_result = executor.execute(input_parameters)
+
+        # Extract output from MCP response format
+        # MCP returns: { "result" => { "output" => "...", "metadata" => {...} }, "telemetry" => {...} }
+        output_text = mcp_result.dig("result", "output") || mcp_result.dig(:result, :output) || ""
+
+        # Return in format expected by execute_task_sync
+        {
+          output: { "text" => output_text, "raw" => mcp_result },
+          artifacts: [],
+          metadata: mcp_result.dig("result", "metadata") || {},
+          telemetry: mcp_result["telemetry"] || {}
+        }
+      end
+
+      def extract_input_text(task)
+        # Try to extract text from message parts first
+        if task.message.is_a?(Hash)
+          parts = task.message["parts"] || task.message[:parts] || []
+          text_parts = parts.select { |p| p["type"] == "text" || p[:type] == "text" }
+          if text_parts.any?
+            return text_parts.map { |p| p["text"] || p[:text] }.join("\n")
+          end
+        end
+
+        # Fall back to input text field
+        if task.input.is_a?(Hash)
+          task.input["text"] || task.input[:text] || task.input.to_json
+        else
+          task.input.to_s
+        end
       end
 
       def build_execution_context(task, agent)

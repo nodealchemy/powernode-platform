@@ -19,7 +19,7 @@ module Ai
     belongs_to :account
     has_many :provider_credentials, class_name: "Ai::ProviderCredential", foreign_key: "ai_provider_id", dependent: :destroy
     has_many :credentials, -> { where(is_active: true) }, class_name: "Ai::ProviderCredential", foreign_key: "ai_provider_id", dependent: :destroy
-    has_many :agents, class_name: "Ai::Agent", foreign_key: "ai_provider_id", dependent: :nullify
+    has_many :agents, class_name: "Ai::Agent", foreign_key: "ai_provider_id", dependent: :restrict_with_error
     has_many :agent_executions, class_name: "Ai::AgentExecution", foreign_key: "ai_provider_id", dependent: :restrict_with_error
     has_many :conversations, class_name: "Ai::Conversation", foreign_key: "ai_provider_id", dependent: :restrict_with_error
 

@@ -203,7 +203,12 @@ module Api
                 provider_name: provider_name
               )
             else
-              render_error("Failed to delete provider", status: :unprocessable_content)
+              # Return specific validation errors if present (e.g., from restrict_with_error)
+              if @provider.errors.any?
+                render_validation_error(@provider.errors)
+              else
+                render_error("Failed to delete provider", status: :unprocessable_content)
+              end
             end
           end
         end

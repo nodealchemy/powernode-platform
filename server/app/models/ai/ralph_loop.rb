@@ -393,9 +393,12 @@ module Ai
     end
 
     def update_task_counts
-      self.total_tasks = ralph_tasks.count
-      self.completed_tasks = ralph_tasks.where(status: "passed").count
-      self.failed_tasks = ralph_tasks.where(status: "failed").count
+      # Use update_columns to persist without triggering callbacks
+      update_columns(
+        total_tasks: ralph_tasks.count,
+        completed_tasks: ralph_tasks.where(status: "passed").count,
+        failed_tasks: ralph_tasks.where(status: "failed").count
+      )
     end
 
     def broadcast_status_update

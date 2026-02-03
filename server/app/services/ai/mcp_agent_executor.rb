@@ -292,6 +292,17 @@ class Ai::McpAgentExecutor
     # NOTE: system_prompt is passed separately via API parameter (line 82)
     # DO NOT duplicate it in the user message
 
+    # Add conversation history if available for multi-turn context
+    if context[:conversation_history].is_a?(Array) && context[:conversation_history].any?
+      history_text = context[:conversation_history].map do |msg|
+        role = msg["role"] || msg[:role]
+        content = msg["content"] || msg[:content]
+        "[#{role.upcase}]: #{content}"
+      end.join("\n\n")
+
+      base_prompt = "Previous conversation:\n#{history_text}\n\n[USER]: #{base_prompt}"
+    end
+
     # Add context information if available
     if context[:additional_context].present?
       base_prompt += "\n\nAdditional Context: #{context[:additional_context]}"
