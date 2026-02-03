@@ -111,9 +111,11 @@ module Ai
       {
         status: "healthy",
         uptime: estimate_system_uptime,
-        active_workflows: ::Ai::Workflow.where(is_active: true).count,
-        active_agents: ::Ai::Agent.where(status: "active").count,
-        running_executions: ::Ai::WorkflowRun.where(status: %w[initializing running waiting_approval]).count
+        active_workflows: account.ai_workflows.where(is_active: true).count,
+        active_agents: account.ai_agents.where(status: "active").count,
+        running_executions: ::Ai::WorkflowRun.joins(:workflow)
+                                            .where(ai_workflows: { account_id: account.id })
+                                            .where(status: %w[initializing running waiting_approval]).count
       }
     end
 
@@ -217,11 +219,13 @@ module Ai
           available: pool_stat[:idle]
         },
         table_counts: {
-          ai_providers: ::Ai::Provider.count,
-          ai_workflows: ::Ai::Workflow.count,
-          ai_agents: ::Ai::Agent.count,
-          ai_workflow_runs_today: ::Ai::WorkflowRun.where("created_at >= ?", Date.current).count,
-          ai_conversations_today: ::Ai::Conversation.where("created_at >= ?", Date.current).count
+          ai_providers: account.ai_providers.count,
+          ai_workflows: account.ai_workflows.count,
+          ai_agents: account.ai_agents.count,
+          ai_workflow_runs_today: ::Ai::WorkflowRun.joins(:workflow)
+                                                  .where(ai_workflows: { account_id: account.id })
+                                                  .where("ai_workflow_runs.created_at >= ?", Date.current).count,
+          ai_conversations_today: account.ai_conversations.where("created_at >= ?", Date.current).count
         }
       }
     rescue StandardError => e

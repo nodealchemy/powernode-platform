@@ -39,6 +39,15 @@ export interface MonitoringDashboard {
     uptime_percentage: number;
     last_incident?: string;
   };
+  // Native overview data from backend
+  overview: {
+    active_workflows: number;
+    active_agents: number;
+    total_executions_today: number;
+    total_cost_today: number;
+    avg_response_time: number;
+    success_rate: number;
+  };
   providers: Array<{
     id: string;
     name: string;
@@ -284,11 +293,23 @@ class MonitoringApiService extends BaseApiService {
     const completedToday = workflowComponents?.aggregated?.successful_runs || 0;
     const failedToday = workflowComponents?.aggregated?.failed_runs || 0;
 
+    // Use native overview data from backend
+    const nativeOverview = dashboard?.overview;
+
     return {
       system_health: {
-        status: dashboard?.overview?.status === 'healthy' ? 'healthy' :
-                dashboard?.overview?.status === 'degraded' ? 'degraded' : 'healthy',
+        status: nativeOverview?.status === 'healthy' ? 'healthy' :
+                nativeOverview?.status === 'degraded' ? 'degraded' : 'healthy',
         uptime_percentage: dashboard?.health_score || 100
+      },
+      // Pass native overview for direct use
+      overview: {
+        active_workflows: nativeOverview?.active_workflows || 0,
+        active_agents: nativeOverview?.active_agents || 0,
+        total_executions_today: nativeOverview?.total_executions_today || 0,
+        total_cost_today: nativeOverview?.total_cost_today || 0,
+        avg_response_time: nativeOverview?.avg_response_time || 0,
+        success_rate: nativeOverview?.success_rate || 0
       },
       providers,
       agents: {
