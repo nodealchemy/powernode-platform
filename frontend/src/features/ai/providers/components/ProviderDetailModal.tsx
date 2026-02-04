@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Settings, 
   Zap, 
@@ -49,6 +49,9 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Ref to prevent duplicate API calls in StrictMode
+  const testingRef = useRef(false);
+
   // Check permissions
   const canManageProviders = currentUser?.permissions?.includes('ai.providers.update') || false;
   const canDeleteProviders = currentUser?.permissions?.includes('ai.providers.delete') || false;
@@ -91,6 +94,10 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
   const handleTestConnection = async () => {
     if (!provider || !canTestCredentials) return;
 
+    // Prevent duplicate calls in StrictMode
+    if (testingRef.current) return;
+    testingRef.current = true;
+
     try {
       setTesting(true);
       const response = await providersApi.testConnection(provider.id);
@@ -129,6 +136,7 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
       });
     } finally {
       setTesting(false);
+      testingRef.current = false;
     }
   };
 

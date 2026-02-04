@@ -569,7 +569,7 @@ export const AIConversationsPage: React.FC = () => {
 
       {/* Conversation Detail Modal - Always rendered, visibility controlled by isOpen */}
       <ConversationDetailModal
-        isOpen={!!selectedConversationId && !!conversations.find(c => c.id === selectedConversationId)?.ai_agent?.id}
+        isOpen={!!selectedConversationId}
         onClose={() => setSelectedConversationId(null)}
         agentId={conversations.find(c => c.id === selectedConversationId)?.ai_agent?.id || ''}
         conversationId={selectedConversationId || ''}

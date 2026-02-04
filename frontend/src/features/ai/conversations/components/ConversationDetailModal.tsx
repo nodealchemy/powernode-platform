@@ -64,18 +64,37 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
 
   // Load conversation details
   const loadConversation = async () => {
-    if (!conversationId || !agentId || !isOpen) return;
+    if (!conversationId || !isOpen) return;
 
     try {
       setLoading(true);
       setError(null);
 
+      // Determine the agentId to use - either from prop or we need to fetch it
+      let effectiveAgentId = agentId;
+
+      // If agentId is not provided, try to get the conversation first to get the agentId
+      if (!effectiveAgentId) {
+        try {
+          // Use conversationsApi to get the conversation without agentId
+          const convData = await conversationsApi.getConversation(conversationId);
+          effectiveAgentId = convData.ai_agent?.id || convData.agent_id || '';
+          if (!effectiveAgentId) {
+            throw new Error('Unable to determine agent for this conversation');
+          }
+        } catch (_e) {
+          setError('Failed to load conversation - agent information not available');
+          setLoading(false);
+          return;
+        }
+      }
+
       // Load conversation details
-      const conversation = await agentsApi.getConversation(agentId, conversationId);
+      const conversation = await agentsApi.getConversation(effectiveAgentId, conversationId);
       setConversation(conversation);
 
       // Load recent messages
-      const messages = await agentsApi.getMessages(agentId, conversationId);
+      const messages = await agentsApi.getMessages(effectiveAgentId, conversationId);
       setMessages(messages);
 
       // Load conversation stats
@@ -100,7 +119,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
 
   // Reset state and load when modal opens
   useEffect(() => {
-    if (isOpen && conversationId && agentId) {
+    if (isOpen && conversationId) {
       // Reset state for fresh load
       setConversation(null);
       setMessages([]);
@@ -199,6 +218,23 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
     }).format(amount);
   };
 
+  // Format date safely
+  const formatDate = (dateStr: string | undefined | null, format: 'date' | 'time' | 'full' = 'full') => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'N/A';
+
+    switch (format) {
+      case 'date':
+        return date.toLocaleDateString();
+      case 'time':
+        return date.toLocaleTimeString();
+      case 'full':
+      default:
+        return date.toLocaleString();
+    }
+  };
+
   // Modal footer with actions
   const footer = (
     <div className="flex gap-3">
@@ -290,7 +326,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={conversation.title}
+      title={conversation.title || 'Conversation Details'}
       maxWidth="4xl"
       variant="centered"
       icon={<MessageSquare />}
@@ -372,10 +408,12 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                     <label className="text-sm font-medium text-theme-muted">AI Agent</label>
                     <div className="mt-1 flex items-center gap-2">
                       <Bot className="h-4 w-4 text-theme-muted" />
-                      <span className="text-theme-primary">{conversation.ai_agent.name}</span>
-                      <Badge variant="outline" size="sm">
-                        {conversation.ai_agent.agent_type.replace('_', ' ')}
-                      </Badge>
+                      <span className="text-theme-primary">{conversation.ai_agent?.name || 'Unknown Agent'}</span>
+                      {conversation.ai_agent?.agent_type && (
+                        <Badge variant="outline" size="sm">
+                          {conversation.ai_agent.agent_type.replace('_', ' ')}
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
@@ -387,18 +425,15 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                   <div>
                     <label className="text-sm font-medium text-theme-muted">Created</label>
                     <p className="mt-1 text-theme-primary">
-                      {new Date(conversation.created_at).toLocaleDateString()} at{' '}
-                      {new Date(conversation.created_at).toLocaleTimeString()}
+                      {formatDate(conversation.created_at, 'date')} at{' '}
+                      {formatDate(conversation.created_at, 'time')}
                     </p>
                   </div>
 
                   <div>
                     <label className="text-sm font-medium text-theme-muted">Last Activity</label>
                     <p className="mt-1 text-theme-primary">
-                      {conversation.metadata?.last_activity
-                        ? new Date(conversation.metadata.last_activity).toLocaleString()
-                        : new Date(conversation.updated_at).toLocaleString()
-                      }
+                      {formatDate(conversation.metadata?.last_activity || conversation.updated_at)}
                     </p>
                   </div>
                 </CardContent>
@@ -472,18 +507,18 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                           <span className="text-sm font-medium text-theme-primary">
                             {message.sender_type === 'user'
                               ? message.sender_info?.name || 'User'
-                              : conversation.ai_agent.name
+                              : conversation.ai_agent?.name || 'AI Assistant'
                             }
                           </span>
                           <span className="text-xs text-theme-muted">
-                            {new Date(message.created_at).toLocaleTimeString()}
+                            {formatDate(message.created_at, 'time')}
                           </span>
                         </div>
                         <p className="text-theme-primary text-sm">{message.content}</p>
-                        {message.metadata.tokens_used && (
+                        {message.metadata?.tokens_used && (
                           <div className="mt-2 text-xs text-theme-muted">
                             Tokens: {message.metadata.tokens_used}
-                            {message.metadata.cost_estimate && (
+                            {message.metadata?.cost_estimate && (
                               <> • Cost: {formatCurrency(message.metadata.cost_estimate)}</>
                             )}
                           </div>
@@ -566,17 +601,17 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
 
                 <div>
                   <label className="text-sm font-medium text-theme-muted">AI Agent ID</label>
-                  <p className="mt-1 text-theme-primary font-mono text-sm">{conversation.ai_agent.id}</p>
+                  <p className="mt-1 text-theme-primary font-mono text-sm">{conversation.ai_agent?.id || 'N/A'}</p>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-theme-muted">Created At</label>
-                  <p className="mt-1 text-theme-primary">{new Date(conversation.created_at).toLocaleString()}</p>
+                  <p className="mt-1 text-theme-primary">{formatDate(conversation.created_at)}</p>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-theme-muted">Last Updated</label>
-                  <p className="mt-1 text-theme-primary">{new Date(conversation.updated_at).toLocaleString()}</p>
+                  <p className="mt-1 text-theme-primary">{formatDate(conversation.updated_at)}</p>
                 </div>
 
                 {conversation.metadata && Object.keys(conversation.metadata).length > 0 && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Settings,
   Zap,
@@ -44,6 +44,9 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
   const { addNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
 
+  // Ref to prevent duplicate API calls in StrictMode
+  const testingRef = useRef(false);
+
   const handleDeleteProvider = () => {
     confirm({
       title: 'Delete Provider',
@@ -74,6 +77,10 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
   };
 
   const handleTestConnection = async () => {
+    // Prevent duplicate calls in StrictMode
+    if (testingRef.current) return;
+    testingRef.current = true;
+
     try {
       setTesting(true);
       const response = await providersApi.testConnection(provider.id);
@@ -98,6 +105,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       });
     } finally {
       setTesting(false);
+      testingRef.current = false;
     }
   };
 
