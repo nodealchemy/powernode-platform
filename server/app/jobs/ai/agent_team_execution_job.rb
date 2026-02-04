@@ -8,7 +8,7 @@ module Ai
   # coordination strategy.
   #
   # Usage:
-  #   Ai::AgentTeamExecutionJob.perform_async(
+  #   Ai::AgentTeamExecutionJob.perform_later(
   #     team_id: team.id,
   #     user_id: user.id,
   #     input: { task: "...", context: "..." },
@@ -18,13 +18,23 @@ module Ai
   class AgentTeamExecutionJob < ApplicationJob
     queue_as :ai_execution
 
-    # Sidekiq options
-    sidekiq_options retry: 3, backtrace: true
+    # Retry configuration
+    retry_on StandardError, wait: 5.seconds, attempts: 3
 
     # Maximum execution time for a team (30 minutes)
     MAX_EXECUTION_TIME = 30.minutes
 
-    def perform(team_id:, user_id:, input: {}, context: {})
+    # Support both perform_async (Sidekiq style) and perform_later (ActiveJob style)
+    def self.perform_async(args = {})
+      perform_later(args)
+    end
+
+    def perform(args = {})
+      args = args.with_indifferent_access
+      team_id = args[:team_id]
+      user_id = args[:user_id]
+      input = args[:input] || {}
+      context = args[:context] || {}
       @team = ::Ai::AgentTeam.find(team_id)
       @user = User.find(user_id)
       @input = input.with_indifferent_access
