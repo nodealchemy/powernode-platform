@@ -104,21 +104,50 @@ module ProviderTesting
     end
 
     def perform_ollama_connection_test(config)
-      base_url = config["base_url"] || "http://localhost:11434"
+      base_url = build_ollama_base_url(config)
 
       payload = {
         model: config["model"] || "llama2",
         messages: [ { role: "user", content: @test_config[:test_message] } ]
       }
 
+      # Build the proper API endpoint URL
+      api_url = build_ollama_api_url(base_url, "/api/chat")
+
+      # Build headers - include API key if provided (for Open WebUI authentication)
+      headers = { "Content-Type" => "application/json" }
+      api_key = config["api_key"]
+      if api_key.present?
+        headers["Authorization"] = "Bearer #{api_key}"
+      end
+
       response = make_http_request(
-        "#{base_url}/api/chat",
+        api_url,
         method: :post,
-        headers: { "Content-Type" => "application/json" },
+        headers: headers,
         body: payload.to_json
       )
 
       parse_ollama_response(response)
+    end
+
+    def build_ollama_base_url(config)
+      # Priority: credentials base_url > provider api_base_url > localhost fallback
+      url = config["base_url"].presence || @provider&.api_base_url.presence || "http://localhost:11434"
+      url.to_s.chomp("/")
+    end
+
+    def build_ollama_api_url(base_url, endpoint)
+      # Handle Open WebUI which uses /ollama/api/... structure
+      if base_url.end_with?("/ollama")
+        "#{base_url}#{endpoint}"
+      elsif base_url.include?("webui") || base_url.include?("openwebui")
+        # Auto-detect Open WebUI and add /ollama prefix
+        "#{base_url}/ollama#{endpoint}"
+      else
+        # Standard Ollama
+        "#{base_url}#{endpoint}"
+      end
     end
 
     def perform_generic_connection_test(_config)
@@ -126,20 +155,30 @@ module ProviderTesting
     end
 
     def test_ollama_connection(provider, config)
-      base_url = config["base_url"] || provider.api_base_url
-      response = make_http_request("#{base_url}/api/tags", method: :get)
+      base_url = build_ollama_base_url(config)
+      api_url = build_ollama_api_url(base_url, "/api/tags")
+
+      # Build headers - include API key if provided (for Open WebUI authentication)
+      headers = {}
+      api_key = config["api_key"]
+      if api_key.present?
+        headers["Authorization"] = "Bearer #{api_key}"
+      end
+
+      response = make_http_request(api_url, method: :get, headers: headers)
 
       if response.success?
         models = JSON.parse(response.body)["models"] || []
+        is_remote = !base_url.include?("localhost") && !base_url.include?("127.0.0.1")
         {
           success: true,
-          provider_info: { version: "latest", status: "running" },
+          provider_info: { version: "latest", status: "running", connection_type: is_remote ? "remote" : "local" },
           model_info: { available_models: models.size }
         }
       else
         {
           success: false,
-          error: "Ollama server not reachable",
+          error: "Ollama server not reachable at #{api_url}",
           error_code: "SERVER_UNREACHABLE"
         }
       end
