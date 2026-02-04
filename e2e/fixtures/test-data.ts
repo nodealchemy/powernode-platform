@@ -1,0 +1,125 @@
+/**
+ * Test data fixtures for Playwright E2E tests
+ *
+ * Provides consistent test data across all AI functionality tests.
+ */
+
+/**
+ * Test provider data
+ */
+export const TEST_PROVIDER = {
+  name: 'Test Ollama Provider',
+  type: 'ollama',
+  baseUrl: 'http://localhost:11434',
+  description: 'Local Ollama instance for testing',
+};
+
+/**
+ * Test agent data
+ */
+export const TEST_AGENT = {
+  name: 'E2E Test Agent',
+  description: 'Agent created by Playwright E2E tests',
+  systemPrompt: 'You are a helpful assistant for testing purposes. Keep responses brief.',
+  model: 'llama3:8b',
+  temperature: 0.7,
+  maxTokens: 1000,
+};
+
+/**
+ * Test conversation data
+ */
+export const TEST_CONVERSATION = {
+  title: 'E2E Test Conversation',
+  initialMessage: 'Hello, this is a test message from Playwright E2E tests.',
+  followUpMessage: 'What is 2 + 2?',
+  contextTestMessage: 'My name is Test User.',
+  contextVerifyMessage: 'What is my name?',
+};
+
+/**
+ * Test workflow data
+ */
+export const TEST_WORKFLOW = {
+  name: 'E2E Test Workflow',
+  description: 'Workflow created by Playwright E2E tests',
+  nodes: {
+    start: { type: 'start', position: { x: 100, y: 100 } },
+    agent: { type: 'ai_agent', position: { x: 300, y: 100 } },
+    end: { type: 'end', position: { x: 500, y: 100 } },
+  },
+};
+
+/**
+ * Test agent team data
+ */
+export const TEST_AGENT_TEAM = {
+  name: 'E2E Test Team',
+  description: 'Agent team created by Playwright E2E tests',
+  type: 'sequential',
+  memberCount: 2,
+};
+
+/**
+ * Test context/memory data
+ */
+export const TEST_CONTEXT = {
+  name: 'E2E Test Memory',
+  type: 'agent_memory',
+  entries: [
+    { key: 'user_name', type: 'factual', value: { name: 'Test User' } },
+    { key: 'preference', type: 'experiential', value: { content: 'User prefers concise responses' } },
+  ],
+};
+
+/**
+ * Unique ID generator for test data
+ * Prevents collisions when running tests in parallel
+ */
+export function uniqueId(prefix: string = 'test'): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `${prefix}_${timestamp}_${random}`;
+}
+
+/**
+ * Generate unique test data with ID suffix
+ */
+export function uniqueTestData<T extends { name: string }>(data: T): T {
+  return {
+    ...data,
+    name: `${data.name} ${uniqueId()}`,
+  };
+}
+
+/**
+ * API endpoints for AI functionality
+ */
+export const API_ENDPOINTS = {
+  providers: '/api/v1/ai/providers',
+  agents: '/api/v1/ai/agents',
+  conversations: '/api/v1/ai/conversations',
+  workflows: '/api/v1/ai/workflows',
+  agentTeams: '/api/v1/ai/agent-teams',
+  contexts: '/api/v1/ai/contexts',
+  monitoring: '/api/v1/ai/monitoring',
+  analytics: '/api/v1/ai/analytics',
+};
+
+/**
+ * Frontend routes for AI functionality
+ */
+export const ROUTES = {
+  providers: '/app/ai/providers',
+  agents: '/app/ai/agents',
+  conversations: '/app/ai/conversations',
+  workflows: '/app/ai/workflows',
+  agentTeams: '/app/ai/agent-teams',
+  contexts: '/app/ai/contexts',
+  monitoring: '/app/ai/monitoring',
+  analytics: '/app/ai/analytics',
+  governance: '/app/ai/governance',
+  sandbox: '/app/ai/sandbox',
+  mcp: '/app/ai/mcp',
+  prompts: '/app/ai/prompts',
+};

@@ -193,6 +193,12 @@ cypress/downloads/
 spec/reports/
 junit.xml
 
+# Playwright
+playwright-report/
+playwright/.cache/
+e2e/.auth/
+blob-report/
+
 # Dependency directories
 jspm_packages/
 
