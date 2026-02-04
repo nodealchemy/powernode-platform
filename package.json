@@ -24,7 +24,9 @@
     "setup:frontend": "cd frontend && npm install"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "@playwright/test": "^1.58.1",
+    "concurrently": "^9.2.1",
+    "playwright": "^1.58.1"
   },
   "engines": {
     "node": ">=18.0.0",
