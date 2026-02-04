@@ -327,11 +327,17 @@ module Api
         # =============================================================================
 
         def set_conversation
+          # Try to find by id first (primary key), then by conversation_id (UUID field)
           @conversation = current_user.account.ai_conversations
                            .includes(:user, :agent, :provider, messages: [:user])
-                           .find(params[:id])
-        rescue ActiveRecord::RecordNotFound
-          render_error("Conversation not found", status: :not_found)
+                           .find_by(id: params[:id]) ||
+                         current_user.account.ai_conversations
+                           .includes(:user, :agent, :provider, messages: [:user])
+                           .find_by(conversation_id: params[:id])
+
+          unless @conversation
+            render_error("Conversation not found", status: :not_found)
+          end
         end
 
         # =============================================================================

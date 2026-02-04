@@ -73,7 +73,7 @@ module Api
 
         # POST /api/v1/ai/workflows
         def create
-          @workflow = ::Ai::Workflow.new(workflow_params)
+          @workflow = ::Ai::Workflow.new(normalized_workflow_params)
           @workflow.account = current_user.account
           @workflow.creator = current_user
 
@@ -100,7 +100,7 @@ module Api
             update_workflow_nodes(workflow_data[:nodes]) if workflow_data[:nodes].is_a?(Array)
             update_workflow_edges(workflow_data[:edges]) if workflow_data[:edges].is_a?(Array)
 
-            if @workflow.update(workflow_params)
+            if @workflow.update(normalized_workflow_params)
               render_success(workflow: serialize_workflow_detail(@workflow))
               log_audit_event("ai.workflows.update", @workflow)
             else
@@ -380,11 +380,61 @@ module Api
 
         def workflow_params
           params.require(:workflow).permit(
-            :name, :description, :status, :visibility, :version,
+            :name, :description, :status, :visibility, :version, :workflow_type,
             :is_template, :template_category, :tags, :trigger_types,
             :execution_mode, :retry_policy, :timeout_seconds, :max_execution_time, :cost_limit,
             configuration: {}, metadata: {}, input_schema: {}, output_schema: {}, tags: [], nodes: [], edges: []
           )
+        end
+
+        # Normalize workflow params to handle frontend/backend status mapping
+        # and move configuration-related params into the configuration hash
+        def normalized_workflow_params
+          permitted = workflow_params.to_h
+
+          # Map frontend status values to backend model values
+          # Frontend uses: draft, published
+          # Backend uses: draft, active, paused, inactive, archived
+          if permitted[:status].present?
+            status_mapping = {
+              "published" => "active",
+              "enabled" => "active",
+              "disabled" => "inactive"
+            }
+            permitted[:status] = status_mapping[permitted[:status]] || permitted[:status]
+          end
+
+          # Move execution-related params into configuration hash
+          # These are sent as top-level params by frontend but stored in configuration
+          config_keys = %w[execution_mode timeout_seconds max_execution_time retry_policy cost_limit]
+          config_params = {}
+
+          config_keys.each do |key|
+            sym_key = key.to_sym
+            if permitted[sym_key].present?
+              config_params[key] = permitted.delete(sym_key)
+            end
+          end
+
+          # Merge into existing configuration
+          if config_params.any?
+            permitted[:configuration] = (permitted[:configuration] || {}).merge(config_params)
+          end
+
+          # Move tags into metadata (no tags column exists on ai_workflows table)
+          # Check both symbol and string keys since to_h may use either
+          if permitted.key?(:tags) || permitted.key?("tags")
+            tags_value = permitted.delete(:tags) || permitted.delete("tags")
+            if tags_value.present?
+              permitted[:metadata] = (permitted[:metadata] || {}).merge("tags" => tags_value)
+            end
+          end
+
+          # Remove trigger_types if present (not a valid column)
+          permitted.delete(:trigger_types)
+          permitted.delete("trigger_types")
+
+          permitted
         end
 
         def run_update_params
