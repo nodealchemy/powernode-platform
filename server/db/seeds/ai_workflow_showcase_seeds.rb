@@ -150,6 +150,15 @@ content_workflow = Ai::Workflow.find_or_create_by!(
   wf.creator = user
   wf.status = 'active'
   wf.version = '1.0.0'
+  wf.mcp_input_schema = {
+    'type' => 'object',
+    'properties' => {
+      'topic' => { 'type' => 'string', 'description' => 'The topic to write about' },
+      'audience' => { 'type' => 'string', 'description' => 'Target audience for the content', 'default' => 'general' },
+      'tone' => { 'type' => 'string', 'description' => 'Writing tone', 'enum' => %w[professional casual technical friendly], 'default' => 'professional' }
+    },
+    'required' => [ 'topic' ]
+  }
   wf.configuration = {
     'execution_mode' => 'sequential',
     'enable_checkpointing' => true,
@@ -256,6 +265,16 @@ onboarding_workflow = Ai::Workflow.find_or_create_by!(
   wf.creator = user
   wf.status = 'active'
   wf.version = '1.0.0'
+  wf.mcp_input_schema = {
+    'type' => 'object',
+    'properties' => {
+      'customer_name' => { 'type' => 'string', 'description' => 'Name of the new customer' },
+      'customer_email' => { 'type' => 'string', 'format' => 'email', 'description' => 'Customer email address' },
+      'company' => { 'type' => 'string', 'description' => 'Company name' },
+      'plan' => { 'type' => 'string', 'enum' => %w[starter professional enterprise], 'description' => 'Selected subscription plan' }
+    },
+    'required' => %w[customer_name customer_email company plan]
+  }
   wf.configuration = {
     'execution_mode' => 'sequential',
     'enable_compensation' => true,
@@ -361,6 +380,16 @@ integration_workflow = Ai::Workflow.find_or_create_by!(
   wf.creator = user
   wf.status = 'active'
   wf.version = '1.0.0'
+  wf.mcp_input_schema = {
+    'type' => 'object',
+    'properties' => {
+      'api_endpoint' => { 'type' => 'string', 'format' => 'uri', 'description' => 'External API endpoint URL' },
+      'api_key' => { 'type' => 'string', 'description' => 'API key for authentication' },
+      'data_format' => { 'type' => 'string', 'enum' => %w[json csv xml], 'default' => 'json', 'description' => 'Expected data format' },
+      'callback_url' => { 'type' => 'string', 'format' => 'uri', 'description' => 'Webhook URL for completion notification' }
+    },
+    'required' => %w[api_endpoint api_key]
+  }
   wf.configuration = {
     'execution_mode' => 'sequential',
     'enable_checkpointing' => true,

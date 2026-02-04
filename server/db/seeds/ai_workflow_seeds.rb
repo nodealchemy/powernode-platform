@@ -715,6 +715,15 @@ unless blog_workflow
     status: 'active',
     visibility: 'private',
     version: '1.0.0',
+    mcp_input_schema: {
+      'type' => 'object',
+      'properties' => {
+        'topic' => { 'type' => 'string', 'description' => 'The main topic for the blog post' },
+        'word_count' => { 'type' => 'integer', 'description' => 'Target word count', 'default' => 1500 },
+        'target_audience' => { 'type' => 'string', 'description' => 'Target audience for the content', 'default' => 'general' }
+      },
+      'required' => [ 'topic' ]
+    },
     configuration: {
       'retry_failed_nodes' => true,
       'max_retries' => 2,
@@ -739,6 +748,7 @@ unless blog_workflow
     name: 'Start Blog Generation',
     description: 'Initialize blog generation process',
     position: { 'x' => 100, 'y' => 150 },
+    is_start_node: true,
     configuration: {
       'start_parameters' => {
         'auto_start' => true,
@@ -805,6 +815,7 @@ unless blog_workflow
     name: 'Blog Complete',
     description: 'Blog generation workflow complete',
     position: { 'x' => 1100, 'y' => 150 },
+    is_end_node: true,
     configuration: {
       'output_mapping' => {
         'seo_title' => '{{seo_title}}',
@@ -881,6 +892,15 @@ unless data_analysis_workflow
     status: 'active',
     visibility: 'private',
     version: '1.0.0',
+    mcp_input_schema: {
+      'type' => 'object',
+      'properties' => {
+        'data_source' => { 'type' => 'string', 'description' => 'The data source to analyze' },
+        'analysis_type' => { 'type' => 'string', 'description' => 'Type of analysis (trend, performance, etc.)', 'enum' => [ 'trend', 'performance', 'comparison' ] },
+        'time_period' => { 'type' => 'string', 'description' => 'Time period for the analysis', 'default' => 'Last 30 days' }
+      },
+      'required' => [ 'data_source', 'analysis_type' ]
+    },
     configuration: {
       'retry_failed_nodes' => true,
       'max_retries' => 1,
@@ -896,6 +916,7 @@ unless data_analysis_workflow
     name: 'Start Analysis',
     description: 'Begin data analysis process',
     position: { 'x' => 50, 'y' => 150 },
+    is_start_node: true,
     configuration: {},
     metadata: { 'color' => '#10B981' }
   )
@@ -947,6 +968,7 @@ unless data_analysis_workflow
     name: 'Analysis Complete',
     description: 'Data analysis workflow complete',
     position: { 'x' => 950, 'y' => 150 },
+    is_end_node: true,
     configuration: {
       'output_mapping' => {
         'insights' => '{{insights}}',
@@ -1225,6 +1247,16 @@ unless customer_support_workflow
     status: 'active',
     visibility: 'private',
     version: '1.0.0',
+    mcp_input_schema: {
+      'type' => 'object',
+      'properties' => {
+        'customer_message' => { 'type' => 'string', 'description' => 'The customer support request message' },
+        'customer_email' => { 'type' => 'string', 'format' => 'email', 'description' => 'Customer email address' },
+        'customer_name' => { 'type' => 'string', 'description' => 'Customer name (optional)' },
+        'priority' => { 'type' => 'string', 'enum' => [ 'low', 'medium', 'high' ], 'default' => 'medium' }
+      },
+      'required' => [ 'customer_message', 'customer_email' ]
+    },
     configuration: {
       'retry_failed_nodes' => true,
       'max_retries' => 2,
@@ -1422,6 +1454,7 @@ unless customer_support_workflow
     name: 'Send Response',
     description: 'Send response to customer',
     position: { 'x' => 1150, 'y' => 325 },
+    is_end_node: true,
     configuration: {
       'url' => '{{customer_response_webhook}}',
       'method' => 'POST',
@@ -1439,7 +1472,7 @@ unless customer_support_workflow
         'workflow_id' => '{{workflow_run_id}}'
       }
     },
-    metadata: { 'color' => '#059669', 'is_end_node' => true }
+    metadata: { 'color' => '#059669' }
   )
 
   # Create edges for customer support workflow
@@ -1558,6 +1591,19 @@ unless ecommerce_workflow
     status: 'active',
     visibility: 'private',
     version: '1.0.0',
+    mcp_input_schema: {
+      'type' => 'object',
+      'properties' => {
+        'order_id' => { 'type' => 'string', 'description' => 'Unique order identifier' },
+        'order_items' => { 'type' => 'array', 'description' => 'Array of order items with sku, quantity, price' },
+        'order_amount' => { 'type' => 'number', 'description' => 'Total order amount' },
+        'customer_email' => { 'type' => 'string', 'format' => 'email', 'description' => 'Customer email' },
+        'shipping_address' => { 'type' => 'object', 'description' => 'Shipping address details' },
+        'billing_address' => { 'type' => 'object', 'description' => 'Billing address details' },
+        'payment_method' => { 'type' => 'string', 'description' => 'Payment method used' }
+      },
+      'required' => [ 'order_id', 'order_items', 'order_amount', 'customer_email' ]
+    },
     configuration: {
       'retry_failed_nodes' => true,
       'max_retries' => 3,
@@ -1680,6 +1726,7 @@ unless ecommerce_workflow
     name: 'Decline Order',
     description: 'Cancel order and notify customer',
     position: { 'x' => 750, 'y' => 150 },
+    is_end_node: true,
     configuration: {
       'url' => '{{order_management_webhook}}/decline',
       'method' => 'POST',
@@ -1692,7 +1739,7 @@ unless ecommerce_workflow
         'refund_required' => true
       }
     },
-    metadata: { 'color' => '#DC2626', 'is_end_node' => true }
+    metadata: { 'color' => '#DC2626' }
   )
 
   # Manual review for medium risk
@@ -1902,6 +1949,15 @@ unless marketing_workflow
     status: 'active',
     visibility: 'private',
     version: '1.0.0',
+    mcp_input_schema: {
+      'type' => 'object',
+      'properties' => {
+        'campaign_ids' => { 'type' => 'array', 'items' => { 'type' => 'string' }, 'description' => 'Campaign IDs to analyze' },
+        'analysis_period' => { 'type' => 'string', 'description' => 'Date range for analysis', 'default' => 'last_7_days' },
+        'optimization_goals' => { 'type' => 'array', 'items' => { 'type' => 'string' }, 'description' => 'Goals to optimize for (conversions, clicks, etc.)' }
+      },
+      'required' => [ 'campaign_ids' ]
+    },
     configuration: {
       'retry_failed_nodes' => true,
       'max_retries' => 2,
@@ -1917,6 +1973,7 @@ unless marketing_workflow
     name: 'Collect Campaign Data',
     description: 'Gather campaign performance data from multiple sources',
     position: { 'x' => 150, 'y' => 300 },
+    is_start_node: true,
     configuration: {
       'method' => 'POST',
       'url' => '{{analytics_api_url}}/campaigns/data',
@@ -2048,6 +2105,7 @@ unless marketing_workflow
     name: 'Generate Report',
     description: 'Create comprehensive performance report',
     position: { 'x' => 1350, 'y' => 300 },
+    is_end_node: true,
     configuration: {
       'agent_id' => blog_generator_agent.id,
       'prompt_template' => 'Create a marketing performance report:\n\nAnalysis Period: {{analysis_period}}\nCampaigns: {{campaign_ids}}\nKey Results: {{performance_summary}}\nOptimizations: {{priority_actions}}\nA/B Tests: {{test_results}}\n\nGenerate executive summary with:\n1. Key performance highlights\n2. Top insights and findings\n3. Optimization recommendations implemented\n4. Expected impact projections\n5. Next steps and future tests',

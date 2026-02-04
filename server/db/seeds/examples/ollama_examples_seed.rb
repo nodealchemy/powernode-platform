@@ -206,6 +206,13 @@ else
       description: "A simple workflow demonstrating Ollama-based AI processing",
       status: "active",
       version: "1.0.0",
+      mcp_input_schema: {
+        "type" => "object",
+        "properties" => {
+          "text" => { "type" => "string", "description" => "Text to summarize" }
+        },
+        "required" => [ "text" ]
+      },
       configuration: {
         "execution_mode" => "sequential",
         "max_execution_time" => 300
@@ -222,6 +229,7 @@ else
       node_type: "start",
       name: "Start",
       position: { "x" => 100, "y" => 200 },
+      is_start_node: true,
       configuration: {}
     )
 
@@ -258,6 +266,7 @@ else
       node_type: "end",
       name: "End",
       position: { "x" => 700, "y" => 200 },
+      is_end_node: true,
       configuration: {}
     )
 
