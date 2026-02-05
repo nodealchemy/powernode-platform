@@ -1137,6 +1137,9 @@ if Rails.env.development? || Rails.env.test?
 
   puts "\n📦 Loading MCP Container Templates..."
   load Rails.root.join('db', 'seeds', 'mcp_container_templates.rb')
+
+  puts "\n🔧 Loading AI DevOps Templates..."
+  load Rails.root.join('db', 'seeds', 'ai_devops_templates_seed.rb')
 end
 
 puts "\n🎉 Seeding complete!"
@@ -1155,6 +1158,7 @@ if Rails.env.development? || Rails.env.test?
   puts "   AI Workflow Templates: #{Ai::WorkflowTemplate.count}"
   puts "   AI Workflow Runs: #{Ai::WorkflowRun.count}"
   puts "   MCP Container Templates: #{Mcp::ContainerTemplate.count}"
+  puts "   AI DevOps Templates: #{Ai::DevopsTemplate.count}"
 end
 
 # 🔧 Create default site settings

@@ -495,19 +495,33 @@ end
 puts "  ✅ Created #{Account::Delegation.count} account delegations"
 
 # Create sample gateway configurations (demo values only)
+# Only set if no configuration exists yet - preserve real credentials
 puts "\n🔧 Creating sample gateway configurations..."
 
-GatewayConfiguration.set_config('stripe', 'publishable_key', 'pk_test_demo_key_for_development')
-GatewayConfiguration.set_config('stripe', 'secret_key', 'sk_test_demo_secret_for_development')
-GatewayConfiguration.set_config('stripe', 'webhook_endpoint_secret', 'whsec_demo_endpoint_secret')
-GatewayConfiguration.set_config('stripe', 'webhook_tolerance', '300')
+gateway_configs_created = 0
 
-GatewayConfiguration.set_config('paypal', 'client_id', 'demo_paypal_client_id')
-GatewayConfiguration.set_config('paypal', 'client_secret', 'demo_paypal_client_secret')
-GatewayConfiguration.set_config('paypal', 'webhook_id', 'demo_webhook_id')
-GatewayConfiguration.set_config('paypal', 'mode', 'sandbox')
+# Helper to set gateway config only if not already configured
+def set_gateway_config_if_blank(provider, key, demo_value)
+  existing = GatewayConfiguration.find_by(provider: provider, key_name: key)
+  if existing
+    puts "  ⏭️  #{provider}/#{key} already configured - preserving existing value"
+    return false
+  end
+  GatewayConfiguration.set_config(provider, key, demo_value)
+  true
+end
 
-puts "  ✅ Created #{GatewayConfiguration.count} gateway configurations"
+gateway_configs_created += 1 if set_gateway_config_if_blank('stripe', 'publishable_key', 'pk_test_demo_key_for_development')
+gateway_configs_created += 1 if set_gateway_config_if_blank('stripe', 'secret_key', 'sk_test_demo_secret_for_development')
+gateway_configs_created += 1 if set_gateway_config_if_blank('stripe', 'webhook_endpoint_secret', 'whsec_demo_endpoint_secret')
+gateway_configs_created += 1 if set_gateway_config_if_blank('stripe', 'webhook_tolerance', '300')
+
+gateway_configs_created += 1 if set_gateway_config_if_blank('paypal', 'client_id', 'demo_paypal_client_id')
+gateway_configs_created += 1 if set_gateway_config_if_blank('paypal', 'client_secret', 'demo_paypal_client_secret')
+gateway_configs_created += 1 if set_gateway_config_if_blank('paypal', 'webhook_id', 'demo_webhook_id')
+gateway_configs_created += 1 if set_gateway_config_if_blank('paypal', 'mode', 'sandbox')
+
+puts "  ✅ #{gateway_configs_created} new gateway configurations created (#{GatewayConfiguration.count} total)"
 
 # Create admin worker for API testing
 admin_worker = Worker.find_or_create_by!(name: 'Test API Worker') do |worker|

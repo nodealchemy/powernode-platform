@@ -28,6 +28,7 @@ export interface DevopsTemplate {
   is_featured: boolean;
   price_usd: number | null;
   published_at: string | null;
+  is_owner: boolean;
   // Detailed fields
   workflow_definition?: Record<string, unknown>;
   trigger_config?: Record<string, unknown>;
@@ -182,17 +183,12 @@ class DevopsApiService extends BaseApiService {
     return this.get(`${this.basePath}/templates/${id}`);
   }
 
-  async createTemplate(data: {
-    name: string;
-    category: string;
-    template_type: string;
-    workflow_definition: Record<string, unknown>;
-    description?: string;
-    trigger_config?: Record<string, unknown>;
-    variables?: unknown[];
-    secrets_required?: string[];
-  }): Promise<{ template: DevopsTemplate }> {
+  async createTemplate(data: Record<string, unknown>): Promise<{ template: DevopsTemplate }> {
     return this.post(`${this.basePath}/templates`, data);
+  }
+
+  async updateTemplate(id: string, data: Record<string, unknown>): Promise<{ template: DevopsTemplate }> {
+    return this.patch(`${this.basePath}/templates/${id}`, data);
   }
 
   // Installations
@@ -206,6 +202,10 @@ class DevopsApiService extends BaseApiService {
     data: { variable_values?: Record<string, unknown>; custom_config?: Record<string, unknown> } = {}
   ): Promise<{ installation: DevopsInstallation }> {
     return this.post(`${this.basePath}/templates/${templateId}/install`, data);
+  }
+
+  async uninstallTemplate(installationId: string): Promise<void> {
+    return this.delete(`${this.basePath}/installations/${installationId}`);
   }
 
   // Executions

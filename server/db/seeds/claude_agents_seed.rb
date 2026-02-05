@@ -14,16 +14,22 @@ if admin_account && admin_user && claude_provider
   puts "✅ Using admin user: #{admin_user.name} (ID: #{admin_user.id})"
   puts "✅ Using Claude provider: #{claude_provider.name} (ID: #{claude_provider.id})"
 
-  # Set configuration for Claude provider
-  model_names = claude_provider.supported_models.map { |m| m['name'] }
-  model_ids = claude_provider.supported_models.map { |m| m['id'] }
-  all_models = (model_names + model_ids).uniq
+  # Only set default configuration if provider has no existing configuration
+  # This prevents overwriting real API keys with placeholders
+  if claude_provider.configuration.blank? || claude_provider.configuration == {}
+    model_names = claude_provider.supported_models.map { |m| m['name'] }
+    model_ids = claude_provider.supported_models.map { |m| m['id'] }
+    all_models = (model_names + model_ids).uniq
 
-  claude_provider.configuration = {
-    'models' => all_models,
-    'default_model' => 'claude-3.5-sonnet',
-    'api_key' => 'YOUR_ANTHROPIC_API_KEY_HERE'
-  }
+    claude_provider.configuration = {
+      'models' => all_models,
+      'default_model' => 'claude-3.5-sonnet',
+      'api_key' => 'YOUR_ANTHROPIC_API_KEY_HERE'
+    }
+    puts "  Set default Claude provider configuration (no existing config found)"
+  else
+    puts "  ⏭️  Claude provider already has configuration - preserving existing credentials"
+  end
 
   # Claude-Powered Strategic Planning Agent
   strategic_planner = Ai::Agent.find_or_create_by(

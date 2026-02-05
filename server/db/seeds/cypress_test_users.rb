@@ -120,7 +120,9 @@ end
 
 admin_user = User.find_by(email: 'admin@powernode.org')
 if admin_user
-  admin_user.update!(password: admin_password, password_confirmation: admin_password)
+  # Preserve existing password - only update credentials file with current password
+  admin_password = nil # Signal that we need to generate a new password for credentials file only if needed
+  puts "  ⏭️  Admin user already exists - preserving existing password"
 else
   admin_user = User.create!(
     account: admin_account,
@@ -143,7 +145,7 @@ end
 
 test_credentials[:users][:admin] = {
   email: 'admin@powernode.org',
-  password: admin_password,
+  password: admin_password || '(unchanged - user already existed)',
   role: 'super_admin',
   description: 'System administrator with full access'
 }
@@ -176,7 +178,8 @@ end
 demo_password = generate_secure_password
 demo_user = User.find_by(email: 'demo@powernode.org')
 if demo_user
-  demo_user.update!(password: demo_password, password_confirmation: demo_password)
+  demo_password = nil
+  puts "  ⏭️  Demo user already exists - preserving existing password"
 else
   demo_user = User.create!(
     account: demo_account,
@@ -197,7 +200,7 @@ end
 
 test_credentials[:users][:demo] = {
   email: 'demo@powernode.org',
-  password: demo_password,
+  password: demo_password || '(unchanged - user already existed)',
   role: 'manager',
   description: 'Primary test user for smoke tests and E2E testing'
 }
@@ -210,7 +213,8 @@ puts "  ✅ Demo user: demo@powernode.org"
 manager_password = generate_secure_password
 manager_user = User.find_by(email: 'manager@powernode.org')
 if manager_user
-  manager_user.update!(password: manager_password, password_confirmation: manager_password)
+  manager_password = nil
+  puts "  ⏭️  Manager user already exists - preserving existing password"
 else
   manager_user = User.create!(
     account: demo_account,
@@ -230,7 +234,7 @@ end
 
 test_credentials[:users][:manager] = {
   email: 'manager@powernode.org',
-  password: manager_password,
+  password: manager_password || '(unchanged - user already existed)',
   role: 'manager',
   description: 'Manager user for team and permission tests'
 }
@@ -243,7 +247,8 @@ puts "  ✅ Manager user: manager@powernode.org"
 billing_password = generate_secure_password
 billing_user = User.find_by(email: 'billing@powernode.org')
 if billing_user
-  billing_user.update!(password: billing_password, password_confirmation: billing_password)
+  billing_password = nil
+  puts "  ⏭️  Billing user already exists - preserving existing password"
 else
   billing_user = User.create!(
     account: admin_account,
@@ -264,7 +269,7 @@ end
 
 test_credentials[:users][:billing] = {
   email: 'billing@powernode.org',
-  password: billing_password,
+  password: billing_password || '(unchanged - user already existed)',
   role: 'billing_manager',
   description: 'Billing manager for billing and subscription tests'
 }
@@ -277,7 +282,8 @@ puts "  ✅ Billing user: billing@powernode.org"
 member_password = generate_secure_password
 member_user = User.find_by(email: 'member@powernode.org')
 if member_user
-  member_user.update!(password: member_password, password_confirmation: member_password)
+  member_password = nil
+  puts "  ⏭️  Member user already exists - preserving existing password"
 else
   member_user = User.create!(
     account: demo_account,
@@ -298,7 +304,7 @@ end
 
 test_credentials[:users][:member] = {
   email: 'member@powernode.org',
-  password: member_password,
+  password: member_password || '(unchanged - user already existed)',
   role: 'member',
   description: 'Regular member for member-level permission tests'
 }
@@ -316,28 +322,39 @@ primary_credentials_path = project_root.join('test-credentials.json')
 server_credentials_path = Rails.root.join('tmp', 'test_credentials.json')
 
 # Format for frontend/Cypress consumption (hash structure for readability)
+# Only include credentials for newly created users (password is not nil)
+# For existing users, read from existing credentials file if available
+existing_credentials = {}
+if File.exist?(primary_credentials_path)
+  begin
+    existing_credentials = JSON.parse(File.read(primary_credentials_path), symbolize_names: true)
+  rescue JSON::ParserError
+    existing_credentials = {}
+  end
+end
+
 frontend_credentials = {
   _comment: "Auto-generated test credentials - DO NOT COMMIT",
   generated_at: Time.current.iso8601,
   demo: {
     email: test_credentials[:users][:demo][:email],
-    password: test_credentials[:users][:demo][:password]
+    password: demo_password || existing_credentials.dig(:demo, :password) || '(set manually - run db:seed:reset to regenerate)'
   },
   admin: {
     email: test_credentials[:users][:admin][:email],
-    password: test_credentials[:users][:admin][:password]
+    password: admin_password || existing_credentials.dig(:admin, :password) || '(set manually - run db:seed:reset to regenerate)'
   },
   manager: {
     email: test_credentials[:users][:manager][:email],
-    password: test_credentials[:users][:manager][:password]
+    password: manager_password || existing_credentials.dig(:manager, :password) || '(set manually - run db:seed:reset to regenerate)'
   },
   billing: {
     email: test_credentials[:users][:billing][:email],
-    password: test_credentials[:users][:billing][:password]
+    password: billing_password || existing_credentials.dig(:billing, :password) || '(set manually - run db:seed:reset to regenerate)'
   },
   member: {
     email: test_credentials[:users][:member][:email],
-    password: test_credentials[:users][:member][:password]
+    password: member_password || existing_credentials.dig(:member, :password) || '(set manually - run db:seed:reset to regenerate)'
   }
 }
 

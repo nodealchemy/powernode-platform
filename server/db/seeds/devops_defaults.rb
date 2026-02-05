@@ -263,15 +263,19 @@ default_templates = [
 ]
 
 default_templates.each do |template_attrs|
-  template = Shared::PromptTemplate.find_or_initialize_by(
-    account: system_account,
-    slug: template_attrs[:slug]
-  )
-
-  template.assign_attributes(template_attrs.except(:slug).merge(domain: "devops"))
-  template.save!
-
-  puts "  Created/Updated prompt template: #{template.name}"
+  existing = Shared::PromptTemplate.find_by(account: system_account, slug: template_attrs[:slug])
+  if existing
+    puts "  ⏭️  Prompt template already exists: #{existing.name} - preserving customizations"
+  else
+    Shared::PromptTemplate.create!(
+      template_attrs.except(:slug).merge(
+        account: system_account,
+        slug: template_attrs[:slug],
+        domain: "devops"
+      )
+    )
+    puts "  Created prompt template: #{template_attrs[:name]}"
+  end
 end
 
 puts "DevOps seed data complete!"

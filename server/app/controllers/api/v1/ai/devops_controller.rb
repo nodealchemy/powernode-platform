@@ -21,7 +21,7 @@ module Api
           )
 
           render_success(
-            templates: templates.map { |t| template_json(t) },
+            items: templates.map { |t| template_json(t) },
             pagination: pagination_meta(templates)
           )
         end
@@ -55,6 +55,34 @@ module Api
           render_success(template: template_json(template), status: :created)
         end
 
+        # PATCH /api/v1/ai/devops/templates/:id
+        def update_template
+          authorize_action!("ai.devops.manage")
+          return if performed?
+
+          template = ::Ai::DevopsTemplate.find(params[:id])
+
+          permitted = {}
+          permitted[:name] = params[:name] if params.key?(:name)
+          permitted[:description] = params[:description] if params.key?(:description)
+          permitted[:category] = params[:category] if params.key?(:category)
+          permitted[:template_type] = params[:template_type] if params.key?(:template_type)
+          permitted[:status] = params[:status] if params.key?(:status)
+          permitted[:visibility] = params[:visibility] if params.key?(:visibility)
+          permitted[:workflow_definition] = params[:workflow_definition] if params.key?(:workflow_definition)
+          permitted[:trigger_config] = params[:trigger_config] if params.key?(:trigger_config)
+          permitted[:input_schema] = params[:input_schema] if params.key?(:input_schema)
+          permitted[:output_schema] = params[:output_schema] if params.key?(:output_schema)
+          permitted[:variables] = params[:variables] if params.key?(:variables)
+          permitted[:secrets_required] = params[:secrets_required] if params.key?(:secrets_required)
+          permitted[:integrations_required] = params[:integrations_required] if params.key?(:integrations_required)
+          permitted[:tags] = params[:tags] if params.key?(:tags)
+          permitted[:usage_guide] = params[:usage_guide] if params.key?(:usage_guide)
+
+          template.update!(permitted)
+          render_success(template: template_json(template, detailed: true))
+        end
+
         # Installations
         # GET /api/v1/ai/devops/installations
         def installations
@@ -68,7 +96,7 @@ module Api
                                          .per(params[:per_page] || 20)
 
           render_success(
-            installations: installations.map { |i| installation_json(i) },
+            items: installations.map { |i| installation_json(i) },
             pagination: pagination_meta(installations)
           )
         end
@@ -93,6 +121,17 @@ module Api
           end
         end
 
+        # DELETE /api/v1/ai/devops/installations/:id
+        def uninstall
+          authorize_action!("ai.devops.manage")
+          return if performed?
+
+          installation = current_account.ai_devops_template_installations.find(params[:id])
+          installation.destroy!
+
+          render_success(message: "Template uninstalled successfully")
+        end
+
         # Pipeline Executions
         # GET /api/v1/ai/devops/executions
         def executions
@@ -109,7 +148,7 @@ module Api
           executions = executions.for_repository(params[:repository_id]) if params[:repository_id].present?
 
           render_success(
-            executions: executions.map { |e| execution_json(e) },
+            items: executions.map { |e| execution_json(e) },
             pagination: pagination_meta(executions)
           )
         end
@@ -166,7 +205,7 @@ module Api
           risks = risks.where(risk_level: params[:risk_level]) if params[:risk_level].present?
 
           render_success(
-            risks: risks.map { |r| risk_json(r) },
+            items: risks.map { |r| risk_json(r) },
             pagination: pagination_meta(risks)
           )
         end
@@ -231,7 +270,7 @@ module Api
           reviews = reviews.for_repository(params[:repository_id]) if params[:repository_id].present?
 
           render_success(
-            reviews: reviews.map { |r| review_json(r) },
+            items: reviews.map { |r| review_json(r) },
             pagination: pagination_meta(reviews)
           )
         end
@@ -310,7 +349,8 @@ module Api
             is_system: template.is_system,
             is_featured: template.is_featured,
             price_usd: template.price_usd,
-            published_at: template.published_at
+            published_at: template.published_at,
+            is_owner: template.account_id == current_account.id
           }
 
           if detailed

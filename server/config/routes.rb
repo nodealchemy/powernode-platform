@@ -2517,10 +2517,12 @@ Rails.application.routes.draw do
           get "templates", action: :templates
           get "templates/:id", action: :show_template
           post "templates", action: :create_template
+          patch "templates/:id", action: :update_template
 
           # Installations
           get "installations", action: :installations
           post "templates/:template_id/install", action: :install
+          delete "installations/:id", action: :uninstall
 
           # Executions
           get "executions", action: :executions

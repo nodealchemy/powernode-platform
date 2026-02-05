@@ -47,8 +47,15 @@ updated_config_schema = {
   }
 }
 
-provider.update!(configuration_schema: updated_config_schema)
-puts "✅ Updated configuration schema with models"
+# Only update configuration_schema if it doesn't already have a real api_key configured
+# This prevents overwriting provider settings that have been customized
+existing_schema = provider.configuration_schema
+if existing_schema.blank? || !existing_schema.is_a?(Hash) || !existing_schema.key?('api_key')
+  provider.update!(configuration_schema: updated_config_schema)
+  puts "✅ Updated configuration schema with models"
+else
+  puts "⏭️  Configuration schema already configured - preserving existing settings"
+end
 
 # Test model support again
 puts "\n🧪 Testing model support:"

@@ -27,7 +27,8 @@ module Ai
     end
 
     def search_templates(query: nil, category: nil, template_type: nil, page: 1, per_page: 20)
-      templates = Ai::DevopsTemplate.published.public_templates
+      templates = Ai::DevopsTemplate.published
+                                    .where("visibility IN (?) OR account_id = ?", %w[public marketplace], account.id)
 
       templates = templates.where("name ILIKE ? OR description ILIKE ?", "%#{query}%", "%#{query}%") if query.present?
       templates = templates.by_category(category) if category.present?

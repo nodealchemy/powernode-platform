@@ -1,7 +1,10 @@
 // DevOps Templates Page - AI Pipeline Templates for CI/CD
 import React, { useState, useEffect } from 'react';
-import { Plus, GitBranch, Play, Search, Filter, Code, AlertTriangle, CheckCircle, BarChart3 } from 'lucide-react';
+import { Plus, GitBranch, Play, Search, Filter, Code, AlertTriangle, CheckCircle, BarChart3, RefreshCw, Pencil, Trash2, Tag, Shield, Clock, Download, Star } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { Modal } from '@/shared/components/ui/Modal';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import DevopsTemplateFormModal, { TemplateFormData } from '@/features/ai/devops/components/DevopsTemplateFormModal';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
@@ -53,6 +56,11 @@ const DevOpsTemplatesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [detailModal, setDetailModal] = useState<{ isOpen: boolean; template: DevopsTemplate | null; loading: boolean }>({ isOpen: false, template: null, loading: false });
+  const [createModal, setCreateModal] = useState(false);
+  const [editModal, setEditModal] = useState<{ isOpen: boolean; template: DevopsTemplate | null }>({ isOpen: false, template: null });
+  const [saving, setSaving] = useState(false);
+  const { confirm, ConfirmationDialog } = useConfirmation();
 
   // WebSocket for real-time updates
   usePageWebSocket({
@@ -131,6 +139,78 @@ const DevOpsTemplatesPage: React.FC = () => {
     }
   };
 
+  const handleCreateTemplate = async (data: TemplateFormData) => {
+    try {
+      setSaving(true);
+      await devopsApi.createTemplate(data as unknown as Record<string, unknown>);
+      dispatch(addNotification({ type: 'success', message: `"${data.name}" created successfully` }));
+      setCreateModal(false);
+      loadData();
+    } catch (error) {
+      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to create template') }));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleViewTemplate = async (template: DevopsTemplate) => {
+    setDetailModal({ isOpen: true, template, loading: true });
+    try {
+      const res = await devopsApi.getTemplate(template.id);
+      setDetailModal({ isOpen: true, template: res.template, loading: false });
+    } catch (error) {
+      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to load template details') }));
+      setDetailModal({ isOpen: true, template, loading: false });
+    }
+  };
+
+  const handleEditFromDetail = () => {
+    if (!detailModal.template) return;
+    const template = detailModal.template;
+    setDetailModal({ isOpen: false, template: null, loading: false });
+    handleEditTemplate(template);
+  };
+
+  const handleEditTemplate = async (template: DevopsTemplate) => {
+    // Fetch detailed template data for editing
+    try {
+      const res = await devopsApi.getTemplate(template.id);
+      setEditModal({ isOpen: true, template: res.template });
+    } catch {
+      setEditModal({ isOpen: true, template });
+    }
+  };
+
+  const handleSaveTemplate = async (data: TemplateFormData) => {
+    if (!editModal.template) return;
+    try {
+      setSaving(true);
+      await devopsApi.updateTemplate(editModal.template.id, data as unknown as Record<string, unknown>);
+      dispatch(addNotification({ type: 'success', message: `"${data.name}" updated successfully` }));
+      setEditModal({ isOpen: false, template: null });
+      loadData();
+    } catch (error) {
+      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to update template') }));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUninstallTemplate = (installation: DevopsInstallation) => {
+    confirm({
+      title: 'Uninstall Template',
+      message: `Are you sure you want to uninstall "${installation.template.name}"? This will remove the template from your account.`,
+      variant: 'danger',
+      confirmLabel: 'Uninstall',
+      onConfirm: async () => {
+        await devopsApi.uninstallTemplate(installation.id);
+        dispatch(addNotification({ type: 'success', message: `"${installation.template.name}" uninstalled successfully` }));
+        const installationsRes = await devopsApi.getInstallations();
+        setInstallations(installationsRes.items || []);
+      },
+    });
+  };
+
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'completed': case 'approved': case 'published': case 'active': return 'text-theme-success bg-theme-success/10';
@@ -177,6 +257,12 @@ const DevOpsTemplatesPage: React.FC = () => {
       breadcrumbs={breadcrumbs}
       actions={[
         {
+          label: 'Refresh',
+          onClick: () => loadData(),
+          icon: RefreshCw,
+          variant: 'secondary' as const
+        },
+        {
           label: 'New Execution',
           onClick: () => {},
           icon: Play,
@@ -184,7 +270,7 @@ const DevOpsTemplatesPage: React.FC = () => {
         },
         {
           label: 'Create Template',
-          onClick: () => {},
+          onClick: () => setCreateModal(true),
           icon: Plus,
           variant: 'primary' as const
         }
@@ -316,7 +402,12 @@ const DevOpsTemplatesPage: React.FC = () => {
               ) : (
                 <div data-testid="devops-templates-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {templates.map(template => (
-                    <div key={template.id} data-testid="devops-template-card" className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-accent transition-colors">
+                    <div
+                      key={template.id}
+                      data-testid="devops-template-card"
+                      className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-accent transition-colors cursor-pointer"
+                      onClick={() => handleViewTemplate(template)}
+                    >
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium text-theme-primary">{template.name}</h3>
                         <span data-testid="template-status-badge" className={`px-2 py-1 text-xs rounded ${getStatusColor(template.status)}`}>
@@ -330,20 +421,31 @@ const DevOpsTemplatesPage: React.FC = () => {
                           <span className="px-2 py-1 bg-theme-accent/10 rounded">{template.template_type}</span>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
                         <span className="text-sm text-theme-secondary">
                           {template.installation_count} installs
                         </span>
-                        {isInstalled(template.id) ? (
-                          <span className="text-sm text-theme-success font-medium">Installed</span>
-                        ) : (
-                          <button
-                            onClick={() => handleInstallTemplate(template)}
-                            className="btn-theme btn-theme-primary btn-theme-sm"
-                          >
-                            Install
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {template.is_owner && (
+                            <button
+                              onClick={() => handleEditTemplate(template)}
+                              className="p-1.5 text-theme-secondary hover:text-theme-primary hover:bg-theme-hover rounded transition-colors"
+                              title="Edit template"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          )}
+                          {isInstalled(template.id) ? (
+                            <span className="text-sm text-theme-success font-medium">Installed</span>
+                          ) : (
+                            <button
+                              onClick={() => handleInstallTemplate(template)}
+                              className="btn-theme btn-theme-primary btn-theme-sm"
+                            >
+                              Install
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -371,7 +473,16 @@ const DevOpsTemplatesPage: React.FC = () => {
                           {installation.status}
                         </span>
                       </div>
-                      <span className="text-sm text-theme-secondary">v{installation.installed_version}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-theme-secondary">v{installation.installed_version}</span>
+                        <button
+                          onClick={() => handleUninstallTemplate(installation)}
+                          className="p-1.5 text-theme-secondary hover:text-theme-danger hover:bg-theme-danger/10 rounded transition-colors"
+                          title="Uninstall template"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex gap-4 text-sm text-theme-secondary">
                       <span>{installation.execution_count} executions</span>
@@ -538,6 +649,296 @@ const DevOpsTemplatesPage: React.FC = () => {
           )}
         </>
       )}
+      {/* Create Template Modal */}
+      <DevopsTemplateFormModal
+        isOpen={createModal}
+        onClose={() => setCreateModal(false)}
+        onSave={handleCreateTemplate}
+        mode="create"
+        saving={saving}
+      />
+
+      {/* Detail Template Modal */}
+      <Modal
+        isOpen={detailModal.isOpen}
+        onClose={() => setDetailModal({ isOpen: false, template: null, loading: false })}
+        title={detailModal.template?.name || 'Template Details'}
+        maxWidth="2xl"
+        footer={
+          <div className="flex justify-between w-full">
+            <div>
+              {detailModal.template?.is_owner && (
+                <button
+                  onClick={handleEditFromDetail}
+                  className="btn-theme btn-theme-secondary btn-theme-sm flex items-center gap-2"
+                >
+                  <Pencil size={14} />
+                  Edit Template
+                </button>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDetailModal({ isOpen: false, template: null, loading: false })}
+                className="btn-theme btn-theme-secondary btn-theme-sm"
+              >
+                Close
+              </button>
+              {detailModal.template && !isInstalled(detailModal.template.id) && (
+                <button
+                  onClick={() => {
+                    if (detailModal.template) {
+                      handleInstallTemplate(detailModal.template);
+                      setDetailModal({ isOpen: false, template: null, loading: false });
+                    }
+                  }}
+                  className="btn-theme btn-theme-primary btn-theme-sm"
+                >
+                  Install
+                </button>
+              )}
+            </div>
+          </div>
+        }
+      >
+        {detailModal.loading ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-theme-accent border-t-theme-primary"></div>
+            <p className="mt-3 text-theme-secondary text-sm">Loading template details...</p>
+          </div>
+        ) : detailModal.template && (
+          <div className="space-y-5">
+            {/* Status badges row */}
+            <div className="flex flex-wrap gap-2">
+              <span className={`px-2.5 py-1 text-xs font-medium rounded ${getStatusColor(detailModal.template.status)}`}>
+                {detailModal.template.status}
+              </span>
+              <span className="px-2.5 py-1 text-xs font-medium rounded bg-theme-accent/10 text-theme-accent">
+                {detailModal.template.visibility}
+              </span>
+              <span className="px-2.5 py-1 text-xs rounded bg-theme-surface text-theme-secondary border border-theme">
+                v{detailModal.template.version}
+              </span>
+              {detailModal.template.is_featured && (
+                <span className="px-2.5 py-1 text-xs font-medium rounded bg-theme-warning/10 text-theme-warning flex items-center gap-1">
+                  <Star size={12} /> Featured
+                </span>
+              )}
+              {isInstalled(detailModal.template.id) && (
+                <span className="px-2.5 py-1 text-xs font-medium rounded text-theme-success bg-theme-success/10">
+                  Installed
+                </span>
+              )}
+            </div>
+
+            {/* Description */}
+            <div>
+              <p className="text-sm text-theme-secondary">{detailModal.template.description}</p>
+            </div>
+
+            {/* Metadata grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-theme-bg border border-theme rounded-lg p-3">
+                <div className="flex items-center gap-2 text-theme-secondary mb-1">
+                  <Tag size={12} />
+                  <span className="text-xs">Category</span>
+                </div>
+                <p className="text-sm font-medium text-theme-primary">{detailModal.template.category.replace('_', ' ')}</p>
+              </div>
+              <div className="bg-theme-bg border border-theme rounded-lg p-3">
+                <div className="flex items-center gap-2 text-theme-secondary mb-1">
+                  <Code size={12} />
+                  <span className="text-xs">Type</span>
+                </div>
+                <p className="text-sm font-medium text-theme-primary">{detailModal.template.template_type.replace('_', ' ')}</p>
+              </div>
+              <div className="bg-theme-bg border border-theme rounded-lg p-3">
+                <div className="flex items-center gap-2 text-theme-secondary mb-1">
+                  <Download size={12} />
+                  <span className="text-xs">Installs</span>
+                </div>
+                <p className="text-sm font-medium text-theme-primary">{detailModal.template.installation_count}</p>
+              </div>
+              <div className="bg-theme-bg border border-theme rounded-lg p-3">
+                <div className="flex items-center gap-2 text-theme-secondary mb-1">
+                  <Clock size={12} />
+                  <span className="text-xs">Published</span>
+                </div>
+                <p className="text-sm font-medium text-theme-primary">
+                  {detailModal.template.published_at ? new Date(detailModal.template.published_at).toLocaleDateString() : 'Not published'}
+                </p>
+              </div>
+            </div>
+
+            {/* Tags */}
+            {detailModal.template.tags && detailModal.template.tags.length > 0 && (
+              <div>
+                <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Tags</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {detailModal.template.tags.map((tag, i) => (
+                    <span key={i} className="px-2 py-0.5 text-xs rounded-full bg-theme-accent/10 text-theme-accent">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Integrations & Secrets */}
+            {((detailModal.template.integrations_required && detailModal.template.integrations_required.length > 0) ||
+              (detailModal.template.secrets_required && detailModal.template.secrets_required.length > 0)) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {detailModal.template.integrations_required && detailModal.template.integrations_required.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Required Integrations</h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {detailModal.template.integrations_required.map((int, i) => (
+                        <span key={i} className="px-2 py-1 text-xs rounded bg-theme-info/10 text-theme-info">
+                          {int}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {detailModal.template.secrets_required && detailModal.template.secrets_required.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2 flex items-center gap-1">
+                      <Shield size={12} /> Required Secrets
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {detailModal.template.secrets_required.map((secret, i) => (
+                        <span key={i} className="px-2 py-1 text-xs rounded bg-theme-warning/10 text-theme-warning font-mono">
+                          {secret}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Variables */}
+            {detailModal.template.variables && detailModal.template.variables.length > 0 && (
+              <div>
+                <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Variables</h4>
+                <div className="bg-theme-bg border border-theme rounded-lg divide-y divide-theme">
+                  {(detailModal.template.variables as Array<{ name: string; default?: string; description?: string }>).map((variable, i) => (
+                    <div key={i} className="px-3 py-2 flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-mono text-theme-primary">{variable.name}</span>
+                        {variable.description && (
+                          <p className="text-xs text-theme-secondary">{variable.description}</p>
+                        )}
+                      </div>
+                      {variable.default && (
+                        <span className="text-xs font-mono text-theme-secondary bg-theme-surface px-2 py-0.5 rounded">
+                          {variable.default}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Workflow Definition (condensed) */}
+            {detailModal.template.workflow_definition && (
+              <div>
+                <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Workflow Pipeline</h4>
+                <div className="bg-theme-bg border border-theme rounded-lg p-4">
+                  {(detailModal.template.workflow_definition as { nodes?: Array<{ id: string; type: string; label: string }> }).nodes ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {((detailModal.template.workflow_definition as { nodes: Array<{ id: string; type: string; label: string }> }).nodes).map((node, i, arr) => {
+                        const nodeColors: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+                          trigger: { bg: 'bg-theme-info/15', text: 'text-theme-info', border: 'border-theme-info/30', dot: 'bg-current' },
+                          ai: { bg: 'bg-theme-primary/10', text: 'text-theme-primary', border: 'border-theme-primary/25', dot: 'bg-current' },
+                          action: { bg: 'bg-theme-success/15', text: 'text-theme-success', border: 'border-theme-success/30', dot: 'bg-current' },
+                          condition: { bg: 'bg-theme-warning/15', text: 'text-theme-warning', border: 'border-theme-warning/30', dot: 'bg-current' },
+                        };
+                        const colors = nodeColors[node.type] || { bg: 'bg-theme-danger/15', text: 'text-theme-danger', border: 'border-theme-danger/30', dot: 'bg-current' };
+                        return (
+                          <React.Fragment key={node.id}>
+                            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md font-medium border ${colors.bg} ${colors.text} ${colors.border}`}>
+                              <span className={`w-2 h-2 rounded-full ${colors.dot}`} />
+                              {node.label}
+                            </div>
+                            {i < arr.length - 1 && (
+                              <span className="text-theme-secondary/60 text-sm">&rarr;</span>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-theme-secondary">No workflow nodes defined</p>
+                  )}
+                </div>
+                {/* Legend */}
+                <div className="flex flex-wrap gap-3 mt-2 text-[10px] text-theme-secondary">
+                  <span className="flex items-center gap-1 text-theme-info"><span className="w-2 h-2 rounded-full bg-current" /> Trigger</span>
+                  <span className="flex items-center gap-1 text-theme-success"><span className="w-2 h-2 rounded-full bg-current" /> Action</span>
+                  <span className="flex items-center gap-1 text-theme-primary"><span className="w-2 h-2 rounded-full bg-current" /> AI</span>
+                  <span className="flex items-center gap-1 text-theme-warning"><span className="w-2 h-2 rounded-full bg-current" /> Condition</span>
+                </div>
+              </div>
+            )}
+
+            {/* Usage Guide */}
+            {detailModal.template.usage_guide && (
+              <div>
+                <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Usage Guide</h4>
+                <div className="bg-theme-bg border border-theme rounded-lg p-4 text-sm text-theme-primary prose prose-sm max-w-none">
+                  <pre className="whitespace-pre-wrap font-sans text-sm">{detailModal.template.usage_guide}</pre>
+                </div>
+              </div>
+            )}
+
+            {/* Input/Output Schema */}
+            {(detailModal.template.input_schema || detailModal.template.output_schema) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {detailModal.template.input_schema && Object.keys(detailModal.template.input_schema).length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Input Schema</h4>
+                    <div className="bg-theme-bg border border-theme rounded-lg p-3">
+                      {Object.entries(detailModal.template.input_schema).map(([key, val]) => (
+                        <div key={key} className="flex items-start justify-between py-1">
+                          <span className="text-xs font-mono text-theme-primary">{key}</span>
+                          <span className="text-xs text-theme-secondary">{(val as { type?: string })?.type || 'unknown'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {detailModal.template.output_schema && Object.keys(detailModal.template.output_schema).length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Output Schema</h4>
+                    <div className="bg-theme-bg border border-theme rounded-lg p-3">
+                      {Object.entries(detailModal.template.output_schema).map(([key, val]) => (
+                        <div key={key} className="flex items-start justify-between py-1">
+                          <span className="text-xs font-mono text-theme-primary">{key}</span>
+                          <span className="text-xs text-theme-secondary">{(val as { type?: string })?.type || 'unknown'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Edit Template Modal */}
+      <DevopsTemplateFormModal
+        isOpen={editModal.isOpen}
+        onClose={() => setEditModal({ isOpen: false, template: null })}
+        onSave={handleSaveTemplate}
+        template={editModal.template}
+        mode="edit"
+        saving={saving}
+      />
+
+      {ConfirmationDialog}
     </PageContainer>
   );
 };
