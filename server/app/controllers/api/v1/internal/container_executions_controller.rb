@@ -13,7 +13,7 @@ module Api
         def complete
           instance = find_instance
 
-          service = ::Mcp::ContainerOrchestrationService.new(
+          service = ::Devops::ContainerOrchestrationService.new(
             account: instance.account,
             user: instance.triggered_by
           )
@@ -99,7 +99,7 @@ module Api
           # If critical violation, cancel the execution
           if params[:severity] == "critical"
             instance.fail!("Critical security violation: #{params[:violation_type]}")
-            ::Mcp::QuotaService.new(instance.account).decrement_running!
+            ::Devops::QuotaService.new(instance.account).decrement_running!
           end
 
           render json: { status: "ok" }
@@ -129,7 +129,7 @@ module Api
         private
 
         def find_instance
-          ::Mcp::ContainerInstance.find_by!(execution_id: params[:execution_id])
+          ::Devops::ContainerInstance.find_by!(execution_id: params[:execution_id])
         end
 
         def authenticate_worker!

@@ -15,7 +15,7 @@ module Ai
     # ==================== Associations ====================
     belongs_to :account
     belongs_to :default_agent, class_name: "Ai::Agent", optional: true
-    belongs_to :container_instance, class_name: "Mcp::ContainerInstance", optional: true
+    belongs_to :container_instance, class_name: "Devops::ContainerInstance", optional: true
 
     has_many :ralph_tasks, class_name: "Ai::RalphTask",
              foreign_key: "ralph_loop_id", dependent: :destroy

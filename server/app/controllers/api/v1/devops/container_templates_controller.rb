@@ -2,15 +2,15 @@
 
 module Api
   module V1
-    module Mcp
-      class TemplatesController < ApplicationController
+    module Devops
+      class ContainerTemplatesController < ApplicationController
         include AuditLogging
 
         before_action :set_template, only: %i[show update destroy publish unpublish executions stats]
 
         # GET /api/v1/mcp/templates
         def index
-          scope = ::Mcp::ContainerTemplate.accessible_by(current_user.account)
+          scope = ::Devops::ContainerTemplate.accessible_by(current_user.account)
 
           # Apply filters
           scope = scope.where(category: params[:category]) if params[:category].present?
@@ -44,23 +44,23 @@ module Api
             items: scope.map(&:template_summary),
             pagination: pagination_data(scope)
           )
-          log_audit_event("mcp.templates.list", current_user.account)
+          log_audit_event("devops.container_templates.list", current_user.account)
         end
 
         # GET /api/v1/mcp/templates/:id
         def show
           render_success(template: @template.template_details)
-          log_audit_event("mcp.templates.read", @template)
+          log_audit_event("devops.container_templates.read", @template)
         end
 
         # POST /api/v1/mcp/templates
         def create
-          template = current_user.account.mcp_container_templates.build(template_params)
+          template = current_user.account.devops_container_templates.build(template_params)
           template.created_by = current_user
 
           if template.save
             render_success({ template: template.template_details }, status: :created)
-            log_audit_event("mcp.templates.create", template)
+            log_audit_event("devops.container_templates.create", template)
           else
             render_error(template.errors.full_messages, status: :unprocessable_entity)
           end
@@ -75,7 +75,7 @@ module Api
 
           if @template.update(template_params)
             render_success(template: @template.template_details)
-            log_audit_event("mcp.templates.update", @template)
+            log_audit_event("devops.container_templates.update", @template)
           else
             render_error(@template.errors.full_messages, status: :unprocessable_entity)
           end
@@ -90,7 +90,7 @@ module Api
 
           @template.destroy!
           render_success(message: "Template deleted successfully")
-          log_audit_event("mcp.templates.delete", @template)
+          log_audit_event("devops.container_templates.delete", @template)
         end
 
         # POST /api/v1/mcp/templates/:id/publish
@@ -102,7 +102,7 @@ module Api
 
           @template.update!(visibility: "public", status: "active")
           render_success(template: @template.template_details)
-          log_audit_event("mcp.templates.publish", @template)
+          log_audit_event("devops.container_templates.publish", @template)
         end
 
         # POST /api/v1/mcp/templates/:id/unpublish
@@ -114,7 +114,7 @@ module Api
 
           @template.update!(visibility: "private")
           render_success(template: @template.template_details)
-          log_audit_event("mcp.templates.unpublish", @template)
+          log_audit_event("devops.container_templates.unpublish", @template)
         end
 
         # GET /api/v1/mcp/templates/:id/executions
@@ -159,7 +159,7 @@ module Api
         # GET /api/v1/mcp/templates/categories
         def categories
           render_success(
-            categories: ::Mcp::ContainerTemplate.active
+            categories: ::Devops::ContainerTemplate.active
                                                 .distinct
                                                 .pluck(:category)
                                                 .compact
@@ -169,7 +169,7 @@ module Api
 
         # GET /api/v1/mcp/templates/featured
         def featured
-          scope = ::Mcp::ContainerTemplate.public_templates
+          scope = ::Devops::ContainerTemplate.public_templates
                                           .active
                                           .where(featured: true)
                                           .order(execution_count: :desc)
@@ -181,7 +181,7 @@ module Api
         private
 
         def set_template
-          @template = ::Mcp::ContainerTemplate.accessible_by(current_user.account).find(params[:id])
+          @template = ::Devops::ContainerTemplate.accessible_by(current_user.account).find(params[:id])
         end
 
         def template_params

@@ -5,7 +5,7 @@ module A2a
     class ContainerSkills
       class << self
         def execute(account:, user:, params:)
-          template = Mcp::ContainerTemplate.find(params[:template_id])
+          template = Devops::ContainerTemplate.find(params[:template_id])
 
           # Verify access
           unless template.accessible_by?(account)
@@ -13,11 +13,11 @@ module A2a
           end
 
           # Check quotas
-          quota_service = Mcp::QuotaService.new(account)
+          quota_service = Devops::QuotaService.new(account)
           quota_service.check_execution_allowed!
 
           # Create container instance
-          orchestrator = Mcp::ContainerOrchestrationService.new(account: account, user: user)
+          orchestrator = Devops::ContainerOrchestrationService.new(account: account, user: user)
           instance = orchestrator.execute(
             template: template,
             input_parameters: params[:input_parameters],
@@ -31,7 +31,7 @@ module A2a
         end
 
         def get_status(account:, user:, params:)
-          instance = Mcp::ContainerInstance
+          instance = Devops::ContainerInstance
                        .where(account: account)
                        .find_by!(execution_id: params[:execution_id])
 
@@ -47,7 +47,7 @@ module A2a
         end
 
         def list_templates(account:, user:, params:)
-          templates = Mcp::ContainerTemplate.accessible_by(account)
+          templates = Devops::ContainerTemplate.accessible_by(account)
 
           if params[:visibility].present?
             templates = templates.where(visibility: params[:visibility])

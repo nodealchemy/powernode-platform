@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-module Mcp
+module Devops
   class ContainerTemplate < ApplicationRecord
-    self.table_name = "mcp_container_templates"
+    self.table_name = "devops_container_templates"
 
     # Concerns
     include Auditable
@@ -19,7 +19,7 @@ module Mcp
     belongs_to :account, optional: true  # nil = system template
     belongs_to :created_by, class_name: "User", optional: true
 
-    has_many :container_instances, class_name: "Mcp::ContainerInstance",
+    has_many :container_instances, class_name: "Devops::ContainerInstance",
                                    foreign_key: "template_id",
                                    dependent: :nullify
 
@@ -197,7 +197,7 @@ module Mcp
       self.slug = base_slug
 
       counter = 1
-      while Mcp::ContainerTemplate.exists?(slug: slug)
+      while Devops::ContainerTemplate.exists?(slug: slug)
         self.slug = "#{base_slug}-#{counter}"
         counter += 1
       end

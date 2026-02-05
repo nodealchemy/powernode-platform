@@ -2,7 +2,7 @@
 
 module Api
   module V1
-    module Mcp
+    module Devops
       class ContainersController < ApplicationController
         include AuditLogging
         include ::Ai::ResourceFiltering
@@ -12,7 +12,7 @@ module Api
         # GET /api/v1/mcp/containers
         # List container executions
         def index
-          scope = current_user.account.mcp_container_instances
+          scope = current_user.account.devops_container_instances
 
           # Apply filters
           scope = scope.where(status: params[:status]) if params[:status].present?
@@ -33,21 +33,21 @@ module Api
             items: scope.map(&:instance_summary),
             pagination: pagination_data(scope)
           )
-          log_audit_event("mcp.containers.list", current_user.account)
+          log_audit_event("devops.containers.list", current_user.account)
         end
 
         # GET /api/v1/mcp/containers/:id
         def show
           render_success(instance: @instance.instance_details)
-          log_audit_event("mcp.containers.read", @instance)
+          log_audit_event("devops.containers.read", @instance)
         end
 
         # POST /api/v1/mcp/containers
         # Execute a container
         def execute
-          template = current_user.account.mcp_container_templates.find(params[:template_id])
+          template = current_user.account.devops_container_templates.find(params[:template_id])
 
-          service = ::Mcp::ContainerOrchestrationService.new(
+          service = ::Devops::ContainerOrchestrationService.new(
             account: current_user.account,
             user: current_user
           )
@@ -61,24 +61,24 @@ module Api
             )
 
             render_success({ instance: instance.instance_details }, status: :created)
-            log_audit_event("mcp.containers.execute", instance)
-          rescue ::Mcp::QuotaService::QuotaExceededError => e
+            log_audit_event("devops.containers.execute", instance)
+          rescue ::Devops::QuotaService::QuotaExceededError => e
             render_error("Quota exceeded: #{e.message}", status: :too_many_requests)
-          rescue ::Mcp::ContainerOrchestrationService::OrchestrationError => e
+          rescue ::Devops::ContainerOrchestrationService::OrchestrationError => e
             render_error(e.message, status: :unprocessable_entity)
           end
         end
 
         # POST /api/v1/mcp/containers/:id/cancel
         def cancel
-          service = ::Mcp::ContainerOrchestrationService.new(
+          service = ::Devops::ContainerOrchestrationService.new(
             account: current_user.account,
             user: current_user
           )
 
           if service.cancel(@instance.execution_id, reason: params[:reason])
             render_success(instance: @instance.reload.instance_details)
-            log_audit_event("mcp.containers.cancel", @instance)
+            log_audit_event("devops.containers.cancel", @instance)
           else
             render_error("Could not cancel execution", status: :unprocessable_entity)
           end
@@ -104,7 +104,7 @@ module Api
 
         # GET /api/v1/mcp/containers/active
         def active
-          scope = current_user.account.mcp_container_instances.active
+          scope = current_user.account.devops_container_instances.active
           scope = scope.order(created_at: :desc)
 
           render_success(
@@ -116,7 +116,7 @@ module Api
         # GET /api/v1/mcp/containers/stats
         def stats
           account = current_user.account
-          instances = account.mcp_container_instances
+          instances = account.devops_container_instances
 
           render_success(
             stats: {
@@ -128,7 +128,7 @@ module Api
               success_rate: instances.finished.count > 0 ?
                 (instances.successful.count.to_f / instances.finished.count * 100).round(2) : 0,
               by_status: instances.group(:status).count,
-              by_template: instances.joins(:template).group("mcp_container_templates.name").count
+              by_template: instances.joins(:template).group("devops_container_templates.name").count
             }
           )
         end
@@ -136,7 +136,7 @@ module Api
         private
 
         def set_instance
-          @instance = current_user.account.mcp_container_instances.find(params[:id])
+          @instance = current_user.account.devops_container_instances.find(params[:id])
         end
       end
     end

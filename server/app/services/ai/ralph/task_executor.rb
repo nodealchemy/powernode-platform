@@ -188,7 +188,7 @@ module Ai
 
       # Execute task via container
       def execute_via_container(template)
-        orchestration = ::Mcp::ContainerOrchestrationService.new(
+        orchestration = ::Devops::ContainerOrchestrationService.new(
           account: account,
           template: template
         )

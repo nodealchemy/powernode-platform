@@ -5,7 +5,7 @@ import { ROUTES } from '../../fixtures/test-data';
  * Containers Page Object Model
  *
  * Encapsulates AI Container management interactions for Playwright tests.
- * Route: /app/ai/containers
+ * Route: /app/devops/containers
  */
 export class ContainersPage {
   readonly page: Page;

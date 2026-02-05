@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_05_114059) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -4181,6 +4181,100 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'archived'::character varying::text])", name: "check_devops_ai_config_status"
   end
 
+  create_table "devops_container_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "a2a_task_id"
+    t.uuid "account_id", null: false
+    t.jsonb "artifacts", default: []
+    t.datetime "completed_at"
+    t.float "cpu_used_millicores"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.jsonb "environment_variables", default: {}
+    t.text "error_message"
+    t.string "execution_id", null: false
+    t.string "exit_code"
+    t.string "gitea_job_id"
+    t.string "gitea_workflow_run_id"
+    t.string "image_name", null: false
+    t.string "image_tag", default: "latest"
+    t.jsonb "input_parameters", default: {}
+    t.text "logs"
+    t.integer "memory_used_mb"
+    t.integer "network_bytes_in"
+    t.integer "network_bytes_out"
+    t.jsonb "output_data", default: {}
+    t.datetime "queued_at"
+    t.jsonb "runner_labels", default: []
+    t.string "runner_name"
+    t.boolean "sandbox_enabled", default: true
+    t.jsonb "security_violations", default: []
+    t.datetime "started_at"
+    t.string "status", default: "pending"
+    t.bigint "storage_used_bytes"
+    t.uuid "template_id"
+    t.integer "timeout_seconds"
+    t.uuid "triggered_by_id"
+    t.datetime "updated_at", null: false
+    t.string "vault_token_id"
+    t.index ["a2a_task_id"], name: "index_devops_container_instances_on_a2a_task_id"
+    t.index ["account_id", "status"], name: "index_devops_container_instances_on_account_id_and_status"
+    t.index ["account_id"], name: "index_devops_container_instances_on_account_id"
+    t.index ["created_at"], name: "index_devops_container_instances_on_created_at"
+    t.index ["execution_id"], name: "index_devops_container_instances_on_execution_id", unique: true
+    t.index ["gitea_workflow_run_id"], name: "index_devops_container_instances_on_gitea_workflow_run_id"
+    t.index ["status"], name: "index_devops_container_instances_on_status"
+    t.index ["template_id"], name: "index_devops_container_instances_on_template_id"
+    t.index ["triggered_by_id"], name: "index_devops_container_instances_on_triggered_by_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'provisioning'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'timeout'::character varying]::text[])", name: "mcp_instances_status_check"
+  end
+
+  create_table "devops_container_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.jsonb "allowed_egress_domains", default: []
+    t.string "category"
+    t.jsonb "command_args", default: []
+    t.integer "cpu_millicores", default: 500
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.string "entrypoint"
+    t.jsonb "environment_variables", default: {}
+    t.integer "execution_count", default: 0
+    t.integer "failure_count", default: 0
+    t.string "image_name", null: false
+    t.string "image_tag", default: "latest"
+    t.jsonb "input_schema", default: {}
+    t.jsonb "labels", default: {}
+    t.datetime "last_used_at"
+    t.integer "max_retries", default: 3
+    t.integer "memory_mb", default: 512
+    t.string "name", null: false
+    t.boolean "network_access", default: false
+    t.jsonb "output_schema", default: {}
+    t.boolean "privileged", default: false
+    t.boolean "read_only_root", default: true
+    t.string "registry_url"
+    t.jsonb "resource_limits", default: {}
+    t.boolean "sandbox_mode", default: true
+    t.jsonb "security_options", default: {}
+    t.string "slug", null: false
+    t.string "status", default: "active"
+    t.integer "success_count", default: 0
+    t.integer "timeout_seconds", default: 3600
+    t.datetime "updated_at", null: false
+    t.jsonb "vault_secret_paths", default: []
+    t.string "visibility", default: "private"
+    t.index ["account_id", "name"], name: "index_devops_container_templates_on_account_id_and_name", unique: true, where: "(account_id IS NOT NULL)"
+    t.index ["account_id"], name: "index_devops_container_templates_on_account_id"
+    t.index ["category"], name: "index_devops_container_templates_on_category"
+    t.index ["created_by_id"], name: "index_devops_container_templates_on_created_by_id"
+    t.index ["slug"], name: "index_devops_container_templates_on_slug", unique: true
+    t.index ["status"], name: "index_devops_container_templates_on_status"
+    t.index ["visibility"], name: "index_devops_container_templates_on_visibility"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'deprecated'::character varying, 'archived'::character varying]::text[])", name: "mcp_templates_status_check"
+    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'account'::character varying, 'public'::character varying]::text[])", name: "mcp_templates_visibility_check"
+  end
+
   create_table "devops_integration_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.integer "consecutive_failures", default: 0
@@ -4499,6 +4593,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
     t.index ["external_id"], name: "index_devops_repositories_on_external_id"
   end
 
+  create_table "devops_resource_quotas", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "allow_network_access", default: false
+    t.boolean "allow_overage", default: false
+    t.jsonb "allowed_egress_domains", default: []
+    t.integer "containers_used_this_hour", default: 0
+    t.integer "containers_used_today", default: 0
+    t.datetime "created_at", null: false
+    t.integer "current_running_containers", default: 0
+    t.integer "max_concurrent_containers", default: 5
+    t.integer "max_containers_per_day", default: 500
+    t.integer "max_containers_per_hour", default: 50
+    t.integer "max_cpu_millicores", default: 500
+    t.integer "max_execution_time_seconds", default: 3600
+    t.integer "max_memory_mb", default: 512
+    t.bigint "max_storage_bytes", default: 1073741824
+    t.decimal "overage_rate_per_container", precision: 10, scale: 4
+    t.datetime "updated_at", null: false
+    t.datetime "usage_reset_at"
+    t.index ["account_id"], name: "index_devops_resource_quotas_on_account_id", unique: true
+  end
+
   create_table "devops_schedules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ci_cd_pipeline_id", null: false
     t.datetime "created_at", null: false
@@ -4515,6 +4631,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
     t.index ["ci_cd_pipeline_id"], name: "index_devops_schedules_on_ci_cd_pipeline_id"
     t.index ["created_by_id"], name: "index_devops_schedules_on_created_by_id"
     t.index ["next_run_at"], name: "index_devops_schedules_on_next_run_at", where: "(is_active = true)"
+  end
+
+  create_table "devops_secret_references", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.datetime "expires_at"
+    t.datetime "last_accessed_at"
+    t.datetime "last_rotated_at"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.string "secret_type", null: false
+    t.datetime "updated_at", null: false
+    t.string "vault_key"
+    t.string "vault_path", null: false
+    t.index ["account_id", "name"], name: "index_devops_secret_references_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_devops_secret_references_on_account_id"
+    t.index ["created_by_id"], name: "index_devops_secret_references_on_created_by_id"
+    t.index ["expires_at"], name: "index_devops_secret_references_on_expires_at", where: "(expires_at IS NOT NULL)"
+    t.index ["secret_type"], name: "index_devops_secret_references_on_secret_type"
+    t.index ["vault_path"], name: "index_devops_secret_references_on_vault_path"
+    t.check_constraint "secret_type::text = ANY (ARRAY['ai_provider'::character varying, 'mcp_server'::character varying, 'chat_channel'::character varying, 'git_credential'::character varying, 'custom'::character varying]::text[])", name: "mcp_secrets_type_check"
   end
 
   create_table "devops_step_approval_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5526,100 +5665,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
     t.index ["subscribed_at"], name: "index_marketplace_subscriptions_on_subscribed_at"
   end
 
-  create_table "mcp_container_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "a2a_task_id"
-    t.uuid "account_id", null: false
-    t.jsonb "artifacts", default: []
-    t.datetime "completed_at"
-    t.float "cpu_used_millicores"
-    t.datetime "created_at", null: false
-    t.integer "duration_ms"
-    t.jsonb "environment_variables", default: {}
-    t.text "error_message"
-    t.string "execution_id", null: false
-    t.string "exit_code"
-    t.string "gitea_job_id"
-    t.string "gitea_workflow_run_id"
-    t.string "image_name", null: false
-    t.string "image_tag", default: "latest"
-    t.jsonb "input_parameters", default: {}
-    t.text "logs"
-    t.integer "memory_used_mb"
-    t.integer "network_bytes_in"
-    t.integer "network_bytes_out"
-    t.jsonb "output_data", default: {}
-    t.datetime "queued_at"
-    t.jsonb "runner_labels", default: []
-    t.string "runner_name"
-    t.boolean "sandbox_enabled", default: true
-    t.jsonb "security_violations", default: []
-    t.datetime "started_at"
-    t.string "status", default: "pending"
-    t.bigint "storage_used_bytes"
-    t.uuid "template_id"
-    t.integer "timeout_seconds"
-    t.uuid "triggered_by_id"
-    t.datetime "updated_at", null: false
-    t.string "vault_token_id"
-    t.index ["a2a_task_id"], name: "index_mcp_container_instances_on_a2a_task_id"
-    t.index ["account_id", "status"], name: "index_mcp_container_instances_on_account_id_and_status"
-    t.index ["account_id"], name: "index_mcp_container_instances_on_account_id"
-    t.index ["created_at"], name: "index_mcp_container_instances_on_created_at"
-    t.index ["execution_id"], name: "index_mcp_container_instances_on_execution_id", unique: true
-    t.index ["gitea_workflow_run_id"], name: "index_mcp_container_instances_on_gitea_workflow_run_id"
-    t.index ["status"], name: "index_mcp_container_instances_on_status"
-    t.index ["template_id"], name: "index_mcp_container_instances_on_template_id"
-    t.index ["triggered_by_id"], name: "index_mcp_container_instances_on_triggered_by_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'provisioning'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'timeout'::character varying]::text[])", name: "mcp_instances_status_check"
-  end
-
-  create_table "mcp_container_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id"
-    t.jsonb "allowed_egress_domains", default: []
-    t.string "category"
-    t.jsonb "command_args", default: []
-    t.integer "cpu_millicores", default: 500
-    t.datetime "created_at", null: false
-    t.uuid "created_by_id"
-    t.text "description"
-    t.string "entrypoint"
-    t.jsonb "environment_variables", default: {}
-    t.integer "execution_count", default: 0
-    t.integer "failure_count", default: 0
-    t.string "image_name", null: false
-    t.string "image_tag", default: "latest"
-    t.jsonb "input_schema", default: {}
-    t.jsonb "labels", default: {}
-    t.datetime "last_used_at"
-    t.integer "max_retries", default: 3
-    t.integer "memory_mb", default: 512
-    t.string "name", null: false
-    t.boolean "network_access", default: false
-    t.jsonb "output_schema", default: {}
-    t.boolean "privileged", default: false
-    t.boolean "read_only_root", default: true
-    t.string "registry_url"
-    t.jsonb "resource_limits", default: {}
-    t.boolean "sandbox_mode", default: true
-    t.jsonb "security_options", default: {}
-    t.string "slug", null: false
-    t.string "status", default: "active"
-    t.integer "success_count", default: 0
-    t.integer "timeout_seconds", default: 3600
-    t.datetime "updated_at", null: false
-    t.jsonb "vault_secret_paths", default: []
-    t.string "visibility", default: "private"
-    t.index ["account_id", "name"], name: "index_mcp_container_templates_on_account_id_and_name", unique: true, where: "(account_id IS NOT NULL)"
-    t.index ["account_id"], name: "index_mcp_container_templates_on_account_id"
-    t.index ["category"], name: "index_mcp_container_templates_on_category"
-    t.index ["created_by_id"], name: "index_mcp_container_templates_on_created_by_id"
-    t.index ["slug"], name: "index_mcp_container_templates_on_slug", unique: true
-    t.index ["status"], name: "index_mcp_container_templates_on_status"
-    t.index ["visibility"], name: "index_mcp_container_templates_on_visibility"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'deprecated'::character varying, 'archived'::character varying]::text[])", name: "mcp_templates_status_check"
-    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'account'::character varying, 'public'::character varying]::text[])", name: "mcp_templates_visibility_check"
-  end
-
   create_table "mcp_hosted_servers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.decimal "avg_latency_ms", precision: 10, scale: 2
@@ -5679,51 +5724,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
     t.check_constraint "source_type::text = ANY (ARRAY['git'::character varying::text, 'upload'::character varying::text, 'inline'::character varying::text, 'registry'::character varying::text])", name: "check_mcp_source_type"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'building'::character varying::text, 'deploying'::character varying::text, 'running'::character varying::text, 'stopped'::character varying::text, 'failed'::character varying::text, 'deleted'::character varying::text])", name: "check_mcp_server_status"
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'team'::character varying::text, 'public'::character varying::text, 'marketplace'::character varying::text])", name: "check_mcp_server_visibility"
-  end
-
-  create_table "mcp_resource_quotas", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.boolean "allow_network_access", default: false
-    t.boolean "allow_overage", default: false
-    t.jsonb "allowed_egress_domains", default: []
-    t.integer "containers_used_this_hour", default: 0
-    t.integer "containers_used_today", default: 0
-    t.datetime "created_at", null: false
-    t.integer "current_running_containers", default: 0
-    t.integer "max_concurrent_containers", default: 5
-    t.integer "max_containers_per_day", default: 500
-    t.integer "max_containers_per_hour", default: 50
-    t.integer "max_cpu_millicores", default: 500
-    t.integer "max_execution_time_seconds", default: 3600
-    t.integer "max_memory_mb", default: 512
-    t.bigint "max_storage_bytes", default: 1073741824
-    t.decimal "overage_rate_per_container", precision: 10, scale: 4
-    t.datetime "updated_at", null: false
-    t.datetime "usage_reset_at"
-    t.index ["account_id"], name: "index_mcp_resource_quotas_on_account_id", unique: true
-  end
-
-  create_table "mcp_secret_references", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.datetime "created_at", null: false
-    t.uuid "created_by_id"
-    t.text "description"
-    t.datetime "expires_at"
-    t.datetime "last_accessed_at"
-    t.datetime "last_rotated_at"
-    t.jsonb "metadata", default: {}
-    t.string "name", null: false
-    t.string "secret_type", null: false
-    t.datetime "updated_at", null: false
-    t.string "vault_key"
-    t.string "vault_path", null: false
-    t.index ["account_id", "name"], name: "index_mcp_secret_references_on_account_id_and_name", unique: true
-    t.index ["account_id"], name: "index_mcp_secret_references_on_account_id"
-    t.index ["created_by_id"], name: "index_mcp_secret_references_on_created_by_id"
-    t.index ["expires_at"], name: "index_mcp_secret_references_on_expires_at", where: "(expires_at IS NOT NULL)"
-    t.index ["secret_type"], name: "index_mcp_secret_references_on_secret_type"
-    t.index ["vault_path"], name: "index_mcp_secret_references_on_vault_path"
-    t.check_constraint "secret_type::text = ANY (ARRAY['ai_provider'::character varying, 'mcp_server'::character varying, 'chat_channel'::character varying, 'git_credential'::character varying, 'custom'::character varying]::text[])", name: "mcp_secrets_type_check"
   end
 
   create_table "mcp_server_deployments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -7874,8 +7874,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
   add_foreign_key "ai_a2a_tasks", "chat_messages", on_delete: :nullify
   add_foreign_key "ai_a2a_tasks", "chat_sessions", on_delete: :nullify
   add_foreign_key "ai_a2a_tasks", "community_agents", on_delete: :nullify
+  add_foreign_key "ai_a2a_tasks", "devops_container_instances", column: "container_instance_id"
   add_foreign_key "ai_a2a_tasks", "federation_partners", on_delete: :nullify
-  add_foreign_key "ai_a2a_tasks", "mcp_container_instances", column: "container_instance_id", on_delete: :nullify
   add_foreign_key "ai_ab_tests", "accounts"
   add_foreign_key "ai_ab_tests", "users", column: "created_by_id"
   add_foreign_key "ai_account_credits", "accounts"
@@ -8027,7 +8027,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
   add_foreign_key "ai_ralph_iterations", "ai_ralph_tasks", column: "ralph_task_id"
   add_foreign_key "ai_ralph_loops", "accounts"
   add_foreign_key "ai_ralph_loops", "ai_agents", column: "default_agent_id", on_delete: :nullify
-  add_foreign_key "ai_ralph_loops", "mcp_container_instances", column: "container_instance_id", on_delete: :nullify
+  add_foreign_key "ai_ralph_loops", "devops_container_instances", column: "container_instance_id"
   add_foreign_key "ai_ralph_tasks", "ai_ralph_loops", column: "ralph_loop_id"
   add_foreign_key "ai_recorded_interactions", "accounts"
   add_foreign_key "ai_recorded_interactions", "ai_sandboxes", column: "sandbox_id"
@@ -8177,6 +8177,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
   add_foreign_key "delegation_permissions", "permissions"
   add_foreign_key "devops_ai_configs", "accounts", on_delete: :cascade
   add_foreign_key "devops_ai_configs", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "devops_container_instances", "accounts"
+  add_foreign_key "devops_container_instances", "ai_a2a_tasks", column: "a2a_task_id"
+  add_foreign_key "devops_container_instances", "devops_container_templates", column: "template_id"
+  add_foreign_key "devops_container_instances", "users", column: "triggered_by_id"
+  add_foreign_key "devops_container_templates", "accounts"
+  add_foreign_key "devops_container_templates", "users", column: "created_by_id"
   add_foreign_key "devops_integration_credentials", "accounts"
   add_foreign_key "devops_integration_credentials", "users", column: "created_by_user_id"
   add_foreign_key "devops_integration_executions", "accounts"
@@ -8200,8 +8206,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
   add_foreign_key "devops_providers", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "devops_repositories", "accounts", on_delete: :cascade
   add_foreign_key "devops_repositories", "devops_providers", column: "ci_cd_provider_id", on_delete: :cascade
+  add_foreign_key "devops_resource_quotas", "accounts"
   add_foreign_key "devops_schedules", "devops_pipelines", column: "ci_cd_pipeline_id", on_delete: :cascade
   add_foreign_key "devops_schedules", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "devops_secret_references", "accounts"
+  add_foreign_key "devops_secret_references", "users", column: "created_by_id"
   add_foreign_key "devops_step_approval_tokens", "devops_step_executions", column: "step_execution_id"
   add_foreign_key "devops_step_approval_tokens", "users", column: "recipient_user_id"
   add_foreign_key "devops_step_approval_tokens", "users", column: "responded_by_id"
@@ -8276,18 +8285,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
   add_foreign_key "marketplace_reviews", "accounts"
   add_foreign_key "marketplace_reviews", "users"
   add_foreign_key "marketplace_subscriptions", "accounts"
-  add_foreign_key "mcp_container_instances", "accounts"
-  add_foreign_key "mcp_container_instances", "ai_a2a_tasks", column: "a2a_task_id"
-  add_foreign_key "mcp_container_instances", "mcp_container_templates", column: "template_id"
-  add_foreign_key "mcp_container_instances", "users", column: "triggered_by_id"
-  add_foreign_key "mcp_container_templates", "accounts"
-  add_foreign_key "mcp_container_templates", "users", column: "created_by_id"
   add_foreign_key "mcp_hosted_servers", "accounts"
   add_foreign_key "mcp_hosted_servers", "mcp_servers"
   add_foreign_key "mcp_hosted_servers", "users", column: "deployed_by_id"
-  add_foreign_key "mcp_resource_quotas", "accounts"
-  add_foreign_key "mcp_secret_references", "accounts"
-  add_foreign_key "mcp_secret_references", "users", column: "created_by_id"
   add_foreign_key "mcp_server_deployments", "mcp_hosted_servers", column: "hosted_server_id"
   add_foreign_key "mcp_server_deployments", "users", column: "deployed_by_id"
   add_foreign_key "mcp_server_metrics", "mcp_hosted_servers", column: "hosted_server_id"

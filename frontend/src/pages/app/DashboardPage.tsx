@@ -112,7 +112,7 @@ import { ChatChannelsPage } from '@/features/ai/chat-channels/pages/ChatChannels
 import { CommunityAgentsPage } from '@/features/ai/community-agents/pages/CommunityAgentsPage';
 
 // Container Orchestration (Sandboxed AI execution)
-import { ContainersPage } from '@/features/ai/containers/pages/ContainersPage';
+import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
 
 // AI Feature Pages (full implementations in pages/app/ai/)
 import TeamsPage from './ai/TeamsPage';
@@ -586,7 +586,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/ralph-loops" element={<RalphLoopsPage />} />
         <Route path="/ai/chat-channels" element={<ChatChannelsPage />} />
         <Route path="/ai/community" element={<CommunityAgentsPage />} />
-        <Route path="/ai/containers" element={<ContainersPage />} />
+
         <Route path="/ai/credits" element={<CreditsPage />} />
         <Route path="/ai/rag" element={<RagPage />} />
         <Route path="/ai/model-router" element={<ModelRouterPage />} />
@@ -638,6 +638,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/devops/integrations/new/:templateId" element={<NewIntegrationPage />} />
         <Route path="/devops/integrations/:id" element={<IntegrationDetailPage />} />
         <Route path="/devops/api-keys" element={<ApiKeysPage />} />
+        <Route path="/devops/containers" element={<ContainersPage />} />
 
         {/* System Pages - Infrastructure only */}
         <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />

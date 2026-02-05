@@ -342,7 +342,7 @@ module Ai
 
     def find_matching_container
       # Find container template that matches capabilities
-      scope = Mcp::ContainerTemplate.where(status: "active")
+      scope = Devops::ContainerTemplate.where(status: "active")
 
       return scope.first if required_capabilities.blank?
 

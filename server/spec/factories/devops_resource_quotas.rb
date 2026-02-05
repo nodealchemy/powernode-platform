@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :mcp_resource_quota, class: 'Mcp::ResourceQuota' do
+  factory :devops_resource_quota, class: 'Devops::ResourceQuota' do
     account
     max_concurrent_containers { 5 }
     max_containers_per_hour { 50 }

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Mcp
+module Devops
   class QuotaService
     class QuotaExceededError < StandardError
       attr_reader :quota_type, :current, :limit
@@ -17,7 +17,7 @@ module Mcp
 
     def initialize(account)
       @account = account
-      @quota = Mcp::ResourceQuota.for_account(account)
+      @quota = Devops::ResourceQuota.for_account(account)
     end
 
     # Check if execution is allowed

@@ -1135,8 +1135,8 @@ if Rails.env.development? || Rails.env.test?
   puts "\n🗄️  Loading File Storage configurations..."
   load Rails.root.join('db', 'seeds', 'file_storage_seeds.rb')
 
-  puts "\n📦 Loading MCP Container Templates..."
-  load Rails.root.join('db', 'seeds', 'mcp_container_templates.rb')
+  puts "\n📦 Loading DevOps Container Templates..."
+  load Rails.root.join('db', 'seeds', 'devops_container_templates.rb')
 
   puts "\n🔧 Loading AI DevOps Templates..."
   load Rails.root.join('db', 'seeds', 'ai_devops_templates_seed.rb')
@@ -1166,7 +1166,7 @@ if Rails.env.development? || Rails.env.test?
   puts "   AI Workflows: #{Ai::Workflow.count}"
   puts "   AI Workflow Templates: #{Ai::WorkflowTemplate.count}"
   puts "   AI Workflow Runs: #{Ai::WorkflowRun.count}"
-  puts "   MCP Container Templates: #{Mcp::ContainerTemplate.count}"
+  puts "   DevOps Container Templates: #{Devops::ContainerTemplate.count}"
   puts "   AI DevOps Templates: #{Ai::DevopsTemplate.count}"
 end
 

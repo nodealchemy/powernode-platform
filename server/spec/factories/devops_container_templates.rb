@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :mcp_container_template, class: 'Mcp::ContainerTemplate' do
+  factory :devops_container_template, class: 'Devops::ContainerTemplate' do
     account
     sequence(:name) { |n| "Container Template #{n}" }
     description { 'A test container template for AI agent execution' }

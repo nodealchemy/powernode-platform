@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 FactoryBot.define do
-  factory :mcp_container_instance, class: 'Mcp::ContainerInstance' do
+  factory :devops_container_instance, class: 'Devops::ContainerInstance' do
     account
-    association :template, factory: :mcp_container_template
+    association :template, factory: :devops_container_template
     status { 'pending' }
     sequence(:execution_id) { |n| "exec-#{SecureRandom.hex(8)}-#{n}" }
     image_name { 'powernode/ai-agent' }

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-module Mcp
+module Devops
   class ResourceQuota < ApplicationRecord
-    self.table_name = "mcp_resource_quotas"
+    self.table_name = "devops_resource_quotas"
 
     # Concerns
     include Auditable

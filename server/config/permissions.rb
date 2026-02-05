@@ -292,7 +292,16 @@ module Permissions
     "devops.integrations.credentials.delete" => "Delete DevOps integration credentials",
 
     # DevOps AI Configuration
-    "devops.ai.manage" => "Manage DevOps AI configurations (models, prompts, settings)"
+    "devops.ai.manage" => "Manage DevOps AI configurations (models, prompts, settings)",
+
+    # DevOps Container Orchestration
+    "devops.containers.read" => "View container executions",
+    "devops.containers.execute" => "Execute containers from templates",
+    "devops.containers.cancel" => "Cancel running containers",
+    "devops.container_templates.read" => "View container templates",
+    "devops.container_templates.write" => "Create, update, and delete container templates",
+    "devops.container_quotas.read" => "View resource quotas",
+    "devops.container_quotas.manage" => "Manage resource quotas"
   }.freeze
 
   # Admin Permissions - Administrative operations
@@ -696,6 +705,10 @@ module Permissions
         "devops.integrations.credentials.read", "devops.integrations.credentials.create",
         "devops.integrations.credentials.update", "devops.integrations.credentials.delete",
         "devops.ai.manage",
+        # DevOps Container permissions
+        "devops.containers.read", "devops.containers.execute", "devops.containers.cancel",
+        "devops.container_templates.read", "devops.container_templates.write",
+        "devops.container_quotas.read", "devops.container_quotas.manage",
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",
@@ -920,6 +933,10 @@ module Permissions
         "devops.integrations.credentials.read", "devops.integrations.credentials.create",
         "devops.integrations.credentials.update", "devops.integrations.credentials.delete",
         "devops.ai.manage",
+        # DevOps Container permissions
+        "devops.containers.read", "devops.containers.execute", "devops.containers.cancel",
+        "devops.container_templates.read", "devops.container_templates.write",
+        "devops.container_quotas.read", "devops.container_quotas.manage",
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",

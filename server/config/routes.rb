@@ -2633,50 +2633,7 @@ Rails.application.routes.draw do
           get "subscriptions", action: :subscriptions
         end
 
-        # ===================================================================
-        # CONTAINER ORCHESTRATION - AI Agent Execution
-        # ===================================================================
-        # Execute AI agents in sandboxed containers via Gitea runners.
-        # Integrates with HashiCorp Vault for secret injection.
-        # ===================================================================
-
-        # Container execution
-        resources :containers, controller: "containers" do
-          member do
-            post :cancel
-            get :logs
-            get :artifacts
-          end
-
-          collection do
-            post :execute
-            get :active
-            get :stats
-          end
-        end
-
-        # Container templates
-        resources :templates, controller: "templates" do
-          member do
-            post :publish
-            post :unpublish
-            get :executions
-            get :stats
-          end
-
-          collection do
-            get :categories
-            get :featured
-          end
-        end
-
-        # Resource quotas
-        resource :quotas, controller: "quotas", only: [ :show, :update ] do
-          post :reset_usage
-          get :usage_history
-          get :overage
-          patch :overage, action: :update_overage
-        end
+        # Container orchestration routes moved to namespace :devops
 
         # ===================================================================
         # MCP RESOURCES & PROMPTS - Dynamic discovery from servers
@@ -2752,6 +2709,42 @@ Rails.application.routes.draw do
       # ===================================================================
 
       namespace :devops do
+        # Container Orchestration
+        resources :containers do
+          member do
+            post :cancel
+            get :logs
+            get :artifacts
+          end
+
+          collection do
+            post :execute
+            get :active
+            get :stats
+          end
+        end
+
+        resources :container_templates do
+          member do
+            post :publish
+            post :unpublish
+            get :executions
+            get :stats
+          end
+
+          collection do
+            get :categories
+            get :featured
+          end
+        end
+
+        resource :container_quotas, only: [ :show, :update ] do
+          post :reset_usage
+          get :usage_history
+          get :overage
+          patch :overage, action: :update_overage
+        end
+
         # Git Providers (Gitea, GitHub, GitLab)
         resources :providers do
           member do

@@ -68,6 +68,9 @@ export * from './integrations';
 // Webhook management
 export * from './webhooks';
 
+// Container Orchestration
+export * from './containers';
+
 // Note: For pipeline/repository hooks that have naming collisions with git:
 // - Import from './pipelines' for DevOps CI/CD context
 // - Import from './git' for Git provider context

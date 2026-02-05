@@ -157,15 +157,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           permissions: ['ai.agents.read'],
           order: 8
         },
-        {
-          id: 'ai-containers',
-          name: 'Containers',
-          href: '/app/ai/containers',
-          icon: Container,
-          description: 'Sandboxed container execution and resource quotas',
-          permissions: ['ai.agents.read'],
-          order: 9
-        },
+
         {
           id: 'ai-conversations',
           name: 'Conversations',
@@ -569,9 +561,18 @@ export const adminNavigationOverrides = {
           description: 'API keys and authentication tokens',
           permissions: ['api.manage_keys'],
           order: 8
+        },
+        {
+          id: 'devops-containers',
+          name: 'Containers',
+          href: '/app/devops/containers',
+          icon: Container,
+          description: 'Sandboxed container execution and resource quotas',
+          permissions: ['devops.containers.read'],
+          order: 9
         }
       ],
-      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys'],
+      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'devops.containers.read'],
       collapsible: true,
       defaultExpanded: false,
       order: 20

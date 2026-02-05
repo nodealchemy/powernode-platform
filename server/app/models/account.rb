@@ -193,11 +193,11 @@ class Account < ApplicationRecord
   has_many :chat_messages, class_name: "Chat::Message", dependent: :destroy
   has_many :chat_blacklists, class_name: "Chat::Blacklist", dependent: :destroy
 
-  # MCP Container Orchestration associations
-  has_many :mcp_container_templates, class_name: "Mcp::ContainerTemplate", dependent: :destroy
-  has_many :mcp_container_instances, class_name: "Mcp::ContainerInstance", dependent: :destroy
-  has_many :mcp_secret_references, class_name: "Mcp::SecretReference", dependent: :destroy
-  has_one :mcp_resource_quota, class_name: "Mcp::ResourceQuota", dependent: :destroy
+  # DevOps Container Orchestration associations
+  has_many :devops_container_templates, class_name: "Devops::ContainerTemplate", dependent: :destroy
+  has_many :devops_container_instances, class_name: "Devops::ContainerInstance", dependent: :destroy
+  has_many :devops_secret_references, class_name: "Devops::SecretReference", dependent: :destroy
+  has_one :devops_resource_quota, class_name: "Devops::ResourceQuota", dependent: :destroy
 
   # Community and Federation associations
   has_many :community_agents, class_name: "CommunityAgent", foreign_key: :owner_account_id, dependent: :destroy

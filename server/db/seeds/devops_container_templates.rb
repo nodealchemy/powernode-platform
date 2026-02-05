@@ -3,10 +3,10 @@
 # Seed practical container templates (system-level, account_id: nil)
 # These leverage the platform's Gitea act_runner infrastructure with powernode-ai-agent label
 
-puts "  Loading MCP Container Templates..."
+puts "  Loading DevOps Container Templates..."
 
 # Template 1: Git Repository Test Runner
-Mcp::ContainerTemplate.find_or_create_by!(name: "Git Repository Test Runner", account_id: nil) do |t|
+Devops::ContainerTemplate.find_or_create_by!(name: "Git Repository Test Runner", account_id: nil) do |t|
   t.description = "Clone repo from any connected git provider, install dependencies, run test suite, and report results. Supports Node.js, Python, and Ruby projects."
   t.image_name = "node"
   t.image_tag = "20-alpine"
@@ -37,7 +37,7 @@ Mcp::ContainerTemplate.find_or_create_by!(name: "Git Repository Test Runner", ac
 end
 
 # Template 2: AI Coding Agent
-Mcp::ContainerTemplate.find_or_create_by!(name: "AI Coding Agent", account_id: nil) do |t|
+Devops::ContainerTemplate.find_or_create_by!(name: "AI Coding Agent", account_id: nil) do |t|
   t.description = "Run an autonomous AI coding agent in isolation for code generation, review, and refactoring tasks."
   t.image_name = "python"
   t.image_tag = "3.12-slim"
@@ -68,7 +68,7 @@ Mcp::ContainerTemplate.find_or_create_by!(name: "AI Coding Agent", account_id: n
 end
 
 # Template 3: Multi-Agent DevOps Pipeline
-Mcp::ContainerTemplate.find_or_create_by!(name: "Multi-Agent DevOps Pipeline", account_id: nil) do |t|
+Devops::ContainerTemplate.find_or_create_by!(name: "Multi-Agent DevOps Pipeline", account_id: nil) do |t|
   t.description = "Orchestrate multiple AI agents (planner, coder, reviewer, deployer) for end-to-end feature development."
   t.image_name = "python"
   t.image_tag = "3.12-slim"
@@ -100,7 +100,7 @@ Mcp::ContainerTemplate.find_or_create_by!(name: "Multi-Agent DevOps Pipeline", a
 end
 
 # Template 4: Gitea/GitHub Actions Workflow Runner
-Mcp::ContainerTemplate.find_or_create_by!(name: "GitHub Actions Workflow Runner", account_id: nil) do |t|
+Devops::ContainerTemplate.find_or_create_by!(name: "GitHub Actions Workflow Runner", account_id: nil) do |t|
   t.description = "Execute GitHub Actions-compatible workflows locally via act runner. Test workflows before pushing to remote."
   t.image_name = "catthehacker/ubuntu"
   t.image_tag = "act-latest"
@@ -130,7 +130,7 @@ Mcp::ContainerTemplate.find_or_create_by!(name: "GitHub Actions Workflow Runner"
 end
 
 # Template 5: Code Quality & Security Scanner
-Mcp::ContainerTemplate.find_or_create_by!(name: "Code Quality & Security Scanner", account_id: nil) do |t|
+Devops::ContainerTemplate.find_or_create_by!(name: "Code Quality & Security Scanner", account_id: nil) do |t|
   t.description = "Run linting (ESLint, Ruff, RuboCop), SAST scanning (Semgrep, Bandit), dependency audit, and complexity analysis."
   t.image_name = "python"
   t.image_tag = "3.12-slim"
@@ -160,7 +160,7 @@ Mcp::ContainerTemplate.find_or_create_by!(name: "Code Quality & Security Scanner
 end
 
 # Template 6: Database Migration Runner
-Mcp::ContainerTemplate.find_or_create_by!(name: "Database Migration Runner", account_id: nil) do |t|
+Devops::ContainerTemplate.find_or_create_by!(name: "Database Migration Runner", account_id: nil) do |t|
   t.description = "Execute database migrations safely with dry-run, backup, and auto-rollback on failure."
   t.image_name = "postgres"
   t.image_tag = "16-alpine"
@@ -192,7 +192,7 @@ Mcp::ContainerTemplate.find_or_create_by!(name: "Database Migration Runner", acc
 end
 
 # Template 7: API Integration Tester
-Mcp::ContainerTemplate.find_or_create_by!(name: "API Integration Tester", account_id: nil) do |t|
+Devops::ContainerTemplate.find_or_create_by!(name: "API Integration Tester", account_id: nil) do |t|
   t.description = "Run API endpoint tests with configurable requests, assertions, response validation, and load testing."
   t.image_name = "node"
   t.image_tag = "20-alpine"
@@ -225,7 +225,7 @@ Mcp::ContainerTemplate.find_or_create_by!(name: "API Integration Tester", accoun
 end
 
 # Template 8: Container Build & Registry Push
-Mcp::ContainerTemplate.find_or_create_by!(name: "Container Build & Registry Push", account_id: nil) do |t|
+Devops::ContainerTemplate.find_or_create_by!(name: "Container Build & Registry Push", account_id: nil) do |t|
   t.description = "Build Docker image from Dockerfile, tag, and push to container registry (GHCR, Docker Hub, Gitea registry)."
   t.image_name = "docker"
   t.image_tag = "24-dind"
@@ -259,7 +259,7 @@ Mcp::ContainerTemplate.find_or_create_by!(name: "Container Build & Registry Push
 end
 
 # Template 9: Infrastructure Health Monitor
-Mcp::ContainerTemplate.find_or_create_by!(name: "Infrastructure Health Monitor", account_id: nil) do |t|
+Devops::ContainerTemplate.find_or_create_by!(name: "Infrastructure Health Monitor", account_id: nil) do |t|
   t.description = "Check health of services, ports, SSL certificates, DNS, and connectivity across infrastructure."
   t.image_name = "alpine"
   t.image_tag = "3.19"
@@ -290,7 +290,7 @@ Mcp::ContainerTemplate.find_or_create_by!(name: "Infrastructure Health Monitor",
 end
 
 # Template 10: Log Analyzer with AI
-Mcp::ContainerTemplate.find_or_create_by!(name: "Log Analyzer with AI", account_id: nil) do |t|
+Devops::ContainerTemplate.find_or_create_by!(name: "Log Analyzer with AI", account_id: nil) do |t|
   t.description = "Analyze log files with pattern matching, anomaly detection, and AI-powered summarization."
   t.image_name = "python"
   t.image_tag = "3.12-slim"
@@ -320,4 +320,4 @@ Mcp::ContainerTemplate.find_or_create_by!(name: "Log Analyzer with AI", account_
   t.labels = { "runner" => "powernode-ai-agent", "type" => "analysis" }
 end
 
-puts "  ✅ Created #{Mcp::ContainerTemplate.system_templates.count} system container templates"
+puts "  ✅ Created #{Devops::ContainerTemplate.system_templates.count} system container templates"

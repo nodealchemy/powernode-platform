@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Mcp
+module Devops
   class ContainerOrchestrationService
     class OrchestrationError < StandardError; end
     class QuotaExceededError < OrchestrationError; end
@@ -12,7 +12,7 @@ module Mcp
     def initialize(account:, user:)
       @account = account
       @user = user
-      @gitea_client = Devops::Git::GiteaApiClient.new(account.devops_integration_credentials.first)
+      @gitea_client = build_gitea_client
     end
 
     # Execute a container from template
@@ -54,7 +54,7 @@ module Mcp
 
     # Get execution status
     def get_status(execution_id)
-      instance = account.mcp_container_instances.find_by!(execution_id: execution_id)
+      instance = account.devops_container_instances.find_by!(execution_id: execution_id)
 
       # Sync status from Gitea if still running
       if instance.active? && instance.gitea_workflow_run_id.present?
@@ -66,7 +66,7 @@ module Mcp
 
     # Cancel execution
     def cancel(execution_id, reason: nil)
-      instance = account.mcp_container_instances.find_by!(execution_id: execution_id)
+      instance = account.devops_container_instances.find_by!(execution_id: execution_id)
 
       return false unless instance.active?
 
@@ -85,7 +85,7 @@ module Mcp
 
     # Handle callback from Gitea workflow
     def handle_completion(execution_id, result)
-      instance = account.mcp_container_instances.find_by!(execution_id: execution_id)
+      instance = account.devops_container_instances.find_by!(execution_id: execution_id)
 
       return if instance.finished?
 
@@ -112,12 +112,12 @@ module Mcp
 
     # List running containers
     def list_active
-      account.mcp_container_instances.active.order(created_at: :desc)
+      account.devops_container_instances.active.order(created_at: :desc)
     end
 
     # Get execution history
     def list_history(limit: 50, status: nil)
-      instances = account.mcp_container_instances.order(created_at: :desc).limit(limit)
+      instances = account.devops_container_instances.order(created_at: :desc).limit(limit)
       instances = instances.where(status: status) if status.present?
       instances
     end
@@ -125,7 +125,7 @@ module Mcp
     private
 
     def create_instance(template, input_parameters, timeout_seconds, a2a_task)
-      Mcp::ContainerInstance.create!(
+      Devops::ContainerInstance.create!(
         account: account,
         template: template,
         triggered_by: user,
@@ -234,6 +234,15 @@ module Mcp
       nil unless instance.a2a_task.present?
 
       # A2A task completion is handled by instance#handle_completion callback
+    end
+
+    def build_gitea_client
+      provider = Devops::GitProvider.where(provider_type: "gitea", is_active: true)
+                                     .joins(:credentials)
+                                     .first
+      raise OrchestrationError, "No active Gitea provider configured" unless provider
+
+      Devops::Git::GiteaApiClient.new(provider.credentials.first)
     end
 
     def gitea_org

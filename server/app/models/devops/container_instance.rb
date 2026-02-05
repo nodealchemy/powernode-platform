@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-module Mcp
+module Devops
   class ContainerInstance < ApplicationRecord
-    self.table_name = "mcp_container_instances"
+    self.table_name = "devops_container_instances"
 
     # Concerns
     include Auditable
@@ -12,7 +12,7 @@ module Mcp
 
     # Associations
     belongs_to :account
-    belongs_to :template, class_name: "Mcp::ContainerTemplate", optional: true
+    belongs_to :template, class_name: "Devops::ContainerTemplate", optional: true
     belongs_to :triggered_by, class_name: "User", optional: true
     belongs_to :a2a_task, class_name: "Ai::A2aTask", optional: true
 

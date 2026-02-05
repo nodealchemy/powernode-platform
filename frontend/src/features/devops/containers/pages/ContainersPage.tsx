@@ -60,7 +60,7 @@ export const ContainersPage: React.FC<ContainersPageProps> = ({
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
-    { label: 'AI', href: '/app/ai' },
+    { label: 'DevOps', href: '/app/devops' },
     { label: 'Container Execution' },
   ];
 

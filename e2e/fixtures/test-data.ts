@@ -193,7 +193,7 @@ export const ROUTES = {
   trajectories: '/app/ai/agent-teams/trajectories',
   ralphLoops: '/app/ai/ralph-loops',
   communityAgents: '/app/ai/community',
-  containers: '/app/ai/containers',
+  containers: '/app/devops/containers',
   chatChannels: '/app/ai/chat-channels',
   marketplace: '/app/ai/agent-marketplace',
   publisher: '/app/ai/publisher',

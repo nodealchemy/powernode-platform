@@ -254,7 +254,7 @@ scripts/auto-dev.sh ensure
 
 ---
 
-## Phase 22: Container Management (`/app/ai/containers`)
+## Phase 22: Container Management (`/app/devops/containers`)
 
 | Test | Steps | Expected |
 |------|-------|----------|
@@ -332,7 +332,7 @@ scripts/auto-dev.sh ensure
 | Circuit Breaker | `frontend/src/features/ai/monitoring/components/CircuitBreakerCard.tsx` |
 | Context Import/Export | `frontend/src/features/ai/contexts/components/ImportExportPanel.tsx` |
 | Publisher Dashboard | `frontend/src/features/ai/marketplace/components/PublisherDashboard.tsx` |
-| Container Management | `frontend/src/features/ai/containers/components/ContainerList.tsx` |
+| Container Management | `frontend/src/features/devops/containers/components/ContainerList.tsx` |
 | Analytics Insights | `frontend/src/features/ai/analytics/components/InsightsPanel.tsx` |
 | MCP OAuth | `frontend/src/features/ai/mcp/components/OAuthConfigForm.tsx` |
 | Prompt Templates | `frontend/src/features/ai/prompts/components/PromptTemplateEditor.tsx` |
