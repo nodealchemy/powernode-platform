@@ -10,7 +10,7 @@ module Api
         before_action :set_ralph_loop, only: %i[
           show update destroy
           start pause resume cancel reset
-          run_iteration
+          run_iteration run_all stop_run_all
           tasks task update_task
           iterations iteration
           learnings progress
@@ -27,7 +27,7 @@ module Api
           scope = current_user.account.ai_ralph_loops.order(created_at: :desc)
 
           scope = scope.where(status: params[:status]) if params[:status].present?
-          scope = scope.where(ai_tool: params[:ai_tool]) if params[:ai_tool].present?
+          scope = scope.where(default_agent_id: params[:default_agent_id]) if params[:default_agent_id].present?
 
           scope = apply_pagination(scope)
 
@@ -163,6 +163,30 @@ module Api
           if result[:success]
             render_success(result)
             log_audit_event("ai.ralph_loops.run_iteration", @ralph_loop)
+          else
+            render_error(result[:error], status: :unprocessable_content)
+          end
+        end
+
+        # POST /api/v1/ai/ralph_loops/:id/run_all
+        def run_all
+          result = build_execution_service.run_all(stop_on_error: params[:stop_on_error] != false)
+
+          if result[:success]
+            render_success(result)
+            log_audit_event("ai.ralph_loops.run_all", @ralph_loop)
+          else
+            render_error(result[:error], status: :unprocessable_content)
+          end
+        end
+
+        # POST /api/v1/ai/ralph_loops/:id/stop_run_all
+        def stop_run_all
+          result = build_execution_service.stop_run_all
+
+          if result[:success]
+            render_success(result)
+            log_audit_event("ai.ralph_loops.stop_run_all", @ralph_loop)
           else
             render_error(result[:error], status: :unprocessable_content)
           end
@@ -385,7 +409,7 @@ module Api
           stats = {
             total_loops: loops.count,
             by_status: loops.group(:status).count,
-            by_ai_tool: loops.group(:ai_tool).count,
+            by_agent: loops.joins(:default_agent).group("ai_agents.name").count,
             total_iterations: ::Ai::RalphIteration.joins(:ralph_loop)
                                                    .where(ai_ralph_loops: { account_id: current_user.account_id }).count,
             total_tasks: ::Ai::RalphTask.joins(:ralph_loop)
@@ -440,7 +464,7 @@ module Api
             %w[create parse_prd] => "ai.workflows.create",
             %w[update update_task] => "ai.workflows.update",
             %w[destroy] => "ai.workflows.delete",
-            %w[start pause resume cancel reset run_iteration pause_schedule resume_schedule regenerate_webhook_token] => "ai.workflows.execute"
+            %w[start pause resume cancel reset run_iteration run_all stop_run_all pause_schedule resume_schedule regenerate_webhook_token] => "ai.workflows.execute"
           }
 
           permission_map.each do |actions, permission|
@@ -461,7 +485,7 @@ module Api
         def ralph_loop_params
           params.require(:ralph_loop).permit(
             :name, :description, :repository_url, :branch,
-            :ai_tool, :max_iterations, :progress_text,
+            :default_agent_id, :max_iterations, :progress_text,
             :scheduling_mode,
             configuration: {},
             prd_json: {},

@@ -31,23 +31,47 @@ end
 
 puts "Using Ollama provider: #{provider.name}"
 
-# Create a simple Ralph Loop
-model = ENV["OLLAMA_MODEL"] || provider.default_model || "llama3.2"
+# Find or create an Ollama agent
+agent = Ai::Agent.find_by(account: account, name: "Ollama Example Agent")
+unless agent
+  creator = account.users.first
+  unless creator
+    puts "ERROR: No user found in account. Cannot create agent."
+    exit 1
+  end
+  agent = Ai::Agent.create!(
+    account: account,
+    creator: creator,
+    name: "Ollama Example Agent",
+    description: "Agent for Ollama Ralph Loop testing",
+    agent_type: "assistant",
+    provider: provider,
+    status: "active",
+    version: "1.0.0",
+    mcp_capabilities: %w[text_generation chat],
+    mcp_metadata: {
+      "model_config" => {
+        "model" => ENV.fetch("OLLAMA_MODEL", provider.default_model || "llama3.2"),
+        "max_tokens" => 2048,
+        "temperature" => 0.7
+      }
+    }
+  )
+end
 
+puts "Using agent: #{agent.name}"
+
+# Create a simple Ralph Loop
 ralph_loop = Ai::RalphLoop.create!(
   account: account,
   name: "Simple Ollama Test Loop",
   description: "A simple Ralph Loop to test Ollama integration",
-  ai_tool: "ollama",
+  default_agent: agent,
   status: "pending",
   max_iterations: 5,
   current_iteration: 0,
   scheduling_mode: "manual",
-  configuration: {
-    "model" => model,
-    "max_tokens" => 2048,
-    "temperature" => 0.7
-  }
+  configuration: {}
 )
 
 puts "\nCreated Ralph Loop: #{ralph_loop.name} (ID: #{ralph_loop.id})"
@@ -59,21 +83,21 @@ tasks_data = [
     description: "Write a haiku about programming",
     priority: 3,
     position: 1,
-    acceptance_criteria: "A valid haiku (5-7-5 syllable structure)"
+    acceptance_criteria: "Output is exactly 3 lines following 5-7-5 syllable structure, references a programming concept (e.g. loops, bugs, compilation), and uses no filler words"
   },
   {
     task_key: "task_2",
     description: "Explain what a variable is in one sentence",
     priority: 2,
     position: 2,
-    acceptance_criteria: "A clear, concise definition"
+    acceptance_criteria: "A single sentence under 30 words that mentions named storage, value assignment, and mutability; avoids jargon unexplained to a beginner"
   },
   {
     task_key: "task_3",
     description: "List 3 benefits of code documentation",
     priority: 1,
     position: 3,
-    acceptance_criteria: "Three distinct benefits"
+    acceptance_criteria: "Three numbered items, each with a benefit title and a 1-2 sentence explanation citing a concrete scenario (e.g. onboarding, debugging, API consumption); no duplicate themes"
   }
 ]
 

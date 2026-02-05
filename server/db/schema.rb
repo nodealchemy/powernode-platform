@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_05_035309) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_05_071744) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -2062,7 +2062,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_035309) do
 
   create_table "ai_ralph_loops", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.string "ai_tool", default: "claude_code", null: false
+    t.string "ai_tool"
     t.string "branch", default: "main"
     t.datetime "completed_at"
     t.integer "completed_tasks", default: 0
@@ -2072,6 +2072,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_035309) do
     t.integer "current_iteration", default: 0
     t.integer "daily_iteration_count", default: 0
     t.date "daily_iteration_reset_at"
+    t.uuid "default_agent_id"
     t.text "description"
     t.integer "duration_ms"
     t.string "error_code"
@@ -2100,6 +2101,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_035309) do
     t.index ["account_id"], name: "index_ai_ralph_loops_on_account_id"
     t.index ["ai_tool"], name: "index_ai_ralph_loops_on_ai_tool"
     t.index ["created_at"], name: "index_ai_ralph_loops_on_created_at"
+    t.index ["default_agent_id"], name: "index_ai_ralph_loops_on_default_agent_id"
     t.index ["next_scheduled_at"], name: "index_ai_ralph_loops_on_next_scheduled_at"
     t.index ["schedule_paused", "next_scheduled_at"], name: "index_ralph_loops_on_schedule_state"
     t.index ["scheduling_mode"], name: "index_ai_ralph_loops_on_scheduling_mode"
@@ -8024,6 +8026,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_035309) do
   add_foreign_key "ai_ralph_iterations", "ai_ralph_loops", column: "ralph_loop_id"
   add_foreign_key "ai_ralph_iterations", "ai_ralph_tasks", column: "ralph_task_id"
   add_foreign_key "ai_ralph_loops", "accounts"
+  add_foreign_key "ai_ralph_loops", "ai_agents", column: "default_agent_id", on_delete: :nullify
   add_foreign_key "ai_ralph_loops", "mcp_container_instances", column: "container_instance_id", on_delete: :nullify
   add_foreign_key "ai_ralph_tasks", "ai_ralph_loops", column: "ralph_loop_id"
   add_foreign_key "ai_recorded_interactions", "accounts"

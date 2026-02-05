@@ -213,10 +213,8 @@ module Ai
           errors.add(:configuration, "must specify name for Ralph Loop create operation")
         end
 
-        if configuration["ai_tool"].blank?
-          errors.add(:configuration, "must specify ai_tool for Ralph Loop create operation")
-        elsif !Ai::RalphLoop::AI_TOOLS.include?(configuration["ai_tool"])
-          errors.add(:configuration, "ai_tool must be one of: #{Ai::RalphLoop::AI_TOOLS.join(', ')}")
+        if configuration["default_agent_id"].blank?
+          errors.add(:configuration, "must specify default_agent_id for Ralph Loop create operation")
         end
 
         max_iterations = configuration["max_iterations"]

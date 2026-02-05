@@ -63,42 +63,40 @@ module Ai
 
       # Resolve the executor to use
       def resolve_executor
-        # Use pre-assigned executor if present
         return task.executor if task.executor.present?
 
-        # Find matching executor based on task configuration
-        task.find_matching_executor
+        executor = task.find_matching_executor
+        return executor if executor
+
+        default = ralph_loop.default_agent
+        return default if default
+
+        nil
       end
 
-      # Execute task via AI agent
+      MAX_TOOL_CALLS = 5
+
+      # Execute task via AI agent with MCP tool-calling loop
       def execute_via_agent(agent)
-        # Create a conversation for the agent to work in
-        conversation = account.ai_conversations.create!(
-          agent: agent,
-          title: "Ralph Task: #{task.task_key}",
-          context: build_task_context
-        )
+        provider = agent.provider
+        credential = provider.provider_credentials.active.first
+        raise "No active credentials for provider #{provider.name}" unless credential
 
-        # Use ConversationService to send the task prompt
-        service = ::Ai::ConversationService.new(conversation)
-        result = service.send_message(
-          content: build_prompt,
-          role: "user"
-        )
+        client = Ai::ProviderClientService.new(credential)
+        messages = build_agent_messages(agent)
+        options = build_agent_options(agent, provider)
 
-        if result[:success]
-          {
-            success: true,
-            conversation_id: conversation.id,
-            output: result[:message]&.content,
-            executor_type: "agent",
-            executor_id: agent.id
-          }
-        else
-          { success: false, error: result[:error] || "Agent execution failed" }
+        # MCP tool-calling loop
+        mcp_tools = ralph_loop.available_mcp_tools
+        if mcp_tools.any?
+          options[:functions] = mcp_tools.map { |t| mcp_tool_definition(t) }
         end
+
+        result = execute_with_tool_calls(client, messages, options, mcp_tools)
+        normalize_result(result, agent)
       rescue StandardError => e
-        { success: false, error: "Agent execution error: #{e.message}" }
+        Rails.logger.error("Agent execution failed: #{e.message}\n#{e.backtrace.first(5).join("\n")}")
+        { success: false, error: e.message, executor_type: "agent", executor_id: agent.id }
       end
 
       # Execute task via workflow
@@ -302,20 +300,18 @@ module Ai
         fallback = task.fallback_config
         Rails.logger.info("TaskExecutor: Falling back to #{fallback[:executor_type]}")
 
-        # Update task with fallback executor type
         task.update!(
           execution_type: fallback[:executor_type],
           executor_id: fallback[:executor_id]
         )
 
-        # Retry execution with fallback
         execute
       end
 
       def no_executor_error
         {
           success: false,
-          error: "No executor found and no fallback configured",
+          error: "No executor found. Set a default agent on the loop or configure task executors.",
           task_id: task.id,
           execution_type: task.execution_type
         }
@@ -347,24 +343,140 @@ module Ai
         PROMPT
       end
 
-      # Build context for task execution
-      def build_task_context
-        {
-          ralph_loop_id: ralph_loop.id,
-          ralph_task_id: task.id,
-          task_key: task.task_key,
-          iteration: ralph_loop.current_iteration + 1,
-          repository_url: ralph_loop.repository_url,
-          branch: ralph_loop.branch
-        }
-      end
-
       # Format recent learnings for prompt
       def format_learnings
         learnings = ralph_loop.recent_learnings(limit: 5)
         return "No previous learnings" if learnings.blank?
 
         learnings.map { |l| "- #{l['text']}" }.join("\n")
+      end
+
+      # ==================== Agent + MCP Helpers ====================
+
+      def build_agent_messages(agent)
+        system_prompt = agent.mcp_metadata&.dig("ollama_config", "system_prompt") ||
+                        agent.mcp_metadata&.dig("system_prompt") ||
+                        default_system_prompt
+
+        [
+          { role: "system", content: system_prompt },
+          { role: "user", content: build_prompt }
+        ]
+      end
+
+      def build_agent_options(agent, provider)
+        model_config = agent.mcp_metadata&.dig("ollama_config") || agent.mcp_metadata || {}
+        {
+          model: model_config["model"] || provider.default_model,
+          max_tokens: model_config["max_tokens"] || 4096,
+          temperature: model_config["temperature"] || 0.7
+        }
+      end
+
+      def default_system_prompt
+        <<~SYSTEM
+          You are an AI assistant helping with software development tasks.
+          You are part of a Ralph Loop - an iterative development cycle.
+
+          Current loop: #{ralph_loop.name}
+          Repository: #{ralph_loop.repository_url || "Not specified"}
+          Branch: #{ralph_loop.branch || "main"}
+          Iteration: #{ralph_loop.current_iteration + 1} of #{ralph_loop.max_iterations}
+
+          Instructions:
+          1. Complete the task according to the acceptance criteria
+          2. Provide clear, actionable output
+          3. If you learn something useful for future iterations, include it with "Learning:" prefix
+          4. Be concise but thorough
+        SYSTEM
+      end
+
+      def execute_with_tool_calls(client, messages, options, mcp_tools)
+        MAX_TOOL_CALLS.times do
+          result = client.send_message(messages, options)
+          return result unless has_tool_call?(result)
+
+          tool_call = extract_tool_call(result)
+          mcp_tool = mcp_tools.find { |t| t.name == tool_call[:name] }
+          raise "Unknown tool: #{tool_call[:name]}" unless mcp_tool
+
+          tool_result = Mcp::SyncExecutionService.new(
+            server: mcp_tool.mcp_server,
+            tool: mcp_tool,
+            parameters: tool_call[:arguments],
+            user: nil,
+            account: account
+          ).execute
+
+          messages << { role: "assistant", content: nil, function_call: tool_call }
+          messages << { role: "function", name: tool_call[:name], content: tool_result.to_json }
+        end
+
+        # Final call without tools after max tool calls
+        client.send_message(messages, options.except(:functions))
+      end
+
+      def normalize_result(result, agent)
+        unless result[:success]
+          return { success: false, error: result[:error], error_code: result[:error_type] }
+        end
+
+        {
+          success: true,
+          output: extract_content(result[:response]),
+          checks_passed: true,
+          commit_sha: nil,
+          tokens: {
+            input: result.dig(:metadata, :prompt_tokens) || result.dig(:metadata, :tokens_used) || 0,
+            output: result.dig(:metadata, :completion_tokens) || 0
+          },
+          cost: result.dig(:metadata, :cost) || 0,
+          executor_type: "agent",
+          executor_id: agent.id
+        }
+      end
+
+      def mcp_tool_definition(tool)
+        {
+          name: tool.name,
+          description: tool.description || tool.name,
+          parameters: tool.input_schema || {}
+        }
+      end
+
+      def has_tool_call?(result)
+        return false unless result[:success] && result[:response].is_a?(Hash)
+
+        response = result[:response]
+        response[:function_call].present? ||
+          response.dig(:choices, 0, :message, :function_call).present? ||
+          response.dig(:choices, 0, :message, :tool_calls).present?
+      end
+
+      def extract_tool_call(result)
+        response = result[:response]
+
+        fc = response[:function_call] ||
+             response.dig(:choices, 0, :message, :function_call) ||
+             response.dig(:choices, 0, :message, :tool_calls, 0, :function)
+
+        return { name: fc[:name], arguments: fc[:arguments] } if fc
+
+        raise "Could not extract tool call from response"
+      end
+
+      def extract_content(response)
+        return "" unless response.is_a?(Hash)
+
+        if response[:choices]&.first
+          response.dig(:choices, 0, :message, :content) || ""
+        elsif response[:message]
+          response[:message][:content] || ""
+        elsif response[:content]
+          response[:content]
+        else
+          response.to_s
+        end
       end
     end
   end

@@ -252,27 +252,20 @@ class AiConversationChannel < ApplicationCable::Channel
   end
 
   def trigger_ai_response(user_message)
-    # Queue the AI response job if the job class exists
-    # This will process the message and stream the response back via this channel
-    if defined?(::Ai::ConversationResponseJob)
-      ::Ai::ConversationResponseJob.perform_async(
-        conversation_id: @conversation.id,
-        user_message_id: user_message.id,
-        user_id: current_user.id
-      )
-    else
-      Rails.logger.info "[AiConversationChannel] ConversationResponseJob not defined, skipping AI response"
-      # Optionally broadcast that AI processing is not available
-      transmit({
-        type: "ai_response_queued",
-        status: "unavailable",
-        message: "AI response processing is not configured",
-        timestamp: Time.current.iso8601
-      })
-    end
+    # Queue the AI response job to generate and broadcast the AI reply
+    ::Ai::ConversationResponseJob.perform_later(
+      @conversation.id,
+      user_message.id,
+      current_user.id
+    )
+
+    transmit({
+      type: "ai_response_queued",
+      status: "queued",
+      timestamp: Time.current.iso8601
+    })
   rescue StandardError => e
     Rails.logger.error "[AiConversationChannel] Failed to queue AI response: #{e.message}"
-    # Still allow the user message to go through, just note the AI won't respond
     transmit({
       type: "ai_response_queued",
       status: "failed",

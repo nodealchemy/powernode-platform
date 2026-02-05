@@ -8,13 +8,13 @@ module Ai
     # ==================== Constants ====================
     STATUSES = %w[pending running paused completed failed cancelled].freeze
     TERMINAL_STATUSES = %w[completed failed cancelled].freeze
-    AI_TOOLS = %w[amp claude_code ollama].freeze
 
     # Scheduling mode enumeration
     SCHEDULING_MODES = %w[manual scheduled continuous event_triggered].freeze
 
     # ==================== Associations ====================
     belongs_to :account
+    belongs_to :default_agent, class_name: "Ai::Agent", optional: true
     belongs_to :container_instance, class_name: "Mcp::ContainerInstance", optional: true
 
     has_many :ralph_tasks, class_name: "Ai::RalphTask",
@@ -25,8 +25,9 @@ module Ai
     # ==================== Validations ====================
     validates :name, presence: true, length: { maximum: 255 }
     validates :status, presence: true, inclusion: { in: STATUSES }
-    validates :ai_tool, presence: true, inclusion: { in: AI_TOOLS }
+    validates :default_agent, presence: true, on: :start
     validates :scheduling_mode, inclusion: { in: SCHEDULING_MODES }
+    validate :default_agent_belongs_to_account, if: :default_agent_id_changed?
     validates :current_iteration, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
     validates :max_iterations, numericality: { only_integer: true, greater_than: 0 }
     validates :repository_url, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https git ssh]),
@@ -43,7 +44,6 @@ module Ai
     scope :cancelled, -> { where(status: "cancelled") }
     scope :terminal, -> { where(status: TERMINAL_STATUSES) }
     scope :active, -> { where(status: %w[pending running paused]) }
-    scope :by_ai_tool, ->(tool) { where(ai_tool: tool) }
     scope :recent, -> { order(created_at: :desc) }
 
     # Scheduling scopes
@@ -121,6 +121,9 @@ module Ai
       raise InvalidTransitionError, "Cannot reset loop in #{status} status" unless can_reset?
 
       transaction do
+        # Clear previous iteration history
+        ralph_iterations.delete_all
+
         # Reset loop state
         update!(
           status: "pending",
@@ -335,7 +338,9 @@ module Ai
         id: id,
         name: name,
         status: status,
-        ai_tool: ai_tool,
+        default_agent_id: default_agent_id,
+        default_agent_name: default_agent&.name,
+        mcp_server_ids: mcp_server_ids,
         current_iteration: current_iteration,
         max_iterations: max_iterations,
         total_tasks: total_tasks,
@@ -380,11 +385,37 @@ module Ai
       )
     end
 
+    # ==================== MCP Server Integration ====================
+
+    def mcp_server_ids
+      configuration&.dig("mcp_server_ids") || []
+    end
+
+    def mcp_server_ids=(ids)
+      self.configuration = (configuration || {}).merge("mcp_server_ids" => Array(ids).compact)
+    end
+
+    def mcp_servers
+      return McpServer.none if mcp_server_ids.empty?
+
+      account.mcp_servers.where(id: mcp_server_ids, status: "connected")
+    end
+
+    def available_mcp_tools
+      mcp_servers.flat_map { |s| s.mcp_tools.where(enabled: true) }
+    end
+
     # ==================== Custom Errors ====================
 
     class InvalidTransitionError < StandardError; end
 
     private
+
+    def default_agent_belongs_to_account
+      return unless default_agent && default_agent.account_id != account_id
+
+      errors.add(:default_agent, "must belong to the same account")
+    end
 
     def calculate_duration
       return unless started_at.present? && completed_at.present?

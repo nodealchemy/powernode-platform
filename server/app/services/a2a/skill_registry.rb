@@ -899,7 +899,7 @@ module A2a
                 description: { type: "string" },
                 repository_url: { type: "string" },
                 branch: { type: "string", default: "main" },
-                ai_tool: { type: "string", enum: %w[amp claude_code], default: "claude_code" },
+                default_agent_id: { type: "string", description: "ID of the default agent for execution" },
                 max_iterations: { type: "integer", default: 100 },
                 prd: { type: "object" },
                 configuration: { type: "object" }
@@ -1104,7 +1104,7 @@ module A2a
               type: "object",
               properties: {
                 status: { type: "string", enum: %w[pending running paused completed failed cancelled] },
-                ai_tool: { type: "string", enum: %w[amp claude_code] },
+                default_agent_id: { type: "string", description: "Filter by default agent ID" },
                 page: { type: "integer", default: 1 },
                 per_page: { type: "integer", default: 20 }
               }

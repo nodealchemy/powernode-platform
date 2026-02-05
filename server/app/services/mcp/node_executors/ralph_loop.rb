@@ -29,7 +29,7 @@ module Mcp
     # Create operation options:
     #   name: Loop name (required)
     #   description: Loop description
-    #   ai_tool: AI tool to use (amp, claude_code, ollama)
+    #   default_agent_id: ID of the default agent for execution
     #   max_iterations: Maximum iterations allowed
     #   repository_url: Git repository URL
     #   branch: Git branch
@@ -96,7 +96,7 @@ module Mcp
           account: account,
           name: resolve_value(configuration["name"]),
           description: resolve_value(configuration["description"]),
-          ai_tool: configuration["ai_tool"] || "ollama",
+          default_agent_id: resolve_value(configuration["default_agent_id"]),
           status: "pending",
           max_iterations: configuration["max_iterations"] || 10,
           current_iteration: 0,

@@ -308,12 +308,12 @@ module Ai
       when "all"
         # Agent must have ALL required capabilities
         required_capabilities.each do |cap|
-          scope = scope.where("capabilities @> ?", [ cap ].to_json)
+          scope = scope.where("mcp_capabilities @> ?", [ cap ].to_json)
         end
       when "any"
         # Agent must have ANY required capability
         return scope.first if required_capabilities.blank?
-        scope = scope.where("capabilities ?| array[:caps]", caps: required_capabilities)
+        scope = scope.where("mcp_capabilities ?| array[:caps]", caps: required_capabilities)
       when "weighted"
         # Score agents by capability overlap and return best match
         return score_agents_by_capabilities(scope).first
@@ -397,7 +397,7 @@ module Ai
       # Order by number of matching capabilities
       scope.select("ai_agents.*, (
         SELECT COUNT(*)
-        FROM jsonb_array_elements_text(capabilities) AS cap
+        FROM jsonb_array_elements_text(mcp_capabilities) AS cap
         WHERE cap = ANY(ARRAY[#{required_capabilities.map { |c| "'#{c}'" }.join(',')}]::text[])
       ) AS capability_score")
            .order("capability_score DESC")

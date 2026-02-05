@@ -534,6 +534,8 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       }
     end
 
+    public
+
     # =============================================================================
     # STREAMING EXECUTION BROADCASTING
     # =============================================================================
@@ -918,6 +920,27 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       })
 
       Rails.logger.debug "[AiOrchestrationChannel] Sent initial status for workflow_run #{resource_id}: #{workflow_run.status}"
+    when "ralph_loop"
+      ralph_loop = Ai::RalphLoop.find_by(id: resource_id)
+      return unless ralph_loop
+
+      transmit({
+        event: "ralph_loop.progress",
+        resource_type: "ralph_loop",
+        resource_id: resource_id,
+        payload: {
+          loop_id: ralph_loop.id,
+          status: ralph_loop.status,
+          progress_percentage: ralph_loop.progress_percentage,
+          current_iteration: ralph_loop.current_iteration,
+          completed_task_count: ralph_loop.completed_tasks,
+          task_count: ralph_loop.total_tasks
+        },
+        timestamp: Time.current.iso8601,
+        is_initial_status: true
+      })
+
+      Rails.logger.debug "[AiOrchestrationChannel] Sent initial status for ralph_loop #{resource_id}: #{ralph_loop.status}"
     end
   end
 

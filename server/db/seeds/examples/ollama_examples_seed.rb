@@ -130,16 +130,12 @@ else
     account: account,
     name: "Ollama Example Loop",
     description: "A sample Ralph Loop demonstrating Ollama integration for iterative AI development",
-    ai_tool: "ollama",
+    default_agent: agent,
     status: "pending",
     max_iterations: 10,
     current_iteration: 0,
     scheduling_mode: "manual",
-    configuration: {
-      "model" => ENV.fetch("OLLAMA_MODEL", "llama3.2"),
-      "max_tokens" => 2048,
-      "temperature" => 0.7
-    },
+    configuration: {},
     prd_json: {
       "title" => "Sample Development Tasks",
       "description" => "A set of simple tasks to demonstrate Ralph Loop functionality",
@@ -148,20 +144,20 @@ else
           "key" => "setup",
           "description" => "Review project structure and identify main components",
           "priority" => 3,
-          "acceptance_criteria" => "List of main components identified"
+          "acceptance_criteria" => "Output contains a numbered list of at least 5 top-level modules or directories, each with a one-sentence description of its responsibility and primary entry point file path"
         },
         {
           "key" => "analysis",
           "description" => "Analyze code patterns and suggest improvements",
           "priority" => 2,
-          "acceptance_criteria" => "At least 3 improvement suggestions",
+          "acceptance_criteria" => "Provides at least 3 concrete improvement suggestions, each referencing a specific file or pattern, describing the current issue, the proposed change, and the expected impact on maintainability or performance",
           "dependencies" => [ "setup" ]
         },
         {
           "key" => "documentation",
           "description" => "Write brief documentation for the main module",
           "priority" => 1,
-          "acceptance_criteria" => "Documentation covers purpose, usage, and examples",
+          "acceptance_criteria" => "Produces a structured document with sections for Purpose, Installation/Setup, Public API (with method signatures and parameter descriptions), Usage Examples (at least 2 runnable code snippets), and Known Limitations",
           "dependencies" => [ "analysis" ]
         }
       ]

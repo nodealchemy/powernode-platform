@@ -2166,6 +2166,8 @@ Rails.application.routes.draw do
             post :cancel
             post :reset
             post :run_iteration
+            post :run_all
+            post :stop_run_all
             post :parse_prd
             get :learnings
             get :progress

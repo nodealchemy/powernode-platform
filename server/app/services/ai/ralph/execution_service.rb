@@ -39,6 +39,7 @@ module Ai
       def pause_loop
         return error_result("Loop is not running") unless ralph_loop.can_pause?
 
+        deactivate_run_all_if_active
         ralph_loop.pause!
         success_result(loop: ralph_loop.loop_summary, message: "Loop paused successfully")
       rescue StandardError => e
@@ -59,10 +60,35 @@ module Ai
       def cancel_loop(reason: nil)
         return error_result("Loop cannot be cancelled") unless ralph_loop.can_cancel?
 
+        deactivate_run_all_if_active
         ralph_loop.cancel!(reason: reason)
         success_result(loop: ralph_loop.loop_summary, message: "Loop cancelled")
       rescue StandardError => e
         error_result("Failed to cancel loop: #{e.message}")
+      end
+
+      # Run all remaining iterations in a background job
+      def run_all(stop_on_error: true)
+        return error_result("Loop is not running") unless ralph_loop.status == "running"
+        return error_result("Run All is already active") if ralph_loop.configuration&.dig("run_all_active")
+
+        config = ralph_loop.configuration || {}
+        config["run_all_active"] = true
+        ralph_loop.update!(configuration: config)
+
+        ::Ai::RalphLoopRunAllJob.perform_later(ralph_loop.id, stop_on_error: stop_on_error)
+
+        success_result(loop: ralph_loop.loop_summary, message: "Run All started")
+      rescue StandardError => e
+        error_result("Failed to start Run All: #{e.message}")
+      end
+
+      # Stop Run All execution
+      def stop_run_all
+        deactivate_run_all_if_active
+        success_result(loop: ralph_loop.reload.loop_summary, message: "Run All stopped")
+      rescue StandardError => e
+        error_result("Failed to stop Run All: #{e.message}")
       end
 
       # Run a single iteration of the loop
@@ -162,14 +188,25 @@ module Ai
 
       private
 
+      def deactivate_run_all_if_active
+        return unless ralph_loop.configuration&.dig("run_all_active")
+
+        config = ralph_loop.configuration || {}
+        config["run_all_active"] = false
+        ralph_loop.update_column(:configuration, config)
+      end
+
       def execute_iteration(task)
         task.start!
 
         iteration = ralph_loop.create_iteration(task: task)
         iteration.start!
 
-        # Execute the AI tool
-        result = execute_ai_tool(task, iteration)
+        prompt = build_task_prompt(task)
+        iteration.update!(ai_prompt: prompt)
+
+        executor = Ai::Ralph::TaskExecutor.new(task: task, ralph_loop: ralph_loop)
+        result = executor.execute
 
         if result[:success]
           process_successful_iteration(iteration, task, result)
@@ -178,215 +215,6 @@ module Ai
         end
 
         iteration
-      end
-
-      def execute_ai_tool(task, iteration)
-        # Build the prompt for the AI tool
-        prompt = build_task_prompt(task)
-        iteration.update!(ai_prompt: prompt)
-
-        # Execute based on configured AI tool
-        case ralph_loop.ai_tool
-        when "amp"
-          execute_amp(prompt, task, iteration)
-        when "claude_code"
-          execute_claude_code(prompt, task, iteration)
-        when "ollama"
-          execute_ollama(prompt, task, iteration)
-        else
-          { success: false, error: "Unknown AI tool: #{ralph_loop.ai_tool}" }
-        end
-      end
-
-      def execute_amp(prompt, task, iteration)
-        template = Mcp::ContainerTemplate.find_by(slug: "amp-executor")
-        return amp_not_configured_error unless template
-
-        execute_container_template(
-          template: template,
-          prompt: prompt,
-          task: task,
-          iteration: iteration
-        )
-      end
-
-      def execute_claude_code(prompt, task, iteration)
-        template = Mcp::ContainerTemplate.find_by(slug: "claude-code-executor")
-        return claude_code_not_configured_error unless template
-
-        execute_container_template(
-          template: template,
-          prompt: prompt,
-          task: task,
-          iteration: iteration
-        )
-      end
-
-      def execute_ollama(prompt, task, iteration)
-        provider = account.ai_providers.find_by(provider_type: "ollama")
-        provider ||= account.ai_providers.find_by(slug: "ollama")
-        provider ||= account.ai_providers.find_by(slug: "remote-ollama-server")
-        return ollama_not_configured_error unless provider
-
-        credential = provider.provider_credentials.active.first
-        return ollama_not_configured_error unless credential
-
-        client = Ai::ProviderClientService.new(credential)
-
-        # Build system prompt with context
-        system_prompt = build_ollama_system_prompt
-
-        result = client.send_message(
-          [
-            { role: "system", content: system_prompt },
-            { role: "user", content: prompt }
-          ],
-          model: ralph_loop.configuration&.dig("model") || provider.default_model || "llama3.2",
-          max_tokens: ralph_loop.configuration&.dig("max_tokens") || 4096,
-          temperature: ralph_loop.configuration&.dig("temperature") || 0.7
-        )
-
-        parse_ollama_result(result, task, iteration)
-      rescue StandardError => e
-        Rails.logger.error("Ollama execution failed: #{e.message}")
-        { success: false, error: e.message, error_code: "OLLAMA_EXECUTION_FAILED" }
-      end
-
-      def execute_container_template(template:, prompt:, task:, iteration:)
-        service = Mcp::ContainerOrchestrationService.new(account: account)
-
-        result = service.execute_from_template(
-          template: template,
-          inputs: {
-            prompt: prompt,
-            task_key: task.task_key,
-            repository: ralph_loop.repository_url,
-            branch: ralph_loop.branch,
-            working_directory: ralph_loop.config&.dig("working_directory"),
-            iteration_number: iteration.iteration_number
-          }
-        )
-
-        parse_container_result(result)
-      rescue StandardError => e
-        Rails.logger.error("Container execution failed: #{e.message}")
-        { success: false, error: e.message, error_code: "CONTAINER_EXECUTION_FAILED" }
-      end
-
-      def parse_container_result(result)
-        {
-          success: result[:success],
-          output: result[:outputs]&.dig("output") || result[:logs],
-          checks_passed: result[:outputs]&.dig("checks_passed"),
-          commit_sha: result[:outputs]&.dig("commit_sha"),
-          tokens: result[:outputs]&.dig("tokens") || { input: 0, output: 0 },
-          cost: result[:outputs]&.dig("cost") || 0,
-          error: result[:error],
-          error_code: result[:error_code]
-        }
-      end
-
-      def amp_not_configured_error
-        {
-          success: false,
-          error: "AMP executor template not configured",
-          error_code: "AMP_NOT_CONFIGURED"
-        }
-      end
-
-      def claude_code_not_configured_error
-        {
-          success: false,
-          error: "Claude Code executor template not configured",
-          error_code: "CLAUDE_CODE_NOT_CONFIGURED"
-        }
-      end
-
-      def ollama_not_configured_error
-        {
-          success: false,
-          error: "Ollama provider not configured for this account",
-          error_code: "OLLAMA_NOT_CONFIGURED"
-        }
-      end
-
-      def build_ollama_system_prompt
-        <<~SYSTEM
-          You are an AI assistant helping with software development tasks.
-          You are part of a Ralph Loop - an iterative development cycle.
-
-          Current loop: #{ralph_loop.name}
-          Repository: #{ralph_loop.repository_url || 'Not specified'}
-          Branch: #{ralph_loop.branch || 'main'}
-          Iteration: #{ralph_loop.current_iteration + 1} of #{ralph_loop.max_iterations}
-
-          Instructions:
-          1. Complete the task according to the acceptance criteria
-          2. Provide clear, actionable output
-          3. If you learn something useful for future iterations, include it with "Learning:" prefix
-          4. Be concise but thorough
-        SYSTEM
-      end
-
-      def parse_ollama_result(result, task, iteration)
-        unless result[:success]
-          return {
-            success: false,
-            error: result[:error] || "Ollama request failed",
-            error_code: result[:error_type] || "OLLAMA_REQUEST_FAILED"
-          }
-        end
-
-        # Extract content from Ollama response
-        response = result[:response]
-        content = extract_ollama_content(response)
-
-        # Extract learning from the response
-        learning = extract_learning_from_output(content)
-
-        # Add learning to the loop if found
-        ralph_loop.add_learning(learning, context: { task_key: task.task_key, iteration: iteration.iteration_number }) if learning.present?
-
-        {
-          success: true,
-          output: content,
-          checks_passed: true, # Ollama doesn't run checks, assume success
-          tokens: extract_ollama_tokens(result),
-          cost: 0 # Ollama is typically free/local
-        }
-      end
-
-      def extract_ollama_content(response)
-        return "" unless response.is_a?(Hash)
-
-        # Handle different response structures
-        if response[:choices]&.first
-          response.dig(:choices, 0, :message, :content) || ""
-        elsif response[:message]
-          response[:message][:content] || ""
-        elsif response[:content]
-          response[:content]
-        else
-          response.to_s
-        end
-      end
-
-      def extract_ollama_tokens(result)
-        metadata = result[:metadata] || {}
-        {
-          input: metadata[:tokens_used] || 0,
-          output: 0
-        }
-      end
-
-      def extract_learning_from_output(output)
-        return nil if output.blank?
-
-        # Look for explicit learning markers
-        if output.match?(/(?:Learning|Learned|Insight|Takeaway):/i)
-          match = output.match(/(?:Learning|Learned|Insight|Takeaway):\s*(.+?)(?:\n\n|\z)/im)
-          match[1]&.strip if match
-        end
       end
 
       def build_task_prompt(task)
@@ -452,6 +280,11 @@ module Ai
         end
 
         ralph_loop.increment_iteration!
+
+        # Broadcast real-time updates
+        broadcast_iteration_completed(iteration)
+        broadcast_task_status_changed(task)
+        broadcast_progress
       end
 
       def process_failed_iteration(iteration, task, result)
@@ -467,6 +300,11 @@ module Ai
         )
 
         ralph_loop.increment_iteration!
+
+        # Broadcast real-time updates
+        broadcast_iteration_completed(iteration)
+        broadcast_task_status_changed(task)
+        broadcast_progress
       end
 
       def extract_learning(output)
@@ -558,6 +396,32 @@ module Ai
         else
           complete_loop_result
         end
+      end
+
+      # =============================================================================
+      # BROADCASTING
+      # =============================================================================
+
+      def broadcast_iteration_completed(iteration)
+        AiOrchestrationChannel.broadcast_ralph_loop_iteration_completed(
+          ralph_loop.reload, iteration.iteration_number
+        )
+      rescue StandardError => e
+        Rails.logger.warn("Failed to broadcast iteration completed: #{e.message}")
+      end
+
+      def broadcast_task_status_changed(task)
+        AiOrchestrationChannel.broadcast_ralph_loop_task_status_changed(
+          ralph_loop, task
+        )
+      rescue StandardError => e
+        Rails.logger.warn("Failed to broadcast task status changed: #{e.message}")
+      end
+
+      def broadcast_progress
+        AiOrchestrationChannel.broadcast_ralph_loop_progress(ralph_loop)
+      rescue StandardError => e
+        Rails.logger.warn("Failed to broadcast progress: #{e.message}")
       end
 
       def success_result(data = {})

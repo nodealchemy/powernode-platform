@@ -23,7 +23,7 @@ module A2a
           description: input["description"],
           repository_url: input["repository_url"],
           branch: input["branch"] || "main",
-          ai_tool: input["ai_tool"] || "claude_code",
+          default_agent_id: input["default_agent_id"],
           max_iterations: input["max_iterations"] || 100,
           configuration: input["configuration"] || {}
         )
@@ -132,7 +132,7 @@ module A2a
         scope = @account.ai_ralph_loops.order(created_at: :desc)
 
         scope = scope.where(status: input["status"]) if input["status"].present?
-        scope = scope.where(ai_tool: input["ai_tool"]) if input["ai_tool"].present?
+        scope = scope.where(default_agent_id: input["default_agent_id"]) if input["default_agent_id"].present?
 
         page = (input["page"] || 1).to_i
         per_page = [ (input["per_page"] || 20).to_i, 100 ].min

@@ -131,6 +131,8 @@ module Ai
         iteration_number: iteration_number,
         status: status,
         task_key: ralph_task&.task_key,
+        output: ai_output,
+        learning: learning_extracted,
         checks_passed: checks_passed,
         git_commit_sha: git_commit_sha,
         duration_ms: duration_ms,
