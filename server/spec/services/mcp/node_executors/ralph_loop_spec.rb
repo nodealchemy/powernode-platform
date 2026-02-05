@@ -9,6 +9,7 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
   let(:workflow_run) { create(:ai_workflow_run, workflow: workflow, account: account, triggered_by_user: user, status: "running") }
 
   let(:ai_provider) { create(:ai_provider, account: account, provider_type: "ollama") }
+  let(:default_agent) { create(:ai_agent, account: account) }
 
   let(:node) do
     create(:ai_workflow_node,
@@ -60,7 +61,7 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
           "operation" => "create",
           "name" => "Test Loop",
           "description" => "A test Ralph Loop",
-          "ai_tool" => "ollama",
+          "default_agent_id" => default_agent.id,
           "max_iterations" => 5,
           "output_variable" => "created_loop_id"
         }
@@ -74,7 +75,7 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
         expect(result[:success]).to be true
         expect(result[:output][:loop_id]).to be_present
         expect(result[:output][:loop][:name]).to eq("Test Loop")
-        expect(result[:output][:loop][:ai_tool]).to eq("ollama")
+        expect(result[:output][:loop][:default_agent_id]).to eq(default_agent.id)
         expect(result[:metadata][:operation]).to eq("create")
       end
 
@@ -90,7 +91,6 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
         create(:ai_ralph_loop,
                account: account,
                name: "Existing Loop",
-               ai_tool: "ollama",
                status: "running")
       end
 
@@ -116,7 +116,6 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
         loop = create(:ai_ralph_loop,
                       account: account,
                       name: "Loop to Start",
-                      ai_tool: "ollama",
                       status: "pending")
         # Create at least one task
         create(:ai_ralph_task, ralph_loop: loop, task_key: "task_1", status: "pending")
@@ -144,7 +143,6 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
         create(:ai_ralph_loop,
                account: account,
                name: "Loop to Pause",
-               ai_tool: "ollama",
                status: "running")
       end
 
@@ -169,7 +167,6 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
         create(:ai_ralph_loop,
                account: account,
                name: "Loop to Resume",
-               ai_tool: "ollama",
                status: "paused")
       end
 
@@ -194,7 +191,6 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
         create(:ai_ralph_loop,
                account: account,
                name: "Loop to Cancel",
-               ai_tool: "ollama",
                status: "running")
       end
 
@@ -220,7 +216,6 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
         create(:ai_ralph_loop,
                account: account,
                name: "Loop with Learnings",
-               ai_tool: "ollama",
                status: "completed",
                learnings: [
                  { "text" => "Learning 1", "iteration" => 1 },
@@ -250,7 +245,6 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
         create(:ai_ralph_loop,
                account: account,
                name: "Loop for Tasks",
-               ai_tool: "ollama",
                status: "pending")
       end
 
@@ -281,7 +275,6 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
         create(:ai_ralph_loop,
                account: account,
                name: "Loop for PRD",
-               ai_tool: "ollama",
                status: "pending")
       end
 
@@ -313,7 +306,6 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
         create(:ai_ralph_loop,
                account: account,
                name: "Variable Referenced Loop",
-               ai_tool: "ollama",
                status: "running")
       end
 
@@ -382,7 +374,6 @@ RSpec.describe Mcp::NodeExecutors::RalphLoop do
       create(:ai_ralph_loop,
              account: account,
              name: "Format Test Loop",
-             ai_tool: "ollama",
              status: "running")
     end
 

@@ -7,7 +7,7 @@ FactoryBot.define do
     sequence(:name) { |n| "Ralph Loop #{n}" }
     description { "A test Ralph Loop for iterative AI development" }
     status { "pending" }
-    ai_tool { "ollama" }
+    association :default_agent, factory: :ai_agent
     max_iterations { 10 }
     current_iteration { 0 }
     scheduling_mode { "manual" }
@@ -51,18 +51,6 @@ FactoryBot.define do
       status { "cancelled" }
       started_at { 1.hour.ago }
       completed_at { Time.current }
-    end
-
-    trait :with_amp do
-      ai_tool { "amp" }
-    end
-
-    trait :with_claude_code do
-      ai_tool { "claude_code" }
-    end
-
-    trait :with_ollama do
-      ai_tool { "ollama" }
     end
 
     trait :with_repository do

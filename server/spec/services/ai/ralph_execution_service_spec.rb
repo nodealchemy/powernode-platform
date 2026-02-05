@@ -11,7 +11,6 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
       account: account,
       name: 'Test Loop',
       status: 'pending',
-      ai_tool: 'ollama',
       max_iterations: 10)
   end
 

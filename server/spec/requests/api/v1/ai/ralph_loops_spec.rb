@@ -60,16 +60,17 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
         expect(statuses.uniq).to eq(['running'])
       end
 
-      it 'filters by ai_tool' do
-        create(:ai_ralph_loop, :with_amp, account: account)
+      it 'filters by default_agent_id' do
+        agent = create(:ai_agent, account: account)
+        create(:ai_ralph_loop, account: account, default_agent: agent)
 
-        get '/api/v1/ai/ralph_loops?ai_tool=amp', headers: headers, as: :json
+        get "/api/v1/ai/ralph_loops?default_agent_id=#{agent.id}", headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
 
-        tools = data['items'].map { |l| l['ai_tool'] }
-        expect(tools.uniq).to eq(['amp'])
+        agent_ids = data['items'].map { |l| l['default_agent_id'] }
+        expect(agent_ids).to all(eq(agent.id))
       end
     end
 
@@ -150,12 +151,13 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_create_permission) }
 
     context 'with ai.workflows.create permission' do
+      let(:agent) { create(:ai_agent, account: account) }
       let(:valid_params) do
         {
           ralph_loop: {
             name: 'New Ralph Loop',
             description: 'A test Ralph loop',
-            ai_tool: 'ollama',
+            default_agent_id: agent.id,
             max_iterations: 10,
             branch: 'main'
           }
@@ -183,16 +185,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     context 'with invalid data' do
       it 'returns validation error for blank name' do
         post '/api/v1/ai/ralph_loops',
-             params: { ralph_loop: { name: '', ai_tool: 'ollama', max_iterations: 10 } },
-             headers: headers,
-             as: :json
-
-        expect(response).to have_http_status(:unprocessable_content)
-      end
-
-      it 'returns validation error for invalid ai_tool' do
-        post '/api/v1/ai/ralph_loops',
-             params: { ralph_loop: { name: 'Test', ai_tool: 'invalid_tool', max_iterations: 10 } },
+             params: { ralph_loop: { name: '', max_iterations: 10 } },
              headers: headers,
              as: :json
 
@@ -205,7 +198,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
 
       it 'returns forbidden error' do
         post '/api/v1/ai/ralph_loops',
-             params: { ralph_loop: { name: 'Test', ai_tool: 'ollama', max_iterations: 10 } },
+             params: { ralph_loop: { name: 'Test', max_iterations: 10 } },
              headers: headers,
              as: :json
 
@@ -624,7 +617,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
         expect(data['statistics']).to include(
           'total_loops',
           'by_status',
-          'by_ai_tool',
+          'by_agent',
           'total_iterations',
           'total_tasks'
         )
