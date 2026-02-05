@@ -7,7 +7,7 @@ import {
   Puzzle, BookOpen, UserCog, Key, Shield, FileCode,
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
   FlaskConical, ShoppingBag, Boxes, RotateCcw, MessagesSquare,
-  Globe, Container
+  Globe, Container, Coins, Database, Route, Receipt
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -273,9 +273,54 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'AI workflow templates for DevOps automation',
           permissions: ['ai.workflows.read'],
           order: 15
+        },
+        {
+          id: 'ai-credits',
+          name: 'Credits',
+          href: '/app/ai/credits',
+          icon: Coins,
+          description: 'Manage prepaid AI credits and usage',
+          permissions: ['ai.credits.read'],
+          order: 16
+        },
+        {
+          id: 'ai-rag',
+          name: 'Knowledge Bases',
+          href: '/app/ai/rag',
+          icon: Database,
+          description: 'RAG knowledge bases and document management',
+          permissions: ['ai.rag.read'],
+          order: 17
+        },
+        {
+          id: 'ai-model-router',
+          name: 'Model Router',
+          href: '/app/ai/model-router',
+          icon: Route,
+          description: 'Intelligent AI request routing and cost optimization',
+          permissions: ['ai.model_router.read'],
+          order: 18
+        },
+        {
+          id: 'ai-billing',
+          name: 'Outcome Billing',
+          href: '/app/ai/outcome-billing',
+          icon: Receipt,
+          description: 'Success-based AI billing and SLA contracts',
+          permissions: ['ai.billing.read'],
+          order: 19
+        },
+        {
+          id: 'ai-teams',
+          name: 'Teams',
+          href: '/app/ai/teams',
+          icon: Users,
+          description: 'Advanced multi-agent team orchestration',
+          permissions: ['ai.teams.read'],
+          order: 20
         }
       ],
-      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.prompt_templates.read', 'mcp.servers.read', 'ai.analytics.read'],
+      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.prompt_templates.read', 'mcp.servers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.rag.read', 'ai.model_router.read', 'ai.billing.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10

@@ -93,8 +93,8 @@ test.describe('AI Conversations', () => {
         await page.waitForTimeout(500); // Allow modal animation
 
         // Modal should show conversation creation form - look for common form elements
-        const hasModal = await page.getByText('Start Conversation').or(page.getByText('New Conversation')).or(page.getByText('Title')).first().isVisible().catch(() => false);
-        expect(hasModal || true).toBeTruthy(); // Pass if modal found or button clicked
+        const hasModal = await page.locator('[role="dialog"], [class*="modal"], input, textarea').count() > 0;
+        expect(hasModal).toBeTruthy();
       }
     });
 

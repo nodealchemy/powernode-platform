@@ -483,10 +483,10 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
       <Card>
         <CardTitle className="flex items-center gap-2 p-4 pb-0">
           <Zap className="h-5 w-5" />
-          All Workflows ({workflowsList.length})
+          All Workflows ({workflowsList?.length ?? 0})
         </CardTitle>
         <CardContent className="pt-4">
-          {workflowsList.length > 0 ? (
+          {workflowsList && workflowsList.length > 0 ? (
             <div className="space-y-3">
               {workflowsList.map(workflow => (
                 <div key={workflow.id} className="border border-theme-border rounded-lg p-4">

@@ -13,7 +13,7 @@ module Api
 
           render_success(
             quota: quota.quota_summary,
-            status: service.status,
+            quota_status: service.status,
             resource_limits: service.resource_limits,
             network_allowed: service.network_allowed?,
             overage_cost: service.overage_cost

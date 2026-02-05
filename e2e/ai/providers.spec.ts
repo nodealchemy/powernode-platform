@@ -60,11 +60,12 @@ test.describe('AI Providers', () => {
 
   test.describe('Provider Configuration', () => {
     test('should have configure action for providers', async ({ page }) => {
-      const configureButton = page.locator('button:has-text("Configure"), button:has-text("Setup"), button:has-text("Connect")');
+      const configureButton = page.locator('button:has-text("Configure"), button:has-text("Setup"), button:has-text("Connect"), button:has-text("Edit"), button:has-text("Add")');
       const hasButton = await configureButton.count() > 0;
+      const hasProviderCards = await page.locator('[class*="card"], [class*="Card"]').count() > 0;
 
-      // May not have configure buttons if all providers are configured
-      expect(hasButton || true).toBeTruthy();
+      // Either configure buttons exist or providers are already configured (shown as cards)
+      expect(hasButton || hasProviderCards).toBeTruthy();
     });
 
     test('should open configuration modal when configure clicked', async ({ page }) => {
@@ -81,19 +82,21 @@ test.describe('AI Providers', () => {
         // Verify configuration interface appeared
         const hasConfig = await page.locator('[role="dialog"], [class*="modal"], form, input').count() > 0;
         expect(hasConfig).toBeTruthy();
-      } else {
-        // No configure button - providers may already be configured or none exist
-        expect(true).toBeTruthy();
       }
+      // Skip test if no configure buttons available (providers already configured)
     });
   });
 
   test.describe('Provider Testing - Phase 1.3', () => {
     test('should have test connection action', async ({ page }) => {
       const testButton = page.locator('button:has-text("Test"), button:has-text("Verify")');
-      const hasButton = await testButton.count() > 0;
+      const hasProviders = await page.locator('[class*="card"], [class*="Card"]').count() > 0;
 
-      expect(hasButton || true).toBeTruthy();
+      // Test/Verify buttons exist when providers are present, or no providers configured
+      if (hasProviders) {
+        const hasButton = await testButton.count() > 0;
+        expect(hasButton).toBeTruthy();
+      }
     });
 
     test('should test provider connection successfully', async () => {
@@ -131,10 +134,13 @@ test.describe('AI Providers', () => {
 
   test.describe('Provider Status Management', () => {
     test('should have enable/disable action for providers', async ({ page }) => {
-      const toggleButton = page.locator('button:has-text("Enable"), button:has-text("Disable"), [class*="toggle"]');
-      const hasToggle = await toggleButton.count() > 0;
+      const hasProviders = await page.locator('[class*="card"], [class*="Card"]').count() > 0;
 
-      expect(hasToggle || true).toBeTruthy();
+      if (hasProviders) {
+        const toggleButton = page.locator('button:has-text("Enable"), button:has-text("Disable"), [class*="toggle"], [class*="switch"]');
+        const hasToggle = await toggleButton.count() > 0;
+        expect(hasToggle).toBeTruthy();
+      }
     });
   });
 
@@ -150,10 +156,13 @@ test.describe('AI Providers', () => {
 
   test.describe('API Key Management', () => {
     test('should have option to update API key', async ({ page }) => {
-      const updateButton = page.locator('button:has-text("Update"), button:has-text("Edit"), button:has-text("Change")');
-      const hasButton = await updateButton.count() > 0;
+      const hasProviders = await page.locator('[class*="card"], [class*="Card"]').count() > 0;
 
-      expect(hasButton || true).toBeTruthy();
+      if (hasProviders) {
+        const updateButton = page.locator('button:has-text("Update"), button:has-text("Edit"), button:has-text("Change"), button:has-text("Configure")');
+        const hasButton = await updateButton.count() > 0;
+        expect(hasButton).toBeTruthy();
+      }
     });
   });
 
@@ -168,14 +177,13 @@ test.describe('AI Providers', () => {
   });
 
   test.describe('Empty State', () => {
-    test('should display empty state when no providers configured', async ({ page }) => {
-      // This test requires mocking the API response
-      // In a real implementation, you would intercept the API call
+    test('should display empty state or providers list', async ({ page }) => {
       const emptyState = page.locator(':text("No providers"), :text("Get started"), :text("Configure")');
       const hasEmptyState = await emptyState.count() > 0;
+      const hasProviders = await page.locator('[class*="card"], [class*="Card"]').count() > 0;
 
-      // Pass if providers exist or empty state is shown
-      expect(true).toBeTruthy();
+      // Either providers exist or empty state is shown
+      expect(hasProviders || hasEmptyState).toBeTruthy();
     });
   });
 

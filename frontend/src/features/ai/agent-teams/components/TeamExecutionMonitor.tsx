@@ -58,7 +58,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
             newState.status = 'completed';
             newState.progress = 100;
             newState.endTime = new Date(update.timestamp);
-            newState.result = update.result;
+            newState.result = update.result as Record<string, unknown>;
             if (onExecutionComplete) {
               onExecutionComplete();
             }

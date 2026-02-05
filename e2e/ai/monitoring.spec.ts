@@ -185,11 +185,14 @@ test.describe('AI Monitoring', () => {
     });
 
     test('should have reset button for circuit breakers', async ({ page }) => {
-      const resetButton = page.locator('button:has-text("Reset")');
-      const hasReset = await resetButton.count() > 0;
+      const hasOpenBreakers = await page.locator(':text("Open"), :text("open")').count() > 0;
 
-      // May not have reset button if no open circuit breakers
-      expect(hasReset || true).toBeTruthy();
+      if (hasOpenBreakers) {
+        const resetButton = page.locator('button:has-text("Reset")');
+        const hasReset = await resetButton.count() > 0;
+        expect(hasReset).toBeTruthy();
+      }
+      // Skip if no open circuit breakers to reset
     });
   });
 

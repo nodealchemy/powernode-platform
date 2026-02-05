@@ -78,7 +78,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
         try {
           // Use conversationsApi to get the conversation without agentId
           const convData = await conversationsApi.getConversation(conversationId);
-          effectiveAgentId = convData.ai_agent?.id || convData.agent_id || '';
+          effectiveAgentId = convData.ai_agent?.id || (convData as unknown as { agent_id?: string }).agent_id || '';
           if (!effectiveAgentId) {
             throw new Error('Unable to determine agent for this conversation');
           }

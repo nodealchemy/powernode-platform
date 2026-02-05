@@ -1,6 +1,17 @@
 // AI Agent Teams API Service
 import api from '@/shared/services/api';
 
+export interface TeamConfig {
+  max_iterations?: number;
+  timeout_seconds?: number;
+  review_config?: Record<string, unknown>;
+  execution_config?: {
+    parallel_limit?: number;
+    retry_on_failure?: boolean;
+  };
+  [key: string]: unknown;
+}
+
 export interface AgentTeam {
   id: string;
   name: string;
@@ -8,7 +19,7 @@ export interface AgentTeam {
   team_type: 'hierarchical' | 'mesh' | 'sequential' | 'parallel';
   coordination_strategy: 'manager_worker' | 'peer_to_peer' | 'hybrid';
   status: 'active' | 'inactive' | 'archived';
-  team_config: Record<string, any>;
+  team_config: TeamConfig;
   member_count: number;
   has_lead: boolean;
   members?: TeamMember[];
@@ -42,7 +53,7 @@ export interface CreateTeamParams {
   team_type: AgentTeam['team_type'];
   coordination_strategy: AgentTeam['coordination_strategy'];
   status?: AgentTeam['status'];
-  team_config?: Record<string, any>;
+  team_config?: TeamConfig;
 }
 
 export type UpdateTeamParams = Partial<CreateTeamParams>;
@@ -55,9 +66,23 @@ export interface AddMemberParams {
   is_lead?: boolean;
 }
 
+export interface ExecutionInput {
+  task?: string;
+  prompt?: string;
+  data?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface ExecutionContext {
+  workflow_run_id?: string;
+  triggered_by?: string;
+  environment?: string;
+  [key: string]: unknown;
+}
+
 export interface ExecuteTeamParams {
-  input?: Record<string, any>;
-  context?: Record<string, any>;
+  input?: ExecutionInput;
+  context?: ExecutionContext;
 }
 
 export interface ExecuteTeamResponse {

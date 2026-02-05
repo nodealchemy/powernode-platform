@@ -75,7 +75,8 @@ export const useWorkflowRuns = ({
         sort_order: 'desc'
       });
       setWorkflowRuns(response.items || []);
-    } catch (_err) {
+    } catch (err) {
+      console.error('[useWorkflowRuns] Failed to load runs:', err);
       setRunsError('Failed to load execution history. Please try again.');
     } finally {
       setRunsLoading(false);

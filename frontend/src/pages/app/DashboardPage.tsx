@@ -111,6 +111,13 @@ import { CommunityAgentsPage } from '@/features/ai/community-agents/pages/Commun
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/ai/containers/pages/ContainersPage';
 
+// AI Feature Pages (full implementations in pages/app/ai/)
+import TeamsPage from './ai/TeamsPage';
+import CreditsPage from './ai/CreditsPage';
+import RagPage from './ai/RagPage';
+import OutcomeBillingPage from './ai/OutcomeBillingPage';
+import ModelRouterPage from './ai/ModelRouterPage';
+
 // Integration Pages
 // IntegrationsMarketplacePage deprecated - now redirects to marketplace?types=integration
 import {
@@ -576,6 +583,11 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/chat-channels" element={<ChatChannelsPage />} />
         <Route path="/ai/community" element={<CommunityAgentsPage />} />
         <Route path="/ai/containers" element={<ContainersPage />} />
+        <Route path="/ai/credits" element={<CreditsPage />} />
+        <Route path="/ai/rag" element={<RagPage />} />
+        <Route path="/ai/model-router" element={<ModelRouterPage />} />
+        <Route path="/ai/outcome-billing" element={<OutcomeBillingPage />} />
+        <Route path="/ai/teams" element={<TeamsPage />} />
         <Route path="/ai/plugins" element={<Navigate to="/app/marketplace?types=plugin" replace />} />
 
         {/* Core Pages */}

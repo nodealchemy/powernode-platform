@@ -199,7 +199,8 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
         title: 'Workflow Updated',
         message: 'Workflow has been updated successfully.'
       });
-    } catch (_err) {
+    } catch (err) {
+      console.error('[WorkflowDetailModal] Failed to update workflow:', err);
       addNotification({
         type: 'error',
         title: 'Update Failed',

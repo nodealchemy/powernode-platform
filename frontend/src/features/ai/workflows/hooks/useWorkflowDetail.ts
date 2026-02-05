@@ -40,7 +40,8 @@ export const useWorkflowDetail = ({
       const response = await workflowsApi.getWorkflow(workflowId);
       setWorkflow(response);
       setLastUpdateTime(new Date());
-    } catch (_error) {
+    } catch (err) {
+      console.error('[useWorkflowDetail] Failed to load workflow:', err);
       setError('Failed to load workflow details. Please try again.');
       addNotification({
         type: 'error',

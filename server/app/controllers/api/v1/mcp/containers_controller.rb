@@ -5,6 +5,7 @@ module Api
     module Mcp
       class ContainersController < ApplicationController
         include AuditLogging
+        include ::Ai::ResourceFiltering
 
         before_action :set_instance, only: %i[show cancel logs artifacts]
 

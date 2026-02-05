@@ -243,7 +243,7 @@ export interface ResourceLimits {
 
 export interface QuotaResponse {
   quota: ResourceQuota;
-  status: QuotaStatus;
+  quota_status: QuotaStatus;
   resource_limits: ResourceLimits;
   network_allowed: boolean;
   overage_cost: number;

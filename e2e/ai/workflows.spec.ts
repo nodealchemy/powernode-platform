@@ -86,10 +86,8 @@ test.describe('AI Workflows', () => {
         // Dropdown should show status options
         const hasOptions = await page.locator(':text("Draft"), :text("Active")').count() > 0;
         expect(hasOptions).toBeTruthy();
-      } else {
-        // If no status filter button, the test should still pass
-        expect(true).toBeTruthy();
       }
+      // Skip if no status filter button available
     });
   });
 
@@ -130,9 +128,9 @@ test.describe('AI Workflows', () => {
         await createButton.click();
         await page.waitForTimeout(500); // Allow modal animation
 
-        // Modal should show workflow creation form - look for Name field or Create title
-        const hasModal = await page.getByText('Create Workflow').or(page.getByLabel('Name')).or(page.locator('input[name="name"]')).first().isVisible().catch(() => false);
-        expect(hasModal || true).toBeTruthy();
+        // Modal should show workflow creation form
+        const hasModal = await page.locator('[role="dialog"], [class*="modal"], input[name="name"], label:has-text("Name")').count() > 0;
+        expect(hasModal).toBeTruthy();
       }
     });
 
@@ -191,10 +189,8 @@ test.describe('AI Workflows', () => {
         const hasBuilderElements = await page.locator('[class*="canvas"], [class*="react-flow"], [class*="node"], [class*="workflow"]').count() > 0;
 
         expect(isOnDetailPage || hasBuilderElements).toBeTruthy();
-      } else {
-        // No workflows exist to open
-        expect(true).toBeTruthy();
       }
+      // Skip if no workflows exist to open
     });
   });
 
@@ -250,28 +246,34 @@ test.describe('AI Workflows', () => {
   });
 
   test.describe('Duplicate Workflow', () => {
-    test('should have duplicate action', async ({ page }) => {
-      const duplicateButton = page.locator('button[title*="Duplicate"], button[title*="Copy"], [class*="copy"]');
-      const hasDuplicate = await duplicateButton.count() > 0;
-
-      expect(hasDuplicate || true).toBeTruthy(); // May not be visible without workflows
+    test('should have duplicate action when workflows exist', async ({ page }) => {
+      const hasWorkflows = await page.locator('table tbody tr, [class*="workflow-card"]').count() > 0;
+      if (hasWorkflows) {
+        const duplicateButton = page.locator('button[title*="Duplicate"], button[title*="Copy"], [class*="copy"]');
+        const hasDuplicate = await duplicateButton.count() > 0;
+        expect(hasDuplicate).toBeTruthy();
+      }
     });
   });
 
   test.describe('Delete Workflow', () => {
-    test('should have delete action', async ({ page }) => {
-      const deleteButton = page.locator('button[title*="Delete"], [class*="trash"]');
-      const hasDelete = await deleteButton.count() > 0;
-
-      expect(hasDelete || true).toBeTruthy(); // May not be visible without workflows
+    test('should have delete action when workflows exist', async ({ page }) => {
+      const hasWorkflows = await page.locator('table tbody tr, [class*="workflow-card"]').count() > 0;
+      if (hasWorkflows) {
+        const deleteButton = page.locator('button[title*="Delete"], [class*="trash"]');
+        const hasDelete = await deleteButton.count() > 0;
+        expect(hasDelete).toBeTruthy();
+      }
     });
   });
 
   test.describe('Pagination', () => {
     test('should display pagination controls when many workflows exist', async ({ page }) => {
-      const hasPagination = await page.locator('[class*="pagination"], button:has-text("Next"), button:has-text("Previous")').count() > 0;
-
-      expect(hasPagination || true).toBeTruthy(); // May not have pagination without many workflows
+      const workflowCount = await page.locator('table tbody tr, [class*="workflow-card"]').count();
+      if (workflowCount > 10) {
+        const hasPagination = await page.locator('[class*="pagination"], button:has-text("Next"), button:has-text("Previous")').count() > 0;
+        expect(hasPagination).toBeTruthy();
+      }
     });
   });
 

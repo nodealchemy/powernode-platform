@@ -113,7 +113,7 @@ export const QuotaDisplay: React.FC<QuotaDisplayProps> = ({ className, compact =
 
   if (!quota) return null;
 
-  const { status, resource_limits, overage_cost } = quota;
+  const { quota_status: status, resource_limits, overage_cost } = quota;
 
   if (compact) {
     return (

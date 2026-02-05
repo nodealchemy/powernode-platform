@@ -49,8 +49,8 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
       try {
         const response = await communityAgentsApi.getCategories();
         setCategories(response.categories || []);
-      } catch (_err) {
-        // Ignore category load errors
+      } catch (err) {
+        console.error('[AgentDiscovery] Failed to load categories:', err);
       }
     };
     loadCategories();

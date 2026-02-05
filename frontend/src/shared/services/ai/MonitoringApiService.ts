@@ -287,6 +287,13 @@ class MonitoringApiService extends BaseApiService {
             failed_runs?: number;
           };
         };
+        system?: {
+          health?: {
+            components?: {
+              workers?: { status?: string };
+            };
+          };
+        };
         resources?: {
           cpu?: { usage_percent?: number; idle_percent?: number; load_average?: string };
           memory?: { total_mb?: number; used_mb?: number; free_mb?: number; usage_percent?: number };
@@ -328,8 +335,8 @@ class MonitoringApiService extends BaseApiService {
     const workflowsListRaw = workflowComponents?.workflows || [];
     const totalWorkflows = workflowComponents?.total_workflows || 0;
     const activeWorkflows = workflowComponents?.active_workflows || 0;
-    // Running executions from system health or count workflows with running status
-    const runningExecutions = dashboard?.components?.system?.health?.components?.workers?.status === 'healthy' ? 0 : 0;
+    // Running executions - default to 0
+    const runningExecutions = 0;
     const completedToday = workflowComponents?.aggregated?.successful_runs || 0;
     const failedToday = workflowComponents?.aggregated?.failed_runs || 0;
 
@@ -420,8 +427,6 @@ class MonitoringApiService extends BaseApiService {
    * Transforms nested backend response to flat MetricsData array
    */
   async getMetrics(timeRange?: string): Promise<MetricsData[]> {
-    const queryString = timeRange ? `?time_range=${timeRange}` : '';
-
     interface BackendMetricsResponse {
       metrics: {
         system?: {
@@ -440,7 +445,8 @@ class MonitoringApiService extends BaseApiService {
       timestamp?: string;
     }
 
-    const response = await this.get<BackendMetricsResponse>(`${this.basePath}/metrics`);
+    const metricsPath = timeRange ? `${this.basePath}/metrics?time_range=${timeRange}` : `${this.basePath}/metrics`;
+    const response = await this.get<BackendMetricsResponse>(metricsPath);
 
     // Transform nested backend response to flat MetricsData format
     const metricsData: MetricsData = {

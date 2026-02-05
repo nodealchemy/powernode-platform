@@ -88,8 +88,8 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
     try {
       const response = await agentsApi.getAgents({ per_page: 100 });
       setAgents(response.items || []);
-    } catch (_err) {
-      // Non-critical, just won't show agent options
+    } catch (err) {
+      console.error('[AgentCardEditor] Failed to load agents:', err);
     }
   };
 
@@ -123,15 +123,14 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
                 outputSchema: '',
               };
             }
-            // Cast through unknown to access all properties reliably
-            const s = skill as unknown as Record<string, unknown>;
+            // AgentSkill type from A2A types
             return {
-              id: String(s.id || ''),
-              name: String(s.name || ''),
-              description: String(s.description || ''),
+              id: String(skill.id || ''),
+              name: String(skill.name || ''),
+              description: String(skill.description || ''),
               tags: '',
-              inputSchema: s.inputSchema ? JSON.stringify(s.inputSchema, null, 2) : '',
-              outputSchema: s.outputSchema ? JSON.stringify(s.outputSchema, null, 2) : '',
+              inputSchema: skill.inputSchema ? JSON.stringify(skill.inputSchema, null, 2) : '',
+              outputSchema: skill.outputSchema ? JSON.stringify(skill.outputSchema, null, 2) : '',
             };
           })
         );
@@ -235,15 +234,15 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
         if (s.inputSchema.trim()) {
           try {
             skill.inputSchema = JSON.parse(s.inputSchema);
-          } catch (_err) {
-            // Invalid JSON, skip
+          } catch {
+            // Invalid JSON ignored - user should run validation first
           }
         }
         if (s.outputSchema.trim()) {
           try {
             skill.outputSchema = JSON.parse(s.outputSchema);
-          } catch (_err) {
-            // Invalid JSON, skip
+          } catch {
+            // Invalid JSON ignored - user should run validation first
           }
         }
         return skill;

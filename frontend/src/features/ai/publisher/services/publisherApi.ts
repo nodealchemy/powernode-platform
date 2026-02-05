@@ -13,7 +13,7 @@ import type {
   PaginationMeta,
 } from '../types';
 
-const BASE_URL = '/api/v1/ai/publisher';
+const BASE_URL = '/ai/publisher';
 
 export interface PublishersResponse {
   data: Publisher[];

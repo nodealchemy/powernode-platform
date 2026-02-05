@@ -73,6 +73,27 @@ export const TEST_CONTEXT = {
 };
 
 /**
+ * Test prompt template data
+ */
+export const TEST_PROMPT_TEMPLATE = {
+  name: 'E2E Test Prompt',
+  category: 'general',
+  content: 'You are a {{role}} assistant. Help the user with {{task}}.',
+  description: 'Prompt template created by Playwright E2E tests',
+  variables: ['role', 'task'],
+};
+
+/**
+ * Test agent card data
+ */
+export const TEST_AGENT_CARD = {
+  name: 'E2E Test Agent Card',
+  description: 'Agent card created by Playwright E2E tests',
+  url: 'http://localhost:3000/a2a',
+  skills: ['code_review', 'testing'],
+};
+
+/**
  * Test role profile data
  */
 export const TEST_ROLE_PROFILE = {
@@ -143,6 +164,7 @@ export const API_ENDPOINTS = {
  * Frontend routes for AI functionality
  */
 export const ROUTES = {
+  overview: '/app/ai',
   providers: '/app/ai/providers',
   agents: '/app/ai/agents',
   conversations: '/app/ai/conversations',
@@ -155,5 +177,17 @@ export const ROUTES = {
   sandbox: '/app/ai/sandbox',
   mcp: '/app/ai/mcp',
   prompts: '/app/ai/prompts',
+  a2aTasks: '/app/ai/a2a-tasks',
+  agentCards: '/app/ai/agent-cards',
   trajectories: '/app/ai/agent-teams/trajectories',
+  ralphLoops: '/app/ai/ralph-loops',
+  communityAgents: '/app/ai/community',
+  containers: '/app/ai/containers',
+  chatChannels: '/app/ai/chat-channels',
+  marketplace: '/app/ai/agent-marketplace',
+  publisher: '/app/ai/publisher',
+  debug: '/app/ai/debug',
+  devops: '/app/ai/devops',
+  devopsTemplates: '/app/ai/devops-templates',
+  plugins: '/app/ai/plugins',
 };

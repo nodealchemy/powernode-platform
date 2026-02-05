@@ -71,8 +71,8 @@ export const useTeamExecutionWebSocket = (options: UseTeamExecutionWebSocketOpti
             setLastUpdate(update);
             onUpdate?.(update);
           }
-        } catch (_error) {
-          // Error parsing message - handled silently
+        } catch (err) {
+          console.error('[TeamExecutionWebSocket] Error parsing message:', err);
         }
       };
 

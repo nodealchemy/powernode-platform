@@ -40,7 +40,7 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reviewConfig, setReviewConfig] = useState<ReviewConfig>(DEFAULT_REVIEW_CONFIG);
-  const [selectedProfile, setSelectedProfile] = useState<RoleProfile | null>(null);
+  const [, setSelectedProfile] = useState<RoleProfile | null>(null);
 
   useEffect(() => {
     if (team) {
@@ -53,7 +53,7 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
       });
       // Load review config from team if editing
       if (team.team_config && typeof team.team_config === 'object' && 'review_config' in team.team_config) {
-        setReviewConfig(team.team_config.review_config as ReviewConfig);
+        setReviewConfig(team.team_config.review_config as unknown as ReviewConfig);
       }
     } else {
       setFormData({
@@ -76,7 +76,7 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
         ...formData,
         team_config: {
           ...(formData.team_config || {}),
-          review_config: reviewConfig
+          review_config: { ...reviewConfig }
         }
       };
       await onSave(saveData);
