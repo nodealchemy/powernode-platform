@@ -135,7 +135,7 @@ module Mcp
         status: "pending",
         input_parameters: input_parameters,
         timeout_seconds: timeout_seconds || template.timeout_seconds,
-        sandbox_enabled: true,
+        sandbox_enabled: template.sandbox_mode.nil? ? true : template.sandbox_mode,
         environment_variables: build_environment_variables(template, input_parameters),
         runner_labels: template.labels["runner_labels"] || [ "powernode-ai-agent" ]
       )

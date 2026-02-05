@@ -11,6 +11,10 @@ FactoryBot.define do
     status { 'active' }
     execution_count { 0 }
     success_count { 0 }
+    memory_mb { 512 }
+    cpu_millicores { 500 }
+    network_access { false }
+    sandbox_mode { true }
     environment_variables do
       {
         'LOG_LEVEL' => 'info',
@@ -68,6 +72,8 @@ FactoryBot.define do
     end
 
     trait :high_resource do
+      memory_mb { 2048 }
+      cpu_millicores { 2000 }
       resource_limits do
         {
           'memory_mb' => 2048,
@@ -80,6 +86,8 @@ FactoryBot.define do
 
     trait :gpu_enabled do
       labels { { 'runner' => 'powernode-gpu' } }
+      memory_mb { 8192 }
+      cpu_millicores { 4000 }
       resource_limits do
         {
           'memory_mb' => 8192,

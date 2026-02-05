@@ -10,6 +10,7 @@ module Mcp
     # Constants
     VISIBILITIES = %w[private account public].freeze
     STATUSES = %w[active deprecated archived].freeze
+    CATEGORIES = %w[ci-cd testing security devops ai-agent data-processing monitoring utility].freeze
     DEFAULT_TIMEOUT = 3600
     DEFAULT_MEMORY_MB = 512
     DEFAULT_CPU_MILLICORES = 500
@@ -30,6 +31,9 @@ module Mcp
     validates :visibility, presence: true, inclusion: { in: VISIBILITIES }
     validates :status, presence: true, inclusion: { in: STATUSES }
     validates :timeout_seconds, numericality: { greater_than: 0, less_than_or_equal_to: 86400 }
+    validates :memory_mb, numericality: { greater_than_or_equal_to: 64, less_than_or_equal_to: 8192 }, allow_nil: true
+    validates :cpu_millicores, numericality: { greater_than_or_equal_to: 100, less_than_or_equal_to: 4000 }, allow_nil: true
+    validates :category, inclusion: { in: CATEGORIES }, allow_blank: true
     validate :validate_security_options
 
     # Scopes
@@ -96,21 +100,12 @@ module Mcp
       end
     end
 
-    # Resource limits with defaults
-    def effective_resource_limits
-      {
-        memory_mb: resource_limits.dig("memory_mb") || DEFAULT_MEMORY_MB,
-        cpu_millicores: resource_limits.dig("cpu_millicores") || DEFAULT_CPU_MILLICORES,
-        storage_bytes: resource_limits.dig("storage_bytes") || 1.gigabyte
-      }
-    end
-
     # Security configuration
     def effective_security_options
       {
         read_only_root: read_only_root,
         privileged: privileged,
-        allow_network: allow_network,
+        network_access: network_access,
         cap_drop: security_options.dig("cap_drop") || [ "ALL" ],
         cap_add: security_options.dig("cap_add") || [],
         no_new_privileges: security_options.dig("no_new_privileges") != false
@@ -125,10 +120,10 @@ module Mcp
       opts << "--read-only" if security[:read_only_root]
       opts << "--cap-drop=ALL" if security[:cap_drop].include?("ALL")
       opts << "--security-opt=no-new-privileges:true" if security[:no_new_privileges]
-      opts << "--memory=#{effective_resource_limits[:memory_mb]}m"
-      opts << "--cpus=#{effective_resource_limits[:cpu_millicores] / 1000.0}"
+      opts << "--memory=#{memory_mb || DEFAULT_MEMORY_MB}m"
+      opts << "--cpus=#{(cpu_millicores || DEFAULT_CPU_MILLICORES) / 1000.0}"
 
-      unless allow_network
+      unless network_access
         opts << "--network=none"
       end
 
@@ -162,19 +157,27 @@ module Mcp
         image_name: full_image_name,
         visibility: visibility,
         status: status,
+        category: category,
+        memory_mb: memory_mb,
+        cpu_millicores: cpu_millicores,
         execution_count: execution_count,
         success_rate: success_rate,
-        allow_network: allow_network,
+        network_access: network_access,
         timeout_seconds: timeout_seconds
       }
     end
 
     def template_details
       template_summary.merge(
-        environment_variables: environment_variables.keys,
+        environment_variables: environment_variables,
         vault_secret_paths: vault_secret_paths.size,
-        resource_limits: effective_resource_limits,
-        security_options: effective_security_options,
+        memory_mb: memory_mb,
+        cpu_millicores: cpu_millicores,
+        sandbox_mode: sandbox_mode,
+        network_access: network_access,
+        input_schema: input_schema,
+        output_schema: output_schema,
+        allowed_egress_domains: allowed_egress_domains,
         labels: labels,
         entrypoint: entrypoint,
         command_args: command_args,
@@ -203,11 +206,16 @@ module Mcp
     def set_defaults
       self.timeout_seconds ||= DEFAULT_TIMEOUT
       self.max_retries ||= 3
+      self.memory_mb ||= DEFAULT_MEMORY_MB
+      self.cpu_millicores ||= DEFAULT_CPU_MILLICORES
       self.resource_limits ||= {}
       self.security_options ||= {}
       self.environment_variables ||= {}
       self.vault_secret_paths ||= []
       self.labels ||= {}
+      self.input_schema ||= {}
+      self.output_schema ||= {}
+      self.allowed_egress_domains ||= []
     end
 
     def validate_security_options

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_05_035309) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -448,6 +448,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
     t.jsonb "human_checkpoint_config", default: {}
     t.integer "max_parallel_tasks", default: 3
     t.string "name", null: false, comment: "Team name (e.g., \"Content Generation Crew\", \"Research Team\")"
+    t.jsonb "review_config", default: {}
     t.jsonb "shared_memory_config", default: {}
     t.string "status", default: "active", null: false, comment: "Team status: active, inactive, archived"
     t.integer "task_timeout_seconds", default: 300
@@ -2217,6 +2218,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
     t.check_constraint "period_type::text = ANY (ARRAY['daily'::character varying::text, 'weekly'::character varying::text, 'monthly'::character varying::text, 'quarterly'::character varying::text, 'yearly'::character varying::text])", name: "check_roi_period_type"
   end
 
+  create_table "ai_role_profiles", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.jsonb "communication_style", default: {}
+    t.datetime "created_at", null: false
+    t.jsonb "delegation_rules", default: {}
+    t.text "description"
+    t.jsonb "escalation_rules", default: {}
+    t.jsonb "expected_output_schema", default: {}
+    t.boolean "is_system", default: false, null: false
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.jsonb "quality_checks", default: []
+    t.jsonb "review_criteria", default: []
+    t.string "role_type", null: false
+    t.string "slug", null: false
+    t.text "system_prompt_template"
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_role_profiles_on_account_id"
+    t.index ["is_system"], name: "index_ai_role_profiles_on_is_system"
+    t.index ["slug"], name: "index_ai_role_profiles_on_slug", unique: true
+  end
+
   create_table "ai_routing_decisions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.decimal "actual_cost_usd", precision: 12, scale: 8
@@ -2367,6 +2390,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
     t.index ["violation_type"], name: "index_ai_sla_violations_on_violation_type"
     t.check_constraint "credit_status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'applied'::character varying::text, 'rejected'::character varying::text, 'waived'::character varying::text])", name: "check_sla_credit_status"
     t.check_constraint "violation_type::text = ANY (ARRAY['success_rate'::character varying::text, 'latency'::character varying::text, 'availability'::character varying::text, 'quality'::character varying::text])", name: "check_sla_violation_type"
+  end
+
+  create_table "ai_task_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.text "approval_notes"
+    t.jsonb "completeness_checks", default: {}
+    t.datetime "created_at", null: false
+    t.jsonb "findings", default: []
+    t.jsonb "metadata", default: {}
+    t.float "quality_score"
+    t.text "rejection_reason"
+    t.integer "review_duration_ms"
+    t.string "review_id", null: false
+    t.string "review_mode", default: "blocking", null: false
+    t.uuid "reviewer_agent_id"
+    t.uuid "reviewer_role_id"
+    t.integer "revision_count", default: 0
+    t.string "status", default: "pending", null: false
+    t.uuid "team_task_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_task_reviews_on_account_id"
+    t.index ["review_id"], name: "index_ai_task_reviews_on_review_id", unique: true
+    t.index ["reviewer_agent_id"], name: "index_ai_task_reviews_on_reviewer_agent_id"
+    t.index ["reviewer_role_id"], name: "index_ai_task_reviews_on_reviewer_role_id"
+    t.index ["team_task_id", "status"], name: "idx_task_reviews_on_task_and_status"
+    t.index ["team_task_id"], name: "index_ai_task_reviews_on_team_task_id"
   end
 
   create_table "ai_team_channels", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2672,6 +2721,52 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
     t.index ["target_workflow_id"], name: "index_ai_test_scenarios_on_target_workflow_id"
     t.check_constraint "scenario_type::text = ANY (ARRAY['unit'::character varying::text, 'integration'::character varying::text, 'regression'::character varying::text, 'performance'::character varying::text, 'security'::character varying::text, 'chaos'::character varying::text, 'custom'::character varying::text])", name: "check_scenario_type"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'active'::character varying::text, 'disabled'::character varying::text, 'archived'::character varying::text])", name: "check_scenario_status"
+  end
+
+  create_table "ai_trajectories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.integer "access_count", default: 0
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_id"
+    t.integer "chapter_count", default: 0
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}
+    t.jsonb "outcome_summary", default: {}
+    t.float "quality_score"
+    t.string "status", default: "building", null: false
+    t.text "summary"
+    t.jsonb "tags", default: []
+    t.uuid "team_execution_id"
+    t.string "title", null: false
+    t.string "trajectory_id", null: false
+    t.string "trajectory_type", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "workflow_run_id"
+    t.index ["account_id"], name: "index_ai_trajectories_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_trajectories_on_ai_agent_id"
+    t.index ["status"], name: "index_ai_trajectories_on_status"
+    t.index ["tags"], name: "index_ai_trajectories_on_tags", using: :gin
+    t.index ["team_execution_id"], name: "index_ai_trajectories_on_team_execution_id"
+    t.index ["trajectory_id"], name: "index_ai_trajectories_on_trajectory_id", unique: true
+    t.index ["workflow_run_id"], name: "index_ai_trajectories_on_workflow_run_id"
+  end
+
+  create_table "ai_trajectory_chapters", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "artifacts", default: []
+    t.integer "chapter_number", null: false
+    t.string "chapter_type", null: false
+    t.text "content", null: false
+    t.jsonb "context_references", default: []
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.jsonb "key_decisions", default: []
+    t.jsonb "metadata", default: {}
+    t.text "reasoning"
+    t.string "title", null: false
+    t.uuid "trajectory_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["chapter_type"], name: "index_ai_trajectory_chapters_on_chapter_type"
+    t.index ["trajectory_id", "chapter_number"], name: "idx_trajectory_chapters_on_trajectory_and_number", unique: true
+    t.index ["trajectory_id"], name: "index_ai_trajectory_chapters_on_trajectory_id"
   end
 
   create_table "ai_workflow_approval_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5478,8 +5573,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
 
   create_table "mcp_container_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id"
-    t.boolean "allow_network", default: false
+    t.jsonb "allowed_egress_domains", default: []
+    t.string "category"
     t.jsonb "command_args", default: []
+    t.integer "cpu_millicores", default: 500
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
     t.text "description"
@@ -5489,14 +5586,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
     t.integer "failure_count", default: 0
     t.string "image_name", null: false
     t.string "image_tag", default: "latest"
+    t.jsonb "input_schema", default: {}
     t.jsonb "labels", default: {}
     t.datetime "last_used_at"
     t.integer "max_retries", default: 3
+    t.integer "memory_mb", default: 512
     t.string "name", null: false
+    t.boolean "network_access", default: false
+    t.jsonb "output_schema", default: {}
     t.boolean "privileged", default: false
     t.boolean "read_only_root", default: true
     t.string "registry_url"
     t.jsonb "resource_limits", default: {}
+    t.boolean "sandbox_mode", default: true
     t.jsonb "security_options", default: {}
     t.string "slug", null: false
     t.string "status", default: "active"
@@ -5507,6 +5609,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
     t.string "visibility", default: "private"
     t.index ["account_id", "name"], name: "index_mcp_container_templates_on_account_id_and_name", unique: true, where: "(account_id IS NOT NULL)"
     t.index ["account_id"], name: "index_mcp_container_templates_on_account_id"
+    t.index ["category"], name: "index_mcp_container_templates_on_category"
     t.index ["created_by_id"], name: "index_mcp_container_templates_on_created_by_id"
     t.index ["slug"], name: "index_mcp_container_templates_on_slug", unique: true
     t.index ["status"], name: "index_mcp_container_templates_on_status"
@@ -7927,6 +8030,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
   add_foreign_key "ai_recorded_interactions", "ai_sandboxes", column: "sandbox_id"
   add_foreign_key "ai_recorded_interactions", "ai_workflow_runs", column: "source_workflow_run_id"
   add_foreign_key "ai_roi_metrics", "accounts"
+  add_foreign_key "ai_role_profiles", "accounts"
   add_foreign_key "ai_routing_decisions", "accounts"
   add_foreign_key "ai_routing_decisions", "ai_agent_executions", column: "agent_execution_id"
   add_foreign_key "ai_routing_decisions", "ai_model_routing_rules", column: "routing_rule_id"
@@ -7939,6 +8043,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
   add_foreign_key "ai_sla_contracts", "ai_outcome_definitions", column: "outcome_definition_id"
   add_foreign_key "ai_sla_violations", "accounts"
   add_foreign_key "ai_sla_violations", "ai_sla_contracts", column: "sla_contract_id"
+  add_foreign_key "ai_task_reviews", "accounts"
+  add_foreign_key "ai_task_reviews", "ai_agents", column: "reviewer_agent_id"
+  add_foreign_key "ai_task_reviews", "ai_team_roles", column: "reviewer_role_id"
+  add_foreign_key "ai_task_reviews", "ai_team_tasks", column: "team_task_id"
   add_foreign_key "ai_team_channels", "ai_agent_teams", column: "agent_team_id"
   add_foreign_key "ai_team_executions", "accounts"
   add_foreign_key "ai_team_executions", "ai_agent_teams", column: "agent_team_id"
@@ -7966,6 +8074,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_02_050439) do
   add_foreign_key "ai_test_scenarios", "ai_sandboxes", column: "sandbox_id"
   add_foreign_key "ai_test_scenarios", "ai_workflows", column: "target_workflow_id"
   add_foreign_key "ai_test_scenarios", "users", column: "created_by_id"
+  add_foreign_key "ai_trajectories", "accounts"
+  add_foreign_key "ai_trajectories", "ai_agents"
+  add_foreign_key "ai_trajectory_chapters", "ai_trajectories", column: "trajectory_id"
   add_foreign_key "ai_workflow_approval_tokens", "ai_workflow_node_executions"
   add_foreign_key "ai_workflow_approval_tokens", "users", column: "recipient_user_id"
   add_foreign_key "ai_workflow_approval_tokens", "users", column: "responded_by_id"
