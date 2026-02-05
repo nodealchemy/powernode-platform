@@ -8,8 +8,8 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :agent_team, class_name: "AiAgentTeam"
-    belongs_to :ai_agent, class_name: "AiAgent", optional: true
+    belongs_to :agent_team, class_name: "Ai::AgentTeam"
+    belongs_to :ai_agent, class_name: "Ai::Agent", optional: true
 
     has_many :assigned_tasks, class_name: "Ai::TeamTask", foreign_key: :assigned_role_id, dependent: :nullify
     has_many :sent_messages, class_name: "Ai::TeamMessage", foreign_key: :from_role_id, dependent: :nullify

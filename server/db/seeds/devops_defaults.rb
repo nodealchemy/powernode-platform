@@ -5,10 +5,12 @@
 
 puts "Seeding DevOps default data..."
 
-# Get or create a system account for default templates
-system_account = Account.find_by(name: "System") ||
-                 Account.first ||
-                 Account.create!(name: "System", subdomain: "system")
+# Get system account for default templates
+system_account = Account.find_by(name: "System") || Account.first
+unless system_account
+  puts "  ⏭️  No account found — skipping DevOps defaults"
+  return
+end
 
 # Create default prompt templates
 default_templates = [

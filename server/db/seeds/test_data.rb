@@ -340,7 +340,7 @@ puts "  ⏭️  Skipped revenue snapshots (commented out)"
 puts "\n📄 Creating additional sample pages..."
 
 # Get admin user for page authorship
-admin_user = User.find_by(email: 'admin@powernode.dev')
+admin_user = User.find_by(email: 'admin@powernode.org')
 
 additional_pages = [
   {

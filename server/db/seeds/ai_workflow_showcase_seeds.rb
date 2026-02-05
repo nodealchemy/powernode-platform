@@ -39,12 +39,12 @@ unless provider
   ) do |p|
     p.is_active = true
     p.api_endpoint = 'https://api.anthropic.com/v1'
-    p.supported_models = [ { 'name' => 'claude-sonnet-4-5', 'id' => 'claude-sonnet-4-5-20250514' } ]
+    p.supported_models = [ { 'name' => 'claude-sonnet-4-5', 'id' => 'claude-sonnet-4-5-20250929' } ]
   end
 end
 
 default_model = case provider.provider_type
-when 'anthropic' then 'claude-sonnet-4-5-20250514'
+when 'anthropic' then 'claude-sonnet-4-5-20250929'
 when 'openai' then 'gpt-4o'
 else provider.supported_models&.first&.dig('id') || 'default'
 end

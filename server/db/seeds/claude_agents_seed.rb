@@ -100,7 +100,7 @@ if admin_account && admin_user && claude_provider
 
         Leverage Claude's reasoning strength to provide deep, thoughtful strategic guidance that drives sustainable business success.
       PROMPT
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.3,
         'max_tokens' => 4096,
         'response_format' => 'strategic_analysis'
@@ -114,7 +114,7 @@ if admin_account && admin_user && claude_provider
       'claude_optimized' => true,
       'reasoning_focus' => 'strategic_analysis',
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.3,
         'max_tokens' => 4096,
         'response_format' => 'strategic_analysis'
@@ -199,7 +199,7 @@ if admin_account && admin_user && claude_provider
 
         Use Claude's analytical strength to provide thorough, nuanced research that supports informed decision-making.
       PROMPT
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.2,
         'max_tokens' => 4096,
         'response_format' => 'research_report'
@@ -213,7 +213,7 @@ if admin_account && admin_user && claude_provider
       'claude_optimized' => true,
       'reasoning_focus' => 'analytical_research',
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.2,
         'max_tokens' => 4096,
         'response_format' => 'research_report'
@@ -298,7 +298,7 @@ if admin_account && admin_user && claude_provider
 
         Leverage Claude's language expertise to create content that resonates with audiences and drives meaningful engagement.
       PROMPT
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.7,
         'max_tokens' => 4096,
         'response_format' => 'creative_content'
@@ -312,7 +312,7 @@ if admin_account && admin_user && claude_provider
       'claude_optimized' => true,
       'reasoning_focus' => 'creative_language',
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.7,
         'max_tokens' => 4096,
         'response_format' => 'creative_content'

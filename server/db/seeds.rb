@@ -1140,6 +1140,15 @@ if Rails.env.development? || Rails.env.test?
 
   puts "\n🔧 Loading AI DevOps Templates..."
   load Rails.root.join('db', 'seeds', 'ai_devops_templates_seed.rb')
+
+  puts "\n🔧 Loading AI DevOps Configs (Template Installations + AI Configs)..."
+  load Rails.root.join('db', 'seeds', 'ai_devops_configs_seed.rb')
+
+  puts "\n👥 Loading AI Agent Teams..."
+  load Rails.root.join('db', 'seeds', 'ai_teams_seed.rb')
+
+  puts "\n🛡️ Loading AI Governance (Policies, Approvals, Credits, Agent Cards)..."
+  load Rails.root.join('db', 'seeds', 'ai_governance_seed.rb')
 end
 
 puts "\n🎉 Seeding complete!"
