@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_05_114059) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_05_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -448,6 +448,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_114059) do
     t.jsonb "human_checkpoint_config", default: {}
     t.integer "max_parallel_tasks", default: 3
     t.string "name", null: false, comment: "Team name (e.g., \"Content Generation Crew\", \"Research Team\")"
+    t.string "parallel_mode", default: "standard"
     t.jsonb "review_config", default: {}
     t.jsonb "shared_memory_config", default: {}
     t.string "status", default: "active", null: false, comment: "Team status: active, inactive, archived"
@@ -1377,6 +1378,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_114059) do
     t.index ["trace_id"], name: "index_ai_execution_traces_on_trace_id", unique: true
   end
 
+  create_table "ai_file_locks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.datetime "acquired_at"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.string "file_path", null: false
+    t.string "lock_type", default: "exclusive", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "worktree_id"
+    t.uuid "worktree_session_id"
+    t.index ["account_id"], name: "index_ai_file_locks_on_account_id"
+    t.index ["worktree_id"], name: "index_ai_file_locks_on_worktree_id"
+    t.index ["worktree_session_id", "file_path"], name: "idx_ai_file_locks_session_file", unique: true
+    t.index ["worktree_session_id"], name: "index_ai_file_locks_on_worktree_session_id"
+  end
+
   create_table "ai_knowledge_bases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.integer "chunk_count", default: 0
@@ -1513,6 +1530,40 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_114059) do
     t.index ["transaction_type"], name: "index_ai_marketplace_transactions_on_transaction_type"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'refunded'::character varying::text, 'disputed'::character varying::text])", name: "check_transaction_status"
     t.check_constraint "transaction_type::text = ANY (ARRAY['purchase'::character varying::text, 'subscription'::character varying::text, 'renewal'::character varying::text, 'refund'::character varying::text, 'payout'::character varying::text])", name: "check_transaction_type"
+  end
+
+  create_table "ai_merge_operations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "completed_at"
+    t.text "conflict_details"
+    t.jsonb "conflict_files", default: [], null: false
+    t.string "conflict_resolution"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.string "error_code"
+    t.text "error_message"
+    t.boolean "has_conflicts", default: false, null: false
+    t.string "merge_commit_sha"
+    t.integer "merge_order"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "pull_request_id"
+    t.string "pull_request_status"
+    t.string "pull_request_url"
+    t.string "rollback_commit_sha"
+    t.boolean "rolled_back", default: false, null: false
+    t.datetime "rolled_back_at"
+    t.string "source_branch", null: false
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.string "strategy", default: "merge", null: false
+    t.string "target_branch", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "worktree_id", null: false
+    t.uuid "worktree_session_id", null: false
+    t.index ["account_id"], name: "index_ai_merge_operations_on_account_id"
+    t.index ["status"], name: "index_ai_merge_operations_on_status"
+    t.index ["worktree_id"], name: "index_ai_merge_operations_on_worktree_id"
+    t.index ["worktree_session_id"], name: "index_ai_merge_operations_on_worktree_session_id"
   end
 
   create_table "ai_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3212,6 +3263,85 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_114059) do
     t.check_constraint "template_category IS NULL OR template_category::text <> ''::text", name: "ai_workflows_template_category_check"
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'account'::character varying::text, 'public'::character varying::text])", name: "ai_workflows_visibility_check"
     t.check_constraint "workflow_type::text = ANY (ARRAY['ai'::character varying::text, 'cicd'::character varying::text])", name: "ai_workflows_workflow_type_check"
+  end
+
+  create_table "ai_worktree_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "auto_cleanup", default: true, null: false
+    t.string "base_branch", default: "main", null: false
+    t.datetime "completed_at"
+    t.integer "completed_worktrees", default: 0, null: false
+    t.jsonb "configuration", default: {}, null: false
+    t.jsonb "conflict_matrix", default: {}
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.string "error_code"
+    t.jsonb "error_details", default: {}, null: false
+    t.text "error_message"
+    t.string "execution_mode", default: "complementary"
+    t.integer "failed_worktrees", default: 0, null: false
+    t.uuid "initiated_by_id"
+    t.string "integration_branch"
+    t.integer "max_duration_seconds"
+    t.integer "max_parallel", default: 4, null: false
+    t.jsonb "merge_config", default: {}, null: false
+    t.string "merge_strategy", default: "sequential", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "repository_path", null: false
+    t.uuid "source_id"
+    t.string "source_type"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.integer "total_worktrees", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_worktree_sessions_on_account_id"
+    t.index ["initiated_by_id"], name: "index_ai_worktree_sessions_on_initiated_by_id"
+    t.index ["source_type", "source_id"], name: "index_ai_worktree_sessions_on_source"
+    t.index ["status"], name: "index_ai_worktree_sessions_on_status"
+  end
+
+  create_table "ai_worktrees", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_id"
+    t.uuid "assignee_id"
+    t.string "assignee_type"
+    t.string "base_commit_sha"
+    t.string "branch_name", null: false
+    t.integer "commit_count", default: 0, null: false
+    t.datetime "completed_at"
+    t.jsonb "copied_config_files", default: [], null: false
+    t.datetime "created_at", null: false
+    t.bigint "disk_usage_bytes"
+    t.integer "duration_ms"
+    t.string "error_code"
+    t.text "error_message"
+    t.integer "estimated_cost_cents", default: 0
+    t.integer "files_changed", default: 0, null: false
+    t.string "head_commit_sha"
+    t.string "health_message"
+    t.boolean "healthy", default: true, null: false
+    t.datetime "last_health_check_at"
+    t.integer "lines_added", default: 0, null: false
+    t.integer "lines_removed", default: 0, null: false
+    t.string "lock_reason"
+    t.boolean "locked", default: false, null: false
+    t.datetime "locked_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "ready_at"
+    t.string "status", default: "pending", null: false
+    t.string "test_status"
+    t.datetime "timeout_at"
+    t.integer "tokens_used", default: 0
+    t.datetime "updated_at", null: false
+    t.string "worktree_path", null: false
+    t.uuid "worktree_session_id", null: false
+    t.index ["account_id"], name: "index_ai_worktrees_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_worktrees_on_ai_agent_id"
+    t.index ["assignee_type", "assignee_id"], name: "index_ai_worktrees_on_assignee"
+    t.index ["branch_name"], name: "index_ai_worktrees_on_branch_name", unique: true
+    t.index ["status"], name: "index_ai_worktrees_on_status"
+    t.index ["worktree_path"], name: "index_ai_worktrees_on_worktree_path", unique: true
+    t.index ["worktree_session_id"], name: "index_ai_worktrees_on_worktree_session_id"
   end
 
   create_table "analytics_alert_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -7969,6 +8099,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_114059) do
   add_foreign_key "ai_documents", "users", column: "uploaded_by_id"
   add_foreign_key "ai_execution_trace_spans", "ai_execution_traces", column: "execution_trace_id"
   add_foreign_key "ai_execution_traces", "accounts"
+  add_foreign_key "ai_file_locks", "accounts"
+  add_foreign_key "ai_file_locks", "ai_worktree_sessions", column: "worktree_session_id"
+  add_foreign_key "ai_file_locks", "ai_worktrees", column: "worktree_id"
   add_foreign_key "ai_knowledge_bases", "accounts"
   add_foreign_key "ai_knowledge_bases", "users", column: "created_by_id"
   add_foreign_key "ai_marketplace_categories", "ai_marketplace_categories", column: "parent_id"
@@ -7983,6 +8116,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_114059) do
   add_foreign_key "ai_marketplace_transactions", "ai_agent_installations", column: "installation_id"
   add_foreign_key "ai_marketplace_transactions", "ai_agent_templates", column: "agent_template_id"
   add_foreign_key "ai_marketplace_transactions", "ai_publisher_accounts", column: "publisher_id"
+  add_foreign_key "ai_merge_operations", "accounts"
+  add_foreign_key "ai_merge_operations", "ai_worktree_sessions", column: "worktree_session_id"
+  add_foreign_key "ai_merge_operations", "ai_worktrees", column: "worktree_id"
   add_foreign_key "ai_messages", "ai_agents"
   add_foreign_key "ai_messages", "ai_conversations", on_delete: :cascade
   add_foreign_key "ai_messages", "ai_messages", column: "parent_message_id", on_delete: :nullify
@@ -8110,6 +8246,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_114059) do
   add_foreign_key "ai_workflows", "accounts"
   add_foreign_key "ai_workflows", "ai_workflows", column: "parent_version_id", on_delete: :nullify
   add_foreign_key "ai_workflows", "users", column: "creator_id"
+  add_foreign_key "ai_worktree_sessions", "accounts"
+  add_foreign_key "ai_worktree_sessions", "users", column: "initiated_by_id"
+  add_foreign_key "ai_worktrees", "accounts"
+  add_foreign_key "ai_worktrees", "ai_agents"
+  add_foreign_key "ai_worktrees", "ai_worktree_sessions", column: "worktree_session_id"
   add_foreign_key "analytics_alert_events", "accounts"
   add_foreign_key "analytics_alert_events", "analytics_alerts"
   add_foreign_key "analytics_alerts", "accounts"

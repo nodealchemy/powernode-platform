@@ -111,6 +111,9 @@ import { ChatChannelsPage } from '@/features/ai/chat-channels/pages/ChatChannels
 // Community Agents (Public agent registry and federation)
 import { CommunityAgentsPage } from '@/features/ai/community-agents/pages/CommunityAgentsPage';
 
+// Parallel Execution (Git worktree-based parallel agents)
+import { ParallelExecutionPage } from '@/features/ai/parallel-execution/pages/ParallelExecutionPage';
+
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
 
@@ -586,6 +589,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/ralph-loops" element={<RalphLoopsPage />} />
         <Route path="/ai/chat-channels" element={<ChatChannelsPage />} />
         <Route path="/ai/community" element={<CommunityAgentsPage />} />
+        <Route path="/ai/parallel-execution" element={<ParallelExecutionPage />} />
 
         <Route path="/ai/credits" element={<CreditsPage />} />
         <Route path="/ai/rag" element={<RagPage />} />

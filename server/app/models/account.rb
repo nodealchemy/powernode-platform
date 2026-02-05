@@ -104,6 +104,9 @@ class Account < ApplicationRecord
   # AI Ralph Loops - Iterative development execution
   has_many :ai_ralph_loops, class_name: "Ai::RalphLoop", dependent: :destroy
 
+  # AI Worktree Sessions - Parallel execution with git worktrees
+  has_many :ai_worktree_sessions, class_name: "Ai::WorktreeSession", dependent: :destroy
+
   # Marketplace subscriptions (replaces deprecated ai_workflow_template_installations)
   has_many :marketplace_subscriptions, class_name: "Marketplace::Subscription", dependent: :destroy
   has_many :workflow_template_subscriptions, -> { for_workflow_templates }, class_name: "Marketplace::Subscription"

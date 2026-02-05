@@ -84,6 +84,7 @@ export interface RalphLoop {
     context_limit?: number;
     mcp_server_ids?: string[];
     run_all_active?: boolean;
+    parallel_session_id?: string;
   };
   metrics?: {
     total_iterations: number;

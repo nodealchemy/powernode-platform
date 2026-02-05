@@ -170,7 +170,12 @@ module Api
 
         # POST /api/v1/ai/ralph_loops/:id/run_all
         def run_all
-          result = build_execution_service.run_all(stop_on_error: params[:stop_on_error] != false)
+          result = build_execution_service.run_all(
+            stop_on_error: params[:stop_on_error] != false,
+            parallel: ActiveModel::Type::Boolean.new.cast(params[:parallel]),
+            max_parallel: (params[:max_parallel] || 4).to_i,
+            merge_strategy: params[:merge_strategy] || "sequential"
+          )
 
           if result[:success]
             render_success(result)

@@ -117,9 +117,18 @@ class Ai::AgentTeamOrchestrator
     }
   end
 
-  # Parallel execution - all members execute concurrently
+  # Parallel execution - route based on parallel_mode
   def execute_parallel
-    @logger.info "[TeamOrchestrator] Parallel execution started"
+    if team.parallel_mode == "worktree"
+      execute_parallel_worktree
+    else
+      execute_parallel_standard
+    end
+  end
+
+  # Standard parallel execution via A2A - all members execute concurrently
+  def execute_parallel_standard
+    @logger.info "[TeamOrchestrator] Standard parallel execution started"
 
     members = team.members.includes(:agent)
     original_input = @team_context[:original_input]
@@ -145,6 +154,50 @@ class Ai::AgentTeamOrchestrator
       execution_type: "parallel",
       members_executed: members.count,
       individual_results: results
+    }
+  end
+
+  # Worktree-based parallel execution using git worktrees
+  def execute_parallel_worktree
+    @logger.info "[TeamOrchestrator] Worktree parallel execution started"
+
+    repo_path = team.team_config&.dig("repository_path")
+    raise ExecutionError, "repository_path required in team_config for worktree mode" if repo_path.blank?
+
+    members = team.members.includes(:agent)
+    original_input = @team_context[:original_input]
+
+    task_configs = members.map do |member|
+      {
+        task: member,
+        agent_id: member.ai_agent_id,
+        branch_suffix: member.agent_name.parameterize,
+        metadata: {
+          member_id: member.id,
+          role: member.role,
+          input: original_input
+        }
+      }
+    end
+
+    service = Ai::ParallelExecutionService.new(account: team.account, user: user)
+    result = service.start_session(
+      source: team,
+      tasks: task_configs,
+      repository_path: repo_path,
+      options: {
+        base_branch: team.team_config&.dig("base_branch") || "main",
+        merge_strategy: team.team_config&.dig("merge_strategy") || "sequential",
+        max_parallel: members.count
+      }
+    )
+
+    {
+      success: result[:success],
+      output: result,
+      execution_type: "parallel_worktree",
+      members_executed: members.count,
+      session_id: result.dig(:session, :id)
     }
   end
 

@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Play,
   Pause,
@@ -10,6 +11,7 @@ import {
   Calendar,
   Wifi,
   WifiOff,
+  GitFork,
 } from 'lucide-react';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
@@ -58,6 +60,7 @@ const statusConfig: Record<RalphLoopStatus, {
 };
 
 export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
+  const navigate = useNavigate();
   const [selectedLoop, setSelectedLoop] = useState<RalphLoop | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -611,6 +614,22 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
             style={{ width: `${progressPercentage}%` }}
           />
         </div>
+
+        {/* Parallel Session Link */}
+        {selectedLoop.configuration?.parallel_session_id && (
+          <div
+            className="flex items-center gap-3 p-3 bg-theme-status-info/5 border border-theme-status-info/20 rounded-lg cursor-pointer hover:bg-theme-status-info/10 transition-colors"
+            onClick={() => navigate(`/app/ai/parallel-execution`)}
+          >
+            <GitFork className="w-5 h-5 text-theme-status-info" />
+            <div className="flex-1">
+              <div className="text-sm font-medium text-theme-text-primary">Parallel Execution Active</div>
+              <div className="text-xs text-theme-text-secondary">
+                Session {String(selectedLoop.configuration.parallel_session_id).substring(0, 8)} - Click to view worktree dashboard
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Live Execution Panel */}
         {(isRunning || liveIterations.length > 0) && (

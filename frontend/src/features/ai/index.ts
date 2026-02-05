@@ -34,9 +34,6 @@ export * from './chat-channels';
 // Community agents (AI Agent Community Platform)
 export * from './community-agents';
 
-// Container execution (AI Agent Community Platform)
-export * from './containers';
-
 // Ralph Loops (Autonomous AI Agent Loops)
 export * from './ralph-loops';
 

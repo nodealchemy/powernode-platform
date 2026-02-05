@@ -190,32 +190,35 @@ module Ai
       def execute_via_container(template)
         orchestration = ::Devops::ContainerOrchestrationService.new(
           account: account,
-          template: template
+          user: ralph_loop.created_by || account.users.first
         )
 
         timeout = task.execution_timeout
 
-        result = orchestration.execute(
-          input: {
-            ralph_task_id: task.id,
-            ralph_task_key: task.task_key,
-            task_details: task.task_details,
-            prompt: build_prompt
-          },
-          timeout: timeout
+        # Use worktree path as working directory if task has an associated worktree
+        working_dir = resolve_worktree_path
+
+        input = {
+          ralph_task_id: task.id,
+          ralph_task_key: task.task_key,
+          task_details: task.task_details,
+          prompt: build_prompt
+        }
+        input[:working_directory] = working_dir if working_dir
+
+        instance = orchestration.execute(
+          template: template,
+          input_parameters: input,
+          timeout_seconds: timeout
         )
 
-        if result[:success]
-          {
-            success: true,
-            container_instance_id: result[:instance]&.id,
-            message: "Container execution started",
-            executor_type: "container",
-            executor_id: template.id
-          }
-        else
-          { success: false, error: result[:error] || "Container execution failed" }
-        end
+        {
+          success: true,
+          container_instance_id: instance.id,
+          message: "Container execution started",
+          executor_type: "container",
+          executor_id: template.id
+        }
       rescue StandardError => e
         { success: false, error: "Container execution error: #{e.message}" }
       end
@@ -463,6 +466,11 @@ module Ai
         return { name: fc[:name], arguments: fc[:arguments] } if fc
 
         raise "Could not extract tool call from response"
+      end
+
+      def resolve_worktree_path
+        worktree = ::Ai::Worktree.find_by(assignee: task, status: %w[ready in_use])
+        worktree&.worktree_path
       end
 
       def extract_content(response)

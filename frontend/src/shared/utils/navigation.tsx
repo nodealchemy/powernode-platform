@@ -7,7 +7,7 @@ import {
   Puzzle, BookOpen, UserCog, Key, Shield, FileCode,
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
   FlaskConical, ShoppingBag, Boxes, RotateCcw, MessagesSquare,
-  Globe, Container, Coins, Database, Route, Receipt
+  Globe, Container, Coins, Database, Route, Receipt, GitFork
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -138,6 +138,15 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Autonomous AI agent loops for iterative task execution',
           permissions: ['ai.agents.read'],
           order: 6
+        },
+        {
+          id: 'ai-parallel-execution',
+          name: 'Parallel Execution',
+          href: '/app/ai/parallel-execution',
+          icon: GitFork,
+          description: 'Parallel agent execution with git worktrees',
+          permissions: ['ai.agents.read'],
+          order: 7
         },
         {
           id: 'ai-chat-channels',

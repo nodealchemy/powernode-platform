@@ -1,6 +1,6 @@
 // Team Execution Monitor - Real-time execution status display
 import React, { useState } from 'react';
-import { Clock, CheckCircle, XCircle, Loader, User, BookOpen, Shield } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Loader, User, BookOpen, Shield, GitFork } from 'lucide-react';
 import { useTeamExecutionWebSocket, TeamExecutionUpdate } from '../hooks/useTeamExecutionWebSocket';
 
 interface TeamExecutionMonitorProps {
@@ -21,6 +21,8 @@ interface ExecutionState {
   updates: TeamExecutionUpdate[];
   trajectoryId?: string;
   reviewsActive?: number;
+  worktreeCount?: number;
+  sessionId?: string;
 }
 
 export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
@@ -213,6 +215,14 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
               View Trajectory
             </button>
           )}
+        </div>
+      )}
+
+      {/* Worktree Indicator */}
+      {executionState.worktreeCount !== undefined && executionState.worktreeCount > 0 && (
+        <div className="flex items-center gap-2 text-xs text-theme-info mt-2 p-2 bg-theme-info/5 border border-theme-info/20 rounded-md">
+          <GitFork size={14} />
+          <span>{executionState.worktreeCount} worktree{executionState.worktreeCount > 1 ? 's' : ''} active</span>
         </div>
       )}
 

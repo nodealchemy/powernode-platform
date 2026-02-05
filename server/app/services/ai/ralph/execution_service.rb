@@ -67,10 +67,15 @@ module Ai
         error_result("Failed to cancel loop: #{e.message}")
       end
 
-      # Run all remaining iterations in a background job
-      def run_all(stop_on_error: true)
+      # Run all remaining iterations
+      # When parallel: true, uses git worktrees for parallel execution
+      def run_all(stop_on_error: true, parallel: false, max_parallel: 4, merge_strategy: "sequential")
         return error_result("Loop is not running") unless ralph_loop.status == "running"
         return error_result("Run All is already active") if ralph_loop.configuration&.dig("run_all_active")
+
+        if parallel
+          return run_all_parallel(max_parallel: max_parallel, merge_strategy: merge_strategy)
+        end
 
         config = ralph_loop.configuration || {}
         config["run_all_active"] = true
@@ -187,6 +192,58 @@ module Ai
       end
 
       private
+
+      def run_all_parallel(max_parallel:, merge_strategy:)
+        repo_path = ralph_loop.repository_url
+        return error_result("Repository path is required for parallel execution") if repo_path.blank?
+        return error_result("Repository path does not exist") unless File.directory?(repo_path)
+
+        # Gather pending tasks with satisfied dependencies
+        update_blocked_tasks
+        pending_tasks = ralph_loop.ralph_tasks.pending.by_priority.select(&:dependencies_satisfied?)
+        return error_result("No pending tasks available") if pending_tasks.empty?
+
+        # Build task configs with agent resolution
+        task_configs = pending_tasks.map do |task|
+          agent = resolve_agent_for_task(task)
+          {
+            task: task,
+            agent_id: agent&.id,
+            branch_suffix: task.task_key.parameterize,
+            metadata: { task_key: task.task_key, task_id: task.id }
+          }
+        end
+
+        service = ::Ai::ParallelExecutionService.new(account: account, user: user)
+        result = service.start_session(
+          source: ralph_loop,
+          tasks: task_configs,
+          repository_path: repo_path,
+          options: {
+            base_branch: ralph_loop.branch || "main",
+            merge_strategy: merge_strategy,
+            max_parallel: max_parallel,
+            configuration: { failure_policy: "continue" }
+          }
+        )
+
+        if result[:success]
+          config = ralph_loop.configuration || {}
+          config["parallel_session_id"] = result.dig(:session, :id)
+          ralph_loop.update!(configuration: config)
+        end
+
+        result
+      rescue StandardError => e
+        error_result("Failed to start parallel execution: #{e.message}")
+      end
+
+      def resolve_agent_for_task(task)
+        executor = task.find_matching_executor
+        return executor if executor.is_a?(::Ai::Agent)
+
+        ralph_loop.default_agent
+      end
 
       def deactivate_run_all_if_active
         return unless ralph_loop.configuration&.dig("run_all_active")

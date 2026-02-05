@@ -10,6 +10,7 @@ module Ai
     TEAM_TYPES = %w[hierarchical mesh sequential parallel].freeze
     COORDINATION_STRATEGIES = %w[manager_led consensus auction round_robin priority_based].freeze
     STATUSES = %w[active inactive archived].freeze
+    PARALLEL_MODES = %w[standard worktree].freeze
 
     # ==========================================
     # Associations
@@ -27,6 +28,7 @@ module Ai
     validates :team_type, inclusion: { in: TEAM_TYPES }
     validates :coordination_strategy, inclusion: { in: COORDINATION_STRATEGIES }
     validates :status, inclusion: { in: STATUSES }
+    validates :parallel_mode, inclusion: { in: PARALLEL_MODES }, allow_nil: true
 
     validate :validate_team_config_structure
     validate :validate_coordination_compatibility

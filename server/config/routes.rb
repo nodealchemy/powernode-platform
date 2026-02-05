@@ -2198,6 +2198,22 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # WORKTREE SESSIONS - Parallel execution with git worktrees
+        # ===================================================================
+        resources :worktree_sessions, only: [:index, :show, :create] do
+          member do
+            post :cancel
+            get :status
+            get :merge_operations
+            post :retry_merge
+            get :conflicts
+            get :file_locks
+            post :acquire_locks
+            post :release_locks
+          end
+        end
+
+        # ===================================================================
         # COMMUNITY AGENTS - Public agent registry and discovery
         # ===================================================================
         # Enables publishing, discovering, and rating AI agents across

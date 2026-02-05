@@ -134,6 +134,17 @@ export const TEST_RALPH_LOOP = {
 };
 
 /**
+ * Test Parallel Execution session data
+ */
+export const TEST_PARALLEL_SESSION = {
+  repository_path: '/tmp/e2e-test-repo',
+  base_branch: 'main',
+  merge_strategy: 'sequential' as const,
+  max_parallel: 4,
+  branch_suffixes: 'feature-a, feature-b, feature-c',
+};
+
+/**
  * Unique ID generator for test data
  * Prevents collisions when running tests in parallel
  */
@@ -169,6 +180,7 @@ export const API_ENDPOINTS = {
   trajectories: '/api/v1/ai/teams/trajectories',
   taskReviews: '/api/v1/ai/teams/reviews',
   ralphLoops: '/api/v1/ai/ralph_loops',
+  worktreeSessions: '/api/v1/ai/worktree_sessions',
 };
 
 /**
@@ -201,4 +213,5 @@ export const ROUTES = {
   devops: '/app/ai/devops',
   devopsTemplates: '/app/ai/devops-templates',
   plugins: '/app/ai/plugins',
+  parallelExecution: '/app/ai/parallel-execution',
 };

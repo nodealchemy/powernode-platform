@@ -81,6 +81,30 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     circuit_breaker.failure
     circuit_breaker.success
     circuit_breaker.reset
+    worktree_session.status_changed
+    worktree_session.provisioning
+    worktree_session.active
+    worktree_session.merging
+    worktree_session.completed
+    worktree_session.failed
+    worktree_session.cancelled
+    worktree_session.conflicts_detected
+    worktree.status_changed
+    worktree.created
+    worktree.ready
+    worktree.task_started
+    worktree.completed
+    worktree.failed
+    worktree.log
+    worktree.timeout
+    worktree.test_started
+    worktree.test_passed
+    worktree.test_failed
+    merge.started
+    merge.completed
+    merge.conflict
+    merge.resolved
+    merge.failed
   ].freeze
 
   # =============================================================================
@@ -829,6 +853,46 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       broadcast_circuit_breaker_event("circuit_breaker.reset", breaker, account)
     end
 
+    # =============================================================================
+    # WORKTREE SESSION BROADCASTING
+    # =============================================================================
+
+    # Broadcast worktree session event
+    #
+    # @param session [Ai::WorktreeSession] Worktree session
+    # @param event_type [String] Event type
+    # @param payload [Hash] Additional payload
+    def broadcast_worktree_session_event(session, event_type, payload = {})
+      message = build_message(
+        "worktree_session.#{event_type}",
+        "worktree_session",
+        session.id,
+        session.session_summary.merge(payload)
+      )
+
+      ActionCable.server.broadcast(stream_key("worktree_session", session.id), message)
+      ActionCable.server.broadcast(stream_key("account", session.account_id), message)
+
+      Rails.logger.debug "[AiOrchestrationChannel] Worktree session event #{event_type} for session #{session.id}"
+    end
+
+    # Broadcast individual worktree event
+    #
+    # @param worktree [Ai::Worktree] Worktree record
+    # @param event_type [String] Event type
+    # @param payload [Hash] Additional payload
+    def broadcast_worktree_event(worktree, event_type, payload = {})
+      message = build_message(
+        "worktree.#{event_type}",
+        "worktree_session",
+        worktree.worktree_session_id,
+        worktree.worktree_summary.merge(payload)
+      )
+
+      ActionCable.server.broadcast(stream_key("worktree_session", worktree.worktree_session_id), message)
+      ActionCable.server.broadcast(stream_key("account", worktree.account_id), message)
+    end
+
     private
 
     # Broadcast circuit breaker event
@@ -941,11 +1005,25 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       })
 
       Rails.logger.debug "[AiOrchestrationChannel] Sent initial status for ralph_loop #{resource_id}: #{ralph_loop.status}"
+    when "worktree_session"
+      wt_session = Ai::WorktreeSession.find_by(id: resource_id)
+      return unless wt_session
+
+      transmit({
+        event: "worktree_session.status_changed",
+        resource_type: "worktree_session",
+        resource_id: resource_id,
+        payload: wt_session.session_summary,
+        timestamp: Time.current.iso8601,
+        is_initial_status: true
+      })
+
+      Rails.logger.debug "[AiOrchestrationChannel] Sent initial status for worktree_session #{resource_id}: #{wt_session.status}"
     end
   end
 
   def valid_subscription_type?(type)
-    %w[account workflow workflow_run agent monitoring system batch_execution circuit_breaker circuit_breaker_service ralph_loop].include?(type)
+    %w[account workflow workflow_run agent monitoring system batch_execution circuit_breaker circuit_breaker_service ralph_loop worktree_session].include?(type)
   end
 
   def authorized_for_subscription?(subscription_type, resource_id)
@@ -996,6 +1074,10 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       # User can subscribe to Ralph loops in their account
       ralph_loop = Ai::RalphLoop.find_by(id: resource_id)
       ralph_loop && ralph_loop.account_id == current_user.account_id
+    when "worktree_session"
+      # User can subscribe to worktree sessions in their account
+      wt_session = Ai::WorktreeSession.find_by(id: resource_id)
+      wt_session && wt_session.account_id == current_user.account_id
     else
       false
     end
