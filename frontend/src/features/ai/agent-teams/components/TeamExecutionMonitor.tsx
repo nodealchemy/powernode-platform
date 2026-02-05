@@ -1,11 +1,12 @@
 // Team Execution Monitor - Real-time execution status display
 import React, { useState } from 'react';
-import { Clock, CheckCircle, XCircle, Loader, User } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Loader, User, BookOpen, Shield } from 'lucide-react';
 import { useTeamExecutionWebSocket, TeamExecutionUpdate } from '../hooks/useTeamExecutionWebSocket';
 
 interface TeamExecutionMonitorProps {
   teamId: string;
   onExecutionComplete?: () => void;
+  onViewTrajectory?: (trajectoryId: string) => void;
 }
 
 interface ExecutionState {
@@ -15,15 +16,17 @@ interface ExecutionState {
   currentMember?: string;
   startTime?: Date;
   endTime?: Date;
-   
-  result?: any;
+  result?: Record<string, unknown>;
   error?: string;
   updates: TeamExecutionUpdate[];
+  trajectoryId?: string;
+  reviewsActive?: number;
 }
 
 export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
   teamId,
-  onExecutionComplete
+  onExecutionComplete,
+  onViewTrajectory
 }) => {
   const [executionState, setExecutionState] = useState<ExecutionState>({
     status: 'idle',
@@ -184,6 +187,40 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
         <div className="p-3 bg-theme-error/10 border border-theme-error/30 rounded-md">
           <p className="text-sm text-theme-danger font-medium mb-2">Error</p>
           <p className="text-sm text-theme-danger">{executionState.error}</p>
+        </div>
+      )}
+
+      {/* Trajectory Status */}
+      {executionState.status === 'running' && (
+        <div className="flex items-center gap-2 text-xs text-theme-secondary mt-4 p-2 bg-theme-accent/50 rounded-md">
+          <BookOpen size={14} className="text-theme-info" />
+          <span>Trajectory building in progress...</span>
+        </div>
+      )}
+
+      {executionState.status === 'completed' && (
+        <div className="flex items-center justify-between mt-4 p-3 bg-theme-info/5 border border-theme-info/20 rounded-md">
+          <div className="flex items-center gap-2 text-sm text-theme-info">
+            <BookOpen size={16} />
+            <span>Trajectory captured</span>
+          </div>
+          {onViewTrajectory && executionState.trajectoryId && (
+            <button
+              type="button"
+              onClick={() => onViewTrajectory(executionState.trajectoryId!)}
+              className="text-xs text-theme-info hover:text-theme-primary underline"
+            >
+              View Trajectory
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Review Status Indicators */}
+      {executionState.reviewsActive !== undefined && executionState.reviewsActive > 0 && (
+        <div className="flex items-center gap-2 text-xs text-theme-warning mt-2 p-2 bg-theme-warning/5 border border-theme-warning/20 rounded-md">
+          <Shield size={14} />
+          <span>{executionState.reviewsActive} review{executionState.reviewsActive > 1 ? 's' : ''} in progress</span>
         </div>
       )}
 

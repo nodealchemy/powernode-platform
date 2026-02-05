@@ -9,13 +9,6 @@ module Ai
       DEFAULT_TOKEN_BUDGET = 4000
       CHARS_PER_TOKEN = 4  # Rough estimate
 
-      # Memory type priorities (higher = more important)
-      MEMORY_PRIORITIES = {
-        "factual" => 3,
-        "working" => 2,
-        "experiential" => 1
-      }.freeze
-
       def initialize(agent:, account:)
         @agent = agent
         @account = account
@@ -30,7 +23,7 @@ module Ai
         used_chars = 0
 
         # Determine which memory types to include
-        types = include_types || %w[factual working experiential]
+        types = include_types || %w[factual working experiential trajectories]
 
         # 1. Always include critical facts first (highest priority)
         if types.include?("factual")
@@ -57,13 +50,25 @@ module Ai
           used_chars += exp_chars
         end
 
+        # 4. Include relevant trajectory memories
+        if types.include?("trajectories") && (query.present? || task.present?)
+          search_query = query || extract_task_query(task)
+          trajectory_context, traj_chars = inject_trajectory_memory(
+            budget_chars - used_chars,
+            search_query
+          )
+          context_parts << trajectory_context if trajectory_context.present?
+          used_chars += traj_chars
+        end
+
         {
           context: context_parts.join("\n\n"),
           token_estimate: (used_chars / CHARS_PER_TOKEN.to_f).ceil,
           breakdown: {
             factual: context_parts.count { |p| p.start_with?("## Known Facts") },
             working: context_parts.count { |p| p.start_with?("## Current State") },
-            experiential: context_parts.count { |p| p.start_with?("## Relevant Experience") }
+            experiential: context_parts.count { |p| p.start_with?("## Relevant Experience") },
+            trajectories: context_parts.count { |p| p.start_with?("## Past Trajectories") }
           }
         }
       end
@@ -158,6 +163,26 @@ module Ai
         return [ nil, 0 ] if context_lines.size == 1
 
         [ context_lines.join("\n"), used_chars ]
+      end
+
+      def inject_trajectory_memory(char_budget, query)
+        return [ nil, 0 ] if query.blank?
+
+        trajectory_service = Ai::TrajectoryService.new(account: @account)
+        context_text = trajectory_service.inject_context(
+          agent_id: @agent.id,
+          task_description: query,
+          max_trajectories: 3
+        )
+
+        return [ nil, 0 ] if context_text.blank?
+
+        # Truncate to budget
+        if context_text.length > char_budget
+          context_text = context_text.truncate(char_budget)
+        end
+
+        [ context_text, context_text.length ]
       end
 
       def inject_experiential_memory(char_budget, query)

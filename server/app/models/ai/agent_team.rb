@@ -17,6 +17,7 @@ module Ai
     belongs_to :account
     has_many :members, class_name: "Ai::AgentTeamMember", foreign_key: "ai_agent_team_id", dependent: :destroy
     has_many :agents, class_name: "Ai::Agent", through: :members, source: :agent
+    has_many :task_reviews, class_name: "Ai::TaskReview", through: :members
 
     # ==========================================
     # Validations
@@ -79,13 +80,55 @@ module Ai
     # Get team statistics
     def team_stats
       {
-        total_members: members.count,
         member_count: members.count,
         has_lead: has_lead?,
         team_type: team_type,
         coordination_strategy: coordination_strategy,
         status: status
       }
+    end
+
+    # Validate team composition and return warnings/recommendations
+    def validate_team_composition
+      warnings = []
+      recommendations = []
+      loaded_members = members.to_a
+      lead_count = loaded_members.count(&:is_lead)
+      worker_count = loaded_members.count { |m| !m.is_lead }
+      total = loaded_members.size
+
+      # Hierarchical teams should have a lead
+      if team_type == "hierarchical" && lead_count.zero? && total.positive?
+        warnings << "Hierarchical team has no lead member"
+        recommendations << "Assign a lead to coordinate workers"
+      end
+
+      # Workers-per-lead ratio check
+      if lead_count.positive?
+        ratio = worker_count.to_f / lead_count
+        if ratio > 9
+          warnings << "Workers-per-lead ratio is #{ratio.round(1)}:1 (10+ is unhealthy)"
+          recommendations << "Add more leads or reduce workers"
+        elsif ratio > 5
+          warnings << "Workers-per-lead ratio is #{ratio.round(1)}:1 (6-9 needs attention)"
+        end
+      end
+
+      # Sequential teams need at least 2 members
+      if team_type == "sequential" && total < 2
+        warnings << "Sequential teams need at least 2 members for meaningful execution"
+        recommendations << "Add more members for sequential pipeline"
+      end
+
+      # No reviewer role suggestion
+      unless loaded_members.any? { |m| m.role&.include?("reviewer") || m.role&.include?("review") }
+        recommendations << "Consider adding a reviewer role for quality assurance"
+      end
+
+      # Store warnings in team_config
+      update_column(:team_config, (team_config || {}).merge("composition_warnings" => warnings)) if warnings.any?
+
+      { warnings: warnings, recommendations: recommendations }
     end
 
     # Check if team is active

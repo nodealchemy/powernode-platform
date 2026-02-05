@@ -22,6 +22,43 @@ export class AgentTeamsPage {
   readonly saveButton: Locator;
   readonly cancelButton: Locator;
 
+  // Composition Health Banner
+  readonly compositionHealthBanner: Locator;
+  readonly compositionStatus: Locator;
+  readonly compositionWarnings: Locator;
+  readonly compositionRecommendations: Locator;
+
+  // Role Profile Selector
+  readonly roleProfileGrid: Locator;
+  readonly roleProfileCards: Locator;
+  readonly applyProfileButton: Locator;
+  readonly customizeProfileButton: Locator;
+  readonly profilePreview: Locator;
+
+  // Review Config Section
+  readonly reviewConfigSection: Locator;
+  readonly reviewEnabledToggle: Locator;
+  readonly reviewModeRadio: Locator;
+  readonly qualityThresholdSlider: Locator;
+  readonly maxRevisionsInput: Locator;
+
+  // Trajectory Viewer
+  readonly trajectoryList: Locator;
+  readonly trajectoryCards: Locator;
+  readonly trajectorySearch: Locator;
+  readonly trajectoryTypeFilter: Locator;
+  readonly trajectoryTimeline: Locator;
+  readonly trajectoryChapters: Locator;
+
+  // Review Panel
+  readonly reviewPanel: Locator;
+  readonly reviewFindings: Locator;
+  readonly reviewQualityScore: Locator;
+  readonly reviewCompletenessChecks: Locator;
+  readonly approveButton: Locator;
+  readonly rejectButton: Locator;
+  readonly requestRevisionButton: Locator;
+
   constructor(page: Page) {
     this.page = page;
     this.pageTitle = page.locator('h1, [class*="title"]').first();
@@ -36,6 +73,43 @@ export class AgentTeamsPage {
     this.typeSelect = page.locator('select[name="type"], [name="team_type"]');
     this.saveButton = page.getByRole('button', { name: /save|create/i });
     this.cancelButton = page.getByRole('button', { name: /cancel/i });
+
+    // Composition Health Banner
+    this.compositionHealthBanner = page.locator('[data-testid="composition-health"], [class*="composition-health"], [class*="CompositionHealth"]');
+    this.compositionStatus = page.locator('[data-testid="composition-status"], [class*="composition-health"] [class*="status"], [class*="CompositionHealth"] [class*="badge"]');
+    this.compositionWarnings = page.locator('[data-testid="composition-warnings"], [class*="composition-health"] [class*="warning"]');
+    this.compositionRecommendations = page.locator('[data-testid="composition-recommendations"], [class*="composition-health"] [class*="recommendation"]');
+
+    // Role Profile Selector
+    this.roleProfileGrid = page.locator('[data-testid="role-profile-grid"], [class*="profile-grid"], [class*="RoleProfileSelector"]');
+    this.roleProfileCards = page.locator('[data-testid*="profile-card"], [class*="profile-card"], [class*="ProfileCard"]');
+    this.applyProfileButton = page.getByRole('button', { name: /apply profile/i });
+    this.customizeProfileButton = page.getByRole('button', { name: /customize/i });
+    this.profilePreview = page.locator('[data-testid="profile-preview"], [class*="profile-preview"], [class*="ProfilePreview"]');
+
+    // Review Config Section
+    this.reviewConfigSection = page.locator('[data-testid="review-config"], [class*="review-config"], details:has-text("Review Configuration")');
+    this.reviewEnabledToggle = page.locator('[data-testid="review-enabled"], input[type="checkbox"]:near(:text("Enable automatic reviews"))');
+    this.reviewModeRadio = page.locator('[data-testid="review-mode"], [name="review_mode"]');
+    this.qualityThresholdSlider = page.locator('[data-testid="quality-threshold"], input[type="range"]:near(:text("Quality"))');
+    this.maxRevisionsInput = page.locator('[data-testid="max-revisions"], input[type="number"]:near(:text("revision"))');
+
+    // Trajectory Viewer
+    this.trajectoryList = page.locator('[data-testid="trajectory-list"], [class*="trajectory-list"], [class*="TrajectoryList"]');
+    this.trajectoryCards = page.locator('[data-testid*="trajectory-card"], [class*="trajectory-card"], [class*="TrajectoryCard"]');
+    this.trajectorySearch = page.locator('[data-testid="trajectory-search"] input, input[placeholder*="search" i]:near(:text("Trajector"))');
+    this.trajectoryTypeFilter = page.locator('[data-testid="trajectory-type-filter"], select:near(:text("Type")), button:has-text("All Types")');
+    this.trajectoryTimeline = page.locator('[data-testid="trajectory-timeline"], [class*="trajectory-timeline"], [class*="timeline"]');
+    this.trajectoryChapters = page.locator('[data-testid*="chapter"], [class*="chapter-card"], [class*="ChapterCard"]');
+
+    // Review Panel
+    this.reviewPanel = page.locator('[data-testid="review-panel"], [class*="review-panel"], [class*="ReviewPanel"]');
+    this.reviewFindings = page.locator('[data-testid="review-findings"], [class*="review-panel"] [class*="finding"], [class*="ReviewPanel"] [class*="finding"]');
+    this.reviewQualityScore = page.locator('[data-testid="review-quality-score"], [class*="review-panel"] [class*="score"], [class*="quality-score"]');
+    this.reviewCompletenessChecks = page.locator('[data-testid="completeness-checks"], [class*="completeness"], [class*="review-panel"] [class*="check"]');
+    this.approveButton = page.getByRole('button', { name: /approve/i });
+    this.rejectButton = page.getByRole('button', { name: /reject/i });
+    this.requestRevisionButton = page.getByRole('button', { name: /request revision|revision/i });
   }
 
   /**
@@ -248,5 +322,161 @@ export class AgentTeamsPage {
     await expect(
       this.page.locator(':text("Hierarchical"), :text("Sequential"), :text("Parallel")')
     ).toBeVisible();
+  }
+
+  // --- Composition Health Methods ---
+
+  async verifyCompositionHealthVisible() {
+    await expect(this.compositionHealthBanner).toBeVisible();
+  }
+
+  async getCompositionStatus(): Promise<string> {
+    return await this.compositionStatus.textContent() || '';
+  }
+
+  async verifyCompositionWarnings(expectedCount?: number) {
+    if (expectedCount !== undefined) {
+      const warnings = await this.compositionWarnings.locator('li, [class*="warning"]').count();
+      expect(warnings).toBeGreaterThanOrEqual(expectedCount);
+    }
+    await expect(this.compositionWarnings).toBeVisible();
+  }
+
+  async verifyCompositionRecommendations() {
+    await expect(this.compositionRecommendations).toBeVisible();
+  }
+
+  // --- Role Profile Methods ---
+
+  async selectRoleProfile(profileName: string) {
+    const profileCard = this.roleProfileCards.filter({ hasText: profileName });
+    await profileCard.click();
+  }
+
+  async verifyProfilePreview(profileName: string) {
+    await expect(this.profilePreview).toContainText(profileName);
+  }
+
+  async applySelectedProfile() {
+    await this.applyProfileButton.click();
+  }
+
+  async getRoleProfileCount(): Promise<number> {
+    return await this.roleProfileCards.count();
+  }
+
+  // --- Review Config Methods ---
+
+  async openReviewConfigSection() {
+    const section = this.page.locator('details:has-text("Review Configuration"), summary:has-text("Review Configuration")');
+    if (await section.count() > 0) {
+      await section.first().click();
+    }
+  }
+
+  async toggleAutoReview(enable: boolean) {
+    const checkbox = this.reviewEnabledToggle;
+    const isChecked = await checkbox.isChecked();
+    if (isChecked !== enable) {
+      await checkbox.click();
+    }
+  }
+
+  async selectReviewMode(mode: 'blocking' | 'shadow') {
+    const radio = this.page.locator(`input[value="${mode}"], label:has-text("${mode}") input`);
+    await radio.first().click();
+  }
+
+  async setQualityThreshold(value: number) {
+    await this.qualityThresholdSlider.fill(String(value));
+  }
+
+  async setMaxRevisions(value: number) {
+    await this.maxRevisionsInput.fill(String(value));
+  }
+
+  // --- Trajectory Methods ---
+
+  async navigateToTrajectories() {
+    const trajLink = this.page.locator('a:has-text("Trajectories"), button:has-text("Trajectories")');
+    await trajLink.first().click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async searchTrajectories(query: string) {
+    await this.trajectorySearch.fill(query);
+    await this.page.waitForTimeout(500);
+  }
+
+  async filterTrajectoryType(type: string) {
+    await this.trajectoryTypeFilter.click();
+    await this.page.locator(`:text("${type}")`).first().click();
+  }
+
+  async openTrajectory(title: string) {
+    const card = this.trajectoryCards.filter({ hasText: title });
+    await card.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async verifyTrajectoryTimeline() {
+    await expect(this.trajectoryTimeline).toBeVisible();
+  }
+
+  async verifyChapterCount(expected: number) {
+    const chapters = await this.trajectoryChapters.count();
+    expect(chapters).toBe(expected);
+  }
+
+  async expandChapter(chapterTitle: string) {
+    const chapter = this.trajectoryChapters.filter({ hasText: chapterTitle });
+    await chapter.click();
+  }
+
+  async verifyChapterContent(chapterTitle: string) {
+    const chapter = this.trajectoryChapters.filter({ hasText: chapterTitle });
+    await expect(chapter.locator('[class*="content"], p')).toBeVisible();
+  }
+
+  async getTrajectoryCount(): Promise<number> {
+    return await this.trajectoryCards.count();
+  }
+
+  // --- Review Panel Methods ---
+
+  async verifyReviewPanelVisible() {
+    await expect(this.reviewPanel).toBeVisible();
+  }
+
+  async getReviewQualityScore(): Promise<string> {
+    return await this.reviewQualityScore.textContent() || '';
+  }
+
+  async verifyFindingsCount(expected: number) {
+    const findings = await this.reviewFindings.count();
+    expect(findings).toBe(expected);
+  }
+
+  async verifyCompletenessChecks() {
+    await expect(this.reviewCompletenessChecks).toBeVisible();
+  }
+
+  async approveReview(notes?: string) {
+    if (notes) {
+      await this.page.locator('textarea[name*="notes"], textarea[placeholder*="notes" i]').fill(notes);
+    }
+    await this.approveButton.click();
+  }
+
+  async rejectReview(reason: string) {
+    await this.page.locator('textarea[name*="reason"], textarea[placeholder*="reason" i]').fill(reason);
+    await this.rejectButton.click();
+  }
+
+  async requestRevision(notes?: string) {
+    if (notes) {
+      await this.page.locator('textarea[name*="notes"], textarea[placeholder*="notes" i]').fill(notes);
+    }
+    await this.requestRevisionButton.click();
   }
 }

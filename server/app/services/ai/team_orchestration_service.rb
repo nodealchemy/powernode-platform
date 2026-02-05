@@ -66,6 +66,131 @@ module Ai
     end
 
     # ============================================================================
+    # COMPOSITION HEALTH
+    # ============================================================================
+
+    def composition_health(team_id)
+      team = get_team(team_id)
+      members = team.ai_team_roles.includes(:ai_agent)
+      lead_count = members.where(role_type: "manager").count
+      worker_count = members.where.not(role_type: "manager").count
+      total = members.count
+      ratio = lead_count.positive? ? (worker_count.to_f / lead_count).round(1) : worker_count.to_f
+
+      warnings = []
+      recommendations = []
+
+      if team.team_topology == "hierarchical" && lead_count.zero? && total.positive?
+        warnings << "Hierarchical team has no lead/manager role"
+        recommendations << "Assign a manager role to coordinate workers"
+      end
+
+      if lead_count.positive?
+        if ratio > 9
+          warnings << "Workers-per-lead ratio is #{ratio}:1 (unhealthy)"
+          recommendations << "Add more leads or reduce workers"
+        elsif ratio > 5
+          warnings << "Workers-per-lead ratio is #{ratio}:1 (needs attention)"
+        end
+      end
+
+      if team.team_topology == "pipeline" && total < 2
+        warnings << "Pipeline teams need at least 2 members"
+        recommendations << "Add more members for meaningful pipeline execution"
+      end
+
+      unless members.where(role_type: "reviewer").exists?
+        recommendations << "Consider adding a reviewer role for quality assurance"
+      end
+
+      status = if warnings.empty?
+                 "healthy"
+      elsif warnings.any? { |w| w.include?("unhealthy") }
+                 "unhealthy"
+      else
+                 "warning"
+      end
+
+      {
+        status: status,
+        member_count: total,
+        lead_count: lead_count,
+        worker_count: worker_count,
+        workers_per_lead: ratio,
+        warnings: warnings,
+        recommendations: recommendations
+      }
+    end
+
+    # ============================================================================
+    # ROLE PROFILES
+    # ============================================================================
+
+    def list_role_profiles(filters = {})
+      profiles = Ai::RoleProfile.for_account(account.id)
+      profiles = profiles.by_role_type(filters[:role_type]) if filters[:role_type].present?
+      profiles = profiles.system_profiles if filters[:is_system]
+      profiles.order(:name)
+    end
+
+    def get_role_profile(profile_id)
+      Ai::RoleProfile.for_account(account.id).find(profile_id)
+    end
+
+    def apply_role_profile(team_id, role_id, profile_id)
+      team = get_team(team_id)
+      role = team.ai_team_roles.find(role_id)
+      profile = Ai::RoleProfile.for_account(account.id).find(profile_id)
+      profile.apply_to_role(role)
+      role
+    end
+
+    # ============================================================================
+    # TRAJECTORIES
+    # ============================================================================
+
+    def list_trajectories(filters = {})
+      Ai::TrajectoryService.new(account: account).list_trajectories(filters)
+    end
+
+    def get_trajectory(trajectory_id)
+      Ai::TrajectoryService.new(account: account).get_trajectory(trajectory_id)
+    end
+
+    def search_trajectories(query, filters = {})
+      Ai::TrajectoryService.new(account: account).search_relevant(
+        query: query,
+        agent_id: filters[:agent_id],
+        tags: filters[:tags],
+        limit: filters[:limit] || 10
+      )
+    end
+
+    # ============================================================================
+    # REVIEWS
+    # ============================================================================
+
+    def list_task_reviews(task_id)
+      Ai::ReviewWorkflowService.new(account: account).list_reviews(task_id)
+    end
+
+    def get_task_review(review_id)
+      Ai::ReviewWorkflowService.new(account: account).get_review(review_id)
+    end
+
+    def process_review(review_id, action:, notes: nil)
+      review_service = Ai::ReviewWorkflowService.new(account: account)
+      review = review_service.get_review(review_id)
+      review_service.process_review(review, result: action, notes: notes)
+    end
+
+    def configure_team_review(team_id, config)
+      team = get_team(team_id)
+      team.update!(review_config: config)
+      team
+    end
+
+    # ============================================================================
     # ROLE MANAGEMENT
     # ============================================================================
 
@@ -239,7 +364,7 @@ module Ai
 
     def get_task(execution_id, task_id)
       execution = get_execution(execution_id)
-      execution.tasks.find_by!(task_id: task_id) || execution.tasks.find(task_id)
+      execution.tasks.find_by(task_id: task_id) || execution.tasks.find(task_id)
     end
 
     def assign_task(execution_id, task_id, role_id:, agent_id: nil)

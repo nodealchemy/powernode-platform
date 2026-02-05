@@ -4,6 +4,10 @@ import Modal from '@/shared/components/ui/Modal';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { AgentTeam, CreateTeamParams, UpdateTeamParams } from '../services/agentTeamsApi';
+import { CompositionHealthBanner } from './CompositionHealthBanner';
+import { RoleProfileSelector } from './RoleProfileSelector';
+import { ReviewConfigSection, ReviewConfig } from './ReviewConfigSection';
+import type { RoleProfile } from '@/shared/services/ai/TeamsApiService';
 
 interface TeamBuilderModalProps {
   isOpen: boolean;
@@ -11,6 +15,15 @@ interface TeamBuilderModalProps {
   onSave: (params: CreateTeamParams | UpdateTeamParams) => Promise<void>;
   team?: AgentTeam | null;
 }
+
+const DEFAULT_REVIEW_CONFIG: ReviewConfig = {
+  auto_review_enabled: false,
+  review_mode: 'blocking',
+  review_task_types: ['execution'],
+  max_revisions: 3,
+  reviewer_role_type: 'reviewer',
+  quality_threshold: 0.7,
+};
 
 export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
   isOpen,
@@ -26,6 +39,8 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
     status: 'active'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reviewConfig, setReviewConfig] = useState<ReviewConfig>(DEFAULT_REVIEW_CONFIG);
+  const [selectedProfile, setSelectedProfile] = useState<RoleProfile | null>(null);
 
   useEffect(() => {
     if (team) {
@@ -36,6 +51,10 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
         coordination_strategy: team.coordination_strategy,
         status: team.status
       });
+      // Load review config from team if editing
+      if (team.team_config && typeof team.team_config === 'object' && 'review_config' in team.team_config) {
+        setReviewConfig(team.team_config.review_config as ReviewConfig);
+      }
     } else {
       setFormData({
         name: '',
@@ -44,6 +63,7 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
         coordination_strategy: 'manager_worker',
         status: 'active'
       });
+      setReviewConfig(DEFAULT_REVIEW_CONFIG);
     }
   }, [team, isOpen]);
 
@@ -52,7 +72,14 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      await onSave(formData);
+      const saveData = {
+        ...formData,
+        team_config: {
+          ...(formData.team_config || {}),
+          review_config: reviewConfig
+        }
+      };
+      await onSave(saveData);
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -63,6 +90,28 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
     if (value !== undefined) {
       setFormData(prev => ({ ...prev, [field]: value }));
     }
+  };
+
+  const handleProfileSelect = (profile: RoleProfile) => {
+    setSelectedProfile(profile);
+  };
+
+  const handleApplyProfile = (profile: RoleProfile) => {
+    setFormData(prev => ({
+      ...prev,
+      team_config: {
+        ...(prev.team_config || {}),
+        applied_profile: {
+          id: profile.id,
+          name: profile.name,
+          role_type: profile.role_type
+        }
+      }
+    }));
+  };
+
+  const handleCustomizeProfile = (profile: RoleProfile) => {
+    setSelectedProfile(profile);
   };
 
   const teamTypeOptions = [
@@ -118,7 +167,7 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
             onChange={(e) => handleChange('description', e.target.value)}
             placeholder="Describe the team's purpose and goals..."
             rows={3}
-            className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           />
         </div>
 
@@ -163,6 +212,24 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
           />
         </div>
 
+        {/* Composition Health Banner - shown when editing an existing team */}
+        {team?.id && (
+          <CompositionHealthBanner teamId={team.id} />
+        )}
+
+        {/* Role Profile Selector */}
+        <RoleProfileSelector
+          onProfileSelect={handleProfileSelect}
+          onApplyProfile={handleApplyProfile}
+          onCustomize={handleCustomizeProfile}
+        />
+
+        {/* Review Configuration */}
+        <ReviewConfigSection
+          config={reviewConfig}
+          onChange={setReviewConfig}
+        />
+
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t border-theme">
           <button
@@ -184,4 +251,3 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
     </Modal>
   );
 };
-

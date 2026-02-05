@@ -8,16 +8,19 @@ module Api
         before_action :set_team_service
         before_action :set_team, only: %i[
           show update destroy
-          list_roles create_role update_role delete_role assign_agent_to_role
+          list_roles create_role update_role delete_role assign_agent_to_role apply_role_profile
           list_channels create_channel
           list_executions
           analytics
+          composition_health
+          update_review_config
         ]
         before_action :set_execution, only: %i[
           show_execution pause_execution resume_execution cancel_execution complete_execution
           create_task list_tasks show_task assign_task start_task complete_task fail_task delegate_task
           send_message list_messages reply_to_message
           execution_details
+          list_task_reviews
         ]
 
         # ============================================================================
@@ -284,6 +287,96 @@ module Api
           render_success(analytics)
         end
 
+        # ============================================================================
+        # COMPOSITION HEALTH
+        # ============================================================================
+
+        # GET /api/v1/ai/teams/:team_id/composition_health
+        def composition_health
+          health = @team_service.composition_health(@team.id)
+          render_success(health)
+        end
+
+        # ============================================================================
+        # ROLE PROFILES
+        # ============================================================================
+
+        # GET /api/v1/ai/teams/role_profiles
+        def list_role_profiles
+          profiles = @team_service.list_role_profiles(role_profile_filter_params)
+          render_success(role_profiles: profiles.map { |p| serialize_role_profile(p) })
+        end
+
+        # GET /api/v1/ai/teams/role_profiles/:id
+        def show_role_profile
+          profile = @team_service.get_role_profile(params[:id])
+          render_success(serialize_role_profile(profile))
+        end
+
+        # POST /api/v1/ai/teams/:team_id/roles/:id/apply_profile
+        def apply_role_profile
+          role = @team_service.apply_role_profile(@team.id, params[:id], params[:profile_id])
+          render_success(serialize_role(role))
+        end
+
+        # ============================================================================
+        # TRAJECTORIES
+        # ============================================================================
+
+        # GET /api/v1/ai/teams/trajectories
+        def list_trajectories
+          trajectories = @team_service.list_trajectories(trajectory_filter_params)
+          render_success(trajectories: trajectories.map { |t| serialize_trajectory(t) })
+        end
+
+        # GET /api/v1/ai/teams/trajectories/:id
+        def show_trajectory
+          trajectory = @team_service.get_trajectory(params[:id])
+          render_success(serialize_trajectory(trajectory, detailed: true))
+        end
+
+        # GET /api/v1/ai/teams/trajectories/search
+        def search_trajectories
+          trajectories = @team_service.search_trajectories(
+            params[:query],
+            trajectory_filter_params
+          )
+          render_success(trajectories: trajectories.map { |t| serialize_trajectory(t) })
+        end
+
+        # ============================================================================
+        # REVIEWS
+        # ============================================================================
+
+        # GET /api/v1/ai/teams/executions/:execution_id/tasks/:task_id/reviews
+        def list_task_reviews
+          task = @team_service.get_task(@execution.id, params[:task_id])
+          reviews = @team_service.list_task_reviews(task.id)
+          render_success(reviews: reviews.map { |r| serialize_review(r) })
+        end
+
+        # GET /api/v1/ai/teams/reviews/:id
+        def show_review
+          review = @team_service.get_task_review(params[:id])
+          render_success(serialize_review(review))
+        end
+
+        # POST /api/v1/ai/teams/reviews/:id/process
+        def process_review
+          review = @team_service.process_review(
+            params[:id],
+            action: params[:action_type],
+            notes: params[:notes]
+          )
+          render_success(serialize_review(review))
+        end
+
+        # PUT /api/v1/ai/teams/:team_id/review_config
+        def update_review_config
+          team = @team_service.configure_team_review(@team.id, review_config_params.to_h)
+          render_success(serialize_team(team, detailed: true))
+        end
+
         private
 
         def set_team_service
@@ -368,6 +461,22 @@ module Api
             :name, :description, :category, :team_topology, :is_public,
             role_definitions: [], channel_definitions: [], tags: [],
             workflow_pattern: {}, default_config: {}
+          )
+        end
+
+        def role_profile_filter_params
+          params.permit(:role_type, :is_system)
+        end
+
+        def trajectory_filter_params
+          params.permit(:type, :status, :query, :limit, :agent_id, tags: [])
+        end
+
+        def review_config_params
+          params.permit(
+            :auto_review_enabled, :review_mode, :max_revisions,
+            :reviewer_role_type, :quality_threshold,
+            review_task_types: []
           )
         end
 
@@ -535,6 +644,85 @@ module Api
           end
 
           data
+        end
+
+        def serialize_role_profile(profile)
+          {
+            id: profile.id,
+            name: profile.name,
+            slug: profile.slug,
+            role_type: profile.role_type,
+            description: profile.description,
+            system_prompt_template: profile.system_prompt_template,
+            communication_style: profile.communication_style,
+            expected_output_schema: profile.expected_output_schema,
+            review_criteria: profile.review_criteria,
+            quality_checks: profile.quality_checks,
+            delegation_rules: profile.delegation_rules,
+            escalation_rules: profile.escalation_rules,
+            is_system: profile.is_system,
+            metadata: profile.metadata
+          }
+        end
+
+        def serialize_trajectory(trajectory, detailed: false)
+          data = {
+            id: trajectory.id,
+            trajectory_id: trajectory.trajectory_id,
+            title: trajectory.title,
+            summary: trajectory.summary,
+            status: trajectory.status,
+            trajectory_type: trajectory.trajectory_type,
+            quality_score: trajectory.quality_score,
+            access_count: trajectory.access_count,
+            chapter_count: trajectory.chapter_count,
+            tags: trajectory.tags,
+            outcome_summary: trajectory.outcome_summary,
+            created_at: trajectory.created_at
+          }
+
+          if detailed
+            chapters = trajectory.chapters.loaded? ? trajectory.chapters : trajectory.chapters.includes(:trajectory)
+            data[:chapters] = chapters.ordered.map { |c| serialize_chapter(c) }
+          end
+
+          data
+        end
+
+        def serialize_chapter(chapter)
+          {
+            id: chapter.id,
+            chapter_number: chapter.chapter_number,
+            title: chapter.title,
+            chapter_type: chapter.chapter_type,
+            content: chapter.content,
+            reasoning: chapter.reasoning,
+            key_decisions: chapter.key_decisions,
+            artifacts: chapter.artifacts,
+            context_references: chapter.context_references,
+            duration_ms: chapter.duration_ms,
+            metadata: chapter.metadata
+          }
+        end
+
+        def serialize_review(review)
+          {
+            id: review.id,
+            review_id: review.review_id,
+            status: review.status,
+            review_mode: review.review_mode,
+            quality_score: review.quality_score,
+            findings: review.findings,
+            completeness_checks: review.completeness_checks,
+            approval_notes: review.approval_notes,
+            rejection_reason: review.rejection_reason,
+            revision_count: review.revision_count,
+            review_duration_ms: review.review_duration_ms,
+            reviewer_role_id: review.reviewer_role_id,
+            reviewer_agent_id: review.reviewer_agent_id,
+            team_task_id: review.team_task_id,
+            created_at: review.created_at
+          }
         end
       end
     end

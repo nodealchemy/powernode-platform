@@ -73,6 +73,36 @@ export const TEST_CONTEXT = {
 };
 
 /**
+ * Test role profile data
+ */
+export const TEST_ROLE_PROFILE = {
+  name: 'E2E Test Profile',
+  role_type: 'worker',
+  description: 'Role profile created by Playwright E2E tests',
+};
+
+/**
+ * Test review config data
+ */
+export const TEST_REVIEW_CONFIG = {
+  auto_review_enabled: true,
+  review_mode: 'blocking' as const,
+  review_task_types: ['execution'],
+  max_revisions: 3,
+  reviewer_role_type: 'reviewer',
+  quality_threshold: 0.7,
+};
+
+/**
+ * Test trajectory data
+ */
+export const TEST_TRAJECTORY = {
+  title: 'E2E Test Trajectory',
+  trajectory_type: 'task_completion',
+  tags: ['e2e-test', 'automation'],
+};
+
+/**
  * Unique ID generator for test data
  * Prevents collisions when running tests in parallel
  */
@@ -104,6 +134,9 @@ export const API_ENDPOINTS = {
   contexts: '/api/v1/ai/contexts',
   monitoring: '/api/v1/ai/monitoring',
   analytics: '/api/v1/ai/analytics',
+  roleProfiles: '/api/v1/ai/teams/role_profiles',
+  trajectories: '/api/v1/ai/teams/trajectories',
+  taskReviews: '/api/v1/ai/teams/reviews',
 };
 
 /**
@@ -122,4 +155,5 @@ export const ROUTES = {
   sandbox: '/app/ai/sandbox',
   mcp: '/app/ai/mcp',
   prompts: '/app/ai/prompts',
+  trajectories: '/app/ai/agent-teams/trajectories',
 };

@@ -169,6 +169,97 @@ export interface TemplateFilters extends QueryFilters {
 }
 
 // ============================================================================
+// Orchestration Enhancement Types
+// ============================================================================
+
+export interface CompositionHealth {
+  status: 'healthy' | 'warning' | 'unhealthy';
+  member_count: number;
+  lead_count: number;
+  worker_count: number;
+  workers_per_lead: number;
+  warnings: string[];
+  recommendations: string[];
+}
+
+export interface RoleProfile {
+  id: string;
+  name: string;
+  slug: string;
+  role_type: string;
+  description: string;
+  system_prompt_template: string;
+  communication_style: Record<string, unknown>;
+  expected_output_schema: Record<string, unknown>;
+  review_criteria: string[];
+  quality_checks: Array<{ check: string; severity: string }>;
+  delegation_rules: Record<string, unknown>;
+  escalation_rules: Record<string, unknown>;
+  is_system: boolean;
+  metadata: Record<string, unknown>;
+}
+
+export interface Trajectory {
+  id: string;
+  trajectory_id: string;
+  title: string;
+  summary: string;
+  status: 'building' | 'completed' | 'archived';
+  trajectory_type: string;
+  quality_score: number;
+  access_count: number;
+  chapter_count: number;
+  tags: string[];
+  outcome_summary: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface TrajectoryChapter {
+  id: string;
+  chapter_number: number;
+  title: string;
+  chapter_type: string;
+  content: string;
+  reasoning: string;
+  key_decisions: Array<{ decision: string; rationale: string; alternatives: string[] }>;
+  artifacts: Array<{ type: string; path: string; action: string }>;
+  context_references: Array<Record<string, unknown>>;
+  duration_ms: number;
+  metadata: Record<string, unknown>;
+}
+
+export interface TrajectoryWithChapters extends Trajectory {
+  chapters: TrajectoryChapter[];
+}
+
+export interface TaskReview {
+  id: string;
+  review_id: string;
+  status: 'pending' | 'in_progress' | 'approved' | 'rejected' | 'revision_requested';
+  review_mode: 'blocking' | 'shadow';
+  quality_score: number;
+  findings: Array<{ category: string; severity: string; description: string; suggestion: string }>;
+  completeness_checks: Record<string, boolean>;
+  approval_notes: string;
+  rejection_reason: string;
+  revision_count: number;
+  review_duration_ms: number;
+  reviewer_role_id: string;
+  reviewer_agent_id: string;
+  team_task_id: string;
+  created_at: string;
+}
+
+export interface ReviewConfig {
+  auto_review_enabled: boolean;
+  review_mode: 'blocking' | 'shadow';
+  review_task_types: string[];
+  max_revisions: number;
+  reviewer_role_type: string;
+  quality_threshold: number;
+}
+
+// ============================================================================
 // Service
 // ============================================================================
 
@@ -535,6 +626,118 @@ class TeamsApiService extends BaseApiService {
     const queryString = periodDays ? `?period_days=${periodDays}` : '';
     return this.get<TeamAnalytics>(
       `${this.basePath}/${teamId}/analytics${queryString}`
+    );
+  }
+
+  // ============================================================================
+  // Composition Health
+  // ============================================================================
+
+  async getCompositionHealth(teamId: string): Promise<CompositionHealth> {
+    return this.get<CompositionHealth>(
+      `${this.basePath}/${teamId}/composition_health`
+    );
+  }
+
+  // ============================================================================
+  // Role Profiles
+  // ============================================================================
+
+  async listRoleProfiles(filters?: {
+    role_type?: string;
+    is_system?: boolean;
+  }): Promise<RoleProfile[]> {
+    const queryString = this.buildQueryString(filters);
+    const response = await this.get<{ role_profiles: RoleProfile[] }>(
+      `${this.basePath}/role_profiles${queryString}`
+    );
+    return response.role_profiles;
+  }
+
+  async getRoleProfile(profileId: string): Promise<RoleProfile> {
+    return this.get<RoleProfile>(
+      `${this.basePath}/role_profiles/${profileId}`
+    );
+  }
+
+  async applyRoleProfile(
+    teamId: string,
+    roleId: string,
+    profileId: string
+  ): Promise<TeamRole> {
+    return this.post<TeamRole>(
+      `${this.basePath}/${teamId}/roles/${roleId}/apply_profile`,
+      { profile_id: profileId }
+    );
+  }
+
+  // ============================================================================
+  // Trajectories
+  // ============================================================================
+
+  async listTrajectories(filters?: Record<string, string | string[]>): Promise<Trajectory[]> {
+    const queryString = this.buildQueryString(filters);
+    const response = await this.get<{ trajectories: Trajectory[] }>(
+      `${this.basePath}/trajectories${queryString}`
+    );
+    return response.trajectories;
+  }
+
+  async getTrajectory(trajectoryId: string): Promise<TrajectoryWithChapters> {
+    return this.get<TrajectoryWithChapters>(
+      `${this.basePath}/trajectories/${trajectoryId}`
+    );
+  }
+
+  async searchTrajectories(
+    query: string,
+    filters?: Record<string, unknown>
+  ): Promise<Trajectory[]> {
+    const queryString = this.buildQueryString({ query, ...filters });
+    const response = await this.get<{ trajectories: Trajectory[] }>(
+      `${this.basePath}/trajectories/search${queryString}`
+    );
+    return response.trajectories;
+  }
+
+  // ============================================================================
+  // Reviews
+  // ============================================================================
+
+  async listTaskReviews(
+    executionId: string,
+    taskId: string
+  ): Promise<TaskReview[]> {
+    const response = await this.get<{ reviews: TaskReview[] }>(
+      `${this.basePath}/executions/${executionId}/tasks/${taskId}/reviews`
+    );
+    return response.reviews;
+  }
+
+  async getTaskReview(reviewId: string): Promise<TaskReview> {
+    return this.get<TaskReview>(
+      `${this.basePath}/reviews/${reviewId}`
+    );
+  }
+
+  async processReview(
+    reviewId: string,
+    action: 'approve' | 'reject' | 'revision',
+    notes?: string
+  ): Promise<TaskReview> {
+    return this.post<TaskReview>(
+      `${this.basePath}/reviews/${reviewId}/process`,
+      { action_type: action, notes }
+    );
+  }
+
+  async configureTeamReview(
+    teamId: string,
+    config: ReviewConfig
+  ): Promise<Team> {
+    return this.put<Team>(
+      `${this.basePath}/${teamId}/review_config`,
+      config
     );
   }
 }

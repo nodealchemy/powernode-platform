@@ -99,6 +99,9 @@ class Ai::AgentTeamOrchestrator
       # Execute member via A2A
       result = execute_member_via_a2a(member, member_input)
 
+      # Run review if configured
+      run_review_if_configured(result) if result[:success]
+
       # Store output for next member
       accumulated_output = result[:output]
 
@@ -471,5 +474,61 @@ class Ai::AgentTeamOrchestrator
     end
 
     @workflow_run.update!(update_params)
+
+    # Build trajectory from completed execution
+    if status == "completed"
+      build_trajectory_async
+    end
+  end
+
+  def build_trajectory_async
+    Ai::BuildTrajectoryJob.perform_later(
+      account_id: team.account_id,
+      team_execution_id: @workflow_run.id
+    )
+  rescue StandardError => e
+    @logger.error "[TeamOrchestrator] Trajectory job enqueue failed: #{e.message}"
+  end
+
+  def run_review_if_configured(task_result)
+    return unless task_result.is_a?(Hash) && task_result[:task_id]
+
+    team_task = Ai::TeamTask.find_by(task_id: task_result[:task_id])
+    return unless team_task
+
+    review_service = Ai::ReviewWorkflowService.new(account: team.account)
+    review = review_service.on_task_completed(team_task)
+    return unless review&.review_mode == "blocking"
+
+    wait_for_review(review)
+  rescue StandardError => e
+    @logger.warn "[TeamOrchestrator] Review check skipped: #{e.message}"
+  end
+
+  def wait_for_review(review, timeout: 120)
+    start_time = Time.current
+
+    loop do
+      review.reload
+
+      case review.status
+      when "approved"
+        @logger.info "[TeamOrchestrator] Review approved: #{review.review_id}"
+        return
+      when "rejected"
+        @logger.warn "[TeamOrchestrator] Review rejected: #{review.review_id}"
+        return
+      when "revision_requested"
+        @logger.info "[TeamOrchestrator] Revision requested: #{review.review_id}"
+        return
+      end
+
+      if Time.current - start_time > timeout
+        @logger.warn "[TeamOrchestrator] Review timeout: #{review.review_id}"
+        return
+      end
+
+      sleep 1
+    end
   end
 end

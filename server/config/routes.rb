@@ -2010,6 +2010,19 @@ Rails.application.routes.draw do
           post "/templates", action: :create_template
           post "/templates/:id/publish", action: :publish_template
 
+          # Role Profiles (before /:id to avoid matching as team id)
+          get "/role_profiles", action: :list_role_profiles
+          get "/role_profiles/:id", action: :show_role_profile
+
+          # Trajectories (before /:id to avoid matching as team id)
+          get "/trajectories", action: :list_trajectories
+          get "/trajectories/search", action: :search_trajectories
+          get "/trajectories/:id", action: :show_trajectory
+
+          # Reviews (global)
+          get "/reviews/:id", action: :show_review
+          post "/reviews/:id/process", action: :process_review
+
           # Executions (before /:id to avoid matching "executions" as an id)
           get "/executions/:id", action: :show_execution
           post "/executions/:id/pause", action: :pause_execution
@@ -2027,6 +2040,9 @@ Rails.application.routes.draw do
           post "/executions/:execution_id/tasks/:id/complete", action: :complete_task
           post "/executions/:execution_id/tasks/:id/fail", action: :fail_task
           post "/executions/:execution_id/tasks/:id/delegate", action: :delegate_task
+
+          # Task Reviews
+          get "/executions/:execution_id/tasks/:task_id/reviews", action: :list_task_reviews
 
           # Messages
           get "/executions/:execution_id/messages", action: :list_messages
@@ -2046,6 +2062,7 @@ Rails.application.routes.draw do
           patch "/:team_id/roles/:id", action: :update_role
           delete "/:team_id/roles/:id", action: :delete_role
           post "/:team_id/roles/:id/assign_agent", action: :assign_agent_to_role
+          post "/:team_id/roles/:id/apply_profile", action: :apply_role_profile
 
           # Channels
           get "/:team_id/channels", action: :list_channels
@@ -2055,8 +2072,12 @@ Rails.application.routes.draw do
           get "/:team_id/executions", action: :list_executions
           post "/:team_id/executions", action: :start_execution
 
-          # Analytics
+          # Analytics & Health
           get "/:team_id/analytics", action: :analytics
+          get "/:team_id/composition_health", action: :composition_health
+
+          # Review Configuration
+          put "/:team_id/review_config", action: :update_review_config
         end
 
         # ===================================================================
