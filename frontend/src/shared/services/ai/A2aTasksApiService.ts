@@ -130,9 +130,14 @@ class A2aTasksApiService extends BaseApiService {
       onArtifact?: (artifact: { artifactId: string; name: string; mimeType?: string }) => void;
       onError?: (error: unknown) => void;
       onComplete?: (status: string) => void;
+      onOpen?: () => void;
     }
   ): { eventSource: EventSource; close: () => void } {
     const eventSource = this.createEventSource(taskId);
+
+    eventSource.onopen = () => {
+      callbacks.onOpen?.();
+    };
 
     eventSource.addEventListener('task.status', (event) => {
       const data = JSON.parse((event as MessageEvent).data);
@@ -155,8 +160,12 @@ class A2aTasksApiService extends BaseApiService {
       eventSource.close();
     });
 
-    eventSource.onerror = (error) => {
-      callbacks.onError?.(error);
+    eventSource.onerror = () => {
+      if (eventSource.readyState === EventSource.CLOSED) {
+        callbacks.onError?.('Connection closed by server');
+      } else {
+        callbacks.onError?.('Connection error — attempting to reconnect');
+      }
     };
 
     return {

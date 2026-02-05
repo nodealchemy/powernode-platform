@@ -66,9 +66,12 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
       disconnect();
     }
 
-    setConnecting(true);
-
     const subscription = a2aTasksApiService.subscribeToTask(taskId, {
+      onOpen: () => {
+        setConnected(true);
+        setConnecting(false);
+        addEvent('connection', { message: 'Connected to event stream' });
+      },
       onStatus: (task) => {
         setCurrentTask(task);
         addEvent('task.status', { status: task.status });
@@ -81,8 +84,9 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
         addEvent('task.artifact', artifact);
       },
       onError: (error) => {
-        addEvent('task.error', { error: String(error) });
+        addEvent('task.error', { error: typeof error === 'string' ? error : 'Connection lost' });
         setConnected(false);
+        setConnecting(false);
       },
       onComplete: (status) => {
         addEvent('task.complete', { status });
@@ -91,9 +95,8 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
     });
 
     subscriptionRef.current = subscription;
-    setConnected(true);
-    setConnecting(false);
-    addEvent('connection', { message: 'Connected to event stream' });
+    setConnecting(true);
+    addEvent('connection', { message: 'Connecting to event stream...' });
   };
 
   const disconnect = () => {

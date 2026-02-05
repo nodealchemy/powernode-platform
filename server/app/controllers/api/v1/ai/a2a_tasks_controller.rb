@@ -115,14 +115,14 @@ module Api
           response.headers["Content-Type"] = "text/event-stream"
           response.headers["Cache-Control"] = "no-cache"
           response.headers["X-Accel-Buffering"] = "no"
+          response.headers["Connection"] = "keep-alive"
 
-          # For SSE, we need to stream events
-          sse = SSE.new(response.stream, retry: 300, event: "task.event")
+          sse = SSE.new(response.stream, retry: 3000, event: "task.event")
 
           # Send initial status
           sse.write(@task.to_a2a_json, event: "task.status")
 
-          # Get events since last check
+          # Get historical events since last check
           last_event_id = request.headers["Last-Event-ID"]
           since = last_event_id.present? ? Time.zone.parse(last_event_id) : nil
 
@@ -133,9 +133,38 @@ module Api
             sse.write(event, event: event[:type])
           end
 
-          # If task is terminal, close the stream
+          # If task is terminal, send complete and close
           if @task.terminal?
             sse.write({ status: @task.status }, event: "task.complete")
+            return
+          end
+
+          # Keep connection alive for non-terminal tasks
+          last_checked = Time.current
+          deadline = Time.current + 300 # 5 minute timeout
+
+          loop do
+            sleep 1
+            break if Time.current > deadline
+
+            @task.reload
+
+            # Send any new events since last check
+            new_events = @task.events.since(last_checked).chronological
+            last_checked = Time.current
+
+            new_events.each do |event|
+              event_json = event.to_a2a_json
+              sse.write(event_json, event: event_json[:type])
+            end
+
+            if @task.terminal?
+              sse.write({ status: @task.status }, event: "task.complete")
+              break
+            end
+
+            # Heartbeat to keep connection alive
+            sse.write("", event: "heartbeat")
           end
         rescue ActionController::Live::ClientDisconnected
           # Client disconnected, clean up

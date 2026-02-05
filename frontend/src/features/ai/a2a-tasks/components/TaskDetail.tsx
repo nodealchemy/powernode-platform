@@ -47,7 +47,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
-  const [showInput, setShowInput] = useState(false);
+  const [showInput, setShowInput] = useState(true);
   const [showOutput, setShowOutput] = useState(false);
 
   const { addNotification } = useNotifications();
