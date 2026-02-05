@@ -202,6 +202,38 @@ export class AgentsPage {
   }
 
   /**
+   * Get Chat button on an agent card
+   */
+  getChatButton(name: string): Locator {
+    const card = this.getAgentCard(name);
+    return card.getByRole('button', { name: /^chat$/i });
+  }
+
+  /**
+   * Get Full Chat button on an agent card
+   */
+  getFullChatButton(name: string): Locator {
+    const card = this.getAgentCard(name);
+    return card.getByRole('button', { name: /full chat/i });
+  }
+
+  /**
+   * Click Chat button on an agent card
+   */
+  async clickChat(agentName: string) {
+    const btn = this.getChatButton(agentName);
+    await btn.click();
+  }
+
+  /**
+   * Click Full Chat button on an agent card
+   */
+  async clickFullChat(agentName: string) {
+    const btn = this.getFullChatButton(agentName);
+    await btn.click();
+  }
+
+  /**
    * Click edit on an agent
    */
   async clickEdit(agentName: string) {

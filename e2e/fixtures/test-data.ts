@@ -124,6 +124,16 @@ export const TEST_TRAJECTORY = {
 };
 
 /**
+ * Test Ralph Loop data
+ */
+export const TEST_RALPH_LOOP = {
+  name: 'E2E Test Ralph Loop',
+  description: 'Ralph loop created by Playwright E2E tests',
+  default_agent_id: null as string | null,  // Set at runtime from available agents
+  max_iterations: 10,
+};
+
+/**
  * Unique ID generator for test data
  * Prevents collisions when running tests in parallel
  */
@@ -158,6 +168,7 @@ export const API_ENDPOINTS = {
   roleProfiles: '/api/v1/ai/teams/role_profiles',
   trajectories: '/api/v1/ai/teams/trajectories',
   taskReviews: '/api/v1/ai/teams/reviews',
+  ralphLoops: '/api/v1/ai/ralph_loops',
 };
 
 /**

@@ -229,6 +229,83 @@ test.describe('AI Agents', () => {
     });
   });
 
+  test.describe('Chat Buttons (Mocked)', () => {
+    const mockAgent = {
+      id: 'agent-001',
+      name: 'Mock Chat Agent',
+      description: 'Agent for chat testing',
+      status: 'active',
+      agent_type: 'assistant',
+      model: 'llama3:8b',
+      provider: { id: 'prov-001', name: 'Ollama' },
+      execution_stats: { total_executions: 5, success_rate: 80 },
+      updated_at: '2026-02-01T00:00:00Z',
+    };
+
+    test.beforeEach(async ({ page }) => {
+      page.on('pageerror', () => {});
+
+      // Mock agents list
+      await page.route('**/api/v1/ai/agents*', async (route) => {
+        if (route.request().method() === 'GET') {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              items: [mockAgent],
+              pagination: { total_count: 1, page: 1, per_page: 20 },
+            }),
+          });
+        } else {
+          await route.continue();
+        }
+      });
+
+      // Mock conversations (empty)
+      await page.route('**/api/v1/ai/agents/*/conversations*', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ items: [], pagination: { total_count: 0, page: 1, per_page: 50 } }),
+        });
+      });
+
+      // Abort WebSocket
+      await page.route('**/cable*', async (route) => {
+        await route.abort();
+      });
+
+      await page.goto('/app/ai/agents');
+      await page.waitForLoadState('networkidle');
+      await page.waitForSelector('main, [role="main"]', { timeout: 10000 });
+    });
+
+    test('should display Chat button on agent card', async ({ page }) => {
+      const chatBtn = page.getByRole('button', { name: /^chat$/i });
+      await expect(chatBtn).toBeVisible();
+    });
+
+    test('should display Full Chat button on agent card', async ({ page }) => {
+      const fullChatBtn = page.getByRole('button', { name: /full chat/i });
+      await expect(fullChatBtn).toBeVisible();
+    });
+
+    test('should open create conversation modal when clicking Chat with no conversations', async ({ page }) => {
+      const chatBtn = page.getByRole('button', { name: /^chat$/i });
+      await chatBtn.click();
+      await page.waitForLoadState('networkidle');
+      // With no active conversations, create modal opens
+      await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
+    });
+
+    test('should navigate to full chat page when clicking Full Chat', async ({ page }) => {
+      const fullChatBtn = page.getByRole('button', { name: /full chat/i });
+      await fullChatBtn.click();
+      await page.waitForLoadState('networkidle');
+      expect(page.url()).toContain('/app/ai/agents/agent-001/chat');
+    });
+  });
+
   test.describe('Responsive Design', () => {
     test('should display properly on mobile viewport', async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
