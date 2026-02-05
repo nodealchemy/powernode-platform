@@ -503,7 +503,6 @@ export type {
   RalphLoopStatus,
   RalphTaskStatus,
   RalphIterationStatus,
-  RalphAiTool,
   PrdTask,
   RalphLoop,
   RalphLoopSummary,

@@ -9,9 +9,10 @@ import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
+import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { RalphLoopCard } from './RalphLoopCard';
 import { cn } from '@/shared/utils/cn';
-import type { RalphLoopSummary, RalphLoopFilters, RalphLoopStatus, RalphAiTool } from '@/shared/services/ai/types/ralph-types';
+import type { RalphLoopSummary, RalphLoopFilters, RalphLoopStatus } from '@/shared/services/ai/types/ralph-types';
 
 interface RalphLoopListProps {
   onSelectLoop?: (loop: RalphLoopSummary) => void;
@@ -29,11 +30,10 @@ const statusOptions = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
-const toolOptions = [
-  { value: '', label: 'All Tools' },
-  { value: 'amp', label: 'Amp CLI' },
-  { value: 'claude_code', label: 'Claude Code' },
-];
+interface AgentOption {
+  value: string;
+  label: string;
+}
 
 export const RalphLoopList: React.FC<RalphLoopListProps> = ({
   onSelectLoop,
@@ -44,8 +44,20 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [toolFilter, setToolFilter] = useState<string>('');
+  const [agentFilter, setAgentFilter] = useState<string>('');
+  const [agentOptions, setAgentOptions] = useState<AgentOption[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+
+  // Load agents for filter dropdown
+  useEffect(() => {
+    agentsApi.getAgents({ per_page: 100 }).then((res) => {
+      const options = (res.items || []).map((a: { id: string; name: string }) => ({
+        value: a.id,
+        label: a.name,
+      }));
+      setAgentOptions(options);
+    }).catch(() => {});
+  }, []);
 
   const loadLoops = useCallback(async () => {
     try {
@@ -54,7 +66,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
 
       const filters: RalphLoopFilters = { per_page: 50 };
       if (statusFilter) filters.status = statusFilter as RalphLoopStatus;
-      if (toolFilter) filters.ai_tool = toolFilter as RalphAiTool;
+      if (agentFilter) filters.default_agent_id = agentFilter;
 
       const response = await ralphLoopsApi.getLoops(filters);
       setLoops(response.items || []);
@@ -64,7 +76,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, toolFilter]);
+  }, [statusFilter, agentFilter]);
 
   useEffect(() => {
     loadLoops();
@@ -144,11 +156,12 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
           ))}
         </Select>
         <Select
-          value={toolFilter}
-          onChange={(value) => setToolFilter(value)}
-          className="w-40"
+          value={agentFilter}
+          onChange={(value) => setAgentFilter(value)}
+          className="w-48"
         >
-          {toolOptions.map((option) => (
+          <option value="">All Agents</option>
+          {agentOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -172,12 +185,12 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
           icon={RotateCcw}
           title="No loops found"
           description={
-            statusFilter || toolFilter
+            statusFilter || agentFilter
               ? 'Try adjusting your filters'
               : 'Create your first Ralph loop to start autonomous task execution'
           }
           action={
-            !statusFilter && !toolFilter ? (
+            !statusFilter && !agentFilter ? (
               <Button variant="primary" onClick={onCreateLoop}>
                 <Plus className="w-4 h-4 mr-2" />
                 New Loop

@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { cn } from '@/shared/utils/cn';
-import type { RalphLoopSummary, RalphLoopStatus, RalphAiTool } from '@/shared/services/ai/types/ralph-types';
+import type { RalphLoopSummary, RalphLoopStatus } from '@/shared/services/ai/types/ralph-types';
 
 interface RalphLoopCardProps {
   loop: RalphLoopSummary;
@@ -35,11 +35,6 @@ const statusConfig: Record<RalphLoopStatus, {
   completed: { variant: 'success', label: 'Completed', icon: CheckCircle },
   failed: { variant: 'danger', label: 'Failed', icon: XCircle },
   cancelled: { variant: 'outline', label: 'Cancelled', icon: XCircle },
-};
-
-const toolLabels: Record<RalphAiTool, string> = {
-  amp: 'Amp CLI',
-  claude_code: 'Claude Code',
 };
 
 export const RalphLoopCard: React.FC<RalphLoopCardProps> = ({
@@ -85,7 +80,7 @@ export const RalphLoopCard: React.FC<RalphLoopCardProps> = ({
               </h3>
               <div className="flex items-center gap-2 text-xs text-theme-text-secondary">
                 <Bot className="w-3 h-3" />
-                <span>{toolLabels[loop.ai_tool]}</span>
+                <span>{loop.default_agent_name || 'No Agent'}</span>
               </div>
             </div>
           </div>

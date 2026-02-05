@@ -22,12 +22,6 @@ const operationOptions = [
   { value: 'parse_prd', label: 'Parse PRD', group: 'Task Management' }
 ];
 
-const aiToolOptions = [
-  { value: 'amp', label: 'AMP' },
-  { value: 'claude_code', label: 'Claude Code' },
-  { value: 'ollama', label: 'Ollama' }
-];
-
 const schedulingModeOptions = [
   { value: 'manual', label: 'Manual' },
   { value: 'auto', label: 'Automatic' },
@@ -92,11 +86,11 @@ export const RalphLoopConfig: React.FC<NodeTypeConfigProps> = ({
             placeholder="Describe the loop's purpose"
             rows={3}
           />
-          <EnhancedSelect
-            label="AI Tool"
-            value={config.configuration.ai_tool || 'claude_code'}
-            onChange={(value) => handleConfigChange('ai_tool', value)}
-            options={aiToolOptions}
+          <Input
+            label="Default Agent ID"
+            value={config.configuration.default_agent_id || ''}
+            onChange={(e) => handleConfigChange('default_agent_id', e.target.value)}
+            placeholder="Agent ID or {{variable}}"
           />
           <Input
             label="Max Iterations"

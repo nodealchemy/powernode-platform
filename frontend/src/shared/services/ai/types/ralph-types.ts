@@ -11,8 +11,6 @@ export type RalphTaskStatus = 'pending' | 'in_progress' | 'passed' | 'failed' | 
 
 export type RalphIterationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
 
-export type RalphAiTool = 'amp' | 'claude_code';
-
 // Scheduling mode types
 export type RalphSchedulingMode = 'manual' | 'scheduled' | 'continuous' | 'event_triggered';
 
@@ -73,7 +71,8 @@ export interface RalphLoop {
   branch?: string;
   current_iteration: number;
   max_iterations: number;
-  ai_tool: RalphAiTool;
+  default_agent_id: string | null;
+  default_agent_name?: string;
   container_instance_id?: string;
   started_at?: string;
   completed_at?: string;
@@ -83,6 +82,8 @@ export interface RalphLoop {
     check_commands?: string[];
     prompt_template?: string;
     context_limit?: number;
+    mcp_server_ids?: string[];
+    run_all_active?: boolean;
   };
   metrics?: {
     total_iterations: number;
@@ -118,7 +119,9 @@ export interface RalphLoopSummary {
   status: RalphLoopStatus;
   current_iteration: number;
   max_iterations: number;
-  ai_tool: RalphAiTool;
+  default_agent_id: string | null;
+  default_agent_name?: string;
+  mcp_server_ids?: string[];
   task_count: number;
   completed_task_count: number;
   progress_percentage: number;
@@ -215,7 +218,7 @@ export interface CreateRalphLoopRequest {
   description?: string;
   repository_url?: string;
   branch?: string;
-  ai_tool?: RalphAiTool;
+  default_agent_id: string;
   max_iterations?: number;
   prd_json?: {
     tasks: PrdTask[];
@@ -227,6 +230,7 @@ export interface CreateRalphLoopRequest {
     check_commands?: string[];
     prompt_template?: string;
     context_limit?: number;
+    mcp_server_ids?: string[];
   };
   scheduling_mode?: RalphSchedulingMode;
   schedule_config?: RalphScheduleConfig;
@@ -237,7 +241,7 @@ export interface UpdateRalphLoopRequest {
   description?: string;
   repository_url?: string;
   branch?: string;
-  ai_tool?: RalphAiTool;
+  default_agent_id?: string;
   max_iterations?: number;
   configuration?: {
     auto_commit?: boolean;
@@ -245,6 +249,7 @@ export interface UpdateRalphLoopRequest {
     check_commands?: string[];
     prompt_template?: string;
     context_limit?: number;
+    mcp_server_ids?: string[];
   };
   scheduling_mode?: RalphSchedulingMode;
   schedule_config?: RalphScheduleConfig;
@@ -261,7 +266,7 @@ export interface UpdateRalphTaskExecutorRequest {
 
 export interface RalphLoopFilters {
   status?: RalphLoopStatus;
-  ai_tool?: RalphAiTool;
+  default_agent_id?: string;
   query?: string;
   page?: number;
   per_page?: number;

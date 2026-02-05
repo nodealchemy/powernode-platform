@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
-import type { RalphAiTool, CreateRalphLoopRequest } from '@/shared/services/ai/types/ralph-types';
+import { agentsApi } from '@/shared/services/ai/AgentsApiService';
+import type { CreateRalphLoopRequest } from '@/shared/services/ai/types/ralph-types';
 
 interface CreateRalphLoopDialogProps {
   isOpen: boolean;
@@ -13,10 +14,10 @@ interface CreateRalphLoopDialogProps {
   onCreated: (loopId: string) => void;
 }
 
-const aiToolOptions = [
-  { value: 'claude_code', label: 'Claude Code' },
-  { value: 'amp', label: 'Amp CLI' },
-];
+interface AgentOption {
+  id: string;
+  name: string;
+}
 
 export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
   isOpen,
@@ -25,17 +26,35 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [aiTool, setAiTool] = useState<RalphAiTool>('claude_code');
+  const [defaultAgentId, setDefaultAgentId] = useState('');
   const [maxIterations, setMaxIterations] = useState(50);
   const [repositoryUrl, setRepositoryUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      agentsApi.getAgents({ per_page: 100 }).then((res) => {
+        const items = (res.items || []).map((a: { id: string; name: string }) => ({
+          id: a.id,
+          name: a.name,
+        }));
+        setAgents(items);
+      }).catch(() => {});
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) {
       setError('Name is required');
+      return;
+    }
+
+    if (!defaultAgentId) {
+      setError('Default agent is required');
       return;
     }
 
@@ -46,7 +65,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
       const request: CreateRalphLoopRequest = {
         name: name.trim(),
         description: description.trim() || undefined,
-        ai_tool: aiTool,
+        default_agent_id: defaultAgentId,
         max_iterations: maxIterations,
         repository_url: repositoryUrl.trim() || undefined,
         prd_json: { tasks: [] },
@@ -65,7 +84,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
   const handleClose = () => {
     setName('');
     setDescription('');
-    setAiTool('claude_code');
+    setDefaultAgentId('');
     setMaxIterations(50);
     setRepositoryUrl('');
     setError(null);
@@ -92,7 +111,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
           <Button
             variant="primary"
             onClick={handleSubmit}
-            disabled={loading || !name.trim()}
+            disabled={loading || !name.trim() || !defaultAgentId}
           >
             {loading ? 'Creating...' : 'Create Loop'}
           </Button>
@@ -131,18 +150,22 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-theme-text-primary mb-1">
-            AI Tool
+            Default Agent *
           </label>
           <Select
-            value={aiTool}
-            onChange={(value) => setAiTool(value as RalphAiTool)}
+            value={defaultAgentId}
+            onChange={(value) => setDefaultAgentId(value)}
           >
-            {aiToolOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            <option value="">Select an agent...</option>
+            {agents.map((agent) => (
+              <option key={agent.id} value={agent.id}>
+                {agent.name}
               </option>
             ))}
           </Select>
+          <p className="text-xs text-theme-text-secondary mt-1">
+            AI agent that will execute loop tasks
+          </p>
         </div>
 
         <div>

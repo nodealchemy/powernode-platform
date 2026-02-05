@@ -6,6 +6,7 @@ import {
   Settings,
   RotateCcw,
   Zap,
+  FastForward,
   Calendar,
   Wifi,
   WifiOff,
@@ -17,6 +18,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Loading } from '@/shared/components/ui/Loading';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Input } from '@/shared/components/ui/Input';
+import { Select } from '@/shared/components/ui/Select';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { RalphLoopList } from '../components/RalphLoopList';
@@ -26,13 +28,16 @@ import { RalphTaskList } from '../components/RalphTaskList';
 import { CreateRalphLoopDialog } from '../components/CreateRalphLoopDialog';
 import { RalphLoopScheduleStatus } from '../components/RalphLoopScheduleStatus';
 import { RalphLoopScheduleConfig } from '../components/RalphLoopScheduleConfig';
+import { RalphLiveExecutionPanel } from '../components/RalphLiveExecutionPanel';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
+import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { cn } from '@/shared/utils/cn';
 import { useRalphLoopExecutionWebSocket, RalphLoopExecutionUpdate } from '../hooks/useRalphLoopExecutionWebSocket';
 import type {
   RalphLoop,
   RalphLoopSummary,
   RalphLoopStatus,
+  RalphIteration,
   PrdTask,
   RalphSchedulingMode,
   RalphScheduleConfig,
@@ -68,8 +73,11 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
     description: '',
     max_iterations: 50,
     repository_url: '',
+    default_agent_id: '',
   });
   const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsAgents, setSettingsAgents] = useState<{ id: string; name: string }[]>([]);
+  const [liveIterations, setLiveIterations] = useState<RalphIteration[]>([]);
   const { showNotification } = useNotification();
 
   const loadLoop = async (loopId: string) => {
@@ -90,8 +98,12 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
   const handleWebSocketUpdate = useCallback((update: RalphLoopExecutionUpdate) => {
     if (!selectedLoop || update.loop_id !== selectedLoop.id) return;
 
+    // For started event, reload to get full running state
+    if (update.type === 'loop_started') {
+      loadLoop(selectedLoop.id);
+    }
     // For progress updates, update state directly without full reload
-    if (update.type === 'loop_progress' || update.type === 'task_status_changed') {
+    else if (update.type === 'loop_progress' || update.type === 'task_status_changed') {
       setSelectedLoop(prev => {
         if (!prev) return prev;
         return {
@@ -107,20 +119,38 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
     else if (['loop_completed', 'loop_failed', 'loop_cancelled'].includes(update.type)) {
       loadLoop(selectedLoop.id);
     }
-    // For iteration completed, reload to get updated task list
+    // For iteration completed, reload and update live panel
     else if (update.type === 'iteration_completed') {
       loadLoop(selectedLoop.id);
+      // Fetch latest iteration for live panel
+      const iterationNumber = update.data?.iteration_number;
+      if (iterationNumber) {
+        ralphLoopsApi.getIteration(selectedLoop.id, String(iterationNumber))
+          .then(res => {
+            setLiveIterations(prev => [...prev, res.iteration]);
+          })
+          .catch(() => {});
+      }
+    }
+    // Run All events
+    else if (update.type === 'run_all_started') {
+      loadLoop(selectedLoop.id);
+    }
+    else if (update.type === 'run_all_completed') {
+      loadLoop(selectedLoop.id);
+      showNotification('Run All completed', 'success');
     }
   }, [selectedLoop?.id]);
 
-  // WebSocket for real-time updates (replaces polling)
+  // WebSocket for real-time updates — subscribe whenever a loop is selected
   const { isConnected: wsConnected } = useRalphLoopExecutionWebSocket({
     loopId: selectedLoop?.id,
-    enabled: selectedLoop?.status === 'running' || selectedLoop?.status === 'paused',
+    enabled: !!selectedLoop,
     onUpdate: handleWebSocketUpdate,
   });
 
   const handleSelectLoop = (loop: RalphLoopSummary) => {
+    setLiveIterations([]);
     loadLoop(loop.id);
   };
 
@@ -137,6 +167,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
     setSelectedLoop(null);
     setActiveTab('tasks');
     setEditedTasks([]);
+    setLiveIterations([]);
   };
 
   const handleStart = async () => {
@@ -197,6 +228,26 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
       loadLoop(selectedLoop.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to run iteration');
+    }
+  };
+
+  const handleRunAll = async () => {
+    if (!selectedLoop) return;
+    try {
+      await ralphLoopsApi.runAll(selectedLoop.id);
+      loadLoop(selectedLoop.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start Run All');
+    }
+  };
+
+  const handleStopRunAll = async () => {
+    if (!selectedLoop) return;
+    try {
+      await ralphLoopsApi.stopRunAll(selectedLoop.id);
+      loadLoop(selectedLoop.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to stop Run All');
     }
   };
 
@@ -290,7 +341,11 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
       description: selectedLoop.description || '',
       max_iterations: selectedLoop.max_iterations,
       repository_url: selectedLoop.repository_url || '',
+      default_agent_id: selectedLoop.default_agent_id || '',
     });
+    agentsApi.getAgents({ per_page: 100 }).then((res) => {
+      setSettingsAgents((res.items || []).map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
+    }).catch(() => {});
     setShowSettingsModal(true);
   }, [selectedLoop]);
 
@@ -303,6 +358,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
         description: settingsForm.description || undefined,
         max_iterations: settingsForm.max_iterations,
         repository_url: settingsForm.repository_url || undefined,
+        default_agent_id: settingsForm.default_agent_id || undefined,
       });
       showNotification('Settings saved successfully', 'success');
       setShowSettingsModal(false);
@@ -346,8 +402,9 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
       const canStart = selectedLoop.status === 'pending';
       const isRunning = selectedLoop.status === 'running';
       const isPaused = selectedLoop.status === 'paused';
-      const canRunIteration = selectedLoop.status === 'pending' || selectedLoop.status === 'paused';
+      const canRunIteration = selectedLoop.status === 'running';
       const canReset = ['cancelled', 'completed', 'failed'].includes(selectedLoop.status);
+      const runAllActive = !!selectedLoop.configuration?.run_all_active;
 
       if (canReset) {
         actions.push({
@@ -393,13 +450,30 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
         });
       }
       if (canRunIteration) {
-        actions.push({
-          id: 'run-one',
-          label: 'Run One',
-          onClick: handleRunIteration,
-          variant: 'outline',
-          icon: Zap,
-        });
+        if (runAllActive) {
+          actions.push({
+            id: 'stop-run-all',
+            label: 'Stop Run All',
+            onClick: handleStopRunAll,
+            variant: 'outline',
+            icon: Square,
+          });
+        } else {
+          actions.push({
+            id: 'run-one',
+            label: 'Run One',
+            onClick: handleRunIteration,
+            variant: 'outline',
+            icon: Zap,
+          });
+          actions.push({
+            id: 'run-all',
+            label: 'Run All',
+            onClick: handleRunAll,
+            variant: 'primary',
+            icon: FastForward,
+          });
+        }
       }
       actions.push({
         id: 'settings',
@@ -420,7 +494,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
       const status = statusConfig[selectedLoop.status] || statusConfig.pending;
       return {
         title: selectedLoop.name,
-        description: selectedLoop.description || `${status.label} · ${selectedLoop.ai_tool === 'claude_code' ? 'Claude' : 'Amp'}`,
+        description: selectedLoop.description || `${status.label} · ${selectedLoop.default_agent_name || 'No Agent'}`,
       };
     }
     return {
@@ -517,10 +591,10 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-theme-text-primary">
-                {selectedLoop.ai_tool === 'claude_code' ? 'Claude' : 'Amp'}
+              <div className="text-2xl font-bold text-theme-text-primary truncate">
+                {selectedLoop.default_agent_name || 'No Agent'}
               </div>
-              <div className="text-sm text-theme-text-secondary">AI Tool</div>
+              <div className="text-sm text-theme-text-secondary">Default Agent</div>
             </CardContent>
           </Card>
         </div>
@@ -537,6 +611,14 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
             style={{ width: `${progressPercentage}%` }}
           />
         </div>
+
+        {/* Live Execution Panel */}
+        {(isRunning || liveIterations.length > 0) && (
+          <RalphLiveExecutionPanel
+            iterations={liveIterations}
+            isRunning={isRunning}
+          />
+        )}
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -674,13 +756,21 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
 
             <div>
               <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                AI Tool
+                Default Agent
               </label>
-              <div className="text-sm text-theme-text-secondary p-2 bg-theme-bg-secondary rounded">
-                {selectedLoop.ai_tool === 'claude_code' ? 'Claude Code' : 'Amp CLI'}
-              </div>
+              <Select
+                value={settingsForm.default_agent_id}
+                onChange={(value) => setSettingsForm(prev => ({ ...prev, default_agent_id: value }))}
+              >
+                <option value="">No agent selected</option>
+                {settingsAgents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </option>
+                ))}
+              </Select>
               <p className="text-xs text-theme-text-secondary mt-1">
-                AI tool cannot be changed after creation
+                AI agent that will execute loop tasks
               </p>
             </div>
           </div>

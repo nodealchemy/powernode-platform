@@ -102,6 +102,9 @@ import { PromptsPage } from '@/features/ai/prompts/pages/PromptsPage';
 // Ralph Loops (Autonomous AI Agent Loops)
 import { RalphLoopsPage } from '@/features/ai/ralph-loops/pages/RalphLoopsPage';
 
+// Agent Chat Page (Full-page chat experience)
+import { AgentChatPage } from '@/pages/app/ai/AgentChatPage';
+
 // Chat Channels (Multi-platform chat gateway)
 import { ChatChannelsPage } from '@/features/ai/chat-channels/pages/ChatChannelsPage';
 
@@ -552,6 +555,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/providers" element={<AIProvidersPage />} />
         <Route path="/ai/providers/new" element={<AIProvidersPage />} />
         <Route path="/ai/providers/:id" element={<AIProvidersPage />} />
+        <Route path="/ai/agents/:agentId/chat" element={<AgentChatPage />} />
         <Route path="/ai/agents" element={<AIAgentsPage />} />
         <Route path="/ai/workflows" element={<WorkflowsPage />} />
         <Route path="/ai/conversations" element={<AIConversationsPage />} />

@@ -165,8 +165,8 @@ export interface AiMessage {
   sender_type: 'user' | 'ai' | 'system';
   sender_id?: string;
   content: string;
-  metadata: {
-    timestamp: string;
+  metadata?: {
+    timestamp?: string;
     processing?: boolean;
     error?: boolean;
     error_message?: string;

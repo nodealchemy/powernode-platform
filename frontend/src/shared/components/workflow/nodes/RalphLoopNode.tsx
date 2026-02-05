@@ -35,12 +35,6 @@ const operationIcons: Record<string, React.ReactNode> = {
   parse_prd: <BookOpen className="h-3 w-3" />
 };
 
-const aiToolLabels: Record<string, string> = {
-  amp: 'AMP',
-  claude_code: 'Claude Code',
-  ollama: 'Ollama'
-};
-
 export const RalphLoopNode: React.FC<NodeProps<RalphLoopNodeType>> = ({
   id,
   data,
@@ -78,10 +72,10 @@ export const RalphLoopNode: React.FC<NodeProps<RalphLoopNodeType>> = ({
                 <span className="ml-1 text-theme-secondary">{config.name}</span>
               </div>
             )}
-            {config?.ai_tool && (
+            {config?.default_agent_name && (
               <div className="text-xs">
-                <span className="text-theme-muted">AI Tool:</span>
-                <span className="ml-1 text-theme-secondary">{aiToolLabels[config.ai_tool] || config.ai_tool}</span>
+                <span className="text-theme-muted">Agent:</span>
+                <span className="ml-1 text-theme-secondary">{config.default_agent_name}</span>
               </div>
             )}
             {config?.max_iterations && (

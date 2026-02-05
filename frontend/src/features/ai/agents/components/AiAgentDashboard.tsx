@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Plus, Play, Pause, Settings, BarChart3, Users, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Brain, Plus, Play, Pause, Settings, BarChart3, Users, Clock, MessageSquare } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -10,8 +11,10 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { agentsApi } from '@/shared/services/ai';
 import { CreateAgentModal } from './CreateAgentModal';
 import { EditAgentModal } from './EditAgentModal';
+import { ConversationContinueModal } from '@/features/ai/conversations/components/ConversationContinueModal';
+import { ConversationCreateModal } from '@/features/ai/conversations/components/ConversationCreateModal';
 
-import type { AiAgent } from '@/shared/types/ai';
+import type { AiAgent, AiConversation } from '@/shared/types/ai';
 
 interface AiAgentDashboardProps {
   showCreateModal?: boolean;
@@ -33,6 +36,11 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
   const [internalShowCreateModal, setInternalShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AiAgent | null>(null);
+  const [chatAgent, setChatAgent] = useState<AiAgent | null>(null);
+  const [chatConversation, setChatConversation] = useState<AiConversation | null>(null);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [showCreateConversationModal, setShowCreateConversationModal] = useState(false);
+  const navigate = useNavigate();
 
   // Use external state if provided, otherwise use internal state
   const showCreateModal = externalShowCreateModal !== undefined ? externalShowCreateModal : internalShowCreateModal;
@@ -187,6 +195,30 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
     }
   };
 
+  const handleChatWithAgent = async (agent: AiAgent) => {
+    try {
+      setChatAgent(agent);
+      const response = await agentsApi.getActiveConversations(agent.id);
+      const conversations = response.items || [];
+      if (conversations.length > 0) {
+        setChatConversation(conversations[0]);
+        setShowChatModal(true);
+      } else {
+        setShowCreateConversationModal(true);
+      }
+    } catch (_error) {
+      // Fallback: open create modal
+      setChatAgent(agent);
+      setShowCreateConversationModal(true);
+    }
+  };
+
+  const handleConversationCreatedForChat = (conversation: AiConversation) => {
+    setShowCreateConversationModal(false);
+    setChatConversation(conversation);
+    setShowChatModal(true);
+  };
+
   if (loading) {
     return (
       <LoadingSpinner size="lg" className="py-12" message="Loading AI agents..." />
@@ -337,17 +369,36 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
                         )}
                       </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5 min-w-[80px] justify-center"
+                      onClick={() => handleChatWithAgent(agent)}
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      Chat
+                    </Button>
                   </div>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-1.5 min-w-[80px] justify-center"
-                    onClick={() => handleEditAgent(agent)}
-                  >
-                    <Settings className="h-3 w-3" />
-                    Manage
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5 min-w-[80px] justify-center"
+                      onClick={() => navigate(`/app/ai/agents/${agent.id}/chat`)}
+                    >
+                      Full Chat
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5 min-w-[80px] justify-center"
+                      onClick={() => handleEditAgent(agent)}
+                    >
+                      <Settings className="h-3 w-3" />
+                      Manage
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))}
@@ -368,6 +419,28 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
         agent={selectedAgent}
         onAgentUpdated={handleAgentUpdated}
         onAgentDeleted={handleAgentDeleted}
+      />
+
+      {chatConversation && (
+        <ConversationContinueModal
+          isOpen={showChatModal}
+          onClose={() => {
+            setShowChatModal(false);
+            setChatConversation(null);
+            setChatAgent(null);
+          }}
+          conversation={chatConversation}
+        />
+      )}
+
+      <ConversationCreateModal
+        isOpen={showCreateConversationModal}
+        onClose={() => {
+          setShowCreateConversationModal(false);
+          setChatAgent(null);
+        }}
+        onConversationCreated={handleConversationCreatedForChat}
+        preselectedAgentId={chatAgent?.id}
       />
     </>
   );

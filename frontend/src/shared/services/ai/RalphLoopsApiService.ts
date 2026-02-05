@@ -136,6 +136,20 @@ class RalphLoopsApiService extends BaseApiService {
   }
 
   /**
+   * Run all remaining iterations in background
+   */
+  async runAll(loopId: string, stopOnError = true): Promise<{ loop: RalphLoopSummary; message: string }> {
+    return this.post<{ loop: RalphLoopSummary; message: string }>(`${this.basePath}/${loopId}/run_all`, { stop_on_error: stopOnError });
+  }
+
+  /**
+   * Stop Run All execution
+   */
+  async stopRunAll(loopId: string): Promise<{ loop: RalphLoopSummary; message: string }> {
+    return this.post<{ loop: RalphLoopSummary; message: string }>(`${this.basePath}/${loopId}/stop_run_all`);
+  }
+
+  /**
    * Parse PRD and create/update tasks
    */
   async parsePrd(loopId: string, request: ParsePrdRequest): Promise<{ tasks: RalphTask[]; message: string }> {

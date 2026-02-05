@@ -12,7 +12,9 @@ export type RalphLoopEventType =
   | 'loop_completed'
   | 'loop_failed'
   | 'loop_paused'
-  | 'loop_cancelled';
+  | 'loop_cancelled'
+  | 'run_all_started'
+  | 'run_all_completed';
 
 export interface RalphLoopExecutionUpdate {
   type: RalphLoopEventType;
@@ -65,6 +67,8 @@ export const useRalphLoopExecutionWebSocket = (
       'ralph_loop.failed': 'loop_failed',
       'ralph_loop.paused': 'loop_paused',
       'ralph_loop.cancelled': 'loop_cancelled',
+      'ralph_loop.run_all_started': 'run_all_started',
+      'ralph_loop.run_all_completed': 'run_all_completed',
       // Also handle generic ralph_loop_update from backend
       'ralph_loop_update': 'loop_progress',
     };
@@ -131,7 +135,7 @@ export const useRalphLoopExecutionWebSocket = (
     // Subscribe to AiOrchestrationChannel with ralph_loop type
     const unsubscribe = subscribe({
       channel: 'AiOrchestrationChannel',
-      params: { type: 'ralph_loop', ralph_loop_id: loopId },
+      params: { type: 'ralph_loop', id: loopId },
       onMessage: handleMessage,
       onError: handleError,
     });

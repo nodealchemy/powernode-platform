@@ -32,7 +32,6 @@ export type {
   McpResourceForWorkflowBuilder,
   McpPromptForWorkflowBuilder,
   RalphLoopOperation,
-  RalphLoopAiTool,
   RalphLoopSchedulingMode,
   RalphLoopNodeConfiguration,
 } from './configuration';

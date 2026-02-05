@@ -108,6 +108,29 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     return cleaned;
   };
 
+  // Map backend message_data format to frontend AiMessage format
+  const mapBackendMessage = (msg: Record<string, unknown>): AiMessage => {
+    const role = (msg.role as string) || 'user';
+    const senderType = role === 'assistant' ? 'ai' : (role as 'user' | 'system');
+
+    return {
+      id: (msg.id as string) || (msg.message_id as string) || '',
+      sender_type: (msg.sender_type as 'user' | 'ai' | 'system') || senderType,
+      sender_info: (msg.sender_info as AiMessage['sender_info']) || {
+        name: (msg.user as string) || (role === 'assistant' ? 'AI Assistant' : 'User')
+      },
+      content: cleanMessageContent((msg.content as string) || ''),
+      created_at: (msg.created_at as string) || new Date().toISOString(),
+      metadata: (msg.metadata as AiMessage['metadata']) || {
+        timestamp: (msg.created_at as string) || new Date().toISOString(),
+        tokens_used: msg.token_count as number | undefined,
+        cost_estimate: msg.cost_usd ? parseFloat(String(msg.cost_usd)) || 0 : undefined,
+        processing: (msg.status as string) === 'processing',
+        error: (msg.status as string) === 'failed'
+      }
+    };
+  };
+
   const loadMessages = useCallback(async () => {
     // Guard: Need ai_agent.id to load messages
     if (!conversation.ai_agent?.id) {
@@ -122,13 +145,10 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       // Handle potential Rails wrapper format - API returns array directly
       const rawMessages = Array.isArray(response) ? response : [];
 
-      // Clean message content to remove any artifacts
-      const messages = rawMessages.map((msg: AiMessage) => ({
-        ...msg,
-        content: cleanMessageContent(msg.content || '')
-      }));
+      // Map backend message format to frontend AiMessage format
+      const messages = rawMessages.map((msg: AiMessage) => mapBackendMessage(msg as unknown as Record<string, unknown>));
 
-      setMessages(messages.reverse()); // Reverse to show oldest first
+      setMessages(messages); // Backend returns in ascending order (oldest first)
     } catch (_error) {
       // Use a ref for addNotification to avoid dependency issues
       addNotification({
@@ -246,22 +266,57 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     setMessages(prev => [...prev, optimisticMessage]);
 
     try {
-      // Send message via WebSocket channel (not REST API)
-      const messageSent = await sendChannelMessageRef.current('AiConversationChannel', 'send_message', {
-        content: messageContent
-      }, { conversation_id: conversation.id });
-
-      if (!messageSent) {
-        throw new Error('Failed to send message via WebSocket');
+      // Get agent ID from conversation
+      const agentId = ('ai_agent' in conversation && conversation.ai_agent?.id) || '';
+      if (!agentId) {
+        throw new Error('No agent associated with this conversation');
       }
 
+      // Send message via REST API - returns both user message and AI response
+      const response = await agentsApi.sendMessage(agentId, conversation.id, messageContent);
 
-      // Keep optimistic message until real message arrives via WebSocket
-      // The WebSocket message_created event will replace this optimistic message
+      // Replace optimistic message with the real user message
+      const userMsg: AiMessage = {
+        id: response.user_message?.id || optimisticMessage.id,
+        sender_type: 'user',
+        sender_info: { name: currentUser.name || 'You' },
+        content: response.user_message?.content || messageContent,
+        created_at: response.user_message?.created_at || new Date().toISOString(),
+        metadata: { timestamp: response.user_message?.created_at || new Date().toISOString() }
+      };
 
-      // The real-time channel will handle both user message echo and AI responses
+      setMessages(prev => {
+        const withoutOptimistic = prev.filter(msg => msg.id !== optimisticMessage.id);
+        const newMessages = [...withoutOptimistic, userMsg];
+
+        // Add assistant message if present
+        if (response.assistant_message) {
+          const assistantMsg: AiMessage = {
+            id: response.assistant_message.id,
+            sender_type: 'ai',
+            sender_info: { name: 'AI Assistant' },
+            content: cleanMessageContent(response.assistant_message.content || ''),
+            created_at: response.assistant_message.created_at || new Date().toISOString(),
+            metadata: {
+              timestamp: response.assistant_message.created_at || new Date().toISOString(),
+              tokens_used: response.assistant_message.token_count,
+              cost_estimate: parseFloat(response.assistant_message.cost_usd) || 0
+            }
+          };
+          newMessages.push(assistantMsg);
+        }
+
+        return newMessages;
+      });
+
+      if (response.error) {
+        addNotification({
+          type: 'warning',
+          title: 'Partial Response',
+          message: response.error
+        });
+      }
     } catch (_error) {
-
       // Remove optimistic message on error
       setMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
 
@@ -274,7 +329,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     } finally {
       setSending(false);
     }
-  }, [inputValue, sending, currentUser, conversation.id]);
+  }, [inputValue, sending, currentUser, conversation]);
 
   const handleTyping = useCallback(() => {
     if (!isTyping) {
@@ -411,8 +466,8 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     const isUser = message.sender_type === 'user';
     const isAI = message.sender_type === 'ai';
     const isSystem = message.sender_type === 'system';
-    const isProcessing = message.metadata.processing;
-    const hasError = message.metadata.error;
+    const isProcessing = message.metadata?.processing;
+    const hasError = message.metadata?.error;
 
     if (isSystem) {
       return (
@@ -568,18 +623,18 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
               <div className="flex items-center gap-2 mt-2 p-2 bg-theme-danger/10 rounded border border-theme-danger/30">
                 <AlertCircle className="h-4 w-4 text-theme-danger flex-shrink-0" />
                 <span className="text-xs text-theme-danger">
-                  {message.metadata.error_message || 'An error occurred'}
+                  {message.metadata?.error_message || 'An error occurred'}
                 </span>
               </div>
             )}
 
-            {message.metadata.tokens_used && (
+            {message.metadata?.tokens_used != null && message.metadata.tokens_used > 0 && (
               <div className="flex items-center gap-3 mt-2 pt-2 border-t border-theme text-xs text-theme-muted">
                 <span>{message.metadata.tokens_used} tokens</span>
-                {message.metadata.response_time_ms && (
+                {message.metadata?.response_time_ms != null && message.metadata.response_time_ms > 0 && (
                   <span>{message.metadata.response_time_ms}ms</span>
                 )}
-                {message.metadata.cost_estimate && (
+                {message.metadata?.cost_estimate != null && message.metadata.cost_estimate > 0 && (
                   <span>${message.metadata.cost_estimate.toFixed(4)}</span>
                 )}
               </div>
@@ -746,7 +801,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         <span id="message-input-instructions" className="sr-only">
           Type your message and press Enter to send, or Shift+Enter for a new line
         </span>
-        <div className="flex gap-2 items-end">
+        <div className="flex gap-3 items-end">
           <div className="flex-1">
             <textarea
               ref={inputRef}
@@ -754,27 +809,31 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
-              className="w-full min-h-[40px] max-h-[120px] px-3 py-2 border border-theme/40 rounded-lg resize-none bg-theme-surface/90 backdrop-blur-sm text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary focus:bg-theme-surface disabled:bg-theme-surface disabled:text-theme-muted transition-all duration-200"
+              className="w-full min-h-[44px] max-h-[120px] px-4 py-2.5 border border-theme/40 rounded-xl resize-none bg-theme-surface/90 backdrop-blur-sm text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary focus:bg-theme-surface disabled:bg-theme-surface disabled:text-theme-muted transition-all duration-200"
               disabled={sending}
+              data-testid="message-input"
               aria-label="Message input"
               aria-describedby="message-input-instructions"
             />
           </div>
 
           <Button
+            variant="primary"
+            size="sm"
+            rounded="xl"
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || sending}
-            className="h-[40px] px-3"
+            className="h-[44px] w-[44px] p-0 flex items-center justify-center shrink-0"
+            data-testid="send-button"
             aria-label={sending ? "Sending message" : "Send message"}
           >
             {sending ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
             ) : (
-              <Send className="h-4 w-4" aria-hidden="true" />
+              <Send className="h-5 w-5" aria-hidden="true" />
             )}
           </Button>
         </div>
-
       </div>
     </div>
   );

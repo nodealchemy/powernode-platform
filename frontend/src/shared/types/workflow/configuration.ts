@@ -133,8 +133,6 @@ export type RalphLoopOperation =
   | 'add_task'
   | 'parse_prd';
 
-export type RalphLoopAiTool = 'amp' | 'claude_code' | 'ollama';
-
 export type RalphLoopSchedulingMode = 'manual' | 'auto' | 'scheduled';
 
 export interface RalphLoopNodeConfiguration {
@@ -147,7 +145,8 @@ export interface RalphLoopNodeConfiguration {
   // Create operation fields
   name?: string;
   description?: string;
-  ai_tool?: RalphLoopAiTool;
+  default_agent_id?: string;
+  default_agent_name?: string;
   max_iterations?: number;
   repository_url?: string;
   branch?: string;
