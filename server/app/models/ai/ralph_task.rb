@@ -302,24 +302,23 @@ module Ai
     # ==================== Executor Finders ====================
 
     def find_matching_agent
-      scope = ralph_loop.account.ai_agents.where(status: "active")
+      agents = ralph_loop.account.ai_agents.where(status: "active")
+      required = required_capabilities || []
+      return agents.first if required.empty?
 
       case capability_match_strategy
       when "all"
-        # Agent must have ALL required capabilities
-        required_capabilities.each do |cap|
-          scope = scope.where("mcp_capabilities @> ?", [ cap ].to_json)
-        end
+        agents.with_all_skills(required).first
       when "any"
-        # Agent must have ANY required capability
-        return scope.first if required_capabilities.blank?
-        scope = scope.where("mcp_capabilities ?| array[:caps]", caps: required_capabilities)
+        agents.with_any_skills(required).first
       when "weighted"
-        # Score agents by capability overlap and return best match
-        return score_agents_by_capabilities(scope).first
+        agents.with_any_skills(required)
+          .select("ai_agents.*, COUNT(DISTINCT ai_skills.slug) as skill_overlap")
+          .order("skill_overlap DESC")
+          .first
+      else
+        agents.with_any_skills(required).first
       end
-
-      scope.first
     end
 
     def find_matching_workflow
@@ -350,20 +349,18 @@ module Ai
     end
 
     def find_via_a2a_discovery
-      # Use A2A agent discovery to find matching agent
       agent_cards = Ai::AgentCard.joins(:agent)
                                   .where(ai_agents: { account_id: ralph_loop.account_id, status: "active" })
 
       return agent_cards.first&.agent if required_capabilities.blank?
 
-      # Find agent card with matching skills
       matching_card = agent_cards.find do |card|
-        skills = card.capabilities&.dig("skills") || []
+        slugs = card.agent&.skill_slugs || []
         case capability_match_strategy
         when "all"
-          (required_capabilities - skills).empty?
+          (required_capabilities - slugs).empty?
         when "any"
-          (required_capabilities & skills).any?
+          (required_capabilities & slugs).any?
         else
           true
         end
@@ -377,8 +374,8 @@ module Ai
 
       return scope.order(reputation_score: :desc).first if required_capabilities.blank?
 
-      # Match community agents by their skills
-      scope.where("capabilities->'skills' ?| array[:caps]", caps: required_capabilities)
+      # Match community agents by skill slugs in capabilities JSON
+      scope.where("capabilities->'skill_slugs' ?| array[:caps]", caps: required_capabilities)
            .order(reputation_score: :desc)
            .first
     end
@@ -391,16 +388,5 @@ module Ai
                 .first
     end
 
-    def score_agents_by_capabilities(scope)
-      return scope if required_capabilities.blank?
-
-      # Order by number of matching capabilities
-      scope.select("ai_agents.*, (
-        SELECT COUNT(*)
-        FROM jsonb_array_elements_text(mcp_capabilities) AS cap
-        WHERE cap = ANY(ARRAY[#{required_capabilities.map { |c| "'#{c}'" }.join(',')}]::text[])
-      ) AS capability_score")
-           .order("capability_score DESC")
-    end
   end
 end

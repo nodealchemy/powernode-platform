@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui
 import { cn } from '@/shared/utils/cn';
 import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { workflowsApi } from '@/shared/services/ai/WorkflowsApiService';
+import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import type {
   RalphExecutionType,
   RalphCapabilityMatchStrategy,
@@ -158,25 +159,32 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
   const [fallbackExecutorOptions, setFallbackExecutorOptions] = useState<ExecutorOption[]>([]);
   const [loadingFallbackExecutors, setLoadingFallbackExecutors] = useState(false);
 
-  // Available capabilities from API
-  const [availableCapabilities, setAvailableCapabilities] = useState<Record<string, string[]>>({});
-  const [loadingCapabilities, setLoadingCapabilities] = useState(true);
+  // Available skills from API (replaces capabilities)
+  const [availableSkillsByCategory, setAvailableSkillsByCategory] = useState<Record<string, Array<{ slug: string; name: string }>>>({});
+  const [loadingSkills, setLoadingSkills] = useState(true);
 
-  // Fetch available capabilities on mount
+  // Fetch available skills on mount
   useEffect(() => {
-    const loadCapabilities = async () => {
-      setLoadingCapabilities(true);
+    const loadSkills = async () => {
+      setLoadingSkills(true);
       try {
-        const response = await agentsApi.getCapabilities();
-        setAvailableCapabilities(response.categorized || {});
+        const response = await skillsApi.getSkills(1, 100);
+        if (response.success && response.data?.skills) {
+          const byCategory: Record<string, Array<{ slug: string; name: string }>> = {};
+          for (const skill of response.data.skills) {
+            const cat = skill.category || 'general';
+            if (!byCategory[cat]) byCategory[cat] = [];
+            byCategory[cat].push({ slug: skill.slug, name: skill.name });
+          }
+          setAvailableSkillsByCategory(byCategory);
+        }
       } catch (_error) {
-        // If API fails, set empty - user can still add custom capabilities
-        setAvailableCapabilities({});
+        setAvailableSkillsByCategory({});
       } finally {
-        setLoadingCapabilities(false);
+        setLoadingSkills(false);
       }
     };
-    loadCapabilities();
+    loadSkills();
   }, []);
 
   // Fetch executors based on execution type
@@ -459,13 +467,13 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
               </p>
             </div>
 
-            {/* Required Capabilities */}
+            {/* Required Skills */}
             <div>
               <label className="block text-sm font-medium text-theme-text-primary mb-2">
-                Required Capabilities
+                Required Skills
               </label>
 
-              {/* Selected capabilities display */}
+              {/* Selected skills display */}
               {capabilities.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3">
                   {capabilities.map((cap) => (
@@ -488,39 +496,39 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
                 </div>
               )}
 
-              {/* Capability selection by category */}
-              {loadingCapabilities ? (
+              {/* Skill selection by category */}
+              {loadingSkills ? (
                 <div className="flex items-center justify-center gap-2 py-8 border border-theme-border-primary rounded-lg bg-theme-bg-primary">
                   <Loader2 className="w-4 h-4 animate-spin text-theme-text-secondary" />
-                  <span className="text-sm text-theme-text-secondary">Loading capabilities...</span>
+                  <span className="text-sm text-theme-text-secondary">Loading skills...</span>
                 </div>
-              ) : Object.keys(availableCapabilities).length > 0 ? (
+              ) : Object.keys(availableSkillsByCategory).length > 0 ? (
                 <div className="max-h-64 overflow-y-auto border border-theme-border-primary rounded-lg bg-theme-bg-primary">
-                  {Object.entries(availableCapabilities).map(([category, caps]) => (
+                  {Object.entries(availableSkillsByCategory).map(([category, skills]) => (
                     <div key={category} className="border-b border-theme-border-primary last:border-b-0">
                       <div className="px-3 py-2 bg-theme-bg-secondary text-xs font-semibold text-theme-text-secondary uppercase tracking-wider">
-                        {category}
+                        {category.replace(/_/g, ' ')}
                       </div>
                       <div className="grid grid-cols-2 gap-1 p-2">
-                        {caps.map((cap) => (
+                        {skills.map((skill) => (
                           <label
-                            key={cap}
+                            key={skill.slug}
                             className="flex items-center gap-2 cursor-pointer hover:bg-theme-bg-secondary p-1.5 rounded text-sm"
                           >
                             <input
                               type="checkbox"
-                              checked={capabilities.includes(cap)}
+                              checked={capabilities.includes(skill.slug)}
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  setCapabilities([...capabilities, cap]);
+                                  setCapabilities([...capabilities, skill.slug]);
                                 } else {
-                                  setCapabilities(capabilities.filter(c => c !== cap));
+                                  setCapabilities(capabilities.filter(c => c !== skill.slug));
                                 }
                               }}
                               className="w-4 h-4 rounded border-theme-border-primary text-theme-brand-primary focus:ring-theme-brand-primary"
                             />
-                            <span className="text-theme-text-primary truncate" title={cap}>
-                              {cap.replace(/_/g, ' ')}
+                            <span className="text-theme-text-primary truncate" title={skill.name}>
+                              {skill.name}
                             </span>
                           </label>
                         ))}
@@ -531,16 +539,16 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
               ) : (
                 <div className="py-4 px-3 border border-theme-border-primary rounded-lg bg-theme-bg-primary text-center">
                   <p className="text-sm text-theme-text-secondary">
-                    No capabilities found. Add custom capabilities below.
+                    No skills found. Add custom skill slugs below.
                   </p>
                 </div>
               )}
 
-              {/* Custom capability input */}
+              {/* Custom skill slug input */}
               <div className="flex gap-2 mt-3">
                 <Input
                   type="text"
-                  placeholder="Add custom capability..."
+                  placeholder="Add custom skill slug..."
                   value={newCapability}
                   onChange={(e) => setNewCapability(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCapability())}
@@ -557,9 +565,9 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
                 </Button>
               </div>
               <p className="mt-1 text-xs text-theme-text-secondary">
-                {Object.keys(availableCapabilities).length > 0
-                  ? 'Select capabilities from the list above or add custom ones'
-                  : 'Enter custom capability names'}
+                {Object.keys(availableSkillsByCategory).length > 0
+                  ? 'Select skills from the list above or add custom slugs'
+                  : 'Enter custom skill slugs'}
               </p>
             </div>
 

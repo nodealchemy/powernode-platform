@@ -43,16 +43,6 @@ if admin_account && admin_user && claude_provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'text_generation',
-      'document_analysis',
-      'data_extraction',
-      'summarization',
-      'report_writing',
-      'web_search',
-      'file_read',
-      'structured_output'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'claude_strategic_planner',
       'description' => 'Strategic planning and business analysis agent',
@@ -134,16 +124,6 @@ if admin_account && admin_user && claude_provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'web_search',
-      'web_scraping',
-      'document_analysis',
-      'data_extraction',
-      'csv_processing',
-      'json_processing',
-      'summarization',
-      'citation_generation'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'claude_research_analyst',
       'description' => 'Comprehensive research and analysis agent',
@@ -233,16 +213,6 @@ if admin_account && admin_user && claude_provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'text_generation',
-      'markdown_formatting',
-      'html_generation',
-      'email_drafting',
-      'blog_writing',
-      'social_media_posts',
-      'seo_optimization',
-      'multilingual_translation'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'claude_content_creator',
       'description' => 'Advanced content creation and copywriting agent',

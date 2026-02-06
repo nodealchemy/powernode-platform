@@ -11,9 +11,11 @@ import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { communityAgentsApi } from '@/shared/services/ai';
+import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import { AgentCard } from './AgentCard';
 import { cn } from '@/shared/utils/cn';
 import type { CommunityAgentSummary, CommunityAgentFilters } from '@/shared/services/ai';
+import type { SkillCategory } from '@/features/ai/skills/types';
 
 interface AgentDiscoveryProps {
   onSelectAgent?: (agent: CommunityAgentSummary) => void;
@@ -40,20 +42,29 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sortBy, setSortBy] = useState<string>('reputation');
+  const [skillFilter, setSkillFilter] = useState<string>('');
+  const [skillCategories, setSkillCategories] = useState<SkillCategory[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Load categories
+  // Load categories and skill categories
   useEffect(() => {
     const loadCategories = async () => {
       try {
         const response = await communityAgentsApi.getCategories();
         setCategories(response.categories || []);
-      } catch (err) {
-        console.error('[AgentDiscovery] Failed to load categories:', err);
+      } catch {
+        // Categories may not be available
+      }
+    };
+    const loadSkillCategories = async () => {
+      const response = await skillsApi.getCategories();
+      if (response.success && response.data) {
+        setSkillCategories(response.data.categories);
       }
     };
     loadCategories();
+    loadSkillCategories();
   }, []);
 
   const loadAgents = useCallback(async () => {
@@ -67,6 +78,7 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
       };
       if (searchQuery) filters.query = searchQuery;
       if (categoryFilter) filters.category = categoryFilter;
+      if (skillFilter) filters.skill = skillFilter;
       if (verifiedOnly) filters.verified = true;
 
       const response = await communityAgentsApi.getAgents(filters);
@@ -77,7 +89,7 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, categoryFilter, verifiedOnly, sortBy]);
+  }, [searchQuery, categoryFilter, skillFilter, verifiedOnly, sortBy]);
 
   useEffect(() => {
     loadAgents();
@@ -132,6 +144,18 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
           ))}
         </Select>
         <Select
+          value={skillFilter}
+          onChange={(value) => setSkillFilter(value)}
+          className="w-36"
+        >
+          <option value="">All Skills</option>
+          {skillCategories.map((category) => (
+            <option key={category} value={category}>
+              {skillsApi.getCategoryLabel(category)}
+            </option>
+          ))}
+        </Select>
+        <Select
           value={sortBy}
           onChange={(value) => setSortBy(value)}
           className="w-40"
@@ -169,7 +193,7 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
           icon={Globe}
           title="No agents found"
           description={
-            searchQuery || categoryFilter
+            searchQuery || categoryFilter || skillFilter
               ? 'Try adjusting your search or filters'
               : 'No community agents are available yet'
           }

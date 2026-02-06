@@ -56,7 +56,6 @@ def create_or_find_ai_agent(account, user, provider, agent_data)
     agent_type: agent_data[:agent_type],
     provider: provider,
     creator: user,
-    mcp_capabilities: { 'chat' => true, 'text_generation' => true },
     mcp_metadata: agent_data[:configuration],
     metadata: agent_data[:metadata],
     status: 'active'

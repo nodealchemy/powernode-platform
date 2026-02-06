@@ -26,16 +26,6 @@ if admin_account && admin_user && provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'http_requests',
-      'database_queries',
-      'log_analysis',
-      'metric_collection',
-      'alerting',
-      'slack_notifications',
-      'email_notifications',
-      'json_processing'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'workflow_performance_monitor',
       'description' => 'Advanced monitoring specialist for workflow performance',
@@ -113,16 +103,6 @@ if admin_account && admin_user && provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'database_queries',
-      'sql_execution',
-      'csv_processing',
-      'chart_generation',
-      'data_aggregation',
-      'report_generation',
-      'spreadsheet_export',
-      'scheduled_tasks'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'workflow_analytics_intelligence',
       'description' => 'Advanced analytics specialist for workflow systems',
@@ -206,16 +186,6 @@ if admin_account && admin_user && provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'http_health_checks',
-      'tcp_port_checks',
-      'dns_resolution',
-      'ssl_certificate_check',
-      'docker_status',
-      'kubernetes_api',
-      'pagerduty_integration',
-      'webhook_triggers'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'system_health_monitor',
       'description' => 'Comprehensive system health monitoring specialist',
@@ -308,16 +278,6 @@ if admin_account && admin_user && provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'test_execution',
-      'api_testing',
-      'json_schema_validation',
-      'data_validation',
-      'screenshot_capture',
-      'diff_comparison',
-      'git_operations',
-      'devops_triggers'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'workflow_quality_assurance',
       'description' => 'Quality assurance specialist for workflow systems',

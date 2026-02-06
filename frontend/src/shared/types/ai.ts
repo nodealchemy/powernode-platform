@@ -108,12 +108,22 @@ export interface AiAgent {
     configuration?: AgentConfiguration;
     [key: string]: unknown;
   };
-  mcp_capabilities: string[];
-  mcp_input_schema: Record<string, any>;
-  mcp_output_schema: Record<string, any>;
-  mcp_metadata: Record<string, any>;
+  mcp_input_schema: Record<string, unknown>;
+  mcp_output_schema: Record<string, unknown>;
+  mcp_metadata: Record<string, unknown>;
+  // Skills
+  skill_slugs?: string[];
+  skills?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    category: string;
+    is_active: boolean;
+    priority: number;
+    command_count: number;
+  }>;
   status: 'active' | 'inactive' | 'error';
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   is_active: boolean;
   created_at: string;
   updated_at: string;

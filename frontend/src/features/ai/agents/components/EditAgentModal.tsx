@@ -1,16 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Brain, Sparkles, BarChart3, Trash2, Plus, X, Loader2 } from 'lucide-react';
+import { Brain, Sparkles, BarChart3, Trash2, X, Loader2 } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/forms/FormField';
 import { SelectField } from '@/shared/components/forms/SelectField';
 import { TextAreaField } from '@/shared/components/forms/TextAreaField';
 import { Badge } from '@/shared/components/ui/Badge';
-import { Input } from '@/shared/components/ui/Input';
 import { useForm } from '@/shared/hooks/useForm';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { agentsApi, providersApi } from '@/shared/services/ai';
+import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import type { AiAgent, AiProvider } from '@/shared/types/ai';
+import type { AiAgentSkill } from '@/shared/services/ai/types/agent-api-types';
+
+interface SkillOption {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+}
 
 interface EditAgentModalProps {
   isOpen: boolean;
@@ -30,7 +38,6 @@ interface EditAgentFormData {
   max_tokens: number;
   system_prompt: string;
   is_active: boolean;
-  mcp_capabilities: string[];
 }
 
 const AGENT_TYPES = [
@@ -58,10 +65,10 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
   const [deleting, setDeleting] = useState(false);
   // Track if provider was manually changed by user (vs initial load)
   const [previousProviderId, setPreviousProviderId] = useState<string | null>(null);
-  // Capabilities management
-  const [availableCapabilities, setAvailableCapabilities] = useState<Record<string, string[]>>({});
-  const [loadingCapabilities, setLoadingCapabilities] = useState(true);
-  const [newCapability, setNewCapability] = useState('');
+  // Skills management
+  const [assignedSkills, setAssignedSkills] = useState<AiAgentSkill[]>([]);
+  const [availableSkills, setAvailableSkills] = useState<SkillOption[]>([]);
+  const [loadingSkills, setLoadingSkills] = useState(true);
   const { addNotification } = useNotifications();
 
   const form = useForm<EditAgentFormData>({
@@ -76,7 +83,6 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
       max_tokens: agent?.max_tokens ?? 2048,
       system_prompt: agent?.system_prompt || '',
       is_active: agent?.status === 'active',
-      mcp_capabilities: agent?.mcp_capabilities || []
     },
     validationRules: {
       ai_provider_id: { required: true },
@@ -121,7 +127,6 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
         max_tokens: values.max_tokens,
         system_prompt: values.system_prompt || undefined,
         status: values.is_active ? 'active' : 'inactive',
-        mcp_capabilities: values.mcp_capabilities
       };
 
       const updatedAgent = await agentsApi.updateAgent(agent.id, updateData);
@@ -149,7 +154,6 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
       form.setValue('max_tokens', agent.max_tokens ?? 2048);
       form.setValue('system_prompt', agent.system_prompt || '');
       form.setValue('is_active', agent.status === 'active');
-      form.setValue('mcp_capabilities', agent.mcp_capabilities || []);
     }
      
   }, [agent, isOpen]);
@@ -160,43 +164,51 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
     if (isOpen && agent) {
       loadProviders();
       loadAgentStats();
-      loadCapabilities();
+      loadSkills();
     }
   }, [isOpen, agent]);
 
-  const loadCapabilities = async () => {
-    setLoadingCapabilities(true);
+  const loadSkills = async () => {
+    if (!agent) return;
+    setLoadingSkills(true);
     try {
-      const response = await agentsApi.getCapabilities();
-      setAvailableCapabilities(response.categorized || {});
+      const [agentSkillsRes, allSkillsRes] = await Promise.all([
+        agentsApi.getAgentSkills(agent.id),
+        skillsApi.getSkills(1, 100),
+      ]);
+      setAssignedSkills(Array.isArray(agentSkillsRes) ? agentSkillsRes : []);
+      if (allSkillsRes.success && allSkillsRes.data?.skills) {
+        setAvailableSkills(allSkillsRes.data.skills.map((s: { id: string; name: string; slug: string; category: string }) => ({
+          id: s.id, name: s.name, slug: s.slug, category: s.category,
+        })));
+      }
     } catch (_error) {
-      setAvailableCapabilities({});
+      setAssignedSkills([]);
+      setAvailableSkills([]);
     } finally {
-      setLoadingCapabilities(false);
+      setLoadingSkills(false);
     }
   };
 
-  const handleAddCapability = useCallback(() => {
-    const cap = newCapability.trim().toLowerCase();
-    if (cap && !form.values.mcp_capabilities.includes(cap)) {
-      form.setValue('mcp_capabilities', [...form.values.mcp_capabilities, cap]);
-      setNewCapability('');
+  const handleAssignSkill = useCallback(async (skillId: string) => {
+    if (!agent) return;
+    try {
+      await agentsApi.assignSkill(agent.id, skillId);
+      loadSkills();
+    } catch (_error) {
+      addNotification({ type: 'error', title: 'Error', message: 'Failed to assign skill' });
     }
-  }, [newCapability, form]);
+  }, [agent]);
 
-  const handleRemoveCapability = useCallback((cap: string) => {
-    form.setValue('mcp_capabilities', form.values.mcp_capabilities.filter(c => c !== cap));
-  }, [form]);
-
-  const handleToggleCapability = useCallback((cap: string, checked: boolean) => {
-    if (checked) {
-      if (!form.values.mcp_capabilities.includes(cap)) {
-        form.setValue('mcp_capabilities', [...form.values.mcp_capabilities, cap]);
-      }
-    } else {
-      form.setValue('mcp_capabilities', form.values.mcp_capabilities.filter(c => c !== cap));
+  const handleRemoveSkill = useCallback(async (skillId: string) => {
+    if (!agent) return;
+    try {
+      await agentsApi.removeSkill(agent.id, skillId);
+      loadSkills();
+    } catch (_error) {
+      addNotification({ type: 'error', title: 'Error', message: 'Failed to remove skill' });
     }
-  }, [form]);
+  }, [agent]);
 
   // Fetch provider details when provider changes (to get supported_models)
   useEffect(() => {
@@ -564,26 +576,26 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
             />
           </div>
 
-          {/* Capabilities Management */}
+          {/* Skills Management */}
           <div className="space-y-4">
             <h4 className="text-sm font-semibold text-theme-primary border-b border-theme pb-2">
-              Agent Capabilities
+              Agent Skills
             </h4>
 
-            {/* Selected capabilities display */}
-            {form.values.mcp_capabilities.length > 0 && (
+            {/* Assigned skills display */}
+            {assignedSkills.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {form.values.mcp_capabilities.map((cap) => (
+                {assignedSkills.map((skill) => (
                   <Badge
-                    key={cap}
+                    key={skill.id}
                     variant="info"
                     size="sm"
                     className="flex items-center gap-1"
                   >
-                    {cap}
+                    {skill.name}
                     <button
                       type="button"
-                      onClick={() => handleRemoveCapability(cap)}
+                      onClick={() => handleRemoveSkill(skill.id)}
                       className="ml-1 hover:text-theme-status-error"
                     >
                       <X className="w-3 h-3" />
@@ -593,36 +605,52 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
               </div>
             )}
 
-            {/* Capability selection by category */}
-            {loadingCapabilities ? (
+            {/* Skill selection by category */}
+            {loadingSkills ? (
               <div className="flex items-center justify-center gap-2 py-8 border border-theme rounded-lg bg-theme-surface">
                 <Loader2 className="w-4 h-4 animate-spin text-theme-secondary" />
-                <span className="text-sm text-theme-secondary">Loading capabilities...</span>
+                <span className="text-sm text-theme-secondary">Loading skills...</span>
               </div>
-            ) : Object.keys(availableCapabilities).length > 0 ? (
+            ) : availableSkills.length > 0 ? (
               <div className="max-h-48 overflow-y-auto border border-theme rounded-lg bg-theme-surface">
-                {Object.entries(availableCapabilities).map(([category, caps]) => (
+                {Object.entries(
+                  availableSkills.reduce<Record<string, SkillOption[]>>((acc, skill) => {
+                    const cat = skill.category || 'general';
+                    if (!acc[cat]) acc[cat] = [];
+                    acc[cat].push(skill);
+                    return acc;
+                  }, {})
+                ).map(([category, skills]) => (
                   <div key={category} className="border-b border-theme last:border-b-0">
                     <div className="px-3 py-2 bg-theme-surface-hover text-xs font-semibold text-theme-secondary uppercase tracking-wider">
-                      {category}
+                      {category.replace(/_/g, ' ')}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-1 p-2">
-                      {caps.map((cap) => (
-                        <label
-                          key={cap}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-theme-surface-hover p-1.5 rounded text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={form.values.mcp_capabilities.includes(cap)}
-                            onChange={(e) => handleToggleCapability(cap, e.target.checked)}
-                            className="w-4 h-4 rounded border-theme text-theme-brand focus:ring-theme-brand"
-                          />
-                          <span className="text-theme-primary truncate" title={cap}>
-                            {cap.replace(/_/g, ' ')}
-                          </span>
-                        </label>
-                      ))}
+                      {skills.map((skill) => {
+                        const isAssigned = assignedSkills.some(as => as.id === skill.id);
+                        return (
+                          <label
+                            key={skill.id}
+                            className="flex items-center gap-2 cursor-pointer hover:bg-theme-surface-hover p-1.5 rounded text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isAssigned}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  handleAssignSkill(skill.id);
+                                } else {
+                                  handleRemoveSkill(skill.id);
+                                }
+                              }}
+                              className="w-4 h-4 rounded border-theme text-theme-brand focus:ring-theme-brand"
+                            />
+                            <span className="text-theme-primary truncate" title={skill.name}>
+                              {skill.name}
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -630,33 +658,13 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
             ) : (
               <div className="py-4 px-3 border border-theme rounded-lg bg-theme-surface text-center">
                 <p className="text-sm text-theme-secondary">
-                  No capabilities found. Add custom capabilities below.
+                  No skills available. Create skills in the Skills page first.
                 </p>
               </div>
             )}
 
-            {/* Custom capability input */}
-            <div className="flex gap-2">
-              <Input
-                type="text"
-                placeholder="Add custom capability..."
-                value={newCapability}
-                onChange={(e) => setNewCapability(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCapability())}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddCapability}
-                disabled={!newCapability.trim()}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
             <p className="text-xs text-theme-secondary">
-              Capabilities define what this agent can do and are used for task matching in Ralph Loops
+              Skills define what this agent can do and are used for task matching in Ralph Loops
             </p>
           </div>
 

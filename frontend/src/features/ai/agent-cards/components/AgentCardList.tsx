@@ -19,9 +19,11 @@ import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { agentCardsApiService } from '@/shared/services/ai';
+import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import { CapabilityList } from './CapabilityBadge';
 import { cn } from '@/shared/utils/cn';
 import type { AgentCard, AgentCardFilters } from '@/shared/services/ai/types/a2a-types';
+import type { SkillCategory } from '@/features/ai/skills/types';
 
 interface AgentCardListProps {
   onSelectCard?: (card: AgentCard) => void;
@@ -52,6 +54,8 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [visibilityFilter, setVisibilityFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [skillFilter, setSkillFilter] = useState<string>('');
+  const [skillCategories, setSkillCategories] = useState<SkillCategory[]>([]);
   const [totalCount, setTotalCount] = useState(0);
 
   const loadCards = useCallback(async () => {
@@ -63,6 +67,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
       if (searchQuery) filters.search = searchQuery;
       if (visibilityFilter) filters.visibility = visibilityFilter as AgentCardFilters['visibility'];
       if (statusFilter) filters.status = statusFilter as AgentCardFilters['status'];
+      if (skillFilter) filters.skill = skillFilter;
 
       const response = await agentCardsApiService.getAgentCards(filters);
       setCards(response.items || []);
@@ -72,11 +77,21 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, visibilityFilter, statusFilter]);
+  }, [searchQuery, visibilityFilter, statusFilter, skillFilter]);
 
   useEffect(() => {
     loadCards();
   }, [loadCards]);
+
+  useEffect(() => {
+    const loadSkillCategories = async () => {
+      const response = await skillsApi.getCategories();
+      if (response.success && response.data) {
+        setSkillCategories(response.data.categories);
+      }
+    };
+    loadSkillCategories();
+  }, []);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -131,6 +146,19 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
             <option value="deprecated">Deprecated</option>
+          </Select>
+
+          <Select
+            value={skillFilter}
+            onChange={(value) => setSkillFilter(value)}
+            className="w-36"
+          >
+            <option value="">All Skills</option>
+            {skillCategories.map((category) => (
+              <option key={category} value={category}>
+                {skillsApi.getCategoryLabel(category)}
+              </option>
+            ))}
           </Select>
         </div>
 

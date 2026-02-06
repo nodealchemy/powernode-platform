@@ -11,13 +11,6 @@ module Ai
     PROTOCOL_VERSIONS = %w[0.1 0.2 0.3].freeze
     DEFAULT_PROTOCOL_VERSION = "0.3"
 
-    # A2A Standard Skills
-    STANDARD_SKILLS = %w[
-      summarize translate analyze generate
-      code_assist data_process workflow_execute
-      search retrieve transform validate
-    ].freeze
-
     # ==================== Associations ====================
     belongs_to :account
     belongs_to :agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true
@@ -34,7 +27,6 @@ module Ai
     validates :card_version, format: { with: /\A\d+\.\d+\.\d+\z/, message: "must be in semantic version format (x.y.z)" }
     validates :endpoint_url, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]), allow_blank: true }
 
-    validate :validate_capabilities_schema
     validate :validate_authentication_schema
 
     # ==================== Scopes ====================
@@ -49,8 +41,8 @@ module Ai
     scope :public_cards, -> { where(visibility: "public") }
     scope :internal_cards, -> { where(visibility: "internal") }
     scope :private_cards, -> { where(visibility: "private") }
-    scope :with_capability, ->(skill) {
-      where("capabilities->'skills' ? :skill", skill: skill)
+    scope :with_skill_record, ->(slug) {
+      joins(agent: :skills).where(ai_skills: { slug: slug }).distinct
     }
     scope :with_tag, ->(tag) {
       where("tags @> ?", [ tag ].to_json)
@@ -150,44 +142,22 @@ module Ai
       (capabilities || {}).merge("skills" => skills_list)
     end
 
-    # Skills extraction - normalize to consistent format
+    # Skills list from agent's assigned Ai::Skill records
     def skills_list
-      raw_skills = capabilities.dig("skills") || []
-      raw_skills.map do |skill|
-        if skill.is_a?(String)
-          { "id" => skill, "name" => skill }
-        else
-          # Ensure consistent key names (camelCase for frontend)
-          {
-            "id" => skill["id"],
-            "name" => skill["name"],
-            "description" => skill["description"],
-            "inputSchema" => skill["inputSchema"],
-            "outputSchema" => skill["outputSchema"]
-          }.compact
-        end
+      return capabilities.dig("skills") || [] unless agent
+
+      agent.skill_slugs.map do |slug|
+        { "id" => slug, "name" => slug }
       end
     end
 
-    # Add a skill
-    def add_skill(skill_id, skill_config = {})
-      self.capabilities = capabilities.deep_merge(
-        "skills" => (skills_list + [ skill_config.merge("id" => skill_id) ]).uniq { |s| s["id"] || s }
-      )
-      save
-    end
+    # Sync skills from agent's Ai::Skill records into capabilities JSON
+    def sync_skills_from_agent!
+      return unless agent
 
-    # Remove a skill
-    def remove_skill(skill_id)
-      self.capabilities = capabilities.merge(
-        "skills" => skills_list.reject { |s| (s.is_a?(Hash) ? s["id"] : s) == skill_id }
-      )
-      save
-    end
-
-    # Check if card has specific capability
-    def has_skill?(skill_id)
-      skills_list.any? { |s| (s.is_a?(Hash) ? s["id"] : s) == skill_id }
+      skill_slugs = agent.skill_slugs
+      self.capabilities = (capabilities || {}).merge("skills" => skill_slugs)
+      save! if changed?
     end
 
     # Publish the card
@@ -277,20 +247,6 @@ module Ai
       version_parts = card_version.split(".").map(&:to_i)
       version_parts[2] += 1
       self.card_version = version_parts.join(".")
-    end
-
-    def validate_capabilities_schema
-      return if capabilities.blank?
-
-      # Validate skills array if present
-      if capabilities["skills"].present? && !capabilities["skills"].is_a?(Array)
-        errors.add(:capabilities, "skills must be an array")
-      end
-
-      # Validate streaming capability
-      if capabilities["streaming"].present? && !capabilities["streaming"].in?([ true, false ])
-        errors.add(:capabilities, "streaming must be a boolean")
-      end
     end
 
     def validate_authentication_schema

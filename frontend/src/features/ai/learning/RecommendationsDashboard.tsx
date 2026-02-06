@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Lightbulb, CheckCircle, XCircle, TrendingUp, ArrowRight } from 'lucide-react';
+import { Lightbulb, CheckCircle, TrendingUp, ArrowRight } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
+import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -76,7 +76,7 @@ export const RecommendationsDashboard: React.FC = () => {
   return (
     <PageContainer
       title="Improvement Recommendations"
-      subtitle="AI-generated recommendations based on trajectory analysis"
+      description="AI-generated recommendations based on trajectory analysis"
     >
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -111,9 +111,7 @@ export const RecommendationsDashboard: React.FC = () => {
 
         {pending.length > 0 && (
           <Card>
-            <CardHeader>
-              <CardTitle>Pending Recommendations</CardTitle>
-            </CardHeader>
+            <CardHeader title="Pending Recommendations" />
             <CardContent>
               <div className="space-y-3">
                 {pending.map((rec) => (

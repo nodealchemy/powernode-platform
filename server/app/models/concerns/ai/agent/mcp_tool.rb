@@ -7,7 +7,7 @@ module Ai
 
       # Check if agent is available for MCP execution
       def mcp_available?
-        active? && mcp_tool_manifest.present? && mcp_capabilities.any? && provider&.is_active?
+        active? && mcp_tool_manifest.present? && provider&.is_active?
       end
 
       # Get MCP tool ID for registry
@@ -27,7 +27,7 @@ module Ai
           "description" => description || "AI Agent: #{name}",
           "type" => "ai_agent",
           "version" => version,
-          "capabilities" => mcp_capabilities,
+          "capabilities" => skill_slugs,
           "inputSchema" => mcp_input_schema.presence || default_input_schema,
           "outputSchema" => mcp_output_schema.presence || default_output_schema,
           "metadata" => generate_mcp_metadata,
@@ -43,7 +43,7 @@ module Ai
 
       # Check if agent supports a specific MCP capability
       def supports_mcp_capability?(capability)
-        mcp_capabilities.include?(capability.to_s)
+        skill_slugs.include?(capability.to_s)
       end
 
       # =============================================================================

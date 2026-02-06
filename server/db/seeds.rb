@@ -1149,6 +1149,9 @@ if Rails.env.development? || Rails.env.test?
 
   puts "\n🛡️ Loading AI Governance (Policies, Approvals, Credits, Agent Cards)..."
   load Rails.root.join('db', 'seeds', 'ai_governance_seed.rb')
+
+  puts "\n🧩 Loading AI Skills..."
+  load Rails.root.join('db', 'seeds', 'ai_skills_seed.rb')
 end
 
 puts "\n🎉 Seeding complete!"
@@ -1168,6 +1171,7 @@ if Rails.env.development? || Rails.env.test?
   puts "   AI Workflow Runs: #{Ai::WorkflowRun.count}"
   puts "   DevOps Container Templates: #{Devops::ContainerTemplate.count}"
   puts "   AI DevOps Templates: #{Ai::DevopsTemplate.count}"
+  puts "   AI Skills: #{Ai::Skill.count}"
 end
 
 # 🔧 Create default site settings

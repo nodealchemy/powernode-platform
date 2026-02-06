@@ -25,6 +25,8 @@ module Ai
 
     has_many :conversations, class_name: "Ai::Conversation", foreign_key: "ai_agent_id", dependent: :destroy
     has_many :messages, class_name: "Ai::Message", foreign_key: "ai_agent_id", dependent: :destroy
+    has_many :agent_skills, class_name: "Ai::AgentSkill", foreign_key: "ai_agent_id", dependent: :destroy
+    has_many :skills, class_name: "Ai::Skill", through: :agent_skills, source: :skill
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }, uniqueness: { scope: :account_id }
@@ -36,14 +38,12 @@ module Ai
       message: "is not included in the list"
     }
     validates :status, inclusion: { in: %w[active inactive paused error archived] }
-    validates :mcp_capabilities, presence: true
     validates :version, format: { with: /\A\d+\.\d+\.\d+\z/, message: "must be in semantic version format (x.y.z)" }
 
     # JSON attributes for MCP data
     attribute :mcp_tool_manifest, :json, default: -> { {} }
     attribute :mcp_input_schema, :json, default: -> { default_input_schema }
     attribute :mcp_output_schema, :json, default: -> { default_output_schema }
-    attribute :mcp_capabilities, :json, default: -> { [] }
     attribute :mcp_metadata, :json, default: -> { {} }
 
     # Scopes
@@ -54,7 +54,18 @@ module Ai
     scope :by_type, ->(type) { where(agent_type: type) }
     scope :by_creator, ->(user) { where(creator: user) }
     scope :mcp_enabled, -> { where.not(mcp_tool_manifest: {}) }
-    scope :with_capability, ->(capability) { where("mcp_capabilities @> ?", [ capability ].to_json) }
+    scope :with_skill, ->(slug) {
+      joins(:skills).where(ai_skills: { slug: slug, status: "active" })
+    }
+    scope :with_any_skills, ->(slugs) {
+      joins(:skills).where(ai_skills: { slug: slugs, status: "active" }).distinct
+    }
+    scope :with_all_skills, ->(slugs) {
+      joins(:skills)
+        .where(ai_skills: { slug: slugs, status: "active" })
+        .group("ai_agents.id")
+        .having("COUNT(DISTINCT ai_skills.slug) = ?", slugs.size)
+    }
     scope :recently_executed, ->(days = 30) { where("last_executed_at >= ?", days.days.ago) }
     scope :healthy, -> { where(status: "active") }
     scope :search_by_text, ->(query) {
@@ -64,9 +75,12 @@ module Ai
     # Callbacks
     before_validation :generate_slug, if: -> { name.present? && (slug.blank? || name_changed?) }
     before_validation :normalize_agent_type
-    before_validation :normalize_mcp_capabilities
     before_save :update_version_if_mcp_changed
     before_save :ensure_mcp_tool_manifest
+
+    def skill_slugs
+      agent_skills.where(is_active: true).joins(:skill).where(ai_skills: { status: "active" }).pluck("ai_skills.slug")
+    end
 
     private
 
@@ -86,12 +100,6 @@ module Ai
 
     def normalize_agent_type
       self.agent_type = agent_type&.downcase&.strip
-    end
-
-    def normalize_mcp_capabilities
-      return unless mcp_capabilities.is_a?(Array)
-
-      self.mcp_capabilities = mcp_capabilities.map(&:to_s).map(&:downcase).uniq.compact
     end
 
     def update_version_if_mcp_changed

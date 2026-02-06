@@ -26,7 +26,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 const RESULT_CONFIG: Record<string, { icon: React.ElementType; color: string; badge: string }> = {
   success: { icon: CheckCircle, color: 'text-theme-success', badge: 'success' },
-  failure: { icon: XCircle, color: 'text-theme-error', badge: 'error' },
+  failure: { icon: XCircle, color: 'text-theme-error', badge: 'danger' },
   skipped: { icon: SkipForward, color: 'text-theme-muted', badge: 'default' },
   rate_limited: { icon: Clock, color: 'text-theme-warning', badge: 'warning' },
 };
@@ -58,7 +58,7 @@ export const RemediationTimeline: React.FC<RemediationTimelineProps> = ({ logs }
                 <span className="text-sm font-medium text-theme-primary">
                   {ACTION_LABELS[log.action_type] || log.action_type}
                 </span>
-                <Badge variant={config.badge as 'success' | 'error' | 'warning' | 'default'}>
+                <Badge variant={config.badge as 'success' | 'danger' | 'warning' | 'default'}>
                   {log.result}
                 </Badge>
               </div>

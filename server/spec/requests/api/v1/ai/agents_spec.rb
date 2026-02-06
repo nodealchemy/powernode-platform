@@ -133,11 +133,11 @@ RSpec.describe 'Api::V1::Ai::Agents', type: :request do
         expect(data['agent']).to have_key('provider')
       end
 
-      it 'includes mcp capabilities' do
+      it 'includes skill_slugs' do
         get "/api/v1/ai/agents/#{agent.id}", headers: headers, as: :json
 
         data = json_response_data
-        expect(data['agent']).to have_key('mcp_capabilities')
+        expect(data['agent']).to have_key('skill_slugs')
       end
     end
 
@@ -173,7 +173,7 @@ RSpec.describe 'Api::V1::Ai::Agents', type: :request do
             description: 'A test agent for processing',
             agent_type: 'assistant',
             ai_provider_id: provider.id,
-            mcp_capabilities: [ 'text_generation' ]
+            agent_type: 'assistant'
           }
         }
       end

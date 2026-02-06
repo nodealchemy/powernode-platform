@@ -245,6 +245,8 @@ class JobsController
       'Maintenance::DatabaseMaintenanceJob',
       'Maintenance::CacheCleanupJob',
       'Maintenance::LogRotationJob',
+      # AI Skills jobs
+      'AiSkillSyncJob',
       # Supply chain jobs
       'SupplyChain::QuestionnaireNotificationJob'
     ]

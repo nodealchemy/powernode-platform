@@ -1,0 +1,182 @@
+import { useState, useEffect, useCallback } from 'react';
+import { skillsApi } from './services/skillsApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
+import { SkillCard } from './components/SkillCard';
+import { SkillDetailPanel } from './components/SkillDetailPanel';
+import { SkillEditor } from './components/SkillEditor';
+import type { AiSkillSummary, SkillCategory, SkillFilters } from './types';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
+
+interface SkillsPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+const ALL_CATEGORIES: { value: SkillCategory | ''; label: string }[] = [
+  { value: '', label: 'All' },
+  { value: 'productivity', label: 'Productivity' },
+  { value: 'sales', label: 'Sales' },
+  { value: 'customer_support', label: 'Support' },
+  { value: 'product_management', label: 'Product' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'legal', label: 'Legal' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'data', label: 'Data' },
+  { value: 'enterprise_search', label: 'Search' },
+  { value: 'bio_research', label: 'Bio' },
+  { value: 'skill_management', label: 'Management' },
+];
+
+export function SkillsPage({ onActionsReady }: SkillsPageProps) {
+  const { showNotification } = useNotifications();
+  const [skills, setSkills] = useState<AiSkillSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadSkills = useCallback(async () => {
+    setLoading(true);
+    const filters: SkillFilters = {};
+    if (selectedCategory) filters.category = selectedCategory as SkillCategory;
+    if (searchQuery) filters.search = searchQuery;
+
+    const response = await skillsApi.getSkills(1, 100, filters);
+    if (response.success && response.data) {
+      setSkills(response.data.skills);
+    } else {
+      showNotification(response.error || 'Failed to load skills', 'error');
+    }
+    setLoading(false);
+  }, [selectedCategory, searchQuery, showNotification]);
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: async () => {
+      setIsRefreshing(true);
+      await loadSkills();
+      setIsRefreshing(false);
+    },
+    loading: isRefreshing,
+  });
+
+  useEffect(() => {
+    loadSkills();
+  }, [loadSkills]);
+
+  useEffect(() => {
+    if (onActionsReady) {
+      onActionsReady([
+        refreshAction,
+        {
+          id: 'new-skill',
+          label: 'New Skill',
+          onClick: () => setShowEditor(true),
+          variant: 'primary',
+        },
+      ]);
+    }
+  }, [onActionsReady, refreshAction]);
+
+  const handleToggle = async (id: string, enabled: boolean) => {
+    const response = enabled
+      ? await skillsApi.activateSkill(id)
+      : await skillsApi.deactivateSkill(id);
+
+    if (response.success) {
+      showNotification(`Skill ${enabled ? 'enabled' : 'disabled'}`, 'success');
+      loadSkills();
+    } else {
+      showNotification(response.error || 'Failed to toggle skill', 'error');
+    }
+  };
+
+  if (showEditor) {
+    return (
+      <SkillEditor
+        onSaved={() => {
+          setShowEditor(false);
+          loadSkills();
+        }}
+        onCancel={() => setShowEditor(false)}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Search */}
+      <div>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search skills..."
+          className="w-full max-w-md px-3 py-2 bg-theme-surface border border-theme rounded-md text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+        />
+      </div>
+
+      {/* Category Tabs */}
+      <div className="border-b border-theme overflow-x-auto">
+        <nav className="flex gap-4 min-w-max">
+          {ALL_CATEGORIES.map((cat) => (
+            <button
+              key={cat.value}
+              onClick={() => setSelectedCategory(cat.value)}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                selectedCategory === cat.value
+                  ? 'border-theme-primary text-theme-primary'
+                  : 'border-transparent text-theme-secondary hover:text-theme-primary'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Skills Grid */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="animate-pulse bg-theme-surface border border-theme rounded-lg p-5">
+              <div className="h-5 bg-theme-surface-secondary rounded w-3/4 mb-3" />
+              <div className="h-3 bg-theme-surface-secondary rounded w-1/2 mb-3" />
+              <div className="h-8 bg-theme-surface-secondary rounded mb-3" />
+            </div>
+          ))}
+        </div>
+      ) : skills.length === 0 ? (
+        <div className="text-center py-12 text-theme-tertiary">
+          <p className="text-lg">No skills found</p>
+          <p className="text-sm mt-1">
+            {searchQuery || selectedCategory
+              ? 'Try adjusting your search or filters'
+              : 'Create your first skill to get started'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {skills.map((skill) => (
+            <SkillCard
+              key={skill.id}
+              skill={skill}
+              onToggle={handleToggle}
+              onClick={(id) => setSelectedSkillId(id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Detail Panel */}
+      {selectedSkillId && (
+        <SkillDetailPanel
+          skillId={selectedSkillId}
+          onClose={() => setSelectedSkillId(null)}
+          onUpdated={loadSkills}
+        />
+      )}
+    </div>
+  );
+}

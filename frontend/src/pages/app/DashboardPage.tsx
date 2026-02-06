@@ -122,6 +122,9 @@ import { SelfHealingDashboard } from '@/features/ai/self-healing/SelfHealingDash
 import { RecommendationsDashboard } from '@/features/ai/learning/RecommendationsDashboard';
 import { TrajectoryInsights } from '@/features/ai/learning/TrajectoryInsights';
 
+// AI Skills
+import { SkillsPage as AISkillsPage } from './ai/SkillsPage';
+
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
 
@@ -608,6 +611,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/model-router" element={<ModelRouterPage />} />
         <Route path="/ai/outcome-billing" element={<OutcomeBillingPage />} />
         <Route path="/ai/teams" element={<TeamsPage />} />
+        <Route path="/ai/skills" element={<AISkillsPage />} />
         <Route path="/ai/plugins" element={<Navigate to="/app/marketplace?types=plugin" replace />} />
 
         {/* Core Pages */}

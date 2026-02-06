@@ -123,7 +123,7 @@ module A2a
       def agent_details(agent)
         agent_summary(agent).merge(
           configuration: agent.configuration,
-          capabilities: agent.mcp_capabilities,
+          capabilities: agent.skill_slugs,
           mcp_tool_manifest: agent.mcp_tool_manifest,
           execution_stats: agent.execution_stats
         )

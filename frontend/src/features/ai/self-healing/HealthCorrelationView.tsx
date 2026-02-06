@@ -45,7 +45,7 @@ export const HealthCorrelationView: React.FC<HealthCorrelationViewProps> = ({ co
                   <span className="text-sm font-medium text-theme-primary">
                     Correlation #{index + 1}
                   </span>
-                  <Badge variant={confidencePercent >= 70 ? 'error' : confidencePercent >= 40 ? 'warning' : 'default'}>
+                  <Badge variant={confidencePercent >= 70 ? 'danger' : confidencePercent >= 40 ? 'warning' : 'default'}>
                     {confidencePercent}% confidence
                   </Badge>
                 </div>

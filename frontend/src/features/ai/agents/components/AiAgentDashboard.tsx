@@ -331,6 +331,20 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
                     </span>
                   </div>
 
+                  {agent.skill_slugs && agent.skill_slugs.length > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-theme-tertiary">Skills</span>
+                      <div className="flex flex-wrap gap-1 justify-end">
+                        {agent.skill_slugs.slice(0, 3).map((slug) => (
+                          <Badge key={slug} variant="info" size="sm">{slug}</Badge>
+                        ))}
+                        {agent.skill_slugs.length > 3 && (
+                          <Badge variant="outline" size="sm">+{agent.skill_slugs.length - 3}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">Executions</span>
                     <span className="text-theme-primary">{agent.execution_stats?.total_executions || 0}</span>

@@ -13,24 +13,10 @@ RSpec.describe Ai::Agent, 'MCP functionality', type: :model do
             account: account,
             creator: user,
             provider: ai_provider,
-            mcp_capabilities: [ 'text_generation' ],
             version: '1.0.0')
     end
 
     it { is_expected.to be_valid }
-
-    describe 'mcp_capabilities validation' do
-      it 'requires mcp_capabilities to be present' do
-        agent.mcp_capabilities = []
-        expect(agent).not_to be_valid
-        expect(agent.errors[:mcp_capabilities]).to include("can't be blank")
-      end
-
-      it 'accepts valid capabilities' do
-        agent.mcp_capabilities = [ 'text_generation', 'code_assistance' ]
-        expect(agent).to be_valid
-      end
-    end
 
     describe 'version validation' do
       it 'requires semantic version format' do
@@ -72,7 +58,6 @@ RSpec.describe Ai::Agent, 'MCP functionality', type: :model do
              account: account,
              creator: user,
              provider: ai_provider,
-             mcp_capabilities: [ 'text_generation' ],
              version: '1.0.0')
     end
 
@@ -106,7 +91,7 @@ RSpec.describe Ai::Agent, 'MCP functionality', type: :model do
           'description' => agent.description,
           'type' => 'ai_agent',
           'version' => agent.version,
-          'capabilities' => agent.mcp_capabilities
+          'capabilities' => agent.skill_slugs
         )
       end
 
@@ -209,7 +194,7 @@ RSpec.describe Ai::Agent, 'MCP functionality', type: :model do
   end
 
   describe 'MCP lifecycle callbacks' do
-    let(:agent) { build(:ai_agent, account: account, creator: user, provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
+    let(:agent) { build(:ai_agent, account: account, creator: user, provider: ai_provider) }
 
     it 'generates MCP manifest after creation' do
       agent.save!
@@ -239,16 +224,14 @@ RSpec.describe Ai::Agent, 'MCP functionality', type: :model do
       create(:ai_agent,
              account: account,
              creator: user,
-             provider: ai_provider,
-             mcp_capabilities: [ 'text_generation' ])
+             provider: ai_provider)
     end
 
     let!(:non_mcp_agent) do
       agent = create(:ai_agent,
              account: account,
              creator: user,
-             provider: ai_provider,
-             mcp_capabilities: [ 'text_generation' ])
+             provider: ai_provider)
       agent.update_column(:mcp_tool_manifest, {})  # Force empty manifest
       agent
     end
@@ -261,21 +244,13 @@ RSpec.describe Ai::Agent, 'MCP functionality', type: :model do
         expect(results).not_to include(non_mcp_agent)
       end
     end
-
-    describe '.with_capability' do
-      it 'returns agents with specific capabilities' do
-        results = Ai::Agent.with_capability('text_generation')
-
-        expect(results).to include(mcp_agent)
-      end
-    end
   end
 
   describe 'MCP API enforcement' do
-    let!(:agent) { create(:ai_agent, account: account, creator: user, provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
+    let!(:agent) { create(:ai_agent, account: account, creator: user, provider: ai_provider) }
 
-    it 'uses mcp_capabilities for capability queries' do
-      expect(agent.mcp_capabilities).to eq([ 'text_generation' ])
+    it 'uses skill_slugs for capability queries' do
+      expect(agent.skill_slugs).to be_an(Array)
     end
 
     it 'uses mcp_metadata for configuration' do

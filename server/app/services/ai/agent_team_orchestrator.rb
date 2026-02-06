@@ -387,7 +387,7 @@ class Ai::AgentTeamOrchestrator
       card.description = agent.description&.truncate(500)
       card.visibility = "private"
       card.status = "active"
-      card.capabilities = { "skills" => agent.mcp_capabilities || [] }
+      card.capabilities = { "skills" => agent.skill_slugs }
     end
   end
 

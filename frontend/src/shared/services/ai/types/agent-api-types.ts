@@ -151,3 +151,17 @@ export interface AgentType {
   label: string;
   description: string;
 }
+
+// ===================================================================
+// Agent Skill Types
+// ===================================================================
+
+export interface AiAgentSkill {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  is_active: boolean;
+  priority: number;
+  command_count: number;
+}

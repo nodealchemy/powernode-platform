@@ -59,7 +59,7 @@ describe('EditAgentModal', () => {
       type: 'ai_agent',
       version: '1.0.0'
     },
-    mcp_capabilities: [],
+    skill_slugs: [],
     mcp_input_schema: {},
     mcp_output_schema: {},
     mcp_metadata: {},

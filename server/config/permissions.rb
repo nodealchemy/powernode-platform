@@ -252,6 +252,12 @@ module Permissions
     "integrations.credentials.update" => "Update integration credentials",
     "integrations.credentials.delete" => "Delete integration credentials",
 
+    # AI Skills
+    "ai.skills.read" => "View AI skills",
+    "ai.skills.create" => "Create AI skills",
+    "ai.skills.update" => "Update AI skills",
+    "ai.skills.delete" => "Delete AI skills",
+
     # AI Persistent Context
     "ai.context.read" => "View AI persistent contexts",
     "ai.context.create" => "Create AI persistent contexts",
@@ -622,6 +628,8 @@ module Permissions
         "ai.conversations.read", "ai.conversations.create", "ai.conversations.participate",
         "ai.messages.read", "ai.messages.create", "ai.templates.read", "ai.templates.install",
         "ai.prompt_templates.read",
+        # AI Skills permissions
+        "ai.skills.read",
         # File management permissions
         "files.read", "files.create", "files.download", "files.update", "files.delete",
         "storage.read"
@@ -709,6 +717,8 @@ module Permissions
         "devops.containers.read", "devops.containers.execute", "devops.containers.cancel",
         "devops.container_templates.read", "devops.container_templates.write",
         "devops.container_quotas.read", "devops.container_quotas.manage",
+        # AI Skills permissions
+        "ai.skills.read", "ai.skills.create", "ai.skills.update", "ai.skills.delete",
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",
@@ -937,6 +947,8 @@ module Permissions
         "devops.containers.read", "devops.containers.execute", "devops.containers.cancel",
         "devops.container_templates.read", "devops.container_templates.write",
         "devops.container_quotas.read", "devops.container_quotas.manage",
+        # AI Skills permissions
+        "ai.skills.read", "ai.skills.create", "ai.skills.update", "ai.skills.delete",
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",

@@ -51,7 +51,7 @@ module Ai
       def discover_agents(filter = {})
         scope = Ai::AgentCard.for_discovery(@account.id)
 
-        scope = scope.with_capability(filter[:skill]) if filter[:skill].present?
+        scope = scope.with_skill_record(filter[:skill]) if filter[:skill].present?
         scope = scope.with_tag(filter[:tag]) if filter[:tag].present?
         scope = scope.where("name ILIKE ?", "%#{filter[:query]}%") if filter[:query].present?
         scope = scope.by_protocol_version(filter[:protocol_version]) if filter[:protocol_version].present?

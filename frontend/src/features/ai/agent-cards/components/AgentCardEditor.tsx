@@ -84,6 +84,32 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
     }
   }, [cardId]);
 
+  // Auto-populate skills when agent selection changes
+  useEffect(() => {
+    if (!selectedAgentId || isEditMode) return;
+
+    const loadAgentSkills = async () => {
+      try {
+        const agentSkills = await agentsApi.getAgentSkills(selectedAgentId);
+        if (agentSkills && agentSkills.length > 0) {
+          setSkills(
+            agentSkills.map((s) => ({
+              id: s.slug || s.id,
+              name: s.name,
+              description: '',
+              tags: s.category || '',
+              inputSchema: '',
+              outputSchema: '',
+            }))
+          );
+        }
+      } catch {
+        // Agent may not have skills assigned; keep current skills
+      }
+    };
+    loadAgentSkills();
+  }, [selectedAgentId, isEditMode]);
+
   const loadAgents = async () => {
     try {
       const response = await agentsApi.getAgents({ per_page: 100 });

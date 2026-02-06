@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
 
@@ -46,24 +46,29 @@ export function useRefreshAction({
   id = 'refresh',
 }: UseRefreshActionOptions): UseRefreshActionReturn {
   const [refreshing, setRefreshing] = useState(false);
+  const onRefreshRef = useRef(onRefresh);
+
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await onRefresh();
+      await onRefreshRef.current();
     } finally {
       setRefreshing(false);
     }
-  }, [onRefresh]);
+  }, []);
 
-  const refreshAction: PageAction = {
+  const refreshAction: PageAction = useMemo(() => ({
     id,
     label,
     onClick: handleRefresh,
-    variant: 'secondary',
+    variant: 'secondary' as const,
     icon: RefreshCw,
     disabled: refreshing || loading,
-  };
+  }), [id, label, handleRefresh, refreshing, loading]);
 
   return {
     refreshAction,

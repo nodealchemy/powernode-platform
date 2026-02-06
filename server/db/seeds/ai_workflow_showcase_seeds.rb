@@ -63,19 +63,6 @@ def create_agent(account:, user:, provider:, name:, type:, description:, prompt:
     agent.provider = provider
     agent.status = 'active'
     agent.version = '1.0.0'
-    # Set realistic capabilities based on agent type
-    agent.mcp_capabilities = case type
-    when 'content_generator'
-      %w[text_generation markdown_formatting blog_writing seo_optimization]
-    when 'code_assistant'
-      %w[code_generation code_review git_operations test_execution]
-    when 'data_analyst'
-      %w[database_queries csv_processing data_aggregation report_generation]
-    when 'monitor'
-      %w[http_health_checks log_analysis metric_collection alerting]
-    else
-      %w[text_generation summarization document_analysis]
-    end
     agent.mcp_metadata = {
       'system_prompt' => prompt,
       'model' => model,

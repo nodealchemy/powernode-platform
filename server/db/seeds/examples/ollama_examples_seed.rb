@@ -98,7 +98,6 @@ else
       provider: ollama_provider,
       status: "active",
       version: "1.0.0",
-      mcp_capabilities: %w[text_generation chat],
       mcp_metadata: {
         "auto_created" => true,
         "source" => "ollama_examples_seed",

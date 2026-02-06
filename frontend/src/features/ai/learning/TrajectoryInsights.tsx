@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
+import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -67,9 +67,7 @@ export const TrajectoryInsights: React.FC = () => {
     <div className="space-y-6">
       {cacheMetrics && (
         <Card>
-          <CardHeader>
-            <CardTitle>Prompt Cache Performance</CardTitle>
-          </CardHeader>
+          <CardHeader title="Prompt Cache Performance" />
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
@@ -94,9 +92,7 @@ export const TrajectoryInsights: React.FC = () => {
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Agent Quality Trends</CardTitle>
-        </CardHeader>
+        <CardHeader title="Agent Quality Trends" />
         <CardContent>
           {agentTrends.length === 0 ? (
             <div className="text-center py-8 text-theme-muted">
@@ -130,7 +126,7 @@ export const TrajectoryInsights: React.FC = () => {
                         <p className="font-medium text-theme-primary">{agent.average_helpfulness}/5</p>
                       </div>
                     )}
-                    <Badge variant={agent.trend === 'improving' ? 'success' : agent.trend === 'declining' ? 'error' : 'default'}>
+                    <Badge variant={agent.trend === 'improving' ? 'success' : agent.trend === 'declining' ? 'danger' : 'default'}>
                       {agent.trend}
                     </Badge>
                   </div>

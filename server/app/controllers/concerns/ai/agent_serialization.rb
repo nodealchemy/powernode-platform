@@ -37,7 +37,7 @@ module Ai
         status: agent.status,
         version: agent.version,
         is_public: agent.is_public,
-        mcp_capabilities: agent.mcp_capabilities,
+        skill_slugs: agent.skill_slugs,
         created_at: agent.created_at.iso8601,
         updated_at: agent.updated_at.iso8601,
         last_executed_at: agent.last_executed_at&.iso8601,
@@ -62,6 +62,11 @@ module Ai
       serialize_agent(agent).merge(
         metadata: agent.metadata,
         model_config: agent.model_config,
+        skills: agent.agent_skills.includes(:skill).order(priority: :asc).map { |as|
+          { id: as.skill.id, name: as.skill.name, slug: as.skill.slug,
+            category: as.skill.category, is_active: as.is_active, priority: as.priority,
+            command_count: as.skill.commands&.size || 0 }
+        },
         detailed_stats: build_detailed_stats(executions)
       )
     end

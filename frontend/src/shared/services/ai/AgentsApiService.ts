@@ -15,6 +15,7 @@ import type {
   AgentAnalytics,
   AgentType,
   SendMessageResponse,
+  AiAgentSkill,
 } from './types/agent-api-types';
 
 /**
@@ -46,6 +47,9 @@ import type {
  * - GET    /api/v1/ai/agents/public_agents
  * - GET    /api/v1/ai/agents/agent_types
  * - GET    /api/v1/ai/agents/statistics
+ * - GET    /api/v1/ai/agents/:id/skills
+ * - POST   /api/v1/ai/agents/:id/assign_skill
+ * - DELETE /api/v1/ai/agents/:id/skills/:skill_id
  * - GET    /api/v1/ai/agents/:agent_id/executions
  * - POST   /api/v1/ai/agents/:agent_id/executions
  * - GET    /api/v1/ai/agents/:agent_id/executions/:id
@@ -228,22 +232,36 @@ class AgentsApiService extends BaseApiService {
     return this.get<any>(`${path}/statistics`);
   }
 
+  // ===================================================================
+  // Agent Skills
+  // ===================================================================
+
   /**
-   * Get available agent capabilities (account-wide)
-   * GET /api/v1/ai/agents/capabilities
-   * Returns all unique capabilities from all agents, organized by category
+   * Get agent's assigned skills
+   * GET /api/v1/ai/agents/:id/skills
    */
-  async getCapabilities(): Promise<{
-    capabilities: string[];
-    categorized: Record<string, string[]>;
-    total_count: number;
-  }> {
-    const path = this.buildPath(this.resource);
-    return this.get<{
-      capabilities: string[];
-      categorized: Record<string, string[]>;
-      total_count: number;
-    }>(`${path}/capabilities`);
+  async getAgentSkills(agentId: string): Promise<AiAgentSkill[]> {
+    const path = this.buildPath(this.resource, agentId, undefined, undefined, 'skills');
+    return this.get<AiAgentSkill[]>(path);
+  }
+
+  /**
+   * Assign a skill to an agent
+   * POST /api/v1/ai/agents/:id/assign_skill
+   */
+  async assignSkill(agentId: string, skillId: string, priority?: number): Promise<AiAgentSkill> {
+    return this.performAction<AiAgentSkill>(this.resource, agentId, 'assign_skill', {
+      skill_id: skillId, priority: priority || 0
+    });
+  }
+
+  /**
+   * Remove a skill from an agent
+   * DELETE /api/v1/ai/agents/:id/skills/:skill_id
+   */
+  async removeSkill(agentId: string, skillId: string): Promise<void> {
+    const path = this.buildPath(this.resource, agentId, undefined, undefined, 'skills');
+    return this.delete<void>(`${path}/${skillId}`);
   }
 
   // ===================================================================

@@ -221,7 +221,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           agent_type: 'assistant',
           provider: { id: '', name: 'Unknown', slug: '', provider_type: '' },
           mcp_tool_manifest: { name: '', description: '', type: '', version: '' },
-          mcp_capabilities: [],
+          skill_slugs: [],
           mcp_input_schema: {},
           mcp_output_schema: {},
           mcp_metadata: {},

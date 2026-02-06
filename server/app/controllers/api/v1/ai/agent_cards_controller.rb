@@ -16,7 +16,7 @@ module Api
           scope = ::Ai::AgentCard.for_discovery(current_user.account_id)
 
           # Apply filters
-          scope = scope.with_capability(params[:skill]) if params[:skill].present?
+          scope = scope.with_skill_record(params[:skill]) if params[:skill].present?
           scope = scope.with_tag(params[:tag]) if params[:tag].present?
           scope = scope.where("name ILIKE ?", "%#{params[:query]}%") if params[:query].present?
           scope = scope.where(visibility: params[:visibility]) if params[:visibility].present?
@@ -79,6 +79,7 @@ module Api
 
         # POST /api/v1/ai/agent_cards/:id/publish
         def publish
+          @agent_card.sync_skills_from_agent!
           @agent_card.publish!
           render_success(agent_card: @agent_card.card_details, message: "Agent card published")
           log_audit_event("ai.agent_cards.publish", @agent_card)

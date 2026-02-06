@@ -142,7 +142,7 @@ describe('AiAgentDashboard', () => {
         type: 'ai_agent',
         version: '1.0.0'
       },
-      mcp_capabilities: ['text_generation'],
+      skill_slugs: ['text_generation'],
       mcp_input_schema: {},
       mcp_output_schema: {},
       mcp_metadata: {
@@ -185,7 +185,7 @@ describe('AiAgentDashboard', () => {
         type: 'ai_agent',
         version: '1.0.0'
       },
-      mcp_capabilities: ['text_generation'],
+      skill_slugs: ['text_generation'],
       mcp_input_schema: {},
       mcp_output_schema: {},
       mcp_metadata: {

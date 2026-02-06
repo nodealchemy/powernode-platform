@@ -246,6 +246,37 @@ class WorkerJobService
     end
 
     # ==========================================
+    # AI Skills Jobs
+    # ==========================================
+
+    # Enqueue system skills seeding job
+    def enqueue_ai_skill_seed
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiSkillSyncJob",
+        "args" => [{ "action" => "seed" }],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue skill usage tracking job
+    def enqueue_ai_skill_usage(skill_id, account_id: nil)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiSkillSyncJob",
+        "args" => [{ "action" => "increment_usage", "skill_id" => skill_id, "account_id" => account_id }],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue skill connector refresh job
+    def enqueue_ai_skill_refresh_connectors(skill_id, account_id: nil)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiSkillSyncJob",
+        "args" => [{ "action" => "refresh_connectors", "skill_id" => skill_id, "account_id" => account_id }],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # ==========================================
     # DevOps Jobs (CI/CD Pipelines, Integrations)
     # ==========================================
 

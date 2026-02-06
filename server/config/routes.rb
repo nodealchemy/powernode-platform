@@ -387,6 +387,19 @@ Rails.application.routes.draw do
           post :reactivate_suspended_accounts
         end
 
+        # Internal AI Skills endpoints (for worker service)
+        namespace :ai do
+          resources :skills, only: [] do
+            collection do
+              post :seed_system
+            end
+            member do
+              post :record_usage
+              post :refresh_connectors
+            end
+          end
+        end
+
         # Container execution callbacks for Gitea workflow
         scope "container_executions/:execution_id" do
           post :complete, to: "container_executions#complete"
@@ -1649,6 +1662,9 @@ Rails.application.routes.draw do
             post :archive
             get :stats
             get :analytics
+            get :skills
+            post :assign_skill
+            delete "skills/:skill_id", action: :remove_skill
           end
 
           collection do
@@ -1656,7 +1672,6 @@ Rails.application.routes.draw do
             get :public_agents
             get :agent_types
             get :statistics
-            get :capabilities
           end
 
           # Nested executions (replaces ai_agent_executions)
@@ -2604,6 +2619,21 @@ Rails.application.routes.draw do
           post "/", action: :create_ab_test
           put "/:id/start", action: :start_ab_test
           get "/:id/results", action: :ab_test_results
+        end
+
+        # ===================================================================
+        # AI SKILLS - Domain-specific skill bundles
+        # ===================================================================
+        resources :skills do
+          member do
+            post :activate
+            post :deactivate
+            get :agents
+          end
+
+          collection do
+            get :categories
+          end
         end
 
         # ===================================================================

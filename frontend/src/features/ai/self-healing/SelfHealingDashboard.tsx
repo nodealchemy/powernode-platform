@@ -1,8 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Shield, Activity, AlertTriangle, Clock, RefreshCw } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
-import { Badge } from '@/shared/components/ui/Badge';
+import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { RemediationTimeline } from './RemediationTimeline';
@@ -79,16 +78,15 @@ export const SelfHealingDashboard: React.FC = () => {
   return (
     <PageContainer
       title="Self-Healing"
-      subtitle="Automated remediation and health monitoring"
-      actions={
-        <button
-          onClick={loadData}
-          className="flex items-center gap-2 px-3 py-2 text-sm bg-theme-surface border border-theme-border rounded-lg hover:bg-theme-surface-hover"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
-      }
+      description="Automated remediation and health monitoring"
+      actions={[
+        {
+          label: 'Refresh',
+          onClick: loadData,
+          variant: 'outline',
+          icon: RefreshCw,
+        },
+      ]}
     >
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -164,18 +162,14 @@ export const SelfHealingDashboard: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Remediation Timeline</CardTitle>
-            </CardHeader>
+            <CardHeader title="Remediation Timeline" />
             <CardContent>
               <RemediationTimeline logs={remediationLogs} />
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Cross-System Correlations</CardTitle>
-            </CardHeader>
+            <CardHeader title="Cross-System Correlations" />
             <CardContent>
               <HealthCorrelationView correlations={correlations} />
             </CardContent>

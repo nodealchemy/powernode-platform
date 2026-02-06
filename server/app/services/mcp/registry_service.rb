@@ -619,7 +619,7 @@ module Mcp
       "description" => agent.description || "AI Agent: #{agent.name}",
       "type" => "ai_agent",
       "version" => agent.version.to_s,
-      "capabilities" => agent.mcp_capabilities || [],
+      "capabilities" => agent.skill_slugs,
       "inputSchema" => agent.mcp_input_schema || default_agent_input_schema,
       "outputSchema" => agent.mcp_output_schema || default_agent_output_schema,
       "agent_id" => agent.id,

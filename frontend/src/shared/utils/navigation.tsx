@@ -186,13 +186,22 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 5
         },
         {
+          id: 'ai-skills',
+          name: 'Skills',
+          href: '/app/ai/skills',
+          icon: Puzzle,
+          description: 'Domain-specific skill bundles with commands and MCP connectors',
+          permissions: ['ai.skills.read'],
+          order: 6
+        },
+        {
           id: 'ai-prompts',
           name: 'Prompts',
           href: '/app/ai/prompts',
           icon: MessageSquare,
           description: 'Reusable prompt templates for AI workflows',
           permissions: ['ai.prompt_templates.read'],
-          order: 6
+          order: 7
         },
         {
           id: 'ai-contexts',
@@ -321,7 +330,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 20
         }
       ],
-      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.prompt_templates.read', 'mcp.servers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.rag.read', 'ai.model_router.read', 'ai.billing.read'],
+      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.skills.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.prompt_templates.read', 'mcp.servers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.rag.read', 'ai.model_router.read', 'ai.billing.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10
