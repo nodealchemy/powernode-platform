@@ -107,6 +107,28 @@ class Ai::ProviderCircuitBreakerService
 
   private
 
+  def on_state_change(old_state, new_state)
+    if new_state == "open"
+      account = @provider.respond_to?(:account) ? @provider.account : nil
+      if account
+        Ai::SelfHealing::RemediationDispatcher.dispatch(
+          account: account,
+          trigger_source: "ProviderCircuitBreaker:#{@provider.name}",
+          trigger_event: "circuit_breaker_opened",
+          context: {
+            provider_id: @provider.id,
+            service_type: "provider",
+            circuit_state: new_state,
+            previous_state: old_state,
+            failure_count: @consecutive_failures
+          }
+        )
+      end
+    end
+  rescue => e
+    Rails.logger.error "[ProviderCircuitBreaker] Remediation dispatch failed: #{e.message}"
+  end
+
   # Override to use Redis directly instead of Rails.cache
   # This provides better control and isolation for provider state
   def build_state_key(resource_id)

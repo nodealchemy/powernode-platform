@@ -2,6 +2,8 @@
 
 module Security
   class VaultClient
+    include CircuitBreakerCore
+
     class VaultError < StandardError; end
     class AuthenticationError < VaultError; end
     class SecretNotFoundError < VaultError; end
@@ -10,8 +12,6 @@ module Security
     CACHE_TTL = 5.minutes
     MAX_RETRIES = 3
     RETRY_DELAY = 0.5.seconds
-    CIRCUIT_BREAKER_THRESHOLD = 3
-    CIRCUIT_BREAKER_TIMEOUT = 30.seconds
 
     attr_reader :client
 
@@ -19,9 +19,18 @@ module Security
       @address = ENV.fetch("VAULT_ADDR", "https://vault.powernode.internal:8200")
       @skip_verify = ENV.fetch("VAULT_SKIP_VERIFY", "false") == "true"
       @cache = Rails.cache
-      @circuit_state = :closed
-      @failure_count = 0
-      @last_failure_time = nil
+
+      setup_circuit_breaker(
+        resource_id: "vault",
+        service_name: "security_vault",
+        config: {
+          failure_threshold: 3,
+          success_threshold: 2,
+          timeout_duration: 30_000,
+          monitoring_window: 300_000,
+          reset_timeout: 300_000
+        }
+      )
 
       configure_client(token)
     end
@@ -45,10 +54,10 @@ module Security
       end
 
       @cache.write(cache_key, result, expires_in: CACHE_TTL) if cache
-      record_success!
+      record_success
       result
     rescue Vault::HTTPConnectionError, Vault::HTTPError => e
-      record_failure!
+      record_failure(nil)
       raise ConnectionError, "Vault connection error: #{e.message}"
     end
 
@@ -62,10 +71,10 @@ module Security
 
       # Invalidate cache
       invalidate_cache_for_path(path)
-      record_success!
+      record_success
       path
     rescue Vault::HTTPConnectionError, Vault::HTTPError => e
-      record_failure!
+      record_failure(nil)
       raise ConnectionError, "Vault connection error: #{e.message}"
     end
 
@@ -78,10 +87,10 @@ module Security
       end
 
       invalidate_cache_for_path(path)
-      record_success!
+      record_success
       true
     rescue Vault::HTTPConnectionError, Vault::HTTPError => e
-      record_failure!
+      record_failure(nil)
       raise ConnectionError, "Vault connection error: #{e.message}"
     end
 
@@ -94,7 +103,7 @@ module Security
         result&.data&.[](:keys) || []
       end
     rescue Vault::HTTPConnectionError, Vault::HTTPError => e
-      record_failure!
+      record_failure(nil)
       raise ConnectionError, "Vault connection error: #{e.message}"
     end
 
@@ -115,7 +124,7 @@ module Security
           no_parent: true  # Orphan token for isolation
         )
 
-        record_success!
+        record_success
         {
           token: response.auth.client_token,
           token_accessor: response.auth.accessor,
@@ -123,7 +132,7 @@ module Security
         }
       end
     rescue Vault::HTTPConnectionError, Vault::HTTPError => e
-      record_failure!
+      record_failure(nil)
       raise ConnectionError, "Vault connection error: #{e.message}"
     end
 
@@ -135,7 +144,7 @@ module Security
         @client.auth_token.revoke_accessor(accessor)
       end
 
-      record_success!
+      record_success
       true
     rescue Vault::HTTPConnectionError, Vault::HTTPError => e
       Rails.logger.warn "Failed to revoke Vault token: #{e.message}"
@@ -318,37 +327,14 @@ module Security
         (error.respond_to?(:code) && error.code.to_i >= 500)
     end
 
-    # Circuit breaker implementation
     def check_circuit_breaker!
-      case @circuit_state
-      when :open
-        if Time.current - @last_failure_time > CIRCUIT_BREAKER_TIMEOUT
-          @circuit_state = :half_open
-        else
-          raise ConnectionError, "Vault circuit breaker is open - service unavailable"
-        end
-      when :half_open
-        # Allow one request to test
+      unless allow_request?
+        raise ConnectionError, "Vault circuit breaker is open - service unavailable"
       end
     end
 
     def circuit_open?
-      @circuit_state == :open
-    end
-
-    def record_success!
-      @failure_count = 0
-      @circuit_state = :closed
-    end
-
-    def record_failure!
-      @failure_count += 1
-      @last_failure_time = Time.current
-
-      if @failure_count >= CIRCUIT_BREAKER_THRESHOLD
-        @circuit_state = :open
-        Rails.logger.error "Vault circuit breaker opened after #{@failure_count} failures"
-      end
+      circuit_state == "open"
     end
 
     class << self

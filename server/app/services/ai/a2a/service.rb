@@ -67,8 +67,20 @@ module Ai
         }
       end
 
-      def get_agent_card(agent_card_id)
-        find_agent_card(agent_card_id).to_a2a_json
+      def get_agent_card(agent_card_id, signed: false)
+        card = find_agent_card(agent_card_id)
+
+        if signed
+          signer = SecurityCardSigner.new(account: @account)
+          signer.sign_card(card)[:signed_card]
+        else
+          card.to_a2a_json
+        end
+      end
+
+      def verify_agent_card(signed_card_data)
+        signer = SecurityCardSigner.new(account: @account)
+        signer.verify_signed_card(signed_card_data)
       end
 
       def find_agents_for_task(task_description, limit: 10)

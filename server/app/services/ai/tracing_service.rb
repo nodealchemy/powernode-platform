@@ -257,7 +257,12 @@ class Ai::TracingService
     persist_trace(@current_trace)
 
     # Build complete trace response
-    build_trace_response
+    trace_response = build_trace_response
+
+    # Export to OpenTelemetry if configured
+    export_to_otel(trace_response)
+
+    trace_response
   end
 
   # Get the current span ID
@@ -462,6 +467,16 @@ class Ai::TracingService
       else
         v
       end
+    end
+  end
+
+  def export_to_otel(trace_response)
+    return unless ENV["OTEL_EXPORTER_OTLP_ENDPOINT"].present?
+
+    Thread.new do
+      Ai::Observability::OtelExporter.new(account: account).export_trace(trace_response)
+    rescue StandardError => e
+      Rails.logger.warn "[TracingService] OTel export failed: #{e.message}"
     end
   end
 end

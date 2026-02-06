@@ -32,6 +32,13 @@ class Ai::McpAgentExecutor
     # Validate input parameters against agent's input schema
     validate_input_parameters!(input_parameters)
 
+    # Run guardrail input check
+    input_text = input_parameters["input"].to_s
+    guardrail_result = run_input_guardrails(input_text)
+    if guardrail_result[:blocked]
+      return format_guardrail_block(guardrail_result, stage: :input)
+    end
+
     # Get AI provider client
     provider_client = get_provider_client
 
@@ -41,6 +48,13 @@ class Ai::McpAgentExecutor
     # Execute agent via provider
     begin
       result = execute_with_provider(provider_client, execution_context)
+
+      # Run guardrail output check
+      output_text = result["output"].to_s
+      output_guardrail = run_output_guardrails(output_text, input_text: input_text)
+      if output_guardrail[:blocked]
+        return format_guardrail_block(output_guardrail, stage: :output)
+      end
 
       # Validate output against agent's output schema
       validate_output!(result)
@@ -516,6 +530,42 @@ class Ai::McpAgentExecutor
     else
       -32603 # Internal error
     end
+  end
+
+  # =============================================================================
+  # GUARDRAIL INTEGRATION
+  # =============================================================================
+
+  def run_input_guardrails(text)
+    guardrail_pipeline.check_input(text: text)
+  rescue StandardError => e
+    @logger.warn "[MCP_AGENT_EXECUTOR] Input guardrail check failed: #{e.message}"
+    { allowed: true, violations: [], blocked: false }
+  end
+
+  def run_output_guardrails(text, input_text: nil)
+    guardrail_pipeline.check_output(text: text, input_text: input_text)
+  rescue StandardError => e
+    @logger.warn "[MCP_AGENT_EXECUTOR] Output guardrail check failed: #{e.message}"
+    { allowed: true, violations: [], blocked: false }
+  end
+
+  def guardrail_pipeline
+    @guardrail_pipeline ||= Ai::Guardrails::Pipeline.new(account: @account, agent: @agent)
+  end
+
+  def format_guardrail_block(result, stage:)
+    {
+      "error" => {
+        "code" => -32600,
+        "message" => "Blocked by #{stage} guardrail: #{result[:violations]&.first&.dig(:message) || 'policy violation'}",
+        "type" => "GuardrailViolation",
+        "timestamp" => Time.current.iso8601,
+        "violations" => result[:violations]
+      },
+      "tool_id" => @agent.mcp_tool_id,
+      "execution_id" => @execution&.execution_id || SecureRandom.uuid
+    }
   end
 
   # =============================================================================

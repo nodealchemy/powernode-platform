@@ -97,7 +97,7 @@ module Devops
     def decrypted_credentials
       return {} unless credential.present?
 
-      @decrypted_credentials ||= Devops::CredentialEncryptionService.decrypt(credential)
+      @decrypted_credentials ||= credential.credentials
     end
 
     # Validation methods

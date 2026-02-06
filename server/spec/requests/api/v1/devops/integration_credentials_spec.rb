@@ -205,7 +205,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
 
     context 'with devops.integrations.credentials.update permission' do
       it 'rotates credential successfully' do
-        allow(Devops::CredentialEncryptionService).to receive(:rotate_key).and_return(true)
+        allow(Security::CredentialEncryptionService).to receive(:rotate_encryption).and_return('rotated_encrypted_data')
 
         post "/api/v1/devops/integration_credentials/#{credential.id}/rotate", headers: headers, as: :json
 
@@ -213,8 +213,8 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
       end
 
       it 'handles rotation errors' do
-        allow(Devops::CredentialEncryptionService).to receive(:rotate_key).and_raise(
-          Devops::CredentialEncryptionService::EncryptionError.new('Rotation failed')
+        allow(Security::CredentialEncryptionService).to receive(:rotate_encryption).and_raise(
+          Security::CredentialEncryptionService::DecryptionError.new('Rotation failed')
         )
 
         post "/api/v1/devops/integration_credentials/#{credential.id}/rotate", headers: headers, as: :json
@@ -230,7 +230,7 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
 
     context 'with devops.integrations.credentials.read permission' do
       it 'verifies credential successfully' do
-        allow(Devops::CredentialEncryptionService).to receive(:valid?).and_return(true)
+        allow(Security::CredentialEncryptionService).to receive(:valid_encrypted_credentials?).and_return(true)
 
         post "/api/v1/devops/integration_credentials/#{credential.id}/verify", headers: headers, as: :json
 

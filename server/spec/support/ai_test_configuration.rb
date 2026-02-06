@@ -89,10 +89,10 @@ RSpec.configure do |config|
     ActionController::Base.sanitized_allowed_attributes.clear
 
     # Mock security services
-    allow(Ai::CredentialEncryptionService).to receive(:encrypt_credentials)
+    allow(Security::CredentialEncryptionService).to receive(:encrypt)
       .and_return('encrypted_test_data')
-    allow(Ai::CredentialEncryptionService).to receive(:decrypt_credentials)
-      .and_return('{"api_key": "***masked***"}')
+    allow(Security::CredentialEncryptionService).to receive(:decrypt)
+      .and_return({ "api_key" => "***masked***" })
   end
 
   config.after(:each, :security) do
