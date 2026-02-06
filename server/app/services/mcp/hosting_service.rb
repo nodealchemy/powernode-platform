@@ -199,17 +199,25 @@ module Mcp
     # SERVER LIFECYCLE
     # ==========================================================================
 
-    def start_server(server_id)
+    def start_server(server_id, user: nil)
       server = find_server(server_id)
       return nil unless server
 
-      unless %w[stopped failed].include?(server.status)
-        @errors << "Server can only be started from stopped or failed state"
+      unless %w[stopped failed pending].include?(server.status)
+        @errors << "Server can only be started from stopped, failed, or pending state"
         return nil
       end
 
-      server.start!
-      server.reload.summary
+      # If server has a linked container template, delegate to DevOps orchestration
+      if server.container_template.present?
+        start_via_container(server, user)
+      else
+        server.start!
+        server.reload.summary
+      end
+    rescue Devops::ContainerOrchestrationService::OrchestrationError => e
+      @errors << "Container orchestration failed: #{e.message}"
+      nil
     rescue StandardError => e
       @errors << e.message
       nil
@@ -219,23 +227,38 @@ module Mcp
       server = find_server(server_id)
       return nil unless server
 
-      unless server.status == "running"
+      unless %w[running deploying].include?(server.status)
         @errors << "Server can only be stopped when running"
         return nil
       end
 
-      server.stop!
+      # If running via container, cancel through orchestration service
+      if server.container_instance.present?
+        stop_via_container(server)
+      else
+        server.stop!
+      end
+
       server.reload.summary
+    rescue Devops::ContainerOrchestrationService::OrchestrationError => e
+      @errors << "Container orchestration failed: #{e.message}"
+      nil
     rescue StandardError => e
       @errors << e.message
       nil
     end
 
-    def restart_server(server_id)
+    def restart_server(server_id, user: nil)
       server = find_server(server_id)
       return nil unless server
 
-      server.restart!
+      if server.container_template.present? && server.container_instance.present?
+        stop_via_container(server)
+        start_via_container(server, user)
+      else
+        server.restart!
+      end
+
       server.reload.summary
     rescue StandardError => e
       @errors << e.message
@@ -268,15 +291,29 @@ module Mcp
       server = find_server(server_id)
       return nil unless server
 
-      {
+      health = {
         server_id: server_id,
         status: server.status,
         health_status: server.health_status,
         last_health_check: server.last_health_check_at,
         uptime_percentage: server.uptime_percentage.to_f,
-        consecutive_failures: server.consecutive_failures,
-        current_deployment: server.current_deployment&.summary
+        current_deployment: server.current_deployment&.summary,
+        container_backed: server.container_template.present?
       }
+
+      # Add container instance status if running via orchestration
+      if server.container_instance.present?
+        instance = server.container_instance
+        health[:container] = {
+          execution_id: instance.execution_id,
+          status: instance.status,
+          started_at: instance.started_at,
+          memory_used_mb: instance.memory_used_mb,
+          cpu_used_millicores: instance.cpu_used_millicores
+        }
+      end
+
+      health
     end
 
     # ==========================================================================
@@ -399,6 +436,50 @@ module Mcp
     end
 
     private
+
+    # Container orchestration helpers
+
+    def start_via_container(server, user)
+      orchestration = Devops::ContainerOrchestrationService.new(
+        account: account,
+        user: user || server.deployed_by
+      )
+
+      instance = orchestration.execute(
+        template: server.container_template,
+        input_parameters: { mcp_server_id: server.mcp_server_id },
+        timeout_seconds: server.container_template.timeout_seconds
+      )
+
+      server.update!(
+        status: "deploying",
+        container_instance: instance
+      )
+
+      # Update linked McpServer status if present
+      server.mcp_server&.update!(status: "connecting")
+
+      server.reload.summary
+    end
+
+    def stop_via_container(server)
+      if server.container_instance&.active?
+        orchestration = Devops::ContainerOrchestrationService.new(
+          account: account,
+          user: server.deployed_by
+        )
+        orchestration.cancel(server.container_instance.execution_id, reason: "MCP server stopped")
+      end
+
+      server.update!(
+        status: "stopped",
+        current_instances: 0,
+        container_instance: nil
+      )
+
+      # Update linked McpServer status if present
+      server.mcp_server&.update!(status: "disconnected")
+    end
 
     def find_server(server_id)
       server = Mcp::HostedServer.find_by(id: server_id, account: account)

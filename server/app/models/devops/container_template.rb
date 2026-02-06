@@ -10,7 +10,7 @@ module Devops
     # Constants
     VISIBILITIES = %w[private account public].freeze
     STATUSES = %w[active deprecated archived].freeze
-    CATEGORIES = %w[ci-cd testing security devops ai-agent data-processing monitoring utility].freeze
+    CATEGORIES = %w[ci-cd testing security devops ai-agent data-processing monitoring utility mcp-server].freeze
     DEFAULT_TIMEOUT = 3600
     DEFAULT_MEMORY_MB = 512
     DEFAULT_CPU_MILLICORES = 500

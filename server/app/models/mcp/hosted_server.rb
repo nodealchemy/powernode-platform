@@ -13,6 +13,8 @@ module Mcp
     belongs_to :account
     belongs_to :mcp_server, optional: true
     belongs_to :deployed_by, class_name: "User", optional: true
+    belongs_to :container_template, class_name: "Devops::ContainerTemplate", optional: true
+    belongs_to :container_instance, class_name: "Devops::ContainerInstance", optional: true
     has_many :deployments, class_name: "Mcp::ServerDeployment", foreign_key: :hosted_server_id, dependent: :destroy
     has_many :metrics, class_name: "Mcp::ServerMetric", foreign_key: :hosted_server_id, dependent: :destroy
     has_many :subscriptions, class_name: "Mcp::ServerSubscription", foreign_key: :hosted_server_id, dependent: :destroy
