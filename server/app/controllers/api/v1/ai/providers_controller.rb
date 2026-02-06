@@ -285,7 +285,7 @@ module Api
             )
           end
 
-          success = ::Ai::ProviderManagementService.sync_provider_models(@provider)
+          success = ::Ai::ProviderManagementService.sync_provider_models(@provider, force_refresh: true)
 
           if success
             render_success({

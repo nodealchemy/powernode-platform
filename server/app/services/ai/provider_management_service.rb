@@ -691,12 +691,14 @@ class Ai::ProviderManagementService
         provider.update(supported_models: supported_models)
         Rails.logger.info "Successfully synced #{supported_models.length} models for Ollama provider #{provider.id}"
       else
-        Rails.logger.error "Failed to fetch models from any Ollama endpoint"
+        Rails.logger.error "Failed to fetch models from any Ollama endpoint for provider #{provider.id} (base_url: #{base_url})"
         sync_fallback_ollama_models(provider)
+        raise StandardError, "Could not connect to Ollama API at #{base_url}"
       end
-    rescue StandardError => e
+    rescue HTTP::Error, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ETIMEDOUT => e
       Rails.logger.error "Error syncing Ollama models: #{e.message}"
       sync_fallback_ollama_models(provider)
+      raise StandardError, "Could not connect to Ollama API: #{e.message}"
     end
 
     def sync_openai_models(provider)
