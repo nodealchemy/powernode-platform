@@ -2,6 +2,12 @@ import { Page, Locator, expect } from '@playwright/test';
 
 /**
  * Admin Settings Page Object Model
+ *
+ * Matches the actual AdminSettingsPage component which uses:
+ * - PageContainer with title "Admin Settings"
+ * - AdminSettingsTabs component with tab navigation (button-based tabs)
+ * - Sub-routes for each tab: overview, payment-gateways, email, proxy, security, rate-limiting, performance
+ * - No global save button on overview tab (each sub-tab has its own form/actions)
  */
 export class AdminSettingsPage {
   readonly page: Page;
@@ -11,8 +17,10 @@ export class AdminSettingsPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.tabs = page.locator('[role="tab"], [class*="tab"]');
-    this.saveButton = page.getByRole('button', { name: /save|update/i });
+    // AdminSettingsTabs renders button elements for each tab
+    this.tabs = page.locator('nav[aria-label="Admin Settings"] button, [role="tab"], [class*="tab"]');
+    // Save button may not exist on overview, but present on some sub-tabs
+    this.saveButton = page.locator('[data-testid*="save"], button:has-text("Save"), button:has-text("Update"), button[type="submit"]');
     this.resetButton = page.getByRole('button', { name: /reset|cancel/i });
   }
 
@@ -23,11 +31,18 @@ export class AdminSettingsPage {
   }
 
   async goToTab(tabName: string) {
-    await this.tabs.getByText(tabName, { exact: false }).click();
+    // Click the tab button in the AdminSettingsTabs nav
+    const tabButton = this.page.locator(`nav[aria-label="Admin Settings"] button:has-text("${tabName}"), button:has-text("${tabName}")`);
+    if (await tabButton.count() > 0) {
+      await tabButton.first().click();
+      await this.page.waitForTimeout(500);
+    }
   }
 
   async saveSettings() {
-    await this.saveButton.click();
+    if (await this.saveButton.count() > 0 && await this.saveButton.first().isVisible()) {
+      await this.saveButton.first().click();
+    }
   }
 
   // Platform Settings
@@ -76,18 +91,28 @@ export class AdminSettingsPage {
   }
 
   async navigateToEmailSettings() {
-    const emailTab = this.page.getByText(/email/i);
+    // Click the "Email Settings" tab in AdminSettingsTabs
+    const emailTab = this.page.locator('nav[aria-label="Admin Settings"] button:has-text("Email"), button:has-text("Email Settings")');
     if (await emailTab.count() > 0) {
       await emailTab.first().click();
       await this.page.waitForTimeout(500);
+    } else {
+      // Fallback: navigate directly
+      await this.page.goto('/app/admin/settings/email');
+      await this.page.waitForLoadState('networkidle');
     }
   }
 
   async navigateToSecuritySettings() {
-    const securityTab = this.page.getByText(/security/i);
+    // Click the "Security" tab in AdminSettingsTabs
+    const securityTab = this.page.locator('nav[aria-label="Admin Settings"] button:has-text("Security")');
     if (await securityTab.count() > 0) {
       await securityTab.first().click();
       await this.page.waitForTimeout(500);
+    } else {
+      // Fallback: navigate directly
+      await this.page.goto('/app/admin/settings/security');
+      await this.page.waitForLoadState('networkidle');
     }
   }
 }

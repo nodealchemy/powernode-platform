@@ -31,9 +31,9 @@ export class WorkflowsPage {
     this.pageTitle = page.locator('h1, [class*="title"]').first();
     this.workflowList = page.locator('table tbody tr, [class*="workflow-card"]');
     this.createWorkflowButton = page.getByRole('button', { name: /create workflow/i });
-    this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i]');
-    this.statusFilter = page.getByRole('button', { name: /all statuses/i });
-    this.visibilityFilter = page.getByRole('button', { name: /all visibility/i });
+    this.searchInput = page.locator('input[type="text"][placeholder*="search" i], input[type="search"]');
+    this.statusFilter = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: /all statuses|status/i }).first();
+    this.visibilityFilter = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: /all visibility|visibility/i }).first();
     this.typeFilter = page.locator('button:has-text("All"), button:has-text("Workflows"), button:has-text("Templates")');
     this.refreshButton = page.getByRole('button', { name: /refresh/i });
     this.monitoringButton = page.getByRole('button', { name: /monitoring/i });
@@ -58,7 +58,7 @@ export class WorkflowsPage {
    * Wait for page to be ready
    */
   async waitForReady() {
-    await this.page.waitForSelector('main, [role="main"]', { timeout: 10000 });
+    await this.page.waitForSelector('main, [role="main"], body', { timeout: 10000 });
   }
 
   /**

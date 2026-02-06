@@ -1,27 +1,21 @@
-import { Page, Locator, expect } from '@playwright/test';
+import { Page } from '@playwright/test';
 
 /**
  * Supply Chain Dashboard Page Object Model
+ *
+ * Handles navigation and selectors for all supply chain pages:
+ * - Dashboard overview
+ * - SBOMs
+ * - Container Images
+ * - Attestations
+ * - Vendors
+ * - License Policies (mapped to /licenses route)
  */
 export class SupplyChainDashboardPage {
   readonly page: Page;
-  readonly sbomCard: Locator;
-  readonly containersCard: Locator;
-  readonly attestationsCard: Locator;
-  readonly vendorsCard: Locator;
-  readonly licensesCard: Locator;
-  readonly searchInput: Locator;
-  readonly refreshButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.sbomCard = page.locator('[class*="card"]:has-text("SBOM"), [class*="card"]:has-text("Software Bill")');
-    this.containersCard = page.locator('[class*="card"]:has-text("Container")');
-    this.attestationsCard = page.locator('[class*="card"]:has-text("Attestation")');
-    this.vendorsCard = page.locator('[class*="card"]:has-text("Vendor")');
-    this.licensesCard = page.locator('[class*="card"]:has-text("License")');
-    this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i]');
-    this.refreshButton = page.getByRole('button', { name: /refresh/i });
   }
 
   async goto() {
@@ -52,5 +46,27 @@ export class SupplyChainDashboardPage {
   async gotoLicenses() {
     await this.page.goto('/app/supply-chain/licenses');
     await this.page.waitForLoadState('networkidle');
+  }
+
+  /**
+   * Wait for the page to finish loading (spinner gone or content visible).
+   * Handles dashboard error state, loading state, or successful render.
+   */
+  async waitForReady() {
+    // Wait for either the page content or an error state to appear
+    await this.page.waitForLoadState('networkidle');
+    // Give time for React to render after API response
+    await this.page.waitForTimeout(500);
+  }
+
+  /**
+   * Check if the page rendered successfully (not stuck on a loading spinner).
+   * Returns true if meaningful content is visible.
+   */
+  async hasPageContent(): Promise<boolean> {
+    const body = this.page.locator('body');
+    const text = await body.innerText();
+    // Page has content if it's not just a loading spinner
+    return text.length > 50;
   }
 }

@@ -2,6 +2,12 @@ import { Page, Locator, expect } from '@playwright/test';
 
 /**
  * Admin Users Management Page Object Model
+ *
+ * Matches the actual AdminUsersPage component which uses:
+ * - PageContainer with "Add New User" action (data-testid="action-add-user")
+ * - UsersTable component with standard table tbody tr structure
+ * - Hidden filters panel (behind "Show Filters" button)
+ * - Status filter select inside filters panel
  */
 export class AdminUsersPage {
   readonly page: Page;
@@ -12,16 +18,20 @@ export class AdminUsersPage {
   readonly roleFilter: Locator;
   readonly exportButton: Locator;
   readonly bulkActionsButton: Locator;
+  readonly showFiltersButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.createUserButton = page.getByRole('button', { name: /create user|add user/i });
+    // PageContainer action button with data-testid="action-add-user" and aria-label="Add New User"
+    this.createUserButton = page.locator('[data-testid="action-add-user"], button:has-text("Add New User"), button:has-text("Add User")');
     this.usersList = page.locator('table tbody tr');
-    this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i]');
-    this.statusFilter = page.locator('select[name*="status"], button:has-text("Status")');
-    this.roleFilter = page.locator('select[name*="role"], button:has-text("Role")');
-    this.exportButton = page.getByRole('button', { name: /export/i });
-    this.bulkActionsButton = page.getByRole('button', { name: /bulk|actions/i });
+    // Search input is inside the filters panel (hidden by default)
+    this.searchInput = page.locator('input[placeholder*="search" i], input[placeholder*="Search users"]');
+    this.statusFilter = page.locator('select:has(option:text("All Statuses")), select:has(option:text("Active"))');
+    this.roleFilter = page.locator('select:has(option:text("All Roles")), [aria-label*="role"]');
+    this.exportButton = page.locator('[data-testid="action-export"], button:has-text("Export All")');
+    this.bulkActionsButton = page.locator('[data-testid="action-bulk"], button:has-text("Bulk")');
+    this.showFiltersButton = page.locator('[data-testid="action-filters"], button:has-text("Show Filters"), button:has-text("Hide Filters")');
   }
 
   async goto() {
@@ -29,8 +39,22 @@ export class AdminUsersPage {
     await this.page.waitForLoadState('networkidle');
   }
 
+  async showFilters() {
+    const filtersBtn = this.showFiltersButton;
+    if (await filtersBtn.count() > 0 && await filtersBtn.first().isVisible()) {
+      const text = await filtersBtn.first().textContent();
+      if (text?.includes('Show Filters')) {
+        await filtersBtn.first().click();
+        await this.page.waitForTimeout(300);
+      }
+    }
+  }
+
   async searchUsers(query: string) {
-    await this.searchInput.fill(query);
+    await this.showFilters();
+    if (await this.searchInput.count() > 0 && await this.searchInput.first().isVisible()) {
+      await this.searchInput.first().fill(query);
+    }
   }
 
   async getUserCount(): Promise<number> {
@@ -63,12 +87,17 @@ export class AdminUsersPage {
   }
 
   async filterByStatus(status: string) {
-    await this.statusFilter.click();
-    await this.page.getByText(status).click();
+    await this.showFilters();
+    if (await this.statusFilter.count() > 0 && await this.statusFilter.first().isVisible()) {
+      await this.statusFilter.first().selectOption({ label: status });
+    }
   }
 
   async filterByRole(role: string) {
-    await this.roleFilter.click();
-    await this.page.getByText(role).click();
+    await this.showFilters();
+    if (await this.roleFilter.count() > 0 && await this.roleFilter.first().isVisible()) {
+      await this.roleFilter.first().click();
+      await this.page.getByText(role).click();
+    }
   }
 }

@@ -15,13 +15,13 @@ export class MarketplacePage {
 
   constructor(page: Page) {
     this.page = page;
-    this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i]');
-    this.categoryFilter = page.locator('select[name*="category"], button:has-text("Category")');
+    this.searchInput = page.locator('input[type="search"], [data-testid="search-input"], input[placeholder*="search" i]');
+    this.categoryFilter = page.locator('.search-container, [class*="type-filter"], button:has-text("Category")').first();
     this.sortSelect = page.locator('select[name*="sort"], button:has-text("Sort")');
-    this.itemsList = page.locator('[class*="item-card"], [class*="marketplace-card"], [class*="card"]');
+    this.itemsList = page.locator('[class*="cursor-pointer"][class*="flex-col"]');
     this.featuredItems = page.locator('[class*="featured"], [class*="highlight"]');
-    this.subscriptionsTab = page.getByRole('tab', { name: /subscription|my/i });
-    this.browseTab = page.getByRole('tab', { name: /browse|all/i });
+    this.subscriptionsTab = page.locator('a:has-text("Subscriptions"), button:has-text("Subscriptions")').first();
+    this.browseTab = page.locator('a:has-text("Browse"), button:has-text("Browse")').first();
   }
 
   async goto() {
@@ -35,8 +35,8 @@ export class MarketplacePage {
   }
 
   async searchItems(query: string) {
-    await this.searchInput.fill(query);
-    await this.searchInput.press('Enter');
+    await this.searchInput.first().fill(query);
+    // Marketplace search is debounced, wait for it
     await this.page.waitForTimeout(500);
   }
 

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { CustomersPage } from '../pages/business/customers.page';
+import { expectOrAlternateState } from '../fixtures/assertions';
 
 /**
  * Business Customers E2E Tests
@@ -50,20 +51,20 @@ test.describe('Business Customers', () => {
       const hasCustomers = await customersPage.customersList.count() > 0;
       if (hasCustomers) {
         const hasEmail = await customersPage.customersList.first().locator(':text("@")').count() > 0;
-        expect(hasEmail || true).toBeTruthy();
+        await expectOrAlternateState(page, hasEmail);
       }
     });
 
     test('should display subscription status', async ({ page }) => {
       await page.waitForLoadState('networkidle');
       const hasStatusColumn = await page.getByText(/active|inactive|trial|cancelled|status/i).count() > 0;
-      expect(hasStatusColumn || true).toBeTruthy();
+      await expectOrAlternateState(page, hasStatusColumn);
     });
 
     test('should display customer plan', async ({ page }) => {
       await page.waitForLoadState('networkidle');
       const hasPlanColumn = await page.getByText(/plan|subscription|tier/i).count() > 0;
-      expect(hasPlanColumn || true).toBeTruthy();
+      await expectOrAlternateState(page, hasPlanColumn);
     });
 
     test('should show action buttons for each customer', async ({ page }) => {
@@ -71,7 +72,7 @@ test.describe('Business Customers', () => {
       const hasCustomers = await customersPage.customersList.count() > 0;
       if (hasCustomers) {
         const hasActions = await page.getByRole('button', { name: /view|edit|manage/i }).count() > 0;
-        expect(hasActions || true).toBeTruthy();
+        await expectOrAlternateState(page, hasActions);
       }
     });
   });
@@ -126,7 +127,7 @@ test.describe('Business Customers', () => {
       await customersPage.createCustomerButton.first().click();
       await page.waitForTimeout(500);
       const hasPlanSelect = await page.locator('select[name*="plan"], [class*="plan"]').count() > 0;
-      expect(hasPlanSelect || true).toBeTruthy();
+      await expectOrAlternateState(page, hasPlanSelect);
     });
   });
 
@@ -139,7 +140,7 @@ test.describe('Business Customers', () => {
         await page.waitForTimeout(500);
         // Should navigate to details or open modal
         const hasDetails = await page.getByText(/detail|subscription|invoice/i).count() > 0;
-        expect(hasDetails || true).toBeTruthy();
+        await expectOrAlternateState(page, hasDetails);
       }
     });
 
@@ -150,7 +151,7 @@ test.describe('Business Customers', () => {
         await customersPage.viewCustomer(await customersPage.customersList.first().textContent() || '');
         await page.waitForTimeout(500);
         const hasSubscription = await page.getByText(/subscription|plan|billing/i).count() > 0;
-        expect(hasSubscription || true).toBeTruthy();
+        await expectOrAlternateState(page, hasSubscription);
       }
     });
 
@@ -159,7 +160,7 @@ test.describe('Business Customers', () => {
       const hasCustomers = await customersPage.customersList.count() > 0;
       if (hasCustomers) {
         const hasInvoices = await page.getByText(/invoice|payment|history/i).count() > 0;
-        expect(hasInvoices || true).toBeTruthy();
+        await expectOrAlternateState(page, hasInvoices);
       }
     });
   });
@@ -202,7 +203,7 @@ test.describe('Business Customers', () => {
     test('should display pagination if many customers', async ({ page }) => {
       await page.waitForLoadState('networkidle');
       const hasPagination = await page.locator('[class*="pagination"], [class*="pager"]').count() > 0;
-      expect(hasPagination || true).toBeTruthy();
+      await expectOrAlternateState(page, hasPagination);
     });
   });
 });

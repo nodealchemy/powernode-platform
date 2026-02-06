@@ -1,7 +1,14 @@
-import { Page, Locator, expect } from '@playwright/test';
+import { Page, Locator } from '@playwright/test';
 
 /**
  * Public Pages Object Model
+ *
+ * Covers actual public routes:
+ *   /welcome (homepage redirect target)
+ *   /plans   (pricing redirect target)
+ *   /status
+ *   /login
+ *   /register
  */
 export class PublicPage {
   readonly page: Page;
@@ -13,8 +20,8 @@ export class PublicPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.header = page.locator('header, [class*="header"]').first();
-    this.footer = page.locator('footer, [class*="footer"]').first();
+    this.header = page.locator('header').first();
+    this.footer = page.locator('footer').first();
     this.loginButton = page.getByRole('link', { name: /login|sign in/i });
     this.signUpButton = page.getByRole('link', { name: /sign up|register|get started/i });
     this.navigationLinks = page.locator('header a, nav a');
@@ -26,22 +33,7 @@ export class PublicPage {
   }
 
   async gotoPricing() {
-    await this.page.goto('/pricing');
-    await this.page.waitForLoadState('networkidle');
-  }
-
-  async gotoAbout() {
-    await this.page.goto('/about');
-    await this.page.waitForLoadState('networkidle');
-  }
-
-  async gotoContact() {
-    await this.page.goto('/contact');
-    await this.page.waitForLoadState('networkidle');
-  }
-
-  async gotoFeatures() {
-    await this.page.goto('/features');
+    await this.page.goto('/plans');
     await this.page.waitForLoadState('networkidle');
   }
 
@@ -50,13 +42,18 @@ export class PublicPage {
     await this.page.waitForLoadState('networkidle');
   }
 
-  async gotoLegal() {
-    await this.page.goto('/legal');
+  async gotoWelcome() {
+    await this.page.goto('/welcome');
     await this.page.waitForLoadState('networkidle');
   }
 
-  async gotoWelcome() {
-    await this.page.goto('/welcome');
+  async gotoLogin() {
+    await this.page.goto('/login');
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async gotoRegister() {
+    await this.page.goto('/register');
     await this.page.waitForLoadState('networkidle');
   }
 }

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { RepositoriesPage } from '../pages/devops/repositories.page';
+import { expectOrAlternateState } from '../fixtures/assertions';
 
 /**
  * Repositories E2E Tests
@@ -50,7 +51,7 @@ test.describe('Repositories', () => {
       const hasRepos = await reposPage.repositoriesList.count() > 0;
       if (hasRepos) {
         const hasProvider = await page.getByText(/github|gitlab|gitea|bitbucket/i).count() > 0;
-        expect(hasProvider || true).toBeTruthy();
+        await expectOrAlternateState(page, hasProvider);
       }
     });
 
@@ -59,7 +60,7 @@ test.describe('Repositories', () => {
       const hasRepos = await reposPage.repositoriesList.count() > 0;
       if (hasRepos) {
         const hasBranch = await page.getByText(/main|master|branch/i).count() > 0;
-        expect(hasBranch || true).toBeTruthy();
+        await expectOrAlternateState(page, hasBranch);
       }
     });
 
@@ -68,7 +69,7 @@ test.describe('Repositories', () => {
       const hasRepos = await reposPage.repositoriesList.count() > 0;
       if (hasRepos) {
         const hasWebhookStatus = await page.getByText(/webhook|configured|active/i).count() > 0;
-        expect(hasWebhookStatus || true).toBeTruthy();
+        await expectOrAlternateState(page, hasWebhookStatus);
       }
     });
 
@@ -77,7 +78,7 @@ test.describe('Repositories', () => {
       const hasRepos = await reposPage.repositoriesList.count() > 0;
       if (hasRepos) {
         const hasActivity = await page.getByText(/ago|last.*commit|updated/i).count() > 0;
-        expect(hasActivity || true).toBeTruthy();
+        await expectOrAlternateState(page, hasActivity);
       }
     });
   });
@@ -139,7 +140,7 @@ test.describe('Repositories', () => {
       const hasRepos = await reposPage.repositoriesList.count() > 0;
       if (hasRepos) {
         const hasWebhookButton = await page.getByRole('button', { name: /webhook|configure/i }).count() > 0;
-        expect(hasWebhookButton || true).toBeTruthy();
+        await expectOrAlternateState(page, hasWebhookButton);
       }
     });
 
@@ -148,7 +149,7 @@ test.describe('Repositories', () => {
       const hasRepos = await reposPage.repositoriesList.count() > 0;
       if (hasRepos) {
         const hasCommitButton = await page.getByRole('button', { name: /commit|history/i }).count() > 0;
-        expect(hasCommitButton || true).toBeTruthy();
+        await expectOrAlternateState(page, hasCommitButton);
       }
     });
   });
@@ -171,7 +172,7 @@ test.describe('Repositories', () => {
         await reposPage.repositoriesList.first().click();
         await page.waitForTimeout(500);
         const hasMetadata = await page.getByText(/description|language|created|url/i).count() > 0;
-        expect(hasMetadata || true).toBeTruthy();
+        await expectOrAlternateState(page, hasMetadata);
       }
     });
   });
@@ -182,7 +183,7 @@ test.describe('Repositories', () => {
       const hasRepos = await reposPage.repositoriesList.count() > 0;
       if (hasRepos) {
         const hasCommits = await page.getByText(/commit|sha|author/i).count() > 0;
-        expect(hasCommits || true).toBeTruthy();
+        await expectOrAlternateState(page, hasCommits);
       }
     });
   });
@@ -193,7 +194,7 @@ test.describe('Repositories', () => {
       const hasRepos = await reposPage.repositoriesList.count() > 0;
       if (hasRepos) {
         const hasBranches = await page.getByText(/branch|main|master/i).count() > 0;
-        expect(hasBranches || true).toBeTruthy();
+        await expectOrAlternateState(page, hasBranches);
       }
     });
   });
@@ -202,7 +203,7 @@ test.describe('Repositories', () => {
     test('should display pagination for many repositories', async ({ page }) => {
       await page.waitForLoadState('networkidle');
       const hasPagination = await page.locator('[class*="pagination"], [class*="pager"]').count() > 0;
-      expect(hasPagination || true).toBeTruthy();
+      await expectOrAlternateState(page, hasPagination);
     });
   });
 });

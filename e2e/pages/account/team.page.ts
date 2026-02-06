@@ -2,6 +2,11 @@ import { Page, Locator, expect } from '@playwright/test';
 
 /**
  * Team Management Page Object Model
+ *
+ * Matches the actual UsersPage component at /app/users which uses:
+ * - PageContainer with "Add New User" action (data-testid="action-add-user")
+ * - TeamMembersTable component with standard table tbody tr structure
+ * - Hidden filters panel (behind "Show Filters" button)
  */
 export class TeamPage {
   readonly page: Page;
@@ -9,31 +14,48 @@ export class TeamPage {
   readonly membersList: Locator;
   readonly searchInput: Locator;
   readonly roleFilter: Locator;
+  readonly showFiltersButton: Locator;
 
-  // Invite Modal
+  // Invite/Create Modal
   readonly inviteEmailInput: Locator;
   readonly inviteRoleSelect: Locator;
   readonly sendInviteButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.inviteButton = page.getByRole('button', { name: /invite|add member/i });
-    this.membersList = page.locator('table tbody tr, [class*="member-card"]');
-    this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i]');
-    this.roleFilter = page.locator('select[name*="role"], [aria-label*="role"]');
+    // PageContainer action button - "Add New User"
+    this.inviteButton = page.locator('[data-testid="action-add-user"], button:has-text("Add New User"), button:has-text("Add User")');
+    this.membersList = page.locator('table tbody tr');
+    // Search input is inside the filters panel (hidden by default)
+    this.searchInput = page.locator('input[placeholder*="search" i], input[placeholder*="Search users"]');
+    this.roleFilter = page.locator('select:has(option:text("All Roles")), [aria-label*="role"]');
+    this.showFiltersButton = page.locator('[data-testid="action-filters"], button:has-text("Show Filters"), button:has-text("Hide Filters")');
 
-    this.inviteEmailInput = page.locator('input[type="email"][name*="email"]');
-    this.inviteRoleSelect = page.locator('select[name*="role"]');
-    this.sendInviteButton = page.getByRole('button', { name: /send|invite/i });
+    this.inviteEmailInput = page.locator('input[type="email"]');
+    this.inviteRoleSelect = page.locator('select:has(option)');
+    this.sendInviteButton = page.getByRole('button', { name: /send|invite|create/i });
   }
 
   async goto() {
-    await this.page.goto('/app/account/team');
+    // Actual route is /app/users (not /app/account/team)
+    await this.page.goto('/app/users');
     await this.page.waitForLoadState('networkidle');
   }
 
+  async showFilters() {
+    const filtersBtn = this.showFiltersButton;
+    if (await filtersBtn.count() > 0 && await filtersBtn.first().isVisible()) {
+      const text = await filtersBtn.first().textContent();
+      if (text?.includes('Show Filters')) {
+        await filtersBtn.first().click();
+        await this.page.waitForTimeout(300);
+      }
+    }
+  }
+
   async inviteMember(email: string, role?: string) {
-    await this.inviteButton.click();
+    await this.inviteButton.first().click();
+    await this.page.waitForTimeout(500);
     await this.inviteEmailInput.fill(email);
     if (role && await this.inviteRoleSelect.isVisible()) {
       await this.inviteRoleSelect.selectOption(role);
@@ -42,7 +64,10 @@ export class TeamPage {
   }
 
   async searchMembers(query: string) {
-    await this.searchInput.fill(query);
+    await this.showFilters();
+    if (await this.searchInput.count() > 0 && await this.searchInput.first().isVisible()) {
+      await this.searchInput.first().fill(query);
+    }
   }
 
   async getMemberCount(): Promise<number> {

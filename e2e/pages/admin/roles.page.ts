@@ -2,6 +2,12 @@ import { Page, Locator, expect } from '@playwright/test';
 
 /**
  * Admin Roles Management Page Object Model
+ *
+ * Matches the actual AdminRolesPage component which uses:
+ * - PageContainer with "Create Role" action (data-testid="action-create-role")
+ * - Card-based layout (NOT table) - roles displayed in grid cards
+ * - RoleFormModal with FormField components for name/description
+ * - Checkbox-based permission selection
  */
 export class AdminRolesPage {
   readonly page: Page;
@@ -17,14 +23,18 @@ export class AdminRolesPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.createRoleButton = page.getByRole('button', { name: /create role|add role/i });
-    this.rolesList = page.locator('table tbody tr, [class*="role-card"]');
+    // PageContainer action button - "Create Role"
+    this.createRoleButton = page.locator('[data-testid="action-create-role"], button:has-text("Create Role"), button:has-text("New Role"), button:has-text("Create Your First Role")');
+    // Roles are displayed as cards in a grid, not table rows
+    // Match the card containers that have role names
+    this.rolesList = page.locator('.grid > div:has(h3)');
     this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i]');
 
-    this.roleNameInput = page.locator('input[name="name"]');
-    this.roleDescriptionInput = page.locator('textarea[name="description"], input[name="description"]');
-    this.permissionsChecklist = page.locator('[class*="permission"], input[type="checkbox"]');
-    this.saveButton = page.getByRole('button', { name: /save|create/i });
+    // RoleFormModal uses FormField component - match by placeholder or label association
+    this.roleNameInput = page.locator('input[placeholder*="Content Manager"], input[placeholder*="name" i], [role="dialog"] input[type="text"]').first();
+    this.roleDescriptionInput = page.locator('textarea[placeholder*="Describe"], textarea, [role="dialog"] textarea').first();
+    this.permissionsChecklist = page.locator('[role="dialog"] input[type="checkbox"], .max-h-96 input[type="checkbox"]');
+    this.saveButton = page.getByRole('button', { name: /save|create|update/i });
   }
 
   async goto() {
@@ -33,7 +43,8 @@ export class AdminRolesPage {
   }
 
   async createRole(name: string, description: string, permissions: string[]) {
-    await this.createRoleButton.click();
+    await this.createRoleButton.first().click();
+    await this.page.waitForTimeout(500);
     await this.roleNameInput.fill(name);
     await this.roleDescriptionInput.fill(description);
 
@@ -49,7 +60,7 @@ export class AdminRolesPage {
   }
 
   getRoleRow(name: string): Locator {
-    return this.page.locator(`tr:has-text("${name}"), [class*="role"]:has-text("${name}")`);
+    return this.page.locator(`div:has(h3:has-text("${name}"))`);
   }
 
   async editRole(name: string) {

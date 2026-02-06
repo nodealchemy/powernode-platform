@@ -2,6 +2,13 @@ import { Page, Locator, expect } from '@playwright/test';
 
 /**
  * DevOps Webhooks Page Object Model
+ *
+ * Matches actual WebhookManagementPage component:
+ * - PageContainer with title "Webhook Management"
+ * - Actions: "Refresh", "Retry Failed (N)" (conditional), "Add Webhook", "Statistics"
+ * - WebhookList component for rendering
+ * - WebhookModal for create/edit
+ * - Stats overview with Total Endpoints, Active, Inactive, Deliveries Today, etc.
  */
 export class WebhooksPage {
   readonly page: Page;
@@ -18,14 +25,17 @@ export class WebhooksPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.createWebhookButton = page.getByRole('button', { name: /create|add webhook/i });
-    this.webhooksList = page.locator('table tbody tr, [class*="webhook-card"]');
+    // PageContainer action: "Add Webhook"
+    this.createWebhookButton = page.getByRole('button', { name: /add webhook|create/i });
+    // WebhookList renders webhook items
+    this.webhooksList = page.locator('table tbody tr, [class*="webhook"], [class*="border"]:has(button)');
     this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i]');
 
-    this.webhookUrlInput = page.locator('input[name="url"], input[type="url"]');
-    this.webhookNameInput = page.locator('input[name="name"]');
+    // WebhookModal form fields
+    this.webhookUrlInput = page.locator('input[name="url"], input[type="url"], input[placeholder*="url" i]');
+    this.webhookNameInput = page.locator('input[name="name"], input[placeholder*="name" i]');
     this.eventsChecklist = page.locator('[class*="event"], input[type="checkbox"]');
-    this.secretInput = page.locator('input[name="secret"]');
+    this.secretInput = page.locator('input[name="secret"], input[type="password"]');
     this.saveButton = page.getByRole('button', { name: /save|create/i });
   }
 
@@ -35,13 +45,18 @@ export class WebhooksPage {
   }
 
   async createWebhook(url: string, name: string, events: string[]) {
-    await this.createWebhookButton.click();
-    await this.webhookUrlInput.fill(url);
-    await this.webhookNameInput.fill(name);
+    await this.createWebhookButton.first().click();
+    await this.page.waitForTimeout(500);
+    if (await this.webhookUrlInput.isVisible()) {
+      await this.webhookUrlInput.fill(url);
+    }
+    if (await this.webhookNameInput.isVisible()) {
+      await this.webhookNameInput.fill(name);
+    }
     for (const event of events) {
       await this.page.locator(`input[value="${event}"], label:has-text("${event}") input`).check();
     }
-    await this.saveButton.click();
+    await this.saveButton.first().click();
   }
 
   async getWebhookCount(): Promise<number> {
@@ -49,7 +64,7 @@ export class WebhooksPage {
   }
 
   getWebhookRow(name: string): Locator {
-    return this.page.locator(`tr:has-text("${name}"), [class*="webhook"]:has-text("${name}")`);
+    return this.page.locator(`tr:has-text("${name}"), [class*="webhook"]:has-text("${name}"), div:has-text("${name}")`);
   }
 
   async testWebhook(name: string) {

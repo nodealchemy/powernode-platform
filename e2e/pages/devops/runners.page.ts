@@ -2,6 +2,15 @@ import { Page, Locator, expect } from '@playwright/test';
 
 /**
  * Runners Page Object Model
+ *
+ * Matches actual RunnersPage component:
+ * - PageContainer with title "DevOps Runners"
+ * - Actions: "Sync Runners" (primary), "Refresh" (secondary)
+ * - No "add runner" or "register" button - runners come from git providers
+ * - Runner cards rendered as RunnerCard components
+ * - Search input with placeholder "Search runners..."
+ * - Status filter as <select> element
+ * - Stats cards showing Total, Online, Busy, Offline
  */
 export class RunnersPage {
   readonly page: Page;
@@ -16,7 +25,7 @@ export class RunnersPage {
   readonly busyRunners: Locator;
   readonly offlineRunners: Locator;
 
-  // Register Runner Form
+  // Register Runner Form (not applicable - runners come from sync)
   readonly runnerNameInput: Locator;
   readonly runnerTagsInput: Locator;
   readonly registrationTokenDisplay: Locator;
@@ -25,18 +34,20 @@ export class RunnersPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.addRunnerButton = page.getByRole('button', { name: /add.*runner|register|new/i });
-    this.runnersList = page.locator('table tbody tr, [class*="runner-card"], [class*="card"]');
-    this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i]');
-    this.statusFilter = page.locator('select[name*="status"], button:has-text("Status")');
+    // The page has "Sync Runners" instead of "Add Runner"
+    this.addRunnerButton = page.getByRole('button', { name: /sync.*runner|add.*runner|register|new/i });
+    // Runner cards use bg-theme-surface with cursor-pointer
+    this.runnersList = page.locator('.cursor-pointer:has(h3), [class*="cursor-pointer"]:has(h3)');
+    this.searchInput = page.locator('input[placeholder*="search" i], input[type="search"]');
+    this.statusFilter = page.locator('select');
     this.refreshButton = page.getByRole('button', { name: /refresh/i });
 
-    // Status indicators
-    this.onlineRunners = page.locator('[class*="online"], :text("Online")');
-    this.busyRunners = page.locator('[class*="busy"], :text("Busy")');
-    this.offlineRunners = page.locator('[class*="offline"], :text("Offline")');
+    // Status indicators from StatsCards
+    this.onlineRunners = page.locator('text=Online').first();
+    this.busyRunners = page.locator('text=Busy').first();
+    this.offlineRunners = page.locator('text=Offline').first();
 
-    // Form
+    // Form fields (may not exist since runners are synced, not created)
     this.runnerNameInput = page.locator('input[name="name"]');
     this.runnerTagsInput = page.locator('input[name="tags"]');
     this.registrationTokenDisplay = page.locator('[class*="token"], code, pre');
@@ -57,11 +68,13 @@ export class RunnersPage {
   async registerRunner(name: string, tags?: string) {
     await this.addRunnerButton.first().click();
     await this.page.waitForTimeout(500);
-    await this.runnerNameInput.fill(name);
-    if (tags) {
-      await this.runnerTagsInput.fill(tags);
+    if (await this.runnerNameInput.isVisible()) {
+      await this.runnerNameInput.fill(name);
+      if (tags && await this.runnerTagsInput.isVisible()) {
+        await this.runnerTagsInput.fill(tags);
+      }
+      await this.saveButton.first().click();
     }
-    await this.saveButton.first().click();
   }
 
   async getRunnerCount(): Promise<number> {
@@ -69,7 +82,7 @@ export class RunnersPage {
   }
 
   getRunnerRow(name: string): Locator {
-    return this.page.locator(`tr:has-text("${name}"), [class*="card"]:has-text("${name}")`);
+    return this.page.locator(`[class*="cursor-pointer"]:has-text("${name}"), [class*="card"]:has-text("${name}")`);
   }
 
   async viewRunner(name: string) {
@@ -84,8 +97,7 @@ export class RunnersPage {
   }
 
   async filterByStatus(status: string) {
-    await this.statusFilter.click();
-    await this.page.getByText(status).click();
+    await this.statusFilter.selectOption(status);
     await this.page.waitForTimeout(500);
   }
 

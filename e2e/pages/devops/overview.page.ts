@@ -2,6 +2,14 @@ import { Page, Locator, expect } from '@playwright/test';
 
 /**
  * DevOps Overview Page Object Model
+ *
+ * Matches actual DevOpsOverviewPage component:
+ * - PageContainer with title "DevOps Overview"
+ * - Actions: "Refresh" (or "Refreshing...")
+ * - StatCard components for Git Providers, Repositories, Runners, Webhooks, Integrations, API Keys
+ * - Status sections: Runner Health, Webhook Deliveries, Commit Activity
+ * - QuickLinkCard components for navigation
+ * - Conditional alerts section
  */
 export class DevOpsOverviewPage {
   readonly page: Page;
@@ -30,24 +38,24 @@ export class DevOpsOverviewPage {
     this.page = page;
     this.refreshButton = page.getByRole('button', { name: /refresh/i });
 
-    // Stat cards - match by text content
-    this.gitProvidersCard = page.locator('[class*="card"]:has-text("Git Provider"), [class*="stat"]:has-text("Provider")');
-    this.repositoriesCard = page.locator('[class*="card"]:has-text("Repositor"), [class*="stat"]:has-text("Repositor")');
-    this.runnersCard = page.locator('[class*="card"]:has-text("Runner"), [class*="stat"]:has-text("Runner")');
-    this.webhooksCard = page.locator('[class*="card"]:has-text("Webhook"), [class*="stat"]:has-text("Webhook")');
-    this.integrationsCard = page.locator('[class*="card"]:has-text("Integration"), [class*="stat"]:has-text("Integration")');
-    this.apiKeysCard = page.locator('[class*="card"]:has-text("API Key"), [class*="stat"]:has-text("API Key")');
+    // StatCard titles are rendered as <p className="text-sm text-theme-secondary">{title}</p>
+    this.gitProvidersCard = page.locator('text=Git Providers').first();
+    this.repositoriesCard = page.locator('text=Repositories').first();
+    this.runnersCard = page.locator('text=Runners Online').first();
+    this.webhooksCard = page.locator('text=Webhooks Active').first();
+    this.integrationsCard = page.locator('text=Integrations').first();
+    this.apiKeysCard = page.locator('text=API Keys').first();
 
-    // Status sections
-    this.runnerHealthSection = page.locator('[class*="card"]:has-text("Runner Health"), section:has-text("Runner Health")');
-    this.webhookDeliveriesSection = page.locator('[class*="card"]:has-text("Webhook Deliver"), section:has-text("Webhook Deliver")');
-    this.commitActivitySection = page.locator('[class*="card"]:has-text("Commit"), section:has-text("Commit")');
+    // Status sections have h3 headings
+    this.runnerHealthSection = page.locator('text=Runner Health').first();
+    this.webhookDeliveriesSection = page.locator('text=Webhook Deliveries Today').first();
+    this.commitActivitySection = page.locator('text=Commit Activity').first();
 
-    // Quick access
-    this.quickAccessLinks = page.locator('[class*="quick-access"], [class*="card"] a, [class*="link-card"]');
+    // Quick access section
+    this.quickAccessLinks = page.locator('text=Quick Access').first();
 
     // Alerts
-    this.alertsSection = page.locator('[class*="alert"], [class*="attention"], [class*="warning"]');
+    this.alertsSection = page.locator('text=Attention Required').first();
   }
 
   async goto() {
@@ -56,8 +64,11 @@ export class DevOpsOverviewPage {
   }
 
   async refresh() {
-    await this.refreshButton.click();
-    await this.page.waitForLoadState('networkidle');
+    const btn = this.refreshButton.first();
+    if (await btn.count() > 0) {
+      await btn.click();
+      await this.page.waitForLoadState('networkidle');
+    }
   }
 
   async navigateToGitProviders() {

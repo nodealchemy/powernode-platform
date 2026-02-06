@@ -7,6 +7,13 @@ import { ROUTES, API_ENDPOINTS } from '../fixtures/test-data';
  * Uses page.route() to intercept API calls and return mock data.
  * No backend required. Tests UI rendering, session list, detail view,
  * create modal, tabs, merge status, and state transitions.
+ *
+ * Selector notes (matching actual component DOM):
+ * - Card component: no "Card" CSS class; uses bg-theme-surface, cursor-pointer, rounded-xl, etc.
+ * - Badge component: uses badge-theme, badge-theme-success, etc. (no "Badge" class)
+ * - TabsTrigger: renders as <button> without role="tab" (inside flex border-b container)
+ * - Modal: renders with role="dialog" (standard ARIA)
+ * - PageContainer actions: rendered with data-testid="action-{id}" and aria-label
  */
 
 // Mock data factories
@@ -252,6 +259,18 @@ async function setupApiMocks(page: Page, options: { sessions?: Record<string, un
   });
 }
 
+// Helper: locate session cards in the DOM
+// Card component renders <div class="... bg-theme-surface ... cursor-pointer ...">
+function sessionCardLocator(page: Page) {
+  return page.locator('[class*="cursor-pointer"][class*="bg-theme-surface"]');
+}
+
+// Helper: locate tab buttons (TabsTrigger renders as <button> inside flex border-b container)
+function tabButton(page: Page, name: RegExp) {
+  const tabsContainer = page.locator('[class*="border-b"][class*="bg-theme-surface"]');
+  return tabsContainer.getByRole('button', { name });
+}
+
 test.describe('Parallel Execution Page', () => {
   test.beforeEach(async ({ page }) => {
     page.on('pageerror', () => {});
@@ -268,7 +287,7 @@ test.describe('Parallel Execution Page', () => {
     });
 
     test('should display page title', async ({ page }) => {
-      await expect(page.locator('body')).toContainText('Parallel Execution');
+      await expect(page.locator('h1')).toContainText('Parallel Execution');
     });
 
     test('should display breadcrumbs', async ({ page }) => {
@@ -282,7 +301,7 @@ test.describe('Parallel Execution Page', () => {
 
   test.describe('Session List', () => {
     test('should display session cards', async ({ page }) => {
-      const cards = page.locator('[class*="Card"][class*="cursor-pointer"]');
+      const cards = sessionCardLocator(page);
       await expect(cards.first()).toBeVisible({ timeout: 5000 });
       expect(await cards.count()).toBeGreaterThan(0);
     });
@@ -335,7 +354,8 @@ test.describe('Parallel Execution Page', () => {
     });
 
     test('should show refresh button', async ({ page }) => {
-      const refreshBtn = page.locator('button').filter({ has: page.locator('svg.lucide-refresh-cw') });
+      // RefreshCw icon from lucide renders as <svg class="lucide lucide-refresh-cw ...">
+      const refreshBtn = page.locator('button').filter({ has: page.locator('svg[class*="lucide-refresh"]') });
       await expect(refreshBtn).toBeVisible();
     });
   });
@@ -374,7 +394,8 @@ test.describe('Parallel Execution Page', () => {
       await expect(dialog).toContainText('Merge Strategy');
       await expect(dialog).toContainText('Sequential');
       await expect(dialog).toContainText('Integration Branch');
-      await expect(dialog).toContainText('Manual');
+      // "Manual (PR-based)" is the option text
+      await expect(dialog).toContainText(/Manual/);
     });
 
     test('should have max parallel input', async ({ page }) => {
@@ -382,7 +403,7 @@ test.describe('Parallel Execution Page', () => {
       const dialog = page.locator('[role="dialog"]');
       await expect(dialog).toContainText('Max Parallel');
       const numInput = dialog.locator('input[type="number"]');
-      await expect(numInput).toBeVisible();
+      await expect(numInput.first()).toBeVisible();
     });
 
     test('should have branch suffixes input', async ({ page }) => {
@@ -424,7 +445,7 @@ test.describe('Parallel Execution Page', () => {
       const dialog = page.locator('[role="dialog"]');
       // Fill repository path
       await dialog.locator('input').first().fill('/home/user/project');
-      // Fill branch suffixes
+      // Fill branch suffixes (last input in the dialog)
       await dialog.locator('input').last().fill('feature-a, feature-b');
       const createBtn = dialog.getByRole('button', { name: /create session/i });
       await expect(createBtn).toBeEnabled();
@@ -435,22 +456,23 @@ test.describe('Parallel Execution Page', () => {
 
   test.describe('Session Detail View', () => {
     test('should navigate to detail view on card click', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      await expect(page.getByRole('button', { name: /back to list/i })).toBeVisible();
+      // PageContainer action "Back to List" has data-testid="action-back"
+      await expect(page.locator('[data-testid="action-back"]')).toBeVisible();
     });
 
     test('should show session status badge', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      // Detail view should show a status badge
-      await expect(page.locator('[class*="Badge"]').first()).toBeVisible();
+      // Badge component uses badge-theme classes
+      await expect(page.locator('[class*="badge-theme"]').first()).toBeVisible();
     });
 
     test('should show summary cards', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
       await expect(page.locator('body')).toContainText('Worktrees');
@@ -459,7 +481,7 @@ test.describe('Parallel Execution Page', () => {
     });
 
     test('should show progress bar', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
       const progressBar = page.locator('[class*="rounded-full"][class*="overflow-hidden"]').first();
@@ -471,7 +493,7 @@ test.describe('Parallel Execution Page', () => {
         status: 'failed',
         error_message: 'Merge conflict in src/main.ts',
       });
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
       await expect(page.locator('body')).toContainText('Merge conflict');
@@ -480,49 +502,44 @@ test.describe('Parallel Execution Page', () => {
 
   test.describe('Tab Navigation', () => {
     test.beforeEach(async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
     });
 
     test('should show Agents tab by default', async ({ page }) => {
-      const agentsTab = page.getByRole('tab', { name: /agents/i });
-      await expect(agentsTab).toBeVisible();
+      await expect(tabButton(page, /agents/i)).toBeVisible();
     });
 
     test('should show Timeline tab', async ({ page }) => {
-      const timelineTab = page.getByRole('tab', { name: /timeline/i });
-      await expect(timelineTab).toBeVisible();
+      await expect(tabButton(page, /timeline/i)).toBeVisible();
     });
 
     test('should show Graph tab', async ({ page }) => {
-      const graphTab = page.getByRole('tab', { name: /graph/i });
-      await expect(graphTab).toBeVisible();
+      await expect(tabButton(page, /graph/i)).toBeVisible();
     });
 
     test('should show Merges tab', async ({ page }) => {
-      const mergesTab = page.getByRole('tab', { name: /merges/i });
-      await expect(mergesTab).toBeVisible();
+      await expect(tabButton(page, /merges/i)).toBeVisible();
     });
 
     test('should show Configuration tab', async ({ page }) => {
-      const configTab = page.getByRole('tab', { name: /configuration/i });
-      await expect(configTab).toBeVisible();
+      await expect(tabButton(page, /configuration/i)).toBeVisible();
     });
 
     test('should switch to Timeline tab', async ({ page }) => {
-      await page.getByRole('tab', { name: /timeline/i }).click();
+      await tabButton(page, /timeline/i).click();
       await expect(page.locator('body')).toContainText(/timeline|total/i);
     });
 
     test('should switch to Merges tab and show operations', async ({ page }) => {
-      await page.getByRole('tab', { name: /merges/i }).click();
+      await tabButton(page, /merges/i).click();
       // Merges tab should show merge operation details with branch arrows
       await expect(page.locator('body')).toContainText(/merge|sequential/i);
     });
 
     test('should switch to Configuration tab and show config', async ({ page }) => {
-      await page.getByRole('tab', { name: /configuration/i }).click();
+      await tabButton(page, /configuration/i).click();
       await expect(page.locator('body')).toContainText('Session Configuration');
       await expect(page.locator('body')).toContainText('Repository');
       await expect(page.locator('body')).toContainText('Base Branch');
@@ -533,7 +550,7 @@ test.describe('Parallel Execution Page', () => {
 
   test.describe('Agent Lanes', () => {
     test('should display agent lane cards in agents tab', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
 
@@ -542,7 +559,7 @@ test.describe('Parallel Execution Page', () => {
     });
 
     test('should show worktree branch info', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
 
@@ -552,19 +569,20 @@ test.describe('Parallel Execution Page', () => {
     test('should display empty state when no worktrees', async ({ page }) => {
       currentSessionDetail = createMockSessionDetail();
       currentSessionDetail.worktrees = [];
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
+      // AgentLanesPanel shows "No worktrees provisioned yet."
       await expect(page.locator('body')).toContainText(/no worktrees/i);
     });
   });
 
   test.describe('Merge Status', () => {
     test('should display merge operations in merges tab', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      await page.getByRole('tab', { name: /merges/i }).click();
+      await tabButton(page, /merges/i).click();
 
       // Should show at least one merge operation
       await expect(page.locator('body')).toContainText(/feature-a|feature-b/i);
@@ -573,12 +591,13 @@ test.describe('Parallel Execution Page', () => {
     test('should display empty merge state when no operations', async ({ page }) => {
       currentSessionDetail = createMockSessionDetail();
       currentSessionDetail.merge_operations = [];
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      await page.getByRole('tab', { name: /merges/i }).click();
+      await tabButton(page, /merges/i).click();
 
-      await expect(page.locator('body')).toContainText('No merge operations yet');
+      // MergeStatusPanel shows "No merge operations yet."
+      await expect(page.locator('body')).toContainText(/No merge operations yet/);
     });
 
     test('should show retry merge button when merge failed', async ({ page }) => {
@@ -586,10 +605,10 @@ test.describe('Parallel Execution Page', () => {
       currentSessionDetail.merge_operations = [
         createMockMergeOperation({ status: 'failed', has_conflicts: false }) as ReturnType<typeof createMockMergeOperation>,
       ];
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      await page.getByRole('tab', { name: /merges/i }).click();
+      await tabButton(page, /merges/i).click();
 
       await expect(page.getByRole('button', { name: /retry merge/i })).toBeVisible();
     });
@@ -603,10 +622,10 @@ test.describe('Parallel Execution Page', () => {
           conflict_files: ['src/main.ts', 'src/utils.ts'],
         }) as ReturnType<typeof createMockMergeOperation>,
       ];
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      await page.getByRole('tab', { name: /merges/i }).click();
+      await tabButton(page, /merges/i).click();
 
       await expect(page.locator('body')).toContainText('Conflict Files');
       await expect(page.locator('body')).toContainText('src/main.ts');
@@ -629,10 +648,10 @@ test.describe('Parallel Execution Page', () => {
         });
       });
 
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      await page.getByRole('tab', { name: /merges/i }).click();
+      await tabButton(page, /merges/i).click();
 
       const retryBtn = page.getByRole('button', { name: /retry merge/i });
       await expect(retryBtn).toBeVisible();
@@ -645,12 +664,13 @@ test.describe('Parallel Execution Page', () => {
 
   test.describe('Back Navigation', () => {
     test('should return to list view when clicking Back to List', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      await expect(page.getByRole('button', { name: /back to list/i })).toBeVisible();
+      const backBtn = page.locator('[data-testid="action-back"]');
+      await expect(backBtn).toBeVisible();
 
-      await page.getByRole('button', { name: /back to list/i }).click();
+      await backBtn.click();
       await page.waitForLoadState('networkidle');
       await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
     });
@@ -660,40 +680,40 @@ test.describe('Parallel Execution Page', () => {
     for (const status of ['pending', 'provisioning', 'active', 'merging', 'completed', 'failed', 'cancelled'] as const) {
       test(`should display ${status} status in detail view`, async ({ page }) => {
         currentSessionDetail = createMockSessionDetail({ status });
-        const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+        const card = sessionCardLocator(page).first();
         await card.click();
         await page.waitForLoadState('networkidle');
-        // Status badge should be visible
-        await expect(page.locator('[class*="Badge"]').first()).toBeVisible();
+        // Badge component uses badge-theme classes
+        await expect(page.locator('[class*="badge-theme"]').first()).toBeVisible();
       });
     }
 
     test('should show Cancel button for active sessions', async ({ page }) => {
       currentSessionDetail = createMockSessionDetail({ status: 'active' });
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      // Cancel button from PageContainer actions
-      const cancelBtn = page.getByRole('button', { name: /cancel/i });
+      // Cancel button from PageContainer actions has data-testid="action-cancel"
+      const cancelBtn = page.locator('[data-testid="action-cancel"]');
       if (await cancelBtn.count() > 0) {
-        await expect(cancelBtn.first()).toBeVisible();
+        await expect(cancelBtn).toBeVisible();
       }
     });
 
     test('should NOT show Cancel button for completed sessions', async ({ page }) => {
       currentSessionDetail = createMockSessionDetail({ status: 'completed' });
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      // Only the Back to List button should show, no Cancel
-      const buttons = page.locator('[class*="PageContainer"] button, header button');
-      const allText = await buttons.allTextContents();
-      const hasCancelAction = allText.some(t => t.toLowerCase().includes('cancel'));
-      // Cancel should not appear as a page action for completed sessions
-      if (hasCancelAction) {
-        // It may appear in some context; just verify the back button is there
-        await expect(page.getByRole('button', { name: /back to list/i })).toBeVisible();
+      // Cancel action should not exist for completed sessions
+      const cancelBtn = page.locator('[data-testid="action-cancel"]');
+      // Expect 0 count or not visible
+      const count = await cancelBtn.count();
+      if (count > 0) {
+        await expect(cancelBtn).not.toBeVisible();
       }
+      // Back button should still be present
+      await expect(page.locator('[data-testid="action-back"]')).toBeVisible();
     });
   });
 
@@ -711,14 +731,14 @@ test.describe('Parallel Execution Page', () => {
         });
       });
 
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
 
-      // Click the Cancel action button (from PageContainer)
-      const cancelBtn = page.getByRole('button', { name: /cancel/i });
+      // Click the Cancel action button (from PageContainer, data-testid="action-cancel")
+      const cancelBtn = page.locator('[data-testid="action-cancel"]');
       if (await cancelBtn.count() > 0) {
-        await cancelBtn.first().click();
+        await cancelBtn.click();
         await page.waitForLoadState('networkidle');
         expect(cancelCalled).toBe(true);
       }
@@ -727,34 +747,34 @@ test.describe('Parallel Execution Page', () => {
 
   test.describe('Configuration Panel', () => {
     test('should display repository path in configuration', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      await page.getByRole('tab', { name: /configuration/i }).click();
+      await tabButton(page, /configuration/i).click();
       await expect(page.locator('body')).toContainText('/home/user/project');
     });
 
     test('should display base branch in configuration', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      await page.getByRole('tab', { name: /configuration/i }).click();
+      await tabButton(page, /configuration/i).click();
       await expect(page.locator('body')).toContainText('main');
     });
 
     test('should display merge strategy in configuration', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      await page.getByRole('tab', { name: /configuration/i }).click();
+      await tabButton(page, /configuration/i).click();
       await expect(page.locator('body')).toContainText('sequential');
     });
 
     test('should display auto cleanup status', async ({ page }) => {
-      const card = page.locator('[class*="Card"][class*="cursor-pointer"]').first();
+      const card = sessionCardLocator(page).first();
       await card.click();
       await page.waitForLoadState('networkidle');
-      await page.getByRole('tab', { name: /configuration/i }).click();
+      await tabButton(page, /configuration/i).click();
       await expect(page.locator('body')).toContainText('Auto Cleanup');
     });
   });
@@ -764,21 +784,21 @@ test.describe('Parallel Execution Page', () => {
       await page.setViewportSize({ width: 375, height: 667 });
       await page.goto(ROUTES.parallelExecution);
       await page.waitForLoadState('networkidle');
-      await expect(page.locator('body')).toContainText('Parallel Execution');
+      await expect(page.locator('h1')).toContainText('Parallel Execution');
     });
 
     test('should display properly on tablet viewport', async ({ page }) => {
       await page.setViewportSize({ width: 768, height: 1024 });
       await page.goto(ROUTES.parallelExecution);
       await page.waitForLoadState('networkidle');
-      await expect(page.locator('body')).toContainText('Parallel Execution');
+      await expect(page.locator('h1')).toContainText('Parallel Execution');
     });
 
     test('should display properly on desktop viewport', async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.goto(ROUTES.parallelExecution);
       await page.waitForLoadState('networkidle');
-      await expect(page.locator('body')).toContainText('Parallel Execution');
+      await expect(page.locator('h1')).toContainText('Parallel Execution');
     });
   });
 });

@@ -6,6 +6,15 @@ import { ROUTES } from '../../fixtures/test-data';
  *
  * Comprehensive POM for Parallel Execution E2E tests.
  * Route: /app/ai/parallel-execution
+ *
+ * Selector strategy:
+ * - Card component renders as <div class="... bg-theme-surface ... cursor-pointer ...">
+ *   (no literal "Card" in class names)
+ * - Badge component renders as <span class="badge-theme badge-theme-* ...">
+ *   (no literal "Badge" in class names)
+ * - TabsTrigger renders as <button> without role="tab"
+ *   (inside a flex container with border-b)
+ * - Modal renders with role="dialog" (works with standard selector)
  */
 export class ParallelExecutionPage {
   readonly page: Page;
@@ -36,7 +45,8 @@ export class ParallelExecutionPage {
   readonly sessionStatusBadge: Locator;
   readonly connectionBadge: Locator;
 
-  // Tabs
+  // Tabs (TabsTrigger renders as plain <button> inside flex border-b container)
+  readonly tabsContainer: Locator;
   readonly agentsTab: Locator;
   readonly timelineTab: Locator;
   readonly graphTab: Locator;
@@ -61,13 +71,15 @@ export class ParallelExecutionPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.locator('h1, [class*="title"]').first();
-    this.sessionCards = page.locator('[class*="Card"]').filter({ has: page.locator('[class*="cursor-pointer"]') });
+    this.pageTitle = page.locator('h1').first();
+
+    // Session cards: Card component renders as div with bg-theme-surface and cursor-pointer
+    this.sessionCards = page.locator('[class*="cursor-pointer"][class*="bg-theme-surface"]');
     this.createSessionButton = page.getByRole('button', { name: /new session/i });
     this.statusFilter = page.locator('select').first();
-    this.refreshButton = page.locator('button').filter({ has: page.locator('svg.lucide-refresh-cw') });
+    this.refreshButton = page.locator('button').filter({ has: page.locator('svg[class*="lucide-refresh"]') });
 
-    // Create Modal
+    // Create Modal - Modal component uses role="dialog"
     this.modal = page.locator('[role="dialog"]');
     this.repositoryPathInput = this.modal.locator('input').first();
     this.baseBranchInput = this.modal.locator('input').nth(1);
@@ -77,27 +89,31 @@ export class ParallelExecutionPage {
     this.createButton = this.modal.getByRole('button', { name: /create session/i });
     this.cancelModalButton = this.modal.getByRole('button', { name: /cancel/i });
 
-    // Detail View
-    this.backToListButton = page.getByRole('button', { name: /back to list/i });
-    this.cancelSessionButton = page.getByRole('button', { name: /cancel/i }).last();
+    // Detail View - PageContainer actions use aria-label and data-testid
+    this.backToListButton = page.locator('[data-testid="action-back"]');
+    this.cancelSessionButton = page.locator('[data-testid="action-cancel"]');
     this.retryMergeButton = page.getByRole('button', { name: /retry merge/i });
-    this.summaryCards = page.locator('[class*="grid-cols-4"]').locator('[class*="Card"]');
+    // SessionSummaryCards uses grid-cols-4 with Card children (bg-theme-surface)
+    this.summaryCards = page.locator('[class*="grid-cols-4"]').locator('[class*="bg-theme-surface"]');
     this.progressBar = page.locator('[class*="rounded-full"][class*="overflow-hidden"]').first();
 
-    // Status badges
-    this.sessionStatusBadge = page.locator('[class*="Badge"]').first();
-    this.connectionBadge = page.locator('[class*="Badge"]').nth(1);
+    // Status badges - Badge component uses badge-theme classes
+    this.sessionStatusBadge = page.locator('[class*="badge-theme"]').first();
+    this.connectionBadge = page.locator('[class*="badge-theme"]').nth(1);
 
-    // Tabs
-    this.agentsTab = page.getByRole('tab', { name: /agents/i });
-    this.timelineTab = page.getByRole('tab', { name: /timeline/i });
-    this.graphTab = page.getByRole('tab', { name: /graph/i });
-    this.mergesTab = page.getByRole('tab', { name: /merges/i });
-    this.configTab = page.getByRole('tab', { name: /configuration/i });
+    // Tabs - TabsTrigger renders as <button> inside a TabsList flex container with border-b
+    this.tabsContainer = page.locator('[class*="border-b"][class*="bg-theme-surface"]');
+    this.agentsTab = this.tabsContainer.getByRole('button', { name: /agents/i });
+    this.timelineTab = this.tabsContainer.getByRole('button', { name: /timeline/i });
+    this.graphTab = this.tabsContainer.getByRole('button', { name: /graph/i });
+    this.mergesTab = this.tabsContainer.getByRole('button', { name: /merges/i });
+    this.configTab = this.tabsContainer.getByRole('button', { name: /configuration/i });
 
-    // Agent Lanes
-    this.agentLanesPanel = page.locator('[class*="grid"]').filter({ has: page.locator('[class*="AgentLane"], [class*="lane"]') });
-    this.agentLanes = page.locator('[class*="Card"]').filter({ has: page.locator('text=commits') });
+    // Agent Lanes - grid of AgentLane cards (bg-theme-bg-primary border)
+    this.agentLanesPanel = page.locator('[class*="grid"][class*="gap-4"]').filter({
+      has: page.locator('[class*="bg-theme-bg-primary"]'),
+    });
+    this.agentLanes = page.locator('[class*="bg-theme-bg-primary"][class*="border"][class*="rounded-lg"]');
 
     // Timeline
     this.timelineView = page.locator('[class*="overflow-x-auto"]').filter({ has: page.locator('svg') });
@@ -105,8 +121,8 @@ export class ParallelExecutionPage {
 
     // Merge Status
     this.mergeStatusPanel = page.locator('[class*="space-y"]').filter({ hasText: /merge/i });
-    this.mergeOperations = page.locator('[class*="border"]').filter({ hasText: /\u2192/ });
-    this.conflictFiles = page.locator('[class*="font-mono"]').filter({ has: page.locator('svg.lucide-file-code') });
+    this.mergeOperations = page.locator('[class*="bg-theme-bg-primary"][class*="border"]').filter({ hasText: /\u2192/ });
+    this.conflictFiles = page.locator('[class*="font-mono"]');
 
     // Config
     this.configPanel = page.locator('[class*="space-y"]').filter({ hasText: 'Session Configuration' });
@@ -131,17 +147,17 @@ export class ParallelExecutionPage {
   }
 
   async clickSessionCard(index: number) {
-    const card = this.page.locator('[class*="Card"][class*="cursor-pointer"]').nth(index);
+    const card = this.sessionCards.nth(index);
     await card.click();
     await this.page.waitForLoadState('networkidle');
   }
 
   async getSessionCount(): Promise<number> {
-    return await this.page.locator('[class*="Card"][class*="cursor-pointer"]').count();
+    return await this.sessionCards.count();
   }
 
   async switchTab(tabName: string) {
-    const tab = this.page.getByRole('tab', { name: new RegExp(tabName, 'i') });
+    const tab = this.tabsContainer.getByRole('button', { name: new RegExp(tabName, 'i') });
     await tab.click();
   }
 

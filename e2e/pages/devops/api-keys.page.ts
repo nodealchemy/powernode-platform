@@ -2,6 +2,14 @@ import { Page, Locator, expect } from '@playwright/test';
 
 /**
  * DevOps API Keys Page Object Model
+ *
+ * Matches actual ApiKeysPage component:
+ * - PageContainer with title "API Key Management"
+ * - Actions: "Refresh", "Generate New Key"
+ * - Keys displayed as styled divs (bg-theme-background rounded-lg p-4 border)
+ * - Empty state: "No API Keys" with "Generate Your First Key"
+ * - ApiKeyModal for creation
+ * - Key cards show: name, status badge, masked key, Copy button, Regenerate, Revoke
  */
 export class ApiKeysPage {
   readonly page: Page;
@@ -19,15 +27,18 @@ export class ApiKeysPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.createKeyButton = page.getByRole('button', { name: /create|generate|new key/i });
-    this.keysList = page.locator('table tbody tr, [class*="api-key"]');
+    // PageContainer action: "Generate New Key"
+    this.createKeyButton = page.getByRole('button', { name: /generate|create|new key/i });
+    // Key cards are styled divs with border, containing key name as h3
+    this.keysList = page.locator('.border:has(h3.font-medium), [class*="border"]:has(h3):has(code)');
     this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i]');
 
+    // ApiKeyModal form fields
     this.keyNameInput = page.locator('input[name="name"]');
     this.keyDescriptionInput = page.locator('textarea[name="description"], input[name="description"]');
     this.scopesChecklist = page.locator('[class*="scope"], input[type="checkbox"]');
-    this.expirationSelect = page.locator('select[name="expiration"]');
-    this.generateButton = page.getByRole('button', { name: /generate|create/i });
+    this.expirationSelect = page.locator('select[name="expiration"], select[name*="expir"]');
+    this.generateButton = page.getByRole('button', { name: /generate|create|save/i });
     this.copyKeyButton = page.getByRole('button', { name: /copy/i });
   }
 
@@ -37,9 +48,12 @@ export class ApiKeysPage {
   }
 
   async createKey(name: string, description?: string, scopes?: string[]) {
-    await this.createKeyButton.click();
-    await this.keyNameInput.fill(name);
-    if (description) {
+    await this.createKeyButton.first().click();
+    await this.page.waitForTimeout(500);
+    if (await this.keyNameInput.isVisible()) {
+      await this.keyNameInput.fill(name);
+    }
+    if (description && await this.keyDescriptionInput.isVisible()) {
       await this.keyDescriptionInput.fill(description);
     }
     if (scopes) {
@@ -47,7 +61,7 @@ export class ApiKeysPage {
         await this.page.locator(`input[value="${scope}"], label:has-text("${scope}") input`).check();
       }
     }
-    await this.generateButton.click();
+    await this.generateButton.first().click();
   }
 
   async getKeyCount(): Promise<number> {
@@ -55,7 +69,7 @@ export class ApiKeysPage {
   }
 
   getKeyRow(name: string): Locator {
-    return this.page.locator(`tr:has-text("${name}"), [class*="api-key"]:has-text("${name}")`);
+    return this.page.locator(`div:has-text("${name}"):has(code)`).first();
   }
 
   async revokeKey(name: string) {

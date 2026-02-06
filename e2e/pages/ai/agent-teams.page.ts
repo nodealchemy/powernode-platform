@@ -63,16 +63,16 @@ export class AgentTeamsPage {
     this.page = page;
     this.pageTitle = page.locator('h1, [class*="title"]').first();
     this.teamCards = page.locator('[class*="card"], [class*="Card"], [data-testid*="team"]');
-    this.createTeamButton = page.getByRole('button', { name: /create team/i });
-    this.statusFilter = page.locator('select[name*="status"], [aria-label*="status"]');
-    this.typeFilter = page.locator('select[name*="type"], [aria-label*="type"]');
+    this.createTeamButton = page.locator('button:has-text("Create Team")');
+    this.statusFilter = page.locator('select#status-filter, select[name*="status"], [aria-label*="status"]');
+    this.typeFilter = page.locator('select#type-filter, select[name*="type"], [aria-label*="type"]');
 
-    // Modal inputs
-    this.nameInput = page.locator('input[name="name"], input[placeholder*="name" i]');
-    this.descriptionInput = page.locator('textarea[name="description"], input[name="description"]');
-    this.typeSelect = page.locator('select[name="type"], [name="team_type"]');
-    this.saveButton = page.getByRole('button', { name: /save|create/i });
-    this.cancelButton = page.getByRole('button', { name: /cancel/i });
+    // Modal inputs - use dialog scope to avoid matching elements outside modal
+    this.nameInput = page.locator('[role="dialog"] input#name, [role="dialog"] input[placeholder*="name" i]');
+    this.descriptionInput = page.locator('[role="dialog"] textarea#description, [role="dialog"] textarea[placeholder*="purpose" i], [role="dialog"] textarea');
+    this.typeSelect = page.locator('[role="dialog"] select#team_type, [role="dialog"] select[name="type"]');
+    this.saveButton = page.locator('[role="dialog"] button[type="submit"]');
+    this.cancelButton = page.locator('[role="dialog"] button:has-text("Cancel")');
 
     // Composition Health Banner
     this.compositionHealthBanner = page.locator('[data-testid="composition-health"], [class*="composition-health"], [class*="CompositionHealth"]');
@@ -81,18 +81,18 @@ export class AgentTeamsPage {
     this.compositionRecommendations = page.locator('[data-testid="composition-recommendations"], [class*="composition-health"] [class*="recommendation"]');
 
     // Role Profile Selector
-    this.roleProfileGrid = page.locator('[data-testid="role-profile-grid"], [class*="profile-grid"], [class*="RoleProfileSelector"]');
-    this.roleProfileCards = page.locator('[data-testid*="profile-card"], [class*="profile-card"], [class*="ProfileCard"]');
-    this.applyProfileButton = page.getByRole('button', { name: /apply profile/i });
-    this.customizeProfileButton = page.getByRole('button', { name: /customize/i });
-    this.profilePreview = page.locator('[data-testid="profile-preview"], [class*="profile-preview"], [class*="ProfilePreview"]');
+    this.roleProfileGrid = page.locator('[data-testid="role-profile-selector"], [data-testid="role-profile-grid"], [class*="profile-grid"]');
+    this.roleProfileCards = page.locator('[data-testid*="profile-card"]');
+    this.applyProfileButton = page.locator('button:has-text("Apply Profile")');
+    this.customizeProfileButton = page.locator('button:has-text("Customize")');
+    this.profilePreview = page.locator('[data-testid="profile-preview"]');
 
     // Review Config Section
-    this.reviewConfigSection = page.locator('[data-testid="review-config"], [class*="review-config"], details:has-text("Review Configuration")');
-    this.reviewEnabledToggle = page.locator('[data-testid="review-enabled"], input[type="checkbox"]:near(:text("Enable automatic reviews"))');
-    this.reviewModeRadio = page.locator('[data-testid="review-mode"], [name="review_mode"]');
-    this.qualityThresholdSlider = page.locator('[data-testid="quality-threshold"], input[type="range"]:near(:text("Quality"))');
-    this.maxRevisionsInput = page.locator('[data-testid="max-revisions"], input[type="number"]:near(:text("revision"))');
+    this.reviewConfigSection = page.locator('[data-testid="review-config-section"], details:has-text("Review Configuration")');
+    this.reviewEnabledToggle = page.locator('[data-testid="review-config-section"] input[type="checkbox"]').first();
+    this.reviewModeRadio = page.locator('[data-testid="review-config-section"] input[name="review_mode"]');
+    this.qualityThresholdSlider = page.locator('[data-testid="review-config-section"] input[type="range"]');
+    this.maxRevisionsInput = page.locator('[data-testid="review-config-section"] input[type="number"]');
 
     // Trajectory Viewer
     this.trajectoryList = page.locator('[data-testid="trajectory-list"], [class*="trajectory-list"], [class*="TrajectoryList"]');
@@ -124,7 +124,7 @@ export class AgentTeamsPage {
    * Wait for page to be ready
    */
   async waitForReady() {
-    await this.page.waitForSelector('main, [role="main"]', { timeout: 10000 });
+    await this.page.waitForSelector('main, [role="main"], body', { timeout: 10000 });
   }
 
   /**
@@ -138,7 +138,7 @@ export class AgentTeamsPage {
    * Click create team button
    */
   async clickCreateTeam() {
-    await this.createTeamButton.click();
+    await this.createTeamButton.first().click();
   }
 
   /**
@@ -368,9 +368,10 @@ export class AgentTeamsPage {
   // --- Review Config Methods ---
 
   async openReviewConfigSection() {
-    const section = this.page.locator('details:has-text("Review Configuration"), summary:has-text("Review Configuration")');
-    if (await section.count() > 0) {
-      await section.first().click();
+    const summary = this.page.locator('[data-testid="review-config-section"] summary, details:has-text("Review Configuration") summary');
+    if (await summary.count() > 0) {
+      await summary.first().click();
+      await this.page.waitForTimeout(300);
     }
   }
 
