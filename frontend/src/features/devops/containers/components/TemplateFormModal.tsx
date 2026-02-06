@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FileCode, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Input } from '@/shared/components/ui/Input';
@@ -96,6 +96,12 @@ export const TemplateFormModal: React.FC<TemplateFormModalProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Use refs for callbacks to avoid infinite re-render loops in useEffect
+  const addNotificationRef = useRef(addNotification);
+  addNotificationRef.current = addNotification;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   const resetForm = useCallback(() => {
     setFormData(initialFormData);
     setEnvVars([]);
@@ -164,16 +170,16 @@ export const TemplateFormModal: React.FC<TemplateFormModalProps> = ({
           }
         })
         .catch((err) => {
-          addNotification({
+          addNotificationRef.current({
             type: 'error',
             title: 'Load Failed',
             message: err instanceof Error ? err.message : 'Failed to load template',
           });
-          onClose();
+          onCloseRef.current();
         })
         .finally(() => setIsLoading(false));
     }
-  }, [isOpen, mode, templateId, resetForm, addNotification, onClose]);
+  }, [isOpen, mode, templateId, resetForm]);
 
   const handleChange = (field: keyof FormData, value: string | number | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

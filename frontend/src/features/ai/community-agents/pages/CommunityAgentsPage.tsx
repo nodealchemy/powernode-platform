@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Globe,
+  RefreshCw,
   Users,
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
@@ -23,6 +24,11 @@ export const CommunityAgentsPage: React.FC<CommunityAgentsPageProps> = ({
   onViewPartnerDetails,
 }) => {
   const [activeTab, setActiveTab] = useState('discover');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
@@ -30,11 +36,22 @@ export const CommunityAgentsPage: React.FC<CommunityAgentsPageProps> = ({
     { label: 'Community Agents' },
   ];
 
+  const actions = [
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      onClick: handleRefresh,
+      variant: 'secondary' as const,
+      icon: RefreshCw,
+    },
+  ];
+
   return (
     <PageContainer
       title="Community Agents"
       description="Discover and invoke agents from the community"
       breadcrumbs={breadcrumbs}
+      actions={actions}
     >
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -51,6 +68,7 @@ export const CommunityAgentsPage: React.FC<CommunityAgentsPageProps> = ({
 
         <TabsContent value="discover" className="mt-4">
           <AgentDiscovery
+            key={`discover-${refreshKey}`}
             onSelectAgent={onViewAgentDetails}
             onInvokeAgent={onInvokeAgent}
           />
@@ -58,6 +76,7 @@ export const CommunityAgentsPage: React.FC<CommunityAgentsPageProps> = ({
 
         <TabsContent value="federation" className="mt-4">
           <FederationPartnerList
+            key={`federation-${refreshKey}`}
             onSelectPartner={onViewPartnerDetails}
             onCreatePartner={onCreateFederationPartner}
           />

@@ -249,11 +249,27 @@ describe('AIMonitoringPage', () => {
 
   const mockHealthData = {
     status: 'healthy',
+    health_score: 95.0,
     timestamp: '2024-01-15T10:00:00Z',
-    services: {
-      database: { status: 'healthy', message: 'Connected' },
-      redis: { status: 'healthy', message: 'Connected' },
-      sidekiq: { status: 'healthy', message: '5 workers active' }
+    system: {
+      status: 'healthy',
+      active_workflows: 5,
+      active_agents: 8,
+      running_executions: 3
+    },
+    database: {
+      status: 'healthy',
+      connection: 'Connected'
+    },
+    redis: {
+      status: 'healthy',
+      used_memory: '10MB',
+      connected_clients: 5
+    },
+    providers: {
+      total_providers: 2,
+      healthy_providers: 2,
+      providers: []
     }
   };
 

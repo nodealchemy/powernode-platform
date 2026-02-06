@@ -21,6 +21,7 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 
 describe('TaskEventStream', () => {
   let mockClose: jest.Mock;
+  let openCallback: (() => void) | undefined;
   let statusCallback: ((task: unknown) => void) | undefined;
   let progressCallback: ((progress: unknown) => void) | undefined;
   let errorCallback: ((error: unknown) => void) | undefined;
@@ -28,6 +29,7 @@ describe('TaskEventStream', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockClose = jest.fn();
+    openCallback = undefined;
     statusCallback = undefined;
     progressCallback = undefined;
     errorCallback = undefined;
@@ -35,10 +37,12 @@ describe('TaskEventStream', () => {
     // Mock subscribeToTask to capture callbacks and return subscription
     (a2aTasksApiService.subscribeToTask as jest.Mock).mockImplementation(
       (_taskId: string, callbacks: {
+        onOpen?: () => void;
         onStatus?: (task: unknown) => void;
         onProgress?: (progress: unknown) => void;
         onError?: (error: unknown) => void;
       }) => {
+        openCallback = callbacks.onOpen;
         statusCallback = callbacks.onStatus;
         progressCallback = callbacks.onProgress;
         errorCallback = callbacks.onError;
@@ -50,6 +54,16 @@ describe('TaskEventStream', () => {
       }
     );
   });
+
+  /** Helper: render with autoConnect and simulate the onOpen callback firing */
+  const renderConnected = async (props?: Partial<{ taskId: string }>) => {
+    const result = render(<TaskEventStream taskId={props?.taskId ?? 'task-1'} autoConnect={true} />);
+    // Simulate the SSE connection opening after subscribeToTask returns
+    await act(async () => {
+      openCallback?.();
+    });
+    return result;
+  };
 
   it('renders event stream header', () => {
     render(<TaskEventStream taskId="task-1" autoConnect={false} />);
@@ -64,8 +78,8 @@ describe('TaskEventStream', () => {
     expect(screen.getByRole('button', { name: /connect/i })).toBeInTheDocument();
   });
 
-  it('connects and shows connected state when autoConnect is true', () => {
-    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+  it('connects and shows connected state when autoConnect is true', async () => {
+    await renderConnected();
 
     expect(a2aTasksApiService.subscribeToTask).toHaveBeenCalledWith(
       'task-1',
@@ -77,14 +91,21 @@ describe('TaskEventStream', () => {
     expect(screen.getByText('Connected')).toBeInTheDocument();
   });
 
-  it('shows stop button when connected', () => {
+  it('shows stop button when connecting or connected', async () => {
     render(<TaskEventStream taskId="task-1" autoConnect={true} />);
 
+    // Stop button should be visible immediately during connecting state
+    expect(screen.getByRole('button', { name: /stop/i })).toBeInTheDocument();
+
+    // Also visible after fully connected
+    await act(async () => {
+      openCallback?.();
+    });
     expect(screen.getByRole('button', { name: /stop/i })).toBeInTheDocument();
   });
 
-  it('disconnects when stop button clicked', () => {
-    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+  it('disconnects when stop button clicked', async () => {
+    await renderConnected();
 
     const stopButton = screen.getByRole('button', { name: /stop/i });
     fireEvent.click(stopButton);
@@ -93,7 +114,7 @@ describe('TaskEventStream', () => {
   });
 
   it('shows status events when received', async () => {
-    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+    await renderConnected();
 
     // Trigger a status update through the captured callback
     await act(async () => {
@@ -104,7 +125,7 @@ describe('TaskEventStream', () => {
   });
 
   it('shows progress bar when progress event received', async () => {
-    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+    await renderConnected();
 
     await act(async () => {
       progressCallback?.({ current: 50, total: 100, message: 'Processing...' });
@@ -116,7 +137,7 @@ describe('TaskEventStream', () => {
   });
 
   it('displays current task status', async () => {
-    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+    await renderConnected();
 
     await act(async () => {
       statusCallback?.({ status: { state: 'completed' } });
@@ -126,7 +147,7 @@ describe('TaskEventStream', () => {
   });
 
   it('handles error events', async () => {
-    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+    await renderConnected();
 
     await act(async () => {
       errorCallback?.('Connection failed');
@@ -136,7 +157,7 @@ describe('TaskEventStream', () => {
   });
 
   it('clears events when clear button clicked', async () => {
-    render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+    await renderConnected();
 
     // Add an event
     await act(async () => {
@@ -152,14 +173,19 @@ describe('TaskEventStream', () => {
     expect(screen.queryByText(/task\.status/)).not.toBeInTheDocument();
   });
 
-  it('can reconnect after disconnecting', () => {
+  it('can reconnect after disconnecting', async () => {
     render(<TaskEventStream taskId="task-1" autoConnect={true} />);
+
+    // Wait for connection
+    await act(async () => {
+      openCallback?.();
+    });
 
     // Disconnect
     const stopButton = screen.getByRole('button', { name: /stop/i });
     fireEvent.click(stopButton);
 
-    // Reconnect
+    // Should show Connect button after disconnect
     const connectButton = screen.getByRole('button', { name: /connect/i });
     fireEvent.click(connectButton);
 

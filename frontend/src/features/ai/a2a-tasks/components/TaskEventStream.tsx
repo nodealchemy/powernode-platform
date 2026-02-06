@@ -104,6 +104,7 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
       subscriptionRef.current.close();
       subscriptionRef.current = null;
       setConnected(false);
+      setConnecting(false);
       addEvent('connection', { message: 'Disconnected from event stream' });
     }
   };
@@ -187,16 +188,17 @@ export const TaskEventStream: React.FC<TaskEventStreamProps> = ({
               Clear
             </Button>
             <Button
-              variant={connected ? 'danger' : 'primary'}
+              variant={connected || connecting ? 'danger' : 'primary'}
               size="sm"
-              onClick={connected ? disconnect : connect}
-              disabled={connecting}
+              onClick={connected || connecting ? disconnect : connect}
             >
-              {connecting ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : connected ? (
+              {connected || connecting ? (
                 <>
-                  <Pause className="h-4 w-4 mr-1" />
+                  {connecting ? (
+                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Pause className="h-4 w-4 mr-1" />
+                  )}
                   Stop
                 </>
               ) : (

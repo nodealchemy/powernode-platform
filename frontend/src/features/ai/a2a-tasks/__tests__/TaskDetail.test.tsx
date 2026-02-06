@@ -22,16 +22,20 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 describe('TaskDetail', () => {
   const mockTask = {
     id: 'task-uuid-1234-5678',
-    task_id: 'task-uuid-1234-5678',
-    status: 'completed',
-    from_agent_id: 'agent-1',
-    to_agent_id: 'agent-2',
-    input: { message: 'Process this' },
-    output: { result: 'Processed successfully' },
-    metadata: { priority: 'high' },
-    created_at: '2025-01-15T10:00:00Z',
-    started_at: '2025-01-15T10:00:01Z',
-    completed_at: '2025-01-15T10:00:05Z',
+    sessionId: 'session-1',
+    status: { state: 'completed' },
+    message: {
+      role: 'user',
+      parts: [{ type: 'text', text: 'Process this' }],
+    },
+    artifacts: [],
+    history: [],
+    metadata: {
+      priority: 'high',
+      submitted_at: '2025-01-15T10:00:00Z',
+      started_at: '2025-01-15T10:00:01Z',
+      completed_at: '2025-01-15T10:00:05Z',
+    },
   };
 
   const mockArtifacts = [
@@ -79,19 +83,19 @@ describe('TaskDetail', () => {
     });
   });
 
-  it('displays input section', async () => {
+  it('displays message section', async () => {
     render(<TaskDetail taskId="task-uuid-1234-5678" onClose={mockOnClose} />);
 
     await waitFor(() => {
-      expect(screen.getByText('Input')).toBeInTheDocument();
+      expect(screen.getByText('Message')).toBeInTheDocument();
     });
   });
 
-  it('displays output section when task has output', async () => {
+  it('displays message text content', async () => {
     render(<TaskDetail taskId="task-uuid-1234-5678" onClose={mockOnClose} />);
 
     await waitFor(() => {
-      expect(screen.getByText('Output')).toBeInTheDocument();
+      expect(screen.getByText('Process this')).toBeInTheDocument();
     });
   });
 
@@ -121,7 +125,7 @@ describe('TaskDetail', () => {
 
   it('shows cancel button for active tasks', async () => {
     (a2aTasksApiService.getTaskDetails as jest.Mock).mockResolvedValue({
-      task: { ...mockTask, status: 'active', completed_at: null },
+      task: { ...mockTask, status: { state: 'working' }, metadata: { ...mockTask.metadata, completed_at: undefined } },
     });
 
     render(<TaskDetail taskId="task-uuid-1234-5678" onClose={mockOnClose} />);
@@ -133,7 +137,7 @@ describe('TaskDetail', () => {
 
   it('calls cancel API when cancel button clicked', async () => {
     (a2aTasksApiService.getTaskDetails as jest.Mock).mockResolvedValue({
-      task: { ...mockTask, status: 'active', completed_at: null },
+      task: { ...mockTask, status: { state: 'working' }, metadata: { ...mockTask.metadata, completed_at: undefined } },
     });
     (a2aTasksApiService.cancelTask as jest.Mock).mockResolvedValue({
       success: true,
@@ -157,7 +161,7 @@ describe('TaskDetail', () => {
 
   it('shows error message for failed tasks', async () => {
     (a2aTasksApiService.getTaskDetails as jest.Mock).mockResolvedValue({
-      task: { ...mockTask, status: 'failed', error_message: 'Connection timeout' },
+      task: { ...mockTask, status: { state: 'failed' }, error: { code: 'timeout', message: 'Connection timeout' } },
     });
 
     render(<TaskDetail taskId="task-uuid-1234-5678" onClose={mockOnClose} />);
@@ -169,7 +173,7 @@ describe('TaskDetail', () => {
 
   it('shows input required section when status is input_required', async () => {
     (a2aTasksApiService.getTaskDetails as jest.Mock).mockResolvedValue({
-      task: { ...mockTask, status: 'input_required', completed_at: null },
+      task: { ...mockTask, status: { state: 'input-required' }, metadata: { ...mockTask.metadata, completed_at: undefined } },
     });
 
     render(<TaskDetail taskId="task-uuid-1234-5678" onClose={mockOnClose} />);

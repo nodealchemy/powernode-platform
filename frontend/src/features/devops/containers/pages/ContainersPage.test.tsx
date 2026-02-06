@@ -11,8 +11,13 @@ jest.mock('@/shared/services/ai', () => ({
     getContainerInstances: jest.fn(),
     getContainerTemplates: jest.fn(),
     getResourceQuotas: jest.fn(),
+    getTemplate: jest.fn(),
+    executeTemplate: jest.fn(),
   },
 }));
+
+import { containerExecutionApi } from '@/shared/services/ai';
+const mockApi = containerExecutionApi as jest.Mocked<typeof containerExecutionApi>;
 
 // Mock the permissions hook
 jest.mock('@/shared/hooks/usePermissions', () => ({
@@ -107,11 +112,37 @@ jest.mock('../components/QuotaDisplay', () => ({
   ),
 }));
 
+jest.mock('../components/TemplateFormModal', () => ({
+  TemplateFormModal: ({ isOpen, mode, templateId }: any) =>
+    isOpen ? (
+      <div data-testid="template-form-modal" data-mode={mode} data-template-id={templateId}>
+        Template Form Modal
+      </div>
+    ) : null,
+}));
+
+jest.mock('../components/ExecuteContainerModal', () => ({
+  ExecuteContainerModal: ({ isOpen, template }: any) =>
+    isOpen ? (
+      <div data-testid="execute-container-modal" data-template-id={template?.id}>
+        Execute Container Modal
+      </div>
+    ) : null,
+}));
+
 describe('ContainersPage', () => {
   let store: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Re-setup mock implementations after clearAllMocks
+    (mockApi.getTemplate as jest.Mock).mockResolvedValue({
+      template: { name: 'Test Template', image_name: 'test:latest' },
+    });
+    (mockApi as any).executeTemplate.mockResolvedValue({
+      execution: { id: 'exec-1' },
+    });
 
     store = configureStore({
       reducer: {
@@ -196,32 +227,33 @@ describe('ContainersPage', () => {
       );
     });
 
-    it('calls onSelectTemplate when template is selected', () => {
-      const onSelectTemplate = jest.fn();
-      renderComponent({ onSelectTemplate });
+    it('opens edit modal when template is selected', () => {
+      renderComponent();
+
+      // Modal should not be visible initially
+      expect(screen.queryByTestId('template-form-modal')).not.toBeInTheDocument();
 
       fireEvent.click(screen.getAllByTestId('select-template-btn')[0]);
 
-      expect(onSelectTemplate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'template-1',
-          name: 'Test Template',
-        })
-      );
+      // Edit modal should open with the selected template
+      const modal = screen.getByTestId('template-form-modal');
+      expect(modal).toBeInTheDocument();
+      expect(modal).toHaveAttribute('data-mode', 'edit');
+      expect(modal).toHaveAttribute('data-template-id', 'template-1');
     });
 
-    it('calls onExecuteTemplate when template execution is requested', () => {
-      const onExecuteTemplate = jest.fn();
-      renderComponent({ onExecuteTemplate });
+    it('opens execute modal when template execution is requested', () => {
+      renderComponent();
+
+      // Modal should not be visible initially
+      expect(screen.queryByTestId('execute-container-modal')).not.toBeInTheDocument();
 
       fireEvent.click(screen.getAllByTestId('execute-template-btn')[0]);
 
-      expect(onExecuteTemplate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'template-1',
-          name: 'Test Template',
-        })
-      );
+      // Execute modal should open with the selected template
+      const modal = screen.getByTestId('execute-container-modal');
+      expect(modal).toBeInTheDocument();
+      expect(modal).toHaveAttribute('data-template-id', 'template-1');
     });
 
     it('renders quota display in quotas tab', () => {

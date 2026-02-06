@@ -114,6 +114,14 @@ import { CommunityAgentsPage } from '@/features/ai/community-agents/pages/Commun
 // Parallel Execution (Git worktree-based parallel agents)
 import { ParallelExecutionPage } from '@/features/ai/parallel-execution/pages/ParallelExecutionPage';
 
+// Publisher Dashboard (AI template marketplace publisher)
+import { PublisherDashboard } from '@/features/ai/publisher/pages/PublisherDashboard';
+
+// Self-Healing & Learning
+import { SelfHealingDashboard } from '@/features/ai/self-healing/SelfHealingDashboard';
+import { RecommendationsDashboard } from '@/features/ai/learning/RecommendationsDashboard';
+import { TrajectoryInsights } from '@/features/ai/learning/TrajectoryInsights';
+
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
 
@@ -590,6 +598,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/chat-channels" element={<ChatChannelsPage />} />
         <Route path="/ai/community" element={<CommunityAgentsPage />} />
         <Route path="/ai/parallel-execution" element={<ParallelExecutionPage />} />
+        <Route path="/ai/publisher" element={<PublisherDashboard />} />
+        <Route path="/ai/self-healing" element={<SelfHealingDashboard />} />
+        <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
+        <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
 
         <Route path="/ai/credits" element={<CreditsPage />} />
         <Route path="/ai/rag" element={<RagPage />} />
