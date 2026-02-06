@@ -101,6 +101,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
   // Update active path when location changes
   useEffect(() => {
     dispatch({ type: 'SET_ACTIVE_PATH', payload: location.pathname });
+    localStorage.setItem('powernode_last_path', location.pathname);
   }, [location.pathname]);
 
   // Auto-expand sections based on active path (only on navigation, not on user toggle)

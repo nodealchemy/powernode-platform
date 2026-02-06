@@ -20,7 +20,7 @@ import { DomainChangeNotice } from '@/shared/components/ui/DomainChangeNotice';
 
 
 interface LocationState {
-  from?: { pathname: string };
+  from?: string;
 }
 
 export const LoginPage: React.FC = () => {
@@ -68,7 +68,9 @@ export const LoginPage: React.FC = () => {
     loadCopyright();
   }, []);
 
-  const from = (location.state as LocationState | null)?.from?.pathname || '/app';
+  const stateFrom = (location.state as LocationState | null)?.from;
+  const savedPath = localStorage.getItem('powernode_last_path');
+  const from = stateFrom || (savedPath?.startsWith('/app') ? savedPath : null) || '/app';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
