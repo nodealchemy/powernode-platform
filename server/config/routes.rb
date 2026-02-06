@@ -2605,6 +2605,26 @@ Rails.application.routes.draw do
           put "/:id/start", action: :start_ab_test
           get "/:id/results", action: :ab_test_results
         end
+
+        # ===================================================================
+        # SELF-HEALING - Automated Remediation Dashboard
+        # ===================================================================
+        scope :self_healing, controller: "self_healing" do
+          get "remediation_logs", action: :remediation_logs
+          get "health_summary", action: :health_summary
+          get "correlations", action: :correlations
+        end
+
+        # ===================================================================
+        # LEARNING - AI Improvement Recommendations & Insights
+        # ===================================================================
+        scope :learning, controller: "learning" do
+          get "recommendations", action: :recommendations
+          post "recommendations/:id/apply", action: :apply_recommendation
+          post "recommendations/:id/dismiss", action: :dismiss_recommendation
+          get "agent_trends", action: :agent_trends
+          get "cache_metrics", action: :cache_metrics
+        end
       end
 
       # ===================================================================

@@ -5,6 +5,7 @@ module Api
     module Ai
       class CommunityAgentsController < ApplicationController
         include AuditLogging
+        include ::Ai::ResourceFiltering
 
         before_action :set_agent, only: %i[show update destroy publish unpublish rate report]
 

@@ -5,6 +5,7 @@ module Api
     module Ai
       class FederationController < ApplicationController
         include AuditLogging
+        include ::Ai::ResourceFiltering
 
         before_action :set_partner, only: %i[show update destroy verify agents sync]
 

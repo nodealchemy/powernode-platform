@@ -315,8 +315,7 @@ module Api
           next if encrypted[key].to_s.start_with?("encrypted:")
 
           # Encrypt sensitive value
-          encryptor = ::Ai::CredentialEncryptionService.new
-          encrypted_value = encryptor.encrypt(encrypted[key])
+          encrypted_value = ::Security::CredentialEncryptionService.encrypt_value(encrypted[key])
           encrypted[key] = "encrypted:#{encrypted_value}"
         end
 
