@@ -4,6 +4,7 @@ module Devops
   class IntegrationExecution < ApplicationRecord
     # ==================== Concerns ====================
     include Auditable
+    include ExecutionTrackable
 
     # ==================== Table Name ====================
     self.table_name = "devops_integration_executions"

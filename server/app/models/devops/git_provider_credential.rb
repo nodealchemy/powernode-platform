@@ -176,7 +176,7 @@ module Devops
       if Rails.env.test?
         JSON.parse(Base64.strict_decode64(encrypted_credentials))
       else
-        Devops::Git::CredentialEncryptionService.decrypt(encrypted_credentials, encryption_key_id)
+        Security::CredentialEncryptionService.decrypt(encrypted_credentials, namespace: "git")
       end
     rescue StandardError => e
       Rails.logger.error "Failed to decrypt Git credentials: #{e.message}"
@@ -189,12 +189,12 @@ module Devops
       if Rails.env.test?
         Base64.strict_encode64(credentials_hash.to_json)
       else
-        Devops::Git::CredentialEncryptionService.encrypt(credentials_hash)
+        Security::CredentialEncryptionService.encrypt(credentials_hash, namespace: "git")
       end
     end
 
     def current_encryption_key_id
-      Rails.env.test? ? "test_key" : Devops::Git::CredentialEncryptionService.current_key_id
+      Rails.env.test? ? "test_key" : Security::CredentialEncryptionService.current_key_id("git")
     end
 
     def credentials_format

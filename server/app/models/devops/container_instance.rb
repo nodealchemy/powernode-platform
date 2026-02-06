@@ -6,6 +6,7 @@ module Devops
 
     # Concerns
     include Auditable
+    include ExecutionTrackable
 
     # Constants
     STATUSES = %w[pending provisioning running completed failed cancelled timeout].freeze

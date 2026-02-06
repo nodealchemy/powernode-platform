@@ -4,6 +4,8 @@ module Devops
   # Execution record for a pipeline run
   # Tracks status, timing, outputs, and artifacts
   class PipelineRun < ApplicationRecord
+    include ExecutionTrackable
+
     STATUSES = %w[pending queued running success failure cancelled].freeze
     TRIGGER_TYPES = %w[manual pull_request issue issue_comment push release schedule webhook workflow_dispatch].freeze
 
@@ -46,50 +48,20 @@ module Devops
     # ============================================
 
     def start!
-      update!(
-        status: "running",
-        started_at: Time.current
-      )
+      start_execution!
     end
 
     def complete!(result_status, outputs: {}, error_message: nil)
-      update!(
-        status: result_status,
-        completed_at: Time.current,
-        outputs: outputs,
-        error_message: error_message
-      )
+      complete_execution!(result_status, outputs: outputs, error_message: error_message)
     end
 
     def cancel!
-      update!(
-        status: "cancelled",
-        completed_at: Time.current
-      )
+      cancel_execution!
     end
 
-    def pending?
-      status == "pending"
-    end
-
-    def running?
-      status == "running"
-    end
-
-    def completed?
-      %w[success failure cancelled].include?(status)
-    end
-
-    def successful?
-      status == "success"
-    end
-
-    def failed?
-      status == "failure"
-    end
-
-    def cancelled?
-      status == "cancelled"
+    # Override failure_status for PipelineRun convention
+    def failure_status
+      "failure"
     end
 
     def can_cancel?

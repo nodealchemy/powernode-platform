@@ -136,13 +136,12 @@ module Ai
     def decrypt_credentials
       return {} unless encrypted_credentials.present?
 
-      # In test environment, use simple base64 decoding
       if Rails.env.test?
         JSON.parse(Base64.strict_decode64(encrypted_credentials))
       else
-        Ai::CredentialEncryptionService.decrypt(
+        Security::CredentialEncryptionService.decrypt(
           encrypted_credentials,
-          encryption_key_id
+          namespace: "ai"
         )
       end
     rescue StandardError => e
@@ -153,16 +152,15 @@ module Ai
     def encrypt_credentials(credentials_hash)
       return nil unless credentials_hash.present?
 
-      # In test environment, use simple base64 encoding
       if Rails.env.test?
         Base64.strict_encode64(credentials_hash.to_json)
       else
-        Ai::CredentialEncryptionService.encrypt(credentials_hash)
+        Security::CredentialEncryptionService.encrypt(credentials_hash, namespace: "ai")
       end
     end
 
     def current_encryption_key_id
-      Rails.env.test? ? "test_key" : Ai::CredentialEncryptionService.current_key_id
+      Rails.env.test? ? "test_key" : Security::CredentialEncryptionService.current_key_id("ai")
     end
 
     def credentials_format
