@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_06_000007) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_06_000012) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -420,6 +420,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000007) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'published'::character varying::text, 'hidden'::character varying::text, 'flagged'::character varying::text, 'removed'::character varying::text])", name: "check_review_status"
   end
 
+  create_table "ai_agent_skills", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_agent_id", null: false
+    t.uuid "ai_skill_id", null: false
+    t.datetime "created_at", null: false
+    t.boolean "is_active", default: true, null: false
+    t.integer "priority", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["ai_agent_id", "ai_skill_id"], name: "index_ai_agent_skills_on_ai_agent_id_and_ai_skill_id", unique: true
+    t.index ["ai_agent_id"], name: "index_ai_agent_skills_on_ai_agent_id"
+    t.index ["ai_skill_id"], name: "index_ai_agent_skills_on_ai_skill_id"
+  end
+
   create_table "ai_agent_team_members", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_agent_id", null: false, comment: "Agent assigned to this team role"
     t.uuid "ai_agent_team_id", null: false, comment: "Team this member belongs to"
@@ -532,7 +544,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000007) do
     t.jsonb "execution_stats", default: {}
     t.boolean "is_public", default: false
     t.datetime "last_executed_at", precision: nil
-    t.jsonb "mcp_capabilities", default: [], null: false, comment: "Array of MCP capabilities supported by this agent"
     t.jsonb "mcp_input_schema", default: {}, null: false, comment: "JSON Schema for validating agent input parameters"
     t.jsonb "mcp_metadata", default: {}, null: false, comment: "Additional MCP-specific metadata"
     t.jsonb "mcp_output_schema", default: {}, null: false, comment: "JSON Schema for validating agent output"
@@ -552,7 +563,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000007) do
     t.index ["creator_id"], name: "index_ai_agents_on_creator_id"
     t.index ["is_public"], name: "index_ai_agents_on_is_public"
     t.index ["last_executed_at"], name: "index_ai_agents_on_last_executed_at"
-    t.index ["mcp_capabilities"], name: "index_ai_agents_on_mcp_capabilities", using: :gin
     t.index ["mcp_registered_at"], name: "index_ai_agents_on_mcp_registered_at"
     t.index ["mcp_tool_manifest"], name: "index_ai_agents_on_mcp_tool_manifest", using: :gin
     t.index ["slug"], name: "index_ai_agents_on_slug", unique: true
@@ -2479,17 +2489,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000007) do
     t.index ["scope"], name: "index_ai_shared_context_pools_on_scope"
   end
 
-  create_table "ai_skill_connectors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_skill_id", null: false
-    t.datetime "created_at", null: false
-    t.uuid "mcp_server_id", null: false
-    t.string "role", default: "primary"
-    t.datetime "updated_at", null: false
-    t.index ["ai_skill_id", "mcp_server_id"], name: "index_ai_skill_connectors_on_ai_skill_id_and_mcp_server_id", unique: true
-    t.index ["ai_skill_id"], name: "index_ai_skill_connectors_on_ai_skill_id"
-    t.index ["mcp_server_id"], name: "index_ai_skill_connectors_on_mcp_server_id"
-  end
-
   create_table "ai_skills", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id"
     t.jsonb "activation_rules", default: {}
@@ -2516,6 +2515,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000007) do
     t.index ["slug"], name: "index_ai_skills_on_slug", unique: true
     t.index ["status"], name: "index_ai_skills_on_status"
     t.index ["tags"], name: "index_ai_skills_on_tags", using: :gin
+  end
+
+  create_table "ai_skills_mcp_servers", id: false, force: :cascade do |t|
+    t.uuid "ai_skill_id", null: false
+    t.uuid "mcp_server_id", null: false
+    t.index ["ai_skill_id", "mcp_server_id"], name: "idx_skills_mcp_servers_unique", unique: true
+    t.index ["mcp_server_id"], name: "idx_skills_mcp_servers_on_mcp_server"
   end
 
   create_table "ai_sla_contracts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5953,6 +5959,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000007) do
     t.decimal "avg_latency_ms", precision: 10, scale: 2
     t.jsonb "build_config", default: {}
     t.jsonb "capabilities", default: []
+    t.uuid "container_instance_id"
+    t.uuid "container_template_id"
     t.integer "cpu_millicores", default: 500
     t.datetime "created_at", null: false
     t.integer "current_instances", default: 0
@@ -5997,6 +6005,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000007) do
     t.index ["account_id", "name"], name: "index_mcp_hosted_servers_on_account_id_and_name", unique: true
     t.index ["account_id", "status"], name: "index_mcp_hosted_servers_on_account_id_and_status"
     t.index ["account_id"], name: "index_mcp_hosted_servers_on_account_id"
+    t.index ["container_instance_id"], name: "index_mcp_hosted_servers_on_container_instance_id"
+    t.index ["container_template_id"], name: "index_mcp_hosted_servers_on_container_template_id"
     t.index ["deployed_by_id"], name: "index_mcp_hosted_servers_on_deployed_by_id"
     t.index ["health_status"], name: "index_mcp_hosted_servers_on_health_status"
     t.index ["is_published"], name: "index_mcp_hosted_servers_on_is_published"
@@ -8177,6 +8187,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000007) do
   add_foreign_key "ai_agent_reviews", "ai_agent_installations", column: "installation_id"
   add_foreign_key "ai_agent_reviews", "ai_agent_templates", column: "agent_template_id"
   add_foreign_key "ai_agent_reviews", "users"
+  add_foreign_key "ai_agent_skills", "ai_agents"
+  add_foreign_key "ai_agent_skills", "ai_skills"
   add_foreign_key "ai_agent_team_members", "ai_agent_teams"
   add_foreign_key "ai_agent_team_members", "ai_agents"
   add_foreign_key "ai_agent_teams", "accounts"
@@ -8339,10 +8351,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000007) do
   add_foreign_key "ai_sandboxes", "accounts"
   add_foreign_key "ai_sandboxes", "users", column: "created_by_id"
   add_foreign_key "ai_shared_context_pools", "ai_workflow_runs", on_delete: :cascade
-  add_foreign_key "ai_skill_connectors", "ai_skills"
-  add_foreign_key "ai_skill_connectors", "mcp_servers"
   add_foreign_key "ai_skills", "accounts"
   add_foreign_key "ai_skills", "ai_knowledge_bases", column: "ai_knowledge_base_id"
+  add_foreign_key "ai_skills_mcp_servers", "ai_skills"
+  add_foreign_key "ai_skills_mcp_servers", "mcp_servers"
   add_foreign_key "ai_sla_contracts", "accounts"
   add_foreign_key "ai_sla_contracts", "ai_outcome_definitions", column: "outcome_definition_id"
   add_foreign_key "ai_sla_violations", "accounts"
@@ -8592,6 +8604,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000007) do
   add_foreign_key "marketplace_reviews", "users"
   add_foreign_key "marketplace_subscriptions", "accounts"
   add_foreign_key "mcp_hosted_servers", "accounts"
+  add_foreign_key "mcp_hosted_servers", "devops_container_instances", column: "container_instance_id"
+  add_foreign_key "mcp_hosted_servers", "devops_container_templates", column: "container_template_id"
   add_foreign_key "mcp_hosted_servers", "mcp_servers"
   add_foreign_key "mcp_hosted_servers", "users", column: "deployed_by_id"
   add_foreign_key "mcp_server_deployments", "mcp_hosted_servers", column: "hosted_server_id"

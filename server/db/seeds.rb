@@ -1138,6 +1138,9 @@ if Rails.env.development? || Rails.env.test?
   puts "\n📦 Loading DevOps Container Templates..."
   load Rails.root.join('db', 'seeds', 'devops_container_templates.rb')
 
+  puts "\n🔌 Loading MCP Server Container Templates..."
+  load Rails.root.join('db', 'seeds', 'mcp_container_templates_seed.rb')
+
   puts "\n🔧 Loading AI DevOps Templates..."
   load Rails.root.join('db', 'seeds', 'ai_devops_templates_seed.rb')
 
