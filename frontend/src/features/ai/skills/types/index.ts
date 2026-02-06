@@ -13,6 +13,12 @@ export type SkillCategory =
 
 export type SkillStatus = 'active' | 'inactive' | 'draft';
 
+export type McpServerStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
+
+export type ContainerStatus = 'pending' | 'provisioning' | 'running' | 'completed' | 'failed' | 'cancelled' | 'timeout';
+
+export type HostedServerStatus = 'pending' | 'building' | 'deploying' | 'running' | 'stopped' | 'failed' | 'deleted';
+
 export interface SkillCommand {
   name: string;
   description: string;
@@ -20,10 +26,18 @@ export interface SkillCommand {
   workflow_steps?: string[];
 }
 
-export interface SkillConnectorInfo {
+export interface McpServerInfo {
   id: string;
   name: string;
-  status: string;
+  status: McpServerStatus;
+  hosting?: {
+    hosted_server_id: string;
+    hosted_status: HostedServerStatus;
+    container_backed: boolean;
+    container_status?: ContainerStatus;
+    runtime?: string;
+    memory_mb?: number;
+  } | null;
 }
 
 export interface AiSkill {
@@ -35,7 +49,7 @@ export interface AiSkill {
   status: SkillStatus;
   system_prompt: string;
   commands: SkillCommand[];
-  connectors: SkillConnectorInfo[];
+  connectors: McpServerInfo[];
   knowledge_base?: { id: string; name: string } | null;
   activation_rules: Record<string, unknown>;
   metadata: Record<string, unknown>;

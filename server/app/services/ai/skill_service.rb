@@ -40,7 +40,7 @@ module Ai
 
       Ai::Skill.transaction do
         skill.save!
-        attach_connectors(skill, mcp_server_ids) if mcp_server_ids.present?
+        attach_mcp_servers(skill, mcp_server_ids) if mcp_server_ids.present?
       end
 
       skill
@@ -55,8 +55,8 @@ module Ai
       Ai::Skill.transaction do
         skill.update!(attributes)
         if mcp_server_ids
-          skill.skill_connectors.destroy_all
-          attach_connectors(skill, mcp_server_ids)
+          validated_ids = scoped_mcp_servers.where(id: mcp_server_ids).pluck(:id)
+          skill.mcp_server_ids = validated_ids
         end
       end
 
@@ -121,14 +121,13 @@ module Ai
 
     private
 
-    def attach_connectors(skill, mcp_server_ids)
-      mcp_server_ids.each do |server_id|
-        Ai::SkillConnector.create!(
-          ai_skill_id: skill.id,
-          mcp_server_id: server_id,
-          role: "primary"
-        )
-      end
+    def attach_mcp_servers(skill, mcp_server_ids)
+      servers = scoped_mcp_servers.where(id: mcp_server_ids)
+      skill.mcp_servers << servers
+    end
+
+    def scoped_mcp_servers
+      McpServer.where(account_id: [account&.id, nil])
     end
 
     def sanitize_sql_like(string)

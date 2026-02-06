@@ -2,19 +2,6 @@
 
 Rails.logger.info "[Seeds] Creating AI Skills system data..."
 
-# Helper to find or create MCP servers for skill connectors
-def find_or_create_mcp_server(account, name)
-  McpServer.find_or_create_by!(account: account, name: name) do |server|
-    server.connection_type = "http"
-    server.status = "disconnected"
-    server.auth_type = "none"
-    server.command = "https://#{name.downcase.gsub(/\s+/, '-')}.example.com/mcp"
-    server.args = []
-    server.env = {}
-    server.capabilities = {}
-  end
-end
-
 account = Account.first
 unless account
   Rails.logger.warn "[Seeds] No account found — skipping AI Skills seed"
@@ -22,31 +9,94 @@ unless account
 end
 
 # ============================================================================
-# MCP Server registry (created once, reused across skills)
+# MCP Server registry with real package references
 # ============================================================================
-mcp_servers = {}
-mcp_names = %w[
-  Slack Notion Asana Linear Atlassian MS365 Monday ClickUp
-  HubSpot Close Clay ZoomInfo Fireflies
-  Intercom Guru Jira
-  Figma Amplitude Pendo
-  Canva Ahrefs SimilarWeb
-  Box Egnyte
-  Snowflake Databricks BigQuery Hex
-  PubMed BioRender bioRxiv ChEMBL Benchling
-]
 
-mcp_names.each do |name|
-  mcp_servers[name.downcase] = find_or_create_mcp_server(account, name)
+# Map of MCP server name → { auth_type, command (npx/uvx package), container_template_slug }
+MCP_SERVER_DEFS = {
+  "Slack" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-slack", tpl: "mcp-slack" },
+  "Notion" => { auth: "api_key", cmd: "npx -y @notionhq/mcp-server", tpl: "mcp-notion" },
+  "Asana" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-asana", tpl: "mcp-asana" },
+  "Linear" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-linear", tpl: "mcp-linear" },
+  "Atlassian" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-atlassian", tpl: "mcp-atlassian" },
+  "MS365" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-microsoft365", tpl: "mcp-ms365" },
+  "Monday" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-monday", tpl: nil },
+  "ClickUp" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-clickup", tpl: nil },
+  "HubSpot" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-hubspot", tpl: "mcp-hubspot" },
+  "Close" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-close", tpl: nil },
+  "Clay" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-clay", tpl: nil },
+  "ZoomInfo" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-zoominfo", tpl: nil },
+  "Fireflies" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-fireflies", tpl: nil },
+  "Intercom" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-intercom", tpl: "mcp-intercom" },
+  "Guru" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-guru", tpl: nil },
+  "Jira" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-atlassian", tpl: "mcp-atlassian" },
+  "Figma" => { auth: "api_key", cmd: "npx -y figma-developer/figma-mcp", tpl: "mcp-figma" },
+  "Amplitude" => { auth: "api_key", cmd: "npx -y amplitude/mcp-server", tpl: "mcp-amplitude" },
+  "Pendo" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-pendo", tpl: nil },
+  "Canva" => { auth: "api_key", cmd: "npx -y canva/mcp-server-canva", tpl: "mcp-canva" },
+  "Ahrefs" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-ahrefs", tpl: nil },
+  "SimilarWeb" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-similarweb", tpl: nil },
+  "Box" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-box", tpl: "mcp-box" },
+  "Egnyte" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-egnyte", tpl: nil },
+  "Snowflake" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-snowflake", tpl: "mcp-snowflake" },
+  "Databricks" => { auth: "api_key", cmd: "uvx databricks-mcp-server", tpl: "mcp-databricks" },
+  "BigQuery" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-bigquery", tpl: "mcp-bigquery" },
+  "Hex" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-hex", tpl: nil },
+  "PubMed" => { auth: "none", cmd: "npx -y @anthropic/mcp-server-pubmed", tpl: nil },
+  "BioRender" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-biorender", tpl: nil },
+  "bioRxiv" => { auth: "none", cmd: "npx -y @anthropic/mcp-server-biorxiv", tpl: nil },
+  "ChEMBL" => { auth: "none", cmd: "npx -y @anthropic/mcp-server-chembl", tpl: nil },
+  "Benchling" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-benchling", tpl: nil }
+}.freeze
+
+# Build MCP server lookup and hosted server links
+mcp_servers = {}
+template_cache = {}
+hosted_server_count = 0
+
+MCP_SERVER_DEFS.each do |name, defn|
+  server = McpServer.find_or_initialize_by(account: account, name: name)
+  server.assign_attributes(
+    connection_type: "stdio",
+    status: "disconnected",
+    auth_type: defn[:auth],
+    command: defn[:cmd],
+    args: [],
+    env: {},
+    capabilities: {}
+  )
+  server.save!
+  mcp_servers[name.downcase] = server
+
+  # Link to Mcp::HostedServer + ContainerTemplate if template exists
+  next unless defn[:tpl]
+
+  template = template_cache[defn[:tpl]] ||= Devops::ContainerTemplate.find_by(slug: defn[:tpl])
+  next unless template
+
+  hosted = Mcp::HostedServer.find_or_initialize_by(account: account, mcp_server: server)
+  hosted.assign_attributes(
+    name: "#{name} (Managed)",
+    description: "Managed containerized #{name} MCP server",
+    status: "pending",
+    server_type: "mcp",
+    visibility: "private",
+    source_type: "registry",
+    runtime: defn[:cmd].start_with?("uvx") ? "python" : "node",
+    entry_point: defn[:cmd],
+    container_template: template,
+    memory_mb: template.memory_mb,
+    cpu_millicores: template.cpu_millicores,
+    timeout_seconds: 30
+  )
+  hosted.save!
+  hosted_server_count += 1
 end
 
 # ============================================================================
-# Skill definitions
+# Skill definitions (unchanged from previous, but using HABTM)
 # ============================================================================
 skills_data = [
-  # ---------------------------------------------------------------------------
-  # 1. Productivity
-  # ---------------------------------------------------------------------------
   {
     name: "Productivity Assistant",
     slug: "productivity",
@@ -71,10 +121,6 @@ skills_data = [
     connectors: %w[slack notion asana linear atlassian ms365 monday clickup],
     tags: ["tasks", "meetings", "coordination"]
   },
-
-  # ---------------------------------------------------------------------------
-  # 2. Sales
-  # ---------------------------------------------------------------------------
   {
     name: "Sales Intelligence",
     slug: "sales",
@@ -105,10 +151,6 @@ skills_data = [
     connectors: %w[slack hubspot close clay zoominfo notion fireflies],
     tags: ["crm", "prospecting", "outreach", "pipeline"]
   },
-
-  # ---------------------------------------------------------------------------
-  # 3. Customer Support
-  # ---------------------------------------------------------------------------
   {
     name: "Customer Support",
     slug: "customer-support",
@@ -137,10 +179,6 @@ skills_data = [
     connectors: %w[slack intercom hubspot guru jira notion],
     tags: ["tickets", "escalation", "knowledge-base"]
   },
-
-  # ---------------------------------------------------------------------------
-  # 4. Product Management
-  # ---------------------------------------------------------------------------
   {
     name: "Product Management",
     slug: "product-management",
@@ -169,10 +207,6 @@ skills_data = [
     connectors: %w[slack linear figma amplitude pendo intercom],
     tags: ["specs", "roadmap", "research", "competitive"]
   },
-
-  # ---------------------------------------------------------------------------
-  # 5. Marketing
-  # ---------------------------------------------------------------------------
   {
     name: "Marketing Suite",
     slug: "marketing",
@@ -203,10 +237,6 @@ skills_data = [
     connectors: %w[slack canva figma hubspot ahrefs similarweb],
     tags: ["content", "campaigns", "brand", "analytics"]
   },
-
-  # ---------------------------------------------------------------------------
-  # 6. Legal
-  # ---------------------------------------------------------------------------
   {
     name: "Legal Assistant",
     slug: "legal",
@@ -234,10 +264,6 @@ skills_data = [
     connectors: %w[slack box egnyte jira ms365],
     tags: ["contracts", "compliance", "risk", "nda"]
   },
-
-  # ---------------------------------------------------------------------------
-  # 7. Finance
-  # ---------------------------------------------------------------------------
   {
     name: "Finance Analyst",
     slug: "finance",
@@ -266,10 +292,6 @@ skills_data = [
     connectors: %w[snowflake databricks bigquery slack ms365],
     tags: ["accounting", "reconciliation", "statements", "variance"]
   },
-
-  # ---------------------------------------------------------------------------
-  # 8. Data
-  # ---------------------------------------------------------------------------
   {
     name: "Data Analyst",
     slug: "data",
@@ -302,10 +324,6 @@ skills_data = [
     connectors: %w[snowflake databricks bigquery hex amplitude],
     tags: ["sql", "analytics", "visualization", "dashboards"]
   },
-
-  # ---------------------------------------------------------------------------
-  # 9. Enterprise Search
-  # ---------------------------------------------------------------------------
   {
     name: "Enterprise Search",
     slug: "enterprise-search",
@@ -331,10 +349,6 @@ skills_data = [
     connectors: %w[slack notion guru jira asana ms365],
     tags: ["search", "knowledge", "experts"]
   },
-
-  # ---------------------------------------------------------------------------
-  # 10. Bio Research
-  # ---------------------------------------------------------------------------
   {
     name: "Bio Research Assistant",
     slug: "bio-research",
@@ -361,10 +375,6 @@ skills_data = [
     connectors: %w[pubmed biorender biorxiv chembl benchling],
     tags: ["literature", "genomics", "targets", "pharma"]
   },
-
-  # ---------------------------------------------------------------------------
-  # 11. Skill Management
-  # ---------------------------------------------------------------------------
   {
     name: "Skill Manager",
     slug: "skill-management",
@@ -391,10 +401,10 @@ skills_data = [
 ]
 
 # ============================================================================
-# Create skills and connectors
+# Create skills and link MCP servers via HABTM
 # ============================================================================
 created_count = 0
-connector_count = 0
+server_link_count = 0
 
 skills_data.each do |data|
   skill = Ai::Skill.find_or_initialize_by(slug: data[:slug])
@@ -415,22 +425,13 @@ skills_data.each do |data|
   )
   skill.save!
 
-  # Attach connectors
-  data[:connectors].each do |server_key|
-    server = mcp_servers[server_key]
-    next unless server
-
-    Ai::SkillConnector.find_or_create_by!(
-      ai_skill_id: skill.id,
-      mcp_server_id: server.id
-    ) do |conn|
-      conn.role = "primary"
-    end
-    connector_count += 1
-  end
+  # Link MCP servers via HABTM join table
+  server_ids = data[:connectors].filter_map { |key| mcp_servers[key]&.id }
+  skill.mcp_server_ids = server_ids
+  server_link_count += server_ids.size
 
   created_count += 1
-  Rails.logger.info "[Seeds] Created/Updated skill: #{skill.name} (#{data[:connectors].size} connectors)"
+  Rails.logger.info "[Seeds] Created/Updated skill: #{skill.name} (#{server_ids.size} MCP servers)"
 end
 
-Rails.logger.info "[Seeds] AI Skills seeding complete: #{created_count} skills, #{connector_count} connectors"
+Rails.logger.info "[Seeds] AI Skills seeding complete: #{created_count} skills, #{server_link_count} MCP server links, #{hosted_server_count} hosted servers"

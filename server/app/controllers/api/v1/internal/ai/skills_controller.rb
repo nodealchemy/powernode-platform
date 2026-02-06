@@ -32,9 +32,9 @@ module Api
           # POST /api/v1/internal/ai/skills/:id/refresh_connectors
           def refresh_connectors
             skill = ::Ai::Skill.find(params[:id])
-            connectors = skill.skill_connectors.includes(:mcp_server)
+            servers = skill.mcp_servers
             render_success(
-              connectors: connectors.map { |c| { id: c.id, mcp_server_id: c.mcp_server_id, role: c.role } }
+              connectors: servers.map { |s| { id: s.id, name: s.name, status: s.status } }
             )
           rescue ActiveRecord::RecordNotFound
             render_error("Skill not found", status: :not_found)

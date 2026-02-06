@@ -20,9 +20,9 @@ module Ai
     belongs_to :account, optional: true
     belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase",
                foreign_key: "ai_knowledge_base_id", optional: true
-    has_many :skill_connectors, class_name: "Ai::SkillConnector",
-             foreign_key: "ai_skill_id", dependent: :destroy
-    has_many :mcp_servers, through: :skill_connectors
+    has_and_belongs_to_many :mcp_servers,
+                            join_table: "ai_skills_mcp_servers",
+                            foreign_key: "ai_skill_id"
     has_many :agent_skills, class_name: "Ai::AgentSkill", foreign_key: "ai_skill_id", dependent: :destroy
     has_many :agents, class_name: "Ai::Agent", through: :agent_skills, source: :agent
 
@@ -63,7 +63,7 @@ module Ai
         is_system: is_system,
         is_enabled: is_enabled,
         command_count: commands&.size || 0,
-        connector_count: skill_connectors.size,
+        connector_count: mcp_servers.size,
         has_knowledge_base: ai_knowledge_base_id.present?,
         tags: tags,
         usage_count: usage_count,
