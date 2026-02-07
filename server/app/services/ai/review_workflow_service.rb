@@ -87,12 +87,12 @@ module Ai
 
     # List reviews for a task
     def list_reviews(task_id)
-      account.ai_task_reviews.where(team_task_id: task_id).order(created_at: :desc)
+      Ai::TaskReview.where(account: account, team_task_id: task_id).order(created_at: :desc)
     end
 
     # Get a review by ID
     def get_review(review_id)
-      account.ai_task_reviews.find_by!(review_id: review_id)
+      Ai::TaskReview.find_by!(account: account, review_id: review_id)
     end
 
     private

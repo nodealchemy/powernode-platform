@@ -105,11 +105,10 @@ module Ai
       result = Ai::TestResult.create!(
         test_run: run,
         scenario: scenario,
-        status: "pending",
-        input_used: scenario.input_data
+        status: "skipped",
+        input_used: scenario.input_data,
+        started_at: Time.current
       )
-
-      result.start!
 
       begin
         # Execute the target (workflow or agent)

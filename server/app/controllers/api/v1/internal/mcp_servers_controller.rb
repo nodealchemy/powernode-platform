@@ -12,7 +12,7 @@ class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseC
     servers = servers.where(status: params[:status]) if params[:status].present?
 
     render_success({
-      mcp_servers: servers.map { |server| serialize_server(server) }
+      mcp_servers: servers.limit(500).map { |server| serialize_server(server) }
     })
   rescue StandardError => e
     Rails.logger.error "Failed to list MCP servers: #{e.message}"

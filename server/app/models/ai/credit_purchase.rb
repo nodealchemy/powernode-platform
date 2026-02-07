@@ -59,7 +59,7 @@ module Ai
         )
 
         # Add credits to account
-        account_credit = account.ai_account_credits.first_or_create!
+        account_credit = account.ai_account_credits || account.create_ai_account_credits!
         account_credit.add_credits(
           total_credits,
           transaction_type: "purchase",
@@ -86,7 +86,7 @@ module Ai
         update!(status: new_status)
 
         # Deduct credits from account
-        account_credit = account.ai_account_credits.first
+        account_credit = account.ai_account_credits
         if account_credit && account_credit.balance >= refund_credits
           account_credit.deduct_credits(
             refund_credits,

@@ -171,7 +171,7 @@ class Api::V1::ReconciliationController < ApplicationController
     service_token = request.headers["X-Service-Token"]
     expected_token = Rails.application.credentials.dig(:worker_service, :api_token)
 
-    unless service_token == expected_token
+    unless service_token.present? && expected_token.present? && ActiveSupport::SecurityUtils.secure_compare(service_token, expected_token)
       render_error("Unauthorized service request", status: :unauthorized)
     end
   end

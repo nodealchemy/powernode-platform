@@ -140,8 +140,9 @@ module Ai
       scope = scope.by_memory_type(memory_type) if memory_type
 
       # Use pgvector's cosine distance operator
-      scope.select("*, 1 - (embedding <=> '#{query_embedding}') AS similarity")
-           .where("1 - (embedding <=> '#{query_embedding}') >= ?", threshold)
+      scope.select("*")
+           .select(sanitize_sql_array(["1 - (embedding <=> ?) AS similarity", query_embedding.to_s]))
+           .where("1 - (embedding <=> ?) >= ?", query_embedding.to_s, threshold)
            .order(Arel.sql("similarity DESC"))
            .limit(limit)
     end

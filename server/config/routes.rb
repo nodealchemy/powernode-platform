@@ -2146,6 +2146,7 @@ Rails.application.routes.draw do
         scope :a2a, as: :a2a do
           resources :tasks, controller: "a2a_tasks", param: :task_id do
             member do
+              get :details
               post :cancel
               post :input, action: :provide_input
               get :events

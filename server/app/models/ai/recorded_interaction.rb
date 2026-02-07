@@ -4,6 +4,16 @@ module Ai
   class RecordedInteraction < ApplicationRecord
     self.table_name = "ai_recorded_interactions"
 
+    # Override ActiveRecord's dangerous attribute check for model_name column
+    # The database column 'model_name' conflicts with ActiveRecord::Base.model_name
+    class << self
+      def dangerous_attribute_method?(method_name)
+        return false if method_name == "model_name"
+
+        super
+      end
+    end
+
     # Associations
     belongs_to :account
     belongs_to :sandbox, class_name: "Ai::Sandbox"

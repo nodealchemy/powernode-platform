@@ -4,6 +4,15 @@ module Ai
   class MockResponse < ApplicationRecord
     self.table_name = "ai_mock_responses"
 
+    # Override ActiveRecord's dangerous attribute check for model_name column
+    class << self
+      def dangerous_attribute_method?(method_name)
+        return false if method_name == "model_name"
+
+        super
+      end
+    end
+
     # Associations
     belongs_to :account
     belongs_to :sandbox, class_name: "Ai::Sandbox"

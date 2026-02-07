@@ -16,13 +16,13 @@ module Api
 
           # Apply filters
           scope = scope.where(category: params[:category]) if params[:category].present?
-          scope = scope.where("skills @> ?", [ params[:skill] ].to_json) if params[:skill].present?
+          scope = scope.where("tags @> ?", [ params[:skill] ].to_json) if params[:skill].present?
           scope = scope.verified if params[:verified] == "true"
 
           # Search
           if params[:query].present?
             scope = scope.where(
-              "name ILIKE :q OR description ILIKE :q OR skills::text ILIKE :q",
+              "name ILIKE :q OR description ILIKE :q OR tags::text ILIKE :q",
               q: "%#{params[:query]}%"
             )
           end
@@ -58,7 +58,7 @@ module Api
         def create
           agent = CommunityAgent.new(agent_params)
           agent.owner_account = current_user.account
-          agent.registered_by = current_user
+          agent.published_by = current_user
 
           if agent.save
             render_success({ agent: agent.public_details }, status: :created)
@@ -122,6 +122,7 @@ module Api
         # POST /api/v1/ai/community/agents/:id/rate
         def rate
           rating = @agent.ratings.find_or_initialize_by(user: current_user)
+          rating.account = current_user.account
           rating.assign_attributes(rating_params)
 
           if rating.save
@@ -137,14 +138,17 @@ module Api
 
         # POST /api/v1/ai/community/agents/:id/report
         def report
-          report = @agent.reports.new(report_params)
-          report.reporter = current_user
+          permitted = report_params
+          report = @agent.reports.new(description: permitted[:description], evidence: permitted[:evidence])
+          report.report_type = permitted[:reason] || permitted[:report_type] || "other"
+          report.reported_by_user = current_user
+          report.reported_by_account = current_user.account
 
           if report.save
-            render_success(
+            render_success(data: {
               message: "Report submitted successfully",
               report_id: report.id
-            )
+            })
             log_audit_event("ai.community_agents.report", @agent)
           else
             render_error(report.errors.full_messages, status: :unprocessable_entity)
@@ -177,9 +181,9 @@ module Api
 
         # GET /api/v1/ai/community/agents/skills
         def skills
-          # Extract unique skills from all published agents
+          # Extract unique skills/tags from all published agents
           skills = CommunityAgent.published
-                                 .pluck(:skills)
+                                 .pluck(:tags)
                                  .flatten
                                  .compact
                                  .uniq
@@ -196,16 +200,15 @@ module Api
             return
           end
 
-          service = ::A2a::Skills::CommunitySkills.new(
+          result = ::A2a::Skills::CommunitySkills.discover_agents(
             account: current_user.account,
-            user: current_user
-          )
-
-          result = service.discover_agents(
-            query: params[:task_description],
-            category: params[:category],
-            min_rating: params[:min_rating]&.to_f,
-            limit: params[:limit]&.to_i || 10
+            user: current_user,
+            params: {
+              query: params[:task_description],
+              category: params[:category],
+              min_rating: params[:min_rating]&.to_f,
+              limit: params[:limit]&.to_i || 10
+            }
           )
 
           render_success(
@@ -231,6 +234,7 @@ module Api
             :source_code_url,
             :pricing_model,
             :price_per_task,
+            :agent_id,
             skills: [],
             agent_card: {},
             configuration: {}
@@ -238,11 +242,14 @@ module Api
         end
 
         def rating_params
-          params.require(:rating).permit(:score, :review, :task_id)
+          permitted = params.require(:rating).permit(:score, :rating, :review, :task_id)
+          # Map :score to :rating for API compatibility
+          permitted[:rating] = permitted.delete(:score) if permitted[:score].present? && permitted[:rating].blank?
+          permitted
         end
 
         def report_params
-          params.require(:report).permit(:reason, :description, :evidence)
+          params.require(:report).permit(:reason, :report_type, :description, :evidence)
         end
       end
     end

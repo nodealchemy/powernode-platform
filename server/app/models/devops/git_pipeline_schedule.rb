@@ -100,11 +100,19 @@ module Devops
       update!(next_run_at: next_execution_time)
     end
 
+    def cron_schedule
+      parse_cron_expression
+    end
+
     def human_schedule
+      return "Invalid schedule" unless cron_schedule
+
       cron_description
     end
 
     def next_runs(count = 5)
+      return [] unless cron_schedule
+
       execution_times_in_range(Time.current, 1.year.from_now, max_count: count)
     end
 

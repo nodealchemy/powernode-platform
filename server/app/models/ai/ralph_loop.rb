@@ -56,6 +56,7 @@ module Ai
     }
 
     # ==================== Callbacks ====================
+    before_validation :set_defaults, on: :create
     before_save :calculate_duration, if: -> { completed_at_changed? && completed_at.present? }
     before_create :generate_webhook_token, if: -> { scheduling_mode == "event_triggered" }
     after_save :update_task_counts, if: :saved_change_to_status?
@@ -410,6 +411,19 @@ module Ai
     class InvalidTransitionError < StandardError; end
 
     private
+
+    def set_defaults
+      self.status ||= "pending"
+      self.scheduling_mode ||= "manual"
+      self.configuration ||= {}
+      self.prd_json ||= {}
+      self.learnings ||= []
+      self.current_iteration ||= 0
+      self.max_iterations ||= 10
+      self.total_tasks ||= 0
+      self.completed_tasks ||= 0
+      self.failed_tasks ||= 0
+    end
 
     def default_agent_belongs_to_account
       return unless default_agent && default_agent.account_id != account_id

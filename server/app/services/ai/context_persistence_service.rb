@@ -230,9 +230,10 @@ class Ai::ContextPersistenceService
 
       # Text search
       if query.present?
+        sanitized_query = ActiveRecord::Base.sanitize_sql_like(query)
         scope = scope.where(
           "content_text ILIKE :q OR entry_key ILIKE :q",
-          q: "%#{query}%"
+          q: "%#{sanitized_query}%"
         )
       end
 
@@ -260,8 +261,9 @@ class Ai::ContextPersistenceService
       results = context.context_entries
         .active
         .where.not(embedding: nil)
-        .select("*, (embedding <=> '#{query_embedding}') as distance")
-        .where("(embedding <=> '#{query_embedding}') < ?", 1 - threshold)
+        .select(Arel.sql("*"))
+        .select(ActiveRecord::Base.sanitize_sql_array(["(embedding <=> ?) as distance", query_embedding.to_s]))
+        .where("(embedding <=> ?) < ?", query_embedding.to_s, 1 - threshold)
         .order("distance ASC")
         .limit(limit)
 

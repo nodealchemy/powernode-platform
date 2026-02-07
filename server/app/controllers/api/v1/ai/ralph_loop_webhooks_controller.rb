@@ -15,11 +15,10 @@ module Api
       #
       class RalphLoopWebhooksController < ApplicationController
         # Skip standard authentication - use webhook token instead
-        skip_before_action :authenticate_user!
-        skip_before_action :verify_authenticity_token
+        skip_before_action :authenticate_request
 
         before_action :verify_webhook_token
-        before_action :validate_loop_state
+        before_action :validate_loop_state, except: :status, only: [ :trigger ]
 
         # POST /api/v1/ai/ralph_loops/webhook/:token
         # Trigger execution of an event-triggered Ralph Loop
@@ -73,7 +72,9 @@ module Api
         # Get current status of the Ralph Loop (for monitoring)
         #
         def status
-          render_success(
+          return if performed?
+
+          render_success(data: {
             loop_id: @ralph_loop.id,
             name: @ralph_loop.name,
             status: @ralph_loop.status,
@@ -85,7 +86,7 @@ module Api
             progress_percentage: @ralph_loop.progress_percentage,
             last_scheduled_at: @ralph_loop.last_scheduled_at&.iso8601,
             daily_iteration_count: @ralph_loop.daily_iteration_count
-          )
+          })
         end
 
         private

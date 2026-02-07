@@ -4,6 +4,10 @@ module Chat
   class GatewayService
     class GatewayError < StandardError; end
 
+    def self.adapter_for(channel)
+      AdapterFactory.for_channel(channel)
+    end
+
     def initialize(channel)
       @channel = channel
       @session_manager = SessionManager.new(channel)

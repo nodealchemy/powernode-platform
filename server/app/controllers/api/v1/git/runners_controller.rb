@@ -18,7 +18,7 @@ module Api
           runners = runners.for_repository(params[:repository_id]) if params[:repository_id].present?
 
           # Search by name
-          runners = runners.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+          runners = runners.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
 
           # Sorting
           case params[:sort]

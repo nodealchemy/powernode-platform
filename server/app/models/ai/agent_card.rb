@@ -47,6 +47,11 @@ module Ai
     scope :with_tag, ->(tag) {
       where("tags @> ?", [ tag ].to_json)
     }
+    scope :with_capability, ->(capability) {
+      where("capabilities->'skills' @> ?::jsonb OR capabilities->'skills' @> ?::jsonb",
+            [capability].to_json,
+            [{ "id" => capability }].to_json)
+    }
     scope :published, -> { where.not(published_at: nil) }
     scope :by_protocol_version, ->(version) { where(protocol_version: version) }
     scope :for_discovery, ->(account_id) {

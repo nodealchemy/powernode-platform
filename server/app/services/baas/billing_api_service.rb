@@ -64,7 +64,7 @@ module BaaS
       customers = tenant.customers
       customers = customers.active if params[:status] == "active"
       customers = customers.archived if params[:status] == "archived"
-      customers = customers.where("email ILIKE ?", "%#{params[:email]}%") if params[:email].present?
+      customers = customers.where("email ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:email])}%") if params[:email].present?
 
       paginated = customers.order(created_at: :desc).page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
 

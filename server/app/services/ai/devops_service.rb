@@ -30,7 +30,10 @@ module Ai
       templates = Ai::DevopsTemplate.published
                                     .where("visibility IN (?) OR account_id = ?", %w[public marketplace], account.id)
 
-      templates = templates.where("name ILIKE ? OR description ILIKE ?", "%#{query}%", "%#{query}%") if query.present?
+      if query.present?
+        sanitized = ActiveRecord::Base.sanitize_sql_like(query)
+        templates = templates.where("name ILIKE ? OR description ILIKE ?", "%#{sanitized}%", "%#{sanitized}%")
+      end
       templates = templates.by_category(category) if category.present?
       templates = templates.by_type(template_type) if template_type.present?
 

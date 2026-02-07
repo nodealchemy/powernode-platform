@@ -687,7 +687,7 @@ module Api
         def apply_provider_filters(providers)
           providers = providers.where(provider_type: params[:provider_type]) if params[:provider_type].present?
           providers = providers.supporting_capability(params[:capability]) if params[:capability].present?
-          providers = providers.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+          providers = providers.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
           providers
         end
 
@@ -695,7 +695,7 @@ module Api
           credentials = credentials.where(ai_provider_id: params[:provider_id]) if params[:provider_id].present?
           credentials = credentials.where(is_active: params[:active]) if params[:active].present?
           credentials = credentials.where(is_default: true) if params[:default_only] == "true"
-          credentials = credentials.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+          credentials = credentials.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
           credentials
         end
 

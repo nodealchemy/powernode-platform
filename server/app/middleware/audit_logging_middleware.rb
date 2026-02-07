@@ -167,11 +167,10 @@ class AuditLoggingMiddleware
   end
 
   def decode_jwt_user(token)
-    # Simple JWT decoding - in production, use proper JWT library
-    payload = JWT.decode(token, Rails.application.credentials.secret_key_base, true, algorithm: "HS256")
-    user_id = payload[0]["user_id"]
+    payload = Security::JwtService.decode(token)
+    user_id = payload["sub"] || payload["user_id"]
     User.find_by(id: user_id)
-  rescue JWT::DecodeError, JWT::ExpiredSignature
+  rescue StandardError
     nil
   end
 

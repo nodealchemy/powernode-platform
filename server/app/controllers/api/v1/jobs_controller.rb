@@ -35,8 +35,7 @@ class Api::V1::JobsController < ApplicationController
   def authenticate_service_token
     token = request.headers["Authorization"]&.remove("Bearer ")
     expected_token = ENV["WORKER_SERVICE_TOKEN"] ||
-                     Rails.application.credentials.dig(:worker, :service_token) ||
-                     "development_worker_service_token_that_persists_across_restarts"
+                     Rails.application.credentials.dig(:worker, :service_token)
 
     unless token.present? && expected_token.present? && ActiveSupport::SecurityUtils.secure_compare(token, expected_token)
       render_error("Service authentication required", status: :unauthorized)

@@ -15,7 +15,6 @@ class CommunityAgent < ApplicationRecord
   belongs_to :agent_card, class_name: "Ai::AgentCard", optional: true
   belongs_to :published_by, class_name: "User", optional: true
   belongs_to :verified_by, class_name: "User", optional: true
-  belongs_to :registered_by, class_name: "User", optional: true
 
   has_many :ratings, class_name: "CommunityAgentRating", dependent: :destroy
   has_many :reports, class_name: "CommunityAgentReport", dependent: :destroy
@@ -190,7 +189,7 @@ class CommunityAgent < ApplicationRecord
   # Owner details - full details including private fields for the owner
   def owner_details
     community_details.merge(
-      registered_by_id: registered_by_id,
+      published_by_id: published_by_id,
       registered_at: created_at,
       can_edit: true
     )

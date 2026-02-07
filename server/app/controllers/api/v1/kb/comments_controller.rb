@@ -124,7 +124,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
     comments = comments.where(status: params[:status]) if params[:status].present?
     comments = comments.where(article_id: params[:article_id]) if params[:article_id].present?
     comments = comments.where(user_id: params[:user_id]) if params[:user_id].present?
-    comments = comments.where("content ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+    comments = comments.where("content ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
 
     case params[:sort]
     when "oldest"

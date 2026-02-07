@@ -58,12 +58,15 @@ module Ai
     def search_templates(query: nil, category: nil, vertical: nil, pricing_type: nil, page: 1, per_page: 20)
       templates = Ai::AgentTemplate.published.public_templates
 
-      templates = templates.where("name ILIKE ? OR description ILIKE ?", "%#{query}%", "%#{query}%") if query.present?
+      if query.present?
+        sanitized = ActiveRecord::Base.sanitize_sql_like(query)
+        templates = templates.where("name ILIKE ? OR description ILIKE ?", "%#{sanitized}%", "%#{sanitized}%")
+      end
       templates = templates.by_category(category) if category.present?
       templates = templates.by_vertical(vertical) if vertical.present?
       templates = templates.where(pricing_type: pricing_type) if pricing_type.present?
 
-      templates.order(installation_count: :desc).page(page).per(per_page)
+      templates.includes(:publisher).order(installation_count: :desc).page(page).per(per_page)
     end
 
     def featured_templates(limit: 10)
@@ -98,7 +101,7 @@ module Ai
       )
 
       # Create the agent from template
-      agent = create_agent_from_template(template, installation, custom_config)
+      agent = create_agent_from_template(template, installation, custom_config, user)
       installation.update!(installed_agent: agent) if agent
 
       { success: true, installation: installation, agent: agent }
@@ -209,17 +212,24 @@ module Ai
       { success: true, transaction: transaction }
     end
 
-    def create_agent_from_template(template, installation, custom_config)
+    def create_agent_from_template(template, installation, custom_config, user = nil)
       config = template.agent_config.merge(custom_config)
+
+      # Find a provider for the agent - use account's first active provider or any active provider
+      provider = account.ai_providers.where(is_active: true).first ||
+                 Ai::Provider.where(is_active: true).first
+
+      return nil unless provider
 
       Ai::Agent.create!(
         account: account,
+        provider: provider,
+        creator: user || account.users.first,
         name: "#{template.name} (from template)",
         description: template.description,
         agent_type: config["agent_type"] || "assistant",
         system_prompt: config["system_prompt"],
-        configuration: config["configuration"] || {},
-        tools_config: config["tools"] || [],
+        metadata: config["configuration"] || {},
         status: "active"
       )
     rescue StandardError => e

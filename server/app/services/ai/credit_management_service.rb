@@ -58,7 +58,7 @@ module Ai
     # ==========================================================================
 
     def get_available_packs
-      Ai::CreditPack.available.ordered.map do |pack|
+      Ai::CreditPack.active.ordered.map do |pack|
         pack_data = pack.summary
         # Apply reseller discount if applicable
         account_credit = find_or_create_account_credit
@@ -74,7 +74,7 @@ module Ai
     def initiate_purchase(pack_id:, quantity: 1, payment_method: nil, user: nil)
       pack = Ai::CreditPack.find(pack_id)
 
-      unless pack.can_purchase?(quantity)
+      unless pack.can_purchase_quantity?(quantity)
         @errors << "Cannot purchase #{quantity} of this pack"
         return nil
       end
@@ -140,8 +140,8 @@ module Ai
           purchase.total_credits,
           transaction_type: "purchase",
           description: "Credit purchase: #{purchase.credit_pack.name} x#{purchase.quantity}",
-          reference: purchase,
-          credit_pack: purchase.credit_pack
+          credit_pack: purchase.credit_pack,
+          metadata: { purchase_id: purchase.id }
         )
 
         purchase.update!(credits_applied_at: Time.current)
@@ -186,7 +186,7 @@ module Ai
       )
 
       # Reserve the credits
-      account_credit.reserve_credits(amount, reference: transfer)
+      account_credit.reserve_credits(amount, description: "Transfer reservation: #{transfer.reference_code}")
 
       transfer.summary
     rescue ActiveRecord::RecordInvalid => e
@@ -269,7 +269,8 @@ module Ai
         amount,
         transaction_type: "usage",
         description: description || "#{operation_type} usage",
-        reference: reference,
+        reference_type: reference&.class&.name,
+        reference_id: reference&.id,
         metadata: metadata.merge(operation_type: operation_type)
       )
     rescue StandardError => e

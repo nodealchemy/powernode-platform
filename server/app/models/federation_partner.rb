@@ -9,6 +9,10 @@ class FederationPartner < ApplicationRecord
   MIN_TRUST_LEVEL = 1
   MAX_TRUST_LEVEL = 5
 
+  # Aliases for API compatibility
+  alias_attribute :organization_name, :name
+  alias_attribute :allowed_skills, :allowed_capabilities
+
   # Associations
   belongs_to :account
   belongs_to :created_by, class_name: "User", optional: true
@@ -144,8 +148,8 @@ class FederationPartner < ApplicationRecord
   # Extended partner information for API responses
   def partner_details
     partner_summary.merge(
-      contact_email: contact_email,
-      tls_config: tls_config.except("ca_cert"),
+      contact_email: tls_config&.dig("contact_email"),
+      tls_config: (tls_config || {}).except("ca_cert", "contact_email", "mtls_certificate"),
       auto_approve_agents: auto_approve_agents,
       allowed_skills: allowed_skills,
       request_count: request_count,
@@ -199,6 +203,21 @@ class FederationPartner < ApplicationRecord
     token = SecureRandom.urlsafe_base64(32)
     update!(federation_token_hash: BCrypt::Password.create(token))
     token
+  end
+
+  # Summary for list views
+  def partner_summary
+    {
+      id: id,
+      name: name,
+      organization_id: organization_id,
+      endpoint_url: endpoint_url,
+      status: status,
+      trust_level: trust_level,
+      agent_count: agent_count,
+      last_sync_at: last_sync_at,
+      approved_at: approved_at
+    }
   end
 
   # Sync agents from federation partner
@@ -368,21 +387,6 @@ class FederationPartner < ApplicationRecord
     JWT.encode(payload, secret, "HS256")
   rescue StandardError
     nil
-  end
-
-  # Summary
-  def partner_summary
-    {
-      id: id,
-      name: name,
-      organization_id: organization_id,
-      endpoint_url: endpoint_url,
-      status: status,
-      trust_level: trust_level,
-      agent_count: agent_count,
-      last_sync_at: last_sync_at,
-      approved_at: approved_at
-    }
   end
 
   private

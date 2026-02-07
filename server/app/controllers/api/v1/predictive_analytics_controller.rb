@@ -143,7 +143,12 @@ module Api
           scope = scope.by_metric(params[:metric])
         end
 
-        render_success(scope.map(&:summary))
+        paginated = scope.order(created_at: :desc).page(params[:page] || 1).per([ params[:per_page]&.to_i || 25, 100 ].min)
+
+        render_success(
+          paginated.map(&:summary),
+          meta: pagination_meta(paginated)
+        )
       end
 
       # GET /api/v1/predictive_analytics/alerts/:id

@@ -79,8 +79,8 @@ module Api
 
           begin
             token = request.headers["Authorization"]&.split(" ")&.last
-            decoded = JWT.decode(token, Rails.application.credentials.secret_key_base, true, algorithm: "HS256")
-            User.find_by(id: decoded[0]["user_id"])
+            decoded = Security::JwtService.decode(token)
+            User.find_by(id: decoded["sub"] || decoded["user_id"])
           rescue JWT::DecodeError, JWT::ExpiredSignature, ActiveRecord::RecordNotFound
             nil
           end

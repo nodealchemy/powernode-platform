@@ -88,6 +88,37 @@ class NotificationService
       )
     end
 
+    # Send system alert notification
+    # @param account [Account] Account to notify
+    # @param type [String] Alert type identifier
+    # @param level [Symbol] Alert level (:info, :warning, :error, :critical)
+    # @param title [String] Alert title
+    # @param message [String] Alert message
+    # @param details [Hash] Alert details
+    # @param metadata [Hash] Additional metadata
+    def send_system_alert(account:, type:, level: :info, title:, message:, details: {}, metadata: {})
+      Rails.logger.info "[NotificationService] System alert [#{level}] for account #{account.id}: #{title}"
+
+      admin_user_ids = account.users.active.pluck(:id)
+      return if admin_user_ids.empty?
+
+      notification_type = case level
+                          when :critical, :error then "error"
+                          when :warning then "warning"
+                          else "info"
+      end
+
+      send_in_app(
+        user_id: admin_user_ids,
+        message: "#{title}: #{message}",
+        notification_type: notification_type,
+        account_id: account.id,
+        metadata: metadata.merge(alert_type: type, alert_level: level.to_s, details: details)
+      )
+    rescue StandardError => e
+      Rails.logger.warn "[NotificationService] Failed to send system alert: #{e.message}"
+    end
+
     # Send notification to all users in an account
     # @param account_id [String] Account ID
     # @param template [String] Email template name

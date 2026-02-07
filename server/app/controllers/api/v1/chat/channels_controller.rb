@@ -38,7 +38,7 @@ module Api
         # POST /api/v1/chat/channels
         def create
           channel = current_user.account.chat_channels.build(channel_params)
-          channel.created_by = current_user
+          channel.status ||= "disconnected"
 
           if channel.save
             render_success({ channel: channel.channel_details }, status: :created)
@@ -67,13 +67,13 @@ module Api
 
         # POST /api/v1/chat/channels/:id/connect
         def connect
-          result = ::Chat::GatewayService.new(account: current_user.account).connect_channel(@channel)
+          result = ::Chat::GatewayService.new(@channel).connect
 
-          if result[:success]
+          if result
             render_success(channel: @channel.reload.channel_details)
             log_audit_event("chat.channels.connect", @channel)
           else
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error("Failed to connect channel", status: :unprocessable_entity)
           end
         end
 
@@ -134,8 +134,7 @@ module Api
               total_sessions: @channel.sessions.count,
               active_sessions: @channel.sessions.active.count,
               total_messages: @channel.messages.count,
-              messages_today: @channel.messages.where("created_at >= ?", Time.current.beginning_of_day).count,
-              avg_response_time_ms: @channel.sessions.average(:avg_response_time_ms)&.round(2),
+              messages_today: @channel.messages.where("chat_messages.created_at >= ?", Time.current.beginning_of_day).count,
               status: @channel.status
             }
           )

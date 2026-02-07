@@ -33,7 +33,7 @@ class Api::V1::SiteSettingsController < ApplicationController
 
   # GET /api/v1/site_settings
   def index
-    @settings = SiteSetting.all.order(:key)
+    @settings = SiteSetting.all.order(:key).limit(500)
 
     render_success({
       settings: @settings.map { |setting| setting_data(setting) },

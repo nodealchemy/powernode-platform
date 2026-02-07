@@ -119,6 +119,11 @@ module Chat
       Rails.cache.write(key, count + 1, expires_in: 1.minute)
     end
 
+    # Token management
+    def regenerate_webhook_token!
+      update!(webhook_token: SecureRandom.urlsafe_base64(32))
+    end
+
     # Message tracking
     def record_message!
       increment!(:message_count)

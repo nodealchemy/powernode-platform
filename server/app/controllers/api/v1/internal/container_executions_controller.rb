@@ -5,7 +5,7 @@ module Api
     module Internal
       class ContainerExecutionsController < ApplicationController
         # Worker service authentication
-        skip_before_action :authenticate_user!
+        skip_before_action :authenticate_request
         before_action :authenticate_worker!
 
         # POST /api/v1/internal/container_executions/:execution_id/complete
@@ -30,12 +30,12 @@ module Api
             }
           )
 
-          render json: { status: "ok" }
+          render_success({ status: "ok" })
         rescue ActiveRecord::RecordNotFound
-          render json: { error: "Execution not found" }, status: :not_found
+          render_error("Execution not found", status: :not_found)
         rescue StandardError => e
           Rails.logger.error "Container execution callback error: #{e.message}"
-          render json: { error: e.message }, status: :unprocessable_entity
+          render_error(e.message, status: :unprocessable_entity)
         end
 
         # POST /api/v1/internal/container_executions/:execution_id/status
@@ -50,9 +50,9 @@ module Api
             instance.start_provisioning!
           end
 
-          render json: { status: "ok", instance_status: instance.status }
+          render_success({ status: "ok", instance_status: instance.status })
         rescue ActiveRecord::RecordNotFound
-          render json: { error: "Execution not found" }, status: :not_found
+          render_error("Execution not found", status: :not_found)
         end
 
         # POST /api/v1/internal/container_executions/:execution_id/logs
@@ -61,9 +61,9 @@ module Api
           instance = find_instance
           instance.append_logs(params[:logs]) if params[:logs].present?
 
-          render json: { status: "ok" }
+          render_success({ status: "ok" })
         rescue ActiveRecord::RecordNotFound
-          render json: { error: "Execution not found" }, status: :not_found
+          render_error("Execution not found", status: :not_found)
         end
 
         # POST /api/v1/internal/container_executions/:execution_id/resource_usage
@@ -79,9 +79,9 @@ module Api
             network_out: params[:network_bytes_out]&.to_i
           )
 
-          render json: { status: "ok" }
+          render_success({ status: "ok" })
         rescue ActiveRecord::RecordNotFound
-          render json: { error: "Execution not found" }, status: :not_found
+          render_error("Execution not found", status: :not_found)
         end
 
         # POST /api/v1/internal/container_executions/:execution_id/security_violation
@@ -102,9 +102,9 @@ module Api
             ::Devops::QuotaService.new(instance.account).decrement_running!
           end
 
-          render json: { status: "ok" }
+          render_success({ status: "ok" })
         rescue ActiveRecord::RecordNotFound
-          render json: { error: "Execution not found" }, status: :not_found
+          render_error("Execution not found", status: :not_found)
         end
 
         # GET /api/v1/internal/container_executions/:execution_id
@@ -112,7 +112,7 @@ module Api
         def show
           instance = find_instance
 
-          render json: {
+          render_success({
             execution_id: instance.execution_id,
             image_name: instance.image_name,
             image_tag: instance.image_tag,
@@ -121,9 +121,9 @@ module Api
             input_parameters: instance.input_parameters,
             sandbox_enabled: instance.sandbox_enabled,
             runner_labels: instance.runner_labels
-          }
+          })
         rescue ActiveRecord::RecordNotFound
-          render json: { error: "Execution not found" }, status: :not_found
+          render_error("Execution not found", status: :not_found)
         end
 
         private
@@ -137,7 +137,7 @@ module Api
           worker_token = ENV.fetch("POWERNODE_WORKER_TOKEN", nil)
 
           if worker_token.blank? || token != worker_token
-            render json: { error: "Unauthorized" }, status: :unauthorized
+            render_error("Unauthorized", status: :unauthorized)
           end
         end
       end

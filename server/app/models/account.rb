@@ -104,6 +104,9 @@ class Account < ApplicationRecord
   # AI Ralph Loops - Iterative development execution
   has_many :ai_ralph_loops, class_name: "Ai::RalphLoop", dependent: :destroy
 
+  # AI Trajectories - Execution history & learning
+  has_many :ai_trajectories, class_name: "Ai::Trajectory", dependent: :destroy
+
   # AI Worktree Sessions - Parallel execution with git worktrees
   has_many :ai_worktree_sessions, class_name: "Ai::WorktreeSession", dependent: :destroy
 
@@ -192,8 +195,8 @@ class Account < ApplicationRecord
 
   # Chat Gateway associations
   has_many :chat_channels, class_name: "Chat::Channel", dependent: :destroy
-  has_many :chat_sessions, class_name: "Chat::Session", dependent: :destroy
-  has_many :chat_messages, class_name: "Chat::Message", dependent: :destroy
+  has_many :chat_sessions, through: :chat_channels, source: :sessions
+  has_many :chat_messages, through: :chat_sessions, source: :messages
   has_many :chat_blacklists, class_name: "Chat::Blacklist", dependent: :destroy
 
   # DevOps Container Orchestration associations

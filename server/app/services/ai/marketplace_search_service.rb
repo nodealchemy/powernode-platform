@@ -124,11 +124,11 @@ module Ai
       Rails.cache.fetch(cache_key, expires_in: AUTOCOMPLETE_CACHE_TTL) do
         Ai::AgentTemplate
           .published
-          .where("name ILIKE ?", "#{query}%")
-          .or(Ai::AgentTemplate.where("name ILIKE ?", "%#{query}%"))
+          .where("name ILIKE ?", "#{sanitize_like(query)}%")
+          .or(Ai::AgentTemplate.where("name ILIKE ?", "%#{sanitize_like(query)}%"))
           .select(:id, :name, :slug, :publisher_id)
           .includes(:publisher)
-          .order(Arel.sql("CASE WHEN name ILIKE '#{ActiveRecord::Base.connection.quote_string(query)}%' THEN 0 ELSE 1 END"), :name)
+          .order(Arel.sql(ActiveRecord::Base.sanitize_sql_array(["CASE WHEN name ILIKE ? THEN 0 ELSE 1 END", "#{sanitize_like(query)}%"])), :name)
           .limit(limit)
           .map do |t|
             {
@@ -163,9 +163,10 @@ module Ai
       return query if search_term.blank?
 
       # Full-text search on name, description, and features
+      sanitized = ActiveRecord::Base.sanitize_sql_like(search_term)
       query.where(
         "name ILIKE :term OR description ILIKE :term OR features::text ILIKE :term",
-        term: "%#{search_term}%"
+        term: "%#{sanitized}%"
       )
     end
 
@@ -244,6 +245,10 @@ module Ai
       sort_order = sort_order == "asc" ? :asc : :desc
 
       query.order(sort_field => sort_order)
+    end
+
+    def sanitize_like(str)
+      ActiveRecord::Base.sanitize_sql_like(str)
     end
 
     def active_filters

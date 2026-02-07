@@ -290,7 +290,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   end
 
   def apply_admin_filters(articles)
-    articles = articles.where("title ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+    articles = articles.where("title ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
     articles = articles.where(status: params[:status]) if params[:status].present?
     articles = articles.in_category(params[:category_id]) if params[:category_id].present?
     articles = articles.by_author(params[:author_id]) if params[:author_id].present?

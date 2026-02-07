@@ -13,7 +13,7 @@ module Api
         # GET /api/v1/ai/agent_cards
         # List/discover agent cards
         def index
-          scope = ::Ai::AgentCard.for_discovery(current_user.account_id)
+          scope = ::Ai::AgentCard.visible_to_account(current_user.account_id)
 
           # Apply filters
           scope = scope.with_skill_record(params[:skill]) if params[:skill].present?
@@ -45,6 +45,8 @@ module Api
         # Get A2A-compliant agent card JSON
         def a2a
           @agent_card = find_agent_card
+          return unless @agent_card
+
           render json: @agent_card.to_a2a_json
         end
 
@@ -130,8 +132,8 @@ module Api
         end
 
         def find_agent_card
-          card = ::Ai::AgentCard.for_discovery(current_user.account_id).find_by(id: params[:id])
-          card ||= ::Ai::AgentCard.for_discovery(current_user.account_id).find_by(name: params[:id])
+          card = ::Ai::AgentCard.visible_to_account(current_user.account_id).find_by(id: params[:id])
+          card ||= ::Ai::AgentCard.visible_to_account(current_user.account_id).find_by(name: params[:id])
 
           unless card
             render_error("Agent card not found", status: :not_found)

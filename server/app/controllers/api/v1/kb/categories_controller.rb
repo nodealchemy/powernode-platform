@@ -11,7 +11,7 @@ class Api::V1::Kb::CategoriesController < ApplicationController
     if editing_mode?
       # Admin view - all categories for editing
       categories = KnowledgeBase::Category.includes(:children, :articles, :parent)
-      categories = categories.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+      categories = categories.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
       categories = categories.ordered.page(params[:page]).per(params[:per_page] || 50)
 
       render_success({

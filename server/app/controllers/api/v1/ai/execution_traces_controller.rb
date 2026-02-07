@@ -8,15 +8,16 @@ module Api
       # Provides access to LangSmith-style execution traces for debugging
       # and monitoring AI operations.
       class ExecutionTracesController < ApplicationController
-        before_action :authenticate_user!
+        before_action :authenticate_request
         before_action :set_trace, only: [ :show, :spans, :timeline ]
 
         # GET /api/v1/ai/execution_traces
         # List recent execution traces
         def index
           authorize_action!("ai_monitoring.read")
+          return if performed?
 
-          traces = Ai::TracingService.list_traces(
+          traces = ::Ai::TracingService.list_traces(
             account: current_account,
             limit: params[:limit]&.to_i || 50,
             type: params[:type],
@@ -30,16 +31,14 @@ module Api
         # Get a single trace with all spans
         def show
           authorize_action!("ai_monitoring.read")
+          return if performed?
 
-          trace_data = Ai::TracingService.get_trace(@trace.trace_id, account: current_account)
+          trace_data = ::Ai::TracingService.get_trace(@trace.trace_id, account: current_account)
 
           if trace_data
             render_success(data: trace_data)
           else
-            render_error(
-              message: "Trace not found",
-              status: :not_found
-            )
+            render_error("Trace not found", status: :not_found)
           end
         end
 
@@ -47,6 +46,7 @@ module Api
         # Get spans for a trace
         def spans
           authorize_action!("ai_monitoring.read")
+          return if performed?
 
           spans = @trace.execution_trace_spans.order(:started_at).map(&:as_json)
 
@@ -65,6 +65,7 @@ module Api
         # Get timeline visualization data
         def timeline
           authorize_action!("ai_monitoring.read")
+          return if performed?
 
           render_success(data: {
             trace_id: @trace.trace_id,
@@ -87,11 +88,12 @@ module Api
         # Get summary statistics for traces
         def summary
           authorize_action!("ai_monitoring.read")
+          return if performed?
 
           time_range = params[:time_range] || "24h"
           start_time = parse_time_range(time_range)
 
-          traces = Ai::ExecutionTrace.where(account: current_account)
+          traces = ::Ai::ExecutionTrace.where(account: current_account)
                                      .where("started_at >= ?", start_time)
 
           summary_data = {
@@ -112,13 +114,13 @@ module Api
         private
 
         def set_trace
-          @trace = Ai::ExecutionTrace.find_by!(
+          @trace = ::Ai::ExecutionTrace.find_by!(
             id: params[:id],
             account_id: current_account.id
           )
         rescue ActiveRecord::RecordNotFound
           # Try finding by trace_id
-          @trace = Ai::ExecutionTrace.find_by!(
+          @trace = ::Ai::ExecutionTrace.find_by!(
             trace_id: params[:id],
             account_id: current_account.id
           )
@@ -150,10 +152,7 @@ module Api
 
         def authorize_action!(permission)
           unless current_user.has_permission?(permission)
-            render_error(
-              message: "You don't have permission to access execution traces",
-              status: :forbidden
-            )
+            render_error("You don't have permission to access execution traces", status: :forbidden)
           end
         end
       end

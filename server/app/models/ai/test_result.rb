@@ -10,7 +10,7 @@ module Ai
 
     # Validations
     validates :result_id, presence: true, uniqueness: true
-    validates :status, presence: true, inclusion: { in: %w[passed failed skipped error timeout] }
+    validates :status, presence: true, inclusion: { in: %w[pending running passed failed skipped error timeout] }
 
     # Scopes
     scope :passed, -> { where(status: "passed") }

@@ -18,7 +18,7 @@ module Api
           scope = scope.active if params[:active] == "true"
 
           # Sorting and pagination
-          scope = scope.order(created_at: :desc)
+          scope = scope.order("federation_partners.created_at DESC")
           scope = apply_pagination(scope)
 
           render_success(
@@ -39,9 +39,6 @@ module Api
         def create
           partner = current_user.account.federation_partners.build(partner_params)
           partner.initiated_by = current_user
-
-          # Generate federation key if not provided
-          partner.federation_key ||= SecureRandom.urlsafe_base64(32)
 
           if partner.save
             render_success({ partner: partner.partner_details }, status: :created)
@@ -74,10 +71,10 @@ module Api
           result = @partner.verify_connection!
 
           if result[:success]
-            render_success(
+            render_success(data: {
               message: "Federation partner verified",
               partner: @partner.reload.partner_details
-            )
+            })
             log_audit_event("ai.federation.verify", @partner)
           else
             render_error(result[:error], status: :unprocessable_entity)
@@ -110,10 +107,10 @@ module Api
           result = @partner.sync_agents!
 
           if result[:success]
-            render_success(
-              message: "Synced #{result[:count]} agents",
+            render_success(data: {
+              message: "Synced #{result[:count] || result[:synced]} agents",
               partner: @partner.reload.partner_details
-            )
+            })
             log_audit_event("ai.federation.sync", @partner)
           else
             render_error(result[:error], status: :unprocessable_entity)
@@ -134,21 +131,23 @@ module Api
             endpoint_url: params[:endpoint_url]
           )
 
+          partner.account ||= current_user.account
           partner.assign_attributes(
             organization_name: params[:organization_name],
-            organization_id: params[:organization_id],
-            contact_email: params[:contact_email],
-            federation_key: params[:federation_key],
-            mtls_certificate: params[:mtls_certificate],
-            status: "pending_verification"
+            organization_id: params[:organization_id] || "ext-#{SecureRandom.hex(8)}",
+            tls_config: (partner.tls_config || {}).merge(
+              "contact_email" => params[:contact_email],
+              "mtls_certificate" => params[:mtls_certificate]
+            ).compact,
+            status: "pending"
           )
 
           if partner.save
-            render_success(
+            render_success({
               message: "Registration received",
-              federation_key: partner.federation_key,
+              federation_key: partner.organization_id,
               status: partner.status
-            )
+            })
           else
             render_error(partner.errors.full_messages, status: :unprocessable_entity)
           end
@@ -157,7 +156,7 @@ module Api
         # POST /api/v1/ai/federation/verify_key
         # Verify a federation key from another organization
         def verify_key
-          partner = FederationPartner.find_by(federation_key: params[:federation_key])
+          partner = FederationPartner.find_by(organization_id: params[:federation_key])
 
           if partner&.active?
             render_success(
@@ -202,18 +201,23 @@ module Api
         end
 
         def partner_params
-          params.require(:partner).permit(
+          permitted = params.require(:partner).permit(
             :organization_name,
             :organization_id,
             :endpoint_url,
-            :contact_email,
-            :federation_key,
-            :mtls_certificate,
             :status,
             :trust_level,
-            allowed_skills: [],
-            configuration: {}
+            :contact_email,
+            allowed_capabilities: []
           )
+
+          # Store contact_email in tls_config if provided
+          if permitted[:contact_email].present?
+            contact_email = permitted.delete(:contact_email)
+            permitted[:tls_config] = (@partner&.tls_config || {}).merge("contact_email" => contact_email)
+          end
+
+          permitted
         end
       end
     end

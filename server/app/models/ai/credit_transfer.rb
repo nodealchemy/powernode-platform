@@ -53,8 +53,8 @@ module Ai
       return false unless status == "approved" || status == "pending"
 
       transaction do
-        from_credit = from_account.ai_account_credits.first
-        to_credit = to_account.ai_account_credits.first_or_create!
+        from_credit = from_account.ai_account_credits
+        to_credit = to_account.ai_account_credits || to_account.create_ai_account_credits!
 
         return false unless from_credit&.can_afford?(amount)
 
@@ -150,7 +150,7 @@ module Ai
     def sufficient_balance
       return unless from_account
 
-      from_credit = from_account.ai_account_credits.first
+      from_credit = from_account.ai_account_credits
       unless from_credit&.can_afford?(amount)
         errors.add(:amount, "exceeds available balance")
       end

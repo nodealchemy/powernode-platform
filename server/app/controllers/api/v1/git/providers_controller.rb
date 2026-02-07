@@ -21,7 +21,7 @@ module Api
           providers = providers.where(provider_type: params[:provider_type]) if params[:provider_type].present?
 
           # Search by name
-          providers = providers.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+          providers = providers.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
 
           # Pagination
           page = (params[:page] || 1).to_i

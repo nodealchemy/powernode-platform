@@ -37,7 +37,7 @@ module Api
 
         # Search by filename
         if params[:search].present?
-          files = files.where("filename ILIKE ?", "%#{params[:search]}%")
+          files = files.where("filename ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%")
         end
 
         # Filter by file type (image, document, etc.)

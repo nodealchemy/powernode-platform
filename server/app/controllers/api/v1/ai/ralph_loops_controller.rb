@@ -48,6 +48,7 @@ module Api
         def create
           @ralph_loop = current_user.account.ai_ralph_loops.new(ralph_loop_params)
 
+          saved = false
           ActiveRecord::Base.transaction do
             if @ralph_loop.save
               # Parse PRD if provided
@@ -61,11 +62,15 @@ module Api
                 end
               end
 
-              render_success({ ralph_loop: @ralph_loop.reload.loop_details }, status: :created)
-              log_audit_event("ai.ralph_loops.create", @ralph_loop)
+              saved = true
             else
               render_validation_error(@ralph_loop.errors)
             end
+          end
+
+          if saved
+            render_success({ ralph_loop: @ralph_loop.reload.loop_details }, status: :created)
+            log_audit_event("ai.ralph_loops.create", @ralph_loop)
           end
         rescue ActiveRecord::RecordInvalid => e
           render_validation_error(e.record.errors)

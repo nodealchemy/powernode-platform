@@ -153,12 +153,13 @@ module Ai
     end
 
     # Compliance Reports
-    def generate_report(report_type:, period_start: nil, period_end: nil, config: {}, user: nil)
+    def generate_report(report_type:, period_start: nil, period_end: nil, config: {}, user: nil, format: "pdf")
       report = Ai::ComplianceReport.create!(
         account: account,
         generated_by: user,
         report_type: report_type,
         status: "generating",
+        format: format,
         period_start: period_start,
         period_end: period_end,
         report_config: config

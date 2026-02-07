@@ -349,7 +349,7 @@ class Ai::ProviderManagementService
     def create_provider_credential(provider, account, credentials_data, name: nil, is_active: nil, is_default: nil, expires_at: nil)
       raise ValidationError, "Provider is required" unless provider
       raise ValidationError, "Account is required" unless account
-      raise ValidationError, "Credentials data is required" unless credentials_data.present?
+      raise ValidationError, "Credentials data is required" if credentials_data.blank? || (credentials_data.is_a?(Hash) && credentials_data.empty?)
 
       # Validate credentials against provider schema
       validate_ai_provider_credentials(provider, credentials_data)
@@ -483,7 +483,7 @@ class Ai::ProviderManagementService
 
       return ::Ai::AgentExecution.none if agent_ids.empty?
 
-      ::Ai::AgentExecution.where(agent_id: agent_ids)
+      ::Ai::AgentExecution.where(ai_agent_id: agent_ids)
                          .where(created_at: start_date..end_date)
     end
 
@@ -496,7 +496,7 @@ class Ai::ProviderManagementService
 
       executions.find_each do |execution|
         # Try to extract token usage from result or metadata
-        metadata = execution.result.is_a?(Hash) ? execution.result : {}
+        metadata = execution.output_data.is_a?(Hash) ? execution.output_data : {}
         usage = metadata["usage"] || metadata["token_usage"] || {}
 
         stats[:prompt] += (usage["prompt_tokens"] || usage["input_tokens"] || 0).to_i
@@ -514,7 +514,7 @@ class Ai::ProviderManagementService
       total_cost = 0.0
 
       executions.find_each do |execution|
-        metadata = execution.result.is_a?(Hash) ? execution.result : {}
+        metadata = execution.output_data.is_a?(Hash) ? execution.output_data : {}
         cost = metadata["cost"] || metadata["cost_estimate"] || 0.0
         total_cost += cost.to_f
       end
@@ -560,7 +560,7 @@ class Ai::ProviderManagementService
         day_end = current_date.end_of_day
 
         if agent_ids.any?
-          day_executions = ::Ai::AgentExecution.where(agent_id: agent_ids)
+          day_executions = ::Ai::AgentExecution.where(ai_agent_id: agent_ids)
                                               .where(created_at: current_date..day_end)
 
           day_requests = day_executions.count

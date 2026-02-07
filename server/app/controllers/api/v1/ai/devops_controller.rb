@@ -21,7 +21,7 @@ module Api
           )
 
           render_success(
-            items: templates.map { |t| template_json(t) },
+            templates: templates.map { |t| template_json(t) },
             pagination: pagination_meta(templates)
           )
         end
@@ -96,7 +96,7 @@ module Api
                                          .per(params[:per_page] || 20)
 
           render_success(
-            items: installations.map { |i| installation_json(i) },
+            installations: installations.map { |i| installation_json(i) },
             pagination: pagination_meta(installations)
           )
         end
@@ -148,7 +148,7 @@ module Api
           executions = executions.for_repository(params[:repository_id]) if params[:repository_id].present?
 
           render_success(
-            items: executions.map { |e| execution_json(e) },
+            executions: executions.map { |e| execution_json(e) },
             pagination: pagination_meta(executions)
           )
         end
@@ -205,7 +205,7 @@ module Api
           risks = risks.where(risk_level: params[:risk_level]) if params[:risk_level].present?
 
           render_success(
-            items: risks.map { |r| risk_json(r) },
+            risks: risks.map { |r| risk_json(r) },
             pagination: pagination_meta(risks)
           )
         end
@@ -270,7 +270,7 @@ module Api
           reviews = reviews.for_repository(params[:repository_id]) if params[:repository_id].present?
 
           render_success(
-            items: reviews.map { |r| review_json(r) },
+            reviews: reviews.map { |r| review_json(r) },
             pagination: pagination_meta(reviews)
           )
         end

@@ -59,9 +59,10 @@ module Ai
         if Ai::ContextEntry.embedding_column_exists?
           # Vector similarity search
           results = scope
-            .select("ai_context_entries.*, 1 - (embedding <=> '#{query_embedding}') AS similarity")
+            .select("ai_context_entries.*")
+            .select(ActiveRecord::Base.sanitize_sql_array(["1 - (embedding <=> ?) AS similarity", query_embedding.to_s]))
             .where("embedding IS NOT NULL")
-            .where("1 - (embedding <=> '#{query_embedding}') >= ?", threshold)
+            .where("1 - (embedding <=> ?) >= ?", query_embedding.to_s, threshold)
             .order(Arel.sql("similarity DESC"))
             .limit(limit)
 
@@ -292,7 +293,7 @@ module Ai
         scope = build_search_scope(tags: tags)
 
         scope
-          .where("content_text ILIKE ?", "%#{query}%")
+          .where("content_text ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(query)}%")
           .order(importance_score: :desc)
           .limit(limit)
           .map { |e| e.entry_details.merge(similarity: 0.5) }
@@ -345,7 +346,7 @@ module Ai
           .by_agent(@agent.id)
           .where.not(id: entry.id)
           .where("embedding IS NOT NULL")
-          .where("1 - (embedding <=> '#{entry.embedding}') >= ?", threshold)
+          .where("1 - (embedding <=> ?) >= ?", entry.embedding.to_s, threshold)
           .where("created_at < ?", entry.created_at)
           .limit(5)
       end

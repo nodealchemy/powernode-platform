@@ -17,7 +17,7 @@ module Api
             pricing_type: params[:pricing_type],
             page: params[:page] || 1,
             per_page: params[:per_page] || 20
-          ).includes(:publisher)
+          )
 
           render_success(
             templates: templates.map { |t| template_json(t) },
@@ -33,7 +33,7 @@ module Api
 
         # GET /api/v1/ai/agent_marketplace/templates/:id
         def show_template
-          template = ::Ai::AgentTemplate.includes(:publisher).find(params[:id])
+          template = ::Ai::AgentTemplate.find(params[:id])
           render_success(template: template_json(template, detailed: true))
         end
 
@@ -109,7 +109,6 @@ module Api
         def reviews
           template = ::Ai::AgentTemplate.find(params[:template_id])
           reviews = template.reviews.published.recent
-                           .includes(:user, :account)
                            .page(params[:page])
                            .per(params[:per_page] || 20)
 

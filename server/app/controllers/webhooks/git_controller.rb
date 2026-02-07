@@ -1,12 +1,6 @@
 # frozen_string_literal: true
 
 # External webhook controller for Git provider events (GitHub, GitLab, Gitea).
-# Note: Uses raw JSON responses instead of ApiResponse concern methods because
-# external Git providers expect specific response formats for webhook acknowledgment.
-# See:
-#   - https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks
-#   - https://docs.gitlab.com/ee/user/project/integrations/webhooks.html
-#   - https://docs.gitea.com/usage/webhooks
 module Webhooks
   class GitController < ApplicationController
     skip_before_action :authenticate_request
@@ -17,7 +11,7 @@ module Webhooks
       provider_type = params[:provider_type]
 
       unless %w[github gitlab gitea].include?(provider_type)
-        return render json: { error: "Unknown provider" }, status: :bad_request
+        return render_error("Unknown provider", status: :bad_request)
       end
 
       # Find the repository by webhook payload
@@ -25,13 +19,13 @@ module Webhooks
 
       unless repository
         Rails.logger.warn "Git webhook: Repository not found for #{provider_type}"
-        return render json: { error: "Repository not found" }, status: :not_found
+        return render_error("Repository not found", status: :not_found)
       end
 
       # Verify webhook signature
       unless verify_signature(repository, provider_type)
         Rails.logger.warn "Git webhook: Invalid signature for #{repository.full_name}"
-        return render json: { error: "Invalid signature" }, status: :unauthorized
+        return render_error("Invalid signature", status: :unauthorized)
       end
 
       # Create webhook event record
@@ -46,11 +40,11 @@ module Webhooks
         event.update(status: "queued_failed", error_message: e.message)
       end
 
-      render json: { received: true, event_id: event.id }, status: :ok
+      render_success({ received: true, event_id: event.id })
     rescue StandardError => e
       Rails.logger.error "Git webhook error: #{e.message}"
       Rails.logger.error e.backtrace.first(10).join("\n")
-      render json: { error: "Processing error" }, status: :internal_server_error
+      render_error("Processing error", status: :internal_server_error)
     end
 
     private

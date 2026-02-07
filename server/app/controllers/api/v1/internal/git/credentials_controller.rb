@@ -9,11 +9,11 @@ module Api
 
           # GET /api/v1/internal/git/credentials
           def index
-            credentials = ::Devops::GitProviderCredential.includes(:provider).all
+            credentials = ::Devops::GitProviderCredential.includes(:provider)
             credentials = credentials.where(account_id: params[:account_id]) if params[:account_id].present?
             credentials = credentials.active if params[:active] == "true"
 
-            render_success(credentials.map { |c| serialize_credential(c) })
+            render_success(credentials.limit(500).map { |c| serialize_credential(c) })
           end
 
           # GET /api/v1/internal/git/credentials/:id

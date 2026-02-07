@@ -181,7 +181,7 @@ module Ai
 
       def get_artifact(task_id, artifact_id)
         task = find_task(task_id)
-        artifact = task.artifacts.find { |a| a["id"] == artifact_id }
+        artifact = task.artifacts.find { |a| a["id"] == artifact_id || a["artifact_id"] == artifact_id }
         raise A2aError.new("Artifact not found: #{artifact_id}", code: "ARTIFACT_NOT_FOUND") unless artifact
         artifact
       end

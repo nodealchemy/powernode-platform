@@ -135,7 +135,6 @@ module Api
           if result[:success]
             # Record the outbound message
             message = @session.messages.create!(
-              channel: @session.channel,
               direction: "outbound",
               message_type: params[:message_type] || "text",
               content: params[:content],
@@ -177,10 +176,10 @@ module Api
               total: sessions.count,
               active: sessions.active.count,
               closed: sessions.closed.count,
-              avg_duration_minutes: sessions.closed.average("EXTRACT(EPOCH FROM (updated_at - created_at)) / 60")&.round(2),
-              avg_messages_per_session: sessions.joins(:messages).group(:id).count.values.then { |v| v.any? ? (v.sum.to_f / v.count).round(2) : 0 },
+              avg_duration_minutes: sessions.closed.average("EXTRACT(EPOCH FROM (chat_sessions.updated_at - chat_sessions.created_at)) / 60")&.round(2),
+              avg_messages_per_session: sessions.joins(:messages).group("chat_sessions.id").count.values.then { |v| v.any? ? (v.sum.to_f / v.count).round(2) : 0 },
               by_platform: sessions.joins(:channel).group("chat_channels.platform").count,
-              by_status: sessions.group(:status).count
+              by_status: sessions.group("chat_sessions.status").count
             }
           )
         end

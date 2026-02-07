@@ -151,6 +151,11 @@ class Api::V1::PlansController < ApplicationController
     else
       render_validation_error(@plan)
     end
+  rescue ActiveRecord::InvalidForeignKey
+    render_error(
+      "Cannot delete plan with existing subscriptions",
+      :unprocessable_content
+    )
   end
 
   # POST /api/v1/plans/:id/duplicate
