@@ -1,6 +1,7 @@
-FROM node:18-alpine
+# Development Dockerfile for React frontend
+FROM node:20-alpine
 
-# Set working directory
+# tini is included in node:alpine images as /sbin/tini
 WORKDIR /app
 
 # Install dependencies
@@ -13,5 +14,5 @@ COPY . .
 # Expose port
 EXPOSE 3001
 
-# Start the application
+ENTRYPOINT ["tini", "--"]
 CMD ["npm", "start"]

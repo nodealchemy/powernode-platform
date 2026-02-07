@@ -1,10 +1,11 @@
 # Multi-stage production Dockerfile for Rails API backend
 FROM ruby:3.2.8-slim AS base
 
-# Install system dependencies
+# Install system dependencies + tini for proper PID 1 init
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
     curl \
+    tini \
     libjemalloc2 \
     libpq5 \
     libvips42 \
@@ -64,5 +65,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
-# Start server
+# Use tini as init system for proper signal handling and zombie reaping
+ENTRYPOINT ["tini", "--"]
 CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
