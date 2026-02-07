@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PlusIcon, BookOpenIcon, TagIcon } from '@heroicons/react/24/outline';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { logger } from '@/shared/utils/logger';
 
 export default function KnowledgeBasePage() {
@@ -166,9 +167,7 @@ export default function KnowledgeBasePage() {
           { label: 'Knowledge Base' }
         ]}
       >
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

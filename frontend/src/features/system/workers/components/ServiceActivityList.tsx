@@ -196,9 +196,7 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center p-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-theme-interactive-primary"></div>
-          </div>
+          <LoadingSpinner size="sm" className="p-8" />
         ) : activities.length === 0 ? (
           <div className="text-center py-8 text-theme-secondary">
             <div className="text-4xl mb-3">📊</div>

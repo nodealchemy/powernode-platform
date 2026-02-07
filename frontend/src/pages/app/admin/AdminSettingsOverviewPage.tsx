@@ -3,6 +3,7 @@ import { adminSettingsApi, AdminOverviewData } from '@/features/admin/services/a
 import { servicesApi, HealthStatus } from '@/features/admin/services/servicesApi';
 import { ActionCard, MetricCard as StandardMetricCard } from '@/shared/components/ui/Card';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import {
   SystemStatusCard,
   SecurityConfigCard,
@@ -55,12 +56,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
 
   if (loading && !data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-interactive-primary mx-auto mb-4"></div>
-          <p className="text-theme-secondary">Loading system overview...</p>
-        </div>
-      </div>
+      <LoadingSpinner size="lg" className="h-64" message="Loading system overview..." />
     );
   }
 

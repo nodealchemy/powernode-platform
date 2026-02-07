@@ -13,6 +13,7 @@ import {
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card, CardTitle, CardContent } from '@/shared/components/ui/Card';
 import { Select } from '@/shared/components/ui/Select';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { DateRangePicker } from '@/shared/components/ui/DateRangePicker';
 import { workflowsApi, WorkflowStatistics } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
@@ -196,10 +197,7 @@ export const WorkflowAnalyticsPage: React.FC = () => {
         title="Workflow Analytics" 
         description="Loading analytics data..."
       >
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
-          <span className="ml-2 text-theme-muted">Loading analytics data...</span>
-        </div>
+        <LoadingSpinner className="py-12" message="Loading analytics data..." />
       </PageContainer>
     );
   }

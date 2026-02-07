@@ -4,7 +4,9 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { Button } from '@/shared/components/ui/Button';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { usePromptTemplates } from '../hooks/usePromptTemplates';
 import type {
   PromptTemplate,
@@ -305,6 +307,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
 };
 
 const PromptsPageContent: React.FC = () => {
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const {
     templates,
     loading,
@@ -337,10 +340,16 @@ const PromptsPageContent: React.FC = () => {
     setEditingTemplate(null);
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this prompt template?')) {
-      await deleteTemplate(id);
-    }
+  const handleDelete = (id: string) => {
+    confirm({
+      title: 'Delete Prompt Template',
+      message: 'Are you sure you want to delete this prompt template?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        await deleteTemplate(id);
+      },
+    });
   };
 
   const handlePreview = async (variables: Record<string, string>) => {
@@ -421,9 +430,7 @@ const PromptsPageContent: React.FC = () => {
 
             {/* Template List */}
             {loading ? (
-              <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary" />
-              </div>
+              <LoadingSpinner className="py-12" />
             ) : filteredTemplates.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-theme-secondary">No prompt templates found.</p>
@@ -468,6 +475,7 @@ const PromptsPageContent: React.FC = () => {
           />
         )}
       </div>
+      {ConfirmationDialog}
     </PageContainer>
   );
 };

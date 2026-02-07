@@ -6,6 +6,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import predictiveAnalyticsApi from '../services/predictiveAnalyticsApi';
 import { ChurnRiskList } from '../components/ChurnRiskList';
 import type { ChurnPrediction, PredictiveAnalyticsSummary } from '../types/predictive';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 export const ChurnRiskPage: React.FC = () => {
   const { showNotification } = useNotifications();
@@ -77,9 +78,7 @@ export const ChurnRiskPage: React.FC = () => {
   if (isLoading) {
     return (
       <PageContainer title="Churn Risk">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary" />
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

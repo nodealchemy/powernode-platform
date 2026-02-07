@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { 
   ChatBubbleLeftEllipsisIcon, 
   HandThumbUpIcon, 
@@ -115,9 +116,7 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
           <ChatBubbleLeftEllipsisIcon className="h-6 w-6" />
           Comments
         </h2>
-        <div className="flex items-center justify-center h-32">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-theme-primary"></div>
-        </div>
+        <LoadingSpinner size="sm" className="h-32" />
       </div>
     );
   }

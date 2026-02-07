@@ -13,6 +13,7 @@ import {
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
 import { agentsApi, conversationsApi } from '@/shared/services/ai';
@@ -286,9 +287,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
           </Button>
         }
       >
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-        </div>
+        <LoadingSpinner className="py-12" />
       </Modal>
     );
   }

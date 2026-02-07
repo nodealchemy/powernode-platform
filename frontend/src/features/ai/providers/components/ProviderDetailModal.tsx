@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Settings, 
-  Zap, 
-  AlertCircle, 
-  ExternalLink, 
-  Edit, 
+import {
+  Settings,
+  Zap,
+  AlertCircle,
+  ExternalLink,
+  Edit,
   Trash2,
   TestTube,
   RefreshCw,
@@ -12,6 +12,7 @@ import {
   Key,
   Activity
 } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -305,9 +306,7 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
           </Button>
         }
       >
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-        </div>
+        <LoadingSpinner className="py-12" />
       </Modal>
     );
   }

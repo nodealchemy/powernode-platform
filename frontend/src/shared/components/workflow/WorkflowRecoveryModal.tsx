@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RotateCcw, Save, RefreshCw, Play, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Card } from '@/shared/components/ui/Card';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { api } from '@/shared/services/api';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
@@ -161,9 +162,7 @@ export const WorkflowRecoveryModal: React.FC<WorkflowRecoveryModalProps> = ({
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-          </div>
+          <LoadingSpinner className="py-8" />
         ) : !options ? (
           <div className="text-center py-8">
             <AlertTriangle className="h-12 w-12 text-theme-warning mx-auto mb-3" />

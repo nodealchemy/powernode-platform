@@ -8,6 +8,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { formatCurrency, formatDate } from '@/shared/utils/formatters';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { getCustomerStatusColor, getCustomerStatusText, getSubscriptionStatusColor, getSubscriptionStatusText } from '@/shared/utils/statusHelpers';
 
 interface Customer {
@@ -404,11 +405,8 @@ export const CustomersPage: React.FC = () => {
             <tbody className="card-theme divide-y divide-theme">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="flex justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-link"></div>
-                    </div>
-                    <p className="text-theme-secondary mt-2">Loading customers...</p>
+                  <td colSpan={6} className="px-6 py-12">
+                    <LoadingSpinner message="Loading customers..." />
                   </td>
                 </tr>
               ) : displayCustomers.length === 0 ? (

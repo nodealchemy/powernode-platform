@@ -11,6 +11,7 @@ import {
   Users
 } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardContent, CardTitle } from '@/shared/components/ui/Card';
 import { workflowsApi } from '@/shared/services/ai';
@@ -126,9 +127,7 @@ export const WorkflowExecutionSummaryModal: React.FC<WorkflowExecutionSummaryMod
         icon={<BarChart3 />}
         footer={footer}
       >
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-        </div>
+        <LoadingSpinner className="py-12" />
       </Modal>
     );
   }

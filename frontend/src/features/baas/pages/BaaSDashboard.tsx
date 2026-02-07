@@ -6,6 +6,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import baasApi from '../services/baasApi';
 import { TenantOverview } from '../components/TenantOverview';
 import type { BaaSTenant, BaaSDashboardStats, BaaSApiKey } from '../types';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 export const BaaSDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -72,9 +73,7 @@ export const BaaSDashboard: React.FC = () => {
   if (isLoading) {
     return (
       <PageContainer title="BaaS Dashboard">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary" />
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

@@ -9,6 +9,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { 
   ArrowLeftIcon, 
   PencilIcon, 
@@ -139,9 +140,7 @@ export default function KnowledgeBaseArticlePage() {
           { label: 'Knowledge Base', href: '/app/content/kb' }
         ]}
       >
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

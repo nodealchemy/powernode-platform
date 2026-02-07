@@ -7,6 +7,7 @@ import publisherApi from '../services/publisherApi';
 import { EarningsChart } from '../components/EarningsChart';
 import { PayoutManager } from '../components/PayoutManager';
 import { TemplatePerformance } from '../components/TemplatePerformance';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import type {
   Publisher,
   PublisherDashboardStats,
@@ -103,9 +104,7 @@ export const PublisherDashboard: React.FC = () => {
   if (isLoading) {
     return (
       <PageContainer title="Publisher Dashboard">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary" />
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

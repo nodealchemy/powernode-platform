@@ -13,6 +13,7 @@ import { GatewayConfigModal } from '@/features/business/payment-gateways/compone
 import Button from '@/shared/components/ui/Button';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 interface StatusBadgeProps {
   status: string;
@@ -295,12 +296,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
 
   if (loading && !overview) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-interactive-primary mx-auto mb-4"></div>
-          <p className="text-theme-secondary">Loading payment gateways...</p>
-        </div>
-      </div>
+      <LoadingSpinner size="lg" className="h-96" message="Loading payment gateways..." />
     );
   }
 

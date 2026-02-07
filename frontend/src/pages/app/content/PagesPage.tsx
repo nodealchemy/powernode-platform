@@ -11,6 +11,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { Plus, RefreshCw, Edit2, Eye, EyeOff, Copy, Trash2 } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 export const PagesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -288,9 +289,8 @@ export const PagesPage: React.FC = () => {
         </div>
         
         {loading ? (
-          <div className="p-6 text-center">
-            <div className="animate-spin h-8 w-8 border-b-2 border-theme-link mx-auto mb-2"></div>
-            <p className="text-theme-secondary">Loading pages...</p>
+          <div className="p-6">
+            <LoadingSpinner message="Loading pages..." />
           </div>
         ) : pages.length === 0 ? (
           <div className="p-12 text-center">

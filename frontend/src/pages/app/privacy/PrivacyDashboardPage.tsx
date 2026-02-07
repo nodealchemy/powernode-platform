@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheckIcon, DocumentTextIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { ConsentManager } from '@/features/privacy/components/ConsentManager';
 import { DataExportCard } from '@/features/privacy/components/DataExportCard';
@@ -113,9 +114,7 @@ const PrivacyDashboardPage: React.FC = () => {
   if (loading) {
     return (
       <PageContainer title="Privacy Center" breadcrumbs={breadcrumbs}>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-theme-primary"></div>
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

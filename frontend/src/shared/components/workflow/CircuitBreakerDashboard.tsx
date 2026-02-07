@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, AlertCircle, CheckCircle, Activity, RefreshCw, Zap, TrendingDown, Clock } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { api } from '@/shared/services/api';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
@@ -139,9 +140,7 @@ export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = (
   if (loading) {
     return (
       <Card className={`p-6 ${className}`}>
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-        </div>
+        <LoadingSpinner />
       </Card>
     );
   }

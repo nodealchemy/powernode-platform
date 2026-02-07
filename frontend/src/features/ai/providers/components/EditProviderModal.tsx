@@ -7,6 +7,7 @@ import { providersApi } from '@/shared/services/ai';
 import type { AiProviderCredential } from '@/shared/types/ai';
 import { getErrorMessage } from '@/shared/utils/typeGuards';
 import { CredentialCard, AddCredentialForm, ProviderFormFields } from './edit-provider';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 interface EditProviderModalProps {
   isOpen: boolean;
@@ -459,9 +460,7 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="p-6 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-        </div>
+        <LoadingSpinner className="p-6" />
       </Modal>
     );
   }

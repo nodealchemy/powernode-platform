@@ -6,6 +6,7 @@ import publisherApi from '../services/publisherApi';
 import { EarningsChart } from '../components/EarningsChart';
 import { TemplatePerformance } from '../components/TemplatePerformance';
 import type { PublisherAnalytics } from '../types';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat('en-US', {
@@ -75,9 +76,7 @@ export const TemplateAnalyticsPage: React.FC = () => {
   if (isLoading) {
     return (
       <PageContainer title="Template Analytics">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary" />
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

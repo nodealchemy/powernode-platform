@@ -8,6 +8,7 @@ import { ProxyHostList } from './ProxyHostList';
 import { ProxyDetectionStatus } from './ProxyDetectionStatus';
 import { ProxyTestConnection } from './ProxyTestConnection';
 import { APIUrlPreview } from './APIUrlPreview';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { MultiTenancyConfigPanel } from './MultiTenancyConfigPanel';
 
 export const ProxySettingsTab: React.FC = () => {
@@ -103,9 +104,7 @@ export const ProxySettingsTab: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-primary"></div>
-      </div>
+      <LoadingSpinner size="lg" className="h-64" />
     );
   }
 

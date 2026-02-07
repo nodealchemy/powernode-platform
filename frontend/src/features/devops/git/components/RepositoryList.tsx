@@ -12,6 +12,7 @@ import {
   Trash2,
   RefreshCw,
 } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { GitRepository } from '../types';
 import { useNotification } from '@/shared/hooks/useNotification';
 
@@ -60,9 +61,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-48">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
-      </div>
+      <LoadingSpinner className="h-48" />
     );
   }
 

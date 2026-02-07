@@ -9,6 +9,7 @@ import { PublicPageContainer } from '@/shared/components/layout/PublicPageContai
 import { pagesApi, Page } from '@/features/content/pages/services/pagesApi';
 
 import { getErrorMessage } from '@/shared/utils/errorHandling';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 
 interface WelcomePageProps {
@@ -42,9 +43,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
   if (isLoading) {
     return (
       <PublicPageContainer>
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-info"></div>
-        </div>
+        <LoadingSpinner className="py-20" />
       </PublicPageContainer>
     );
   }

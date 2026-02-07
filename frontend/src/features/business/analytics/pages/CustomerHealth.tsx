@@ -4,6 +4,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import predictiveAnalyticsApi from '../services/predictiveAnalyticsApi';
 import { HealthScoreCard } from '../components/HealthScoreCard';
 import type { CustomerHealthScore, PredictiveAnalyticsSummary } from '../types/predictive';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 export const CustomerHealthPage: React.FC = () => {
   const { showNotification } = useNotifications();
@@ -66,9 +67,7 @@ export const CustomerHealthPage: React.FC = () => {
   if (isLoading) {
     return (
       <PageContainer title="Customer Health">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary" />
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

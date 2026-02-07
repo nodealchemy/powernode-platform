@@ -10,6 +10,7 @@ import { Select } from '@/shared/components/ui/Select';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { 
   PlusIcon, 
  
@@ -215,9 +216,7 @@ export default function KnowledgeBaseAdminPage() {
         breadcrumbs={breadcrumbs}
         actions={actions}
       >
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

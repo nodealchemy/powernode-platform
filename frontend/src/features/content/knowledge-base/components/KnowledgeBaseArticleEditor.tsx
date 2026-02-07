@@ -10,6 +10,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { knowledgeBaseAdminApi, KbCategory } from '@/shared/services/content/knowledgeBaseApi';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { useTheme } from '@/shared/hooks/ThemeContext';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 import {
   ArrowDownTrayIcon as SaveIcon,
@@ -285,9 +286,7 @@ export function KnowledgeBaseArticleEditor() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-focus"></div>
-          </div>
+          <LoadingSpinner className="h-64" />
         </div>
       </div>
     );
