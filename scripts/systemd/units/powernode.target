@@ -1,0 +1,12 @@
+[Unit]
+Description=Powernode Platform Services
+Documentation=https://github.com/powernode/platform
+After=network.target
+
+Wants=powernode-backend@default.service
+Wants=powernode-worker@default.service
+Wants=powernode-worker-web@default.service
+Wants=powernode-frontend@default.service
+
+[Install]
+WantedBy=multi-user.target

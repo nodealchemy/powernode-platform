@@ -262,7 +262,7 @@ workflow.node.execution.updated
 
 **1. Start Backend Monitoring**:
 ```bash
-scripts/backend-manager.sh follow | grep -E "Broadcasting|workflow.run|node.execution"
+journalctl -u powernode-backend@default -f | grep -E "Broadcasting|workflow.run|node.execution"
 ```
 
 **2. Enable Browser Debugging** (DevTools Console):

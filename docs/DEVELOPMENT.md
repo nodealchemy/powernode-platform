@@ -4,47 +4,46 @@ This guide covers how to run the Powernode platform in development mode.
 
 ## Quick Start
 
-### Recommended: Auto-Dev Script
+### Recommended: Systemd Services
 
 ```bash
-# Start all services (Rails API + React frontend + Worker)
-$POWERNODE_ROOT/scripts/auto-dev.sh ensure
+# First-time setup (installs units and config to /etc/powernode/)
+sudo scripts/systemd/powernode-installer.sh install
+
+# Start all services
+sudo systemctl start powernode.target
 
 # Check service status
-$POWERNODE_ROOT/scripts/auto-dev.sh status
+sudo scripts/systemd/powernode-installer.sh status
 
 # Stop all services
-$POWERNODE_ROOT/scripts/auto-dev.sh stop
+sudo systemctl stop powernode.target
 
-# Restart all services
-$POWERNODE_ROOT/scripts/auto-dev.sh restart
-
-# Health check
-$POWERNODE_ROOT/scripts/auto-dev.sh health
+# Restart a specific service
+sudo systemctl restart powernode-backend@default
 ```
 
-### Individual Service Scripts
+### Individual Service Control
 
 ```bash
-# Backend service
-scripts/backend-manager.sh start    # Start Rails server
-scripts/backend-manager.sh stop     # Stop Rails server
-scripts/backend-manager.sh restart  # Restart Rails server
-scripts/backend-manager.sh status   # Check backend status
+# Start/stop/restart individual services
+sudo systemctl start powernode-backend@default
+sudo systemctl start powernode-worker@default
+sudo systemctl start powernode-worker-web@default
+sudo systemctl start powernode-frontend@default
 
-# Worker service
-scripts/worker-manager.sh start     # Start Sidekiq worker
-scripts/worker-manager.sh stop      # Stop Sidekiq worker
-scripts/worker-manager.sh restart   # Restart Sidekiq worker
-scripts/worker-manager.sh status    # Check worker status
+# View logs for a specific service
+journalctl -u powernode-backend@default -f
+journalctl -u powernode-worker@default -f
+journalctl -u powernode-frontend@default -f
 
-# Frontend service
-./frontend/scripts/dev-server.sh    # Start React dev server
+# View all Powernode logs
+journalctl -u 'powernode-*' --since "5 min ago"
 ```
 
 ## Network Access
 
-Both servers are configured to bind to all network interfaces (0.0.0.0), making them accessible from:
+All servers are configured to bind to all network interfaces (0.0.0.0), making them accessible from:
 
 ### Local Access
 - **Backend API**: http://localhost:3000
@@ -76,24 +75,42 @@ On Windows, edit `C:\Windows\System32\drivers\etc\hosts`
 - **Binding**: 0.0.0.0 (all interfaces)
 - **CORS**: Configured for localhost and powernode.dev domains
 - **Host restrictions**: Cleared for development mode
+- **Config**: `/etc/powernode/backend-default.conf`
 
 ### Frontend (React)
 - **Port**: 3001
 - **Binding**: 0.0.0.0 (all interfaces)
 - **API URL**: Configurable via environment variables
 - **Environment**: Uses `.env.development` for configuration
+- **Config**: `/etc/powernode/frontend-default.conf`
 
-### Environment Variables
+### Worker (Sidekiq)
+- **Redis**: `redis://localhost:6379/1`
+- **Concurrency**: 5 threads (configurable)
+- **Config**: `/etc/powernode/worker-default.conf`
 
-Frontend environment variables in `.env.development`:
-```env
-HOST=0.0.0.0
-PORT=3001
-BROWSER=none
-REACT_APP_API_BASE_URL=http://localhost:3000
-REACT_APP_ALLOWED_HOSTS=localhost,127.0.0.1,powernode.dev
-REACT_APP_ENVIRONMENT=development
-GENERATE_SOURCEMAP=true
+### Worker Web UI (Sidekiq Dashboard)
+- **Port**: 4567
+- **Config**: `/etc/powernode/worker-web-default.conf`
+
+### Global Configuration
+- **Config**: `/etc/powernode/powernode.conf`
+- Contains: base path, RVM/nvm paths, Ruby/Node versions, operating mode
+
+## Multi-Instance Support
+
+Run multiple instances of any service on different ports:
+
+```bash
+# Add a second backend instance
+sudo scripts/systemd/powernode-installer.sh add-instance backend api2
+# Edit /etc/powernode/backend-api2.conf → set PORT=3002
+sudo systemctl enable --now powernode-backend@api2
+
+# Add a high-concurrency worker for AI workloads
+sudo scripts/systemd/powernode-installer.sh add-instance worker ai-heavy
+# Edit /etc/powernode/worker-ai-heavy.conf → set WORKER_CONCURRENCY=15
+sudo systemctl enable --now powernode-worker@ai-heavy
 ```
 
 ## Network Security
@@ -106,11 +123,16 @@ GENERATE_SOURCEMAP=true
 
 ## Troubleshooting
 
-### Cannot Access from Network
-1. Check your firewall settings
-2. Ensure both servers show "binding to 0.0.0.0" in their startup logs
-3. Verify your IP address with `hostname -I`
-4. Test with curl: `curl http://YOUR_IP:3000/api/v1/health`
+### Services Won't Start
+
+```bash
+# Check specific service logs
+journalctl -u powernode-backend@default --since "5 min ago" --no-pager
+
+# Reset failed state and retry
+sudo systemctl reset-failed 'powernode-*'
+sudo systemctl start powernode.target
+```
 
 ### CORS Issues
 - Backend CORS is configured for localhost and powernode.dev domains
@@ -123,9 +145,9 @@ GENERATE_SOURCEMAP=true
 - Try accessing via direct IP if domain doesn't resolve
 
 ### Port Conflicts
-- Change ports in the respective configuration files if needed
-- Backend: modify the `-p` flag in server scripts
-- Frontend: modify `PORT` in `.env.development`
+- Check what's using a port: `ss -tlnp | grep :3000`
+- Change ports in `/etc/powernode/backend-default.conf` (or other service config)
+- Reload: `sudo systemctl daemon-reload && sudo systemctl restart powernode-backend@default`
 
 ---
 

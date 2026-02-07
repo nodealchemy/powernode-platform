@@ -13,7 +13,7 @@ Comprehensive manual testing plan for all AI components with **frontend-first ap
 ### 0.1 Environment Setup
 ```bash
 # Start all services
-scripts/auto-dev.sh ensure
+sudo systemctl start powernode.target
 ```
 
 **Note**: Ollama is pre-configured as a remote provider in the admin account. Use the provider URL and credentials provided for your development environment.
@@ -343,7 +343,7 @@ scripts/auto-dev.sh ensure
 ## Verification Checklist
 
 ### Pre-Test
-- [ ] `scripts/auto-dev.sh ensure` shows all services running
+- [ ] `sudo scripts/systemd/powernode-installer.sh status` shows all services running
 - [ ] `ollama serve` running with `llama3:8b` model
 - [ ] Logged in with full AI permissions
 

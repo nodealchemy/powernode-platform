@@ -1,0 +1,33 @@
+[Unit]
+Description=Powernode Backend API (instance %i)
+Documentation=https://github.com/powernode/platform
+After=postgresql.service redis.service network.target
+Wants=postgresql.service redis.service
+PartOf=powernode.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/powernode/powernode.conf
+EnvironmentFile=/etc/powernode/backend-%i.conf
+
+WorkingDirectory=/opt/powernode/server
+ExecStart=/opt/powernode/scripts/systemd/powernode-backend.sh
+ExecReload=/bin/kill -SIGUSR2 $MAINPID
+
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=90s
+TimeoutStopSec=30s
+
+SyslogIdentifier=powernode-backend-%i
+
+# Security hardening (injected by installer in production mode)
+# NoNewPrivileges=true
+# ProtectSystem=strict
+# PrivateTmp=true
+# ReadWritePaths=/opt/powernode/server/tmp /opt/powernode/server/log /opt/powernode/server/storage
+
+[Install]
+WantedBy=powernode.target

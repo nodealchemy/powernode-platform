@@ -1,0 +1,32 @@
+[Unit]
+Description=Powernode Sidekiq Web UI (instance %i)
+Documentation=https://github.com/powernode/platform
+After=powernode-worker@%i.service
+BindsTo=powernode-worker@%i.service
+PartOf=powernode.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/powernode/powernode.conf
+EnvironmentFile=/etc/powernode/worker-web-%i.conf
+
+WorkingDirectory=/opt/powernode/worker
+ExecStart=/opt/powernode/scripts/systemd/powernode-worker-web.sh
+
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=45s
+TimeoutStopSec=15s
+
+SyslogIdentifier=powernode-worker-web-%i
+
+# Security hardening (injected by installer in production mode)
+# NoNewPrivileges=true
+# ProtectSystem=strict
+# PrivateTmp=true
+# ReadWritePaths=/opt/powernode/worker/tmp /opt/powernode/worker/log
+
+[Install]
+WantedBy=powernode.target

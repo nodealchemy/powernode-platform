@@ -352,7 +352,7 @@ cd server && bundle exec rspec spec/services/ai*
 cd frontend && npm run typecheck
 
 # Start development services
-scripts/auto-dev.sh ensure
+sudo systemctl start powernode.target
 
 # Database migrations
 cd server && rails db:migrate

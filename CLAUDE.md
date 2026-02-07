@@ -77,11 +77,12 @@ user.role === 'manager'
 ## Service Management
 
 ```bash
-# Primary - use auto-dev.sh
-scripts/auto-dev.sh ensure    # Start all services
-scripts/auto-dev.sh status    # Check status
-scripts/auto-dev.sh stop      # Stop all
-scripts/auto-dev.sh health    # Health check
+# Systemd services (requires initial install: sudo scripts/systemd/powernode-installer.sh install)
+sudo systemctl start powernode.target           # Start all services
+sudo systemctl stop powernode.target            # Stop all services
+sudo systemctl restart powernode-backend@default  # Restart individual service
+sudo scripts/systemd/powernode-installer.sh status  # Show all service status
+journalctl -u powernode-backend@default -f      # Tail service logs
 ```
 
 **NEVER** use manual commands (`rails server`, `sidekiq`, `npm start`)
@@ -90,15 +91,38 @@ scripts/auto-dev.sh health    # Health check
 
 ## Test Execution
 
-**Before running RSpec tests**:
+**Parallel RSpec** (preferred — uses per-process databases):
 ```bash
-pkill -f rspec 2>/dev/null || true; sleep 1; bundle exec rspec --format progress
+cd server && bundle exec parallel_rspec spec/
+```
+
+**Single-process RSpec** (fallback):
+```bash
+cd server && pkill -f rspec 2>/dev/null || true; sleep 1; bundle exec rspec --format progress
+```
+
+**Parallel test setup** (run once after schema changes):
+```bash
+cd server && bundle exec rake parallel:setup
 ```
 
 **Frontend tests** - always use CI=true:
 ```bash
 cd frontend && CI=true npm test
 ```
+
+### Multi-Agent Test Rules
+- With `parallel_tests`, each process uses its own database (`powernode_test`, `powernode_test2`, `powernode_test3`, ...) — no deadlocks.
+- Agents MAY run `bundle exec parallel_rspec` concurrently — each invocation creates its own set of isolated DB processes.
+- For targeted single-file tests, standard `bundle exec rspec spec/path_spec.rb` is fine — just don't run multiple single-process instances simultaneously.
+- Frontend tests (`CI=true npm test`) and TypeScript checks (`npx tsc --noEmit`) are always safe to run concurrently.
+
+### Worker Architecture (CRITICAL)
+- The **server** (`server/`) is a Rails API — it does **NOT** run Sidekiq
+- The **worker** (`worker/`) is a standalone Sidekiq process — it communicates with server via HTTP API only
+- **NEVER** create job classes in `server/app/jobs/` — jobs belong in `worker/app/jobs/`
+- **NEVER** add Sidekiq gems to `server/Gemfile`
+- **NEVER** modify `worker/` files when fixing server issues
 
 ---
 
@@ -140,4 +164,9 @@ cd frontend && CI=true npm test
 # Pattern validation
 ./scripts/pattern-validation.sh          # Full audit
 ./scripts/quick-pattern-check.sh         # Quick check
+
+# Service management (systemd)
+sudo scripts/systemd/powernode-installer.sh install           # Install units + configs
+sudo scripts/systemd/powernode-installer.sh add-instance backend api2  # Add instance
+sudo scripts/systemd/powernode-installer.sh status            # Show all services
 ```

@@ -53,7 +53,7 @@ export TEST_USER_PASSWORD="password123"
 ### 3. Start Development Servers
 
 ```bash
-scripts/auto-dev.sh ensure
+sudo systemctl start powernode.target
 ```
 
 ### 4. Run Tests

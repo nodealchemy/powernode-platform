@@ -340,7 +340,7 @@ end
 
 ```bash
 # Ensure all services are running
-$POWERNODE_ROOT/scripts/auto-dev.sh status
+sudo scripts/systemd/powernode-installer.sh status
 
 # Enable WebSocket debug monitoring in browser console
 console.log('🔍 WebSocket Monitoring Enabled');
@@ -380,7 +380,7 @@ WebSocket.prototype.onmessage = function(event) {
 
 ```bash
 # Monitor backend broadcasts
-scripts/backend-manager.sh follow | grep -E "BROADCASTING|workflow.node.execution"
+journalctl -u powernode-backend@default -f | grep -E "BROADCASTING|workflow.node.execution"
 ```
 
 **Expected output**:
@@ -399,7 +399,7 @@ echo "🔍 Validating WebSocket Real-Time Updates..."
 
 # Check services
 echo "1. Service Status:"
-$POWERNODE_ROOT/scripts/auto-dev.sh status | grep -E "backend|frontend|worker"
+sudo scripts/systemd/powernode-installer.sh status
 
 # Check WorkflowExecutor
 echo -e "\n2. WorkflowExecutor State Methods:"

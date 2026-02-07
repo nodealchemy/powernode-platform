@@ -706,21 +706,24 @@ kubectl create secret generic payment-secrets \
 ## Development Workflow
 
 ### Process Management (CRITICAL)
-**NEVER start servers manually** - Always use management scripts with screen sessions.
+**NEVER start servers manually** - Always use systemd services.
 
 ```bash
 # Essential commands
-$POWERNODE_ROOT/scripts/auto-dev.sh ensure    # Start all services
-$POWERNODE_ROOT/scripts/auto-dev.sh status    # Health check
+sudo systemctl start powernode.target              # Start all services
+sudo scripts/systemd/powernode-installer.sh status  # Health check
 
 # Individual services
-$POWERNODE_ROOT/scripts/backend-manager.sh start|stop|status|logs
-$POWERNODE_ROOT/scripts/worker-manager.sh start|stop|status|start-web|stop-web  
-$POWERNODE_ROOT/scripts/frontend-manager.sh start|stop|status|logs
+sudo systemctl start|stop|restart powernode-backend@default
+sudo systemctl start|stop|restart powernode-worker@default
+sudo systemctl start|stop|restart powernode-frontend@default
+journalctl -u powernode-backend@default -f          # Tail backend logs
+journalctl -u powernode-worker@default -f           # Tail worker logs
+journalctl -u powernode-frontend@default -f         # Tail frontend logs
 
 # Service endpoints
 # Backend: http://localhost:3000
-# Worker Web: http://localhost:4567/sidekiq  
+# Worker Web: http://localhost:4567/sidekiq
 # Frontend: http://localhost:3002
 ```
 
@@ -949,7 +952,7 @@ find $POWERNODE_ROOT -name "*.tmp" -o -name ".DS_Store" -o -name "Thumbs.db" -o 
 ### Essential Commands
 ```bash
 # Development Workflow
-$POWERNODE_ROOT/scripts/auto-dev.sh ensure            # Start all services
+sudo systemctl start powernode.target                  # Start all services
 cd $POWERNODE_ROOT/server && rails db:migrate db:seed # Database setup
 cd $POWERNODE_ROOT/server && bundle exec rspec        # Backend tests
 cd $POWERNODE_ROOT/frontend && npm test               # Frontend tests

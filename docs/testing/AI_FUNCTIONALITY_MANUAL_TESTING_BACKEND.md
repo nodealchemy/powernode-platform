@@ -4,7 +4,7 @@
 A comprehensive testing plan covering the full AI functionality in Powernode, organized into 16 phases. This covers 93 AI models, 60+ services, and 22 frontend features.
 
 **Prerequisites:**
-- Development environment running (`scripts/auto-dev.sh ensure`)
+- Development environment running (`sudo systemctl start powernode.target`)
 - Custom "Ollama" provider configured and healthy
 - At least one agent configured (Ollama Example Agent)
 
@@ -35,11 +35,10 @@ A comprehensive testing plan covering the full AI functionality in Powernode, or
 ### 0.1 Check Development Environment
 ```bash
 # Ensure all services are running
-cd /home/rett/Drive/Projects/powernode-platform
-scripts/auto-dev.sh status
+sudo scripts/systemd/powernode-installer.sh status
 
 # If not running, start them
-scripts/auto-dev.sh ensure
+sudo systemctl start powernode.target
 ```
 
 ### 0.2 Check Database State
@@ -2767,7 +2766,7 @@ curl "https://dev.powernode.org/api/v1/ai/workflows/{WORKFLOW_ID}/circuit_breake
    - Check provider `api_endpoint` is correctly configured
 
 2. **Agent execution hangs**
-   - Check Sidekiq is running: `scripts/auto-dev.sh status`
+   - Check Sidekiq is running: `sudo scripts/systemd/powernode-installer.sh status`
    - Check model availability on remote server: `curl {provider.api_endpoint}/api/tags`
    - Review logs: `tail -f server/log/development.log`
 

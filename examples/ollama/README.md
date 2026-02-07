@@ -25,7 +25,7 @@ Simple examples demonstrating Ollama integration with Powernode AI features.
 3. **Powernode server running**:
    ```bash
    # From project root
-   scripts/auto-dev.sh ensure
+   sudo systemctl start powernode.target
    ```
 
 4. **Database seeded with Ollama provider**:

@@ -474,13 +474,13 @@ describe('Workflow Execution', () => {
 2. Check database connection status
 3. Check external service availability (AI providers)
 4. Review recent deployments
-5. Restart if needed: `scripts/backend-manager.sh restart`
+5. Restart if needed: `sudo systemctl restart powernode-backend@default`
 
 **Workflow Executions Stalled**:
-1. Check Sidekiq worker status: `scripts/worker-manager.sh status`
+1. Check Sidekiq worker status: `systemctl status powernode-worker@default`
 2. Check queue depths in Redis
 3. Review worker logs for errors
-4. Restart workers: `scripts/worker-manager.sh restart`
+4. Restart workers: `sudo systemctl restart powernode-worker@default`
 
 ---
 
@@ -591,13 +591,13 @@ cd frontend && npm run test:coverage
 cd frontend && npx cypress run
 
 # Check service status
-scripts/auto-dev.sh status
+sudo scripts/systemd/powernode-installer.sh status
 
 # View logs
-tail -f server/log/development.log
+journalctl -u powernode-backend@default -f
 
 # Monitor Sidekiq
-scripts/worker-manager.sh status
+systemctl status powernode-worker@default
 ```
 
 ---

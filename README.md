@@ -80,18 +80,20 @@ powernode-platform/
 git clone <repository>
 cd powernode-platform
 
-# One-command development startup (optimized!)
-./scripts/auto-dev.sh ensure
+# Install systemd services (one-time)
+sudo scripts/systemd/powernode-installer.sh install
 
-# Or individual services
-cd server && ./bin/dev      # Rails API (port 3000)
-cd frontend && npm run dev  # React app (port 3001)
-cd worker && ./bin/dev      # Background jobs
+# Start all services
+sudo systemctl start powernode.target
+
+# Check status
+sudo scripts/systemd/powernode-installer.sh status
 ```
 
 **That's it!** 🎉 Your platform is running:
 - **Frontend**: http://localhost:3001
 - **API**: http://localhost:3000
+- **Worker Web UI**: http://localhost:4567
 - **Background Jobs**: Running automatically
 
 ## 📊 Platform Status
@@ -203,4 +205,4 @@ See **[LICENSE](LICENSE)** for licensing information.
 
 **Happy coding!** 🎉 Welcome to the Powernode platform - where subscription management meets modern development practices.
 
-> 💡 **Pro Tip**: Use `./scripts/auto-dev.sh status` to check all services at once!
+> 💡 **Pro Tip**: Use `sudo scripts/systemd/powernode-installer.sh status` to check all services at once!

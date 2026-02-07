@@ -1,0 +1,32 @@
+[Unit]
+Description=Powernode Frontend Dev Server (instance %i)
+Documentation=https://github.com/powernode/platform
+ConditionPathExists=!/etc/powernode/no-frontend
+After=network.target
+PartOf=powernode.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/powernode/powernode.conf
+EnvironmentFile=/etc/powernode/frontend-%i.conf
+
+WorkingDirectory=/opt/powernode/frontend
+ExecStart=/opt/powernode/scripts/systemd/powernode-frontend.sh
+
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=180s
+TimeoutStopSec=15s
+
+SyslogIdentifier=powernode-frontend-%i
+
+# Security hardening (injected by installer in production mode)
+# NoNewPrivileges=true
+# ProtectSystem=strict
+# PrivateTmp=true
+# ReadWritePaths=/opt/powernode/frontend/node_modules/.vite
+
+[Install]
+WantedBy=powernode.target
