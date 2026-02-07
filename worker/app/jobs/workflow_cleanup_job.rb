@@ -2,7 +2,7 @@
 
 # Background job to clean up stuck workflow executions
 class WorkflowCleanupJob < BaseJob
-  queue_as :maintenance
+  sidekiq_options queue: :maintenance
 
   # Time thresholds for determining stuck runs
   STUCK_THRESHOLD = 10.minutes

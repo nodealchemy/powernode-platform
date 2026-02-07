@@ -3,8 +3,7 @@
 # AiTrajectoryBuildJob - Builds trajectory narratives from completed team executions
 # Called asynchronously after team execution completes to avoid blocking the orchestrator
 class AiTrajectoryBuildJob < BaseJob
-  queue_as :ai_orchestration
-  sidekiq_options retry: 2
+  sidekiq_options queue: :ai_orchestration, retry: 2
 
   def execute(args = {})
     @account_id = args[:account_id] || args['account_id']

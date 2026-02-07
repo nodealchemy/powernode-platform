@@ -255,21 +255,20 @@ class JobsController
   end
 
   def parse_delay(delay)
-    case delay
-    when Numeric
-      delay # Assume seconds
-    when String
-      if delay.match?(/^\d+$/)
-        delay.to_i # Numeric string in seconds
-      else
-        # Try to parse as duration (e.g., "1.hour", "30.minutes")
-        eval(delay) # Note: This is not safe in production without proper validation
-      end
+    return 0 if delay.nil? || delay.to_s.strip.empty?
+    return delay if delay.is_a?(Numeric)
+
+    delay_str = delay.to_s.strip
+    return delay_str.to_i if delay_str.match?(/\A\d+\z/)
+
+    case delay_str
+    when /\A(\d+)s\z/i then $1.to_i
+    when /\A(\d+)m\z/i then $1.to_i * 60
+    when /\A(\d+)h\z/i then $1.to_i * 3600
+    when /\A(\d+)d\z/i then $1.to_i * 86400
     else
-      raise ArgumentError, "Invalid delay format: #{delay}"
+      raise ArgumentError, "Invalid delay format: #{delay_str}. Use integer seconds or format like '5m', '1h', '2d'"
     end
-  rescue StandardError
-    raise ArgumentError, "Unable to parse delay: #{delay}"
   end
 
   def success_response(data)

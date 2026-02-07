@@ -16,10 +16,7 @@ module Devops
 
       options = options.deep_symbolize_keys
 
-      # Set up authentication environment
-      setup_authentication(options)
-
-      # Execute Claude Code CLI
+      # Execute Claude Code CLI (env passed to subprocess, not global ENV)
       result = execute_claude_command(prompt, options)
 
       # Report results back to backend
@@ -38,50 +35,47 @@ module Devops
 
     private
 
-    def setup_authentication(options)
-      # Authentication is set via environment variables
-      # The worker should have these configured or passed in options
+    def build_env_hash(options)
+      env = {}
+
       if options[:provider] == "bedrock"
-        ENV["CLAUDE_CODE_USE_BEDROCK"] = "1"
-        ENV["AWS_REGION"] = options[:aws_region] || "us-east-1"
+        env["CLAUDE_CODE_USE_BEDROCK"] = "1"
+        env["AWS_REGION"] = options[:aws_region] || "us-east-1"
       elsif options[:provider] == "vertex"
-        ENV["CLAUDE_CODE_USE_VERTEX"] = "1"
-        ENV["GOOGLE_CLOUD_PROJECT"] = options[:google_project]
+        env["CLAUDE_CODE_USE_VERTEX"] = "1"
+        env["GOOGLE_CLOUD_PROJECT"] = options[:google_project]
       end
-      # Default: use ANTHROPIC_API_KEY from environment
+
+      env
     end
 
     def execute_claude_command(prompt, options)
-      # Build the Claude command
-      cmd_parts = ["claude"]
+      # Build environment hash instead of mutating global ENV
+      env_hash = build_env_hash(options)
 
-      # Add print mode for output
-      cmd_parts << "--print"
+      # Build the Claude command as array for safe execution
+      cmd_parts = ["claude", "--print"]
 
-      # Add model if specified
       if options[:model].present?
         cmd_parts << "--model"
         cmd_parts << options[:model]
       end
 
-      # Add session ID if specified
       if options[:session_id].present?
+        validate_session_id!(options[:session_id])
         cmd_parts << "--session-id"
         cmd_parts << options[:session_id]
       end
 
-      # Add prompt via stdin to handle special characters
-      full_command = cmd_parts.join(" ")
+      log_info "Executing Claude command", command: cmd_parts.join(" ").truncate(100)
 
-      log_info "Executing Claude command", command: full_command.truncate(100)
-
-      # Execute with timeout
+      # Execute with timeout, passing env hash and array form
       timeout_seconds = options[:timeout_seconds] || 600
       output = nil
       error_output = nil
       exit_status = nil
 
-      Open3.popen3(full_command, chdir: options[:working_directory] || Dir.pwd) do |stdin, stdout, stderr, wait_thr|
+      Open3.popen3(env_hash, *cmd_parts, chdir: options[:working_directory] || Dir.pwd) do |stdin, stdout, stderr, wait_thr|
         stdin.write(prompt)
         stdin.close
 
@@ -111,6 +105,12 @@ module Devops
           error: error_output,
           exit_code: exit_status&.exitstatus || 1
         }
+      end
+    end
+
+    def validate_session_id!(session_id)
+      unless session_id.match?(/\A[\w\-]+\z/)
+        raise ArgumentError, "Invalid session_id format: only alphanumeric, hyphens, and underscores allowed"
       end
     end
 

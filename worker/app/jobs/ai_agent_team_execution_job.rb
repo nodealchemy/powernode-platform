@@ -4,8 +4,7 @@
 # Handles team orchestration in the background with progress tracking and error handling
 class AiAgentTeamExecutionJob < BaseJob
   # Job configuration
-  queue_as :ai_orchestration
-  sidekiq_options retry: 3
+  sidekiq_options queue: :ai_orchestration, retry: 3
 
   # Execute team asynchronously
   def execute(args = {})

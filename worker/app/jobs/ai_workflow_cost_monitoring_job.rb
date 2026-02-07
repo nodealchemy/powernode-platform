@@ -3,7 +3,7 @@
 # Background job to monitor AI workflow costs and trigger alerts on anomalies
 # Runs every hour to track spending patterns and detect unusual cost spikes
 class AiWorkflowCostMonitoringJob < BaseJob
-  queue_as :ai_workflow_health
+  sidekiq_options queue: :ai_workflow_health
 
   # Cost thresholds for alerts
   HOURLY_COST_WARNING_THRESHOLD = 50.0     # $50/hour warning

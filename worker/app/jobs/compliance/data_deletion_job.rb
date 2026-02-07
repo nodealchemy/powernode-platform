@@ -3,7 +3,7 @@
 module Compliance
   # Job for processing GDPR data deletion requests
   class DataDeletionJob < BaseJob
-    queue_as :compliance
+    sidekiq_options queue: :compliance
 
     def execute(deletion_request_id)
       log_info "Processing data deletion request: #{deletion_request_id}"

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "shellwords"
+
 module Devops
   # AI-assisted deployment with validation
   # Queue: devops_high
@@ -114,6 +116,24 @@ module Devops
       { approved: true, risk_level: "UNKNOWN", warnings: ["Review failed: #{e.message}"] }
     end
 
+    BLOCKED_COMMAND_PATTERNS = [
+      /sudo/i,
+      /rm\s+-rf/i,
+      /rm\s+\//i,
+      /dd\s+if=/i,
+      /mkfs/i,
+      /chmod\s+777/i,
+      /:\(\)\{:\|:&\}/i,
+      /eval\s/i,
+      /`[^`]+`/,
+      /\$\([^)]+\)/,
+      />\s*\/dev\/sd/i,
+      /&&\s*rm\b/i,
+      /;\s*rm\b/i,
+      /\|\s*sh\b/i,
+      /\|\s*bash\b/i,
+    ].freeze
+
     def execute_deployment(deployment)
       environment = deployment["environment"]
       deploy_command = deployment["deploy_command"]
@@ -122,6 +142,7 @@ module Devops
 
       # Execute the deployment command
       if deploy_command.present?
+        validate_deploy_command!(deploy_command)
         result = execute_shell_command(deploy_command, deployment["working_directory"])
 
         unless result[:success]
@@ -130,10 +151,20 @@ module Devops
       else
         # Default deployment via script
         script_path = deployment.dig("config", "script_path") || "./scripts/deploy.sh"
-        result = execute_shell_command("#{script_path} #{environment}", deployment["working_directory"])
+        validate_deploy_command!(script_path)
+        sanitized_env = Shellwords.shellescape(environment)
+        result = execute_shell_command("#{script_path} #{sanitized_env}", deployment["working_directory"])
 
         unless result[:success]
           raise StandardError, "Deployment script failed: #{result[:error]}"
+        end
+      end
+    end
+
+    def validate_deploy_command!(command)
+      BLOCKED_COMMAND_PATTERNS.each do |pattern|
+        if command.match?(pattern)
+          raise StandardError, "Deployment command blocked by security policy: matches dangerous pattern"
         end
       end
     end

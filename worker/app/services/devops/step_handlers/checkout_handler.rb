@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "shellwords"
 require_relative "../git_operations_service"
 
 module Devops
@@ -150,16 +151,25 @@ module Devops
       end
 
       def checkout_ref(workspace_dir, ref)
-        result = execute_shell_command("git checkout #{ref}", working_directory: workspace_dir)
+        validate_git_ref!(ref)
+
+        escaped_ref = Shellwords.shellescape(ref)
+        result = execute_shell_command("git checkout #{escaped_ref}", working_directory: workspace_dir)
 
         unless result[:success]
           # Try fetching and checking out
-          execute_shell_command("git fetch origin #{ref}", working_directory: workspace_dir)
-          result = execute_shell_command("git checkout #{ref}", working_directory: workspace_dir)
+          execute_shell_command("git fetch origin #{escaped_ref}", working_directory: workspace_dir)
+          result = execute_shell_command("git checkout #{escaped_ref}", working_directory: workspace_dir)
 
           unless result[:success]
             raise StandardError, "Failed to checkout ref #{ref}: #{result[:error]}"
           end
+        end
+      end
+
+      def validate_git_ref!(ref)
+        unless ref.match?(/\A[\w.\-\/]+\z/)
+          raise StandardError, "Invalid git ref format: #{ref}. Only alphanumeric, dots, hyphens, and slashes allowed."
         end
       end
 

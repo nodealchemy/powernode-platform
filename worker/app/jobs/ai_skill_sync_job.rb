@@ -3,8 +3,7 @@
 # AiSkillSyncJob - Synchronizes system skills and tracks usage
 # Can seed system skills, refresh connectors, or increment usage counters
 class AiSkillSyncJob < BaseJob
-  queue_as :ai_orchestration
-  sidekiq_options retry: 2
+  sidekiq_options queue: :ai_orchestration, retry: 2
 
   def execute(args = {})
     @action = args[:action] || args['action'] || 'seed'

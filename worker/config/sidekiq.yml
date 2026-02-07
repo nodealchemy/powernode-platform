@@ -18,24 +18,37 @@
 # Queue configuration (format: [queue_name, weight])
 # Higher weight = higher priority
 :queues:
-  - [critical, 3]          # Critical system operations
-  - [high, 3]              # High priority tasks
-  - [devops_high, 3]       # High priority DevOps operations (pipeline execution, deployment)
-  - [ai_workflows, 2]      # AI workflow execution (uses 600s circuit breaker)
-  - [ai_agents, 2]         # AI agent operations (uses 600s circuit breaker)
-  - [ai_conversations, 2]  # AI conversation processing
-  - [devops_default, 2]    # Default DevOps queue (step execution, sync)
-  - [devops_webhooks, 2]   # DevOps webhook processing
-  - [file_processing, 2]   # File uploads/processing
-  - [services, 2]          # Service health checks
-  - [billing, 2]           # Billing operations (uses distributed locking)
-  - [billing_scheduler, 2] # Billing scheduling (uses distributed locking)
-  - [compliance, 2]        # GDPR compliance operations (terminations, data deletion)
-  - [email, 2]             # Email delivery
-  - [reports, 2]           # Report generation
-  - [webhooks, 1]          # Webhook delivery
-  - [maintenance, 1]       # Maintenance tasks (backups, cleanup)
-  - [default, 1]           # Default queue for misc tasks
+  - [critical, 3]                # Critical system operations
+  - [high, 3]                    # High priority tasks
+  - [workflow_high_priority, 3]  # High priority workflow batch execution
+  - [subscription_lifecycle, 3]  # Billing lifecycle (renewals, cancellations)
+  - [ai_cancellations, 3]        # AI task/workflow cancellations (fast processing)
+  - [devops_high, 3]             # High priority DevOps operations (pipeline execution, deployment)
+  - [ai_workflows, 2]            # AI workflow execution (uses 600s circuit breaker)
+  - [ai_agents, 2]               # AI agent operations (uses 600s circuit breaker)
+  - [ai_conversations, 2]        # AI conversation processing
+  - [ai_orchestration, 2]        # AI orchestration (team execution, skill sync, reviews)
+  - [ai_workflow_health, 2]      # AI workflow health monitoring and cost checks
+  - [ai_workflow_schedules, 2]   # AI workflow scheduled triggers
+  - [ai_workflow_nodes, 2]       # AI workflow node execution
+  - [ai_testing, 2]              # AI testing and validation
+  - [devops_default, 2]          # Default DevOps queue (step execution, sync)
+  - [devops_webhooks, 2]         # DevOps webhook processing
+  - [file_processing, 2]         # File uploads/processing
+  - [services, 2]                # Service health checks
+  - [billing, 2]                 # Billing operations (uses distributed locking)
+  - [billing_scheduler, 2]       # Billing scheduling (uses distributed locking)
+  - [compliance, 2]              # GDPR compliance operations (terminations, data deletion)
+  - [email, 2]                   # Email delivery
+  - [reports, 2]                 # Report generation
+  - [integrations, 2]            # Third-party integration processing
+  - [mcp, 2]                     # MCP server operations
+  - [notifications, 1]           # Notification delivery
+  - [analytics, 1]               # Analytics cache warmup and processing
+  - [schedules, 1]               # General scheduled task processing
+  - [webhooks, 1]                # Webhook delivery
+  - [maintenance, 1]             # Maintenance tasks (backups, cleanup)
+  - [default, 1]                 # Default queue for misc tasks
 
 # Redis configuration
 :redis:

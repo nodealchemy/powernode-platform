@@ -3,7 +3,7 @@
 # Background job to generate weekly AI workflow analytics reports
 # Runs every Sunday at 6:00 AM to compile and distribute weekly summaries
 class AiWorkflowWeeklyReportJob < BaseJob
-  queue_as :reports
+  sidekiq_options queue: :reports
 
   def execute
     log_info("Starting AI Workflow Weekly Report generation")

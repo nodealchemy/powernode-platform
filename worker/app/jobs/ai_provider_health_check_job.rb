@@ -3,7 +3,7 @@
 # Background job to check health of AI providers
 # Runs every 10 minutes to ensure providers are responsive and functional
 class AiProviderHealthCheckJob < BaseJob
-  queue_as :ai_workflow_health
+  sidekiq_options queue: :ai_workflow_health
 
   # Health check configuration
   RESPONSE_TIME_WARNING_MS = 5000   # 5 seconds

@@ -3,7 +3,7 @@
 module Compliance
   # Job for processing GDPR data export requests
   class DataExportJob < BaseJob
-    queue_as :compliance
+    sidekiq_options queue: :compliance
 
     def execute(export_request_id)
       log_info "Processing data export request: #{export_request_id}"

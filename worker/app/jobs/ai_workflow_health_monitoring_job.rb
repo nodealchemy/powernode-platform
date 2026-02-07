@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class AiWorkflowHealthMonitoringJob < BaseJob
-  queue_as :ai_workflow_health
+  sidekiq_options queue: :ai_workflow_health
 
   def execute
     log_info("Starting AI Workflow Health Monitoring check")

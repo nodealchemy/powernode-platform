@@ -3,8 +3,7 @@
 # AiTaskReviewProcessJob - Processes task reviews asynchronously
 # Handles both blocking and shadow review modes without blocking the orchestrator
 class AiTaskReviewProcessJob < BaseJob
-  queue_as :ai_orchestration
-  sidekiq_options retry: 2
+  sidekiq_options queue: :ai_orchestration, retry: 2
 
   def execute(args = {})
     @account_id = args[:account_id] || args['account_id']

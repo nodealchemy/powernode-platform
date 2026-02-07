@@ -4,6 +4,20 @@ module Devops
   module StepHandlers
     # Handles generic command execution steps
     class RunCommandHandler < Base
+      BLOCKED_COMMAND_PATTERNS = [
+        /sudo/i,
+        /rm\s+-rf/i,
+        /rm\s+\//i,
+        /dd\s+if=/i,
+        /mkfs/i,
+        /chmod\s+777/i,
+        /:\(\)\{:\|:&\}/i,
+        /eval\s/i,
+        /`[^`]+`/,
+        /\$\([^)]+\)/,
+        />\s*\/dev\/sd/i,
+      ].freeze
+
       # Execute run command step
       # @param config [Hash] Step configuration
       # @param context [Hash] Execution context
@@ -25,6 +39,9 @@ module Devops
         # Interpolate variables in command
         variables = build_variables(context, previous_outputs)
         command = interpolate(command, variables)
+
+        # Validate command against dangerous patterns
+        validate_command!(command)
 
         logs << log_info("Executing command", command: command.truncate(100))
 
@@ -104,6 +121,14 @@ module Devops
         env["CI_COMMIT_SHA"] = (trigger[:head_sha] || trigger[:after]).to_s if trigger[:head_sha] || trigger[:after]
 
         env.compact
+      end
+
+      def validate_command!(command)
+        BLOCKED_COMMAND_PATTERNS.each do |pattern|
+          if command.match?(pattern)
+            raise StandardError, "Command blocked by security policy: matches dangerous pattern"
+          end
+        end
       end
 
       def execute_command_with_env(command, working_dir, env, timeout)
