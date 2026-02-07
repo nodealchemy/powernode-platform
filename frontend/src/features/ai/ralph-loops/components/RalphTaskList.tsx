@@ -37,7 +37,10 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Modal } from '@/shared/components/ui/Modal';
 import { RalphTaskExecutorSelect } from './RalphTaskExecutorSelect';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { cn } from '@/shared/utils/cn';
+import { formatDateTime } from '@/shared/utils/formatters';
 import type { RalphTask, RalphTaskSummary, RalphTaskFilters, RalphTaskStatus, RalphExecutionType, PrdTask, UpdateRalphTaskExecutorRequest } from '@/shared/services/ai/types/ralph-types';
 
 interface RalphTaskListProps {
@@ -92,11 +95,6 @@ const matchStrategyLabels: Record<string, string> = {
   weighted: 'Weighted',
 };
 
-const formatDate = (dateString?: string): string => {
-  if (!dateString) return 'N/A';
-  return new Date(dateString).toLocaleString();
-};
-
 export const RalphTaskList: React.FC<RalphTaskListProps> = ({
   loopId,
   prdTasks = [],
@@ -106,6 +104,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
   onSelectTask,
   className,
 }) => {
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [tasks, setTasks] = useState<RalphTaskSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -178,23 +177,27 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
     return prdTasks.find(t => t.key === taskKey);
   };
 
-  const handleDeleteTask = async (taskKey: string) => {
+  const handleDeleteTask = (taskKey: string) => {
     if (!onPrdTasksChange || !onSavePrd) return;
 
-    if (!window.confirm(`Are you sure you want to delete task "${taskKey}"? This action cannot be undone.`)) {
-      return;
-    }
-
-    setDeletingTask(true);
-    const newTasks = prdTasks.filter(t => t.key !== taskKey);
-    onPrdTasksChange(newTasks);
-    try {
-      await onSavePrd(newTasks); // Pass tasks directly to avoid stale state
-      setConfiguringTask(null);
-      loadTasks(); // Refresh to reflect deletion
-    } finally {
-      setDeletingTask(false);
-    }
+    confirm({
+      title: 'Delete Task',
+      message: `Are you sure you want to delete task "${taskKey}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        setDeletingTask(true);
+        const newTasks = prdTasks.filter(t => t.key !== taskKey);
+        onPrdTasksChange(newTasks);
+        try {
+          await onSavePrd(newTasks);
+          setConfiguringTask(null);
+          loadTasks();
+        } finally {
+          setDeletingTask(false);
+        }
+      },
+    });
   };
 
   const handleAddTask = async () => {
@@ -331,11 +334,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
       </div>
 
       {/* Error */}
-      {error && (
-        <div className="p-3 rounded-lg bg-theme-status-error/10 text-theme-status-error text-sm">
-          {error}
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       {/* Add Task Form */}
       {showAddTask && canEdit && (
@@ -738,7 +737,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
                                 <span>Created</span>
                               </div>
                               <span className="text-theme-text-primary">
-                                {formatDate(details.created_at)}
+                                {details.created_at ? formatDateTime(details.created_at) : 'N/A'}
                               </span>
                             </div>
                             <div>
@@ -747,7 +746,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
                                 <span>Last Iteration</span>
                               </div>
                               <span className="text-theme-text-primary">
-                                {formatDate(details.iteration_completed_at)}
+                                {details.iteration_completed_at ? formatDateTime(details.iteration_completed_at) : 'N/A'}
                               </span>
                             </div>
                           </div>
@@ -782,6 +781,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
           })}
         </div>
       )}
+      {ConfirmationDialog}
     </div>
   );
 };

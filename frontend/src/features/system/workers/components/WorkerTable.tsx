@@ -4,6 +4,7 @@ import { WorkerDetailsPanel } from './WorkerDetailsPanel';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Eye, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 import { copyToClipboard } from '@/shared/utils/clipboard';
+import { formatDate } from '@/shared/utils/formatters';
 
 export interface WorkerTableProps {
   workers: Worker[];
@@ -88,14 +89,6 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
     return token;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
 
   const formatLastSeen = (dateString: string | null) => {
     if (!dateString) return 'Never';

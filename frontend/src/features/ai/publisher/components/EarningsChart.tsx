@@ -11,6 +11,7 @@ import {
   Area,
   AreaChart,
 } from 'recharts';
+import { formatDate } from '@/shared/utils/formatters';
 import type { EarningsSnapshot, DailyMetric } from '../types';
 
 interface EarningsChartProps {
@@ -26,11 +27,6 @@ const formatCurrency = (value: number): string => {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
-};
-
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 export const EarningsChart: React.FC<EarningsChartProps> = ({

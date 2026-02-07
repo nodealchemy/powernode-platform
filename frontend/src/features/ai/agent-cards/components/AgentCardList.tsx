@@ -9,7 +9,6 @@ import {
   ExternalLink,
   Clock,
   CheckCircle,
-  AlertCircle,
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -18,10 +17,12 @@ import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { agentCardsApiService } from '@/shared/services/ai';
 import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import { CapabilityList } from './CapabilityBadge';
 import { cn } from '@/shared/utils/cn';
+import { formatDate } from '@/shared/utils/formatters';
 import type { AgentCard, AgentCardFilters } from '@/shared/services/ai/types/a2a-types';
 import type { SkillCategory } from '@/features/ai/skills/types';
 
@@ -92,11 +93,6 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
     };
     loadSkillCategories();
   }, []);
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  };
 
   if (loading && cards.length === 0) {
     return (
@@ -170,14 +166,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
       </div>
 
       {/* Error state */}
-      {error && (
-        <div className="p-4 bg-theme-danger/10 border border-theme-danger/30 rounded-lg">
-          <div className="flex items-center gap-2 text-theme-danger">
-            <AlertCircle className="h-4 w-4" />
-            <span>{error}</span>
-          </div>
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       {/* Empty state */}
       {!loading && cards.length === 0 && !error && (

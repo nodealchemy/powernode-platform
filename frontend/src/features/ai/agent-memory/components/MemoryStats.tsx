@@ -14,6 +14,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Loading } from '@/shared/components/ui/Loading';
 import { memoryApiService } from '@/shared/services/ai';
 import { cn } from '@/shared/utils/cn';
+import { formatDate } from '@/shared/utils/formatters';
 import type { MemoryStatsResponse } from '@/shared/services/ai/types/memory-types';
 
 interface MemoryStatsProps {
@@ -42,11 +43,6 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
   useEffect(() => {
     loadStats();
   }, [agentId]);
-
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString();
-  };
 
   if (loading) {
     return (
@@ -152,11 +148,11 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-theme-secondary">Oldest Entry</span>
-            <span className="text-theme-primary">{formatDate(stats.oldest_entry)}</span>
+            <span className="text-theme-primary">{stats.oldest_entry ? formatDate(stats.oldest_entry) : 'N/A'}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-theme-secondary">Newest Entry</span>
-            <span className="text-theme-primary">{formatDate(stats.newest_entry)}</span>
+            <span className="text-theme-primary">{stats.newest_entry ? formatDate(stats.newest_entry) : 'N/A'}</span>
           </div>
         </div>
       </CardContent>

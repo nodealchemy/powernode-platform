@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Card } from '@/shared/components/ui';
+import { formatDate } from '@/shared/utils/formatters';
 
 interface UsageChartProps {
   trends: Record<string, number>;
@@ -22,11 +23,6 @@ export const UsageChart: React.FC<UsageChartProps> = ({ trends, title = 'Usage T
   const totalUsage = useMemo(() => {
     return Object.values(trends).reduce((sum, val) => sum + val, 0);
   }, [trends]);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;

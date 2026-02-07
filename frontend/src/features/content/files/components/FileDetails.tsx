@@ -3,6 +3,7 @@ import { Download, Share2, Trash2, Tag, Copy, Check } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
 import { filesApi, FileObject } from '../services/filesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { formatDateTime } from '@/shared/utils/formatters';
 
 interface FileDetailsProps {
   file: FileObject;
@@ -36,10 +37,6 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  };
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleString();
   };
 
   const handleDownload = async (): Promise<void> => {
@@ -153,7 +150,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
 
               <div>
                 <p className="text-theme-secondary">Uploaded</p>
-                <p className="text-theme-primary font-medium">{formatDate(file.created_at)}</p>
+                <p className="text-theme-primary font-medium">{formatDateTime(file.created_at)}</p>
               </div>
 
               {file.uploaded_by && (

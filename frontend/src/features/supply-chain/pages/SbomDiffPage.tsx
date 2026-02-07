@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { SbomDiffViewer } from '../components/sbom/SbomDiffViewer';
 import { useSbomDiff } from '../hooks/useSboms';
+import { formatDateTime } from '@/shared/utils/formatters';
 
 export const SbomDiffPage: React.FC = () => {
   const { id, diffId } = useParams<{ id: string; diffId: string }>();
@@ -54,20 +55,11 @@ export const SbomDiffPage: React.FC = () => {
     },
   ];
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   return (
     <PageContainer
       title="SBOM Comparison"
-      description={`Created ${formatDate(diff.created_at)}`}
+      description={`Created ${formatDateTime(diff.created_at)}`}
       breadcrumbs={breadcrumbs}
       actions={actions}
     >

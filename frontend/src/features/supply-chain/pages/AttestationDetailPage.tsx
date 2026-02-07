@@ -12,6 +12,7 @@ import { useAttestation, useSignAttestation } from '../hooks/useAttestations';
 import { attestationsApi, AttestationType } from '../services/attestationsApi';
 import { SignAttestationModal } from '../components/attestation/SignAttestationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { formatDateTime } from '@/shared/utils/formatters';
 
 type TabId = 'overview' | 'provenance' | 'verification';
 
@@ -85,15 +86,6 @@ export const AttestationDetailPage: React.FC = () => {
     return labels[type] || type;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   if (loading) {
     return (
@@ -233,11 +225,11 @@ export const AttestationDetailPage: React.FC = () => {
           </div>
           <div>
             <span className="text-sm font-medium text-theme-muted">Created</span>
-            <p className="text-theme-primary mt-1">{formatDate(attestation.created_at)}</p>
+            <p className="text-theme-primary mt-1">{formatDateTime(attestation.created_at)}</p>
           </div>
           <div>
             <span className="text-sm font-medium text-theme-muted">Updated</span>
-            <p className="text-theme-primary mt-1">{formatDate(attestation.updated_at)}</p>
+            <p className="text-theme-primary mt-1">{formatDateTime(attestation.updated_at)}</p>
           </div>
         </div>
       </Card>
@@ -354,7 +346,7 @@ export const AttestationDetailPage: React.FC = () => {
               <div className="flex items-start justify-between mb-2">
                 <StatusBadge status={log.status} />
                 <span className="text-sm text-theme-muted">
-                  {formatDate(log.verified_at)}
+                  {formatDateTime(log.verified_at)}
                 </span>
               </div>
               {log.message && (

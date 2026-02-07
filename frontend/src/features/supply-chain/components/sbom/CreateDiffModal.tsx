@@ -3,6 +3,7 @@ import { X, GitCompare, Search } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { sbomsApi } from '../../services/sbomsApi';
+import { formatDate } from '@/shared/utils/formatters';
 
 interface Sbom {
   id: string;
@@ -58,14 +59,6 @@ export const CreateDiffModal: React.FC<CreateDiffModalProps> = ({
     } finally {
       setCreating(false);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
   };
 
   return (

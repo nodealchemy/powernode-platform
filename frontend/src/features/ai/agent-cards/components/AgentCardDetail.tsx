@@ -23,6 +23,7 @@ import { agentCardsApiService } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { CapabilityList } from './CapabilityBadge';
 import { cn } from '@/shared/utils/cn';
+import { formatDateTime } from '@/shared/utils/formatters';
 import type { AgentCard, A2aAgentCardJson } from '@/shared/services/ai/types/a2a-types';
 
 interface AgentCardDetailProps {
@@ -125,10 +126,6 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
       navigator.clipboard.writeText(JSON.stringify(a2aJson, null, 2));
       addNotification({ type: 'success', title: 'Copied', message: 'A2A JSON copied to clipboard' });
     }
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString();
   };
 
   if (loading) {
@@ -395,7 +392,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                 <Clock className="h-4 w-4 text-theme-muted mt-0.5" />
                 <div>
                   <div className="text-theme-secondary">Created</div>
-                  <div className="text-theme-primary">{formatDate(card.created_at)}</div>
+                  <div className="text-theme-primary">{formatDateTime(card.created_at)}</div>
                 </div>
               </div>
 
@@ -403,7 +400,7 @@ export const AgentCardDetail: React.FC<AgentCardDetailProps> = ({
                 <Clock className="h-4 w-4 text-theme-muted mt-0.5" />
                 <div>
                   <div className="text-theme-secondary">Updated</div>
-                  <div className="text-theme-primary">{formatDate(card.updated_at)}</div>
+                  <div className="text-theme-primary">{formatDateTime(card.updated_at)}</div>
                 </div>
               </div>
 

@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { delegationApi, Delegation, DelegationRequest, CreateDelegationData, DELEGATION_PERMISSIONS } from '@/features/delegations/services/delegationApi';
+import { formatDate } from '@/shared/utils/formatters';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { CreateDelegationModal } from './CreateDelegationModal';
 import { DelegationDetailsModal } from './DelegationDetailsModal';
 import { DelegationRequestModal } from './DelegationRequestModal';
 
 export const DelegationsManagement: React.FC = () => {
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [activeDelegations, setActiveDelegations] = useState<Delegation[]>([]);
   const [pendingRequests, setPendingRequests] = useState<DelegationRequest[]>([]);
   const [selectedDelegation, setSelectedDelegation] = useState<Delegation | null>(null);
@@ -51,16 +54,22 @@ export const DelegationsManagement: React.FC = () => {
   }
   };
 
-  const handleRevokeDelegation = async (delegationId: string) => {
-    if (window.confirm('Are you sure you want to revoke this delegation?')) {
-      try {
-        await delegationApi.revokeDelegation(delegationId);
-        loadDelegations();
-        setShowDetailsModal(false);
-      } catch (_error) {
-    // Error silently ignored
-  }
-    }
+  const handleRevokeDelegation = (delegationId: string) => {
+    confirm({
+      title: 'Revoke Delegation',
+      message: 'Are you sure you want to revoke this delegation?',
+      confirmLabel: 'Revoke',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await delegationApi.revokeDelegation(delegationId);
+          loadDelegations();
+          setShowDetailsModal(false);
+        } catch (_error) {
+          // Error silently ignored
+        }
+      },
+    });
   };
 
   const handleApproveRequest = async (requestId: string, note?: string) => {
@@ -97,14 +106,6 @@ export const DelegationsManagement: React.FC = () => {
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
   };
 
   if (loading) {
@@ -310,6 +311,8 @@ export const DelegationsManagement: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {ConfirmationDialog}
 
       {/* Modals */}
       {showCreateModal && (

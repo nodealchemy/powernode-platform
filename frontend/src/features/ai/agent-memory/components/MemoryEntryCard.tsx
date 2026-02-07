@@ -17,6 +17,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
+import { formatDateTime } from '@/shared/utils/formatters';
 import type { MemoryEntry, MemoryType } from '@/shared/services/ai/types/memory-types';
 
 interface MemoryEntryCardProps {
@@ -71,10 +72,6 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
       return JSON.stringify(memory.content);
     }
     return String(memory.content);
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString();
   };
 
   const copyContent = () => {
@@ -153,7 +150,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
         <div className="flex items-center gap-4 mt-3 text-xs text-theme-muted">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {formatDate(memory.created_at)}
+            {formatDateTime(memory.created_at)}
           </span>
           <span>Importance: {Math.round(memory.importance_score * 100)}%</span>
           <span>Confidence: {Math.round(memory.confidence_score * 100)}%</span>
@@ -251,7 +248,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
                 <span className="text-xs text-theme-muted">Last Accessed</span>
                 <div className="text-theme-primary">
                   {memory.last_accessed_at
-                    ? formatDate(memory.last_accessed_at)
+                    ? formatDateTime(memory.last_accessed_at)
                     : 'Never'}
                 </div>
               </div>

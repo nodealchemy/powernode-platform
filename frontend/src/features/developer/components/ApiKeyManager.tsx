@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, Modal, LoadingSpinner } from '@/shared/components/ui';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { api } from '@/shared/services/api';
 import { getErrorMessage } from '@/shared/utils/errorHandling';
+import { formatDate } from '@/shared/utils/formatters';
 
 interface ApiKey {
   id: string;
@@ -17,6 +19,7 @@ interface ApiKey {
 
 export const ApiKeyManager: React.FC = () => {
   const { addNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [loading, setLoading] = useState(true);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -79,20 +82,24 @@ export const ApiKeyManager: React.FC = () => {
     }
   };
 
-  const handleRevokeKey = async (keyId: string) => {
-    if (!confirm('Are you sure you want to revoke this API key? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      const response = await api.delete(`/api/v1/api_keys/${keyId}`);
-      if (response.data.success) {
-        loadApiKeys();
-        addNotification({ type: 'success', message: 'API key revoked successfully' });
-      }
-    } catch (error) {
-      addNotification({ type: 'error', message: getErrorMessage(error) });
-    }
+  const handleRevokeKey = (keyId: string) => {
+    confirm({
+      title: 'Revoke API Key',
+      message: 'Are you sure you want to revoke this API key? This action cannot be undone.',
+      confirmLabel: 'Revoke',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const response = await api.delete(`/api/v1/api_keys/${keyId}`);
+          if (response.data.success) {
+            loadApiKeys();
+            addNotification({ type: 'success', message: 'API key revoked successfully' });
+          }
+        } catch (error) {
+          addNotification({ type: 'error', message: getErrorMessage(error) });
+        }
+      },
+    });
   };
 
   const handleCopyKey = async () => {
@@ -109,13 +116,9 @@ export const ApiKeyManager: React.FC = () => {
     setNewKey(null);
   };
 
-  const formatDate = (dateString?: string) => {
+  const formatDateOptional = (dateString?: string) => {
     if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return formatDate(dateString);
   };
 
   if (loading) {
@@ -175,7 +178,7 @@ export const ApiKeyManager: React.FC = () => {
                         {key.key_preview}
                       </code>
                       <span>Created: {formatDate(key.created_at)}</span>
-                      <span>Last used: {formatDate(key.last_used_at)}</span>
+                      <span>Last used: {formatDateOptional(key.last_used_at)}</span>
                     </div>
                     {key.scopes.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
@@ -204,6 +207,8 @@ export const ApiKeyManager: React.FC = () => {
           )}
         </Card>
       </div>
+
+      {ConfirmationDialog}
 
       <Modal
         isOpen={isCreateModalOpen}

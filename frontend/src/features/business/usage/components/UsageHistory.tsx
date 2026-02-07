@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, Badge, Button } from '@/shared/components/ui';
+import { formatDateTime } from '@/shared/utils/formatters';
 import type { UsageEvent } from '../types';
 
 interface UsageHistoryProps {
@@ -16,15 +17,6 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 export const UsageHistory: React.FC<UsageHistoryProps> = ({ events, onExport }) => {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-US').format(num);
   };
@@ -83,7 +75,7 @@ export const UsageHistory: React.FC<UsageHistoryProps> = ({ events, onExport }) 
                   </td>
                   <td className="py-3 px-2">
                     <span className="text-sm text-theme-tertiary">
-                      {formatDate(event.timestamp)}
+                      {formatDateTime(event.timestamp)}
                     </span>
                   </td>
                   <td className="py-3 px-2 text-center">

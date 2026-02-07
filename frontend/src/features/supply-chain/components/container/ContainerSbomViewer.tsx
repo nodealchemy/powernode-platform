@@ -3,6 +3,7 @@ import { Package, Search, FileText } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { formatDateTime } from '@/shared/utils/formatters';
 
 interface ContainerSbom {
   id: string;
@@ -70,16 +71,6 @@ export const ContainerSbomViewer: React.FC<ContainerSbomViewerProps> = ({
     return matchesSearch && matchesType;
   });
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   return (
     <div className="space-y-4">
       <Card className="p-4">
@@ -93,7 +84,7 @@ export const ContainerSbomViewer: React.FC<ContainerSbomViewerProps> = ({
             </span>
           </div>
           <span className="text-sm text-theme-muted">
-            Generated: {formatDate(sbom.generated_at)}
+            Generated: {formatDateTime(sbom.generated_at)}
           </span>
         </div>
       </Card>

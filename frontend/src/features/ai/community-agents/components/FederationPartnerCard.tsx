@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { cn } from '@/shared/utils/cn';
+import { formatDate } from '@/shared/utils/formatters';
 import type { FederationPartnerSummary, FederationStatus, TrustLevel } from '@/shared/services/ai';
 
 interface FederationPartnerCardProps {
@@ -56,16 +57,6 @@ export const FederationPartnerCard: React.FC<FederationPartnerCardProps> = ({
   const status = statusConfig[partner.status] || statusConfig.pending;
   const trust = trustConfig[partner.trust_level] || trustConfig.untrusted;
   const StatusIcon = status.icon;
-
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return '--';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
 
   return (
     <Card
@@ -124,7 +115,7 @@ export const FederationPartnerCard: React.FC<FederationPartnerCardProps> = ({
         {/* Last Sync */}
         {partner.last_sync_at && (
           <div className="text-xs text-theme-text-secondary mb-3">
-            Last synced: {formatDate(partner.last_sync_at)}
+            Last synced: {partner.last_sync_at ? formatDate(partner.last_sync_at) : '--'}
           </div>
         )}
 

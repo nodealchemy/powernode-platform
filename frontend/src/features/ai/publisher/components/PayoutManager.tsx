@@ -4,6 +4,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import publisherApi from '../services/publisherApi';
+import { formatDate } from '@/shared/utils/formatters';
 import type { Transaction, StripeStatusResponse } from '../types';
 
 interface PayoutManagerProps {
@@ -19,14 +20,6 @@ const formatCurrency = (value: number): string => {
     style: 'currency',
     currency: 'USD',
   }).format(value);
-};
-
-const formatDate = (dateStr: string): string => {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
 };
 
 export const PayoutManager: React.FC<PayoutManagerProps> = ({

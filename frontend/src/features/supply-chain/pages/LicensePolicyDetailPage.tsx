@@ -13,6 +13,7 @@ import {
   useDeleteLicensePolicy,
   useToggleLicensePolicyActive,
 } from '../hooks/useLicenseCompliance';
+import { formatDateTime } from '@/shared/utils/formatters';
 
 const POLICY_TYPE_LABELS: Record<string, string> = {
   allowlist: 'Allowlist',
@@ -83,15 +84,6 @@ export const LicensePolicyDetailPage: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   if (isLoading) {
     return (
@@ -191,11 +183,11 @@ export const LicensePolicyDetailPage: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-sm font-medium text-theme-muted">Created</span>
-                  <p className="text-theme-primary mt-1">{formatDate(policy.created_at)}</p>
+                  <p className="text-theme-primary mt-1">{formatDateTime(policy.created_at)}</p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-theme-muted">Last Updated</span>
-                  <p className="text-theme-primary mt-1">{formatDate(policy.updated_at)}</p>
+                  <p className="text-theme-primary mt-1">{formatDateTime(policy.updated_at)}</p>
                 </div>
               </div>
 
@@ -306,7 +298,7 @@ export const LicensePolicyDetailPage: React.FC = () => {
                     </div>
                     {exception.expires_at && (
                       <span className="text-xs text-theme-muted">
-                        Expires: {formatDate(exception.expires_at)}
+                        Expires: {formatDateTime(exception.expires_at)}
                       </span>
                     )}
                   </div>

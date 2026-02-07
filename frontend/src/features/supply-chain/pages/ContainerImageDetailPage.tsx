@@ -13,6 +13,7 @@ import { containerImagesApi } from '../services/containerImagesApi';
 import { ContainerVulnerabilitiesTable } from '../components/container/ContainerVulnerabilitiesTable';
 import { ContainerSbomViewer } from '../components/container/ContainerSbomViewer';
 import { PolicyViolationsList } from '../components/container/PolicyViolationsList';
+import { formatDateTime } from '@/shared/utils/formatters';
 
 type TabId = 'overview' | 'vulnerabilities' | 'sbom' | 'policies';
 
@@ -75,15 +76,9 @@ export const ContainerImageDetailPage: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString?: string) => {
+  const formatDateTimeOptional = (dateString?: string) => {
     if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDateTime(dateString);
   };
 
   if (loading) {
@@ -190,11 +185,11 @@ export const ContainerImageDetailPage: React.FC = () => {
           </div>
           <div>
             <span className="text-sm font-medium text-theme-muted">Last Scanned</span>
-            <p className="text-theme-primary mt-1">{formatDate(image.last_scanned_at)}</p>
+            <p className="text-theme-primary mt-1">{formatDateTimeOptional(image.last_scanned_at)}</p>
           </div>
           <div>
             <span className="text-sm font-medium text-theme-muted">Created</span>
-            <p className="text-theme-primary mt-1">{formatDate(image.created_at)}</p>
+            <p className="text-theme-primary mt-1">{formatDateTimeOptional(image.created_at)}</p>
           </div>
         </div>
       </Card>
@@ -244,7 +239,7 @@ export const ContainerImageDetailPage: React.FC = () => {
                     <StatusBadge status={scan.status as 'pending' | 'running' | 'completed' | 'failed'} size="sm" />
                   </div>
                   <div className="text-sm text-theme-muted mt-1">
-                    {formatDate(scan.started_at)} - {formatDate(scan.completed_at)}
+                    {formatDateTimeOptional(scan.started_at)} - {formatDateTimeOptional(scan.completed_at)}
                   </div>
                 </div>
                 <div className="flex gap-4 text-sm">

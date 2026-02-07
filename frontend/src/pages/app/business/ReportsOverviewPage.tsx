@@ -11,6 +11,7 @@ import {
   Download,
   Calendar
 } from 'lucide-react';
+import { formatDateTime } from '@/shared/utils/formatters';
 
 interface ReportsStats {
   total_reports: number;
@@ -145,15 +146,6 @@ export const ReportsOverviewPage: React.FC = () => {
       default:
         return 'Unknown';
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
 
   if (loading) {
@@ -310,7 +302,7 @@ export const ReportsOverviewPage: React.FC = () => {
                   <div>
                     <p className="font-medium text-theme-primary">{report.name}</p>
                     <p className="text-sm text-theme-secondary">
-                      {report.template} • {formatDate(report.requested_at)} • {report.requested_by}
+                      {report.template} • {formatDateTime(report.requested_at)} • {report.requested_by}
                     </p>
                   </div>
                 </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, Badge, Button, Modal } from '@/shared/components/ui';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { resellerApi } from '../services/resellerApi';
+import { formatDate } from '@/shared/utils/formatters';
 import type { ResellerPayout } from '../types';
 
 interface PayoutHistoryProps {
@@ -47,13 +48,6 @@ export const PayoutHistory: React.FC<PayoutHistoryProps> = ({
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
 
   const handleRequestPayout = async () => {
     const amount = parseFloat(payoutAmount);

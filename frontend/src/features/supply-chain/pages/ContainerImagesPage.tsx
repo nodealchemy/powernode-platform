@@ -10,6 +10,7 @@ import { StatusBadge } from '../components/shared/StatusBadge';
 import { useContainerImages } from '../hooks/useContainerImages';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { ContainerImage } from '../services/containerImagesApi';
+import { formatDateTime } from '@/shared/utils/formatters';
 
 type TabId = 'all' | 'verified' | 'unverified' | 'quarantined';
 
@@ -40,15 +41,9 @@ export const ContainerImagesPage: React.FC = () => {
     return `${hash.substring(0, 12)}...`;
   };
 
-  const formatDate = (dateString?: string) => {
+  const formatDateTimeOptional = (dateString?: string) => {
     if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDateTime(dateString);
   };
 
   const getVulnCountClasses = (count: number, severity: 'critical' | 'high' | 'medium' | 'low') => {
@@ -141,7 +136,7 @@ export const ContainerImagesPage: React.FC = () => {
       header: 'Last Scanned',
       render: (item) => (
         <span className="text-sm text-theme-secondary">
-          {formatDate(item.last_scanned_at)}
+          {formatDateTimeOptional(item.last_scanned_at)}
         </span>
       ),
     },

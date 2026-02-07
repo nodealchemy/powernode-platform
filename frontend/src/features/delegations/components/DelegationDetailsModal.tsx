@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { delegationApi, Delegation, DelegationActivity, DELEGATION_PERMISSIONS } from '@/features/delegations/services/delegationApi';
+import { formatDateTime } from '@/shared/utils/formatters';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 
 interface DelegationDetailsModalProps {
   delegation: Delegation;
@@ -20,6 +22,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
   onRevoke,
   onUpdate,
 }) => {
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [activeTab, setActiveTab] = useState<'details' | 'users' | 'activity'>('details');
   const [activityLog, setActivityLog] = useState<DelegationActivity[]>([]);
   const [availableUsers, setAvailableUsers] = useState<DelegationUser[]>([]);
@@ -68,24 +71,20 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
   }
   };
 
-  const handleRemoveUser = async (userId: string) => {
-    if (window.confirm('Are you sure you want to remove this user from the delegation?')) {
-      try {
-        await delegationApi.removeUserFromDelegation(delegation.id, userId);
-        onUpdate();
-      } catch (_error) {
-    // Error silently ignored
-  }
-    }
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+  const handleRemoveUser = (userId: string) => {
+    confirm({
+      title: 'Remove User',
+      message: 'Are you sure you want to remove this user from the delegation?',
+      confirmLabel: 'Remove',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await delegationApi.removeUserFromDelegation(delegation.id, userId);
+          onUpdate();
+        } catch (_error) {
+          // Error silently ignored
+        }
+      },
     });
   };
 
@@ -172,7 +171,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
 
                 <div>
                   <h3 className="text-sm font-medium text-theme-tertiary mb-1">Created</h3>
-                  <p className="text-theme-primary">{formatDate(delegation.createdAt || delegation.created_at)}</p>
+                  <p className="text-theme-primary">{formatDateTime(delegation.createdAt || delegation.created_at)}</p>
                   <p className="text-sm text-theme-secondary">by {delegation.createdByName}</p>
                 </div>
 
@@ -184,7 +183,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                 <div>
                   <h3 className="text-sm font-medium text-theme-tertiary mb-1">Expires</h3>
                   <p className="text-theme-primary">
-                    {delegation.expiresAt ? formatDate(delegation.expiresAt) : 'Never'}
+                    {delegation.expiresAt ? formatDateTime(delegation.expiresAt) : 'Never'}
                   </p>
                 </div>
               </div>
@@ -290,7 +289,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                       </div>
                       <div className="text-sm text-theme-secondary">{user.email}</div>
                       <div className="text-xs text-theme-tertiary mt-1">
-                        Added {user.addedAt && formatDate(user.addedAt)}
+                        Added {user.addedAt && formatDateTime(user.addedAt)}
                       </div>
                     </div>
                     {delegation.status === 'active' && (
@@ -338,7 +337,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                         <p className="text-sm text-theme-secondary mt-1">{activity.details}</p>
                       )}
                       <p className="text-xs text-theme-tertiary mt-1">
-                        {formatDate(activity.timestamp || activity.performedAt || activity.performed_at)}
+                        {formatDateTime(activity.timestamp || activity.performedAt || activity.performed_at)}
                       </p>
                     </div>
                   </div>
@@ -352,6 +351,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
           )}
         </div>
       </div>
+      {ConfirmationDialog}
     </div>
   );
 };

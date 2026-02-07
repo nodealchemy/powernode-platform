@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Worker, workerApi, UpdateWorkerData } from '@/features/system/workers/services/workerApi';
+import { formatDateTime } from '@/shared/utils/formatters';
 import { WorkerActivityDashboard } from './WorkerActivityDashboard';
 import { WorkerPermissionsView } from './WorkerPermissionsView';
 import { WorkerSettings } from './WorkerSettings';
@@ -124,15 +125,6 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
     return token;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
   const handleTokenRegenerate = async () => {
     setLoading(true);
@@ -535,11 +527,11 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                         </div>
                         <div>
                           <span className="text-theme-secondary text-sm">Created:</span>
-                          <p className="text-theme-primary">{formatDate(worker.created_at)}</p>
+                          <p className="text-theme-primary">{formatDateTime(worker.created_at)}</p>
                         </div>
                         <div>
                           <span className="text-theme-secondary text-sm">Updated:</span>
-                          <p className="text-theme-primary">{formatDate(worker.updated_at)}</p>
+                          <p className="text-theme-primary">{formatDateTime(worker.updated_at)}</p>
                         </div>
                       </div>
                     </div>
@@ -554,7 +546,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                         <div>
                           <span className="text-theme-secondary text-sm">Last Seen:</span>
                           <p className="text-theme-primary">
-                            {worker.last_seen_at ? formatDate(worker.last_seen_at) : 'Never'}
+                            {worker.last_seen_at ? formatDateTime(worker.last_seen_at) : 'Never'}
                           </p>
                         </div>
                         <div>

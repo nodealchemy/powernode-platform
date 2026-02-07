@@ -10,6 +10,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { StatusBadge } from '../components/shared/StatusBadge';
 import { useAttestations } from '../hooks/useAttestations';
 import { Attestation, AttestationType } from '../services/attestationsApi';
+import { formatDateTime } from '@/shared/utils/formatters';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 type TabId = 'all' | 'slsa_provenance' | 'sbom' | 'custom';
@@ -35,15 +36,6 @@ export const AttestationsPage: React.FC = () => {
     loading,
   });
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const getTypeLabel = (type: AttestationType) => {
     const labels: Record<AttestationType, string> = {
@@ -138,7 +130,7 @@ export const AttestationsPage: React.FC = () => {
       header: 'Created',
       render: (item) => (
         <span className="text-sm text-theme-secondary">
-          {formatDate(item.created_at)}
+          {formatDateTime(item.created_at)}
         </span>
       ),
     },

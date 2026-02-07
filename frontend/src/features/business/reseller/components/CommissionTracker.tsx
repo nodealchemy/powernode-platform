@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, Badge } from '@/shared/components/ui';
 import type { ResellerCommission } from '../types';
+import { formatDate } from '@/shared/utils/formatters';
 
 interface CommissionTrackerProps {
   commissions: ResellerCommission[];
@@ -35,13 +36,6 @@ export const CommissionTracker: React.FC<CommissionTrackerProps> = ({
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
 
   return (
     <Card className="p-6">

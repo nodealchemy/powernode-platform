@@ -19,6 +19,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { a2aTasksApiService } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
+import { formatDateTime } from '@/shared/utils/formatters';
 import type { A2aTaskJson, A2aArtifact } from '@/shared/services/ai/types/a2a-types';
 
 interface TaskDetailProps {
@@ -134,11 +135,6 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
     } finally {
       setActionLoading(null);
     }
-  };
-
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleString();
   };
 
   const formatDuration = (startedAt?: string, completedAt?: string, submittedAt?: string) => {
@@ -411,14 +407,14 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
               <div className="flex justify-between">
                 <span className="text-theme-secondary">Submitted</span>
                 <span className="text-theme-primary">
-                  {formatDate(getTimestamp('submitted_at'))}
+                  {getTimestamp('submitted_at') ? formatDateTime(getTimestamp('submitted_at')!) : 'N/A'}
                 </span>
               </div>
               {getTimestamp('started_at') && (
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Started</span>
                   <span className="text-theme-primary">
-                    {formatDate(getTimestamp('started_at'))}
+                    {formatDateTime(getTimestamp('started_at')!)}
                   </span>
                 </div>
               )}
@@ -426,7 +422,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Completed</span>
                   <span className="text-theme-primary">
-                    {formatDate(getTimestamp('completed_at'))}
+                    {formatDateTime(getTimestamp('completed_at')!)}
                   </span>
                 </div>
               )}
