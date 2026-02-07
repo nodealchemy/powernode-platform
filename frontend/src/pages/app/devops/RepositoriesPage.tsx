@@ -14,6 +14,7 @@ import { CommitDetailModal } from '@/features/devops/git/components/CommitDetail
 import { ImportRepositoriesModal } from '@/features/devops/git/components/ImportRepositoriesModal';
 import type { GitRepository, GitProvider, PaginationInfo } from '@/features/devops/git/types';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 
 interface RepositoryFilters {
   provider_id?: string;
@@ -772,6 +773,7 @@ interface Commit {
 export function RepositoriesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [repositories, setRepositories] = useState<GitRepository[]>([]);
   const [providers, setProviders] = useState<GitProvider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -847,17 +849,22 @@ export function RepositoriesPage() {
     }
   };
 
-  const handleDeleteRepository = async (repoId: string) => {
-    if (!window.confirm('Are you sure you want to remove this repository from tracking?')) {
-      return;
-    }
-    try {
-      await gitProvidersApi.deleteRepository(repoId);
-      showNotification('Repository removed', 'success');
-      setRepositories(repositories.filter(r => r.id !== repoId));
-    } catch (_error) {
-      showNotification('Failed to remove repository', 'error');
-    }
+  const handleDeleteRepository = (repoId: string) => {
+    confirm({
+      title: 'Remove Repository',
+      message: 'Are you sure you want to remove this repository from tracking?',
+      confirmLabel: 'Remove',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await gitProvidersApi.deleteRepository(repoId);
+          showNotification('Repository removed', 'success');
+          setRepositories(repositories.filter(r => r.id !== repoId));
+        } catch (_error) {
+          showNotification('Failed to remove repository', 'error');
+        }
+      },
+    });
   };
 
   const handleFilterChange = (key: keyof RepositoryFilters, value: string | boolean | undefined) => {
@@ -1067,6 +1074,8 @@ export function RepositoriesPage() {
           </>
         )}
       </div>
+
+      {ConfirmationDialog}
 
       {/* Import Repositories Modal */}
       <ImportRepositoriesModal

@@ -15,6 +15,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { marketplaceApi } from '@/features/app/services/marketplaceApi';
 import type { MarketplaceSubscription, MarketplaceItemType } from '@/features/app/types/marketplace';
 import { ALL_MARKETPLACE_TYPES } from '@/features/app/types/marketplace';
@@ -24,6 +25,7 @@ const ALL_TYPES = ALL_MARKETPLACE_TYPES;
 export const MySubscriptionsPage: React.FC = () => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   usePageWebSocket({ pageType: 'marketplace' });
 
   const [subscriptions, setSubscriptions] = useState<MarketplaceSubscription[]>([]);
@@ -104,29 +106,33 @@ export const MySubscriptionsPage: React.FC = () => {
     }
   };
 
-  const handleCancel = async (subscriptionId: string) => {
-    if (!confirm('Are you sure you want to cancel this subscription?')) {
-      return;
-    }
-
-    try {
-      setActionLoading(subscriptionId);
-      await marketplaceApi.cancelSubscription(subscriptionId);
-      addNotification({
-        type: 'success',
-        title: 'Subscription Cancelled',
-        message: 'Your subscription has been cancelled.'
-      });
-      loadSubscriptions();
-    } catch (_error) {
-      addNotification({
-        type: 'error',
-        title: 'Error',
-        message: 'Failed to cancel subscription. Please try again.'
-      });
-    } finally {
-      setActionLoading(null);
-    }
+  const handleCancel = (subscriptionId: string) => {
+    confirm({
+      title: 'Cancel Subscription',
+      message: 'Are you sure you want to cancel this subscription?',
+      confirmLabel: 'Cancel Subscription',
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          setActionLoading(subscriptionId);
+          await marketplaceApi.cancelSubscription(subscriptionId);
+          addNotification({
+            type: 'success',
+            title: 'Subscription Cancelled',
+            message: 'Your subscription has been cancelled.'
+          });
+          loadSubscriptions();
+        } catch (_error) {
+          addNotification({
+            type: 'error',
+            title: 'Error',
+            message: 'Failed to cancel subscription. Please try again.'
+          });
+        } finally {
+          setActionLoading(null);
+        }
+      },
+    });
   };
 
   const handleViewDetails = (subscription: MarketplaceSubscription) => {
@@ -379,6 +385,7 @@ export const MySubscriptionsPage: React.FC = () => {
           ))}
         </div>
       )}
+      {ConfirmationDialog}
     </PageContainer>
   );
 };

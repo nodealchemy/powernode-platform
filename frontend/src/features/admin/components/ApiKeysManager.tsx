@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { apiKeysApi, ApiKey, DetailedApiKey, ApiKeyStats } from '@/features/devops/api-keys/services/apiKeysApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { CreateApiKeyModal } from './CreateApiKeyModal';
 import { ApiKeyDetailsModal } from './ApiKeyDetailsModal';
@@ -33,6 +34,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
   const [showSecretApiKey, setShowSecretApiKey] = useState<DetailedApiKey | null>(null);
 
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const perPage = 20;
 
   const loadApiKeys = useCallback(async () => {
@@ -60,7 +62,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
     loadApiKeys();
   }, [loadApiKeys]);
 
-  const handleAction = async (action: string, apiKeyId: string) => {
+  const executeAction = async (action: string, apiKeyId: string) => {
     try {
       setActionLoading(prev => ({ ...prev, [apiKeyId]: true }));
       let response;
@@ -70,18 +72,12 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
           response = await apiKeysApi.toggleStatus(apiKeyId);
           break;
         case 'regenerate':
-          if (!window.confirm('This will invalidate the existing key. Continue?')) {
-            return;
-          }
           response = await apiKeysApi.regenerateApiKey(apiKeyId);
           if (response.success && response.data) {
             setShowSecretApiKey(response.data);
           }
           break;
         case 'delete':
-          if (!window.confirm('Are you sure you want to delete this API key? This cannot be undone.')) {
-            return;
-          }
           response = await apiKeysApi.deleteApiKey(apiKeyId);
           break;
         default:
@@ -98,6 +94,32 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
       showNotification('Action failed', 'error');
     } finally {
       setActionLoading(prev => ({ ...prev, [apiKeyId]: false }));
+    }
+  };
+
+  const handleAction = (action: string, apiKeyId: string) => {
+    if (action === 'regenerate') {
+      confirm({
+        title: 'Regenerate API Key',
+        message: 'This will invalidate the existing key. Continue?',
+        confirmLabel: 'Regenerate',
+        variant: 'warning',
+        onConfirm: async () => {
+          await executeAction(action, apiKeyId);
+        },
+      });
+    } else if (action === 'delete') {
+      confirm({
+        title: 'Delete API Key',
+        message: 'Are you sure you want to delete this API key? This cannot be undone.',
+        confirmLabel: 'Delete',
+        variant: 'danger',
+        onConfirm: async () => {
+          await executeAction(action, apiKeyId);
+        },
+      });
+    } else {
+      executeAction(action, apiKeyId);
     }
   };
 
@@ -410,6 +432,8 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
           </div>
         </div>
       )}
+
+      {ConfirmationDialog}
 
       {/* Modals */}
       <CreateApiKeyModal

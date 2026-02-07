@@ -74,7 +74,8 @@ export const NodeToolsMenu: React.FC<NodeToolsMenuProps> = ({
 // Default handlers for common actions
 export const createNodeToolsHandlers = (
   onNodeDelete?: (nodeId: string) => void,
-  onNotify?: (message: string, type?: 'success' | 'error' | 'info') => void
+  onNotify?: (message: string, type?: 'success' | 'error' | 'info') => void,
+  confirmFn?: (opts: { title: string; message: string; confirmLabel: string; variant: 'danger' | 'warning'; onConfirm: () => Promise<void> }) => void
 ) => {
   const copyToClipboard = async (text: string) => {
     try {
@@ -87,9 +88,22 @@ export const createNodeToolsHandlers = (
 
   return {
     onDelete: (nodeId: string) => {
-      if (window.confirm('Are you sure you want to delete this node?')) {
-        onNodeDelete?.(nodeId);
-        onNotify?.('Node deleted', 'success');
+      if (confirmFn) {
+        confirmFn({
+          title: 'Delete Node',
+          message: 'Are you sure you want to delete this node?',
+          confirmLabel: 'Delete',
+          variant: 'danger',
+          onConfirm: async () => {
+            onNodeDelete?.(nodeId);
+            onNotify?.('Node deleted', 'success');
+          }
+        });
+      } else {
+        if (window.confirm('Are you sure you want to delete this node?')) {
+          onNodeDelete?.(nodeId);
+          onNotify?.('Node deleted', 'success');
+        }
       }
     },
 

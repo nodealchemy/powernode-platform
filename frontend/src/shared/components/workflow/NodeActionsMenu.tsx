@@ -117,11 +117,8 @@ export const createNodeActionsHandlers = (
           }
         });
       } else {
-        // Fallback to window.confirm if no confirmFn provided (for backward compatibility)
-        if (window.confirm('Are you sure you want to delete this node?')) {
-          onNodeDelete?.(nodeId);
-          onNotify?.('Node deleted', 'success');
-        }
+        onNodeDelete?.(nodeId);
+        onNotify?.('Node deleted', 'success');
       }
     },
 

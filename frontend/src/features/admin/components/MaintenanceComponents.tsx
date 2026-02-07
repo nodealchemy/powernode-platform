@@ -25,6 +25,7 @@ import {
 import { SettingsCard, ToggleSwitch } from './SettingsComponents';
 import { FormField } from '@/shared/components/ui/FormField';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 
 // Maintenance Mode Control Component
 interface MaintenanceModeControlProps {
@@ -321,6 +322,7 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
   const [loading, setLoading] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
 
   const handleCreateBackup = async () => {
     try {
@@ -335,21 +337,25 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
     }
   };
 
-  const handleDeleteBackup = async (backupId: string) => {
-    if (!window.confirm('Are you sure you want to delete this backup? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await maintenanceApi.deleteBackup(backupId);
-      showNotification('Backup deleted successfully', 'success');
-      onRefresh();
-    } catch (_error) {
-      showNotification('Failed to delete backup', 'error');
-    } finally {
-      setLoading(false);
-    }
+  const handleDeleteBackup = (backupId: string) => {
+    confirm({
+      title: 'Delete Backup',
+      message: 'Are you sure you want to delete this backup? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          await maintenanceApi.deleteBackup(backupId);
+          showNotification('Backup deleted successfully', 'success');
+          onRefresh();
+        } catch (_error) {
+          showNotification('Failed to delete backup', 'error');
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
   };
 
   const handleDownloadBackup = async (backupId: string) => {
@@ -462,6 +468,7 @@ export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, 
           </div>
         )}
       </div>
+      {ConfirmationDialog}
     </SettingsCard>
   );
 };
@@ -483,25 +490,30 @@ export const DataCleanupManager: React.FC<DataCleanupProps> = ({ stats, onRefres
     cache_entries: false,
   });
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog: CleanupConfirmationDialog } = useConfirmation();
 
-  const handleRunCleanup = async () => {
-    if (!window.confirm('Are you sure you want to run the selected cleanup operations? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const result = await maintenanceApi.runCleanup(selectedOptions);
-      showNotification(
-        `Cleanup completed: ${result.cleaned_items} items removed, ${maintenanceApi.formatBytes(result.freed_space)} freed`,
-        'success'
-      );
-      onRefresh();
-    } catch (_error) {
-      showNotification('Cleanup failed', 'error');
-    } finally {
-      setLoading(false);
-    }
+  const handleRunCleanup = () => {
+    confirm({
+      title: 'Run Cleanup',
+      message: 'Are you sure you want to run the selected cleanup operations? This action cannot be undone.',
+      confirmLabel: 'Run Cleanup',
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          const result = await maintenanceApi.runCleanup(selectedOptions);
+          showNotification(
+            `Cleanup completed: ${result.cleaned_items} items removed, ${maintenanceApi.formatBytes(result.freed_space)} freed`,
+            'success'
+          );
+          onRefresh();
+        } catch (_error) {
+          showNotification('Cleanup failed', 'error');
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
   };
 
   const cleanupItems = [
@@ -555,6 +567,7 @@ export const DataCleanupManager: React.FC<DataCleanupProps> = ({ stats, onRefres
           )}
         </Button>
       </div>
+      {CleanupConfirmationDialog}
     </SettingsCard>
   );
 };

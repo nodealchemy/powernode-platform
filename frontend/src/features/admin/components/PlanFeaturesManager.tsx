@@ -14,6 +14,7 @@ import {
   PlanComparison
 } from '@/shared/services/billing/planFeaturesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { FeatureModal } from './FeatureModal';
 import { LimitModal } from './LimitModal';
@@ -44,6 +45,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
   }>({ isOpen: false });
 
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
 
   const loadData = useCallback(async () => {
     try {
@@ -114,23 +116,27 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
     }
   };
 
-  const handleDeleteFeature = async (featureId: string) => {
-    if (!window.confirm('Are you sure you want to delete this feature? This will remove it from all plans.')) {
-      return;
-    }
-
-    try {
-      const response = await planFeaturesApi.deleteFeature(featureId);
-      if (response.success) {
-        setFeatures(prev => prev.filter(f => f.id !== featureId));
-        showNotification('Feature deleted successfully', 'success');
-        loadData(); // Reload to get updated comparison
-      } else {
-        showNotification(response.error || 'Failed to delete feature', 'error');
-      }
-    } catch (_error) {
-      showNotification('Failed to delete feature', 'error');
-    }
+  const handleDeleteFeature = (featureId: string) => {
+    confirm({
+      title: 'Delete Feature',
+      message: 'Are you sure you want to delete this feature? This will remove it from all plans.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const response = await planFeaturesApi.deleteFeature(featureId);
+          if (response.success) {
+            setFeatures(prev => prev.filter(f => f.id !== featureId));
+            showNotification('Feature deleted successfully', 'success');
+            loadData();
+          } else {
+            showNotification(response.error || 'Failed to delete feature', 'error');
+          }
+        } catch (_error) {
+          showNotification('Failed to delete feature', 'error');
+        }
+      },
+    });
   };
 
   const handleUpdateLimit = async (planId: string, featureId: string, data: LimitFormData) => {
@@ -474,6 +480,8 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
           </div>
         </div>
       )}
+
+      {ConfirmationDialog}
 
       {/* Modals */}
       <FeatureModal

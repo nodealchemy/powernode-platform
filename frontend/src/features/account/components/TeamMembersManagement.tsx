@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { usersApi, User } from '@/features/account/users/services/usersApi';
 import { getUserInitials } from '@/shared/utils/userUtils';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 
 interface TeamMembersManagementProps {
   accountId?: string;
@@ -10,6 +11,7 @@ interface TeamMembersManagementProps {
 
 export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ accountId }) => {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
@@ -62,14 +64,20 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       return;
     }
 
-    if (window.confirm('Are you sure you want to remove this team member?')) {
-      try {
-        await usersApi.removeFromAccount(userId, accountId || currentUser?.account?.id);
-        loadTeamMembers();
-      } catch (_error) {
-    // Error silently ignored
-  }
-    }
+    confirm({
+      title: 'Remove Team Member',
+      message: 'Are you sure you want to remove this team member?',
+      confirmLabel: 'Remove',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await usersApi.removeFromAccount(userId, accountId || currentUser?.account?.id);
+          loadTeamMembers();
+        } catch (_error) {
+          // Error silently ignored
+        }
+      },
+    });
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -245,6 +253,8 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       </div>
 
       {/* Edit Role Modal */}
+      {ConfirmationDialog}
+
       {showEditModal && selectedMember && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-theme-surface rounded-lg p-6 w-full max-w-md">

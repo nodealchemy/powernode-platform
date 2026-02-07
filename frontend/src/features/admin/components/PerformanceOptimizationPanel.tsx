@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { performanceApi, OptimizationAction } from '@/shared/services/system/performanceApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 
 interface PerformanceOptimizationPanelProps {
   onOptimizationComplete?: () => void;
@@ -95,11 +96,12 @@ const ActionCard: React.FC<ActionCardProps> = ({ action, onExecute, executing })
 export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanelProps> = ({
   onOptimizationComplete
 }) => {
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [actions, setActions] = useState<OptimizationAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [executingActions, setExecutingActions] = useState<Set<string>>(new Set());
   const [recentExecutions, setRecentExecutions] = useState<{[key: string]: Date}>({});
-  
+
   const { showNotification } = useNotifications();
 
   const loadOptimizationActions = useCallback(async () => {
@@ -120,27 +122,16 @@ export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanel
     loadOptimizationActions();
   }, [loadOptimizationActions]);
 
-  const executeOptimization = async (actionId: string) => {
-    const action = actions.find(a => a.id === actionId);
-    if (!action) return;
-
-    // Confirmation for high-risk actions
-    if (action.risk_level === 'high') {
-      const confirmed = window.confirm(
-        `This is a high-risk operation: ${action.name}. Are you sure you want to proceed?`
-      );
-      if (!confirmed) return;
-    }
-
+  const runOptimization = async (actionId: string, action: OptimizationAction) => {
     try {
       setExecutingActions(prev => {
         const newSet = new Set(prev);
         newSet.add(actionId);
         return newSet;
       });
-      
+
       const response = await performanceApi.executeOptimization(actionId);
-      
+
       if (response.success) {
         showNotification(`${action.name} completed successfully`, 'success');
         setRecentExecutions(prev => ({ ...prev, [actionId]: new Date() }));
@@ -156,6 +147,25 @@ export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanel
         newSet.delete(actionId);
         return newSet;
       });
+    }
+  };
+
+  const executeOptimization = (actionId: string) => {
+    const action = actions.find(a => a.id === actionId);
+    if (!action) return;
+
+    if (action.risk_level === 'high') {
+      confirm({
+        title: 'High-Risk Operation',
+        message: `This is a high-risk operation: ${action.name}. Are you sure you want to proceed?`,
+        confirmLabel: 'Proceed',
+        variant: 'warning',
+        onConfirm: async () => {
+          await runOptimization(actionId, action);
+        },
+      });
+    } else {
+      runOptimization(actionId, action);
     }
   };
 
@@ -252,6 +262,7 @@ export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanel
           </div>
         </div>
       </div>
+      {ConfirmationDialog}
     </div>
   );
 };

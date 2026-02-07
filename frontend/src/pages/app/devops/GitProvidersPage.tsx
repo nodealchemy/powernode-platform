@@ -14,6 +14,7 @@ import { CredentialModal } from '@/features/devops/git/components/CredentialModa
 import { GitProviderDetail, GitCredential, AvailableProvider } from '@/features/devops/git/types';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 
 interface GitProvider {
   id: string;
@@ -44,6 +45,7 @@ export function GitProvidersPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [providers, setProviders] = useState<GitProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -266,21 +268,26 @@ export function GitProvidersPage() {
     }
   };
 
-  const handleDeleteProvider = async (providerId: string) => {
+  const handleDeleteProvider = (providerId: string) => {
     setOpenMenuId(null);
-    if (!window.confirm('Are you sure you want to delete this provider? This will remove all associated credentials and repositories.')) {
-      return;
-    }
-    try {
-      await gitProvidersApi.deleteProvider(providerId);
-      showNotification('Provider deleted successfully', 'success');
-      setProviders(providers.filter(p => p.id !== providerId));
-      if (expandedProviderId === providerId) {
-        setExpandedProviderId(null);
-      }
-    } catch (_error) {
-      showNotification('Failed to delete provider', 'error');
-    }
+    confirm({
+      title: 'Delete Git Provider',
+      message: 'Are you sure you want to delete this provider? This will remove all associated credentials and repositories.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await gitProvidersApi.deleteProvider(providerId);
+          showNotification('Provider deleted successfully', 'success');
+          setProviders(providers.filter(p => p.id !== providerId));
+          if (expandedProviderId === providerId) {
+            setExpandedProviderId(null);
+          }
+        } catch (_error) {
+          showNotification('Failed to delete provider', 'error');
+        }
+      },
+    });
   };
 
   const handleViewRepositories = (providerId: string) => {
@@ -366,21 +373,26 @@ export function GitProvidersPage() {
     }
   };
 
-  const handleDeleteCredential = async (providerId: string, credentialId: string, credentialName: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${credentialName}"? This action cannot be undone.`)) {
-      return;
-    }
-    setCredentialActionLoading(`delete-${credentialId}`);
-    try {
-      await gitProvidersApi.deleteCredential(providerId, credentialId);
-      showNotification('Credential deleted', 'success');
-      await fetchCredentialsForProvider(providerId);
-      await fetchProviders();
-    } catch (_error) {
-      showNotification('Failed to delete credential', 'error');
-    } finally {
-      setCredentialActionLoading(null);
-    }
+  const handleDeleteCredential = (providerId: string, credentialId: string, credentialName: string) => {
+    confirm({
+      title: 'Delete Credential',
+      message: `Are you sure you want to delete "${credentialName}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        setCredentialActionLoading(`delete-${credentialId}`);
+        try {
+          await gitProvidersApi.deleteCredential(providerId, credentialId);
+          showNotification('Credential deleted', 'success');
+          await fetchCredentialsForProvider(providerId);
+          await fetchProviders();
+        } catch (_error) {
+          showNotification('Failed to delete credential', 'error');
+        } finally {
+          setCredentialActionLoading(null);
+        }
+      },
+    });
   };
 
   const mapProviderType = (type?: string): GitProvider['type'] => {
@@ -878,6 +890,8 @@ export function GitProvidersPage() {
         provider={editingProvider}
         initialProviderType={selectedProviderType}
       />
+
+      {ConfirmationDialog}
 
       {/* Add/Edit Credential Modal */}
       {credentialModalProvider && (

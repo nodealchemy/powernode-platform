@@ -12,10 +12,12 @@ import { StorageProvider } from '@/shared/types/storage';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 
 const MyFilesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { currentUser } = useAuth();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   usePageWebSocket({ pageType: 'content' });
   const [files, setFiles] = useState<FileObject[]>([]);
   const [storageProviders, setStorageProviders] = useState<StorageProvider[]>([]);
@@ -130,17 +132,23 @@ const MyFilesPage: React.FC = () => {
     setSelectedFile(file);
   };
 
-  const handleDelete = async (file: FileObject): Promise<void> => {
-    if (!confirm(`Delete ${file.filename}?`)) return;
-
-    try {
-      await filesApi.deleteFile(file.id);
-      dispatch(addNotification({ type: 'success', message: 'File deleted successfully' }));
-      void loadFiles();
-      void loadFileStats();
-    } catch (_error) {
-      dispatch(addNotification({ type: 'error', message: 'Failed to delete file' }));
-    }
+  const handleDelete = (file: FileObject): void => {
+    confirm({
+      title: 'Delete File',
+      message: `Are you sure you want to delete "${file.filename}"?`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await filesApi.deleteFile(file.id);
+          dispatch(addNotification({ type: 'success', message: 'File deleted successfully' }));
+          void loadFiles();
+          void loadFileStats();
+        } catch (_error) {
+          dispatch(addNotification({ type: 'error', message: 'Failed to delete file' }));
+        }
+      },
+    });
   };
 
   const handleBulkDownload = async (): Promise<void> => {
@@ -157,25 +165,31 @@ const MyFilesPage: React.FC = () => {
     dispatch(addNotification({ type: 'success', message: `Downloading ${selectedFiles.size} file(s)` }));
   };
 
-  const handleBulkDelete = async (): Promise<void> => {
-    if (!confirm(`Delete ${selectedFiles.size} file(s)?`)) return;
+  const handleBulkDelete = (): void => {
+    confirm({
+      title: 'Delete Files',
+      message: `Are you sure you want to delete ${selectedFiles.size} file(s)?`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        const selectedFileObjects = files.filter(f => selectedFiles.has(f.id));
+        let successCount = 0;
 
-    const selectedFileObjects = files.filter(f => selectedFiles.has(f.id));
-    let successCount = 0;
+        for (const file of selectedFileObjects) {
+          try {
+            await filesApi.deleteFile(file.id);
+            successCount++;
+          } catch (_error) {
+            dispatch(addNotification({ type: 'error', message: `Failed to delete ${file.filename}` }));
+          }
+        }
 
-    for (const file of selectedFileObjects) {
-      try {
-        await filesApi.deleteFile(file.id);
-        successCount++;
-      } catch (_error) {
-        dispatch(addNotification({ type: 'error', message: `Failed to delete ${file.filename}` }));
-      }
-    }
-
-    dispatch(addNotification({ type: 'success', message: `Deleted ${successCount} file(s)` }));
-    setSelectedFiles(new Set());
-    void loadFiles();
-    void loadFileStats();
+        dispatch(addNotification({ type: 'success', message: `Deleted ${successCount} file(s)` }));
+        setSelectedFiles(new Set());
+        void loadFiles();
+        void loadFileStats();
+      },
+    });
   };
 
   const toggleFileSelection = (fileId: string) => {
@@ -537,6 +551,8 @@ const MyFilesPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {ConfirmationDialog}
 
       {/* File Details Modal */}
       {selectedFile && (

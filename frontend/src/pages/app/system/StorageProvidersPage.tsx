@@ -9,6 +9,7 @@ import { ConnectionTestModal } from '@/features/system/storage/components/Connec
 import { storageApi } from '@/features/system/storage/services/storageApi';
 import { StorageProvider, StorageProviderFormData, StorageConnectionTestResult } from '@/shared/types/storage';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
@@ -16,6 +17,7 @@ import { AppDispatch } from '@/shared/services';
 const StorageProvidersPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { currentUser } = useAuth();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   usePageWebSocket({ pageType: 'system' });
   const [providers, setProviders] = useState<StorageProvider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,18 +76,22 @@ const StorageProvidersPage: React.FC = () => {
     }
   };
 
-  const handleDeleteProvider = async (provider: StorageProvider) => {
-    if (!confirm(`Are you sure you want to delete "${provider.name}"?`)) {
-      return;
-    }
-
-    try {
-      await storageApi.deleteProvider(provider.id);
-      dispatch(addNotification({ type: 'success', message: 'Storage provider deleted successfully' }));
-      await loadProviders();
-    } catch (_error) {
-      dispatch(addNotification({ type: 'error', message: 'Failed to delete storage provider' }));
-    }
+  const handleDeleteProvider = (provider: StorageProvider) => {
+    confirm({
+      title: 'Delete Storage Provider',
+      message: `Are you sure you want to delete "${provider.name}"?`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await storageApi.deleteProvider(provider.id);
+          dispatch(addNotification({ type: 'success', message: 'Storage provider deleted successfully' }));
+          await loadProviders();
+        } catch (_error) {
+          dispatch(addNotification({ type: 'error', message: 'Failed to delete storage provider' }));
+        }
+      },
+    });
   };
 
   const handleTestConnection = async (provider: StorageProvider) => {
@@ -302,6 +308,8 @@ const StorageProvidersPage: React.FC = () => {
           saving={saving}
         />
       )}
+
+      {ConfirmationDialog}
 
       {/* Connection Test Modal */}
       <ConnectionTestModal
