@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 
 interface RiskAssessmentProps {
-   
-  metrics: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  metrics: Record<string, any>;
   timeRange: { label: string; value: string; days: number };
 }
 

@@ -52,7 +52,7 @@ export const versionApi = {
   // Get basic version info
   async getVersion(): Promise<VersionResponse> {
     try {
-      const response = await api.get('/version');
+      const response = await api.get<VersionResponse>('/version');
       return response.data;
     } catch (error) {
       // Log network errors as warnings, not errors
@@ -67,7 +67,7 @@ export const versionApi = {
   // Get full version info
   async getFullVersion(): Promise<FullVersionResponse> {
     try {
-      const response = await api.get('/version/full');
+      const response = await api.get<FullVersionResponse>('/version/full');
       return response.data;
     } catch (error) {
       return {
@@ -81,7 +81,7 @@ export const versionApi = {
   // Get health status
   async getHealth(): Promise<HealthResponse> {
     try {
-      const response = await api.get('/version/health');
+      const response = await api.get<HealthResponse>('/version/health');
       return response.data;
     } catch (error) {
       return {

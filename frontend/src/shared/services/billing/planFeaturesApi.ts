@@ -105,7 +105,7 @@ export const planFeaturesApi = {
   // Features Management
   async getFeatures(): Promise<{ success: boolean; data?: PlanFeature[]; error?: string }> {
     try {
-      const response = await api.get('/admin/plan_features');
+      const response = await api.get<{ success: boolean; data?: PlanFeature[]; error?: string }>('/admin/plan_features');
       return response.data;
     } catch (error) {
       return {
@@ -117,7 +117,7 @@ export const planFeaturesApi = {
 
   async createFeature(featureData: FeatureFormData): Promise<{ success: boolean; data?: PlanFeature; message?: string; error?: string }> {
     try {
-      const response = await api.post('/admin/plan_features', { feature: featureData });
+      const response = await api.post<{ success: boolean; data?: PlanFeature; message?: string; error?: string }>('/admin/plan_features', { feature: featureData });
       return response.data;
     } catch (error) {
       return {
@@ -129,7 +129,7 @@ export const planFeaturesApi = {
 
   async updateFeature(featureId: string, featureData: Partial<FeatureFormData>): Promise<{ success: boolean; data?: PlanFeature; message?: string; error?: string }> {
     try {
-      const response = await api.put(`/admin/plan_features/${featureId}`, { feature: featureData });
+      const response = await api.put<{ success: boolean; data?: PlanFeature; message?: string; error?: string }>(`/admin/plan_features/${featureId}`, { feature: featureData });
       return response.data;
     } catch (error) {
       return {
@@ -141,7 +141,7 @@ export const planFeaturesApi = {
 
   async deleteFeature(featureId: string): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
-      const response = await api.delete(`/admin/plan_features/${featureId}`);
+      const response = await api.delete<{ success: boolean; message?: string; error?: string }>(`/admin/plan_features/${featureId}`);
       return response.data;
     } catch (error) {
       return {
@@ -154,7 +154,7 @@ export const planFeaturesApi = {
   // Plans Management
   async getPlans(): Promise<{ success: boolean; data?: Plan[]; error?: string }> {
     try {
-      const response = await api.get('/admin/plans');
+      const response = await api.get<{ success: boolean; data?: Plan[]; error?: string }>('/admin/plans');
       return response.data;
     } catch (error) {
       return {
@@ -166,7 +166,7 @@ export const planFeaturesApi = {
 
   async getPlan(planId: string): Promise<{ success: boolean; data?: Plan; error?: string }> {
     try {
-      const response = await api.get(`/admin/plans/${planId}`);
+      const response = await api.get<{ success: boolean; data?: Plan; error?: string }>(`/admin/plans/${planId}`);
       return response.data;
     } catch (error) {
       return {
@@ -179,7 +179,7 @@ export const planFeaturesApi = {
   // Plan Limits Management
   async updatePlanLimit(planId: string, featureId: string, limitData: LimitFormData): Promise<{ success: boolean; data?: PlanLimit; message?: string; error?: string }> {
     try {
-      const response = await api.put(`/admin/plans/${planId}/limits/${featureId}`, { limit: limitData });
+      const response = await api.put<{ success: boolean; data?: PlanLimit; message?: string; error?: string }>(`/admin/plans/${planId}/limits/${featureId}`, { limit: limitData });
       return response.data;
     } catch (error) {
       return {
@@ -191,7 +191,7 @@ export const planFeaturesApi = {
 
   async bulkUpdateLimits(planId: string, limits: Record<string, LimitFormData>): Promise<{ success: boolean; data?: PlanLimit[]; message?: string; error?: string }> {
     try {
-      const response = await api.put(`/admin/plans/${planId}/limits`, { limits });
+      const response = await api.put<{ success: boolean; data?: PlanLimit[]; message?: string; error?: string }>(`/admin/plans/${planId}/limits`, { limits });
       return response.data;
     } catch (error) {
       return {
@@ -204,7 +204,7 @@ export const planFeaturesApi = {
   // Plan Templates
   async getTemplates(): Promise<{ success: boolean; data?: PlanTemplate[]; error?: string }> {
     try {
-      const response = await api.get('/admin/plan_templates');
+      const response = await api.get<{ success: boolean; data?: PlanTemplate[]; error?: string }>('/admin/plan_templates');
       return response.data;
     } catch (error) {
       return {
@@ -216,7 +216,7 @@ export const planFeaturesApi = {
 
   async applyTemplate(planId: string, templateId: string): Promise<{ success: boolean; data?: Plan; message?: string; error?: string }> {
     try {
-      const response = await api.post(`/admin/plans/${planId}/apply_template`, { template_id: templateId });
+      const response = await api.post<{ success: boolean; data?: Plan; message?: string; error?: string }>(`/admin/plans/${planId}/apply_template`, { template_id: templateId });
       return response.data;
     } catch (error) {
       return {
@@ -229,7 +229,7 @@ export const planFeaturesApi = {
   // Plan Comparison
   async getComparison(): Promise<{ success: boolean; data?: PlanComparison; error?: string }> {
     try {
-      const response = await api.get('/admin/plans/comparison');
+      const response = await api.get<{ success: boolean; data?: PlanComparison; error?: string }>('/admin/plans/comparison');
       return response.data;
     } catch (error) {
       return {
@@ -243,7 +243,7 @@ export const planFeaturesApi = {
   async getFeatureUsage(accountId?: string): Promise<{ success: boolean; data?: FeatureUsage[]; error?: string }> {
     try {
       const params = accountId ? `?account_id=${accountId}` : '';
-      const response = await api.get(`/admin/feature_usage${params}`);
+      const response = await api.get<{ success: boolean; data?: FeatureUsage[]; error?: string }>(`/admin/feature_usage${params}`);
       return response.data;
     } catch (error) {
       return {
@@ -256,7 +256,7 @@ export const planFeaturesApi = {
   // Validation
   async validateFeatureValue(featureId: string, value: FeatureValue): Promise<{ success: boolean; valid?: boolean; errors?: string[]; error?: string }> {
     try {
-      const response = await api.post(`/admin/plan_features/${featureId}/validate`, { value });
+      const response = await api.post<{ success: boolean; valid?: boolean; errors?: string[]; error?: string }>(`/admin/plan_features/${featureId}/validate`, { value });
       return response.data;
     } catch (error) {
       return {

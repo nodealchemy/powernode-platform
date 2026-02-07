@@ -21,15 +21,15 @@ export interface Checkpoint {
     total_nodes?: number;
     completed_nodes?: number;
     reason?: string;
-    custom?: Record<string, any>;
+    custom?: Record<string, unknown>;
   };
   state_keys?: string[];
   state_snapshot?: {
      
-    variables?: Record<string, any>;
+    variables?: Record<string, unknown>;
     completed_nodes?: string[];
-     
-    [key: string]: any;
+
+    [key: string]: unknown;
   };
 }
 

@@ -42,6 +42,7 @@ import { WorkflowCreateModal } from '@/features/ai/workflows/components/Workflow
 import { WorkflowDetailModal } from '@/features/ai/workflows/components/WorkflowDetailModal';
 import { WorkflowBuilderModal } from '@/shared/components/workflow/WorkflowBuilderModal';
 import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
+import { logger } from '@/shared/utils/logger';
 
 export const WorkflowsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -122,7 +123,7 @@ export const WorkflowsPage: React.FC = () => {
         setPerPage(response.pagination.per_page);
       }
     } catch (error) {
-      console.error('Failed to load workflows:', error);
+      logger.error('Failed to load workflows', error);
       // Reset to empty state on error
       setWorkflows([]);
       setPagination({
@@ -170,11 +171,11 @@ export const WorkflowsPage: React.FC = () => {
 
   // Handle filter changes
    
-  const handleFilterChange = useCallback((key: keyof WorkflowFilters, value: any) => {
+  const handleFilterChange = useCallback((key: keyof WorkflowFilters, value: WorkflowFilters[keyof WorkflowFilters]) => {
     setFilters(prev => ({
       ...prev,
       [key]: value
-    }));
+    }) as WorkflowFilters);
   }, []);
 
   // Effect to reload workflows when filters change
@@ -295,7 +296,7 @@ export const WorkflowsPage: React.FC = () => {
       // Refresh workflow list after duplication
       loadWorkflows(1, perPage);
     } catch (error) {
-      console.error('Failed to duplicate workflow:', error);
+      logger.error('Failed to duplicate workflow', error);
       addNotification({
         type: 'error',
         title: 'Duplication Failed',
@@ -329,7 +330,7 @@ export const WorkflowsPage: React.FC = () => {
       // Refresh workflow list after deletion
       loadWorkflows(1, perPage);
     } catch (error) {
-      console.error('Failed to delete workflow:', error);
+      logger.error('Failed to delete workflow', error);
       addNotification({
         type: 'error',
         title: 'Deletion Failed',

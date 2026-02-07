@@ -55,7 +55,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
     if (!tool.input_schema || !tool.input_schema.properties) return [];
 
     const props = tool.input_schema.properties;
-    const required = tool.input_schema.required || [];
+    const required = (tool.input_schema.required || []) as string[];
 
      
     return Object.entries(props).map(([name, schema]: [string, any]) => ({

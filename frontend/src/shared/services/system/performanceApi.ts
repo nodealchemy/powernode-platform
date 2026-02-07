@@ -113,7 +113,7 @@ export const performanceApi = {
   // Get current system metrics
   async getSystemMetrics(): Promise<{ success: boolean; data?: SystemMetrics; error?: string }> {
     try {
-      const response = await api.get('/admin/performance/metrics');
+      const response = await api.get<{ success: boolean; data?: SystemMetrics; error?: string }>('/admin/performance/metrics');
       return response.data;
     } catch (error) {
       return {
@@ -126,7 +126,7 @@ export const performanceApi = {
   // Get performance statistics
   async getPerformanceStats(timeRange = '24h'): Promise<{ success: boolean; data?: PerformanceStats; error?: string }> {
     try {
-      const response = await api.get(`/admin/performance/stats?time_range=${timeRange}`);
+      const response = await api.get<{ success: boolean; data?: PerformanceStats; error?: string }>(`/admin/performance/stats?time_range=${timeRange}`);
       return response.data;
     } catch (error) {
       return {
@@ -139,7 +139,7 @@ export const performanceApi = {
   // Get performance settings
   async getSettings(): Promise<{ success: boolean; data?: PerformanceSettings; error?: string }> {
     try {
-      const response = await api.get('/admin/performance/settings');
+      const response = await api.get<{ success: boolean; data?: PerformanceSettings; error?: string }>('/admin/performance/settings');
       return response.data;
     } catch (error) {
       return {
@@ -152,7 +152,7 @@ export const performanceApi = {
   // Update performance settings
   async updateSettings(settings: Partial<PerformanceSettings>): Promise<{ success: boolean; data?: PerformanceSettings; message?: string; error?: string }> {
     try {
-      const response = await api.put('/admin/performance/settings', { settings });
+      const response = await api.put<{ success: boolean; data?: PerformanceSettings; message?: string; error?: string }>('/admin/performance/settings', { settings });
       return response.data;
     } catch (error) {
       return {
@@ -165,7 +165,7 @@ export const performanceApi = {
   // Get cache statistics
   async getCacheStats(): Promise<{ success: boolean; data?: CacheStats; error?: string }> {
     try {
-      const response = await api.get('/admin/performance/cache');
+      const response = await api.get<{ success: boolean; data?: CacheStats; error?: string }>('/admin/performance/cache');
       return response.data;
     } catch (error) {
       return {
@@ -178,7 +178,7 @@ export const performanceApi = {
   // Get database statistics
   async getDatabaseStats(): Promise<{ success: boolean; data?: DatabaseStats; error?: string }> {
     try {
-      const response = await api.get('/admin/performance/database');
+      const response = await api.get<{ success: boolean; data?: DatabaseStats; error?: string }>('/admin/performance/database');
       return response.data;
     } catch (error) {
       return {
@@ -191,7 +191,7 @@ export const performanceApi = {
   // Get queue statistics
   async getQueueStats(): Promise<{ success: boolean; data?: QueueStats; error?: string }> {
     try {
-      const response = await api.get('/admin/performance/queue');
+      const response = await api.get<{ success: boolean; data?: QueueStats; error?: string }>('/admin/performance/queue');
       return response.data;
     } catch (error) {
       return {
@@ -204,7 +204,7 @@ export const performanceApi = {
   // Get active alerts
   async getActiveAlerts(): Promise<{ success: boolean; data?: PerformanceAlert[]; error?: string }> {
     try {
-      const response = await api.get('/admin/performance/alerts');
+      const response = await api.get<{ success: boolean; data?: PerformanceAlert[]; error?: string }>('/admin/performance/alerts');
       return response.data;
     } catch (error) {
       return {
@@ -217,7 +217,7 @@ export const performanceApi = {
   // Dismiss alert
   async dismissAlert(alertId: string): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
-      const response = await api.post(`/admin/performance/alerts/${alertId}/dismiss`);
+      const response = await api.post<{ success: boolean; message?: string; error?: string }>(`/admin/performance/alerts/${alertId}/dismiss`);
       return response.data;
     } catch (error) {
       return {
@@ -230,7 +230,7 @@ export const performanceApi = {
   // Get available optimization actions
   async getOptimizationActions(): Promise<{ success: boolean; data?: OptimizationAction[]; error?: string }> {
     try {
-      const response = await api.get('/admin/performance/optimizations');
+      const response = await api.get<{ success: boolean; data?: OptimizationAction[]; error?: string }>('/admin/performance/optimizations');
       return response.data;
     } catch (error) {
       return {
@@ -243,7 +243,7 @@ export const performanceApi = {
   // Execute optimization action
   async executeOptimization(actionId: string): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
-      const response = await api.post(`/admin/performance/optimizations/${actionId}/execute`);
+      const response = await api.post<{ success: boolean; message?: string; error?: string }>(`/admin/performance/optimizations/${actionId}/execute`);
       return response.data;
     } catch (error) {
       return {
@@ -256,7 +256,7 @@ export const performanceApi = {
   // Clear cache
   async clearCache(cacheType?: string): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
-      const response = await api.post('/admin/performance/cache/clear', { cache_type: cacheType });
+      const response = await api.post<{ success: boolean; message?: string; error?: string }>('/admin/performance/cache/clear', { cache_type: cacheType });
       return response.data;
     } catch (error) {
       return {
@@ -269,7 +269,7 @@ export const performanceApi = {
   // Restart workers
   async restartWorkers(): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
-      const response = await api.post('/admin/performance/workers/restart');
+      const response = await api.post<{ success: boolean; message?: string; error?: string }>('/admin/performance/workers/restart');
       return response.data;
     } catch (error) {
       return {
@@ -282,7 +282,7 @@ export const performanceApi = {
   // Generate performance report
   async generateReport(timeRange = '7d', format = 'pdf'): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
-      const response = await api.post('/admin/performance/reports/generate', {
+      const response = await api.post<{ success: boolean; message?: string; error?: string }>('/admin/performance/reports/generate', {
         time_range: timeRange,
         format: format
       });

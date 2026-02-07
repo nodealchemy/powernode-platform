@@ -72,61 +72,61 @@ export interface ProxyExportData {
 const proxySettingsApi = {
   // Get current proxy URL configuration
   getUrlConfig: async (): Promise<ProxyUrlConfig> => {
-    const response = await api.get('/admin/proxy_settings/url_config');
+    const response = await api.get<{ data: ProxyUrlConfig }>('/admin/proxy_settings/url_config');
     return response.data.data; // Unwrap the standardized API response
   },
 
   // Update proxy URL configuration
   updateUrlConfig: async (config: Partial<ProxyUrlConfig>): Promise<ProxyUrlConfig> => {
-    const response = await api.put('/admin/proxy_settings/url_config', config);
+    const response = await api.put<{ data: ProxyUrlConfig }>('/admin/proxy_settings/url_config', config);
     return response.data.data; // Unwrap the standardized API response
   },
 
   // Validate a host pattern
   validateHost: async (host: string): Promise<ProxyValidationResult> => {
-    const response = await api.post('/admin/proxy_settings/validate_host', { host });
+    const response = await api.post<{ data: ProxyValidationResult }>('/admin/proxy_settings/validate_host', { host });
     return response.data.data; // Unwrap the standardized API response
   },
 
   // Test proxy headers
   testHeaders: async (headers: Record<string, string>): Promise<ProxyTestResult> => {
-    const response = await api.post('/admin/proxy_settings/test_headers', { headers });
+    const response = await api.post<{ data: ProxyTestResult }>('/admin/proxy_settings/test_headers', { headers });
     return response.data.data; // Unwrap the standardized API response
   },
 
   // Get current proxy detection status
   getCurrentDetection: async (): Promise<ProxyDetectionResult> => {
-    const response = await api.get('/admin/proxy_settings/current_detection');
+    const response = await api.get<{ data: ProxyDetectionResult }>('/admin/proxy_settings/current_detection');
     return response.data.data; // Unwrap the standardized API response
   },
 
   // Add trusted host pattern
   addTrustedHost: async (pattern: string): Promise<{ pattern: string; trusted_hosts: string[] }> => {
-    const response = await api.post('/admin/proxy_settings/trusted_hosts', { pattern });
+    const response = await api.post<{ data: { pattern: string; trusted_hosts: string[] } }>('/admin/proxy_settings/trusted_hosts', { pattern });
     return response.data.data; // Unwrap the standardized API response
   },
 
   // Remove trusted host pattern
   removeTrustedHost: async (pattern: string): Promise<{ pattern: string; trusted_hosts: string[] }> => {
-    const response = await api.delete(`/admin/proxy_settings/trusted_hosts/${encodeURIComponent(pattern)}`);
+    const response = await api.delete<{ data: { pattern: string; trusted_hosts: string[] } }>(`/admin/proxy_settings/trusted_hosts/${encodeURIComponent(pattern)}`);
     return response.data.data; // Unwrap the standardized API response
   },
 
   // Reorder trusted host patterns
   reorderTrustedHosts: async (orderedHosts: string[]): Promise<{ trusted_hosts: string[] }> => {
-    const response = await api.put('/admin/proxy_settings/trusted_hosts/reorder', { trusted_hosts: orderedHosts });
+    const response = await api.put<{ data: { trusted_hosts: string[] } }>('/admin/proxy_settings/trusted_hosts/reorder', { trusted_hosts: orderedHosts });
     return response.data.data; // Unwrap the standardized API response
   },
 
   // Export configuration
   exportConfig: async (): Promise<ProxyExportData> => {
-    const response = await api.get('/admin/proxy_settings/export');
+    const response = await api.get<{ data: ProxyExportData }>('/admin/proxy_settings/export');
     return response.data.data; // Unwrap the standardized API response
   },
 
   // Import configuration
   importConfig: async (config: Partial<ProxyUrlConfig>): Promise<ProxyUrlConfig> => {
-    const response = await api.post('/admin/proxy_settings/import', { config });
+    const response = await api.post<{ data: ProxyUrlConfig }>('/admin/proxy_settings/import', { config });
     return response.data.data; // Unwrap the standardized API response
   },
 

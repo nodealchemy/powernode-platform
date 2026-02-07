@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { authApi } from '@/features/account/auth/services/authAPI';
+import { authApi, AuthResponse } from '@/features/account/auth/services/authAPI';
 import { impersonationApi } from '../account/impersonationApi';
 import { setAuthDomain, clearAuthDomain } from '@/shared/utils/domainUtils';
 import { getErrorMessage, isErrorWithResponse } from '@/shared/utils/errorHandling';
@@ -147,7 +147,8 @@ export const getCurrentUser = createAsyncThunk(
     try {
       const response = await authApi.getCurrentUser(silentAuth);
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
-      return response.data.data || response.data;
+      const data = response.data as AuthResponse;
+      return data.data || data;
     } catch (error) {
       const errorMessage = isErrorWithResponse(error)
         ? (error.response?.data?.error || error.response?.data?.message || 'Failed to get current user')
@@ -172,7 +173,8 @@ export const resendVerificationEmail = createAsyncThunk(
     try {
       const response = await authApi.resendVerification();
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
-      return response.data.data || response.data;
+      const data = response.data as AuthResponse;
+      return data.data || data;
     } catch (error) {
       return rejectWithValue(
         isErrorWithResponse(error) && error.response?.data?.error

@@ -91,7 +91,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
               type="monotone"
               dataKey="upperBound"
               stroke="none"
-              fill="#3B82F6"
+              fill="var(--color-info, #3B82F6)"
               fillOpacity={0.1}
               name="Upper Bound"
             />
@@ -102,7 +102,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
             type="monotone"
             dataKey="projected"
             name="Projected MRR"
-            stroke="#3B82F6"
+            stroke="var(--color-info, #3B82F6)"
             strokeWidth={2}
             dot={false}
             strokeDasharray="5 5"
@@ -113,9 +113,9 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
             type="monotone"
             dataKey="actual"
             name="Actual MRR"
-            stroke="#10B981"
+            stroke="var(--color-success, #10B981)"
             strokeWidth={2}
-            dot={{ fill: '#10B981', strokeWidth: 2 }}
+            dot={{ fill: 'var(--color-success, #10B981)', strokeWidth: 2 }}
             connectNulls={false}
           />
         </ComposedChart>

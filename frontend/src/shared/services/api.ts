@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { store } from './index';
 import { refreshAccessToken, clearAuth, stopImpersonation } from './slices/authSlice';
+import { logger } from '@/shared/utils/logger';
 
 // Get environment variable with Vite/CRA/Jest compatibility
 const getEnvVar = (viteKey: string, craKey: string, defaultValue: string = ''): string => {
@@ -133,9 +134,9 @@ class APIClient {
         // Suppress console logging for silent auth requests
         const isSilentAuth = originalRequest?.silentAuth === true;
 
-        // Only log non-silent auth errors during development
-        if (!isSilentAuth && process.env.NODE_ENV === 'development' && error.response?.status !== 401) {
-          console.error('[API Error]', error);
+        // Only log non-silent auth errors
+        if (!isSilentAuth && error.response?.status !== 401) {
+          logger.error('[API Error]', error);
         }
 
         if (error.response?.status === 401 && !originalRequest._retry) {

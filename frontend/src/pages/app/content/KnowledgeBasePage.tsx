@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PlusIcon, BookOpenIcon, TagIcon } from '@heroicons/react/24/outline';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { logger } from '@/shared/utils/logger';
 
 export default function KnowledgeBasePage() {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
@@ -88,9 +89,7 @@ export default function KnowledgeBasePage() {
       setArticles(articlesResponse.data.data.articles);
       setFeaturedArticles(featuredResponse.data.data.articles);
     } catch (_error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[KnowledgeBasePage] Failed to load initial data:', _error);
-      }
+      logger.error('[KnowledgeBasePage] Failed to load initial data', _error);
     } finally {
       setIsLoading(false);
     }
@@ -101,9 +100,7 @@ export default function KnowledgeBasePage() {
       const response = await knowledgeBaseApi.getArticles({ per_page: 20 });
       setArticles(response.data.data.articles);
     } catch (_error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[KnowledgeBasePage] Failed to load articles:', _error);
-      }
+      logger.error('[KnowledgeBasePage] Failed to load articles', _error);
     }
   };
 
@@ -137,9 +134,7 @@ export default function KnowledgeBasePage() {
       if (selectedCategory) params.set('category', selectedCategory);
       setSearchParams(params);
     } catch (_error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[KnowledgeBasePage] Search failed:', _error);
-      }
+      logger.error('[KnowledgeBasePage] Search failed', _error);
     }
   };
 

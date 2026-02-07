@@ -6,14 +6,14 @@ interface TimelineViewProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: '#94a3b8',
-  creating: '#60a5fa',
-  ready: '#38bdf8',
-  in_use: '#fbbf24',
-  completed: '#4ade80',
-  merged: '#22d3ee',
-  cleaned_up: '#a1a1aa',
-  failed: '#f87171',
+  pending: 'var(--color-text-tertiary, #94a3b8)',
+  creating: 'var(--color-info, #60a5fa)',
+  ready: 'var(--color-info, #38bdf8)',
+  in_use: 'var(--color-warning, #fbbf24)',
+  completed: 'var(--color-success, #4ade80)',
+  merged: 'var(--color-info, #22d3ee)',
+  cleaned_up: 'var(--color-text-tertiary, #a1a1aa)',
+  failed: 'var(--color-error, #f87171)',
 };
 
 export const TimelineView: React.FC<TimelineViewProps> = ({ worktrees }) => {

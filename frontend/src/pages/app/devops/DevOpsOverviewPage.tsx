@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { logger } from '@/shared/utils/logger';
 import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
 import { webhooksApi } from '@/features/devops/webhooks/services/webhooksApi';
 import { integrationsApi } from '@/features/devops/integrations/services/integrationsApi';
@@ -227,7 +228,7 @@ export function DevOpsOverviewPage() {
           : null
       });
     } catch (error) {
-      console.error('Failed to load DevOps stats:', error);
+      logger.error('Failed to load DevOps stats', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -610,7 +611,7 @@ export function DevOpsOverviewPage() {
                           className="flex-1 flex flex-col items-center justify-end h-full group"
                         >
                           <div
-                            className={`w-full rounded-t-sm bg-emerald-500 transition-all group-hover:bg-emerald-400 cursor-default ${getActivityBarHeight(week.count, maxCount)}`}
+                            className={`w-full rounded-t-sm bg-theme-success-solid transition-all group-hover:opacity-80 cursor-default ${getActivityBarHeight(week.count, maxCount)}`}
                             title={`Week of ${week.weekLabel}: ${week.count} commit${week.count !== 1 ? 's' : ''}`}
                           />
                         </div>

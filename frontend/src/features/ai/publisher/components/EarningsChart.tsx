@@ -78,12 +78,12 @@ export const EarningsChart: React.FC<EarningsChartProps> = ({
           <AreaChart data={chartData}>
             <defs>
               <linearGradient id="colorGross" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--color-success, #10B981)" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="var(--color-success, #10B981)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--color-info, #3B82F6)" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="var(--color-info, #3B82F6)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" className="stroke-theme-border" />
@@ -110,7 +110,7 @@ export const EarningsChart: React.FC<EarningsChartProps> = ({
               type="monotone"
               dataKey="gross"
               name="Gross Earnings"
-              stroke="#10B981"
+              stroke="var(--color-success, #10B981)"
               fillOpacity={1}
               fill="url(#colorGross)"
             />
@@ -118,7 +118,7 @@ export const EarningsChart: React.FC<EarningsChartProps> = ({
               type="monotone"
               dataKey="net"
               name="Net Earnings"
-              stroke="#3B82F6"
+              stroke="var(--color-info, #3B82F6)"
               fillOpacity={1}
               fill="url(#colorNet)"
             />
@@ -169,7 +169,7 @@ export const EarningsChart: React.FC<EarningsChartProps> = ({
             type="monotone"
             dataKey="revenue"
             name="Revenue"
-            stroke="#10B981"
+            stroke="var(--color-success, #10B981)"
             strokeWidth={2}
             dot={false}
           />
@@ -178,7 +178,7 @@ export const EarningsChart: React.FC<EarningsChartProps> = ({
             type="monotone"
             dataKey="installations"
             name="Installations"
-            stroke="#8B5CF6"
+            stroke="var(--color-interactive-primary, #8B5CF6)"
             strokeWidth={2}
             dot={false}
           />

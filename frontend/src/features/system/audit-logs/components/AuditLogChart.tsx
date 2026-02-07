@@ -126,8 +126,8 @@ const LineChart: React.FC<{ data: TimeSeriesData[]; height: number }> = ({ data,
       <svg className="w-full h-full" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
         <defs>
           <linearGradient id="lineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" style={{ stopColor: '#3B82F6', stopOpacity: 0.3 }} />
-            <stop offset="100%" style={{ stopColor: '#3B82F6', stopOpacity: 0 }} />
+            <stop offset="0%" style={{ stopColor: 'var(--color-info, #3B82F6)', stopOpacity: 0.3 }} />
+            <stop offset="100%" style={{ stopColor: 'var(--color-info, #3B82F6)', stopOpacity: 0 }} />
           </linearGradient>
         </defs>
 
@@ -139,7 +139,7 @@ const LineChart: React.FC<{ data: TimeSeriesData[]; height: number }> = ({ data,
             y1={i * (chartHeight / 4)}
             x2={chartWidth}
             y2={i * (chartHeight / 4)}
-            stroke="#E5E7EB"
+            stroke="var(--color-border, #E5E7EB)"
             strokeWidth="0.5"
           />
         ))}
@@ -154,7 +154,7 @@ const LineChart: React.FC<{ data: TimeSeriesData[]; height: number }> = ({ data,
         <polyline
           points={points}
           fill="none"
-          stroke="#3B82F6"
+          stroke="var(--color-info, #3B82F6)"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -170,8 +170,8 @@ const LineChart: React.FC<{ data: TimeSeriesData[]; height: number }> = ({ data,
               cx={x}
               cy={y}
               r="2"
-              fill="#3B82F6"
-              stroke="white"
+              fill="var(--color-info, #3B82F6)"
+              stroke="var(--color-bg-surface, white)"
               strokeWidth="1"
             />
           );
@@ -189,7 +189,7 @@ const BarChart: React.FC<{ data: BarData[]; height: number }> = ({ data, height 
     <div className="w-full h-full flex items-end justify-center gap-2 px-4">
       {data.map((item, i) => {
         const barHeight = (item.value / maxValue) * chartHeight;
-        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+        const colors = ['var(--color-info, #3B82F6)', 'var(--color-success, #10B981)', 'var(--color-warning, #F59E0B)', 'var(--color-error, #EF4444)', 'var(--color-interactive-primary, #8B5CF6)'];
 
         return (
           <div key={i} className="flex flex-col items-center gap-1">
@@ -215,7 +215,7 @@ const BarChart: React.FC<{ data: BarData[]; height: number }> = ({ data, height 
 
 const PieChartComponent: React.FC<{ data: PieData[]; height: number; isDoughnut?: boolean }> = ({ data, height, isDoughnut = false }) => {
   const total = data.length > 0 ? data.reduce((acc, item) => acc + item.value, 0) : 1;
-  const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+  const colors = ['var(--color-info, #3B82F6)', 'var(--color-success, #10B981)', 'var(--color-warning, #F59E0B)', 'var(--color-error, #EF4444)', 'var(--color-interactive-primary, #8B5CF6)'];
   const size = Math.min(height - 60, 200);
   const radius = size / 2;
   const innerRadius = isDoughnut ? radius * 0.6 : 0;
@@ -252,7 +252,7 @@ const PieChartComponent: React.FC<{ data: PieData[]; height: number; isDoughnut?
                 key={i}
                 d={pathData}
                 fill={colors[i % colors.length]}
-                stroke="white"
+                stroke="var(--color-bg-surface, white)"
                 strokeWidth="2"
               />
             );

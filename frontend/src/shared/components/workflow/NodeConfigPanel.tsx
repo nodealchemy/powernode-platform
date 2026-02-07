@@ -36,12 +36,12 @@ export interface WorkflowNodeData {
   retryCount?: number;
   handlePositions?: HandlePositions;
    
-  configuration?: Record<string, any>;
-   
-  metadata?: Record<string, any>;
+  configuration?: Record<string, unknown>;
+
+  metadata?: Record<string, unknown>;
   _handleUpdateTimestamp?: number;
-   
-  [key: string]: any;
+
+  [key: string]: unknown;
 }
 
 export interface NodeConfigPanelProps {
@@ -241,7 +241,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
   // Fetch agent if not in list
   useEffect(() => {
-    const agentId = node.data?.configuration?.agent_id;
+    const agentId = node.data?.configuration?.agent_id as string | undefined;
     if (node.type === 'ai_agent' && agentId && isAuthenticated && agents.length > 0) {
       const agentExists = agents.find(a => a.id === agentId);
       if (!agentExists && !loadingAgentsRef.current) {
@@ -630,7 +630,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
               <div>
                 <Input
                   label="Condition Expression"
-                  value={config.metadata?.condition || ''}
+                  value={(config.metadata?.condition as string) || ''}
                   onChange={(e) => handleMetadataChange('condition', e.target.value || null)}
                   placeholder="${{ steps.previous.outputs.success == true }}"
                   description="Expression that must evaluate to true for this node to execute"

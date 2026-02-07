@@ -206,8 +206,8 @@ export const PlanSelectionPage: React.FC = () => {
                   data-testid="billing-monthly"
                   className={`relative px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                     billingCycle === 'monthly'
-                      ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-lg'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                      ? 'bg-theme-surface text-theme-primary shadow-lg'
+                      : 'text-theme-secondary hover:text-theme-primary'
                   }`}
                 >
                   Monthly billing
@@ -217,13 +217,13 @@ export const PlanSelectionPage: React.FC = () => {
                   data-testid="billing-yearly"
                   className={`relative px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                     billingCycle === 'yearly'
-                      ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-lg'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                      ? 'bg-theme-surface text-theme-primary shadow-lg'
+                      : 'text-theme-secondary hover:text-theme-primary'
                   }`}
                 >
                   <span>Annual billing</span>
                   {availablePlans.some(p => p.has_annual_discount) && (
-                    <span className="ml-2 px-2.5 py-1 bg-gradient-to-r from-emerald-400 to-green-400 text-white rounded-full text-xs font-bold shadow-md">
+                    <span className="ml-2 px-2.5 py-1 bg-theme-success-solid text-white rounded-full text-xs font-bold shadow-md">
                       Save up to {Math.max(...availablePlans.map(p => p.annual_discount_percent || 0))}%
                     </span>
                   )}
@@ -248,10 +248,10 @@ export const PlanSelectionPage: React.FC = () => {
           
           {/* Comparison Helper */}
           {plansToCompare.length > 0 && (
-            <div className="text-center bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm px-6 py-4 rounded-xl border border-slate-200/50 dark:border-slate-600/50">
+            <div className="text-center bg-theme-surface/50 backdrop-blur-sm px-6 py-4 rounded-xl border border-theme">
               <div className="flex items-center justify-center space-x-3 mb-2">
                 <div className="w-2 h-2 bg-theme-info-solid rounded-full animate-pulse"></div>
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                <p className="text-sm font-medium text-theme-primary">
                   {plansToCompare.length} plan{plansToCompare.length > 1 ? 's' : ''} selected for comparison
                 </p>
               </div>
@@ -264,7 +264,7 @@ export const PlanSelectionPage: React.FC = () => {
                   <ArrowRightIcon className="h-4 w-4" />
                 </button>
               ) : (
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-theme-tertiary">
                   Select at least 2 plans to compare features
                 </p>
               )}
@@ -308,10 +308,10 @@ export const PlanSelectionPage: React.FC = () => {
                         togglePlanComparison(plan.id);
                       }}
                       disabled={!plansToCompare.includes(plan.id) && plansToCompare.length >= 3}
-                      className="w-5 h-5 text-theme-info bg-white border-2 border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+                      className="w-5 h-5 text-theme-info bg-theme-surface border-2 border-theme rounded-md focus:ring-2 focus:ring-theme-interactive-primary focus:ring-offset-2 transition-all duration-200"
                     />
                   </div>
-                  <span className="text-sm font-medium text-slate-600 group-hover/compare:text-slate-800 transition-colors duration-200">
+                  <span className="text-sm font-medium text-theme-secondary group-hover/compare:text-theme-primary transition-colors duration-200">
                     Compare {plan.name}
                   </span>
                 </label>
@@ -343,12 +343,12 @@ export const PlanSelectionPage: React.FC = () => {
       {/* Additional Selected Plan Details */}
       {selectedPlanId && (
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mb-20">
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-700 rounded-2xl p-8 border border-slate-200/50 dark:border-slate-600/50">
+          <div className="bg-theme-surface rounded-2xl p-8 border border-theme">
             <div className="text-center mb-6">
-              <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-3">
+              <h3 className="text-2xl font-bold text-theme-primary mb-3">
                 Ready to get started with {getSelectedPlan()?.name}?
               </h3>
-              <p className="text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+              <p className="text-theme-secondary max-w-2xl mx-auto">
                 You'll be able to review and modify your subscription after creating your account. 
                 Start your free trial and see how Powernode can transform your workflow.
               </p>
@@ -366,28 +366,28 @@ export const PlanSelectionPage: React.FC = () => {
 
       {/* Modern FAQ/Additional Info Section */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mb-20">
-        <div className="bg-gradient-to-r from-slate-50 to-blue-50/50 dark:from-slate-800/50 dark:to-slate-700/50 rounded-3xl p-12 border border-slate-200/30 dark:border-slate-600/30 backdrop-blur-sm">
+        <div className="bg-theme-surface/80 rounded-3xl p-12 border border-theme backdrop-blur-sm">
           <div className="text-center mb-10">
-            <h3 className="text-3xl font-bold text-slate-800 dark:text-white mb-4">
+            <h3 className="text-3xl font-bold text-theme-primary mb-4">
               Questions? We're here to help
             </h3>
-            <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+            <p className="text-lg text-theme-secondary max-w-2xl mx-auto">
               Our team is ready to support you every step of the way. Get answers, compare plans, or reach out directly.
             </p>
           </div>
           
           <div className="grid md:grid-cols-3 gap-8">
             <button 
-              className="group bg-white/80 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200/50 dark:border-slate-600/50 hover:border-theme-info transition-all duration-300 hover:shadow-xl hover:shadow-theme-info/10 transform hover:-translate-y-1"
+              className="group bg-theme-surface/80 backdrop-blur-sm rounded-2xl p-6 border border-theme hover:border-theme-info transition-all duration-300 hover:shadow-xl hover:shadow-theme-info/10 transform hover:-translate-y-1"
               disabled
             >
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <div className="w-12 h-12 bg-theme-info-solid rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                 <span className="text-white text-xl">📧</span>
               </div>
-              <h4 className="font-semibold text-slate-800 dark:text-white mb-2 group-hover:text-theme-info transition-colors duration-300">
+              <h4 className="font-semibold text-theme-primary mb-2 group-hover:text-theme-info transition-colors duration-300">
                 Contact Support
               </h4>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
+              <p className="text-sm text-theme-secondary">
                 Get personalized help from our expert team. We typically respond within 2 hours.
               </p>
             </button>
@@ -400,53 +400,53 @@ export const PlanSelectionPage: React.FC = () => {
                 }
                 setShowComparison(true);
               }}
-              className="group bg-white/80 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200/50 dark:border-slate-600/50 hover:border-theme-interactive-primary transition-all duration-300 hover:shadow-xl hover:shadow-theme-interactive-primary/10 transform hover:-translate-y-1 text-left"
+              className="group bg-theme-surface/80 backdrop-blur-sm rounded-2xl p-6 border border-theme hover:border-theme-interactive-primary transition-all duration-300 hover:shadow-xl hover:shadow-theme-interactive-primary/10 transform hover:-translate-y-1 text-left"
             >
-              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <div className="w-12 h-12 bg-theme-interactive-primary rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                 <ScaleIcon className="h-6 w-6 text-white" />
               </div>
-              <h4 className="font-semibold text-slate-800 dark:text-white mb-2 group-hover:text-theme-interactive-primary transition-colors duration-300">
+              <h4 className="font-semibold text-theme-primary mb-2 group-hover:text-theme-interactive-primary transition-colors duration-300">
                 Compare Plans
               </h4>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
+              <p className="text-sm text-theme-secondary">
                 See a detailed side-by-side comparison of features and pricing across all plans.
               </p>
             </button>
             
             <button 
-              className="group bg-white/80 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200/50 dark:border-slate-600/50 hover:border-theme-success transition-all duration-300 hover:shadow-xl hover:shadow-theme-success/10 transform hover:-translate-y-1"
+              className="group bg-theme-surface/80 backdrop-blur-sm rounded-2xl p-6 border border-theme hover:border-theme-success transition-all duration-300 hover:shadow-xl hover:shadow-theme-success/10 transform hover:-translate-y-1"
               disabled
             >
-              <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <div className="w-12 h-12 bg-theme-success-solid rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                 <span className="text-white text-xl">❓</span>
               </div>
-              <h4 className="font-semibold text-slate-800 dark:text-white mb-2 group-hover:text-theme-success transition-colors duration-300">
+              <h4 className="font-semibold text-theme-primary mb-2 group-hover:text-theme-success transition-colors duration-300">
                 View FAQ
               </h4>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
+              <p className="text-sm text-theme-secondary">
                 Find quick answers to common questions about features, billing, and setup.
               </p>
             </button>
           </div>
           
           {/* Trust Indicators */}
-          <div className="mt-10 pt-8 border-t border-slate-200/50 dark:border-slate-600/50">
+          <div className="mt-10 pt-8 border-t border-theme">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-slate-800 dark:text-white mb-1">99.9%</div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">Uptime SLA</div>
+                <div className="text-2xl font-bold text-theme-primary mb-1">99.9%</div>
+                <div className="text-sm text-theme-secondary">Uptime SLA</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-slate-800 dark:text-white mb-1">24/7</div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">Support</div>
+                <div className="text-2xl font-bold text-theme-primary mb-1">24/7</div>
+                <div className="text-sm text-theme-secondary">Support</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-slate-800 dark:text-white mb-1">30-day</div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">Money back</div>
+                <div className="text-2xl font-bold text-theme-primary mb-1">30-day</div>
+                <div className="text-sm text-theme-secondary">Money back</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-slate-800 dark:text-white mb-1">SOC 2</div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">Compliant</div>
+                <div className="text-2xl font-bold text-theme-primary mb-1">SOC 2</div>
+                <div className="text-sm text-theme-secondary">Compliant</div>
               </div>
             </div>
           </div>

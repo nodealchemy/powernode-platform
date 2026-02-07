@@ -24,6 +24,7 @@ import { workflowsApi, CreateWorkflowRequest } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { logger } from '@/shared/utils/logger';
 import { AiWorkflowNode, AiWorkflowEdge } from '@/shared/types/workflow';
 
 interface WorkflowFormData {
@@ -154,7 +155,7 @@ export const CreateWorkflowPage: React.FC = () => {
 
   // Handle form field changes
    
-  const handleInputChange = useCallback((field: keyof WorkflowFormData, value: any) => {
+  const handleInputChange = useCallback((field: keyof WorkflowFormData, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -172,7 +173,7 @@ export const CreateWorkflowPage: React.FC = () => {
 
   // Handle configuration changes
    
-  const handleConfigChange = useCallback((key: string, value: any) => {
+  const handleConfigChange = useCallback((key: string, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       configuration: {
@@ -185,9 +186,9 @@ export const CreateWorkflowPage: React.FC = () => {
   // Handle workflow builder data
    
   const handleWorkflowData = useCallback((workflowData: {
-    nodes: AiWorkflowNode[];
-    edges: AiWorkflowEdge[];
-    configuration: Record<string, any>;
+    nodes: any[];
+    edges: any[];
+    configuration: Record<string, unknown>;
   }) => {
     setFormData(prev => ({
       ...prev,
@@ -281,7 +282,7 @@ export const CreateWorkflowPage: React.FC = () => {
       // Navigate to the new workflow
       navigate(`/app/ai/workflows/${response.id}`);
     } catch (error) {
-      console.error('Failed to create workflow:', error);
+      logger.error('Failed to create workflow', error);
       addNotification({
         type: 'error',
         title: 'Creation Failed',

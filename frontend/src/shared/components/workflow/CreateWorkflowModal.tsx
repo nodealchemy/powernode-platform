@@ -159,9 +159,9 @@ export const CreateWorkflowModal: React.FC<CreateWorkflowModalProps> = ({
 
   // Handle workflow builder data
   const handleWorkflowData = (workflowData: {
-    nodes: AiWorkflowNode[];
-    edges: AiWorkflowEdge[];
-    configuration: Record<string, any>;
+    nodes: any[];
+    edges: any[];
+    configuration: Record<string, unknown>;
   }) => {
     setFormData(prev => ({
       ...prev,

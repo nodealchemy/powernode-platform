@@ -301,7 +301,7 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
 
           {activeTab === 'risk' && (
             <div className="space-y-6">
-              <RiskAssessment metrics={displayMetrics} timeRange={selectedTimeRange} />
+              <RiskAssessment metrics={displayMetrics as unknown as Record<string, any>} timeRange={selectedTimeRange} />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <AuditLogChart
                   title="Risk Level Distribution"

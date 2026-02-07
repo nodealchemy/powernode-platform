@@ -80,11 +80,11 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div
             className="absolute -top-32 left-1/4 w-[600px] h-[600px] rounded-full opacity-30"
-            style={{ background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 40%, transparent 70%)' }}
+            style={{ background: 'radial-gradient(circle, var(--color-info, rgba(59, 130, 246, 0.15)) 0%, transparent 70%)' }}
           />
           <div
             className="absolute -bottom-32 right-1/4 w-[700px] h-[700px] rounded-full opacity-30"
-            style={{ background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 40%, transparent 70%)' }}
+            style={{ background: 'radial-gradient(circle, var(--color-interactive-primary, rgba(139, 92, 246, 0.15)) 0%, transparent 70%)' }}
           />
         </div>
         
@@ -164,7 +164,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Get Started Today</h2>
           <p className="text-xl text-white/80 mb-8">Experience the power of AI-driven automation.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/register" className="inline-flex items-center justify-center px-8 py-4 bg-white hover:bg-theme-surface text-slate-800 font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl">
+            <Link to="/register" className="inline-flex items-center justify-center px-8 py-4 bg-theme-surface hover:bg-theme-surface-hover text-theme-primary font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl">
               Create Account
             </Link>
             <Link to="/login" className="inline-flex items-center justify-center px-8 py-4 border-2 border-white/30 hover:border-white/60 text-white hover:text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105">

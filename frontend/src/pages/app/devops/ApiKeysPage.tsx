@@ -7,6 +7,7 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { ApiKeyModal } from '@/features/devops/api-keys/components/ApiKeyModal';
 import { Key, RefreshCw } from 'lucide-react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import type { ApiKey } from '@/features/devops/api-keys/services/apiKeysApi';
 
 export const ApiKeysPage: React.FC = () => {
   const { addNotification } = useNotifications();
@@ -18,7 +19,7 @@ export const ApiKeysPage: React.FC = () => {
       // Trigger data refresh if needed
     }
   });
-  const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);

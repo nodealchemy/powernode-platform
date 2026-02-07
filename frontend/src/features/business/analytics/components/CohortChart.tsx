@@ -206,7 +206,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
                 y1={350 - (y * 3)}
                 x2="750"
                 y2={350 - (y * 3)}
-                stroke="rgba(0, 0, 0, 0.06)"
+                stroke="var(--color-border, rgba(0, 0, 0, 0.06))"
                 strokeWidth="1"
               />
             ))}
@@ -219,7 +219,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
                 y={355 - (y * 3)}
                 textAnchor="end"
                 fontSize="12"
-                fill="#6b7280"
+                fill="var(--color-text-secondary, #6b7280)"
               >
                 {y}%
               </text>
@@ -233,7 +233,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
                 y="375"
                 textAnchor="middle"
                 fontSize="12"
-                fill="#6b7280"
+                fill="var(--color-text-secondary, #6b7280)"
               >
                 M{month}
               </text>

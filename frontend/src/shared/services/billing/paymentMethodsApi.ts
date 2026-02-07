@@ -70,7 +70,7 @@ export const paymentMethodsApi = {
   // Get all payment methods for current account
   async getPaymentMethods(): Promise<PaymentMethodsListResponse> {
     try {
-      const response = await api.get('/api/v1/payment_methods');
+      const response = await api.get<PaymentMethodsListResponse>('/api/v1/payment_methods');
       return response.data;
     } catch (error) {
       const message = getErrorMessage(error);
@@ -81,7 +81,7 @@ export const paymentMethodsApi = {
   // Get a specific payment method
   async getPaymentMethod(id: string): Promise<PaymentMethodResponse> {
     try {
-      const response = await api.get(`/api/v1/payment_methods/${id}`);
+      const response = await api.get<PaymentMethodResponse>(`/api/v1/payment_methods/${id}`);
       return response.data;
     } catch (error) {
       const message = getErrorMessage(error);
@@ -92,7 +92,7 @@ export const paymentMethodsApi = {
   // Create setup intent for adding new payment method
   async createSetupIntent(type: 'card' | 'bank_account' = 'card'): Promise<PaymentMethodSetupResponse> {
     try {
-      const response = await api.post('/api/v1/payment_methods/setup_intent', {
+      const response = await api.post<PaymentMethodSetupResponse>('/api/v1/payment_methods/setup_intent', {
         payment_method_type: type
       });
       return response.data;
@@ -105,7 +105,7 @@ export const paymentMethodsApi = {
   // Confirm payment method after client-side setup
   async confirmPaymentMethod(paymentMethodId: string, setupIntentId: string): Promise<PaymentMethodResponse> {
     try {
-      const response = await api.post('/api/v1/payment_methods/confirm', {
+      const response = await api.post<PaymentMethodResponse>('/api/v1/payment_methods/confirm', {
         payment_method_id: paymentMethodId,
         setup_intent_id: setupIntentId
       });
@@ -119,7 +119,7 @@ export const paymentMethodsApi = {
   // Set default payment method
   async setDefaultPaymentMethod(id: string): Promise<PaymentMethodResponse> {
     try {
-      const response = await api.put(`/api/v1/payment_methods/${id}/set_default`);
+      const response = await api.put<PaymentMethodResponse>(`/api/v1/payment_methods/${id}/set_default`);
       return response.data;
     } catch (error) {
       const message = getErrorMessage(error);
@@ -130,7 +130,7 @@ export const paymentMethodsApi = {
   // Delete a payment method
   async deletePaymentMethod(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
-      const response = await api.delete(`/api/v1/payment_methods/${id}`);
+      const response = await api.delete<{ success: boolean; message?: string; error?: string }>(`/api/v1/payment_methods/${id}`);
       return response.data;
     } catch (error) {
       const message = getErrorMessage(error);

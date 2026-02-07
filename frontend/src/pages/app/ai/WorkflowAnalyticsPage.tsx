@@ -18,6 +18,7 @@ import { workflowsApi, WorkflowStatistics } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { logger } from '@/shared/utils/logger';
 import { WorkflowExecutionStats } from '@/shared/types/workflow';
 
 interface AnalyticsData {
@@ -74,7 +75,7 @@ export const WorkflowAnalyticsPage: React.FC = () => {
       try {
         statisticsResponse = await workflowsApi.getWorkflowStatistics();
       } catch (statsError) {
-        console.error('Statistics API failed:', statsError);
+        logger.error('Statistics API failed', statsError);
         const errorMessage = statsError instanceof Error ? statsError.message : 'Unknown error';
         throw new Error(`Statistics API failed: ${errorMessage}`);
       }
@@ -87,7 +88,7 @@ export const WorkflowAnalyticsPage: React.FC = () => {
           dateStrings.end
         );
       } catch (metricsError) {
-        console.error('Metrics API failed:', metricsError);
+        logger.error('Metrics API failed', metricsError);
         const errorMessage = metricsError instanceof Error ? metricsError.message : 'Unknown error';
         throw new Error(`Metrics API failed: ${errorMessage}`);
       }
@@ -97,7 +98,7 @@ export const WorkflowAnalyticsPage: React.FC = () => {
         executionMetrics: metricsResponse
       });
     } catch (error) {
-      console.error('Failed to load analytics data:', error);
+      logger.error('Failed to load analytics data', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       addNotification({
         type: 'error',

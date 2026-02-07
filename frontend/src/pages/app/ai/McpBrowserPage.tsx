@@ -46,7 +46,7 @@ export interface McpTool {
   name: string;
   description?: string;
    
-  input_schema: any;
+  input_schema: Record<string, unknown>;
   category?: string;
   tags?: string[];
 }

@@ -108,12 +108,12 @@ export const ExecutionPathOverlay: React.FC<{
       {/* Active edges get animated pulse */}
       <style>{`
         .execution-edge-active {
-          stroke: #3b82f6 !important;
+          stroke: var(--color-info, #3b82f6) !important;
           stroke-width: 3 !important;
           animation: pulse-flow 1.5s ease-in-out infinite;
         }
         .execution-edge-completed {
-          stroke: #10b981 !important;
+          stroke: var(--color-success, #10b981) !important;
           stroke-width: 2 !important;
         }
         @keyframes pulse-flow {

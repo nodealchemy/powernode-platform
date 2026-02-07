@@ -64,7 +64,7 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
   canManage = false,
 }) => {
   const [showMenu, setShowMenu] = React.useState(false);
-  const bgColor = providerColors[provider.provider_type] || 'bg-slate-600';
+  const bgColor = providerColors[provider.provider_type] || 'bg-theme-surface';
 
   return (
     <div className="bg-theme-surface rounded-lg border border-theme overflow-hidden hover:shadow-md transition-shadow">

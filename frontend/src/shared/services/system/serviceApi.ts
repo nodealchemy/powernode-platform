@@ -89,47 +89,47 @@ export interface ActivityListResponse {
 class ServiceAPI {
   // Services Management
   async getServices(): Promise<ServiceListResponse> {
-    const response = await api.get('/admin/services');
+    const response = await api.get<ServiceListResponse>('/admin/services');
     return response.data;
   }
 
   async getService(id: string): Promise<ServiceDetailsResponse> {
-    const response = await api.get(`/admin/services/${id}`);
+    const response = await api.get<ServiceDetailsResponse>(`/admin/services/${id}`);
     return response.data;
   }
 
   async createService(data: CreateServiceData): Promise<{ service: Service; message: string }> {
-    const response = await api.post('/admin/services', { service: data });
+    const response = await api.post<{ service: Service; message: string }>('/admin/services', { service: data });
     return response.data;
   }
 
   async updateService(id: string, data: UpdateServiceData): Promise<{ service: Service; message: string }> {
-    const response = await api.patch(`/admin/services/${id}`, { service: data });
+    const response = await api.patch<{ service: Service; message: string }>(`/admin/services/${id}`, { service: data });
     return response.data;
   }
 
   async deleteService(id: string): Promise<{ message: string }> {
-    const response = await api.delete(`/admin/services/${id}`);
+    const response = await api.delete<{ message: string }>(`/admin/services/${id}`);
     return response.data;
   }
 
   async regenerateToken(id: string): Promise<{ service: Service; new_token: string; message: string }> {
-    const response = await api.post(`/admin/services/${id}/regenerate_token`);
+    const response = await api.post<{ service: Service; new_token: string; message: string }>(`/admin/services/${id}/regenerate_token`);
     return response.data;
   }
 
   async suspendService(id: string): Promise<{ service: Service; message: string }> {
-    const response = await api.post(`/admin/services/${id}/suspend`);
+    const response = await api.post<{ service: Service; message: string }>(`/admin/services/${id}/suspend`);
     return response.data;
   }
 
   async activateService(id: string): Promise<{ service: Service; message: string }> {
-    const response = await api.post(`/admin/services/${id}/activate`);
+    const response = await api.post<{ service: Service; message: string }>(`/admin/services/${id}/activate`);
     return response.data;
   }
 
   async revokeService(id: string): Promise<{ service: Service; message: string }> {
-    const response = await api.post(`/admin/services/${id}/revoke`);
+    const response = await api.post<{ service: Service; message: string }>(`/admin/services/${id}/revoke`);
     return response.data;
   }
 
@@ -145,12 +145,12 @@ class ServiceAPI {
       to?: string;
     }
   ): Promise<ActivityListResponse> {
-    const response = await api.get(`/admin/services/${serviceId}/activities`, { params });
+    const response = await api.get<ActivityListResponse>(`/admin/services/${serviceId}/activities`, { params });
     return response.data;
   }
 
   async getServiceActivity(serviceId: string, activityId: string): Promise<{ activity: ServiceActivity; service: { id: string; name: string } }> {
-    const response = await api.get(`/admin/services/${serviceId}/activities/${activityId}`);
+    const response = await api.get<{ activity: ServiceActivity; service: { id: string; name: string } }>(`/admin/services/${serviceId}/activities/${activityId}`);
     return response.data;
   }
 
@@ -173,7 +173,22 @@ class ServiceAPI {
       average_response_time?: number;
     };
   }> {
-    const response = await api.get(`/admin/services/${serviceId}/activities/summary`, {
+    const response = await api.get<{
+      service: { id: string; name: string; permissions: string };
+      time_range: { hours: number; from: string; to: string };
+      summary: {
+        total_requests: number;
+        successful_requests: number;
+        failed_requests: number;
+        unique_actions: string[];
+        last_activity: string | null;
+        requests_by_hour: Record<string, number>;
+        actions_breakdown: Record<string, number>;
+        hourly_breakdown: Record<string, number>;
+        success_rate: number;
+        average_response_time?: number;
+      };
+    }>(`/admin/services/${serviceId}/activities/summary`, {
       params: { hours }
     });
     return response.data;
@@ -183,7 +198,7 @@ class ServiceAPI {
     serviceId: string,
     days = 30
   ): Promise<{ message: string; deleted_count: number; cutoff_date: string }> {
-    const response = await api.delete(`/admin/services/${serviceId}/activities/cleanup`, {
+    const response = await api.delete<{ message: string; deleted_count: number; cutoff_date: string }>(`/admin/services/${serviceId}/activities/cleanup`, {
       params: { days }
     });
     return response.data;

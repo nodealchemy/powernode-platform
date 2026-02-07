@@ -67,7 +67,7 @@ interface NodeDataWithHandles extends BaseWorkflowNodeData {
 export interface WorkflowBuilderProps {
   workflow?: AiWorkflow;
    
-  onSave: (workflowData: { nodes: any[]; edges: any[]; configuration: Record<string, any> }) => void;
+  onSave: (workflowData: { nodes: Node[]; edges: Edge[]; configuration: Record<string, unknown> }) => void;
   onValidate?: (nodes: Node[], edges: Edge[]) => Promise<{
     valid: boolean;
     errors: string[];
@@ -1163,7 +1163,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         defaultEdgeOptions={defaultEdgeOptions as typeof DEFAULT_EDGE_OPTIONS}
         connectionLineType={ConnectionLineType.Bezier}
         connectionLineStyle={{
-          stroke: '#94a3b8',
+          stroke: 'var(--color-border, #94a3b8)',
           strokeWidth: 2,
         }}
         attributionPosition="bottom-left"
@@ -1182,7 +1182,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
             variant={BackgroundVariant.Dots}
             gap={gridSize}
             size={2}
-            color="#d1d5db"
+            color="var(--color-border, #d1d5db)"
           />
         )}
         

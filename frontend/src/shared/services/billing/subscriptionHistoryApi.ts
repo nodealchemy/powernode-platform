@@ -33,7 +33,7 @@ export interface SubscriptionHistoryApiResponse extends SubscriptionHistoryRespo
 export const subscriptionHistoryApi = {
   async getHistory(): Promise<SubscriptionHistoryApiResponse> {
     try {
-      const response = await api.get('/api/v1/subscriptions/history');
+      const response = await api.get<{ data: SubscriptionHistoryApiResponse }>('/api/v1/subscriptions/history');
       return response.data.data;
     } catch (error) {
       const message = getErrorMessage(error);

@@ -70,6 +70,7 @@ export const McpOAuthSection: React.FC<McpOAuthSectionProps> = ({
 
       // Listen for callback message from popup
       const handleMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
         if (event.data?.type === 'MCP_OAUTH_CALLBACK') {
           window.removeEventListener('message', handleMessage);
           if (event.data.success) {
