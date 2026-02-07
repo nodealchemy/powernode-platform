@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, FileSignature } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 type AttestationType = 'slsa_provenance' | 'sbom' | 'vulnerability_scan' | 'custom';
 
@@ -83,11 +84,7 @@ export const CreateAttestationModal: React.FC<CreateAttestationModalProps> = ({
         </div>
 
         <div className="p-6 space-y-6">
-          {error && (
-            <div className="p-3 bg-theme-error/10 border border-theme-error/30 rounded-lg text-sm text-theme-error">
-              {error}
-            </div>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           <div>
             <label className="block text-sm font-medium text-theme-secondary mb-2">

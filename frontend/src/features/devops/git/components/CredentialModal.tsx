@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Key, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { X, Key, Eye, EyeOff } from 'lucide-react';
 import { AvailableProvider, CreateCredentialData, GitCredential } from '../types';
 import { useGitCredentials } from '../hooks/useGitProviders';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 interface CredentialModalProps {
   isOpen: boolean;
@@ -145,12 +146,7 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 p-3 bg-theme-error/10 border border-theme-error/20 rounded-lg text-theme-error">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <p className="text-sm">{error}</p>
-            </div>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           {/* Name */}
           <div>

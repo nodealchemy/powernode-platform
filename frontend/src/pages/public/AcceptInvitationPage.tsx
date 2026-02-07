@@ -7,6 +7,7 @@ import { invitationsApi, Invitation } from '@/shared/services/account/invitation
 import { FormField } from '@/shared/components/ui/FormField';
 
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 
 export const AcceptInvitationPage: React.FC = () => {
@@ -188,11 +189,7 @@ export const AcceptInvitationPage: React.FC = () => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-theme-error bg-opacity-10 border border-theme-error text-theme-error p-4 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
+            {error && <ErrorAlert message={error} />}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField

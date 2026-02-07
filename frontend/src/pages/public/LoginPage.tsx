@@ -17,6 +17,7 @@ import { settingsApi } from '@/shared/services/settings/settingsApi';
 
 import { TwoFactorVerification } from '@/features/account/auth/components/TwoFactorVerification';
 import { DomainChangeNotice } from '@/shared/components/ui/DomainChangeNotice';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 
 interface LocationState {
@@ -201,15 +202,7 @@ export const LoginPage: React.FC = () => {
             />
           ) : (
             <>
-              {error && (
-                <div className="mb-6 px-4 py-3 rounded-xl border bg-theme-error border-theme-error">
-                  <div className="flex">
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-theme-error">{error}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {error && <ErrorAlert message={error} />}
 
               <DomainChangeNotice />
 

@@ -4,6 +4,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 import { AuthResponse } from '@/features/account/auth/services/authAPI';
 import { Lock } from 'lucide-react';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 interface TwoFactorVerificationProps {
   verificationToken: string;
@@ -92,11 +93,7 @@ export const TwoFactorVerification: React.FC<TwoFactorVerificationProps> = ({
           helpText="Enter the 6-digit code from your authenticator app, or an 8-digit backup code"
         />
 
-        {error && (
-          <div className="p-3 bg-theme-error-background border border-theme-error rounded-md">
-            <p className="text-theme-error text-sm">{error}</p>
-          </div>
-        )}
+        {error && <ErrorAlert message={error} />}
 
         <div className="flex space-x-3">
           {onCancel && (

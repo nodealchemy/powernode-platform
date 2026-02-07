@@ -4,6 +4,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 import { Copy, Check } from 'lucide-react';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { sanitizeQrCode } from '@/shared/utils/sanitizeHtml';
 
 interface TwoFactorSetupProps {
@@ -149,11 +150,7 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
             className="text-center text-lg font-mono tracking-widest"
           />
 
-          {error && (
-            <div className="p-3 bg-theme-error-background border border-theme-error rounded-md">
-              <p className="text-theme-error text-sm">{error}</p>
-            </div>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           <div className="flex space-x-3">
             <Button

@@ -13,6 +13,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { communityAgentsApi } from '@/shared/services/ai';
 import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import { AgentCard } from './AgentCard';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { cn } from '@/shared/utils/cn';
 import type { CommunityAgentSummary, CommunityAgentFilters } from '@/shared/services/ai';
 import type { SkillCategory } from '@/features/ai/skills/types';
@@ -181,11 +182,7 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
       </form>
 
       {/* Error */}
-      {error && (
-        <div className="p-4 rounded-lg bg-theme-status-error/10 text-theme-status-error">
-          {error}
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       {/* Agent Grid */}
       {agents.length === 0 ? (

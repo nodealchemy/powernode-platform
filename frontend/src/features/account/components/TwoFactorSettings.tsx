@@ -3,6 +3,7 @@ import { twoFactorApi } from '@/shared/services/account/twoFactorApi';
 import { TwoFactorSetup } from '@/features/account/auth/components/TwoFactorSetup';
 import Modal from '@/shared/components/ui/Modal';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 export const TwoFactorSettings: React.FC = () => {
   const [status, setStatus] = useState<{
@@ -137,11 +138,7 @@ export const TwoFactorSettings: React.FC = () => {
         </p>
       </div>
 
-      {error && (
-        <div className="p-3 bg-theme-error-background border border-theme-error-border rounded-md">
-          <p className="text-theme-error text-sm">{error}</p>
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       <div className="border border-theme rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">

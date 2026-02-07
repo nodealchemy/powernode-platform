@@ -4,6 +4,7 @@ import {
   AccountGitWebhookConfig,
 } from '../services/git/accountWebhooksApi';
 import { PaginationInfo } from '../types';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 interface AccountWebhooksListProps {
   onViewDetails?: (webhook: AccountGitWebhookConfig) => void;
@@ -153,11 +154,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
       </div>
 
       {/* Error Message */}
-      {error && (
-        <div className="p-4 bg-theme-danger/10 border border-theme-danger/20 rounded-lg">
-          <p className="text-sm text-theme-danger">{error}</p>
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       {/* Loading State */}
       {isLoading && (

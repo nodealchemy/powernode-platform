@@ -11,6 +11,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
 import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { RalphLoopCard } from './RalphLoopCard';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { cn } from '@/shared/utils/cn';
 import type { RalphLoopSummary, RalphLoopFilters, RalphLoopStatus } from '@/shared/services/ai/types/ralph-types';
 
@@ -173,11 +174,7 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
       </div>
 
       {/* Error */}
-      {error && (
-        <div className="p-4 rounded-lg bg-theme-status-error/10 text-theme-status-error">
-          {error}
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       {/* Loop Grid */}
       {loops.length === 0 ? (

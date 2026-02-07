@@ -13,6 +13,7 @@ import { addNotification } from '@/shared/services/slices/uiSlice';
 import { plansApi, Plan } from '@/features/business/plans/services/plansApi';
 
 import { getErrorMessage } from '@/shared/utils/errorHandling';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 import {
   EyeIcon, 
@@ -215,15 +216,7 @@ export const RegisterPage: React.FC = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-theme-surface py-8 px-4 shadow-xl border border-theme sm:rounded-xl sm:px-10">
 
-          {error && (
-            <div className="mb-6 bg-theme-error border border-theme text-theme-error px-4 py-3 rounded-lg">
-              <div className="flex">
-                <div className="ml-3">
-                  <p className="text-sm font-medium">{error}</p>
-                </div>
-              </div>
-            </div>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           {/* Back to Plan Selection */}
           <div className="mb-6">

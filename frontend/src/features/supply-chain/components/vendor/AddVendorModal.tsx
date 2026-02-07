@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Building2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 type VendorType = 'saas' | 'api' | 'library' | 'infrastructure' | 'hardware' | 'consulting';
 
@@ -87,11 +88,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({ onClose, onAdd }
         </div>
 
         <div className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 bg-theme-error/10 border border-theme-error/30 rounded-lg text-sm text-theme-error">
-              {error}
-            </div>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           <div>
             <label className="block text-sm font-medium text-theme-secondary mb-1">

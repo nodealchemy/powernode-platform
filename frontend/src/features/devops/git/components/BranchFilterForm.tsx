@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BranchFilterType } from '../types';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 interface BranchFilterFormProps {
   initialFilterType?: BranchFilterType;
@@ -196,11 +197,7 @@ export const BranchFilterForm: React.FC<BranchFilterFormProps> = ({
       )}
 
       {/* Error Message */}
-      {error && (
-        <div className="p-3 bg-theme-danger/10 border border-theme-danger/20 rounded-lg">
-          <p className="text-sm text-theme-danger">{error}</p>
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       {/* Action Buttons */}
       <div className="flex justify-end gap-3 pt-2">

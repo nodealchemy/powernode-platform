@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { impersonationApi, ImpersonationSession } from '@/shared/services/account/impersonationApi';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 export const ImpersonationHistory: React.FC = () => {
   const [sessions, setSessions] = useState<ImpersonationSession[]>([]);
@@ -141,18 +143,11 @@ export const ImpersonationHistory: React.FC = () => {
           </div>
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 bg-theme-error-background border border-theme-error rounded-md">
-            <p className="text-sm text-theme-error">{error}</p>
-          </div>
-        )}
+        {error && <ErrorAlert message={error} />}
 
         {/* History Table */}
         {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-            <span className="ml-2 text-theme-secondary">Loading history...</span>
-          </div>
+          <LoadingSpinner className="py-12" message="Loading history..." />
         ) : sessions.length === 0 ? (
           <div className="text-center py-12">
             <svg className="mx-auto h-12 w-12 text-theme-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">

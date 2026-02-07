@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Globe, AlertCircle, Server } from 'lucide-react';
+import { X, Globe, Server } from 'lucide-react';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { gitProvidersApi } from '../services/gitProvidersApi';
 import { GitProviderDetail, CreateProviderData, UpdateProviderData } from '../types';
 
@@ -193,12 +194,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 p-3 bg-theme-error/10 border border-theme-error/20 rounded-lg text-theme-error">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <p className="text-sm">{error}</p>
-            </div>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           {/* Provider Type (only for new) */}
           {!isEditing && (

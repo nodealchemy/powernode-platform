@@ -12,6 +12,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { chatChannelsApi } from '@/shared/services/ai';
 import { ChannelCard } from './ChannelCard';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { cn } from '@/shared/utils/cn';
 import type { ChatChannelSummary, ChatPlatform, ChannelFilters } from '@/shared/services/ai';
 
@@ -164,11 +165,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
       </div>
 
       {/* Error */}
-      {error && (
-        <div className="p-4 rounded-lg bg-theme-status-error/10 text-theme-status-error">
-          {error}
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       {/* Channel Grid */}
       {filteredChannels.length === 0 ? (

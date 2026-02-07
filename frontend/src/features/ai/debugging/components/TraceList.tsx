@@ -17,6 +17,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { cn } from '@/shared/utils/cn';
 
 // Types
@@ -191,14 +192,7 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
         </div>
 
         {/* Error state */}
-        {error && (
-          <div className="p-4 bg-theme-danger/10 border border-theme-danger/30 rounded">
-            <div className="flex items-center gap-2 text-theme-danger">
-              <AlertCircle className="h-4 w-4" />
-              <span>{error}</span>
-            </div>
-          </div>
-        )}
+        {error && <ErrorAlert message={error} />}
 
         {/* Empty state */}
         {!loading && traces.length === 0 && (

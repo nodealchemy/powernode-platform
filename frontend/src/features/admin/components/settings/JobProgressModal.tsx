@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, CheckCircle, XCircle, Loader, X } from 'lucide-react';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { servicesApi } from '../../services/servicesApi';
 
 // Result types for different job types
@@ -347,15 +348,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
             </div>
 
             {/* Error */}
-            {error && (
-              <div className="bg-theme-error bg-opacity-10 border border-theme-error border-opacity-20 rounded-lg p-3">
-                <div className="flex items-center gap-2 text-theme-error">
-                  <XCircle className="w-4 h-4" />
-                  <span className="font-medium">Error</span>
-                </div>
-                <p className="text-sm text-theme-error mt-1">{error}</p>
-              </div>
-            )}
+            {error && <ErrorAlert message={error} />}
 
             {/* Results */}
             {status === 'completed' && result && (

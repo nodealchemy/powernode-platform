@@ -13,6 +13,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { agentCardsApiService, agentsApi } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
@@ -369,14 +370,7 @@ export const AgentCardEditor: React.FC<AgentCardEditorProps> = ({
       </Card>
 
       {/* Error */}
-      {error && (
-        <div className="p-4 bg-theme-danger/10 border border-theme-danger/30 rounded-lg">
-          <div className="flex items-center gap-2 text-theme-danger">
-            <AlertCircle className="h-4 w-4" />
-            <span>{error}</span>
-          </div>
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       {/* Validation Result */}
       {validationResult && (
