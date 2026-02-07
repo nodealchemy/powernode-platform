@@ -445,9 +445,7 @@ Position: (${node.position_x}, ${node.position_y})`;
               messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex gap-3 ${
-                    message.sender_type === 'user' ? 'flex-row-reverse' : ''
-                  }`}
+                  className="flex gap-3"
                 >
                   <Avatar
                     src={message.sender_type === 'user' ? message.sender_info?.avatar_url : undefined}
@@ -455,11 +453,7 @@ Position: (${node.position_x}, ${node.position_y})`;
                   >
                     {message.sender_type === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                   </Avatar>
-                  <div
-                    className={`flex-1 ${
-                      message.sender_type === 'user' ? 'text-right' : ''
-                    }`}
-                  >
+                  <div className="flex-1">
                     <div
                       className={`inline-block max-w-[80%] p-3 rounded-lg text-sm ${
                         message.sender_type === 'user'

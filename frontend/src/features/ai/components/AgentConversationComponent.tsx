@@ -482,9 +482,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     return (
       <div
         key={message.id}
-        className={`group flex gap-3 mb-4 ${
-          isUser ? 'flex-row-reverse' : 'flex-row'
-        }`}
+        className="group flex gap-3 flex-row"
       >
         <div className="flex-shrink-0 flex items-start justify-center">
           <Avatar
@@ -505,12 +503,8 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           </Avatar>
         </div>
 
-        <div className={`flex-1 max-w-[85%] sm:max-w-[80%] ${
-          isUser ? 'flex flex-col items-end' : 'flex flex-col items-start'
-        }`}>
-          <div className={`flex items-center gap-2 mb-2 ${
-            isUser ? 'flex-row-reverse' : 'flex-row'
-          }`}>
+        <div className="flex-1 max-w-[85%] sm:max-w-[80%] flex flex-col items-start">
+          <div className="flex items-center gap-2 mb-2 flex-row">
             <span className="text-sm font-semibold text-theme-primary">
               {message.sender_info?.name || (isUser ? 'You' : 'AI Assistant')}
             </span>
@@ -522,7 +516,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           <div
             className={`rounded-2xl px-4 py-3 max-w-full shadow-md ${
               isUser
-                ? 'bg-theme-info text-white rounded-br-md ml-auto'
+                ? 'bg-theme-info text-white rounded-bl-md'
                 : hasError
                 ? 'bg-theme-danger/10 dark:bg-theme-danger/20 border border-theme-danger/30 dark:border-theme-danger/50 text-theme-danger dark:text-theme-danger rounded-bl-md'
                 : 'bg-theme-surface border border-theme text-theme-primary rounded-bl-md'
@@ -642,7 +636,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           </div>
 
           {isAI && !isProcessing && (
-            <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200" role="group" aria-label="Message actions">
+            <div className="flex items-center gap-1 mt-2" role="group" aria-label="Message actions">
               <div className="flex items-center bg-theme-surface/80 backdrop-blur-sm rounded-full border border-theme/20 p-1 shadow-sm">
                 <Button
                   variant="ghost"

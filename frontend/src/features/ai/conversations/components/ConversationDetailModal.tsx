@@ -492,8 +492,8 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                         key={message.id}
                         className={`p-3 rounded-lg border ${
                           message.sender_type === 'user'
-                            ? 'bg-theme-primary-subtle border-theme-primary/20 ml-8'
-                            : 'bg-theme-surface border-theme/20 mr-8'
+                            ? 'bg-theme-primary-subtle border-theme-primary/20'
+                            : 'bg-theme-surface border-theme/20'
                         }`}
                       >
                         <div className="flex items-center gap-2 mb-2">
