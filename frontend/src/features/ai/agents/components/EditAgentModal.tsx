@@ -176,7 +176,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
         agentsApi.getAgentSkills(agent.id),
         skillsApi.getSkills(1, 100),
       ]);
-      setAssignedSkills(Array.isArray(agentSkillsRes) ? agentSkillsRes : []);
+      setAssignedSkills(agentSkillsRes ?? []);
       if (allSkillsRes.success && allSkillsRes.data?.skills) {
         setAvailableSkills(allSkillsRes.data.skills.map((s: { id: string; name: string; slug: string; category: string }) => ({
           id: s.id, name: s.name, slug: s.slug, category: s.category,

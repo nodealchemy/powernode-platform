@@ -85,7 +85,8 @@ class AgentsApiService extends BaseApiService {
    * GET /api/v1/ai/agents/:id
    */
   async getAgent(id: string): Promise<AiAgent> {
-    return this.getOne<AiAgent>(this.resource, id);
+    const response = await this.getOne<{ agent: AiAgent }>(this.resource, id);
+    return response.agent;
   }
 
   /**
@@ -242,7 +243,8 @@ class AgentsApiService extends BaseApiService {
    */
   async getAgentSkills(agentId: string): Promise<AiAgentSkill[]> {
     const path = this.buildPath(this.resource, agentId, undefined, undefined, 'skills');
-    return this.get<AiAgentSkill[]>(path);
+    const response = await this.get<{ skills: AiAgentSkill[] }>(path);
+    return response.skills;
   }
 
   /**
@@ -336,7 +338,10 @@ class AgentsApiService extends BaseApiService {
     agentId: string,
     filters?: ConversationFilters
   ): Promise<PaginatedResponse<AiConversation>> {
-    return this.getNestedList<AiConversation>(this.resource, agentId, 'conversations', filters);
+    const queryString = this.buildQueryString(filters);
+    const path = this.buildPath(this.resource, agentId, 'conversations') + queryString;
+    const response = await this.get<{ conversations: AiConversation[]; pagination: PaginatedResponse<AiConversation>['pagination'] }>(path);
+    return { items: response.conversations, pagination: response.pagination };
   }
 
   /**
