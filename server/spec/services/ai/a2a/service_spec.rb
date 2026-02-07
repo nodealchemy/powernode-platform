@@ -66,7 +66,9 @@ RSpec.describe Ai::A2a::Service, type: :service do
       end
 
       it 'filters by skill' do
-        agent_card.update!(capabilities: { 'skills' => [ 'summarize' ] })
+        # with_skill_record scope joins through agent -> skills (ai_skills table)
+        skill = Ai::Skill.create!(name: 'Summarize', slug: 'summarize', category: 'productivity', status: 'active')
+        Ai::AgentSkill.create!(agent: agent, skill: skill)
 
         result = service.discover_agents(skill: 'summarize')
         expect(result[:agents].any? { |a| a[:name] == 'Test Agent' }).to be true

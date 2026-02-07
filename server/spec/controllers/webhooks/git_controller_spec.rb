@@ -52,8 +52,8 @@ RSpec.describe Webhooks::GitController, type: :controller do
 
         expect(response).to have_http_status(:ok)
         json = JSON.parse(response.body)
-        expect(json['received']).to be true
-        expect(json['event_id']).to be_present
+        expect(json['data']['received']).to be true
+        expect(json['data']['event_id']).to be_present
       end
 
       it 'extracts event data correctly' do

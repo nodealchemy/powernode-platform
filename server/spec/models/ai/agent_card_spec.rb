@@ -87,7 +87,7 @@ RSpec.describe Ai::AgentCard, type: :model do
   end
 
   describe '#to_a2a_json' do
-    let(:agent_card) { create(:ai_agent_card, :active, :with_multiple_skills, published_at: Time.current) }
+    let(:agent_card) { create(:ai_agent_card, :active, :with_multiple_skills, agent: nil, published_at: Time.current) }
 
     it 'returns A2A-compliant JSON structure' do
       json = agent_card.to_a2a_json
@@ -126,7 +126,7 @@ RSpec.describe Ai::AgentCard, type: :model do
   end
 
   describe '#skills_list' do
-    let(:agent_card) { create(:ai_agent_card, :with_multiple_skills) }
+    let(:agent_card) { create(:ai_agent_card, :with_multiple_skills, agent: nil) }
 
     it 'returns array of skills from capabilities' do
       expect(agent_card.skills_list).to be_an(Array)

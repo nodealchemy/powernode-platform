@@ -140,7 +140,7 @@ RSpec.describe 'Api::V1::Ai::Federation', type: :request do
 
         post '/api/v1/ai/federation/partners', params: invalid_params, headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -235,7 +235,7 @@ RSpec.describe 'Api::V1::Ai::Federation', type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end
@@ -266,7 +266,7 @@ RSpec.describe 'Api::V1::Ai::Federation', type: :request do
             headers: headers,
             as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end
@@ -298,7 +298,7 @@ RSpec.describe 'Api::V1::Ai::Federation', type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end
@@ -323,7 +323,7 @@ RSpec.describe 'Api::V1::Ai::Federation', type: :request do
         expect_success_response
         data = json_response_data
         expect(data['message']).to include('Registration received')
-        expect(data['status']).to eq('pending_verification')
+        expect(data['status']).to eq('pending')
       end
     end
 
@@ -334,7 +334,7 @@ RSpec.describe 'Api::V1::Ai::Federation', type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end

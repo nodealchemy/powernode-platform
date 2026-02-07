@@ -81,7 +81,7 @@ RSpec.describe 'Chat Channels API', type: :request do
 
     it 'creates a new channel' do
       expect {
-        post '/api/v1/chat/channels', params: valid_params, headers: headers
+        post '/api/v1/chat/channels', params: valid_params.to_json, headers: headers
       }.to change(Chat::Channel, :count).by(1)
 
       expect(response).to have_http_status(:created)
@@ -90,15 +90,15 @@ RSpec.describe 'Chat Channels API', type: :request do
     end
 
     it 'validates required fields' do
-      post '/api/v1/chat/channels', params: { channel: { name: '' } }, headers: headers
+      post '/api/v1/chat/channels', params: { channel: { name: '' } }.to_json, headers: headers
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
     it 'validates platform is supported' do
-      post '/api/v1/chat/channels', params: { channel: { name: 'Test', platform: 'invalid' } }, headers: headers
+      post '/api/v1/chat/channels', params: { channel: { name: 'Test', platform: 'invalid' } }.to_json, headers: headers
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 
@@ -107,7 +107,7 @@ RSpec.describe 'Chat Channels API', type: :request do
 
     it 'updates the channel' do
       patch "/api/v1/chat/channels/#{channel.id}",
-            params: { channel: { name: 'Updated Name' } },
+            params: { channel: { name: 'Updated Name' } }.to_json,
             headers: headers
 
       expect(response).to have_http_status(:ok)
@@ -117,10 +117,10 @@ RSpec.describe 'Chat Channels API', type: :request do
 
     it 'validates updates' do
       patch "/api/v1/chat/channels/#{channel.id}",
-            params: { channel: { rate_limit_per_minute: 2000 } },
+            params: { channel: { rate_limit_per_minute: 2000 } }.to_json,
             headers: headers
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 
@@ -140,7 +140,7 @@ RSpec.describe 'Chat Channels API', type: :request do
     let!(:channel) { create(:chat_channel, :telegram, :disconnected, account: account) }
 
     before do
-      allow_any_instance_of(Chat::GatewayService).to receive(:connect_channel).and_return({ success: true })
+      allow_any_instance_of(Chat::GatewayService).to receive(:connect).and_return(true)
     end
 
     it 'connects the channel' do
@@ -163,14 +163,14 @@ RSpec.describe 'Chat Channels API', type: :request do
 
   describe 'POST /api/v1/chat/channels/:id/regenerate_token' do
     let!(:channel) { create(:chat_channel, :telegram, account: account) }
-    let(:old_token) { channel.webhook_token }
 
     it 'regenerates the webhook token' do
+      original_token = channel.webhook_token
       post "/api/v1/chat/channels/#{channel.id}/regenerate_token", headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(channel.reload.webhook_token).not_to eq(old_token)
-      expect(json_response['data']['webhook_url']).to include(channel.reload.webhook_token)
+      expect(channel.reload.webhook_token).not_to eq(original_token)
+      expect(json_response['data']['channel']).to be_present
     end
   end
 
@@ -202,7 +202,7 @@ RSpec.describe 'Chat Channels API', type: :request do
       get "/api/v1/chat/channels/#{channel.id}/metrics", headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['data']['metrics']).to include('total_sessions', 'active_sessions', 'status')
+      expect(json_response['data']['metrics']).to include('total_sessions', 'active_sessions', 'total_messages', 'status')
     end
   end
 

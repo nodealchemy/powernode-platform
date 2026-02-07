@@ -91,11 +91,10 @@ RSpec.describe Ai::CreditManagementService, type: :service do
     let!(:credit_pack) do
       Ai::CreditPack.create!(
         name: 'Starter Pack',
-        slug: 'starter-pack',
+        pack_type: 'standard',
         credits: 1000,
         bonus_credits: 100,
         price_usd: 9.99,
-        status: 'active',
         is_active: true,
         sort_order: 1
       )
@@ -154,11 +153,10 @@ RSpec.describe Ai::CreditManagementService, type: :service do
     let!(:credit_pack) do
       Ai::CreditPack.create!(
         name: 'Starter Pack',
-        slug: 'starter-complete',
+        pack_type: 'standard',
         credits: 1000,
         bonus_credits: 0,
         price_usd: 9.99,
-        status: 'active',
         is_active: true,
         sort_order: 1
       )

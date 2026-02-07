@@ -21,11 +21,13 @@ RSpec.describe Ai::ReviewWorkflowService, type: :service do
 
     reviewer_agent = create(:ai_agent, account: account, provider: provider, name: 'Reviewer Agent')
 
-    # Create a reviewer role on the team
-    reviewer_role = team.ai_team_roles.create!(
+    # Create a reviewer role on the team using TeamRole directly
+    reviewer_role = Ai::TeamRole.create!(
+      account: account,
+      agent_team: team,
       role_name: 'reviewer',
       role_type: 'reviewer',
-      description: 'Reviews task output',
+      role_description: 'Reviews task output',
       ai_agent: reviewer_agent
     )
 
@@ -177,25 +179,25 @@ RSpec.describe Ai::ReviewWorkflowService, type: :service do
   describe '#process_review' do
     let(:setup) { create_team_with_review_config }
     let(:team) { setup[:team] }
-    let(:reviewer_role) { setup[:reviewer_role] }
+
+    let(:mock_task) do
+      double('task', status: 'waiting', output_data: {}, update!: true,
+             team_execution: double('exec', agent_team: team))
+    end
 
     let(:review) do
-      create(:ai_task_review,
-        account: account,
-        reviewer_role: reviewer_role,
-        reviewer_agent: setup[:reviewer_agent],
+      instance_double(Ai::TaskReview,
         status: 'in_progress',
-        review_mode: 'blocking'
+        review_mode: 'blocking',
+        team_task: mock_task,
+        rejection_reason: nil,
+        revision_count: 1
       )
     end
 
     context 'with approve result' do
       it 'approves the review' do
         allow(review).to receive(:approve!)
-        allow(review).to receive(:review_mode).and_return('blocking')
-        allow(review).to receive(:team_task).and_return(
-          double('task', status: 'waiting', update!: true)
-        )
 
         result = service.process_review(review, result: 'approve', notes: 'Looks good')
         expect(result).to eq(review)
@@ -206,10 +208,6 @@ RSpec.describe Ai::ReviewWorkflowService, type: :service do
       it 'rejects the review' do
         allow(review).to receive(:reject!)
         allow(review).to receive(:rejection_reason).and_return('Quality issues')
-        allow(review).to receive(:review_mode).and_return('blocking')
-        allow(review).to receive(:team_task).and_return(
-          double('task', status: 'waiting', update!: true)
-        )
 
         result = service.process_review(review, result: 'reject', notes: 'Quality issues')
         expect(result).to eq(review)
@@ -219,13 +217,7 @@ RSpec.describe Ai::ReviewWorkflowService, type: :service do
     context 'with revision result' do
       it 'requests revision' do
         allow(review).to receive(:request_revision!)
-        allow(review).to receive(:revision_count).and_return(1)
-        allow(review).to receive(:review_mode).and_return('blocking')
         allow(review).to receive(:rejection_reason).and_return('Needs improvement')
-        allow(review).to receive(:team_task).and_return(
-          double('task', status: 'waiting', output_data: {}, update!: true,
-                 team_execution: double('exec', agent_team: team))
-        )
 
         result = service.process_review(review, result: 'revision', notes: 'Needs improvement')
         expect(result).to eq(review)
@@ -233,9 +225,13 @@ RSpec.describe Ai::ReviewWorkflowService, type: :service do
     end
 
     context 'with invalid result' do
+      let(:simple_review) do
+        instance_double(Ai::TaskReview, status: 'in_progress')
+      end
+
       it 'raises ArgumentError' do
         expect {
-          service.process_review(review, result: 'invalid_action')
+          service.process_review(simple_review, result: 'invalid_action')
         }.to raise_error(ArgumentError, /Invalid review action/)
       end
     end

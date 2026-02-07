@@ -163,7 +163,7 @@ RSpec.describe Ai::AgentTeam, type: :model do
       team = create(:ai_agent_team, :with_members, members_count: 5)
       stats = team.team_stats
 
-      expect(stats[:total_members]).to eq(5)
+      expect(stats[:member_count]).to eq(5)
       expect(stats[:team_type]).to eq('hierarchical')
       expect(stats[:status]).to eq('active')
     end

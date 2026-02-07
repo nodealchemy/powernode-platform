@@ -39,11 +39,12 @@ RSpec.configure do |config|
   end
 
   # Performance testing configuration
-  # Uses truncation strategy to support concurrent database access in threads
-  # Matches both :performance tag and type: :performance
+  # Uses truncation strategy to support concurrent database access in threads.
+  # Disables transactional tests so threads can see committed data.
   config.before(:each, type: :performance) do
-    # Use truncation strategy to allow threads to see committed data
+    self.class.use_transactional_tests = false
     DatabaseCleaner.strategy = :truncation
+    DatabaseCleaner.start
 
     @performance_threshold = {
       response_time: 2.0, # seconds
@@ -73,9 +74,8 @@ RSpec.configure do |config|
       Rails.logger.warn "Test executed #{@query_count} queries (threshold: #{@performance_threshold[:database_queries]})"
     end
 
-    # Restore normal database cleaning strategy
     DatabaseCleaner.clean
-    DatabaseCleaner.strategy = :transaction
+    self.class.use_transactional_tests = true
   end
 
   # Security testing configuration
@@ -102,9 +102,11 @@ RSpec.configure do |config|
   end
 
   # Integration testing configuration
+  # Uses truncation so data is committed and visible across connections.
   config.before(:each, :integration) do
-    # Use real database transactions for integration tests
+    self.class.use_transactional_tests = false
     DatabaseCleaner.strategy = :truncation
+    DatabaseCleaner.start
 
     # Set up comprehensive test data
     setup_integration_test_data
@@ -114,11 +116,11 @@ RSpec.configure do |config|
   end
 
   config.after(:each, :integration) do
-    # Restore normal database cleaning
-    DatabaseCleaner.strategy = :transaction
-
     # Cleanup integration test data
     cleanup_integration_test_data
+
+    DatabaseCleaner.clean
+    self.class.use_transactional_tests = true
   end
 
   # Analytics testing configuration

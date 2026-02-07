@@ -15,7 +15,7 @@ RSpec.describe ScheduledTask, type: :model do
     it { should validate_presence_of(:task_type) }
     it { should validate_inclusion_of(:task_type).in_array(%w[database_backup data_cleanup system_health_check report_generation custom_command]) }
     it { should validate_presence_of(:cron_expression) }
-    it { should validate_inclusion_of(:is_active).in_array([ true, false ]) }
+    it { should allow_values(true, false).for(:is_active) }
 
     it 'validates uniqueness of name' do
       create(:scheduled_task, name: 'Daily Backup')

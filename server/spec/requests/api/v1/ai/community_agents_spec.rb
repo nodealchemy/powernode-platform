@@ -150,16 +150,13 @@ RSpec.describe 'Api::V1::Ai::CommunityAgents', type: :request do
             description: 'A published community agent for testing',
             endpoint_url: 'https://agent.example.com/.well-known/agent.json',
             category: 'automation',
-            visibility: 'public'
+            visibility: 'public',
+            agent_id: agent.id
           }
         }
       end
 
       it 'creates a new community agent' do
-        # Stub the agent association since the factory needs it
-        allow_any_instance_of(CommunityAgent).to receive(:agent).and_return(agent)
-        allow_any_instance_of(CommunityAgent).to receive(:link_agent_card)
-
         expect {
           post '/api/v1/ai/community/agents', params: valid_params, headers: headers, as: :json
         }.to change(CommunityAgent, :count).by(1)
@@ -390,9 +387,7 @@ RSpec.describe 'Api::V1::Ai::CommunityAgents', type: :request do
   describe 'POST /api/v1/ai/community/agents/discover' do
     context 'with valid task description' do
       it 'discovers agents based on task description' do
-        service_double = instance_double(A2a::Skills::CommunitySkills)
-        allow(A2a::Skills::CommunitySkills).to receive(:new).and_return(service_double)
-        allow(service_double).to receive(:discover_agents).and_return(
+        allow(A2a::Skills::CommunitySkills).to receive(:discover_agents).and_return(
           agents: [],
           query_analyzed: 'test analysis'
         )
@@ -414,7 +409,7 @@ RSpec.describe 'Api::V1::Ai::CommunityAgents', type: :request do
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end

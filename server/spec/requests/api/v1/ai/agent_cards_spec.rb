@@ -265,13 +265,13 @@ RSpec.describe 'Api::V1::Ai::AgentCards', type: :request do
 
   describe 'POST /api/v1/ai/agent_cards/:id/publish' do
     let(:headers) { auth_headers_for(user_with_update_permission) }
-    let(:agent_card) { create(:ai_agent_card, status: 'draft', account: account) }
+    let(:agent_card) { create(:ai_agent_card, status: 'inactive', account: account) }
 
     it 'publishes the agent card' do
       post "/api/v1/ai/agent_cards/#{agent_card.id}/publish", headers: headers, as: :json
 
       expect_success_response
-      expect(agent_card.reload.status).to eq('published')
+      expect(agent_card.reload.status).to eq('active')
     end
   end
 

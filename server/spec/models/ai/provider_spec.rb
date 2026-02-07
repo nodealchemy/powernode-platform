@@ -8,7 +8,7 @@ RSpec.describe Ai::Provider, type: :model do
   describe 'associations' do
     it { is_expected.to belong_to(:account) }
     it { is_expected.to have_many(:credentials).class_name('Ai::ProviderCredential').dependent(:destroy) }
-    it { is_expected.to have_many(:agents).dependent(:nullify) }
+    it { is_expected.to have_many(:agents).dependent(:restrict_with_error) }
   end
 
   describe 'validations' do

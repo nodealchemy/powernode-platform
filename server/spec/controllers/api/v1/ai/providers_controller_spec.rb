@@ -483,7 +483,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
       before { sign_in provider_manage_user }
 
       it 'syncs provider models' do
-        expect(Ai::ProviderManagementService).to receive(:sync_provider_models).with(provider)
+        expect(Ai::ProviderManagementService).to receive(:sync_provider_models).with(provider, force_refresh: true)
 
         post :sync_models, params: { id: provider.id }
 

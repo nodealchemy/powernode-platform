@@ -379,13 +379,16 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
     context 'with real execution data' do
       before do
-        # Create test executions
-        create(:ai_agent_execution, agent: agent, status: 'completed',
-               result: { 'usage' => { 'prompt_tokens' => 100, 'completion_tokens' => 50 }, 'cost' => 0.01 })
-        create(:ai_agent_execution, agent: agent, status: 'completed',
-               result: { 'usage' => { 'prompt_tokens' => 200, 'completion_tokens' => 100 }, 'cost' => 0.02 })
-        create(:ai_agent_execution, agent: agent, status: 'failed',
-               result: { 'error' => 'timeout' })
+        # Create test executions - ensure agent uses the same provider
+        create(:ai_agent_execution, agent: agent, provider: provider, account: account, status: 'completed',
+               started_at: 10.minutes.ago, completed_at: 5.minutes.ago, duration_ms: 300000,
+               output_data: { 'usage' => { 'prompt_tokens' => 100, 'completion_tokens' => 50 }, 'cost' => 0.01 })
+        create(:ai_agent_execution, agent: agent, provider: provider, account: account, status: 'completed',
+               started_at: 10.minutes.ago, completed_at: 5.minutes.ago, duration_ms: 300000,
+               output_data: { 'usage' => { 'prompt_tokens' => 200, 'completion_tokens' => 100 }, 'cost' => 0.02 })
+        create(:ai_agent_execution, agent: agent, provider: provider, account: account, status: 'failed',
+               error_message: 'timeout',
+               output_data: { 'error' => 'timeout' })
       end
 
       it 'calculates correct totals from real execution data' do

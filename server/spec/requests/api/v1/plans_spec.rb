@@ -547,17 +547,12 @@ RSpec.describe 'Api::V1::Plans', type: :request do
         end
 
         it 'prevents deletion when plan has subscriptions due to foreign key constraint' do
-          # Note: Due to database foreign key constraints, plans cannot be deleted
-          # when ANY subscriptions exist, regardless of status. This is by design
-          # to preserve historical subscription data integrity.
           create(:subscription, :canceled, plan: plan)
 
           expect {
             delete "/api/v1/plans/#{plan.id}", headers: headers, as: :json
           }.not_to change(Plan, :count)
 
-          # The can_be_deleted? check passes (no ACTIVE subscriptions)
-          # but the actual destroy fails due to FK constraint
           expect(response).to have_http_status(:unprocessable_content)
         end
       end

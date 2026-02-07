@@ -8,6 +8,14 @@ RSpec.describe 'Api::V1::Ai::A2aTasks', type: :request do
   let(:user_with_execute_permission) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.execute' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
+  before do
+    job_stub = Class.new { def self.perform_later(*); end }
+    stub_const('AiA2aTaskExecutionJob', job_stub) unless defined?(AiA2aTaskExecutionJob)
+    stub_const('AiA2aExternalTaskJob', job_stub) unless defined?(AiA2aExternalTaskJob)
+    allow(AiA2aTaskExecutionJob).to receive(:perform_later)
+    allow(AiA2aExternalTaskJob).to receive(:perform_later)
+  end
+
   describe 'GET /api/v1/ai/a2a/tasks' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
 
@@ -225,7 +233,7 @@ RSpec.describe 'Api::V1::Ai::A2aTasks', type: :request do
            params: { reason: 'Timeout' },
            as: :json
 
-      expect(task.reload.error_message).to eq('Timeout')
+      expect(task.reload.metadata['cancellation_reason']).to eq('Timeout')
     end
 
     context 'without permission' do

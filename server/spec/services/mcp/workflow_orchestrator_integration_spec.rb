@@ -194,7 +194,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
       end
 
       it 'sets completion timestamp on failure' do
-        expect { orchestrator.execute }.to raise_error
+        expect { orchestrator.execute }.to raise_error(Mcp::AiWorkflowOrchestrator::WorkflowExecutionError)
 
         workflow_run.reload
         expect(workflow_run.completed_at).to be_present

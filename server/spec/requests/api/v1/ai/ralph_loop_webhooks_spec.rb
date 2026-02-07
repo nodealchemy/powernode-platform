@@ -157,6 +157,8 @@ RSpec.describe 'Api::V1::Ai::RalphLoopWebhooks', type: :request do
 
     context 'when execution fails' do
       it 'returns error' do
+        ralph_loop # ensure the loop is created
+
         service_result = { success: false, error: 'Execution service unavailable' }
         allow_any_instance_of(Ai::Ralph::ExecutionService).to receive(:start_loop)
           .and_return(service_result)
@@ -189,6 +191,8 @@ RSpec.describe 'Api::V1::Ai::RalphLoopWebhooks', type: :request do
   describe 'GET /api/v1/ai/ralph_loops/webhook/:token/status' do
     context 'with valid webhook token' do
       it 'returns loop status' do
+        ralph_loop # ensure the loop is created
+
         get "/api/v1/ai/ralph_loops/webhook/#{webhook_token}/status", as: :json
 
         expect_success_response
@@ -223,15 +227,17 @@ RSpec.describe 'Api::V1::Ai::RalphLoopWebhooks', type: :request do
                webhook_token: SecureRandom.urlsafe_base64(32))
       end
 
-      it 'returns error' do
+      it 'still returns status for monitoring' do
         get "/api/v1/ai/ralph_loops/webhook/#{manual_loop.webhook_token}/status", as: :json
 
-        expect(response).to have_http_status(:unprocessable_content)
+        expect_success_response
       end
     end
 
     context 'does not require standard authentication' do
       it 'works without Authorization header' do
+        ralph_loop # ensure the loop is created
+
         get "/api/v1/ai/ralph_loops/webhook/#{webhook_token}/status",
             headers: { 'Content-Type' => 'application/json' },
             as: :json

@@ -192,10 +192,10 @@ RSpec.describe Ai::SandboxService, type: :service do
       result = service.create_test_run(
         sandbox: sandbox,
         scenario_ids: [scenario.id],
-        run_type: 'automated'
+        run_type: 'scheduled'
       )
 
-      expect(result[:run].run_type).to eq('automated')
+      expect(result[:run].run_type).to eq('scheduled')
     end
   end
 
@@ -279,7 +279,7 @@ RSpec.describe Ai::SandboxService, type: :service do
       expect {
         service.record_interaction(
           sandbox: sandbox,
-          interaction_type: 'llm_call',
+          interaction_type: 'llm_request',
           request_data: { 'prompt' => 'Hello' },
           response_data: { 'response' => 'Hi' },
           provider_type: 'openai',

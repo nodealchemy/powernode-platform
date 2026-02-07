@@ -202,6 +202,7 @@ RSpec.describe Ai::MarketplaceService, type: :service do
   end
 
   describe 'Installation Management' do
+    let!(:provider) { create(:ai_provider, account: account) }
     let!(:publisher) do
       create(:ai_publisher_account, :verified, account: account, primary_user: user)
     end

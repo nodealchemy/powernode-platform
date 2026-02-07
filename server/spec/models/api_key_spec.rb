@@ -20,7 +20,7 @@ RSpec.describe ApiKey, type: :model do
     it 'has a uniqueness validation on key_digest' do
       expect(ApiKey.validators_on(:key_digest).map(&:class)).to include(ActiveRecord::Validations::UniquenessValidator)
     end
-    it { should validate_inclusion_of(:is_active).in_array([ true, false ]) }
+    it { should allow_values(true, false).for(:is_active) }
   end
 
   describe 'scopes' do

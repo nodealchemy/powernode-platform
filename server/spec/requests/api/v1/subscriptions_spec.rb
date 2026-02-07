@@ -283,13 +283,13 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
       end
 
       context 'with invalid parameters' do
-        it 'returns validation error for invalid plan_id' do
+        it 'returns not found error for invalid plan_id' do
           patch "/api/v1/subscriptions/#{subscription.id}",
                 params: { subscription: { plan_id: 'invalid-plan-id' } },
                 headers: headers,
                 as: :json
 
-          expect(response).to have_http_status(:unprocessable_content)
+          expect(response).to have_http_status(:not_found)
         end
       end
 
@@ -623,7 +623,7 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
 
           post "/api/v1/subscriptions/#{subscription.id}/pause", headers: headers, as: :json
 
-          expect(response).to have_http_status(:unprocessable_entity)
+          expect(response).to have_http_status(:unprocessable_content)
           json = json_response
           expect(json['error']).to include('cannot be paused')
         end
@@ -636,7 +636,7 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
 
           post "/api/v1/subscriptions/#{subscription.id}/pause", headers: headers, as: :json
 
-          expect(response).to have_http_status(:unprocessable_entity)
+          expect(response).to have_http_status(:unprocessable_content)
           json = json_response
           expect(json['error']).to include('cannot be paused')
         end
@@ -710,7 +710,7 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
 
           post "/api/v1/subscriptions/#{subscription.id}/resume", headers: headers, as: :json
 
-          expect(response).to have_http_status(:unprocessable_entity)
+          expect(response).to have_http_status(:unprocessable_content)
           json = json_response
           expect(json['error']).to include('cannot be resumed')
         end
@@ -723,7 +723,7 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
 
           post "/api/v1/subscriptions/#{subscription.id}/resume", headers: headers, as: :json
 
-          expect(response).to have_http_status(:unprocessable_entity)
+          expect(response).to have_http_status(:unprocessable_content)
           json = json_response
           expect(json['error']).to include('cannot be resumed')
         end
@@ -840,7 +840,7 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
           get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=#{basic_plan.id}",
               headers: headers
 
-          expect(response).to have_http_status(:unprocessable_entity)
+          expect(response).to have_http_status(:unprocessable_content)
           json = json_response
           expect(json['error']).to include('Cannot prorate to the same plan')
         end
@@ -851,7 +851,7 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
           get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=#{inactive_plan.id}",
               headers: headers
 
-          expect(response).to have_http_status(:unprocessable_entity)
+          expect(response).to have_http_status(:unprocessable_content)
           json = json_response
           expect(json['error']).to include('plan is not available')
         end
@@ -866,7 +866,7 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
           get "/api/v1/subscriptions/#{subscription.id}/preview_proration?new_plan_id=#{pro_plan.id}",
               headers: headers
 
-          expect(response).to have_http_status(:unprocessable_entity)
+          expect(response).to have_http_status(:unprocessable_content)
           json = json_response
           expect(json['error']).to include('no billing period end date')
         end

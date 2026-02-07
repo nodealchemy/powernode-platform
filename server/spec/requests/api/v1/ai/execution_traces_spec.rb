@@ -70,7 +70,7 @@ RSpec.describe 'Api::V1::Ai::ExecutionTraces', type: :request do
 
         expect_success_response
         data = json_response_data
-        expect(data['data']).to be_present
+        expect(data).to be_present
       end
 
       it 'accepts limit parameter' do
@@ -131,7 +131,7 @@ RSpec.describe 'Api::V1::Ai::ExecutionTraces', type: :request do
 
         expect_success_response
         data = json_response_data
-        expect(data['data']).to be_present
+        expect(data).to be_present
       end
 
       it 'finds trace by trace_id' do
@@ -196,16 +196,16 @@ RSpec.describe 'Api::V1::Ai::ExecutionTraces', type: :request do
         expect_success_response
         data = json_response_data
 
-        expect(data['data']).to include('trace_id', 'spans', 'summary')
-        expect(data['data']['spans']).to be_an(Array)
-        expect(data['data']['spans'].length).to eq(3)
+        expect(data).to include('trace_id', 'spans', 'summary')
+        expect(data['spans']).to be_an(Array)
+        expect(data['spans'].length).to eq(3)
       end
 
       it 'includes summary with span counts' do
         get "/api/v1/ai/execution_traces/#{trace.id}/spans", headers: headers, as: :json
 
         data = json_response_data
-        summary = data['data']['summary']
+        summary = data['summary']
 
         expect(summary).to include('total', 'by_type', 'by_status')
         expect(summary['total']).to eq(3)
@@ -235,21 +235,21 @@ RSpec.describe 'Api::V1::Ai::ExecutionTraces', type: :request do
         expect_success_response
         data = json_response_data
 
-        expect(data['data']).to include(
+        expect(data).to include(
           'trace_id' => trace.trace_id,
           'name' => trace.name,
           'type' => trace.trace_type,
           'status' => trace.status
         )
-        expect(data['data']).to have_key('timeline')
-        expect(data['data']).to have_key('summary')
+        expect(data).to have_key('timeline')
+        expect(data).to have_key('summary')
       end
 
       it 'includes summary with tokens and cost' do
         get "/api/v1/ai/execution_traces/#{trace.id}/timeline", headers: headers, as: :json
 
         data = json_response_data
-        summary = data['data']['summary']
+        summary = data['summary']
 
         expect(summary).to include('total_tokens', 'total_cost', 'success_rate')
       end
@@ -277,7 +277,7 @@ RSpec.describe 'Api::V1::Ai::ExecutionTraces', type: :request do
         expect_success_response
         data = json_response_data
 
-        expect(data['data']).to include(
+        expect(data).to include(
           'total_traces',
           'by_status',
           'by_type',
@@ -293,14 +293,14 @@ RSpec.describe 'Api::V1::Ai::ExecutionTraces', type: :request do
 
         expect_success_response
         data = json_response_data
-        expect(data['data']['time_range']).to eq('7d')
+        expect(data['time_range']).to eq('7d')
       end
 
       it 'defaults to 24h time range' do
         get '/api/v1/ai/execution_traces/summary', headers: headers, as: :json
 
         data = json_response_data
-        expect(data['data']['time_range']).to eq('24h')
+        expect(data['time_range']).to eq('24h')
       end
     end
 

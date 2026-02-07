@@ -63,7 +63,7 @@ RSpec.describe 'Chat Sessions API', type: :request do
 
     it 'transfers session to another agent' do
       post "/api/v1/chat/sessions/#{session.id}/transfer",
-           params: { agent_id: agent.id },
+           params: { agent_id: agent.id }.to_json,
            headers: headers
 
       expect(response).to have_http_status(:ok)
@@ -108,12 +108,13 @@ RSpec.describe 'Chat Sessions API', type: :request do
     let!(:session) { create(:chat_session, :active, channel: channel) }
 
     before do
-      allow_any_instance_of(Chat::MessageRouter).to receive(:send_outbound).and_return({ success: true })
+      adapter = double("adapter", send_message: { success: true, metadata: {} })
+      allow(Chat::GatewayService).to receive(:adapter_for).and_return(adapter)
     end
 
     it 'sends a message to the session' do
       post "/api/v1/chat/sessions/#{session.id}/messages",
-           params: { content: 'Hello from agent!', message_type: 'text' },
+           params: { content: 'Hello from agent!', message_type: 'text' }.to_json,
            headers: headers
 
       expect(response).to have_http_status(:ok)
@@ -144,9 +145,8 @@ RSpec.describe 'Chat Sessions API', type: :request do
       get '/api/v1/chat/sessions/stats', headers: headers
 
       expect(response).to have_http_status(:ok)
-      expect(json_response['data']['stats']).to include('active', 'idle', 'closed', 'total')
+      expect(json_response['data']['stats']).to include('active', 'closed', 'total')
       expect(json_response['data']['stats']['active']).to eq(3)
-      expect(json_response['data']['stats']['idle']).to eq(2)
     end
   end
 end

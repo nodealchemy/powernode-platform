@@ -13,6 +13,9 @@ RSpec.describe Ai::GovernanceService, type: :service do
     allow(NotificationService).to receive(:send_all) if defined?(NotificationService)
 
     if defined?(AiWorkflowOrchestrationChannel)
+      unless AiWorkflowOrchestrationChannel.respond_to?(:broadcast_approval_requested)
+        AiWorkflowOrchestrationChannel.define_singleton_method(:broadcast_approval_requested) { |*_args| nil }
+      end
       allow(AiWorkflowOrchestrationChannel).to receive(:broadcast_approval_requested)
     end
   end
@@ -167,7 +170,7 @@ RSpec.describe Ai::GovernanceService, type: :service do
       it 'creates an approval chain' do
         chain = service.create_approval_chain(
           name: 'High Cost Approval',
-          trigger_type: 'cost_threshold',
+          trigger_type: 'high_cost',
           steps: [
             { 'name' => 'Manager Approval', 'approvers' => [user.id], 'required' => 1 },
             { 'name' => 'Admin Approval', 'approvers' => [user.id], 'required' => 1 }
@@ -179,7 +182,7 @@ RSpec.describe Ai::GovernanceService, type: :service do
 
         expect(chain).to be_persisted
         expect(chain.name).to eq('High Cost Approval')
-        expect(chain.trigger_type).to eq('cost_threshold')
+        expect(chain.trigger_type).to eq('high_cost')
         expect(chain.steps.length).to eq(2)
         expect(chain.status).to eq('active')
         expect(chain.timeout_hours).to eq(24)
@@ -190,7 +193,7 @@ RSpec.describe Ai::GovernanceService, type: :service do
       let!(:chain) do
         service.create_approval_chain(
           name: 'Deployment Approval',
-          trigger_type: 'deployment',
+          trigger_type: 'workflow_deploy',
           steps: [{ 'name' => 'Review', 'approvers' => [user.id] }],
           user: user
         )
@@ -200,7 +203,7 @@ RSpec.describe Ai::GovernanceService, type: :service do
         allow_any_instance_of(Ai::ApprovalChain).to receive(:matches_trigger?).and_return(true)
 
         result = service.check_approval_required(
-          trigger_type: 'deployment',
+          trigger_type: 'workflow_deploy',
           context: { environment: 'production' }
         )
 
@@ -282,14 +285,14 @@ RSpec.describe Ai::GovernanceService, type: :service do
     describe '#generate_report' do
       it 'creates a compliance report' do
         report = service.generate_report(
-          report_type: 'monthly_summary',
+          report_type: 'audit_summary',
           period_start: 30.days.ago,
           period_end: Time.current,
           user: user
         )
 
         expect(report).to be_persisted
-        expect(report.report_type).to eq('monthly_summary')
+        expect(report.report_type).to eq('audit_summary')
         expect(report.status).to eq('generating')
       end
     end
@@ -320,7 +323,7 @@ RSpec.describe Ai::GovernanceService, type: :service do
           action_type: 'policy_evaluation',
           resource_type: 'Ai::Agent',
           resource_id: SecureRandom.uuid,
-          outcome: 'allowed',
+          outcome: 'success',
           user: user,
           description: 'Policy evaluation for agent execution',
           context: { execution_id: SecureRandom.uuid }

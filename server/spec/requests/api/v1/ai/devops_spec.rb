@@ -10,8 +10,8 @@ RSpec.describe 'Api::V1::Ai::Devops', type: :request do
   let(:limited_headers) { auth_headers_for(limited_user) }
 
   describe 'GET /api/v1/ai/devops/templates' do
-    let!(:template1) { create(:ai_devops_template, name: 'Template 1', category: 'deployment') }
-    let!(:template2) { create(:ai_devops_template, name: 'Template 2', category: 'security') }
+    let!(:template1) { create(:ai_devops_template, :published, :public, name: 'Template 1', category: 'deployment', account: account) }
+    let!(:template2) { create(:ai_devops_template, :published, :public, name: 'Template 2', category: 'security', account: account) }
 
     context 'with proper permissions' do
       it 'returns list of templates' do

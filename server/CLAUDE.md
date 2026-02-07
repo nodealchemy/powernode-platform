@@ -23,6 +23,30 @@ Rails 8 API backend for Powernode.
 | `db/migrate/*` | [UUID_SYSTEM_IMPLEMENTATION.md](../docs/platform/UUID_SYSTEM_IMPLEMENTATION.md) |
 | Permission models/services | [PERMISSION_SYSTEM_REFERENCE.md](../docs/platform/PERMISSION_SYSTEM_REFERENCE.md) |
 
+## Test Execution
+
+**Parallel RSpec** (preferred):
+```bash
+bundle exec parallel_rspec spec/
+```
+
+**Setup** (run once after schema changes):
+```bash
+bundle exec rake parallel:setup
+```
+
+- `parallel_tests` uses per-process databases (`powernode_test`, `powernode_test2`, ...) — no deadlocks
+- Agents MAY run `parallel_rspec` concurrently — each invocation uses isolated DBs
+- For single-file tests: `bundle exec rspec spec/path_spec.rb` is fine
+- Frontend tests and TypeScript checks are always safe to run concurrently
+
+## Worker Architecture
+
+- This server does **NOT** run Sidekiq — the worker is a separate service (`worker/`)
+- **NEVER** create job classes in `server/app/jobs/`
+- The worker communicates with this server via HTTP API only
+- Background work is dispatched to the worker, not run in-process
+
 ## Key Specialists
 
 - [Rails Architect](../docs/backend/RAILS_ARCHITECT_SPECIALIST.md)
