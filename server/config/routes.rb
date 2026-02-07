@@ -362,6 +362,28 @@ Rails.application.routes.draw do
               get :pending_count
             end
           end
+
+          # Docker Swarm internal endpoints (worker communication)
+          namespace :swarm do
+            resources :clusters, only: [:index] do
+              member do
+                get :connection
+                post :sync_results
+                post :health_results
+              end
+            end
+            resources :deployments, only: [:update]
+            resources :events, only: [:create]
+          end
+
+          # Docker Host internal endpoints (worker communication)
+          scope :docker, as: :docker do
+            get "hosts", to: "docker#index", as: :hosts
+            get "hosts/:id/connection", to: "docker#connection", as: :host_connection
+            post "hosts/:id/sync_results", to: "docker#sync_results", as: :host_sync_results
+            post "hosts/:id/health_results", to: "docker#health_results", as: :host_health_results
+            post "events", to: "docker#create_event", as: :events
+          end
         end
 
         # AI Workflow approval management for worker service
@@ -2910,6 +2932,97 @@ Rails.application.routes.draw do
 
           collection do
             get :stats
+          end
+        end
+
+        # Docker Swarm Management
+        namespace :swarm do
+          resources :clusters do
+            member do
+              post :test_connection
+              post :sync
+              get :health
+            end
+            resources :nodes, only: [:index, :show] do
+              member do
+                post :promote
+                post :demote
+                post :drain
+                post :activate
+                delete :remove
+              end
+            end
+            resources :services do
+              collection do
+                get :available
+                post :import
+              end
+              member do
+                post :scale
+                post :rollback
+                get :logs
+                get :tasks
+              end
+            end
+            resources :stacks do
+              member do
+                post :deploy
+                post :remove_stack
+              end
+            end
+            resources :deployments, only: [:index, :show]
+            resources :secrets, only: [:index, :show, :create, :destroy]
+            resources :configs, only: [:index, :show, :create, :destroy]
+            resources :networks, only: [:index, :show, :create, :destroy]
+            resources :volumes, only: [:index, :show, :create, :destroy]
+            resources :events, only: [:index, :show] do
+              member do
+                post :acknowledge
+              end
+            end
+          end
+        end
+
+        # Docker Host Management
+        namespace :docker do
+          resources :hosts do
+            member do
+              post :test_connection
+              post :sync
+              get :health
+            end
+            resources :containers do
+              collection do
+                get :available
+                post :import
+              end
+              member do
+                post :start
+                post :stop
+                post :restart
+                get :logs
+                get :stats
+              end
+            end
+            resources :images, only: [:index, :show, :destroy] do
+              collection do
+                get :available
+                post :import
+                post :pull
+                get :registries
+              end
+              member do
+                post :tag
+              end
+            end
+            resources :networks, only: [:index, :show, :create, :destroy]
+            resources :volumes, only: [:index, :show, :create, :destroy]
+            resources :activities, only: [:index, :show]
+            resources :events, only: [:index, :show] do
+              member do
+                post :acknowledge
+              end
+            end
           end
         end
       end

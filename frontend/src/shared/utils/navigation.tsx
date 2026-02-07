@@ -7,7 +7,8 @@ import {
   Puzzle, BookOpen, UserCog, Key, Shield, FileCode,
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
   FlaskConical, ShoppingBag, Boxes, RotateCcw, MessagesSquare,
-  Globe, Container, Coins, Database, Route, Receipt, GitFork
+  Globe, Container, Coins, Database, Route, Receipt, GitFork,
+  Network, Layers, Lock, Rocket, HeartPulse
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -588,9 +589,135 @@ export const adminNavigationOverrides = {
           description: 'Sandboxed container execution and resource quotas',
           permissions: ['devops.containers.read'],
           order: 9
+        },
+        {
+          id: 'swarm-clusters',
+          name: 'Swarm Clusters',
+          href: '/app/devops/swarm',
+          icon: Server,
+          description: 'Docker Swarm cluster management and orchestration',
+          permissions: ['swarm.clusters.read'],
+          order: 10
+        },
+        {
+          id: 'swarm-services',
+          name: 'Swarm Services',
+          href: '/app/devops/swarm/services',
+          icon: Layers,
+          description: 'Manage Docker Swarm services and replicas',
+          permissions: ['swarm.services.read'],
+          order: 11
+        },
+        {
+          id: 'swarm-stacks',
+          name: 'Stacks',
+          href: '/app/devops/swarm/stacks',
+          icon: Boxes,
+          description: 'Docker Compose stack deployments',
+          permissions: ['swarm.stacks.read'],
+          order: 12
+        },
+        {
+          id: 'swarm-networks',
+          name: 'Networks',
+          href: '/app/devops/swarm/networks',
+          icon: Network,
+          description: 'Docker Swarm overlay networks',
+          permissions: ['swarm.networks.read'],
+          order: 13
+        },
+        {
+          id: 'swarm-secrets',
+          name: 'Secrets & Configs',
+          href: '/app/devops/swarm/secrets',
+          icon: Lock,
+          description: 'Docker Swarm secrets and config objects',
+          permissions: ['swarm.secrets.read'],
+          order: 14
+        },
+        {
+          id: 'swarm-deployments',
+          name: 'Deployments',
+          href: '/app/devops/swarm/deployments',
+          icon: Rocket,
+          description: 'Swarm deployment history and timeline',
+          permissions: ['swarm.deployments.read'],
+          order: 15
+        },
+        {
+          id: 'swarm-health',
+          name: 'Health Monitor',
+          href: '/app/devops/swarm/health',
+          icon: HeartPulse,
+          description: 'Multi-cluster health monitoring and alerts',
+          permissions: ['swarm.events.read'],
+          order: 16
+        },
+        {
+          id: 'docker-hosts',
+          name: 'Docker Hosts',
+          href: '/app/devops/docker',
+          icon: HardDrive,
+          description: 'Standalone Docker host management',
+          permissions: ['docker.hosts.read'],
+          order: 17
+        },
+        {
+          id: 'docker-containers',
+          name: 'Containers',
+          href: '/app/devops/docker/containers',
+          icon: Container,
+          description: 'Docker container lifecycle management',
+          permissions: ['docker.containers.read'],
+          order: 18
+        },
+        {
+          id: 'docker-images',
+          name: 'Images',
+          href: '/app/devops/docker/images',
+          icon: Layers,
+          description: 'Docker image management and registry pulls',
+          permissions: ['docker.images.read'],
+          order: 19
+        },
+        {
+          id: 'docker-networks',
+          name: 'Docker Networks',
+          href: '/app/devops/docker/networks',
+          icon: Network,
+          description: 'Docker host network management',
+          permissions: ['docker.networks.read'],
+          order: 20
+        },
+        {
+          id: 'docker-volumes',
+          name: 'Docker Volumes',
+          href: '/app/devops/docker/volumes',
+          icon: Database,
+          description: 'Docker host volume management',
+          permissions: ['docker.volumes.read'],
+          order: 21
+        },
+        {
+          id: 'docker-activities',
+          name: 'Docker Activities',
+          href: '/app/devops/docker/activities',
+          icon: Activity,
+          description: 'Docker container lifecycle activity log',
+          permissions: ['docker.activities.read'],
+          order: 22
+        },
+        {
+          id: 'docker-health',
+          name: 'Docker Health',
+          href: '/app/devops/docker/health',
+          icon: HeartPulse,
+          description: 'Docker host health monitoring and alerts',
+          permissions: ['docker.events.read'],
+          order: 23
         }
       ],
-      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'devops.containers.read'],
+      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'devops.containers.read', 'swarm.clusters.read', 'swarm.services.read', 'swarm.stacks.read', 'swarm.networks.read', 'swarm.secrets.read', 'swarm.deployments.read', 'swarm.events.read', 'docker.hosts.read', 'docker.containers.read', 'docker.images.read', 'docker.networks.read', 'docker.volumes.read', 'docker.activities.read', 'docker.events.read'],
       collapsible: true,
       defaultExpanded: false,
       order: 20

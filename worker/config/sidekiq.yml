@@ -159,3 +159,45 @@
     class: Compliance::DataRetentionEnforcementJob
     queue: compliance
     description: 'Enforce data retention policies and cleanup expired data'
+
+  # Docker Swarm cluster sync - every minute
+  swarm_cluster_sync:
+    cron: '* * * * *'
+    class: Swarm::ClusterSyncJob
+    queue: devops_default
+    description: 'Sync Docker Swarm cluster state'
+
+  # Docker Swarm health check - every 5 minutes
+  swarm_health_check:
+    every: '5m'
+    class: Swarm::HealthCheckJob
+    queue: devops_default
+    description: 'Check Docker Swarm cluster health'
+
+  # Docker Swarm event cleanup - daily at 5 AM UTC
+  swarm_event_cleanup:
+    cron: '0 5 * * *'
+    class: Swarm::EventCleanupJob
+    queue: maintenance
+    description: 'Clean up old acknowledged swarm events'
+
+  # Docker Host sync - every minute
+  docker_host_sync:
+    cron: '* * * * *'
+    class: Docker::HostSyncJob
+    queue: devops_default
+    description: 'Sync Docker host container and image state'
+
+  # Docker Host health check - every 5 minutes
+  docker_health_check:
+    every: '5m'
+    class: Docker::HealthCheckJob
+    queue: devops_default
+    description: 'Check Docker host connectivity and health'
+
+  # Docker event cleanup - daily at 5:15 AM UTC
+  docker_event_cleanup:
+    cron: '15 5 * * *'
+    class: Docker::EventCleanupJob
+    queue: maintenance
+    description: 'Clean up old acknowledged Docker events'

@@ -205,6 +205,21 @@ class Account < ApplicationRecord
   has_many :devops_secret_references, class_name: "Devops::SecretReference", dependent: :destroy
   has_one :devops_resource_quota, class_name: "Devops::ResourceQuota", dependent: :destroy
 
+  # Docker Swarm Management associations
+  has_many :devops_swarm_clusters, class_name: "Devops::SwarmCluster", dependent: :destroy
+  has_many :devops_swarm_nodes, through: :devops_swarm_clusters, source: :swarm_nodes
+  has_many :devops_swarm_services, through: :devops_swarm_clusters, source: :swarm_services
+  has_many :devops_swarm_stacks, through: :devops_swarm_clusters, source: :swarm_stacks
+  has_many :devops_swarm_deployments, through: :devops_swarm_clusters, source: :swarm_deployments
+  has_many :devops_swarm_events, through: :devops_swarm_clusters, source: :swarm_events
+
+  # Docker Host Management associations
+  has_many :devops_docker_hosts, class_name: "Devops::DockerHost", dependent: :destroy
+  has_many :devops_docker_containers, through: :devops_docker_hosts, source: :docker_containers
+  has_many :devops_docker_images, through: :devops_docker_hosts, source: :docker_images
+  has_many :devops_docker_events, through: :devops_docker_hosts, source: :docker_events
+  has_many :devops_docker_activities, through: :devops_docker_hosts, source: :docker_activities
+
   # Community and Federation associations
   has_many :community_agents, class_name: "CommunityAgent", foreign_key: :owner_account_id, dependent: :destroy
   has_many :federation_partners, class_name: "FederationPartner", dependent: :destroy

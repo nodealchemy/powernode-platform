@@ -128,6 +128,31 @@ import { SkillsPage as AISkillsPage } from './ai/SkillsPage';
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
 
+// Docker Swarm Management
+import { ClusterProvider } from '@/features/devops/swarm/context/ClusterContext';
+import { SwarmClustersPage } from '@/features/devops/swarm/pages/SwarmClustersPage';
+import { ClusterDashboardPage } from '@/features/devops/swarm/pages/ClusterDashboardPage';
+import { SwarmNodesPage } from '@/features/devops/swarm/pages/SwarmNodesPage';
+import { SwarmServicesPage } from '@/features/devops/swarm/pages/SwarmServicesPage';
+import { SwarmServiceDetailPage } from '@/features/devops/swarm/pages/SwarmServiceDetailPage';
+import { SwarmStacksPage } from '@/features/devops/swarm/pages/SwarmStacksPage';
+import { SwarmNetworksPage } from '@/features/devops/swarm/pages/SwarmNetworksPage';
+import { SwarmSecretsPage } from '@/features/devops/swarm/pages/SwarmSecretsPage';
+import { SwarmDeploymentsPage } from '@/features/devops/swarm/pages/SwarmDeploymentsPage';
+import { SwarmHealthPage } from '@/features/devops/swarm/pages/SwarmHealthPage';
+
+// Docker Host Management
+import { HostProvider } from '@/features/devops/docker/context/HostContext';
+import { DockerHostsPage } from '@/features/devops/docker/pages/DockerHostsPage';
+import { HostDashboardPage } from '@/features/devops/docker/pages/HostDashboardPage';
+import { DockerContainersPage } from '@/features/devops/docker/pages/DockerContainersPage';
+import { ContainerDetailPage } from '@/features/devops/docker/pages/ContainerDetailPage';
+import { DockerImagesPage } from '@/features/devops/docker/pages/DockerImagesPage';
+import { DockerNetworksPage } from '@/features/devops/docker/pages/DockerNetworksPage';
+import { DockerVolumesPage } from '@/features/devops/docker/pages/DockerVolumesPage';
+import { DockerActivitiesPage } from '@/features/devops/docker/pages/DockerActivitiesPage';
+import { DockerHealthPage } from '@/features/devops/docker/pages/DockerHealthPage';
+
 // AI Feature Pages (full implementations in pages/app/ai/)
 import TeamsPage from './ai/TeamsPage';
 import CreditsPage from './ai/CreditsPage';
@@ -659,6 +684,29 @@ const DashboardPage: React.FC = () => {
         <Route path="/devops/integrations/:id" element={<IntegrationDetailPage />} />
         <Route path="/devops/api-keys" element={<ApiKeysPage />} />
         <Route path="/devops/containers" element={<ContainersPage />} />
+
+        {/* Docker Swarm Routes - wrapped with ClusterProvider, named routes before param routes */}
+        <Route path="/devops/swarm" element={<ClusterProvider><SwarmClustersPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/services" element={<ClusterProvider><SwarmServicesPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/stacks" element={<ClusterProvider><SwarmStacksPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/networks" element={<ClusterProvider><SwarmNetworksPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/secrets" element={<ClusterProvider><SwarmSecretsPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/deployments" element={<ClusterProvider><SwarmDeploymentsPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/health" element={<ClusterProvider><SwarmHealthPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/:clusterId" element={<ClusterProvider><ClusterDashboardPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/:clusterId/nodes" element={<ClusterProvider><SwarmNodesPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/:clusterId/services/:serviceId" element={<ClusterProvider><SwarmServiceDetailPage /></ClusterProvider>} />
+
+        {/* Docker Host Routes - wrapped with HostProvider, named routes before param routes */}
+        <Route path="/devops/docker" element={<HostProvider><DockerHostsPage /></HostProvider>} />
+        <Route path="/devops/docker/containers" element={<HostProvider><DockerContainersPage /></HostProvider>} />
+        <Route path="/devops/docker/images" element={<HostProvider><DockerImagesPage /></HostProvider>} />
+        <Route path="/devops/docker/networks" element={<HostProvider><DockerNetworksPage /></HostProvider>} />
+        <Route path="/devops/docker/volumes" element={<HostProvider><DockerVolumesPage /></HostProvider>} />
+        <Route path="/devops/docker/activities" element={<HostProvider><DockerActivitiesPage /></HostProvider>} />
+        <Route path="/devops/docker/health" element={<HostProvider><DockerHealthPage /></HostProvider>} />
+        <Route path="/devops/docker/:hostId" element={<HostProvider><HostDashboardPage /></HostProvider>} />
+        <Route path="/devops/docker/:hostId/containers/:containerId" element={<HostProvider><ContainerDetailPage /></HostProvider>} />
 
         {/* System Pages - Infrastructure only */}
         <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_06_000012) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -4548,6 +4548,139 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000012) do
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'account'::character varying, 'public'::character varying]::text[])", name: "mcp_templates_visibility_check"
   end
 
+  create_table "devops_docker_activities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "activity_type", null: false
+    t.datetime "completed_at"
+    t.uuid "container_id"
+    t.datetime "created_at", null: false
+    t.uuid "docker_host_id", null: false
+    t.integer "duration_ms"
+    t.uuid "image_id"
+    t.jsonb "params", default: {}
+    t.jsonb "result", default: {}
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.string "trigger_source"
+    t.uuid "triggered_by_id"
+    t.datetime "updated_at", null: false
+    t.index ["activity_type"], name: "index_devops_docker_activities_on_activity_type"
+    t.index ["container_id"], name: "index_devops_docker_activities_on_container_id"
+    t.index ["created_at"], name: "index_devops_docker_activities_on_created_at"
+    t.index ["docker_host_id"], name: "index_devops_docker_activities_on_docker_host_id"
+    t.index ["image_id"], name: "index_devops_docker_activities_on_image_id"
+    t.index ["status"], name: "index_devops_docker_activities_on_status"
+    t.index ["triggered_by_id"], name: "index_devops_docker_activities_on_triggered_by_id"
+    t.check_constraint "activity_type::text = ANY (ARRAY['create'::character varying, 'start'::character varying, 'stop'::character varying, 'restart'::character varying, 'remove'::character varying, 'pull'::character varying, 'image_remove'::character varying, 'image_tag'::character varying]::text[])", name: "chk_docker_activities_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "chk_docker_activities_status"
+  end
+
+  create_table "devops_docker_containers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.text "command"
+    t.datetime "created_at", null: false
+    t.string "docker_container_id", null: false
+    t.uuid "docker_host_id", null: false
+    t.jsonb "environment", default: []
+    t.datetime "finished_at"
+    t.string "image", null: false
+    t.string "image_id"
+    t.jsonb "labels", default: {}
+    t.datetime "last_seen_at"
+    t.jsonb "mounts", default: []
+    t.string "name", null: false
+    t.jsonb "networks", default: {}
+    t.jsonb "ports", default: []
+    t.integer "restart_count", default: 0
+    t.string "restart_policy"
+    t.bigint "size_rw"
+    t.datetime "started_at"
+    t.string "state", default: "created", null: false
+    t.string "status_text"
+    t.datetime "updated_at", null: false
+    t.index ["docker_host_id", "docker_container_id"], name: "idx_docker_containers_host_container", unique: true
+    t.index ["docker_host_id"], name: "index_devops_docker_containers_on_docker_host_id"
+    t.index ["state"], name: "index_devops_docker_containers_on_state"
+    t.check_constraint "state::text = ANY (ARRAY['created'::character varying, 'running'::character varying, 'paused'::character varying, 'restarting'::character varying, 'exited'::character varying, 'removing'::character varying, 'dead'::character varying]::text[])", name: "chk_docker_containers_state"
+  end
+
+  create_table "devops_docker_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "acknowledged", default: false
+    t.datetime "acknowledged_at"
+    t.uuid "acknowledged_by_id"
+    t.datetime "created_at", null: false
+    t.uuid "docker_host_id", null: false
+    t.string "event_type", null: false
+    t.text "message", null: false
+    t.jsonb "metadata", default: {}
+    t.string "severity", default: "info", null: false
+    t.string "source_id"
+    t.string "source_name"
+    t.string "source_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["acknowledged"], name: "index_devops_docker_events_on_acknowledged"
+    t.index ["acknowledged_by_id"], name: "index_devops_docker_events_on_acknowledged_by_id"
+    t.index ["created_at"], name: "index_devops_docker_events_on_created_at"
+    t.index ["docker_host_id"], name: "index_devops_docker_events_on_docker_host_id"
+    t.index ["severity"], name: "index_devops_docker_events_on_severity"
+    t.check_constraint "severity::text = ANY (ARRAY['info'::character varying, 'warning'::character varying, 'error'::character varying, 'critical'::character varying]::text[])", name: "chk_docker_events_severity"
+    t.check_constraint "source_type::text = ANY (ARRAY['host'::character varying, 'container'::character varying, 'image'::character varying, 'network'::character varying, 'volume'::character varying]::text[])", name: "chk_docker_events_source_type"
+  end
+
+  create_table "devops_docker_hosts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "api_endpoint", null: false
+    t.string "api_version", default: "v1.45"
+    t.string "architecture"
+    t.boolean "auto_sync", default: true
+    t.integer "consecutive_failures", default: 0
+    t.integer "container_count", default: 0
+    t.integer "cpu_count"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "docker_version"
+    t.text "encrypted_tls_credentials"
+    t.string "encryption_key_id"
+    t.string "environment", default: "development", null: false
+    t.integer "image_count", default: 0
+    t.string "kernel_version"
+    t.datetime "last_synced_at"
+    t.bigint "memory_bytes"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.string "os_type"
+    t.string "slug", null: false
+    t.string "status", default: "pending", null: false
+    t.bigint "storage_bytes"
+    t.integer "sync_interval_seconds", default: 60
+    t.boolean "tls_verify", default: true, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_devops_docker_hosts_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_devops_docker_hosts_on_account_id"
+    t.index ["environment"], name: "index_devops_docker_hosts_on_environment"
+    t.index ["slug"], name: "index_devops_docker_hosts_on_slug", unique: true
+    t.index ["status"], name: "index_devops_docker_hosts_on_status"
+    t.check_constraint "environment::text = ANY (ARRAY['staging'::character varying, 'production'::character varying, 'development'::character varying, 'custom'::character varying]::text[])", name: "chk_docker_hosts_environment"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'connected'::character varying, 'disconnected'::character varying, 'error'::character varying, 'maintenance'::character varying]::text[])", name: "chk_docker_hosts_status"
+  end
+
+  create_table "devops_docker_images", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "architecture"
+    t.integer "container_count", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "docker_created_at"
+    t.uuid "docker_host_id", null: false
+    t.string "docker_image_id", null: false
+    t.jsonb "labels", default: {}
+    t.datetime "last_seen_at"
+    t.string "os"
+    t.jsonb "repo_digests", default: []
+    t.jsonb "repo_tags", default: []
+    t.bigint "size_bytes"
+    t.datetime "updated_at", null: false
+    t.bigint "virtual_size"
+    t.index ["docker_host_id", "docker_image_id"], name: "idx_docker_images_host_image", unique: true
+    t.index ["docker_host_id"], name: "index_devops_docker_images_on_docker_host_id"
+  end
+
   create_table "devops_integration_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.integer "consecutive_failures", default: 0
@@ -4967,6 +5100,161 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000012) do
     t.index ["ci_cd_pipeline_run_id"], name: "index_devops_step_executions_on_ci_cd_pipeline_run_id"
     t.index ["ci_cd_pipeline_step_id"], name: "index_devops_step_executions_on_ci_cd_pipeline_step_id"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'waiting_approval'::character varying::text, 'success'::character varying::text, 'failure'::character varying::text, 'skipped'::character varying::text])", name: "ci_cd_step_executions_status_check"
+  end
+
+  create_table "devops_swarm_clusters", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "api_endpoint", null: false
+    t.string "api_version", default: "v1.45"
+    t.boolean "auto_sync", default: true
+    t.integer "consecutive_failures", default: 0
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.text "encrypted_tls_credentials"
+    t.string "encryption_key_id"
+    t.string "environment", default: "development", null: false
+    t.datetime "last_synced_at"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.integer "node_count", default: 0
+    t.integer "service_count", default: 0
+    t.string "slug", null: false
+    t.string "status", default: "pending", null: false
+    t.string "swarm_id"
+    t.integer "sync_interval_seconds", default: 60
+    t.boolean "tls_verify", default: true, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_devops_swarm_clusters_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_devops_swarm_clusters_on_account_id"
+    t.index ["environment"], name: "index_devops_swarm_clusters_on_environment"
+    t.index ["slug"], name: "index_devops_swarm_clusters_on_slug", unique: true
+    t.index ["status"], name: "index_devops_swarm_clusters_on_status"
+    t.check_constraint "environment::text = ANY (ARRAY['staging'::character varying, 'production'::character varying, 'development'::character varying, 'custom'::character varying]::text[])", name: "swarm_clusters_environment_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'connected'::character varying, 'disconnected'::character varying, 'error'::character varying, 'maintenance'::character varying]::text[])", name: "swarm_clusters_status_check"
+  end
+
+  create_table "devops_swarm_deployments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "cluster_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.string "deployment_type", null: false
+    t.jsonb "desired_state", default: {}
+    t.integer "duration_ms"
+    t.string "git_sha"
+    t.jsonb "previous_state", default: {}
+    t.jsonb "result", default: {}
+    t.uuid "service_id"
+    t.uuid "stack_id"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.string "trigger_source"
+    t.uuid "triggered_by_id"
+    t.datetime "updated_at", null: false
+    t.index ["cluster_id"], name: "index_devops_swarm_deployments_on_cluster_id"
+    t.index ["created_at"], name: "index_devops_swarm_deployments_on_created_at"
+    t.index ["deployment_type"], name: "index_devops_swarm_deployments_on_deployment_type"
+    t.index ["service_id"], name: "index_devops_swarm_deployments_on_service_id"
+    t.index ["stack_id"], name: "index_devops_swarm_deployments_on_stack_id"
+    t.index ["status"], name: "index_devops_swarm_deployments_on_status"
+    t.index ["triggered_by_id"], name: "index_devops_swarm_deployments_on_triggered_by_id"
+    t.check_constraint "deployment_type::text = ANY (ARRAY['deploy'::character varying, 'update'::character varying, 'scale'::character varying, 'rollback'::character varying, 'remove'::character varying, 'stack_deploy'::character varying, 'stack_remove'::character varying]::text[])", name: "swarm_deployments_type_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "swarm_deployments_status_check"
+  end
+
+  create_table "devops_swarm_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "acknowledged", default: false
+    t.datetime "acknowledged_at"
+    t.uuid "acknowledged_by_id"
+    t.uuid "cluster_id", null: false
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.text "message", null: false
+    t.jsonb "metadata", default: {}
+    t.string "severity", default: "info", null: false
+    t.string "source_id"
+    t.string "source_name"
+    t.string "source_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["acknowledged"], name: "index_devops_swarm_events_on_acknowledged"
+    t.index ["acknowledged_by_id"], name: "index_devops_swarm_events_on_acknowledged_by_id"
+    t.index ["cluster_id"], name: "index_devops_swarm_events_on_cluster_id"
+    t.index ["created_at"], name: "index_devops_swarm_events_on_created_at"
+    t.index ["event_type"], name: "index_devops_swarm_events_on_event_type"
+    t.index ["severity"], name: "index_devops_swarm_events_on_severity"
+    t.check_constraint "severity::text = ANY (ARRAY['info'::character varying, 'warning'::character varying, 'error'::character varying, 'critical'::character varying]::text[])", name: "swarm_events_severity_check"
+    t.check_constraint "source_type::text = ANY (ARRAY['node'::character varying, 'service'::character varying, 'task'::character varying, 'cluster'::character varying, 'stack'::character varying]::text[])", name: "swarm_events_source_type_check"
+  end
+
+  create_table "devops_swarm_nodes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "architecture"
+    t.string "availability", default: "active", null: false
+    t.uuid "cluster_id", null: false
+    t.integer "cpu_count"
+    t.datetime "created_at", null: false
+    t.string "docker_node_id", null: false
+    t.string "engine_version"
+    t.string "hostname", null: false
+    t.string "ip_address"
+    t.jsonb "labels", default: {}
+    t.datetime "last_seen_at"
+    t.string "manager_status"
+    t.bigint "memory_bytes"
+    t.string "os"
+    t.string "role", default: "worker", null: false
+    t.string "status", default: "ready", null: false
+    t.datetime "updated_at", null: false
+    t.index ["cluster_id", "docker_node_id"], name: "index_devops_swarm_nodes_on_cluster_id_and_docker_node_id", unique: true
+    t.index ["cluster_id"], name: "index_devops_swarm_nodes_on_cluster_id"
+    t.index ["role"], name: "index_devops_swarm_nodes_on_role"
+    t.index ["status"], name: "index_devops_swarm_nodes_on_status"
+    t.check_constraint "availability::text = ANY (ARRAY['active'::character varying, 'pause'::character varying, 'drain'::character varying]::text[])", name: "swarm_nodes_availability_check"
+    t.check_constraint "role::text = ANY (ARRAY['manager'::character varying, 'worker'::character varying]::text[])", name: "swarm_nodes_role_check"
+    t.check_constraint "status::text = ANY (ARRAY['ready'::character varying, 'down'::character varying, 'disconnected'::character varying, 'unknown'::character varying]::text[])", name: "swarm_nodes_status_check"
+  end
+
+  create_table "devops_swarm_services", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "cluster_id", null: false
+    t.jsonb "constraints", default: []
+    t.datetime "created_at", null: false
+    t.integer "desired_replicas", default: 1
+    t.string "docker_service_id", null: false
+    t.jsonb "environment", default: []
+    t.string "image", null: false
+    t.jsonb "labels", default: {}
+    t.string "mode", default: "replicated", null: false
+    t.jsonb "ports", default: []
+    t.jsonb "resource_limits", default: {}
+    t.jsonb "resource_reservations", default: {}
+    t.jsonb "rollback_config", default: {}
+    t.integer "running_replicas", default: 0
+    t.string "service_name", null: false
+    t.uuid "stack_id"
+    t.jsonb "update_config", default: {}
+    t.datetime "updated_at", null: false
+    t.bigint "version"
+    t.index ["cluster_id", "docker_service_id"], name: "idx_swarm_services_cluster_docker_id", unique: true
+    t.index ["cluster_id"], name: "index_devops_swarm_services_on_cluster_id"
+    t.index ["service_name"], name: "index_devops_swarm_services_on_service_name"
+    t.index ["stack_id"], name: "index_devops_swarm_services_on_stack_id"
+    t.check_constraint "mode::text = ANY (ARRAY['replicated'::character varying, 'global'::character varying]::text[])", name: "swarm_services_mode_check"
+  end
+
+  create_table "devops_swarm_stacks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "cluster_id", null: false
+    t.text "compose_file"
+    t.jsonb "compose_variables", default: {}
+    t.datetime "created_at", null: false
+    t.integer "deploy_count", default: 0
+    t.datetime "last_deployed_at"
+    t.string "name", null: false
+    t.integer "service_count", default: 0
+    t.string "slug", null: false
+    t.string "status", default: "draft", null: false
+    t.datetime "updated_at", null: false
+    t.index ["cluster_id", "name"], name: "index_devops_swarm_stacks_on_cluster_id_and_name", unique: true
+    t.index ["cluster_id"], name: "index_devops_swarm_stacks_on_cluster_id"
+    t.index ["slug"], name: "index_devops_swarm_stacks_on_slug"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'deploying'::character varying, 'deployed'::character varying, 'failed'::character varying, 'removing'::character varying, 'removed'::character varying]::text[])", name: "swarm_stacks_status_check"
   end
 
   create_table "email_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -8501,6 +8789,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000012) do
   add_foreign_key "devops_container_instances", "users", column: "triggered_by_id"
   add_foreign_key "devops_container_templates", "accounts"
   add_foreign_key "devops_container_templates", "users", column: "created_by_id"
+  add_foreign_key "devops_docker_activities", "devops_docker_containers", column: "container_id"
+  add_foreign_key "devops_docker_activities", "devops_docker_hosts", column: "docker_host_id"
+  add_foreign_key "devops_docker_activities", "devops_docker_images", column: "image_id"
+  add_foreign_key "devops_docker_activities", "users", column: "triggered_by_id"
+  add_foreign_key "devops_docker_containers", "devops_docker_hosts", column: "docker_host_id"
+  add_foreign_key "devops_docker_events", "devops_docker_hosts", column: "docker_host_id"
+  add_foreign_key "devops_docker_events", "users", column: "acknowledged_by_id"
+  add_foreign_key "devops_docker_hosts", "accounts"
+  add_foreign_key "devops_docker_images", "devops_docker_hosts", column: "docker_host_id"
   add_foreign_key "devops_integration_credentials", "accounts"
   add_foreign_key "devops_integration_credentials", "users", column: "created_by_user_id"
   add_foreign_key "devops_integration_executions", "accounts"
@@ -8534,6 +8831,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_06_000012) do
   add_foreign_key "devops_step_approval_tokens", "users", column: "responded_by_id"
   add_foreign_key "devops_step_executions", "devops_pipeline_runs", column: "ci_cd_pipeline_run_id", on_delete: :cascade
   add_foreign_key "devops_step_executions", "devops_pipeline_steps", column: "ci_cd_pipeline_step_id", on_delete: :cascade
+  add_foreign_key "devops_swarm_clusters", "accounts"
+  add_foreign_key "devops_swarm_deployments", "devops_swarm_clusters", column: "cluster_id"
+  add_foreign_key "devops_swarm_deployments", "devops_swarm_services", column: "service_id"
+  add_foreign_key "devops_swarm_deployments", "devops_swarm_stacks", column: "stack_id"
+  add_foreign_key "devops_swarm_deployments", "users", column: "triggered_by_id"
+  add_foreign_key "devops_swarm_events", "devops_swarm_clusters", column: "cluster_id"
+  add_foreign_key "devops_swarm_events", "users", column: "acknowledged_by_id"
+  add_foreign_key "devops_swarm_nodes", "devops_swarm_clusters", column: "cluster_id"
+  add_foreign_key "devops_swarm_services", "devops_swarm_clusters", column: "cluster_id"
+  add_foreign_key "devops_swarm_services", "devops_swarm_stacks", column: "stack_id"
+  add_foreign_key "devops_swarm_stacks", "devops_swarm_clusters", column: "cluster_id"
   add_foreign_key "email_deliveries", "users"
   add_foreign_key "external_agents", "accounts", on_delete: :cascade
   add_foreign_key "external_agents", "users", column: "created_by_id", on_delete: :nullify
