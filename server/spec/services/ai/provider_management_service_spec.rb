@@ -301,27 +301,27 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     context 'for OpenAI provider' do
       let(:openai_provider) { create(:ai_provider, :openai) }
 
-      it 'syncs OpenAI models' do
+      it 'deactivates provider when sync fails without credentials' do
         result = described_class.sync_provider_models(openai_provider)
 
-        expect(result).to be true
+        expect(result).to be false
         openai_provider.reload
-        model_ids = openai_provider.supported_models.map { |m| m['id'] }
-        # Updated to current OpenAI model names
-        expect(model_ids).to include('gpt-4o')
-        expect(model_ids).to include('gpt-4-turbo')
+        expect(openai_provider.supported_models).to be_empty
+        expect(openai_provider.is_active).to be false
+        expect(openai_provider.metadata["last_sync_error"]).to be_present
       end
     end
 
     context 'for Anthropic provider' do
       let(:anthropic_provider) { create(:ai_provider, :anthropic) }
 
-      it 'syncs Anthropic models' do
+      it 'deactivates provider when sync fails without credentials' do
         result = described_class.sync_provider_models(anthropic_provider)
 
-        expect(result).to be true
+        expect(result).to be false
         anthropic_provider.reload
-        expect(anthropic_provider.supported_models).to be_present
+        expect(anthropic_provider.supported_models).to be_empty
+        expect(anthropic_provider.is_active).to be false
       end
     end
   end

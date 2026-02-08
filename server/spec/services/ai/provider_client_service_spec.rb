@@ -416,7 +416,16 @@ RSpec.describe Ai::ProviderClientService, type: :service do
   end
 
   describe '#cost_estimation' do
-    let(:service) { described_class.new(openai_credential) }
+    let(:provider_with_pricing) do
+      create(:ai_provider, :openai, supported_models: [
+        { "name" => "GPT-3.5 Turbo", "id" => "gpt-3.5-turbo", "context_length" => 16385,
+          "cost_per_1k_tokens" => { "input" => 0.0005, "output" => 0.0015 } },
+        { "name" => "GPT-4", "id" => "gpt-4", "context_length" => 8192,
+          "cost_per_1k_tokens" => { "input" => 0.03, "output" => 0.06 } }
+      ])
+    end
+    let(:credential_with_pricing) { create(:ai_provider_credential, account: account, provider: provider_with_pricing) }
+    let(:service) { described_class.new(credential_with_pricing) }
 
     it 'estimates request costs accurately' do
       tokens_used = { prompt_tokens: 100, completion_tokens: 50 }
@@ -433,6 +442,13 @@ RSpec.describe Ai::ProviderClientService, type: :service do
       gpt_4_cost = service.send(:estimate_cost, { prompt_tokens: 100, completion_tokens: 50 }, 'gpt-4')
 
       expect(gpt_4_cost).to be > gpt_35_cost
+    end
+
+    it 'falls back to default pricing when model not found' do
+      cost = service.send(:estimate_cost, { prompt_tokens: 100, completion_tokens: 50 }, 'unknown-model')
+
+      expect(cost).to be > 0
+      expect(cost).to be_a(BigDecimal)
     end
   end
 

@@ -6,18 +6,8 @@ class Ai::ProviderClientService
   # Custom exception for validation errors
   class ValidationError < StandardError; end
 
-  # Model pricing per 1K tokens (in USD)
-  MODEL_PRICING = {
-    "gpt-3.5-turbo" => { prompt: 0.0015, completion: 0.002 },
-    "gpt-3.5-turbo-16k" => { prompt: 0.003, completion: 0.004 },
-    "gpt-4" => { prompt: 0.03, completion: 0.06 },
-    "gpt-4-32k" => { prompt: 0.06, completion: 0.12 },
-    "gpt-4-turbo" => { prompt: 0.01, completion: 0.03 },
-    "gpt-4o" => { prompt: 0.005, completion: 0.015 },
-    "claude-3-sonnet-20240229" => { prompt: 0.003, completion: 0.015 },
-    "claude-3-opus-20240229" => { prompt: 0.015, completion: 0.075 },
-    "claude-3-haiku-20240307" => { prompt: 0.00025, completion: 0.00125 }
-  }.freeze
+  # Default pricing when no DB pricing is available (per 1K tokens)
+  DEFAULT_PRICING = { prompt: 0.003, completion: 0.015 }.freeze
 
   VALID_ROLES = %w[system user assistant function tool].freeze
   CIRCUIT_BREAKER_THRESHOLD = 5
@@ -51,12 +41,12 @@ class Ai::ProviderClientService
     raise ArgumentError, "No compatible model found" unless model_name
 
     @circuit_breaker.call do
-      case provider.slug
+      case provider.provider_type
       when "openai"
         openai_generate_text(prompt, model_name, **options)
-      when "anthropic", "claude-ai-anthropic"
+      when "anthropic"
         anthropic_generate_text(prompt, model_name, **options)
-      when "ollama", "remote-ollama-server"
+      when "ollama"
         ollama_generate_text(prompt, model_name, **options)
       else
         raise NotImplementedError, "Text generation not implemented for #{provider.name}"
@@ -77,9 +67,7 @@ class Ai::ProviderClientService
     raise ArgumentError, "No compatible model found" unless model_name
 
     @circuit_breaker.call do
-      case provider.slug
-      when "stability-ai"
-        stability_generate_image(prompt, model_name, **options)
+      case provider.provider_type
       when "openai"
         openai_generate_image(prompt, model_name, **options)
       else
@@ -100,7 +88,7 @@ class Ai::ProviderClientService
     model_name = default_model_for_capability("code_execution")
     raise ArgumentError, "No compatible model found" unless model_name
 
-    case provider.slug
+    case provider.provider_type
     when "replit"
       replit_execute_code(code, language, **options)
     else
@@ -113,12 +101,12 @@ class Ai::ProviderClientService
     raise ArgumentError, "No compatible model found" unless model_name
     raise ArgumentError, "Provider does not support streaming" unless provider.supports_streaming?
 
-    case provider.slug
+    case provider.provider_type
     when "openai"
       openai_stream_text(prompt, model_name, **options, &block)
-    when "anthropic", "claude-ai-anthropic"
+    when "anthropic"
       anthropic_stream_text(prompt, model_name, **options, &block)
-    when "ollama", "remote-ollama-server"
+    when "ollama"
       ollama_stream_text(prompt, model_name, **options, &block)
     else
       raise NotImplementedError, "Streaming not implemented for #{provider.name}"
@@ -147,20 +135,15 @@ class Ai::ProviderClientService
     start_time = Time.current
 
     begin
-      result = case provider.slug
+      result = case provider.provider_type
       when "openai"
                  openai_send_message(messages, model_name, **options)
-      when "anthropic", "claude-ai-anthropic"
+      when "anthropic"
                  anthropic_send_message(messages, model_name, **options)
-      when "ollama", "remote-ollama-server", "ollama-local"
+      when "ollama"
                  ollama_send_message(messages, model_name, **options)
       else
-                 # Fallback: check provider_type for Ollama variants
-                 if provider.provider_type == "ollama"
-                   ollama_send_message(messages, model_name, **options)
-                 else
-                   raise NotImplementedError, "send_message not implemented for #{provider.name}"
-                 end
+                 raise NotImplementedError, "send_message not implemented for #{provider.name}"
       end
 
       response_time_ms = ((Time.current - start_time) * 1000).round
@@ -168,9 +151,11 @@ class Ai::ProviderClientService
 
       if result[:success]
         @consecutive_failures = 0
+        usage = extract_usage(result[:response])
         result.merge(
           metadata: {
-            tokens_used: extract_token_count(result[:response]),
+            tokens_used: usage[:total_tokens],
+            usage: usage,
             response_time_ms: response_time_ms,
             model_used: model_name,
             stream_enabled: options[:stream] || false,
@@ -306,10 +291,10 @@ class Ai::ProviderClientService
     @usage_metrics[:avg_response_time] = @usage_metrics[:total_response_time].to_f / @usage_metrics[:total_requests]
 
     if success && response_data[:usage]
-      usage = response_data[:usage]
-      @usage_metrics[:total_tokens] += usage[:total_tokens] || usage["total_tokens"] || 0
-      @usage_metrics[:prompt_tokens] += usage[:prompt_tokens] || usage["prompt_tokens"] || 0
-      @usage_metrics[:completion_tokens] += usage[:completion_tokens] || usage["completion_tokens"] || 0
+      normalized = extract_usage(response_data)
+      @usage_metrics[:total_tokens] += normalized[:total_tokens]
+      @usage_metrics[:prompt_tokens] += normalized[:prompt_tokens]
+      @usage_metrics[:completion_tokens] += normalized[:completion_tokens]
     end
 
     total = @usage_metrics[:total_requests]
@@ -317,19 +302,28 @@ class Ai::ProviderClientService
     @usage_metrics[:success_rate] = total.positive? ? ((total - failed).to_f / total * 100) : 100.0
   end
 
-  # Estimate the cost of a request
+  # Estimate the cost of a request using DB-stored pricing from provider's supported_models
   # @param tokens_used [Hash] Hash with prompt_tokens and completion_tokens
   # @param model [String] Model name
   # @return [BigDecimal] Estimated cost in USD
   def estimate_cost(tokens_used, model)
-    pricing = MODEL_PRICING[model] || { prompt: 0.001, completion: 0.002 }
+    pricing = lookup_model_pricing(model) || DEFAULT_PRICING
     prompt_tokens = tokens_used[:prompt_tokens] || tokens_used["prompt_tokens"] || 0
     completion_tokens = tokens_used[:completion_tokens] || tokens_used["completion_tokens"] || 0
 
-    prompt_cost = BigDecimal(prompt_tokens.to_s) / 1000 * BigDecimal(pricing[:prompt].to_s)
-    completion_cost = BigDecimal(completion_tokens.to_s) / 1000 * BigDecimal(pricing[:completion].to_s)
+    (BigDecimal(prompt_tokens.to_s) / 1000 * BigDecimal(pricing[:prompt].to_s)) +
+      (BigDecimal(completion_tokens.to_s) / 1000 * BigDecimal(pricing[:completion].to_s))
+  end
 
-    prompt_cost + completion_cost
+  # Look up model pricing from the provider's supported_models JSONB column
+  def lookup_model_pricing(model_name)
+    return nil unless provider&.supported_models.is_a?(Array)
+
+    model_info = provider.get_model_info(model_name)
+    cost = model_info&.dig("cost_per_1k_tokens")
+    return nil unless cost.is_a?(Hash)
+
+    { prompt: cost["input"].to_f, completion: cost["output"].to_f }
   end
 
   # Calculate exponential backoff time
@@ -389,15 +383,25 @@ class Ai::ProviderClientService
   end
 
   # Extract token count from response
+  # Extract normalized usage data from provider response
+  # Handles OpenAI (prompt_tokens/completion_tokens), Anthropic (input_tokens/output_tokens),
+  # and Ollama (prompt_eval_count/eval_count) response formats
   # @param response [Hash]
-  # @return [Integer]
-  def extract_token_count(response)
-    return 0 unless response.is_a?(Hash)
+  # @return [Hash] { prompt_tokens:, completion_tokens:, total_tokens: }
+  def extract_usage(response)
+    empty = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+    return empty unless response.is_a?(Hash)
 
     usage = response[:usage] || response["usage"]
-    return 0 unless usage
+    return empty unless usage
 
-    usage[:total_tokens] || usage["total_tokens"] || 0
+    prompt = usage[:prompt_tokens] || usage["prompt_tokens"] ||
+             usage[:input_tokens] || usage["input_tokens"] || 0
+    completion = usage[:completion_tokens] || usage["completion_tokens"] ||
+                 usage[:output_tokens] || usage["output_tokens"] || 0
+    total = usage[:total_tokens] || usage["total_tokens"] || (prompt + completion)
+
+    { prompt_tokens: prompt, completion_tokens: completion, total_tokens: total }
   end
 
   # Extract retry-after from response or calculate default
@@ -570,6 +574,10 @@ class Ai::ProviderClientService
   def handle_ollama_chat_response(response)
     if response.code == 200
       data = JSON.parse(response.body).deep_symbolize_keys
+
+      prompt_tokens = data[:prompt_eval_count] || 0
+      completion_tokens = data[:eval_count] || 0
+
       {
         success: true,
         response: {
@@ -579,7 +587,12 @@ class Ai::ProviderClientService
               finish_reason: "stop"
             }
           ],
-          model: data[:model]
+          model: data[:model],
+          usage: {
+            prompt_tokens: prompt_tokens,
+            completion_tokens: completion_tokens,
+            total_tokens: prompt_tokens + completion_tokens
+          }
         },
         status_code: response.code,
         provider: provider.name
@@ -610,17 +623,15 @@ class Ai::ProviderClientService
     }
 
     # Provider-specific authentication
-    case provider.slug
+    case provider.provider_type
     when "openai"
       @headers["Authorization"] = "Bearer #{credentials_data['api_key']}"
       @headers["OpenAI-Organization"] = credentials_data["organization"] if credentials_data["organization"]
-    when "anthropic", "claude-ai-anthropic"
+    when "anthropic"
       @headers["x-api-key"] = credentials_data["api_key"]
       @headers["anthropic-version"] = "2023-06-01"
-    when "stability-ai"
-      @headers["Authorization"] = "Bearer #{credentials_data['api_key']}"
-    when "replit"
-      @headers["Authorization"] = "Bearer #{credentials_data['api_key']}"
+    else
+      @headers["Authorization"] = "Bearer #{credentials_data['api_key']}" if credentials_data["api_key"]
     end
   end
 
@@ -913,10 +924,10 @@ class Ai::ProviderClientService
   private
 
   def process_batch_prompts(prompts, model_name, **options)
-    case provider.slug
+    case provider.provider_type
     when "openai"
       process_openai_batch(prompts, model_name, **options)
-    when "anthropic", "claude-ai-anthropic"
+    when "anthropic"
       process_anthropic_batch(prompts, model_name, **options)
     else
       # Fallback: process each prompt individually

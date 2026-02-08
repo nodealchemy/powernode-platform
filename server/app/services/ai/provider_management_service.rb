@@ -9,7 +9,86 @@ class Ai::ProviderManagementService
   PROVIDER_MODELS_CACHE_TTL = 24.hours
   PROVIDER_USAGE_CACHE_TTL = 15.minutes
 
+  # Model pricing per 1K tokens (in USD)
+  # Authoritative reference used during syncs to populate cost_per_1k_tokens in supported_models
+  MODEL_PRICING = {
+    # OpenAI
+    "gpt-3.5-turbo"              => { "input" => 0.0005,  "output" => 0.0015 },
+    "gpt-4"                      => { "input" => 0.03,    "output" => 0.06 },
+    "gpt-4-turbo"                => { "input" => 0.01,    "output" => 0.03 },
+    "gpt-4o"                     => { "input" => 0.0025,  "output" => 0.01 },
+    "gpt-4o-mini"                => { "input" => 0.00015, "output" => 0.0006 },
+    "o1"                         => { "input" => 0.015,   "output" => 0.06 },
+    "o1-mini"                    => { "input" => 0.003,   "output" => 0.012 },
+    "o3-mini"                    => { "input" => 0.00115, "output" => 0.0044 },
+    # Anthropic
+    "claude-3-haiku-20240307"    => { "input" => 0.00025, "output" => 0.00125 },
+    "claude-3-sonnet-20240229"   => { "input" => 0.003,   "output" => 0.015 },
+    "claude-3-opus-20240229"     => { "input" => 0.015,   "output" => 0.075 },
+    "claude-3-5-sonnet"          => { "input" => 0.003,   "output" => 0.015 },
+    "claude-3-5-haiku"           => { "input" => 0.0008,  "output" => 0.004 },
+    "claude-sonnet-4"            => { "input" => 0.003,   "output" => 0.015 },
+    "claude-haiku-4-5"           => { "input" => 0.0008,  "output" => 0.004 },
+    "claude-opus-4-5"            => { "input" => 0.015,   "output" => 0.075 },
+    # X.AI (Grok)
+    "grok-3"                     => { "input" => 0.003,   "output" => 0.015 },
+    "grok-3-mini"                => { "input" => 0.0003,  "output" => 0.0005 },
+    "grok-3-mini-fast"           => { "input" => 0.0001,  "output" => 0.0004 },
+    "grok-3-fast"                => { "input" => 0.005,   "output" => 0.025 },
+    "grok-2"                     => { "input" => 0.002,   "output" => 0.01 },
+    # Google
+    "gemini-2.0-flash"           => { "input" => 0.0001,  "output" => 0.0004 },
+    "gemini-1.5-pro"             => { "input" => 0.00125, "output" => 0.005 },
+    "gemini-1.5-flash"           => { "input" => 0.000075, "output" => 0.0003 },
+    # Groq (hosted models)
+    "llama-3.3-70b-versatile"    => { "input" => 0.00059, "output" => 0.00079 },
+    "llama-3.1-8b-instant"       => { "input" => 0.00005, "output" => 0.00008 },
+    "mixtral-8x7b-32768"         => { "input" => 0.00024, "output" => 0.00024 },
+    # Mistral
+    "mistral-large"              => { "input" => 0.002,   "output" => 0.006 },
+    "mistral-small"              => { "input" => 0.0002,  "output" => 0.0006 },
+    "codestral"                  => { "input" => 0.0003,  "output" => 0.0009 },
+    # Cohere
+    "command-r-plus"             => { "input" => 0.0025,  "output" => 0.01 },
+    "command-r"                  => { "input" => 0.00015, "output" => 0.0006 }
+  }.freeze
+
   class << self
+    # Look up pricing for a model by exact match, then prefix match
+    def model_pricing_for(model_id)
+      return nil unless model_id.is_a?(String)
+
+      # Exact match first
+      return MODEL_PRICING[model_id] if MODEL_PRICING.key?(model_id)
+
+      # Prefix match (e.g. "gpt-4o-mini-2024-07-18" matches "gpt-4o-mini")
+      MODEL_PRICING.each do |key, pricing|
+        return pricing if model_id.start_with?(key)
+      end
+
+      nil
+    end
+
+    # Sync models for all active providers
+    def sync_all_providers(force_refresh: false)
+      results = { synced: 0, failed: 0, skipped: 0, errors: [] }
+
+      Ai::Provider.where(is_active: true).find_each do |provider|
+        if sync_provider_models(provider, force_refresh: force_refresh)
+          results[:synced] += 1
+        else
+          results[:failed] += 1
+          results[:errors] << { provider_id: provider.id, name: provider.name }
+        end
+      rescue StandardError => e
+        Rails.logger.error "Failed to sync provider #{provider.id}: #{e.message}"
+        results[:failed] += 1
+        results[:errors] << { provider_id: provider.id, name: provider.name, error: e.message }
+      end
+
+      results
+    end
+
     # Get providers available for a specific account
     def get_available_providers_for_account(account)
       Ai::Provider.active.includes(:provider_credentials)
@@ -676,15 +755,20 @@ class Ai::ProviderManagementService
 
         # Transform Ollama API response to our model format
         supported_models = models.map do |model|
+          details = model["details"] || {}
           {
             "name" => model["name"]&.split(":")&.first&.capitalize || model["name"],
             "id" => model["name"],
-            "context_length" => model["details"]&.dig("parameter_size") || 4096,
+            "context_length" => details["parameter_size"] || 4096,
             "description" => "#{model['name']} - Size: #{format_model_size(model['size'])}",
+            "cost_per_1k_tokens" => { "input" => 0, "output" => 0 },
             "size_bytes" => model["size"],
-            "family" => model["details"]&.dig("family"),
-            "parameter_size" => model["details"]&.dig("parameter_size"),
-            "quantization_level" => model["details"]&.dig("quantization_level")
+            "family" => details["family"],
+            "parameter_size" => details["parameter_size"],
+            "quantization_level" => details["quantization_level"],
+            "modified_at" => model["modified_at"],
+            "digest" => model["digest"],
+            "format" => details["format"]
           }
         end
 
@@ -692,13 +776,11 @@ class Ai::ProviderManagementService
         Rails.logger.info "Successfully synced #{supported_models.length} models for Ollama provider #{provider.id}"
       else
         Rails.logger.error "Failed to fetch models from any Ollama endpoint for provider #{provider.id} (base_url: #{base_url})"
-        sync_fallback_ollama_models(provider)
-        raise StandardError, "Could not connect to Ollama API at #{base_url}"
+        handle_sync_failure(provider, "Could not connect to Ollama API at #{base_url}")
       end
     rescue HTTP::Error, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ETIMEDOUT => e
       Rails.logger.error "Error syncing Ollama models: #{e.message}"
-      sync_fallback_ollama_models(provider)
-      raise StandardError, "Could not connect to Ollama API: #{e.message}"
+      handle_sync_failure(provider, "Could not connect to Ollama API: #{e.message}")
     end
 
     def sync_openai_models(provider)
@@ -727,6 +809,8 @@ class Ai::ProviderManagementService
                 "max_output_tokens" => openai_max_output(model["id"]),
                 "description" => openai_model_description(model["id"]),
                 "capabilities" => openai_capabilities(model["id"]),
+                "cost_per_1k_tokens" => model_pricing_for(model["id"]),
+                "owned_by" => model["owned_by"],
                 "created_at" => model["created"] ? Time.at(model["created"]).iso8601 : nil
               }
             end
@@ -742,21 +826,7 @@ class Ai::ProviderManagementService
         end
       end
 
-      sync_openai_models_fallback(provider)
-    end
-
-    def sync_openai_models_fallback(provider)
-      current_models = [
-        { "name" => "GPT-4o", "id" => "gpt-4o", "context_length" => 128000, "max_output_tokens" => 16384,
-          "description" => "Most advanced multimodal model", "capabilities" => %w[text_generation chat vision function_calling] },
-        { "name" => "GPT-4o Mini", "id" => "gpt-4o-mini", "context_length" => 128000, "max_output_tokens" => 16384,
-          "description" => "Affordable small model", "capabilities" => %w[text_generation chat vision function_calling] },
-        { "name" => "GPT-4 Turbo", "id" => "gpt-4-turbo", "context_length" => 128000, "max_output_tokens" => 4096,
-          "description" => "GPT-4 Turbo with vision", "capabilities" => %w[text_generation chat vision function_calling] }
-      ]
-      provider.update(supported_models: current_models)
-      Rails.logger.info "Synced #{current_models.length} fallback models for OpenAI provider #{provider.id}"
-      true
+      handle_sync_failure(provider, "Failed to sync OpenAI models: no valid credentials or API error")
     end
 
     def openai_chat_model?(model_id)
@@ -834,6 +904,8 @@ class Ai::ProviderManagementService
                 "max_output_tokens" => extract_max_output_tokens(model["id"]),
                 "description" => model["display_name"] || format_anthropic_model_name(model["id"]),
                 "capabilities" => extract_anthropic_capabilities(model["id"]),
+                "cost_per_1k_tokens" => model_pricing_for(model["id"]),
+                "display_name" => model["display_name"],
                 "created_at" => model["created_at"]
               }
             end
@@ -852,42 +924,8 @@ class Ai::ProviderManagementService
         end
       end
 
-      # Fallback to static model list if API fetch fails
-      sync_anthropic_models_fallback(provider)
-    end
-
-    def sync_anthropic_models_fallback(provider)
-      # Static fallback list of Claude models
-      current_models = [
-        {
-          "name" => "Claude Opus 4.5",
-          "id" => "claude-opus-4-5-20251101",
-          "context_length" => 200000,
-          "max_output_tokens" => 32000,
-          "description" => "Most intelligent model, excels at complex analysis and agentic coding",
-          "capabilities" => [ "text_generation", "chat", "vision", "code_generation", "extended_thinking" ]
-        },
-        {
-          "name" => "Claude Sonnet 4",
-          "id" => "claude-sonnet-4-20250514",
-          "context_length" => 200000,
-          "max_output_tokens" => 8192,
-          "description" => "Balanced performance and speed",
-          "capabilities" => [ "text_generation", "chat", "vision", "code_generation" ]
-        },
-        {
-          "name" => "Claude Haiku 3.5",
-          "id" => "claude-3-5-haiku-20241022",
-          "context_length" => 200000,
-          "max_output_tokens" => 8192,
-          "description" => "Fastest Claude model - optimized for speed",
-          "capabilities" => [ "text_generation", "chat", "vision" ]
-        }
-      ]
-
-      provider.update(supported_models: current_models)
-      Rails.logger.info "Synced #{current_models.length} fallback models for Anthropic provider #{provider.id}"
-      true
+      # Sync failed - deactivate provider and clear models
+      handle_sync_failure(provider, "Failed to sync Anthropic models: no valid credentials or API error")
     end
 
     def format_anthropic_model_name(model_id)
@@ -954,6 +992,9 @@ class Ai::ProviderManagementService
                 "max_output_tokens" => model["outputTokenLimit"] || 8192,
                 "description" => model["description"] || model["displayName"],
                 "capabilities" => google_capabilities(model_id),
+                "cost_per_1k_tokens" => model_pricing_for(model_id),
+                "supports_thinking" => model["supportThinking"] || false,
+                "max_temperature" => model["maxTemperature"],
                 "supported_methods" => model["supportedGenerationMethods"]
               }
             end
@@ -967,20 +1008,7 @@ class Ai::ProviderManagementService
         end
       end
 
-      sync_google_models_fallback(provider)
-    end
-
-    def sync_google_models_fallback(provider)
-      current_models = [
-        { "name" => "Gemini 2.0 Flash", "id" => "gemini-2.0-flash-exp", "context_length" => 1048576, "max_output_tokens" => 8192,
-          "description" => "Next generation multimodal model", "capabilities" => %w[text_generation chat vision audio] },
-        { "name" => "Gemini 1.5 Pro", "id" => "gemini-1.5-pro", "context_length" => 2097152, "max_output_tokens" => 8192,
-          "description" => "Best performing multimodal model", "capabilities" => %w[text_generation chat vision audio] },
-        { "name" => "Gemini 1.5 Flash", "id" => "gemini-1.5-flash", "context_length" => 1048576, "max_output_tokens" => 8192,
-          "description" => "Fast and versatile model", "capabilities" => %w[text_generation chat vision audio] }
-      ]
-      provider.update(supported_models: current_models)
-      true
+      handle_sync_failure(provider, "Failed to sync Google models: no valid credentials or API error")
     end
 
     def format_google_model_name(model_id)
@@ -1004,7 +1032,8 @@ class Ai::ProviderManagementService
           "context_length" => 128000,
           "max_output_tokens" => 16384,
           "description" => "Most advanced multimodal model on Azure",
-          "capabilities" => %w[text_generation chat vision function_calling]
+          "capabilities" => %w[text_generation chat vision function_calling],
+          "cost_per_1k_tokens" => model_pricing_for("gpt-4o")
         },
         {
           "name" => "GPT-4o Mini",
@@ -1012,7 +1041,8 @@ class Ai::ProviderManagementService
           "context_length" => 128000,
           "max_output_tokens" => 16384,
           "description" => "Affordable and intelligent small model on Azure",
-          "capabilities" => %w[text_generation chat vision function_calling]
+          "capabilities" => %w[text_generation chat vision function_calling],
+          "cost_per_1k_tokens" => model_pricing_for("gpt-4o-mini")
         },
         {
           "name" => "GPT-4 Turbo",
@@ -1020,7 +1050,8 @@ class Ai::ProviderManagementService
           "context_length" => 128000,
           "max_output_tokens" => 4096,
           "description" => "GPT-4 Turbo with Vision on Azure",
-          "capabilities" => %w[text_generation chat vision function_calling]
+          "capabilities" => %w[text_generation chat vision function_calling],
+          "cost_per_1k_tokens" => model_pricing_for("gpt-4-turbo")
         }
       ]
 
@@ -1053,7 +1084,9 @@ class Ai::ProviderManagementService
                 "max_output_tokens" => 8192,
                 "description" => model["id"],
                 "capabilities" => %w[text_generation chat],
-                "owned_by" => model["owned_by"]
+                "cost_per_1k_tokens" => model_pricing_for(model["id"]),
+                "owned_by" => model["owned_by"],
+                "context_window" => model["context_window"]
               }
             end
 
@@ -1066,18 +1099,7 @@ class Ai::ProviderManagementService
         end
       end
 
-      sync_groq_models_fallback(provider)
-    end
-
-    def sync_groq_models_fallback(provider)
-      current_models = [
-        { "name" => "Llama 3.3 70B", "id" => "llama-3.3-70b-versatile", "context_length" => 128000, "max_output_tokens" => 32768,
-          "description" => "Meta's Llama 3.3 70B model", "capabilities" => %w[text_generation chat function_calling] },
-        { "name" => "Llama 3.1 8B", "id" => "llama-3.1-8b-instant", "context_length" => 128000, "max_output_tokens" => 8192,
-          "description" => "Fast Llama 3.1 8B model", "capabilities" => %w[text_generation chat] }
-      ]
-      provider.update(supported_models: current_models)
-      true
+      handle_sync_failure(provider, "Failed to sync Groq models: no valid credentials or API error")
     end
 
     def format_groq_model_name(model_id)
@@ -1107,6 +1129,7 @@ class Ai::ProviderManagementService
                 "max_output_tokens" => 8192,
                 "description" => model["description"] || model["id"],
                 "capabilities" => mistral_capabilities(model["id"]),
+                "cost_per_1k_tokens" => model_pricing_for(model["id"]),
                 "owned_by" => model["owned_by"]
               }
             end
@@ -1120,18 +1143,7 @@ class Ai::ProviderManagementService
         end
       end
 
-      sync_mistral_models_fallback(provider)
-    end
-
-    def sync_mistral_models_fallback(provider)
-      current_models = [
-        { "name" => "Mistral Large", "id" => "mistral-large-latest", "context_length" => 128000, "max_output_tokens" => 8192,
-          "description" => "Top-tier reasoning model", "capabilities" => %w[text_generation chat function_calling] },
-        { "name" => "Mistral Small", "id" => "mistral-small-latest", "context_length" => 32000, "max_output_tokens" => 8192,
-          "description" => "Cost-efficient model", "capabilities" => %w[text_generation chat function_calling] }
-      ]
-      provider.update(supported_models: current_models)
-      true
+      handle_sync_failure(provider, "Failed to sync Mistral models: no valid credentials or API error")
     end
 
     def format_mistral_model_name(model_id)
@@ -1162,13 +1174,15 @@ class Ai::ProviderManagementService
             models = api_data["models"] || []
 
             supported_models = models.map do |model|
+              model_id = model["id"] || model["name"]
               {
-                "name" => model["name"] || format_cohere_model_name(model["id"]),
-                "id" => model["id"] || model["name"],
+                "name" => model["name"] || format_cohere_model_name(model_id),
+                "id" => model_id,
                 "context_length" => model["context_length"] || 4096,
                 "max_output_tokens" => model["max_output_tokens"] || 4096,
                 "description" => model["description"] || model["name"],
-                "capabilities" => cohere_capabilities(model["id"] || model["name"]),
+                "capabilities" => cohere_capabilities(model_id),
+                "cost_per_1k_tokens" => model_pricing_for(model_id),
                 "endpoints" => model["endpoints"]
               }
             end
@@ -1182,18 +1196,7 @@ class Ai::ProviderManagementService
         end
       end
 
-      sync_cohere_models_fallback(provider)
-    end
-
-    def sync_cohere_models_fallback(provider)
-      current_models = [
-        { "name" => "Command R+", "id" => "command-r-plus", "context_length" => 128000, "max_output_tokens" => 4096,
-          "description" => "Advanced RAG model", "capabilities" => %w[text_generation chat function_calling] },
-        { "name" => "Command R", "id" => "command-r", "context_length" => 128000, "max_output_tokens" => 4096,
-          "description" => "Long context model", "capabilities" => %w[text_generation chat function_calling] }
-      ]
-      provider.update(supported_models: current_models)
-      true
+      handle_sync_failure(provider, "Failed to sync Cohere models: no valid credentials or API error")
     end
 
     def format_cohere_model_name(model_id)
@@ -1231,6 +1234,7 @@ class Ai::ProviderManagementService
                 "max_output_tokens" => 8192,
                 "description" => model["id"],
                 "capabilities" => grok_capabilities(model["id"]),
+                "cost_per_1k_tokens" => model_pricing_for(model["id"]),
                 "owned_by" => model["owned_by"]
               }
             end
@@ -1244,32 +1248,7 @@ class Ai::ProviderManagementService
         end
       end
 
-      # Only fall back to static models if provider has no models at all
-      if provider.supported_models.blank? || provider.supported_models.empty?
-        sync_grok_models_fallback(provider)
-      else
-        Rails.logger.info "Grok API sync failed but provider #{provider.id} already has #{provider.supported_models.size} models, keeping existing"
-        true
-      end
-    end
-
-    def sync_grok_models_fallback(provider)
-      current_models = [
-        { "name" => "Grok 3", "id" => "grok-3", "context_length" => 131072, "max_output_tokens" => 16384,
-          "description" => "Most capable Grok model for complex reasoning", "capabilities" => %w[text_generation chat function_calling] },
-        { "name" => "Grok 3 Mini", "id" => "grok-3-mini", "context_length" => 131072, "max_output_tokens" => 16384,
-          "description" => "Fast, lightweight Grok model", "capabilities" => %w[text_generation chat function_calling] },
-        { "name" => "Grok 3 Fast", "id" => "grok-3-fast", "context_length" => 131072, "max_output_tokens" => 16384,
-          "description" => "Speed-optimized Grok 3 model", "capabilities" => %w[text_generation chat function_calling] },
-        { "name" => "Grok 3 Mini Fast", "id" => "grok-3-mini-fast", "context_length" => 131072, "max_output_tokens" => 16384,
-          "description" => "Fastest Grok model for simple tasks", "capabilities" => %w[text_generation chat function_calling] },
-        { "name" => "Grok 2", "id" => "grok-2-1212", "context_length" => 131072, "max_output_tokens" => 8192,
-          "description" => "Previous generation Grok model", "capabilities" => %w[text_generation chat function_calling] },
-        { "name" => "Grok 2 Vision", "id" => "grok-2-vision-1212", "context_length" => 32768, "max_output_tokens" => 8192,
-          "description" => "Multimodal Grok with vision capabilities", "capabilities" => %w[text_generation chat vision function_calling] }
-      ]
-      provider.update(supported_models: current_models)
-      true
+      handle_sync_failure(provider, "Failed to sync Grok models: no valid credentials or API error")
     end
 
     def format_grok_model_name(model_id)
@@ -1294,22 +1273,25 @@ class Ai::ProviderManagementService
       ])
     end
 
-    def sync_fallback_ollama_models(provider)
-      # Fallback static models when API is unavailable
-      provider.update(supported_models: [
-        {
-          "name" => "Llama2",
-          "id" => "llama2",
-          "context_length" => 4096,
-          "description" => "Meta's Llama 2 model"
-        },
-        {
-          "name" => "CodeLlama",
-          "id" => "codellama",
-          "context_length" => 4096,
-          "description" => "Code-specialized language model"
-        }
-      ])
+    # Handle sync failure: clear models, deactivate provider, raise error
+    def handle_sync_failure(provider, error_message)
+      Rails.logger.error "[ProviderSync] #{error_message} (provider: #{provider.id} / #{provider.name})"
+
+      # Store the sync error in metadata for visibility
+      current_metadata = provider.metadata || {}
+      current_metadata["last_sync_error"] = error_message
+      current_metadata["last_sync_failed_at"] = Time.current.iso8601
+
+      # Use update_all to bypass supported_models presence validation
+      # (we intentionally want 0 models on failure)
+      Ai::Provider.where(id: provider.id).update_all(
+        supported_models: [],
+        is_active: false,
+        metadata: current_metadata
+      )
+      provider.reload
+
+      raise StandardError, error_message
     end
 
     def format_model_size(size_bytes)

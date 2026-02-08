@@ -404,6 +404,21 @@ module Api
           )
         end
 
+        # POST /api/v1/ai/providers/sync_all
+        def sync_all
+          results = ::Ai::ProviderManagementService.sync_all_providers(force_refresh: true)
+
+          render_success({
+            results: results,
+            message: "Synced #{results[:synced]} providers, #{results[:failed]} failed"
+          })
+
+          log_audit_event("ai.providers.sync_all", current_user.account,
+            synced: results[:synced],
+            failed: results[:failed]
+          )
+        end
+
         # POST /api/v1/ai/providers/test_all
         def test_all
           providers = current_user.account.ai_providers.where(is_active: true)
@@ -620,6 +635,8 @@ module Api
             end
           when "available", "statistics", "test_all"
             require_permission("ai.providers.read")
+          when "sync_all"
+            require_permission("ai.providers.update")
           when "setup_defaults"
             require_permission("ai.providers.create")
           when "create"
