@@ -23,7 +23,7 @@ module Ai
         used_chars = 0
 
         # Determine which memory types to include
-        types = include_types || %w[factual working experiential trajectories]
+        types = include_types || %w[factual working experiential trajectories shared_learnings]
 
         # 1. Always include critical facts first (highest priority)
         if types.include?("factual")
@@ -61,6 +61,17 @@ module Ai
           used_chars += traj_chars
         end
 
+        # 5. Include shared learnings from cross-execution learning
+        if types.include?("shared_learnings") && (query.present? || task.present?)
+          search_query = query || extract_task_query(task)
+          learnings_context, learnings_chars = inject_shared_learnings(
+            budget_chars - used_chars,
+            search_query
+          )
+          context_parts << learnings_context if learnings_context.present?
+          used_chars += learnings_chars
+        end
+
         {
           context: context_parts.join("\n\n"),
           token_estimate: (used_chars / CHARS_PER_TOKEN.to_f).ceil,
@@ -68,7 +79,8 @@ module Ai
             factual: context_parts.count { |p| p.start_with?("## Known Facts") },
             working: context_parts.count { |p| p.start_with?("## Current State") },
             experiential: context_parts.count { |p| p.start_with?("## Relevant Experience") },
-            trajectories: context_parts.count { |p| p.start_with?("## Past Trajectories") }
+            trajectories: context_parts.count { |p| p.start_with?("## Past Trajectories") },
+            shared_learnings: context_parts.count { |p| p.start_with?("## Shared Learnings") }
           }
         }
       end
@@ -183,6 +195,23 @@ module Ai
         end
 
         [ context_text, context_text.length ]
+      end
+
+      def inject_shared_learnings(char_budget, query)
+        return [ nil, 0 ] if query.blank?
+
+        learning_service = Ai::Memory::SharedLearningService.new(account: @account)
+        context_text = learning_service.build_learning_context(
+          query: query,
+          max_chars: char_budget
+        )
+
+        return [ nil, 0 ] if context_text.blank?
+
+        [ context_text, context_text.length ]
+      rescue StandardError => e
+        Rails.logger.warn("[ContextInjector] Shared learnings injection failed: #{e.message}")
+        [ nil, 0 ]
       end
 
       def inject_experiential_memory(char_budget, query)

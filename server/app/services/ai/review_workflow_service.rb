@@ -26,6 +26,13 @@ module Ai
 
     # Creates TaskReview and routes to reviewer
     def create_review(task:, reviewer_role:, mode:)
+      # Enforce no self-review
+      team = task.team_execution&.agent_team
+      if team && reviewer_role
+        authority = Ai::TeamAuthorityService.new(team: team)
+        authority.authorize_review!(reviewer_role, task)
+      end
+
       review = Ai::TaskReview.create!(
         account: account,
         team_task: task,

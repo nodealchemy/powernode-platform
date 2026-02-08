@@ -29,6 +29,9 @@ class Ai::AgentTeamOrchestrator
     # Initialize A2A service for inter-agent communication
     @a2a_service = Ai::A2a::Service.new(account: team.account, workflow_run: @workflow_run)
 
+    # Initialize authority enforcement
+    @authority = Ai::TeamAuthorityService.new(team: team)
+
     # Setup shared context using memory service
     @team_context = setup_team_context(input, context)
 
@@ -208,6 +211,11 @@ class Ai::AgentTeamOrchestrator
     lead = team.team_lead
     raise NoMembersError, "Hierarchical team requires a lead member" unless lead
 
+    # Validate lead has manager-level authority
+    if @authority.authority_level(lead) > 1
+      raise ExecutionError, "Team lead '#{lead.agent_name}' does not have manager-level authority"
+    end
+
     workers = team.members.non_leads.by_priority
     original_input = @team_context[:original_input]
 
@@ -315,6 +323,9 @@ class Ai::AgentTeamOrchestrator
   end
 
   def submit_delegation_task(from_member:, to_member:, instructions:, input:)
+    # Enforce authority: delegation must flow downward
+    @authority.authorize_delegation!(from_member, to_member)
+
     from_card = find_or_create_agent_card(from_member.agent)
     to_card = find_or_create_agent_card(to_member.agent)
 
@@ -414,6 +425,22 @@ class Ai::AgentTeamOrchestrator
   def validate_team!
     raise TeamNotActiveError, "Team must be active" unless team.active?
     raise NoMembersError, "Team has no members" if team.members.empty?
+
+    # Enforce worktree mode when branch protection is active on a repo-based team
+    enforce_worktree_mode_if_protected!
+  end
+
+  def enforce_worktree_mode_if_protected!
+    repo_path = team.team_config&.dig("repository_path")
+    return if repo_path.blank?
+
+    protection = Ai::Git::BranchProtectionService.new(account: team.account)
+    return unless protection.protection_summary[:enabled]
+
+    return if team.parallel_mode == "worktree"
+
+    @logger.warn "[TeamOrchestrator] Branch protection active — forcing worktree mode for team #{team.name}"
+    team.update!(parallel_mode: "worktree") if team.respond_to?(:parallel_mode=)
   end
 
   def create_workflow_run(input, context)
@@ -463,12 +490,26 @@ class Ai::AgentTeamOrchestrator
   end
 
   def setup_team_context(input, context)
+    # Auto-create shared memory pool for this execution
+    create_team_execution_pool
+
     {
       team_id: team.id,
       original_input: input,
       context: context,
       started_at: Time.current.iso8601
     }
+  end
+
+  def create_team_execution_pool
+    pool_service = Ai::Memory::MemoryPoolService.new(account: team.account)
+    @execution_pool = pool_service.create_team_execution_pool(
+      team_execution: @workflow_run,
+      team: team
+    )
+    @logger.info "[TeamOrchestrator] Created team execution memory pool: #{@execution_pool.pool_id}"
+  rescue StandardError => e
+    @logger.warn "[TeamOrchestrator] Failed to create execution memory pool: #{e.message}"
   end
 
   def store_intermediate_result(key, value)
@@ -531,7 +572,32 @@ class Ai::AgentTeamOrchestrator
     # Build trajectory from completed execution
     if status == "completed"
       build_trajectory_async
+      promote_learnings_to_global
     end
+  end
+
+  def extract_learnings_from_task(task_result, agent_id: nil)
+    return unless @execution_pool && task_result.is_a?(Hash)
+
+    learning_service = Ai::Memory::SharedLearningService.new(account: team.account)
+    count = learning_service.process_completed_task(
+      pool: @execution_pool,
+      output: task_result[:output],
+      agent_id: agent_id
+    )
+    @logger.info "[TeamOrchestrator] Extracted #{count} learnings from task output" if count.positive?
+  rescue StandardError => e
+    @logger.warn "[TeamOrchestrator] Learning extraction failed: #{e.message}"
+  end
+
+  def promote_learnings_to_global
+    return unless @execution_pool
+
+    learning_service = Ai::Memory::SharedLearningService.new(account: team.account)
+    promoted = learning_service.promote_to_global(execution_pool: @execution_pool)
+    @logger.info "[TeamOrchestrator] Promoted #{promoted} learnings to global pool" if promoted.positive?
+  rescue StandardError => e
+    @logger.warn "[TeamOrchestrator] Learning promotion failed: #{e.message}"
   end
 
   def build_trajectory_async

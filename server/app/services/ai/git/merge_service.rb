@@ -16,6 +16,19 @@ module Ai
       def execute
         return execute_competitive if session.competitive?
 
+        # Validate branch protection before any merge
+        target = session.base_branch
+        protection_check = branch_protection_service.validate_merge_target(target)
+
+        if protection_check[:requires_approval]
+          session.update!(metadata: (session.metadata || {}).merge(
+            "awaiting_merge_approval" => true,
+            "merge_target" => target,
+            "approval_requested_at" => Time.current.iso8601
+          ))
+          return { success: false, requires_approval: true, message: protection_check[:message] }
+        end
+
         case session.merge_strategy
         when "sequential"
           execute_sequential
@@ -29,6 +42,22 @@ module Ai
       rescue StandardError => e
         Rails.logger.error "[MergeService] Merge failed: #{e.message}"
         { success: false, error: e.message }
+      end
+
+      # Approve a pending merge (called when human approves)
+      def approve_merge!(approved_by:)
+        unless session.metadata&.dig("awaiting_merge_approval")
+          return { success: false, error: "No pending merge approval" }
+        end
+
+        session.update!(metadata: (session.metadata || {}).merge(
+          "awaiting_merge_approval" => false,
+          "merge_approved_by" => approved_by,
+          "merge_approved_at" => Time.current.iso8601
+        ))
+
+        # Re-execute now that approval is granted
+        execute
       end
 
       # Rollback a specific merge operation
@@ -250,6 +279,10 @@ module Ai
           winner: winner,
           competitive: true
         }
+      end
+
+      def branch_protection_service
+        @branch_protection_service ||= Ai::Git::BranchProtectionService.new(account: session.account)
       end
 
       def run_git(*args)

@@ -71,9 +71,9 @@ module Ai
 
     def composition_health(team_id)
       team = get_team(team_id)
-      members = team.ai_team_roles.includes(:ai_agent)
-      lead_count = members.where(role_type: "manager").count
-      worker_count = members.where.not(role_type: "manager").count
+      members = team.members.includes(:agent)
+      lead_count = members.where(role: "manager").or(members.where(is_lead: true)).count
+      worker_count = members.where.not(role: "manager").where(is_lead: false).count
       total = members.count
       ratio = lead_count.positive? ? (worker_count.to_f / lead_count).round(1) : worker_count.to_f
 
@@ -99,7 +99,7 @@ module Ai
         recommendations << "Add more members for meaningful pipeline execution"
       end
 
-      unless members.where(role_type: "reviewer").exists?
+      unless members.where(role: "reviewer").exists?
         recommendations << "Consider adding a reviewer role for quality assurance"
       end
 
@@ -398,8 +398,14 @@ module Ai
     def delegate_task(execution_id, task_id, to_role_id:, to_agent_id: nil)
       execution = get_execution(execution_id)
       task = execution.tasks.find(task_id)
+      from_role = task.assigned_role
       to_role = execution.agent_team.ai_team_roles.find(to_role_id)
       to_agent = to_agent_id.present? ? account.ai_agents.find(to_agent_id) : to_role.ai_agent
+
+      # Enforce authority: delegation must flow downward
+      if from_role
+        authority_for(execution.agent_team).authorize_delegation!(from_role, to_role)
+      end
 
       task.delegate!(to_role: to_role, to_agent: to_agent)
     end
@@ -410,6 +416,15 @@ module Ai
 
     def send_message(execution_id, params)
       execution = get_execution(execution_id)
+
+      # Enforce authority on message direction
+      if params[:from_role_id].present? && params[:to_role_id].present?
+        from_role = execution.agent_team.ai_team_roles.find_by(id: params[:from_role_id])
+        to_role = execution.agent_team.ai_team_roles.find_by(id: params[:to_role_id])
+        if from_role && to_role
+          authority_for(execution.agent_team).authorize_message!(from_role, to_role, params[:message_type])
+        end
+      end
 
       message = execution.messages.create!(
         channel_id: params[:channel_id],
@@ -536,6 +551,11 @@ module Ai
     end
 
     private
+
+    def authority_for(team)
+      @authority_cache ||= {}
+      @authority_cache[team.id] ||= Ai::TeamAuthorityService.new(team: team)
+    end
 
     def calculate_success_rate(executions)
       return 0.0 if executions.count.zero?

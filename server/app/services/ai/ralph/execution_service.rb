@@ -198,6 +198,12 @@ module Ai
         return error_result("Repository path is required for parallel execution") if repo_path.blank?
         return error_result("Repository path does not exist") unless File.directory?(repo_path)
 
+        # Validate branch protection
+        protection = Ai::Git::BranchProtectionService.new(account: account)
+        if protection.protection_summary[:enabled]
+          Rails.logger.info "[Ralph] Branch protection active — parallel execution will use worktrees"
+        end
+
         # Gather pending tasks with satisfied dependencies
         update_blocked_tasks
         pending_tasks = ralph_loop.ralph_tasks.pending.by_priority.select(&:dependencies_satisfied?)
@@ -285,6 +291,9 @@ module Ai
           iteration: ralph_loop.current_iteration + 1
         }
 
+        # Inject shared learnings from global pool
+        shared_learnings_text = inject_shared_learnings(task)
+
         # Build structured prompt
         <<~PROMPT
           ## Task: #{task.task_key}
@@ -302,10 +311,12 @@ module Ai
           ### Previous Learnings
           #{format_learnings(context[:previous_learnings])}
 
+          #{shared_learnings_text}
+
           ### Instructions
           Complete this task according to the acceptance criteria.
           Provide clear output showing what was done.
-          Extract any learnings that could help future iterations.
+          Mark discoveries with `Discovery:`, patterns with `Pattern:`, warnings with `Anti-pattern:`, and best practices with `Best practice:`.
         PROMPT
       end
 
@@ -337,6 +348,9 @@ module Ai
         end
 
         ralph_loop.increment_iteration!
+
+        # Extract and store shared learnings
+        store_iteration_learnings(result[:output])
 
         # Broadcast real-time updates
         broadcast_iteration_completed(iteration)
@@ -373,6 +387,54 @@ module Ai
         if output.include?("Learning:") || output.include?("Learned:")
           output.scan(/(?:Learning|Learned):\s*(.+?)(?:\n|$)/i).flatten.first
         end
+      end
+
+      def store_iteration_learnings(output)
+        pool = ensure_ralph_learning_pool
+        return unless pool
+
+        learning_service = Ai::Memory::SharedLearningService.new(account: account)
+        count = learning_service.process_completed_task(
+          pool: pool,
+          output: output,
+          agent_id: ralph_loop.default_agent&.id
+        )
+        Rails.logger.info("[Ralph] Stored #{count} learnings from iteration") if count.positive?
+      rescue StandardError => e
+        Rails.logger.warn("[Ralph] Learning storage failed: #{e.message}")
+      end
+
+      def ensure_ralph_learning_pool
+        @ralph_pool ||= Ai::MemoryPool.find_or_create_by!(
+          account: account,
+          name: "Ralph Loop: #{ralph_loop.name}",
+          pool_type: "shared",
+          scope: "persistent"
+        ) do |pool|
+          pool.data = { "learnings" => [] }
+          pool.access_control = { "public" => true, "agents" => [] }
+          pool.persist_across_executions = true
+        end
+      rescue ActiveRecord::RecordInvalid
+        # Pool already exists, find it
+        Ai::MemoryPool.find_by(
+          account: account,
+          name: "Ralph Loop: #{ralph_loop.name}",
+          pool_type: "shared",
+          scope: "persistent"
+        )
+      end
+
+      def inject_shared_learnings(task)
+        learning_service = Ai::Memory::SharedLearningService.new(account: account)
+        context = learning_service.build_learning_context(
+          query: task.description,
+          max_chars: 1500
+        )
+        context || ""
+      rescue StandardError => e
+        Rails.logger.warn("[Ralph] Shared learning injection failed: #{e.message}")
+        ""
       end
 
       def update_blocked_tasks
