@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import {
@@ -166,15 +165,6 @@ export const ReportsOverviewPage: React.FC = () => {
   }
 
   return (
-    <PageContainer
-      title="Reports Overview"
-      description="Monitor your reporting activity and performance"
-      breadcrumbs={[
-        { label: 'Dashboard', href: '/app' },
-        { label: 'Business', href: '/app/business' },
-        { label: 'Reports Overview' }
-      ]}
-    >
       <div className="space-y-6">
         {/* Stats Grid */}
         {stats && (
@@ -328,7 +318,6 @@ export const ReportsOverviewPage: React.FC = () => {
         )}
         </div>
       </div>
-    </PageContainer>
   );
 };
 

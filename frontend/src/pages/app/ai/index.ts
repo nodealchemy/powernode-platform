@@ -1,5 +1,4 @@
 // AI Pages Export Index
-export { AIOrchestrationPage } from './AIOrchestrationPage';
 export { AIOverviewPage } from './AIOverviewPage';
 export { AIProvidersPage } from './AIProvidersPage';
 export { AIAgentsPage } from './AIAgentsPage';
