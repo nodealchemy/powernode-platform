@@ -1150,6 +1150,9 @@ if Rails.env.development? || Rails.env.test?
   puts "\n👥 Loading AI Agent Teams..."
   load Rails.root.join('db', 'seeds', 'ai_teams_seed.rb')
 
+  puts "\n📋 Loading AI Todo App Team..."
+  load Rails.root.join('db', 'seeds', 'ai_todo_team_seed.rb')
+
   puts "\n🛡️ Loading AI Governance (Policies, Approvals, Credits, Agent Cards)..."
   load Rails.root.join('db', 'seeds', 'ai_governance_seed.rb')
 

@@ -133,12 +133,14 @@ module Api
             context: params[:context] || {}
           )
 
+          jid = job.try(:provider_job_id) || job.try(:job_id) || job.to_s
+
           log_audit_event("ai_agent_team.execution_started", @team,
-            metadata: { job_id: job })
+            metadata: { job_id: jid })
 
           render_success({
             team_id: @team.id,
-            job_id: job,
+            job_id: jid,
             status: "queued"
           })
         rescue StandardError => e
