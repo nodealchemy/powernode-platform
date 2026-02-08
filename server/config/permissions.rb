@@ -272,6 +272,26 @@ module Permissions
     "ai.memory.write" => "Write to AI agent memory",
     "ai.memory.manage" => "Manage AI agent memory (clear, archive)",
 
+
+    # AI Discovery
+    "ai.discovery.read" => "View AI discovery scan results",
+    "ai.discovery.manage" => "Run AI discovery scans",
+
+    # AI Memory Pools
+    "ai.memory_pools.read" => "View AI memory pools",
+    "ai.memory_pools.manage" => "Create and manage AI memory pools",
+
+    # AI Code Reviews
+    "ai.code_reviews.read" => "View AI code review comments",
+    "ai.code_reviews.manage" => "Manage AI code review comments",
+
+    # AI Agent Teams
+    "ai.teams.manage" => "Manage AI agent teams",
+    "ai.teams.execute" => "Execute AI agent teams",
+
+    # AI Autonomy
+    "ai.autonomy.configure" => "Configure AI agent autonomy settings",
+
     # DevOps Pipeline Management
     "devops.pipelines.read" => "View DevOps pipelines",
     "devops.pipelines.write" => "Create, update, and delete DevOps pipelines",
@@ -630,6 +650,10 @@ module Permissions
         "ai.prompt_templates.read",
         # AI Skills permissions
         "ai.skills.read",
+        # AI Teams (read-only)
+        "ai.teams.manage",
+        # AI Discovery, Memory Pools, Code Reviews (read-only)
+        "ai.discovery.read", "ai.memory_pools.read", "ai.code_reviews.read",
         # File management permissions
         "files.read", "files.create", "files.download", "files.update", "files.delete",
         "storage.read"
@@ -722,7 +746,14 @@ module Permissions
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",
-        "ai.memory.read", "ai.memory.write", "ai.memory.manage"
+        "ai.memory.read", "ai.memory.write", "ai.memory.manage",
+        # AI Teams
+        "ai.teams.manage", "ai.teams.execute",
+        # AI Discovery, Memory Pools, Code Reviews, Autonomy
+        "ai.discovery.read", "ai.discovery.manage",
+        "ai.memory_pools.read", "ai.memory_pools.manage",
+        "ai.code_reviews.read", "ai.code_reviews.manage",
+        "ai.autonomy.configure"
       ]
     },
 
@@ -952,7 +983,14 @@ module Permissions
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",
-        "ai.memory.read", "ai.memory.write", "ai.memory.manage"
+        "ai.memory.read", "ai.memory.write", "ai.memory.manage",
+        # AI Teams
+        "ai.teams.manage", "ai.teams.execute",
+        # AI Discovery, Memory Pools, Code Reviews, Autonomy
+        "ai.discovery.read", "ai.discovery.manage",
+        "ai.memory_pools.read", "ai.memory_pools.manage",
+        "ai.code_reviews.read", "ai.code_reviews.manage",
+        "ai.autonomy.configure"
       ]
     }
   }.freeze

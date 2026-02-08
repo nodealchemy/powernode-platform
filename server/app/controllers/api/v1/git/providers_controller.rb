@@ -6,11 +6,11 @@ module Api
       class ProvidersController < ApplicationController
         before_action :set_provider, only: %i[
           show update destroy
-          credentials create_credential destroy_credential test_credential make_default
+          credentials create_credential update_credential destroy_credential test_credential make_default
           available_repositories import_repositories
           oauth_authorize oauth_callback
         ]
-        before_action :set_credential, only: %i[destroy_credential test_credential make_default available_repositories import_repositories]
+        before_action :set_credential, only: %i[update_credential destroy_credential test_credential make_default available_repositories import_repositories]
         before_action :validate_permissions
 
         # GET /api/v1/git/providers
@@ -131,6 +131,15 @@ module Api
           end
         rescue ::Devops::Git::ProviderManagementService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
+        end
+
+        # PATCH /api/v1/git/providers/:id/credentials/:credential_id
+        def update_credential
+          if @credential.update(credential_params)
+            render_success({ credential: serialize_credential_detail(@credential) })
+          else
+            render_validation_error(@credential.errors)
+          end
         end
 
         # DELETE /api/v1/git/providers/:id/credentials/:credential_id
@@ -341,6 +350,8 @@ module Api
             require_permission("git.credentials.read")
           when "create_credential"
             require_permission("git.credentials.create")
+          when "update_credential"
+            require_permission("git.credentials.update")
           when "destroy_credential"
             require_permission("git.credentials.delete")
           when "test_credential"

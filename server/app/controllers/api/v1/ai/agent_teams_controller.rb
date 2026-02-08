@@ -8,11 +8,15 @@ module Api
       class AgentTeamsController < ApplicationController
         include AuditLogging
 
+        rescue_from ::Ai::TeamAuthorityService::AuthorityViolation do |e|
+          render_error(e.message, status: :forbidden)
+        end
+
         # Disable parameter wrapping entirely to avoid conflicts
         wrap_parameters false
 
         before_action :authenticate_request
-        before_action :set_team, only: %i[show update destroy execute execute_complete execute_failed add_member remove_member]
+        before_action :set_team, only: %i[show update destroy execute execute_complete execute_failed add_member remove_member auto_assign_lead optimize autonomy_config update_autonomy_config bind_infrastructure]
         before_action :authorize_teams_access!, except: %i[execute_complete execute_failed]
         before_action :authorize_team_execution!, only: [ :execute ]
 
@@ -141,6 +145,76 @@ module Api
           render_error("Failed to execute team: #{e.message}", status: :unprocessable_content)
         end
 
+        # POST /api/v1/ai/agent_teams/:id/auto_assign_lead
+        def auto_assign_lead
+          service = ::Ai::AgentAutonomyService.new(account: current_account)
+          result = service.auto_assign_lead(@team)
+
+          render_success(result)
+        end
+
+        # POST /api/v1/ai/agent_teams/:id/optimize
+        def optimize
+          ::Ai::TeamOptimizeJob.perform_async(
+            account_id: current_account.id,
+            team_id: @team.id
+          )
+
+          render_success({ message: "Optimization queued", team_id: @team.id }, status: :accepted)
+        end
+
+        # GET /api/v1/ai/agent_teams/:id/autonomy_config
+        def autonomy_config
+          config = current_account.ai_guardrail_configs.find_by(ai_agent_id: nil) ||
+                   current_account.ai_guardrail_configs.build
+          render_success({
+            max_agents_per_team: config.max_agents_per_team,
+            allow_agent_creation: config.allow_agent_creation,
+            allow_cross_team_ops: config.allow_cross_team_ops,
+            require_human_approval: config.require_human_approval,
+            autonomy_level: config.autonomy_level,
+            resource_limits: config.resource_limits,
+            branch_protection_enabled: config.branch_protection_enabled,
+            protected_branches: config.protected_branches,
+            require_worktree_for_repos: config.require_worktree_for_repos,
+            merge_approval_required: config.merge_approval_required
+          })
+        end
+
+        # PUT /api/v1/ai/agent_teams/:id/autonomy_config
+        def update_autonomy_config
+          return render_forbidden unless current_user.has_permission?("ai.autonomy.configure")
+
+          config = current_account.ai_guardrail_configs.find_or_initialize_by(ai_agent_id: nil, name: "default")
+          if config.update(autonomy_params)
+            render_success({ message: "Autonomy config updated" })
+          else
+            render_validation_error(config.errors)
+          end
+        end
+
+        # GET /api/v1/ai/agent_teams/templates
+        def templates
+          templates = ::Ai::TeamTemplate.where(is_system: true)
+          templates = templates.where(category: params[:category]) if params[:category].present?
+          render_success({ templates: templates.map(&:template_summary) })
+        end
+
+        # POST /api/v1/ai/agent_teams/:id/bind_infrastructure
+        def bind_infrastructure
+          authorize_teams_access!
+          service = ::Ai::DevopsBridge::DeploymentTeamService.new(account: current_account)
+          result = service.bind_to_infrastructure(@team, params[:infrastructure_ids] || [])
+
+          if result[:success]
+            render_success(result)
+          else
+            render_error(result[:error], status: :unprocessable_content)
+          end
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         # POST /api/v1/ai/agent_teams/:id/execution_complete (internal - called by worker)
         def execute_complete
           # Store execution results (would typically update a TeamExecution record)
@@ -188,6 +262,15 @@ module Api
             :status,
             team_config: {}
           )
+        end
+
+        def autonomy_params
+          params.permit(:max_agents_per_team, :allow_agent_creation, :allow_cross_team_ops,
+                        :require_human_approval, :autonomy_level,
+                        :branch_protection_enabled, :require_worktree_for_repos,
+                        :merge_approval_required,
+                        resource_limits: {}, protected_branches: [],
+                        branch_protection_config: {})
         end
 
         def serialize_team(team)

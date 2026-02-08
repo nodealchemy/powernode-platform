@@ -409,7 +409,7 @@ Rails.application.routes.draw do
           post :reactivate_suspended_accounts
         end
 
-        # Internal AI Skills endpoints (for worker service)
+        # Internal AI endpoints (for worker service)
         namespace :ai do
           resources :skills, only: [] do
             collection do
@@ -420,6 +420,32 @@ Rails.application.routes.draw do
               post :refresh_connectors
             end
           end
+
+          # Discovery data endpoints (worker → server)
+          get "discovery/mcp_servers", to: "discovery#mcp_servers"
+          get "discovery/docker_hosts", to: "discovery#docker_hosts"
+          get "discovery/swarm_clusters", to: "discovery#swarm_clusters"
+
+          # Discovery callbacks (worker → server)
+          post "discovery/:scan_id/complete", to: "discovery#complete"
+          post "discovery/:scan_id/failed", to: "discovery#failed"
+
+          # Code review callbacks (worker → server)
+          post "code_reviews/:review_id/comments", to: "code_reviews#create_comments"
+
+          # Team data endpoints (worker → server)
+          get "teams/:team_id", to: "teams#show"
+          get "agents", to: "teams#agents"
+
+          # Team optimization callbacks (worker → server)
+          post "teams/:team_id/optimization_results", to: "teams#optimization_results"
+
+          # Memory pool data endpoints (worker → server)
+          get "memory_pools/expired", to: "memory_pools#expired"
+          delete "memory_pools/:id", to: "memory_pools#destroy"
+
+          # Memory pool cleanup callbacks (worker → server)
+          post "memory_pools/cleanup_results", to: "memory_pools#cleanup_results"
         end
 
         # Container execution callbacks for Gitea workflow
@@ -1409,6 +1435,7 @@ Rails.application.routes.draw do
 
         # Credential actions with credential_id param
         scope "providers/:id/credentials/:credential_id" do
+          patch "/", to: "providers#update_credential"
           delete "/", to: "providers#destroy_credential"
           post :test, to: "providers#test_credential"
           post :make_default, to: "providers#make_default"
@@ -1540,6 +1567,28 @@ Rails.application.routes.draw do
       # ===================================================================
 
       namespace :ai do
+
+        # ===================================================================
+        # DISCOVERY - Agent auto-discovery and scanning
+        # ===================================================================
+        scope :discovery, controller: "discovery" do
+          get "/", action: :index
+          get "/:id", action: :show
+          post "/scan", action: :scan
+          post "/recommend", action: :recommend
+        end
+
+        # ===================================================================
+        # MEMORY POOLS - Scoped memory management
+        # ===================================================================
+        resources :memory_pools do
+          member do
+            get "data/*key", action: :read_data
+            post :write_data
+            post :query
+          end
+        end
+
         # ===================================================================
         # 1. WORKFLOWS CONTROLLER - Consolidated workflow management
         # ===================================================================
@@ -1684,6 +1733,7 @@ Rails.application.routes.draw do
             post :archive
             get :stats
             get :analytics
+            get :connections
             get :skills
             post :assign_skill
             delete "skills/:skill_id", action: :remove_skill
@@ -2060,6 +2110,11 @@ Rails.application.routes.draw do
           get "/reviews/:id", action: :show_review
           post "/reviews/:id/process", action: :process_review
 
+          # Review Comments
+          get "/reviews/:review_id/comments", action: :list_review_comments
+          post "/reviews/:review_id/comments", action: :create_review_comment
+          patch "/reviews/:review_id/comments/:comment_id", action: :update_review_comment
+
           # Executions (before /:id to avoid matching "executions" as an id)
           get "/executions/:id", action: :show_execution
           post "/executions/:id/pause", action: :pause_execution
@@ -2125,6 +2180,11 @@ Rails.application.routes.draw do
             post :execute
             post :execute_complete      # Internal - called by worker
             post :execute_failed        # Internal - called by worker
+            post :auto_assign_lead
+            post :optimize
+            get :autonomy_config
+            put :autonomy_config, action: :update_autonomy_config
+            post :bind_infrastructure
 
             # Team members management
             post "members", to: "agent_teams#add_member"
@@ -2133,6 +2193,7 @@ Rails.application.routes.draw do
 
           collection do
             get :statistics
+            get :templates
           end
         end
 

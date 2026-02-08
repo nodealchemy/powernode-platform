@@ -4,6 +4,10 @@ module Api
   module V1
     module Ai
       class TeamsController < ApplicationController
+        rescue_from ::Ai::TeamAuthorityService::AuthorityViolation do |e|
+          render_error(e.message, status: :forbidden)
+        end
+
         before_action :authenticate_request
         before_action :set_team_service
         before_action :set_team, only: %i[
@@ -371,6 +375,34 @@ module Api
           render_success(serialize_review(review))
         end
 
+        # GET /api/v1/ai/teams/reviews/:review_id/comments
+        def list_review_comments
+          authorize_code_reviews_read!
+          review = current_account.ai_task_reviews.find(params[:review_id])
+          comments = review.code_review_comments.ordered
+          render_success({ comments: comments.map(&:comment_summary) })
+        end
+
+        # POST /api/v1/ai/teams/reviews/:review_id/comments
+        def create_review_comment
+          authorize_code_reviews_manage!
+          review = current_account.ai_task_reviews.find(params[:review_id])
+          comment = review.code_review_comments.create!(
+            account: current_account,
+            **review_comment_params
+          )
+          render_success({ comment: comment.comment_summary }, status: :created)
+        end
+
+        # PATCH /api/v1/ai/teams/reviews/:review_id/comments/:comment_id
+        def update_review_comment
+          authorize_code_reviews_manage!
+          review = current_account.ai_task_reviews.find(params[:review_id])
+          comment = review.code_review_comments.find(params[:comment_id])
+          comment.update!(review_comment_params)
+          render_success({ comment: comment.comment_summary })
+        end
+
         # PUT /api/v1/ai/teams/:team_id/review_config
         def update_review_config
           team = @team_service.configure_team_review(@team.id, review_config_params.to_h)
@@ -470,6 +502,22 @@ module Api
 
         def trajectory_filter_params
           params.permit(:type, :status, :query, :limit, :agent_id, tags: [])
+        end
+
+        def authorize_code_reviews_read!
+          return if current_user.has_permission?("ai.code_reviews.read")
+
+          render_forbidden
+        end
+
+        def authorize_code_reviews_manage!
+          return if current_user.has_permission?("ai.code_reviews.manage")
+
+          render_forbidden
+        end
+
+        def review_comment_params
+          params.require(:comment).permit(:file_path, :line_start, :line_end, :comment_type, :severity, :content, :suggested_fix, :category, :resolved)
         end
 
         def review_config_params
