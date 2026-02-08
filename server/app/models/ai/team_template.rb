@@ -109,6 +109,21 @@ module Ai
       team
     end
 
+    def template_summary
+      {
+        id: id,
+        name: name,
+        slug: slug,
+        description: description,
+        category: category,
+        team_topology: team_topology,
+        is_system: is_system,
+        usage_count: usage_count,
+        average_rating: average_rating,
+        tags: tags
+      }
+    end
+
     # Template preview
     def preview
       {

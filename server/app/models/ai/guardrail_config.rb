@@ -40,5 +40,21 @@ module Ai
         block_on_failure: block_on_failure
       }.merge(configuration.symbolize_keys)
     end
+
+    # Branch protection helpers
+
+    def branch_protected?(branch_name)
+      return false unless branch_protection_enabled
+
+      (protected_branches || []).any? { |pattern| File.fnmatch(pattern, branch_name) }
+    end
+
+    def worktree_required?
+      branch_protection_enabled && require_worktree_for_repos
+    end
+
+    def merge_approval_needed?(target_branch)
+      branch_protection_enabled && merge_approval_required && branch_protected?(target_branch)
+    end
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -324,6 +324,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'internal'::character varying, 'public'::character varying]::text[])", name: "ai_agent_cards_visibility_check"
   end
 
+  create_table "ai_agent_connections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.string "connection_type"
+    t.datetime "created_at", null: false
+    t.string "discovered_by"
+    t.jsonb "metadata", default: {}
+    t.uuid "source_id"
+    t.string "source_type"
+    t.string "status", default: "active"
+    t.float "strength", default: 1.0
+    t.uuid "target_id"
+    t.string "target_type"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "connection_type"], name: "index_ai_agent_connections_on_account_id_and_connection_type"
+    t.index ["account_id"], name: "index_ai_agent_connections_on_account_id"
+    t.index ["source_type", "source_id"], name: "index_ai_agent_connections_on_source_type_and_source_id"
+    t.index ["target_type", "target_id"], name: "index_ai_agent_connections_on_target_type_and_target_id"
+  end
+
   create_table "ai_agent_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "ai_agent_id", null: false
@@ -632,6 +651,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
     t.index ["request_id"], name: "index_ai_approval_requests_on_request_id", unique: true
     t.index ["requested_by_id"], name: "index_ai_approval_requests_on_requested_by_id"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "check_request_status"
+  end
+
+  create_table "ai_code_review_comments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.uuid "agent_id"
+    t.string "category"
+    t.string "comment_type"
+    t.text "content"
+    t.datetime "created_at", null: false
+    t.string "file_path"
+    t.integer "line_end"
+    t.integer "line_start"
+    t.jsonb "metadata", default: {}
+    t.boolean "resolved", default: false
+    t.string "severity"
+    t.text "suggested_fix"
+    t.uuid "task_review_id"
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_code_review_comments_on_account_id"
+    t.index ["agent_id"], name: "index_ai_code_review_comments_on_agent_id"
+    t.index ["task_review_id", "file_path"], name: "index_ai_code_review_comments_on_task_review_id_and_file_path"
+    t.index ["task_review_id"], name: "index_ai_code_review_comments_on_task_review_id"
   end
 
   create_table "ai_code_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1284,6 +1325,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'team'::character varying::text, 'public'::character varying::text, 'marketplace'::character varying::text])", name: "check_devops_visibility"
   end
 
+  create_table "ai_discovery_results", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.integer "agents_found", default: 0
+    t.datetime "completed_at"
+    t.integer "connections_found", default: 0
+    t.datetime "created_at", null: false
+    t.jsonb "discovered_agents", default: []
+    t.jsonb "discovered_connections", default: []
+    t.jsonb "discovered_tools", default: []
+    t.text "error_message"
+    t.jsonb "recommendations", default: []
+    t.string "scan_id"
+    t.string "scan_type"
+    t.datetime "started_at"
+    t.string "status", default: "pending"
+    t.integer "tools_found", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "scan_type"], name: "index_ai_discovery_results_on_account_id_and_scan_type"
+    t.index ["account_id"], name: "index_ai_discovery_results_on_account_id"
+    t.index ["scan_id"], name: "index_ai_discovery_results_on_scan_id", unique: true
+  end
+
   create_table "ai_document_chunks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.text "content", null: false
     t.datetime "created_at", null: false
@@ -1442,16 +1505,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
   create_table "ai_guardrail_configs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "ai_agent_id"
+    t.boolean "allow_agent_creation", default: false
+    t.boolean "allow_cross_team_ops", default: false
+    t.string "autonomy_level", default: "supervised"
     t.boolean "block_on_failure", default: false, null: false
+    t.jsonb "branch_protection_config", default: {}
+    t.boolean "branch_protection_enabled", default: false
     t.jsonb "configuration", default: {}, null: false
     t.datetime "created_at", null: false
     t.jsonb "input_rails", default: [], null: false
     t.boolean "is_active", default: true, null: false
+    t.integer "max_agents_per_team", default: 20
     t.integer "max_input_tokens", default: 100000
     t.integer "max_output_tokens", default: 50000
+    t.boolean "merge_approval_required", default: true
     t.string "name", null: false
     t.jsonb "output_rails", default: [], null: false
     t.decimal "pii_sensitivity", precision: 3, scale: 2, default: "0.8"
+    t.jsonb "protected_branches", default: ["main", "master", "develop"]
+    t.boolean "require_human_approval", default: true
+    t.boolean "require_worktree_for_repos", default: true
+    t.jsonb "resource_limits", default: {}
     t.jsonb "retrieval_rails", default: [], null: false
     t.integer "total_blocks", default: 0, null: false
     t.integer "total_checks", default: 0, null: false
@@ -1619,6 +1693,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
     t.index ["transaction_type"], name: "index_ai_marketplace_transactions_on_transaction_type"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'refunded'::character varying::text, 'disputed'::character varying::text])", name: "check_transaction_status"
     t.check_constraint "transaction_type::text = ANY (ARRAY['purchase'::character varying::text, 'subscription'::character varying::text, 'renewal'::character varying::text, 'refund'::character varying::text, 'payout'::character varying::text])", name: "check_transaction_type"
+  end
+
+  create_table "ai_memory_pools", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "access_control", default: {}
+    t.uuid "account_id"
+    t.datetime "created_at", null: false
+    t.jsonb "data", default: {}
+    t.integer "data_size_bytes", default: 0
+    t.datetime "expires_at"
+    t.datetime "last_accessed_at"
+    t.jsonb "metadata", default: {}
+    t.string "name"
+    t.uuid "owner_agent_id"
+    t.boolean "persist_across_executions", default: false
+    t.string "pool_id"
+    t.string "pool_type"
+    t.jsonb "retention_policy", default: {}
+    t.string "scope"
+    t.uuid "task_execution_id"
+    t.uuid "team_id"
+    t.datetime "updated_at", null: false
+    t.integer "version", default: 1
+    t.index ["account_id", "scope"], name: "index_ai_memory_pools_on_account_id_and_scope"
+    t.index ["account_id"], name: "index_ai_memory_pools_on_account_id"
+    t.index ["owner_agent_id"], name: "index_ai_memory_pools_on_owner_agent_id"
+    t.index ["pool_id"], name: "index_ai_memory_pools_on_pool_id", unique: true
+    t.index ["task_execution_id"], name: "index_ai_memory_pools_on_task_execution_id"
+    t.index ["team_id"], name: "index_ai_memory_pools_on_team_id"
   end
 
   create_table "ai_merge_operations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2591,12 +2693,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
   create_table "ai_task_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.text "approval_notes"
+    t.jsonb "code_suggestions", default: {}
+    t.string "commit_sha"
     t.jsonb "completeness_checks", default: {}
     t.datetime "created_at", null: false
+    t.jsonb "diff_analysis", default: {}
+    t.jsonb "file_comments", default: {}
     t.jsonb "findings", default: []
     t.jsonb "metadata", default: {}
+    t.integer "pull_request_number"
     t.float "quality_score"
     t.text "rejection_reason"
+    t.string "repository_url"
     t.integer "review_duration_ms"
     t.string "review_id", null: false
     t.string "review_mode", default: "blocking", null: false
@@ -8462,6 +8570,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
   add_foreign_key "ai_account_credits", "accounts"
   add_foreign_key "ai_agent_cards", "accounts"
   add_foreign_key "ai_agent_cards", "ai_agents"
+  add_foreign_key "ai_agent_connections", "accounts"
   add_foreign_key "ai_agent_executions", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_executions", "ai_agent_executions", column: "parent_execution_id", on_delete: :nullify
   add_foreign_key "ai_agent_executions", "ai_agents", on_delete: :cascade
@@ -8492,6 +8601,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
   add_foreign_key "ai_approval_requests", "accounts"
   add_foreign_key "ai_approval_requests", "ai_approval_chains", column: "approval_chain_id"
   add_foreign_key "ai_approval_requests", "users", column: "requested_by_id"
+  add_foreign_key "ai_code_review_comments", "accounts"
+  add_foreign_key "ai_code_review_comments", "ai_agents", column: "agent_id"
+  add_foreign_key "ai_code_review_comments", "ai_task_reviews", column: "task_review_id"
   add_foreign_key "ai_code_reviews", "accounts"
   add_foreign_key "ai_code_reviews", "ai_pipeline_executions", column: "pipeline_execution_id"
   add_foreign_key "ai_compliance_audit_entries", "accounts"
@@ -8546,6 +8658,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
   add_foreign_key "ai_devops_template_installations", "users", column: "installed_by_id"
   add_foreign_key "ai_devops_templates", "accounts"
   add_foreign_key "ai_devops_templates", "users", column: "created_by_id"
+  add_foreign_key "ai_discovery_results", "accounts"
   add_foreign_key "ai_document_chunks", "ai_documents", column: "document_id"
   add_foreign_key "ai_document_chunks", "ai_knowledge_bases", column: "knowledge_base_id"
   add_foreign_key "ai_documents", "ai_knowledge_bases", column: "knowledge_base_id"
@@ -8576,6 +8689,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_07_000004) do
   add_foreign_key "ai_marketplace_transactions", "ai_agent_installations", column: "installation_id"
   add_foreign_key "ai_marketplace_transactions", "ai_agent_templates", column: "agent_template_id"
   add_foreign_key "ai_marketplace_transactions", "ai_publisher_accounts", column: "publisher_id"
+  add_foreign_key "ai_memory_pools", "accounts"
   add_foreign_key "ai_merge_operations", "accounts"
   add_foreign_key "ai_merge_operations", "ai_worktree_sessions", column: "worktree_session_id"
   add_foreign_key "ai_merge_operations", "ai_worktrees", column: "worktree_id"

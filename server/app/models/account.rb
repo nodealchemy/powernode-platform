@@ -107,6 +107,13 @@ class Account < ApplicationRecord
   # AI Trajectories - Execution history & learning
   has_many :ai_trajectories, class_name: "Ai::Trajectory", dependent: :destroy
 
+  # AI Agent Topology & Discovery
+  has_many :ai_agent_connections, class_name: "Ai::AgentConnection", dependent: :destroy
+  has_many :ai_discovery_results, class_name: "Ai::DiscoveryResult", dependent: :destroy
+  has_many :ai_memory_pools, class_name: "Ai::MemoryPool", dependent: :destroy
+  has_many :ai_code_review_comments, class_name: "Ai::CodeReviewComment", dependent: :destroy
+  has_many :ai_guardrail_configs, class_name: "Ai::GuardrailConfig", dependent: :destroy
+
   # AI Worktree Sessions - Parallel execution with git worktrees
   has_many :ai_worktree_sessions, class_name: "Ai::WorktreeSession", dependent: :destroy
 

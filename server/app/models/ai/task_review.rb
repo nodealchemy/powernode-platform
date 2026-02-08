@@ -17,6 +17,7 @@ module Ai
     belongs_to :team_task, class_name: "Ai::TeamTask"
     belongs_to :reviewer_role, class_name: "Ai::TeamRole", optional: true
     belongs_to :reviewer_agent, class_name: "Ai::Agent", optional: true
+    has_many :code_review_comments, class_name: "Ai::CodeReviewComment", dependent: :destroy
 
     # ==========================================
     # Validations
