@@ -50,7 +50,7 @@ export const TrajectoryInsights: React.FC = () => {
       ]);
       setAgentTrends(trendsRes.data?.trends || []);
       setCacheMetrics(cacheRes.data?.metrics || null);
-    } catch (error) {
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to load insights' });
     } finally {
       setLoading(false);

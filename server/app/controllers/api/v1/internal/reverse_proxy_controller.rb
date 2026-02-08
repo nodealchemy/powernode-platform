@@ -304,17 +304,151 @@ class Api::V1::Internal::ReverseProxyController < Api::V1::Internal::InternalBas
   end
 
   def generate_apache_config(config)
-    "# Apache configuration generation not implemented yet"
+    environment = config["current_environment"] || Rails.env
+    env_config = config.dig("environments", environment) || {}
+
+    apache_config = <<~CONFIG
+      # Powernode Apache Reverse Proxy Configuration
+      # Generated at: #{Time.current}
+
+    CONFIG
+
+    apache_config += <<~CONFIG
+      <VirtualHost *:80>
+        ServerName localhost
+
+        # Enable proxy modules
+        ProxyPreserveHost On
+        ProxyRequests Off
+
+    CONFIG
+
+    # Security headers
+    if config.dig("headers", "security_headers", "enabled")
+      headers = config.dig("headers", "security_headers") || {}
+      apache_config += "    # Security headers\n"
+      apache_config += "    Header always set X-Frame-Options #{headers['x_frame_options'] || 'SAMEORIGIN'}\n"
+      apache_config += "    Header always set X-Content-Type-Options #{headers['x_content_type_options'] || 'nosniff'}\n"
+      apache_config += "    Header always set X-XSS-Protection \"#{headers['x_xss_protection'] || '1; mode=block'}\"\n"
+      apache_config += "\n"
+    end
+
+    # URL mapping proxy rules
+    sorted_mappings = (config["url_mappings"] || []).select { |m| m["enabled"] }.sort_by { |m| m["priority"] || 999 }
+
+    sorted_mappings.each do |mapping|
+      service = env_config[mapping["target_service"]] || {}
+      target_url = "http://#{service['host']}:#{service['port']}"
+
+      apache_config += "    # #{mapping['name'] || mapping['pattern']}\n"
+      apache_config += "    ProxyPass #{mapping['pattern']} #{target_url}#{mapping['pattern']}\n"
+      apache_config += "    ProxyPassReverse #{mapping['pattern']} #{target_url}#{mapping['pattern']}\n\n"
+    end
+
+    # Default proxy for remaining services
+    env_config.each do |service_name, service_config|
+      apache_config += "    # #{service_name.capitalize} service backend\n"
+      apache_config += "    # Available at: http://#{service_config['host']}:#{service_config['port']}\n\n"
+    end
+
+    apache_config += <<~CONFIG
+        # Forwarding headers
+        RequestHeader set X-Forwarded-Proto expr=%{REQUEST_SCHEME}
+        RequestHeader set X-Real-IP %{REMOTE_ADDR}s
+
+        # Logging
+        ErrorLog ${APACHE_LOG_DIR}/powernode_error.log
+        CustomLog ${APACHE_LOG_DIR}/powernode_access.log combined
+      </VirtualHost>
+    CONFIG
+
+    apache_config
   end
 
   def generate_traefik_config(config)
-    "# Traefik configuration generation not implemented yet"
+    environment = config["current_environment"] || Rails.env
+    env_config = config.dig("environments", environment) || {}
+
+    traefik = {
+      "http" => {
+        "routers" => {},
+        "services" => {},
+        "middlewares" => {}
+      }
+    }
+
+    # Add security headers middleware if enabled
+    if config.dig("headers", "security_headers", "enabled")
+      headers = config.dig("headers", "security_headers") || {}
+      traefik["http"]["middlewares"]["security-headers"] = {
+        "headers" => {
+          "customFrameOptionsValue" => headers["x_frame_options"] || "SAMEORIGIN",
+          "contentTypeNosniff" => true,
+          "browserXssFilter" => true,
+          "forceSTSHeader" => true,
+          "stsSeconds" => 31536000
+        }
+      }
+    end
+
+    # Forwarding headers middleware
+    traefik["http"]["middlewares"]["forwarded-headers"] = {
+      "headers" => {
+        "customRequestHeaders" => {
+          "X-Forwarded-Proto" => "https"
+        }
+      }
+    }
+
+    # Create services from environment config
+    env_config.each do |service_name, service_config|
+      traefik["http"]["services"]["powernode-#{service_name}"] = {
+        "loadBalancer" => {
+          "servers" => [
+            { "url" => "#{service_config['protocol'] || 'http'}://#{service_config['host']}:#{service_config['port']}" }
+          ],
+          "healthCheck" => service_config["health_check_path"] ? {
+            "path" => service_config["health_check_path"],
+            "interval" => "10s",
+            "timeout" => "3s"
+          } : nil
+        }.compact
+      }
+    end
+
+    # Create routers from URL mappings
+    sorted_mappings = (config["url_mappings"] || []).select { |m| m["enabled"] }.sort_by { |m| m["priority"] || 999 }
+
+    sorted_mappings.each_with_index do |mapping, index|
+      router_name = "powernode-#{mapping['target_service']}-#{index}"
+      middleware_list = ["forwarded-headers"]
+      middleware_list << "security-headers" if config.dig("headers", "security_headers", "enabled")
+
+      traefik["http"]["routers"][router_name] = {
+        "rule" => "PathPrefix(`#{mapping['pattern']}`)",
+        "service" => "powernode-#{mapping['target_service']}",
+        "middlewares" => middleware_list,
+        "priority" => mapping["priority"] || 999
+      }
+    end
+
+    # Generate YAML output with header comment
+    yaml_output = "# Powernode Traefik Dynamic Configuration\n"
+    yaml_output += "# Generated at: #{Time.current}\n"
+    yaml_output += "# Place this file in Traefik's dynamic configuration directory\n\n"
+    yaml_output += traefik.to_yaml.sub(/\A---\n/, "")
+
+    yaml_output
   end
 
   def proxy_installation_instructions(proxy_type)
     case proxy_type.downcase
     when "nginx"
       "1. Save configuration to /etc/nginx/sites-available/powernode\n2. Create symlink: sudo ln -s /etc/nginx/sites-available/powernode /etc/nginx/sites-enabled/\n3. Test configuration: sudo nginx -t\n4. Reload Nginx: sudo systemctl reload nginx"
+    when "apache"
+      "1. Save configuration to /etc/apache2/sites-available/powernode.conf\n2. Enable site: sudo a2ensite powernode\n3. Enable required modules: sudo a2enmod proxy proxy_http headers\n4. Test configuration: sudo apachectl configtest\n5. Reload Apache: sudo systemctl reload apache2"
+    when "traefik"
+      "1. Save configuration to your Traefik dynamic config directory (e.g., /etc/traefik/dynamic/powernode.yml)\n2. Ensure Traefik is configured to watch the dynamic config directory\n3. Traefik will automatically detect and apply the new configuration"
     else
       "Installation instructions not available for #{proxy_type}"
     end

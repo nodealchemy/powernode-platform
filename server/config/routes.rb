@@ -672,6 +672,13 @@ Rails.application.routes.draw do
         collection do
           get :stats
         end
+        member do
+          put :suspend
+          put :activate
+          put :unlock
+          post :reset_password
+          post :resend_verification
+        end
       end
 
       # Notifications

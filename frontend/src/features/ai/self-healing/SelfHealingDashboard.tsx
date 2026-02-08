@@ -54,7 +54,7 @@ export const SelfHealingDashboard: React.FC = () => {
       setRemediationLogs(logsRes.data?.remediation_logs || []);
       setHealthSummary(logsRes.data?.health_summary || healthRes.data);
       setCorrelations(correlationsRes.data?.correlations || []);
-    } catch (error) {
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to load self-healing data' });
     } finally {
       setLoading(false);

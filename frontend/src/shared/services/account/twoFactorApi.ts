@@ -62,19 +62,19 @@ export interface Verify2FAResponse {
 export const twoFactorApi = {
   // Check current 2FA status
   async getStatus(): Promise<TwoFactorStatusResponse> {
-    const response = await api.get('/api/v1/two_factor/status');
+    const response = await api.get('/two_factor/status');
     return response.data;
   },
 
   // Enable 2FA and get setup information
   async enable(): Promise<TwoFactorSetupResponse> {
-    const response = await api.post('/api/v1/two_factor/enable');
+    const response = await api.post('/two_factor/enable');
     return response.data;
   },
 
   // Verify 2FA setup with a token
   async verifySetup(token: string): Promise<TwoFactorVerificationResponse> {
-    const response = await api.post('/api/v1/two_factor/verify_setup', {
+    const response = await api.post('/two_factor/verify_setup', {
       token
     });
     return response.data;
@@ -82,25 +82,25 @@ export const twoFactorApi = {
 
   // Disable 2FA
   async disable(): Promise<TwoFactorVerificationResponse> {
-    const response = await api.delete('/api/v1/two_factor/disable');
+    const response = await api.delete('/two_factor/disable');
     return response.data;
   },
 
   // Get backup codes
   async getBackupCodes(): Promise<BackupCodesResponse> {
-    const response = await api.get('/api/v1/two_factor/backup_codes');
+    const response = await api.get('/two_factor/backup_codes');
     return response.data;
   },
 
   // Regenerate backup codes
   async regenerateBackupCodes(): Promise<BackupCodesResponse> {
-    const response = await api.post('/api/v1/two_factor/regenerate_backup_codes');
+    const response = await api.post('/two_factor/regenerate_backup_codes');
     return response.data;
   },
 
   // Verify 2FA code during login
   async verifyLogin(verificationToken: string, code: string): Promise<Verify2FAResponse> {
-    const response = await api.post('/api/v1/auth/verify-2fa', {
+    const response = await api.post('/auth/verify-2fa', {
       verification_token: verificationToken,
       code
     });

@@ -38,7 +38,7 @@ export const RecommendationsDashboard: React.FC = () => {
       setLoading(true);
       const response = await apiClient.get('/api/v1/ai/learning/recommendations');
       setRecommendations(response.data?.recommendations || []);
-    } catch (error) {
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to load recommendations' });
     } finally {
       setLoading(false);
@@ -54,7 +54,7 @@ export const RecommendationsDashboard: React.FC = () => {
       await apiClient.post(`/api/v1/ai/learning/recommendations/${id}/apply`);
       addNotification({ type: 'success', message: 'Recommendation applied' });
       loadData();
-    } catch (error) {
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to apply recommendation' });
     }
   };
@@ -63,7 +63,7 @@ export const RecommendationsDashboard: React.FC = () => {
     try {
       await apiClient.post(`/api/v1/ai/learning/recommendations/${id}/dismiss`);
       loadData();
-    } catch (error) {
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to dismiss recommendation' });
     }
   };

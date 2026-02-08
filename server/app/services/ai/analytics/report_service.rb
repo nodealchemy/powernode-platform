@@ -268,8 +268,80 @@ module Ai
       end
 
       def export_pdf(report)
-        # Placeholder - would use a PDF library like Prawn
-        "PDF export not implemented"
+        require "prawn"
+        require "prawn/table"
+
+        pdf = Prawn::Document.new(page_size: "A4", margin: 50)
+
+        # Title page
+        pdf.move_down 100
+        pdf.text report[:report_type].to_s.titleize, size: 28, style: :bold, align: :center
+        pdf.move_down 20
+        pdf.text "Generated: #{report[:generated_at]}", size: 12, align: :center, color: "666666"
+        pdf.text "By: #{report[:generated_by]}", size: 12, align: :center, color: "666666"
+        if report[:time_range]
+          pdf.text "Period: #{report[:time_range][:period]}", size: 12, align: :center, color: "666666"
+        end
+
+        pdf.start_new_page
+
+        # Render data sections
+        render_pdf_section(pdf, report[:data]) if report[:data].is_a?(Hash)
+
+        # Footer on each page
+        pdf.number_pages "Page <page> of <total>", at: [pdf.bounds.right - 100, -10], size: 8, color: "999999"
+
+        pdf.render
+      end
+
+      def render_pdf_section(pdf, data, depth = 0)
+        data.each do |key, value|
+          case value
+          when Hash
+            pdf.move_down 10
+            pdf.text key.to_s.titleize, size: 14 - [depth, 4].min, style: :bold
+            pdf.move_down 5
+            render_pdf_section(pdf, value, depth + 1)
+          when Array
+            pdf.move_down 10
+            pdf.text key.to_s.titleize, size: 14 - [depth, 4].min, style: :bold
+            pdf.move_down 5
+            render_pdf_array(pdf, value)
+          else
+            pdf.text "#{key.to_s.titleize}: #{value}", size: 10
+            pdf.move_down 3
+          end
+        end
+      end
+
+      def render_pdf_array(pdf, array)
+        return if array.empty?
+
+        if array.first.is_a?(Hash)
+          headers = array.first.keys.map { |k| k.to_s.titleize }
+          rows = array.map { |item| item.values.map { |v| v.to_s.truncate(50) } }
+          table_data = [headers] + rows
+
+          pdf.table(table_data, width: pdf.bounds.width) do |t|
+            t.row(0).font_style = :bold
+            t.row(0).background_color = "F0F0F0"
+            t.cells.padding = [5, 8]
+            t.cells.border_width = 0.5
+            t.cells.border_color = "DDDDDD"
+            t.cells.size = 9
+          end
+        else
+          array.each do |item|
+            pdf.text "• #{item}", size: 10
+            pdf.move_down 2
+          end
+        end
+      rescue Prawn::Errors::CannotFit
+        # Table too wide, render as list instead
+        array.each do |item|
+          pdf.text "• #{item.is_a?(Hash) ? item.values.join(' | ') : item}", size: 9
+          pdf.move_down 2
+        end
       end
 
       def flatten_to_csv(data, csv_data, prefix = "")

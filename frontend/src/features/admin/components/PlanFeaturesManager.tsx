@@ -410,7 +410,27 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
           <div className="px-6 py-4 border-b border-theme">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-theme-primary">Plan Comparison</h3>
-              <Button variant="outline" onClick={() => {/* TODO: Export comparison */}}
+              <Button variant="outline" onClick={() => {
+                  if (!comparison) return;
+                  const headers = ['Feature', ...comparison.plans.map(p => p.plan.name)];
+                  const rows = comparison.features.map(feature => {
+                    const values = comparison.plans.map(p => {
+                      const val = p.feature_values[feature.id];
+                      return val === true ? 'Yes' : val === false ? 'No' : String(val ?? '—');
+                    });
+                    return [feature.name, ...values];
+                  });
+                  const csvContent = [headers, ...rows]
+                    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                    .join('\n');
+                  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = 'plan-features-comparison.csv';
+                  link.click();
+                  URL.revokeObjectURL(url);
+                }}
                 className="px-3 py-1 text-sm border border-theme text-theme-primary rounded-md hover:bg-theme-surface transition-colors flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />

@@ -218,18 +218,91 @@ class Api::V1::InvoicesController < ApplicationController
   end
 
   def generate_invoice_pdf(invoice)
-    # Basic PDF generation - in production, use a proper PDF library like Prawn
-    # This returns a placeholder that can be replaced with actual PDF generation
-    pdf_content = <<~PDF
-      %PDF-1.4
-      Invoice: #{invoice.invoice_number}
-      Account: #{current_account.name}
-      Amount: #{invoice.currency} #{invoice.total.to_f}
-      Status: #{invoice.status}
-      Due Date: #{invoice.due_at}
-      Generated: #{Time.current}
-    PDF
-    pdf_content
+    require "prawn"
+    require "prawn/table"
+
+    pdf = Prawn::Document.new(page_size: "A4", margin: 50)
+
+    # Header
+    pdf.text "INVOICE", size: 28, style: :bold
+    pdf.move_down 10
+    pdf.text "Invoice ##{invoice.invoice_number}", size: 14
+    pdf.text "Date: #{invoice.created_at.strftime('%B %d, %Y')}", size: 10, color: "666666"
+    pdf.text "Due: #{invoice.due_at&.strftime('%B %d, %Y') || 'N/A'}", size: 10, color: "666666"
+    pdf.text "Status: #{invoice.status.upcase}", size: 10, color: "666666"
+
+    pdf.move_down 20
+
+    # Bill To
+    pdf.text "Bill To:", size: 10, style: :bold, color: "999999"
+    pdf.text current_account.name, size: 12
+
+    pdf.move_down 20
+
+    # Subscription info
+    if invoice.subscription&.plan
+      pdf.text "Plan: #{invoice.subscription.plan.name}", size: 10, color: "666666"
+      pdf.move_down 10
+    end
+
+    # Line items table
+    line_items = invoice.invoice_line_items
+    if line_items.any?
+      table_data = [["Description", "Qty", "Unit Price", "Amount"]]
+      line_items.each do |item|
+        table_data << [
+          item.description,
+          item.quantity.to_s,
+          format_currency_value(item.unit_amount_cents, invoice.currency),
+          format_currency_value(item.total_amount_cents, invoice.currency)
+        ]
+      end
+
+      pdf.table(table_data, width: pdf.bounds.width) do |t|
+        t.row(0).font_style = :bold
+        t.row(0).background_color = "F0F0F0"
+        t.cells.padding = [8, 10]
+        t.cells.border_width = 0.5
+        t.cells.border_color = "DDDDDD"
+        t.columns(1..3).align = :right
+      end
+    else
+      pdf.text "No line items", color: "999999", style: :italic
+    end
+
+    pdf.move_down 20
+
+    # Totals
+    totals_data = [
+      ["Subtotal", format_currency_value((invoice.subtotal.to_f * 100).to_i, invoice.currency)],
+      ["Tax", format_currency_value((invoice.tax_amount.to_f * 100).to_i, invoice.currency)],
+      ["Total", format_currency_value((invoice.total.to_f * 100).to_i, invoice.currency)]
+    ]
+
+    pdf.table(totals_data, position: :right, width: 200) do |t|
+      t.cells.border_width = 0
+      t.cells.padding = [4, 10]
+      t.columns(1).align = :right
+      t.row(-1).font_style = :bold
+      t.row(-1).border_top_width = 1
+      t.row(-1).border_color = "333333"
+    end
+
+    if invoice.paid_at
+      pdf.move_down 20
+      pdf.text "Paid on #{invoice.paid_at.strftime('%B %d, %Y')}", size: 10, color: "28A745", style: :bold
+    end
+
+    # Footer
+    pdf.move_down 30
+    pdf.text "Generated on #{Time.current.strftime('%B %d, %Y at %I:%M %p')}", size: 8, color: "999999", align: :center
+
+    pdf.render
+  end
+
+  def format_currency_value(cents, currency = "USD")
+    symbol = currency == "USD" ? "$" : currency
+    "#{symbol}#{'%.2f' % (cents.to_f / 100)}"
   end
 
   def calculate_average_days_to_payment(invoices)

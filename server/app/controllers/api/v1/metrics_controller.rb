@@ -157,24 +157,42 @@ module Api
       end
 
       def api_metrics
-        # This would need to be stored in Redis or database for persistence
-        # For now, return placeholder data
         {
-          total_requests: "tracked_in_prometheus",
-          average_response_time: "tracked_in_prometheus",
-          error_rate: "tracked_in_prometheus",
-          endpoints: "tracked_in_prometheus"
+          total_requests_today: AuditLog.where("created_at >= ?", 1.day.ago).count,
+          total_requests_this_week: AuditLog.where("created_at >= ?", 1.week.ago).count,
+          total_requests_this_month: AuditLog.where("created_at >= ?", 1.month.ago).count,
+          requests_by_action: AuditLog.where("created_at >= ?", 1.day.ago).group(:action).count,
+          error_count_today: AuditLog.where("created_at >= ? AND action LIKE ?", 1.day.ago, "%error%").count
         }
+      rescue StandardError => e
+        Rails.logger.error "Failed to fetch API metrics: #{e.message}"
+        { error: "Unable to retrieve API metrics" }
       end
 
       def job_metrics
-        # This would integrate with Sidekiq stats if available
-        {
-          processed: "tracked_via_sidekiq_web",
-          failed: "tracked_via_sidekiq_web",
-          scheduled: "tracked_via_sidekiq_web",
-          retries: "tracked_via_sidekiq_web"
+        redis = Redis.new(url: ENV.fetch("WORKER_REDIS_URL", "redis://localhost:6379/1"))
+        stats = {
+          processed: redis.get("stat:processed").to_i,
+          failed: redis.get("stat:failed").to_i,
+          scheduled_size: redis.zcard("schedule"),
+          retry_size: redis.zcard("retry"),
+          dead_size: redis.zcard("dead"),
+          queues: fetch_queue_sizes(redis)
         }
+        redis.close
+        stats
+      rescue StandardError => e
+        Rails.logger.error "Failed to fetch job metrics: #{e.message}"
+        { error: "Unable to connect to job queue" }
+      end
+
+      def fetch_queue_sizes(redis)
+        queues = redis.smembers("queues")
+        queues.each_with_object({}) do |queue, sizes|
+          sizes[queue] = redis.llen("queue:#{queue}")
+        end
+      rescue StandardError
+        {}
       end
 
       def system_metrics
