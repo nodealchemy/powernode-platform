@@ -1244,15 +1244,29 @@ class Ai::ProviderManagementService
         end
       end
 
-      sync_grok_models_fallback(provider)
+      # Only fall back to static models if provider has no models at all
+      if provider.supported_models.blank? || provider.supported_models.empty?
+        sync_grok_models_fallback(provider)
+      else
+        Rails.logger.info "Grok API sync failed but provider #{provider.id} already has #{provider.supported_models.size} models, keeping existing"
+        true
+      end
     end
 
     def sync_grok_models_fallback(provider)
       current_models = [
+        { "name" => "Grok 3", "id" => "grok-3", "context_length" => 131072, "max_output_tokens" => 16384,
+          "description" => "Most capable Grok model for complex reasoning", "capabilities" => %w[text_generation chat function_calling] },
+        { "name" => "Grok 3 Mini", "id" => "grok-3-mini", "context_length" => 131072, "max_output_tokens" => 16384,
+          "description" => "Fast, lightweight Grok model", "capabilities" => %w[text_generation chat function_calling] },
+        { "name" => "Grok 3 Fast", "id" => "grok-3-fast", "context_length" => 131072, "max_output_tokens" => 16384,
+          "description" => "Speed-optimized Grok 3 model", "capabilities" => %w[text_generation chat function_calling] },
+        { "name" => "Grok 3 Mini Fast", "id" => "grok-3-mini-fast", "context_length" => 131072, "max_output_tokens" => 16384,
+          "description" => "Fastest Grok model for simple tasks", "capabilities" => %w[text_generation chat function_calling] },
         { "name" => "Grok 2", "id" => "grok-2-1212", "context_length" => 131072, "max_output_tokens" => 8192,
-          "description" => "Latest Grok model", "capabilities" => %w[text_generation chat function_calling] },
+          "description" => "Previous generation Grok model", "capabilities" => %w[text_generation chat function_calling] },
         { "name" => "Grok 2 Vision", "id" => "grok-2-vision-1212", "context_length" => 32768, "max_output_tokens" => 8192,
-          "description" => "Multimodal Grok", "capabilities" => %w[text_generation chat vision function_calling] }
+          "description" => "Multimodal Grok with vision capabilities", "capabilities" => %w[text_generation chat vision function_calling] }
       ]
       provider.update(supported_models: current_models)
       true

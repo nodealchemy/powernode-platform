@@ -31,7 +31,7 @@ const getProviderDisplayName = (provider: AiProvider): string => {
   if (slug.includes('openai') || slug.includes('gpt')) return 'OpenAI';
   if (slug.includes('bedrock')) return 'AWS Bedrock';
   if (slug.includes('vertex')) return 'Google Vertex AI';
-  if (slug.includes('ollama')) return 'Ollama (Local)';
+  if (slug.includes('ollama')) return 'Ollama';
   return provider.name || 'Unknown Provider';
 };
 

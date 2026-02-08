@@ -753,7 +753,7 @@ class Ai::ProviderClientService
         data: data,
         status_code: response.code,
         provider: provider.name,
-        cost: 0, # Ollama is typically free/local
+        cost: 0, # Ollama is typically free
         metadata: {
           model: model,
           done: data["done"],

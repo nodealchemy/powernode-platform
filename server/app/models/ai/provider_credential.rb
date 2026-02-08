@@ -139,10 +139,15 @@ module Ai
       if Rails.env.test?
         JSON.parse(Base64.strict_decode64(encrypted_credentials))
       else
-        Security::CredentialEncryptionService.decrypt(
-          encrypted_credentials,
-          namespace: "ai"
-        )
+        begin
+          Security::CredentialEncryptionService.decrypt(
+            encrypted_credentials,
+            namespace: "ai"
+          )
+        rescue Security::CredentialEncryptionService::DecryptionError
+          # Retry without namespace for credentials encrypted before namespace was added
+          Security::CredentialEncryptionService.decrypt(encrypted_credentials)
+        end
       end
     rescue StandardError => e
       Rails.logger.error "Failed to decrypt AI credentials: #{e.message}"

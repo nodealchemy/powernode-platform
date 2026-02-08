@@ -32,7 +32,7 @@ module Ai
             "azure" => { name: "Azure OpenAI", description: "Microsoft Azure OpenAI Service", website: "https://azure.microsoft.com/en-us/products/ai-services/openai-service/" },
             "huggingface" => { name: "Hugging Face", description: "Hugging Face Hub models", website: "https://huggingface.co" },
             "custom" => { name: "Custom Provider", description: "Custom AI provider integration", website: nil },
-            "ollama" => { name: "Ollama", description: "Local LLM hosting with Ollama", website: "https://ollama.ai" },
+            "ollama" => { name: "Ollama", description: "LLM hosting with Ollama", website: "https://ollama.ai" },
             "local" => { name: "Local Provider", description: "Local or self-hosted AI services", website: nil },
             "api_gateway" => { name: "API Gateway", description: "Multi-provider API gateway service", website: nil }
           }
