@@ -9,6 +9,8 @@ import {
   ExternalLink,
   Clock,
   CheckCircle,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -58,6 +60,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
   const [skillFilter, setSkillFilter] = useState<string>('');
   const [skillCategories, setSkillCategories] = useState<SkillCategory[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [listViewMode, setListViewMode] = useState<'grid' | 'list'>('grid');
 
   const loadCards = useCallback(async () => {
     try {
@@ -158,6 +161,30 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
           </Select>
         </div>
 
+        <div className="flex items-center gap-1 border border-theme rounded-md overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setListViewMode('grid')}
+            className={cn(
+              'p-1.5 transition-colors',
+              listViewMode === 'grid' ? 'bg-theme-interactive-primary text-white' : 'bg-theme-surface text-theme-secondary hover:text-theme-primary'
+            )}
+            title="Grid view"
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setListViewMode('list')}
+            className={cn(
+              'p-1.5 transition-colors',
+              listViewMode === 'list' ? 'bg-theme-interactive-primary text-white' : 'bg-theme-surface text-theme-secondary hover:text-theme-primary'
+            )}
+            title="List view"
+          >
+            <List size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Stats bar */}
@@ -178,110 +205,170 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
       )}
 
       {/* Cards grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-        {cards.map((card) => {
-          const VisibilityIcon = visibilityIcons[card.visibility] || Lock;
-          const status = statusConfig[card.status] || statusConfig.draft;
+      {listViewMode === 'grid' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {cards.map((card) => {
+            const VisibilityIcon = visibilityIcons[card.visibility] || Lock;
+            const status = statusConfig[card.status] || statusConfig.draft;
 
-          return (
-            <Card
-              key={card.id}
-              className="group hover:border-theme-primary/50 transition-colors cursor-pointer"
-              onClick={() => onSelectCard?.(card)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-theme-info/10 rounded-lg flex items-center justify-center">
-                      <Bot className="h-5 w-5 text-theme-info" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-theme-primary group-hover:text-theme-info transition-colors">
-                        {card.name}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs text-theme-muted">
-                        <VisibilityIcon className="h-3 w-3" />
-                        <span className="capitalize">{card.visibility}</span>
-                        {card.protocol_version && (
-                          <>
-                            <span>•</span>
-                            <span>v{card.protocol_version}</span>
-                          </>
-                        )}
+            return (
+              <Card
+                key={card.id}
+                className="group hover:border-theme-primary/50 transition-colors cursor-pointer"
+                onClick={() => onSelectCard?.(card)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-theme-info/10 rounded-lg flex items-center justify-center">
+                        <Bot className="h-5 w-5 text-theme-info" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-theme-primary group-hover:text-theme-info transition-colors">
+                          {card.name}
+                        </h3>
+                        <div className="flex items-center gap-2 text-xs text-theme-muted">
+                          <VisibilityIcon className="h-3 w-3" />
+                          <span className="capitalize">{card.visibility}</span>
+                          {card.protocol_version && (
+                            <>
+                              <span>•</span>
+                              <span>v{card.protocol_version}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <Badge variant={status.variant} size="sm">
+                      {status.label}
+                    </Badge>
                   </div>
-                  <Badge variant={status.variant} size="sm">
-                    {status.label}
-                  </Badge>
-                </div>
 
-                {card.description && (
-                  <p className="text-sm text-theme-secondary mb-3 line-clamp-2">
-                    {card.description}
-                  </p>
-                )}
+                  {card.description && (
+                    <p className="text-sm text-theme-secondary mb-3 line-clamp-2">
+                      {card.description}
+                    </p>
+                  )}
 
-                {/* Capabilities */}
-                {card.capabilities?.skills && card.capabilities.skills.length > 0 && (
-                  <div className="mb-3">
-                    <CapabilityList skills={card.capabilities.skills} maxVisible={3} />
-                  </div>
-                )}
-
-                {/* Metrics */}
-                <div className="flex items-center gap-4 text-xs text-theme-muted border-t border-theme pt-3 mt-3">
-                  <div className="flex items-center gap-1">
-                    <CheckCircle className="h-3 w-3" />
-                    <span>{card.task_count || 0} tasks</span>
-                  </div>
-                  {card.task_count > 0 && (
-                    <div className="flex items-center gap-1">
-                      <span>{Math.round((card.success_count / card.task_count) * 100)}% success</span>
+                  {/* Capabilities */}
+                  {card.capabilities?.skills && card.capabilities.skills.length > 0 && (
+                    <div className="mb-3">
+                      <CapabilityList skills={card.capabilities.skills} maxVisible={3} />
                     </div>
                   )}
-                  <div className="flex items-center gap-1 ml-auto">
-                    <Clock className="h-3 w-3" />
-                    <span>{formatDate(card.updated_at)}</span>
-                  </div>
-                </div>
 
-                {/* External link */}
-                {card.endpoint_url && (
-                  <div className="flex items-center gap-1 text-xs text-theme-info mt-2">
-                    <ExternalLink className="h-3 w-3" />
-                    <span className="truncate">{card.endpoint_url}</span>
+                  {/* Metrics */}
+                  <div className="flex items-center gap-4 text-xs text-theme-muted border-t border-theme pt-3 mt-3">
+                    <div className="flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      <span>{card.task_count || 0} tasks</span>
+                    </div>
+                    {card.task_count > 0 && (
+                      <div className="flex items-center gap-1">
+                        <span>{Math.round((card.success_count / card.task_count) * 100)}% success</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1 ml-auto">
+                      <Clock className="h-3 w-3" />
+                      <span>{formatDate(card.updated_at)}</span>
+                    </div>
                   </div>
-                )}
 
-                {/* Actions */}
-                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-theme opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditCard?.(card);
-                    }}
+                  {/* External link */}
+                  {card.endpoint_url && (
+                    <div className="flex items-center gap-1 text-xs text-theme-info mt-2">
+                      <ExternalLink className="h-3 w-3" />
+                      <span className="truncate">{card.endpoint_url}</span>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-theme opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditCard?.(card);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectCard?.(card);
+                      }}
+                    >
+                      View Details
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-theme-surface border border-theme rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-theme bg-theme-background">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-theme-secondary uppercase tracking-wide">Name</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-theme-secondary uppercase tracking-wide">Visibility</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-theme-secondary uppercase tracking-wide">Status</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-theme-secondary uppercase tracking-wide">Tasks</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-theme-secondary uppercase tracking-wide">Success</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-theme-secondary uppercase tracking-wide">Updated</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-theme">
+              {cards.map((card) => {
+                const VisibilityIcon = visibilityIcons[card.visibility] || Lock;
+                const status = statusConfig[card.status] || statusConfig.draft;
+
+                return (
+                  <tr
+                    key={card.id}
+                    className="hover:bg-theme-background/50 transition-colors cursor-pointer"
+                    onClick={() => onSelectCard?.(card)}
                   >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectCard?.(card);
-                    }}
-                  >
-                    View Details
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                    <td className="px-4 py-3">
+                      <div>
+                        <span className="text-sm font-medium text-theme-primary">{card.name}</span>
+                        {card.description && (
+                          <p className="text-xs text-theme-secondary line-clamp-1 mt-0.5">{card.description}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 text-sm text-theme-primary">
+                        <VisibilityIcon className="h-3.5 w-3.5 text-theme-secondary" />
+                        <span className="capitalize">{card.visibility}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-sm text-theme-primary">{card.task_count || 0}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-sm text-theme-primary">
+                        {card.task_count > 0 ? `${Math.round((card.success_count / card.task_count) * 100)}%` : '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-xs text-theme-secondary">{formatDate(card.updated_at)}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };

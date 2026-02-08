@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Brain, Database } from 'lucide-react';
+import { ArrowLeft, Brain, Database } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { MemoryViewer } from '@/features/ai/context/components/MemoryViewer';
 import { EntryEditor } from '@/features/ai/context/components/EntryEditor';
@@ -8,6 +8,7 @@ import { contextApi } from '@/features/ai/context/services/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { memoryApiService } from '@/shared/services/ai/MemoryApiService';
+import { agentsApi } from '@/shared/services/ai';
 import type { AiContextEntry, AiAgentSummary, AiPersistentContextSummary } from '@/features/ai/context/types';
 
 interface MemoryPool {
@@ -21,14 +22,16 @@ interface MemoryPool {
 function MemoryPoolsTab() {
   const [pools, setPools] = useState<MemoryPool[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
+        setError(null);
         const result = await memoryApiService.getMemoryPools();
         setPools((result.items || []) as unknown as MemoryPool[]);
-      } catch {
-        // Silently handle
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load memory pools');
       } finally {
         setLoading(false);
       }
@@ -40,6 +43,14 @@ function MemoryPoolsTab() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-theme-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-theme-error/30 bg-theme-error/5 p-4">
+        <p className="text-sm text-theme-error">{error}</p>
       </div>
     );
   }
@@ -111,12 +122,33 @@ export function AgentMemoryPage() {
   const loadAgentMemory = async () => {
     if (!agentId) return;
     setIsLoading(true);
-    const response = await contextApi.getAgentMemory(agentId);
-    if (response.success && response.data) {
-      setAgent(response.data.agent);
-      setContext(response.data.context);
-    } else {
-      showNotification(response.error || 'Failed to load agent memory', 'error');
+    try {
+      const [agentData, memoryResponse] = await Promise.all([
+        agentsApi.getAgent(agentId),
+        contextApi.getAgentMemory(agentId),
+      ]);
+
+      setAgent({ id: agentData.id, name: agentData.name, agent_type: agentData.agent_type });
+
+      if (memoryResponse.success && memoryResponse.data) {
+        // Backend returns { memory, entries } — map memory to context summary
+        const mem = memoryResponse.data as Record<string, unknown>;
+        const memorySummary = mem.memory as Record<string, unknown> | null;
+        if (memorySummary) {
+          setContext({
+            id: String(memorySummary.id || ''),
+            name: String(memorySummary.name || ''),
+            context_type: (memorySummary.context_type as AiPersistentContextSummary['context_type']) || 'agent_memory',
+            scope: (memorySummary.scope as AiPersistentContextSummary['scope']) || 'agent',
+            entry_count: (memorySummary.entry_count as number) || 0,
+            data_size_bytes: (memorySummary.data_size_bytes as number) || 0,
+            is_archived: false,
+            last_accessed_at: memorySummary.last_accessed_at as string | undefined,
+          });
+        }
+      }
+    } catch {
+      showNotification('Failed to load agent memory', 'error');
     }
     setIsLoading(false);
   };
@@ -226,6 +258,12 @@ export function AgentMemoryPage() {
       breadcrumbs={breadcrumbs}
       actions={[
         {
+          label: 'Back to Agent',
+          onClick: () => navigate(`/app/ai/agents/${agentId}`),
+          variant: 'secondary' as const,
+          icon: ArrowLeft,
+        },
+        {
           label: 'Clear All',
           onClick: handleClearMemory,
           variant: 'danger',
@@ -278,7 +316,7 @@ export function AgentMemoryPage() {
           <div className="bg-theme-surface border border-theme rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="text-2xl">🧠</div>
+                <Brain className="h-6 w-6 text-theme-primary" />
                 <div>
                   <h3 className="font-medium text-theme-primary">{context.name}</h3>
                   <p className="text-sm text-theme-secondary">

@@ -11,7 +11,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { agentsApi, providersApi } from '@/shared/services/ai';
 import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import type { AiAgent, AiProvider } from '@/shared/types/ai';
-import type { AiAgentSkill } from '@/shared/services/ai/types/agent-api-types';
+import type { AiAgentSkill, AgentStats } from '@/shared/services/ai/types/agent-api-types';
 
 interface SkillOption {
   id: string;
@@ -59,7 +59,7 @@ export const EditAgentModal: React.FC<EditAgentModalProps> = ({
   const [providers, setProviders] = useState<AiProvider[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(null);
   const [loadingProviders, setLoadingProviders] = useState(false);
-  const [agentStats, setAgentStats] = useState<any>(null);
+  const [agentStats, setAgentStats] = useState<AgentStats | null>(null);
   const [, setLoadingStats] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);

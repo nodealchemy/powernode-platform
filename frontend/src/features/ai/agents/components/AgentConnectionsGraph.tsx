@@ -189,8 +189,8 @@ export const AgentConnectionsGraph: React.FC<AgentConnectionsGraphProps> = ({ ag
         label: edge.label,
         type: 'default',
         animated: edge.relationship === 'a2a_communication',
-        markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: 'var(--color-border)' },
+        markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-text-tertiary)' },
+        style: { stroke: 'var(--color-text-tertiary)', strokeWidth: 1.5 },
         labelStyle: { fontSize: 10, fill: 'var(--color-text-tertiary)' },
       }));
 
@@ -306,13 +306,14 @@ export const AgentConnectionsGraph: React.FC<AgentConnectionsGraphProps> = ({ ag
             <Controls className="connections-controls" />
             <MiniMap
               nodeColor={(node) => {
+                const style = getComputedStyle(document.documentElement);
                 switch (node.type) {
-                  case 'agent': return '#3b82f6';
-                  case 'peer_agent': return '#6b7280';
-                  case 'team': return '#a855f7';
-                  case 'mcp_server': return '#f97316';
-                  case 'memory_pool': return '#14b8a6';
-                  default: return '#6b7280';
+                  case 'agent': return style.getPropertyValue('--color-info').trim() || '#3b82f6';
+                  case 'peer_agent': return style.getPropertyValue('--color-text-secondary').trim() || '#6b7280';
+                  case 'team': return style.getPropertyValue('--color-interactive-primary').trim() || '#a855f7';
+                  case 'mcp_server': return style.getPropertyValue('--color-warning').trim() || '#f97316';
+                  case 'memory_pool': return style.getPropertyValue('--color-success').trim() || '#14b8a6';
+                  default: return style.getPropertyValue('--color-text-secondary').trim() || '#6b7280';
                 }
               }}
               maskColor="rgba(0,0,0,0.1)"

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Bot, Brain } from 'lucide-react';
 import { contextApi } from '../services/contextApi';
 import type { AiContextEntrySummary, AiContextEntry, EntryType, AiAgentSummary } from '../types';
 
@@ -12,6 +13,7 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
   const [memories, setMemories] = useState<AiContextEntrySummary[]>([]);
   const [agent, setAgent] = useState<AiAgentSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<EntryType | ''>('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedEntry, setExpandedEntry] = useState<AiContextEntry | null>(null);
@@ -23,15 +25,28 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
 
   const loadMemories = async () => {
     setIsLoading(true);
-    const response = await contextApi.getAgentMemory(agentId, 1, 100, {
-      entry_type: selectedType || undefined,
-    });
-    if (response.success && response.data) {
-      setMemories(response.data.memories);
-      setAgent(response.data.agent);
-      setContextId(response.data.context.id);
+    setError(null);
+    try {
+      const response = await contextApi.getAgentMemory(agentId, 1, 100, {
+        entry_type: selectedType || undefined,
+      });
+      if (response.success && response.data) {
+        const data = response.data as Record<string, unknown>;
+        // Backend returns { memory, entries } — map to expected shape
+        setMemories((data.memories || data.entries || []) as AiContextEntrySummary[]);
+        if (data.agent) {
+          setAgent(data.agent as AiAgentSummary);
+        }
+        const ctx = (data.context || data.memory) as Record<string, unknown> | undefined;
+        if (ctx?.id) {
+          setContextId(String(ctx.id));
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load memories');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleExpand = async (entry: AiContextEntrySummary) => {
@@ -82,6 +97,20 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
     );
   }
 
+  if (error) {
+    return (
+      <div className="rounded-lg border border-theme-error/30 bg-theme-error/5 p-4">
+        <p className="text-sm text-theme-error">{error}</p>
+        <button
+          onClick={loadMemories}
+          className="mt-2 text-sm text-theme-primary hover:underline"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -90,7 +119,7 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
           {agent && (
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-theme-surface-selected flex items-center justify-center">
-                <span className="text-xl">🤖</span>
+                <Bot className="h-5 w-5 text-theme-primary" />
               </div>
               <div>
                 <h3 className="font-medium text-theme-primary">{agent.name}</h3>
@@ -127,7 +156,7 @@ export function MemoryViewer({ agentId, onEntrySelect, onAddEntry }: MemoryViewe
       {/* Memory List */}
       {memories.length === 0 ? (
         <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
-          <div className="text-4xl mb-4">🧠</div>
+          <Brain className="h-12 w-12 text-theme-secondary mb-4 mx-auto" />
           <h3 className="text-lg font-medium text-theme-primary">No memories yet</h3>
           <p className="text-theme-secondary mt-1">
             This agent hasn't stored any memories

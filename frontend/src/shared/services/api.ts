@@ -95,6 +95,10 @@ class APIClient {
     this.setupInterceptors();
   }
 
+  getBaseURL(): string {
+    return this.client.defaults.baseURL || '/api/v1';
+  }
+
   private setupInterceptors() {
     // Request interceptor to add auth token
     this.client.interceptors.request.use(

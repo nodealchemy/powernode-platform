@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Bot, MessageSquare, Brain } from 'lucide-react';
+import { Bot, MessageSquare, Brain, ArrowLeft } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -57,6 +57,13 @@ export const AgentDetailPage: React.FC = () => {
   const statusVariant = agent.status === 'active' ? 'success' : agent.status === 'error' ? 'danger' : 'secondary';
 
   const pageActions = [
+    {
+      id: 'back',
+      label: 'Back to Agents',
+      onClick: () => navigate('/app/ai/agents/list'),
+      variant: 'secondary' as const,
+      icon: ArrowLeft,
+    },
     {
       id: 'chat',
       label: 'Chat',
