@@ -48,7 +48,8 @@ export function formatCurrency(
  * @example
  * formatDate('2024-01-15') // 'Jan 15, 2024'
  */
-export function formatDate(dateString: string | Date): string {
+export function formatDate(dateString: string | Date | null | undefined): string {
+  if (!dateString) return '—';
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
 
   return date.toLocaleDateString('en-US', {
@@ -64,7 +65,8 @@ export function formatDate(dateString: string | Date): string {
  * @param dateString - ISO date string
  * @returns Formatted datetime (e.g., 'Jan 15, 2024, 2:30 PM')
  */
-export function formatDateTime(dateString: string | Date): string {
+export function formatDateTime(dateString: string | Date | null | undefined): string {
+  if (!dateString) return '—';
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
 
   return date.toLocaleDateString('en-US', {
