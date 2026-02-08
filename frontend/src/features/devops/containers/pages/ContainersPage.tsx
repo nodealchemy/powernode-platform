@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box,
   FileCode,
@@ -6,7 +7,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { ContainerList } from '../components/ContainerList';
 import { TemplateList } from '../components/TemplateList';
@@ -20,11 +21,17 @@ interface ContainersPageProps {
   onViewContainerLogs?: (container: ContainerInstanceSummary) => void;
 }
 
+const tabs = [
+  { id: 'executions', label: 'Executions', icon: <Box className="w-4 h-4" />, path: '/' },
+  { id: 'templates', label: 'Templates', icon: <FileCode className="w-4 h-4" />, path: '/templates' },
+  { id: 'quotas', label: 'Quotas', icon: <Gauge className="w-4 h-4" />, path: '/quotas' },
+];
+
 export const ContainersPage: React.FC<ContainersPageProps> = ({
   onSelectContainer,
   onViewContainerLogs,
 }) => {
-  const [activeTab, setActiveTab] = useState('executions');
+  const location = useLocation();
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Modal states
@@ -32,6 +39,20 @@ export const ContainersPage: React.FC<ContainersPageProps> = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showExecuteModal, setShowExecuteModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ContainerTemplateSummary | null>(null);
+
+  const getActiveTab = () => {
+    const path = location.pathname;
+    if (path.includes('/templates')) return 'templates';
+    if (path.includes('/quotas')) return 'quotas';
+    return 'executions';
+  };
+
+  const [activeTab, setActiveTab] = useState(getActiveTab());
+
+  useEffect(() => {
+    const newTab = getActiveTab();
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshKey((k) => k + 1);
@@ -58,11 +79,18 @@ export const ContainersPage: React.FC<ContainersPageProps> = ({
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Container Execution' },
-  ];
+  const getBreadcrumbs = () => {
+    const base: Array<{ label: string; href?: string }> = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'DevOps', href: '/app/devops' },
+      { label: 'Container Execution' },
+    ];
+    const activeTabInfo = tabs.find(t => t.id === activeTab);
+    if (activeTabInfo && activeTab !== 'executions') {
+      base.push({ label: activeTabInfo.label });
+    }
+    return base;
+  };
 
   const createTemplateAction = {
     label: 'Create Template',
@@ -75,49 +103,41 @@ export const ContainersPage: React.FC<ContainersPageProps> = ({
     <PageContainer
       title="Container Execution"
       description="Sandboxed container execution for AI agents"
-      breadcrumbs={breadcrumbs}
+      breadcrumbs={getBreadcrumbs()}
       actions={[createTemplateAction, refreshAction]}
     >
       {/* Quota Display */}
       <QuotaDisplay key={`quota-compact-${refreshKey}`} compact />
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="executions" className="flex items-center gap-2">
-            <Box className="w-4 h-4" />
-            Executions
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="flex items-center gap-2">
-            <FileCode className="w-4 h-4" />
-            Templates
-          </TabsTrigger>
-          <TabsTrigger value="quotas" className="flex items-center gap-2">
-            <Gauge className="w-4 h-4" />
-            Quotas
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="executions" className="mt-4">
+      <TabContainer
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        basePath="/app/devops/containers"
+        variant="underline"
+        className="mb-6"
+      >
+        <TabPanel tabId="executions" activeTab={activeTab}>
           <ContainerList
             key={`containers-${refreshKey}`}
             onSelectContainer={onSelectContainer}
             onViewLogs={onViewContainerLogs}
           />
-        </TabsContent>
+        </TabPanel>
 
-        <TabsContent value="templates" className="mt-4">
+        <TabPanel tabId="templates" activeTab={activeTab}>
           <TemplateList
             key={`templates-${refreshKey}`}
             onSelectTemplate={handleSelectTemplate}
             onExecuteTemplate={handleExecuteTemplate}
           />
-        </TabsContent>
+        </TabPanel>
 
-        <TabsContent value="quotas" className="mt-4">
+        <TabPanel tabId="quotas" activeTab={activeTab}>
           <QuotaDisplay key={`quota-full-${refreshKey}`} />
-        </TabsContent>
-      </Tabs>
+        </TabPanel>
+      </TabContainer>
 
       {/* Modals */}
       <TemplateFormModal

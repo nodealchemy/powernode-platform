@@ -36,12 +36,12 @@ export const formatLastUpdate = (date: Date | null): string => {
  * Tab definitions for AI Monitoring
  */
 export const MONITORING_TABS = [
-  { id: 'overview', label: 'System Health', icon: '🏥' },
-  { id: 'providers', label: 'Providers', icon: '🔌' },
-  { id: 'agents', label: 'Agents', icon: '🤖' },
-  { id: 'workflows', label: 'Workflows', icon: '⚡' },
-  { id: 'conversations', label: 'Conversations', icon: '💬' },
-  { id: 'alerts', label: 'Alerts', icon: '🔔' }
+  { id: 'overview', label: 'System Health', icon: '🏥', path: '/' },
+  { id: 'providers', label: 'Providers', icon: '🔌', path: '/providers' },
+  { id: 'agents', label: 'Agents', icon: '🤖', path: '/agents' },
+  { id: 'workflows', label: 'Workflows', icon: '⚡', path: '/workflows' },
+  { id: 'conversations', label: 'Conversations', icon: '💬', path: '/conversations' },
+  { id: 'alerts', label: 'Alerts', icon: '🔔', path: '/alerts' }
 ] as const;
 
 export type MonitoringTabId = typeof MONITORING_TABS[number]['id'];

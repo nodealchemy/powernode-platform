@@ -1,20 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Bot, MessageSquare, Brain } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { agentsApi } from '@/shared/services/ai';
 import { AgentConnectionsGraph } from '@/features/ai/agents/components/AgentConnectionsGraph';
 import type { AiAgent } from '@/shared/types/ai';
 
+const tabs = [
+  { id: 'overview', label: 'Overview', path: '/' },
+  { id: 'connections', label: 'Connections', path: '/connections' },
+];
+
 export const AgentDetailPage: React.FC = () => {
   const { agentId } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [agent, setAgent] = useState<AiAgent | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const getActiveTab = () => {
+    if (location.pathname.includes('/connections')) return 'connections';
+    return 'overview';
+  };
+
+  const [activeTab, setActiveTab] = useState(getActiveTab());
+
+  useEffect(() => {
+    const newTab = getActiveTab();
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!agentId) return;
@@ -55,26 +73,37 @@ export const AgentDetailPage: React.FC = () => {
     },
   ];
 
+  const getBreadcrumbs = () => {
+    const base: Array<{ label: string; href?: string }> = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'AI', href: '/app/ai' },
+      { label: 'Agents', href: '/app/ai/agents' },
+      { label: agent.name },
+    ];
+    const activeTabInfo = tabs.find(t => t.id === activeTab);
+    if (activeTabInfo && activeTab !== 'overview') {
+      base.push({ label: activeTabInfo.label });
+    }
+    return base;
+  };
+
   return (
     <PageContainer
       title={agent.name}
       description={agent.description || 'AI Agent'}
-      breadcrumbs={[
-        { label: 'Dashboard', href: '/app' },
-        { label: 'AI', href: '/app/ai' },
-        { label: 'Agents', href: '/app/ai/agents' },
-        { label: agent.name },
-      ]}
+      breadcrumbs={getBreadcrumbs()}
       actions={pageActions}
     >
-      <Tabs defaultValue="overview">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="connections">Connections</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview">
-          <Card className="p-6 mt-4">
+      <TabContainer
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        basePath={`/app/ai/agents/${agentId}`}
+        variant="underline"
+        className="mb-6"
+      >
+        <TabPanel tabId="overview" activeTab={activeTab}>
+          <Card className="p-6">
             <div className="flex items-start gap-4 mb-6">
               <div className="h-12 w-12 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
                 <Bot className="h-6 w-6 text-theme-info" />
@@ -128,14 +157,12 @@ export const AgentDetailPage: React.FC = () => {
               </div>
             </div>
           </Card>
-        </TabsContent>
+        </TabPanel>
 
-        <TabsContent value="connections">
-          <div className="mt-4">
-            {agentId && <AgentConnectionsGraph agentId={agentId} />}
-          </div>
-        </TabsContent>
-      </Tabs>
+        <TabPanel tabId="connections" activeTab={activeTab}>
+          {agentId && <AgentConnectionsGraph agentId={agentId} />}
+        </TabPanel>
+      </TabContainer>
     </PageContainer>
   );
 };

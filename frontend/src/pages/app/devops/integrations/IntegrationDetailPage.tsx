@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { IntegrationStatusBadge } from '@/features/devops/integrations/components/IntegrationStatusBadge';
 import { ExecutionHistoryTable } from '@/features/devops/integrations/components/ExecutionHistoryTable';
 import { integrationsApi } from '@/features/devops/integrations/services/integrationsApi';
@@ -11,9 +12,16 @@ import type {
   ExecutionStatsResponse,
 } from '@/features/devops/integrations/types';
 
+const tabs = [
+  { id: 'overview', label: 'Overview', path: '/' },
+  { id: 'executions', label: 'Executions', path: '/executions' },
+  { id: 'config', label: 'Config', path: '/config' },
+];
+
 export function IntegrationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { showNotification } = useNotifications();
 
   const [instance, setInstance] = useState<IntegrationInstance | null>(null);
@@ -21,7 +29,20 @@ export function IntegrationDetailPage() {
   const [stats, setStats] = useState<ExecutionStatsResponse['data'] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'executions' | 'config'>('overview');
+
+  const getActiveTab = () => {
+    const path = location.pathname;
+    if (path.includes('/executions')) return 'executions';
+    if (path.includes('/config')) return 'config';
+    return 'overview';
+  };
+
+  const [activeTab, setActiveTab] = useState(getActiveTab());
+
+  useEffect(() => {
+    const newTab = getActiveTab();
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (id) {
@@ -177,11 +198,23 @@ export function IntegrationDetailPage() {
   const template = instance.integration_template;
   const successRate = integrationsApi.getSuccessRate(instance);
 
+  const getBreadcrumbs = () => {
+    const base: Array<{ label: string; href?: string }> = [
+      ...baseBreadcrumbs,
+      { label: instance.name },
+    ];
+    const activeTabInfo = tabs.find(t => t.id === activeTab);
+    if (activeTabInfo && activeTab !== 'overview') {
+      base.push({ label: activeTabInfo.label });
+    }
+    return base;
+  };
+
   return (
     <PageContainer
       title={instance.name}
       description={template?.name || 'Integration'}
-      breadcrumbs={[...baseBreadcrumbs, { label: instance.name }]}
+      breadcrumbs={getBreadcrumbs()}
       actions={[
         {
           label: instance.status === 'active' ? 'Pause' : 'Activate',
@@ -250,145 +283,133 @@ export function IntegrationDetailPage() {
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-theme">
-          <nav className="flex gap-6">
-            {(['overview', 'executions', 'config'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab
-                    ? 'border-theme-primary text-theme-primary'
-                    : 'border-transparent text-theme-secondary hover:text-theme-primary'
-                }`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Health Status */}
-            {instance.health_metrics && (
-              <div className="bg-theme-surface border border-theme rounded-lg p-4">
-                <h3 className="text-sm font-medium text-theme-primary mb-3">Health Status</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-xs text-theme-tertiary">Status</p>
-                    <p
-                      className={`text-sm font-medium ${
-                        instance.health_metrics.health_status === 'healthy'
-                          ? 'text-theme-success'
-                          : instance.health_metrics.health_status === 'degraded'
-                            ? 'text-theme-warning'
-                            : 'text-theme-error'
-                      }`}
-                    >
-                      {instance.health_metrics.health_status || 'Unknown'}
-                    </p>
+        <TabContainer
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          basePath={`/app/devops/integrations/${id}`}
+          variant="underline"
+          className="mb-6"
+        >
+          <TabPanel tabId="overview" activeTab={activeTab}>
+            <div className="space-y-6">
+              {/* Health Status */}
+              {instance.health_metrics && (
+                <div className="bg-theme-surface border border-theme rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-theme-primary mb-3">Health Status</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-xs text-theme-tertiary">Status</p>
+                      <p
+                        className={`text-sm font-medium ${
+                          instance.health_metrics.health_status === 'healthy'
+                            ? 'text-theme-success'
+                            : instance.health_metrics.health_status === 'degraded'
+                              ? 'text-theme-warning'
+                              : 'text-theme-error'
+                        }`}
+                      >
+                        {instance.health_metrics.health_status || 'Unknown'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-theme-tertiary">Response Time</p>
+                      <p className="text-sm font-medium text-theme-primary">
+                        {instance.health_metrics.response_time_ms
+                          ? `${instance.health_metrics.response_time_ms}ms`
+                          : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-theme-tertiary">Consecutive Failures</p>
+                      <p className="text-sm font-medium text-theme-primary">
+                        {instance.health_metrics.consecutive_failures || 0}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-theme-tertiary">Last Check</p>
+                      <p className="text-sm font-medium text-theme-primary">
+                        {instance.health_metrics.last_health_check
+                          ? new Date(instance.health_metrics.last_health_check).toLocaleString()
+                          : '-'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-theme-tertiary">Response Time</p>
-                    <p className="text-sm font-medium text-theme-primary">
-                      {instance.health_metrics.response_time_ms
-                        ? `${instance.health_metrics.response_time_ms}ms`
-                        : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-theme-tertiary">Consecutive Failures</p>
-                    <p className="text-sm font-medium text-theme-primary">
-                      {instance.health_metrics.consecutive_failures || 0}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-theme-tertiary">Last Check</p>
-                    <p className="text-sm font-medium text-theme-primary">
-                      {instance.health_metrics.last_health_check
-                        ? new Date(instance.health_metrics.last_health_check).toLocaleString()
-                        : '-'}
-                    </p>
-                  </div>
+                  {instance.health_metrics.last_error && (
+                    <div className="mt-4 p-3 bg-theme-error bg-opacity-10 rounded-lg">
+                      <p className="text-sm text-theme-error">{instance.health_metrics.last_error}</p>
+                    </div>
+                  )}
                 </div>
-                {instance.health_metrics.last_error && (
-                  <div className="mt-4 p-3 bg-theme-error bg-opacity-10 rounded-lg">
-                    <p className="text-sm text-theme-error">{instance.health_metrics.last_error}</p>
-                  </div>
-                )}
+              )}
+
+              {/* Recent Executions */}
+              <div>
+                <h3 className="text-sm font-medium text-theme-primary mb-3">Recent Executions</h3>
+                <ExecutionHistoryTable
+                  executions={executions.slice(0, 5)}
+                  onRetry={handleRetryExecution}
+                  onCancel={handleCancelExecution}
+                />
               </div>
-            )}
-
-            {/* Recent Executions */}
-            <div>
-              <h3 className="text-sm font-medium text-theme-primary mb-3">Recent Executions</h3>
-              <ExecutionHistoryTable
-                executions={executions.slice(0, 5)}
-                onRetry={handleRetryExecution}
-                onCancel={handleCancelExecution}
-              />
             </div>
-          </div>
-        )}
+          </TabPanel>
 
-        {activeTab === 'executions' && (
-          <div>
+          <TabPanel tabId="executions" activeTab={activeTab}>
             <ExecutionHistoryTable
               executions={executions}
               onRetry={handleRetryExecution}
               onCancel={handleCancelExecution}
             />
-          </div>
-        )}
+          </TabPanel>
 
-        {activeTab === 'config' && (
-          <div className="space-y-6">
-            {/* Configuration */}
-            <div className="bg-theme-surface border border-theme rounded-lg p-4">
-              <h3 className="text-sm font-medium text-theme-primary mb-3">Configuration</h3>
-              {Object.keys(instance.configuration).length > 0 ? (
-                <pre className="text-sm text-theme-secondary bg-theme-surface p-4 rounded-lg overflow-x-auto">
-                  {JSON.stringify(instance.configuration, null, 2)}
-                </pre>
-              ) : (
-                <p className="text-sm text-theme-tertiary">No custom configuration</p>
-              )}
-            </div>
-
-            {/* Credential */}
-            {instance.integration_credential && (
+          <TabPanel tabId="config" activeTab={activeTab}>
+            <div className="space-y-6">
+              {/* Configuration */}
               <div className="bg-theme-surface border border-theme rounded-lg p-4">
-                <h3 className="text-sm font-medium text-theme-primary mb-3">Credential</h3>
-                <div className="flex items-center gap-3">
-                  <div>
-                    <p className="text-sm text-theme-primary">
-                      {instance.integration_credential.name}
-                    </p>
-                    <p className="text-xs text-theme-tertiary">
-                      {instance.integration_credential.credential_type}
-                    </p>
+                <h3 className="text-sm font-medium text-theme-primary mb-3">Configuration</h3>
+                {Object.keys(instance.configuration).length > 0 ? (
+                  <pre className="text-sm text-theme-secondary bg-theme-surface p-4 rounded-lg overflow-x-auto">
+                    {JSON.stringify(instance.configuration, null, 2)}
+                  </pre>
+                ) : (
+                  <p className="text-sm text-theme-tertiary">No custom configuration</p>
+                )}
+              </div>
+
+              {/* Credential */}
+              {instance.integration_credential && (
+                <div className="bg-theme-surface border border-theme rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-theme-primary mb-3">Credential</h3>
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <p className="text-sm text-theme-primary">
+                        {instance.integration_credential.name}
+                      </p>
+                      <p className="text-xs text-theme-tertiary">
+                        {instance.integration_credential.credential_type}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Danger Zone */}
-            <div className="bg-theme-surface border border-theme-error rounded-lg p-4">
-              <h3 className="text-sm font-medium text-theme-error mb-3">Danger Zone</h3>
-              <p className="text-sm text-theme-secondary mb-4">
-                Deleting this integration will remove all associated data and execution history.
-              </p>
-              <button
-                onClick={handleDelete}
-                className="btn-theme btn-theme-danger"
-              >
-                Delete Integration
-              </button>
+              {/* Danger Zone */}
+              <div className="bg-theme-surface border border-theme-error rounded-lg p-4">
+                <h3 className="text-sm font-medium text-theme-error mb-3">Danger Zone</h3>
+                <p className="text-sm text-theme-secondary mb-4">
+                  Deleting this integration will remove all associated data and execution history.
+                </p>
+                <button
+                  onClick={handleDelete}
+                  className="btn-theme btn-theme-danger"
+                >
+                  Delete Integration
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          </TabPanel>
+        </TabContainer>
       </div>
     </PageContainer>
   );

@@ -600,7 +600,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/workflows" element={<WorkflowsPage />} />
         <Route path="/ai/conversations" element={<AIConversationsPage />} />
         <Route path="/ai/analytics" element={<WorkflowAnalyticsPage />} />
-        <Route path="/ai/monitoring/:tab?" element={<AIMonitoringPage />} />
+        <Route path="/ai/monitoring/*" element={<AIMonitoringPage />} />
         <Route path="/ai/mcp" element={<McpBrowserPage />} />
 
         {/* AI Sub-pages (detail/utility routes) */}
@@ -611,8 +611,8 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/workflows/:id" element={<WorkflowDetailPage />} />
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
-        <Route path="/ai/agents/:agentId" element={<AgentDetailPage />} />
-        <Route path="/ai/agent-teams" element={<AgentTeamsPage />} />
+        <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
+        <Route path="/ai/agent-teams/*" element={<AgentTeamsPage />} />
         <Route path="/ai/contexts" element={<ContextsPage />} />
         <Route path="/ai/knowledge" element={<Navigate to="/app/ai/contexts" replace />} />
         <Route path="/ai/contexts/:id" element={<ContextDetailPage />} />
@@ -683,21 +683,21 @@ const DashboardPage: React.FC = () => {
         <Route path="/devops/integrations" element={<IntegrationsPage />} />
         <Route path="/devops/integrations/new" element={<NewIntegrationPage />} />
         <Route path="/devops/integrations/new/:templateId" element={<NewIntegrationPage />} />
-        <Route path="/devops/integrations/:id" element={<IntegrationDetailPage />} />
+        <Route path="/devops/integrations/:id/*" element={<IntegrationDetailPage />} />
         <Route path="/devops/api-keys" element={<ApiKeysPage />} />
-        <Route path="/devops/containers" element={<ContainersPage />} />
+        <Route path="/devops/containers/*" element={<ContainersPage />} />
 
         {/* Docker Swarm Routes - wrapped with ClusterProvider, named routes before param routes */}
         <Route path="/devops/swarm" element={<ClusterProvider><SwarmClustersPage /></ClusterProvider>} />
         <Route path="/devops/swarm/services" element={<ClusterProvider><SwarmServicesPage /></ClusterProvider>} />
         <Route path="/devops/swarm/stacks" element={<ClusterProvider><SwarmStacksPage /></ClusterProvider>} />
         <Route path="/devops/swarm/networks" element={<ClusterProvider><SwarmNetworksPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/secrets" element={<ClusterProvider><SwarmSecretsPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/secrets/*" element={<ClusterProvider><SwarmSecretsPage /></ClusterProvider>} />
         <Route path="/devops/swarm/deployments" element={<ClusterProvider><SwarmDeploymentsPage /></ClusterProvider>} />
         <Route path="/devops/swarm/health" element={<ClusterProvider><SwarmHealthPage /></ClusterProvider>} />
         <Route path="/devops/swarm/:clusterId" element={<ClusterProvider><ClusterDashboardPage /></ClusterProvider>} />
         <Route path="/devops/swarm/:clusterId/nodes" element={<ClusterProvider><SwarmNodesPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/:clusterId/services/:serviceId" element={<ClusterProvider><SwarmServiceDetailPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/:clusterId/services/:serviceId/*" element={<ClusterProvider><SwarmServiceDetailPage /></ClusterProvider>} />
 
         {/* Docker Host Routes - wrapped with HostProvider, named routes before param routes */}
         <Route path="/devops/docker" element={<HostProvider><DockerHostsPage /></HostProvider>} />
@@ -708,7 +708,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/devops/docker/activities" element={<HostProvider><DockerActivitiesPage /></HostProvider>} />
         <Route path="/devops/docker/health" element={<HostProvider><DockerHealthPage /></HostProvider>} />
         <Route path="/devops/docker/:hostId" element={<HostProvider><HostDashboardPage /></HostProvider>} />
-        <Route path="/devops/docker/:hostId/containers/:containerId" element={<HostProvider><ContainerDetailPage /></HostProvider>} />
+        <Route path="/devops/docker/:hostId/containers/:containerId/*" element={<HostProvider><ContainerDetailPage /></HostProvider>} />
 
         {/* System Pages - Infrastructure only */}
         <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />

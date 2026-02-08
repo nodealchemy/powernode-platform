@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
   Pause,
@@ -46,8 +46,7 @@ import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 export const AIMonitoringPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
-  const { tab: tabParam } = useParams<{ tab?: string }>();
-  const navigate = useNavigate();
+  const location = useLocation();
 
   // Use ref to avoid infinite loop from addNotification dependency
   const addNotificationRef = useRef(addNotification);
@@ -68,16 +67,22 @@ export const AIMonitoringPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  // Monitoring configuration - read from URL route params
-  const activeTab = VALID_TAB_IDS.includes(tabParam as typeof VALID_TAB_IDS[number]) ? tabParam! : 'overview';
+  // Derive active tab from URL
+  const getActiveTab = useCallback(() => {
+    const path = location.pathname;
+    const basePath = '/app/ai/monitoring';
+    if (path === basePath || path === basePath + '/') return 'overview';
+    const segment = path.replace(basePath + '/', '').split('/')[0];
+    if (VALID_TAB_IDS.includes(segment as typeof VALID_TAB_IDS[number])) return segment;
+    return 'overview';
+  }, [location.pathname]);
 
-  const setActiveTab = useCallback((tab: string) => {
-    if (tab === 'overview') {
-      navigate('/app/ai/monitoring');
-    } else {
-      navigate(`/app/ai/monitoring/${tab}`);
-    }
-  }, [navigate]);
+  const [activeTab, setActiveTab] = useState(getActiveTab());
+
+  useEffect(() => {
+    const newTab = getActiveTab();
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname, getActiveTab]);
 
   const [timeRange, setTimeRange] = useState('1h');
   const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(false);
@@ -486,6 +491,7 @@ export const AIMonitoringPage: React.FC = () => {
           )}
           activeTab={activeTab}
           onTabChange={setActiveTab}
+          basePath="/app/ai/monitoring"
           variant="underline"
           className="mb-6"
         >

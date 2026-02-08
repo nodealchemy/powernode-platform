@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { RefreshCw, ArrowLeft } from 'lucide-react';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { useSwarmService } from '../hooks/useSwarmService';
@@ -10,16 +11,36 @@ import { SwarmLogViewer } from '../components/SwarmLogViewer';
 import { swarmApi } from '../services/swarmApi';
 import type { ServiceLogEntry } from '../types';
 
+const tabs = [
+  { id: 'tasks', label: 'Tasks', path: '/' },
+  { id: 'logs', label: 'Logs', path: '/logs' },
+  { id: 'config', label: 'Config', path: '/config' },
+];
+
 export const SwarmServiceDetailPage: React.FC = () => {
   const { clusterId, serviceId } = useParams<{ clusterId: string; serviceId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { service, tasks, isLoading, error, refetch, refetchTasks } = useSwarmService({
     clusterId: clusterId || '',
     serviceId: serviceId || '',
   });
   const [logs, setLogs] = useState<ServiceLogEntry[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'tasks' | 'logs' | 'config'>('tasks');
+
+  const getActiveTab = () => {
+    const path = location.pathname;
+    if (path.includes('/logs')) return 'logs';
+    if (path.includes('/config')) return 'config';
+    return 'tasks';
+  };
+
+  const [activeTab, setActiveTab] = useState(getActiveTab());
+
+  useEffect(() => {
+    const newTab = getActiveTab();
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
 
   const fetchLogs = useCallback(async () => {
     if (!clusterId || !serviceId) return;
@@ -47,15 +68,23 @@ export const SwarmServiceDetailPage: React.FC = () => {
     { label: 'Refresh', onClick: handleRefresh, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Swarm Services', href: '/app/devops/swarm/services' },
-    { label: service?.service_name || 'Service' },
-  ];
+  const getBreadcrumbs = () => {
+    const base: Array<{ label: string; href?: string }> = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'DevOps', href: '/app/devops' },
+      { label: 'Swarm Services', href: '/app/devops/swarm/services' },
+      { label: service?.service_name || 'Service' },
+    ];
+    const activeTabInfo = tabs.find(t => t.id === activeTab);
+    if (activeTabInfo && activeTab !== 'tasks') {
+      base.push({ label: activeTabInfo.label });
+    }
+    return base;
+  };
 
   if (isLoading) {
     return (
-      <PageContainer title="Service Detail" breadcrumbs={breadcrumbs}>
+      <PageContainer title="Service Detail" breadcrumbs={getBreadcrumbs()}>
         <div className="flex items-center justify-center py-20">
           <RefreshCw className="w-6 h-6 animate-spin text-theme-tertiary" />
           <span className="ml-3 text-theme-secondary">Loading service...</span>
@@ -66,7 +95,7 @@ export const SwarmServiceDetailPage: React.FC = () => {
 
   if (error || !service) {
     return (
-      <PageContainer title="Service Detail" breadcrumbs={breadcrumbs}>
+      <PageContainer title="Service Detail" breadcrumbs={getBreadcrumbs()}>
         <div className="text-center py-20">
           <p className="text-theme-error mb-4">{error || 'Service not found'}</p>
           <Button onClick={() => navigate('/app/devops/swarm/services')} variant="secondary" size="sm">Back to Services</Button>
@@ -78,7 +107,7 @@ export const SwarmServiceDetailPage: React.FC = () => {
   const healthColor = swarmApi.getHealthPercentageColor(service.health_percentage);
 
   return (
-    <PageContainer title={service.service_name} description={`Image: ${service.image}`} breadcrumbs={breadcrumbs} actions={pageActions}>
+    <PageContainer title={service.service_name} description={`Image: ${service.image}`} breadcrumbs={getBreadcrumbs()} actions={pageActions}>
       <div className="space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card variant="default" padding="md">
@@ -105,54 +134,53 @@ export const SwarmServiceDetailPage: React.FC = () => {
           </Card>
         </div>
 
-        <div className="flex gap-2 border-b border-theme">
-          {(['tasks', 'logs', 'config'] as const).map((tab) => (
-            <button
-              key={tab}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab ? 'border-theme-interactive-primary text-theme-primary' : 'border-transparent text-theme-tertiary hover:text-theme-secondary'
-              }`}
-              onClick={() => setActiveTab(tab)}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
-        </div>
+        <TabContainer
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          basePath={`/app/devops/swarm/${clusterId}/services/${serviceId}`}
+          variant="underline"
+          className="mb-6"
+        >
+          <TabPanel tabId="tasks" activeTab={activeTab}>
+            <ServiceTaskList tasks={tasks} />
+          </TabPanel>
 
-        {activeTab === 'tasks' && <ServiceTaskList tasks={tasks} />}
+          <TabPanel tabId="logs" activeTab={activeTab}>
+            <SwarmLogViewer logs={logs} isLoading={logsLoading} onRefresh={fetchLogs} />
+          </TabPanel>
 
-        {activeTab === 'logs' && <SwarmLogViewer logs={logs} isLoading={logsLoading} onRefresh={fetchLogs} />}
-
-        {activeTab === 'config' && (
-          <Card variant="default" padding="lg">
-            <div className="space-y-3">
-              <div>
-                <span className="text-xs text-theme-tertiary">Constraints</span>
-                <p className="text-sm text-theme-primary">{service.constraints.length > 0 ? service.constraints.join(', ') : 'None'}</p>
-              </div>
-              <div>
-                <span className="text-xs text-theme-tertiary">Environment Variables</span>
-                <p className="text-sm text-theme-primary">{service.environment.length} defined</p>
-              </div>
-              <div>
-                <span className="text-xs text-theme-tertiary">Labels</span>
-                <p className="text-sm text-theme-primary">{Object.keys(service.labels).length} labels</p>
-              </div>
-              {service.resource_limits.memory_bytes && (
+          <TabPanel tabId="config" activeTab={activeTab}>
+            <Card variant="default" padding="lg">
+              <div className="space-y-3">
                 <div>
-                  <span className="text-xs text-theme-tertiary">Memory Limit</span>
-                  <p className="text-sm text-theme-primary">{swarmApi.formatBytes(service.resource_limits.memory_bytes)}</p>
+                  <span className="text-xs text-theme-tertiary">Constraints</span>
+                  <p className="text-sm text-theme-primary">{service.constraints.length > 0 ? service.constraints.join(', ') : 'None'}</p>
                 </div>
-              )}
-              {service.resource_limits.nano_cpus && (
                 <div>
-                  <span className="text-xs text-theme-tertiary">CPU Limit</span>
-                  <p className="text-sm text-theme-primary">{(service.resource_limits.nano_cpus / 1e9).toFixed(2)} CPUs</p>
+                  <span className="text-xs text-theme-tertiary">Environment Variables</span>
+                  <p className="text-sm text-theme-primary">{service.environment.length} defined</p>
                 </div>
-              )}
-            </div>
-          </Card>
-        )}
+                <div>
+                  <span className="text-xs text-theme-tertiary">Labels</span>
+                  <p className="text-sm text-theme-primary">{Object.keys(service.labels).length} labels</p>
+                </div>
+                {service.resource_limits.memory_bytes && (
+                  <div>
+                    <span className="text-xs text-theme-tertiary">Memory Limit</span>
+                    <p className="text-sm text-theme-primary">{swarmApi.formatBytes(service.resource_limits.memory_bytes)}</p>
+                  </div>
+                )}
+                {service.resource_limits.nano_cpus && (
+                  <div>
+                    <span className="text-xs text-theme-tertiary">CPU Limit</span>
+                    <p className="text-sm text-theme-primary">{(service.resource_limits.nano_cpus / 1e9).toFixed(2)} CPUs</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </TabPanel>
+        </TabContainer>
       </div>
     </PageContainer>
   );
