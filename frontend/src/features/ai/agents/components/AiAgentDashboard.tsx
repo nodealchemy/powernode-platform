@@ -304,7 +304,11 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {agents.map((agent) => (
-              <Card key={agent.id} className="p-6">
+              <Card
+                key={agent.id}
+                className="p-6 cursor-pointer hover:border-theme-info transition-colors"
+                onClick={() => navigate(`/app/ai/agents/${agent.id}`)}
+              >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
@@ -361,7 +365,7 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-theme">
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-theme" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-2">
                     {canManageAgents && (
                       <Button

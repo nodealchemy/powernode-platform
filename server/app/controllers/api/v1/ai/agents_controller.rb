@@ -28,7 +28,7 @@ module Api
 
         before_action :set_agent, only: %i[
           show update destroy execute clone test validate
-          pause resume archive stats analytics
+          pause resume archive stats analytics connections
           skills assign_skill remove_skill
           conversations_index conversation_show conversation_create
           conversation_update conversation_destroy send_message
@@ -199,6 +199,12 @@ module Api
           render_success(analytics: management_service.analytics(date_range: date_range))
         end
 
+        # GET /api/v1/ai/agents/:id/connections
+        def connections
+          service = ::Ai::Agents::ConnectionsService.new(agent: @agent, account: current_user.account)
+          render_success(service.call)
+        end
+
         # GET /api/v1/ai/agents/my_agents
         def my_agents
           agents = current_user.account.ai_agents.where(creator: current_user).includes(:provider)
@@ -280,7 +286,7 @@ module Api
           return if current_worker || current_service
 
           permission_map = {
-            %w[index show my_agents public_agents agent_types statistics skills executions_index execution_show execution_logs conversations_index conversation_show conversation_messages stats analytics] => "ai.agents.read",
+            %w[index show my_agents public_agents agent_types statistics skills executions_index execution_show execution_logs conversations_index conversation_show conversation_messages stats analytics connections] => "ai.agents.read",
             %w[create clone assign_skill] => "ai.agents.create",
             %w[update validate] => "ai.agents.update",
             %w[destroy execution_destroy remove_skill] => "ai.agents.delete",
