@@ -16,19 +16,19 @@ namespace :parallel do
       Parallel.processor_count
     }.to_i
 
+    base_config = ActiveRecord::Base.configurations.configs_for(env_name: "test").first.configuration_hash
+
     count.times do |i|
       env_number = i == 0 ? "" : (i + 1).to_s
       db_name = "powernode_test#{env_number}"
 
       puts "Seeding permissions in #{db_name}..."
-      ActiveRecord::Base.establish_connection(
-        ActiveRecord::Base.connection_db_config.configuration_hash.merge(database: db_name)
-      )
+      ActiveRecord::Base.establish_connection(base_config.merge(database: db_name))
       Role.sync_from_config!
     end
 
     # Restore original connection
-    ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations.configs_for(env_name: "test").first)
+    ActiveRecord::Base.establish_connection(base_config)
     puts "Done seeding permissions in all parallel test databases."
   end
 end
