@@ -129,6 +129,7 @@ module Ai
         status: "failed",
         failure_reason: "Rejected by reviewer: #{review.rejection_reason}"
       )
+      extract_review_learnings(review)
     end
 
     def on_revision_requested(review)
@@ -152,6 +153,14 @@ module Ai
           "revision_number" => review.revision_count
         )
       )
+      extract_review_learnings(review)
+    end
+
+    def extract_review_learnings(review)
+      service = Ai::Learning::CompoundLearningService.new(account: account)
+      service.review_feedback_extract(review)
+    rescue StandardError => e
+      Rails.logger.warn("[ReviewWorkflow] Review learning extraction failed: #{e.message}")
     end
   end
 end

@@ -202,9 +202,30 @@
     queue: maintenance
     description: 'Clean up old acknowledged Docker events'
 
+  # AI Provider model sync - every 6 hours
+  ai_provider_model_sync:
+    cron: '0 */6 * * *'
+    class: AiProviderModelSyncJob
+    queue: ai_workflow_health
+    description: 'Sync AI provider models and pricing from upstream APIs'
+
+  # AI Provider health check - every 10 minutes
+  ai_provider_health_check:
+    every: '10m'
+    class: AiProviderHealthCheckJob
+    queue: ai_workflow_health
+    description: 'Check AI provider health and connectivity'
+
   # AI Memory Pool cleanup - daily at 3:30 AM UTC
   ai_memory_pool_cleanup:
     cron: '30 3 * * *'
     class: AiMemoryPoolCleanupJob
     queue: ai_orchestration
     description: 'Clean up expired AI memory pools'
+
+  # Compound Learning maintenance - daily decay and cross-team promotion
+  ai_compound_learning_maintenance:
+    cron: '45 3 * * *'
+    class: AiCompoundLearningMaintenanceJob
+    queue: ai_orchestration
+    description: 'Decay stale compound learnings and promote cross-team knowledge'

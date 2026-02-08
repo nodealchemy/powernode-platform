@@ -78,12 +78,11 @@ import { AIMonitoringPage } from './ai/AIMonitoringPage';
 import { McpBrowserPage } from './ai/McpBrowserPage';
 // AI Sub-pages
 import { CreateWorkflowPage, AIDebugPage } from './ai';
-import AgentTeamsPage from './ai/AgentTeamsPage';
 import AgentMarketplacePage from './ai/AgentMarketplacePage';
 import GovernancePage from './ai/GovernancePage';
 import SandboxPage from './ai/SandboxPage';
 import DevOpsTemplatesPage from './ai/DevOpsTemplatesPage';
-import { AgentCardsPage } from './ai/AgentCardsPage';
+// AgentCardsPage consolidated into AIAgentsPage as a tab
 import { A2aTasksPage } from './ai/A2aTasksPage';
 import { AgentDetailPage } from './ai/AgentDetailPage';
 import { WorkflowDetailPage } from './ai/WorkflowDetailPage';
@@ -122,6 +121,7 @@ import { PublisherDashboard } from '@/features/ai/publisher/pages/PublisherDashb
 import { SelfHealingDashboard } from '@/features/ai/self-healing/SelfHealingDashboard';
 import { RecommendationsDashboard } from '@/features/ai/learning/RecommendationsDashboard';
 import { TrajectoryInsights } from '@/features/ai/learning/TrajectoryInsights';
+import CompoundLearningPage from './ai/CompoundLearningPage';
 
 // AI Skills
 import { SkillsPage as AISkillsPage } from './ai/SkillsPage';
@@ -596,6 +596,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/providers/new" element={<AIProvidersPage />} />
         <Route path="/ai/providers/:id" element={<AIProvidersPage />} />
         <Route path="/ai/agents/:agentId/chat" element={<AgentChatPage />} />
+        <Route path="/ai/agents/list" element={<AIAgentsPage />} />
+        <Route path="/ai/agents/teams" element={<AIAgentsPage />} />
+        <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
         <Route path="/ai/agents" element={<AIAgentsPage />} />
         <Route path="/ai/workflows" element={<WorkflowsPage />} />
         <Route path="/ai/conversations" element={<AIConversationsPage />} />
@@ -612,7 +615,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
-        <Route path="/ai/agent-teams/*" element={<AgentTeamsPage />} />
         <Route path="/ai/contexts" element={<ContextsPage />} />
         <Route path="/ai/knowledge" element={<Navigate to="/app/ai/contexts" replace />} />
         <Route path="/ai/contexts/:id" element={<ContextDetailPage />} />
@@ -622,7 +624,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/governance" element={<GovernancePage />} />
         <Route path="/ai/sandbox" element={<SandboxPage />} />
         <Route path="/ai/devops-templates" element={<DevOpsTemplatesPage />} />
-        <Route path="/ai/agent-cards" element={<AgentCardsPage />} />
+        {/* Agent Cards consolidated into AIAgentsPage /agents/cards tab */}
         <Route path="/ai/a2a-tasks" element={<A2aTasksPage />} />
         <Route path="/ai/ralph-loops" element={<RalphLoopsPage />} />
         <Route path="/ai/chat-channels" element={<ChatChannelsPage />} />
@@ -632,6 +634,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/self-healing" element={<SelfHealingDashboard />} />
         <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
         <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
+        <Route path="/ai/learning" element={<CompoundLearningPage />} />
 
         <Route path="/ai/credits" element={<CreditsPage />} />
         <Route path="/ai/rag" element={<RagPage />} />

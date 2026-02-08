@@ -574,6 +574,8 @@ class Ai::AgentTeamOrchestrator
       build_trajectory_async
       promote_learnings_to_global
     end
+
+    compound_learning_extract(status)
   end
 
   def extract_learnings_from_task(task_result, agent_id: nil)
@@ -607,6 +609,16 @@ class Ai::AgentTeamOrchestrator
     )
   rescue StandardError => e
     @logger.error "[TeamOrchestrator] Trajectory job enqueue failed: #{e.message}"
+  end
+
+  def compound_learning_extract(status)
+    return unless @workflow_run
+
+    service = Ai::Learning::CompoundLearningService.new(account: team.account)
+    count = service.post_execution_extract(@workflow_run)
+    @logger.info "[TeamOrchestrator] Extracted #{count} compound learnings" if count.positive?
+  rescue StandardError => e
+    @logger.warn "[TeamOrchestrator] Compound learning extraction failed: #{e.message}"
   end
 
   def run_review_if_configured(task_result)

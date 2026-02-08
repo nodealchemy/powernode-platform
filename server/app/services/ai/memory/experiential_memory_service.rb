@@ -57,13 +57,10 @@ module Ai
         scope = build_search_scope(tags: tags, outcome_filter: outcome_filter)
 
         if Ai::ContextEntry.embedding_column_exists?
-          # Vector similarity search
+          # Vector similarity search via neighbor gem
           results = scope
-            .select("ai_context_entries.*")
-            .select(ActiveRecord::Base.sanitize_sql_array(["1 - (embedding <=> ?) AS similarity", query_embedding.to_s]))
-            .where("embedding IS NOT NULL")
-            .where("1 - (embedding <=> ?) >= ?", query_embedding.to_s, threshold)
-            .order(Arel.sql("similarity DESC"))
+            .nearest_neighbors(:embedding, query_embedding, distance: "cosine")
+            .where("neighbor_distance <= ?", 1.0 - threshold)
             .limit(limit)
 
           # Combine with keyword results for better coverage
@@ -345,9 +342,9 @@ module Ai
           .experiential
           .by_agent(@agent.id)
           .where.not(id: entry.id)
-          .where("embedding IS NOT NULL")
-          .where("1 - (embedding <=> ?) >= ?", entry.embedding.to_s, threshold)
-          .where("created_at < ?", entry.created_at)
+          .nearest_neighbors(:embedding, entry.embedding, distance: "cosine")
+          .where("neighbor_distance <= ?", 1.0 - threshold)
+          .where("ai_context_entries.created_at < ?", entry.created_at)
           .limit(5)
       end
 

@@ -253,18 +253,14 @@ class Ai::ContextPersistenceService
       results
     end
 
-    # Semantic search using embeddings (requires pgvector)
+    # Semantic search using embeddings (via neighbor gem + pgvector)
     def semantic_search(context:, query_embedding:, accessor: nil, limit: 10, threshold: 0.7)
       check_read_access!(context, accessor)
 
-      # Use pgvector's cosine distance operator
       results = context.context_entries
         .active
-        .where.not(embedding: nil)
-        .select(Arel.sql("*"))
-        .select(ActiveRecord::Base.sanitize_sql_array(["(embedding <=> ?) as distance", query_embedding.to_s]))
-        .where("(embedding <=> ?) < ?", query_embedding.to_s, 1 - threshold)
-        .order("distance ASC")
+        .nearest_neighbors(:embedding, query_embedding, distance: "cosine")
+        .where("neighbor_distance <= ?", 1.0 - threshold)
         .limit(limit)
 
       log_access(

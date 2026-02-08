@@ -67,13 +67,76 @@ module Api
           render_success(metrics: metrics)
         end
 
+        # GET /api/v1/ai/learning/compound_metrics
+        def compound_metrics
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
+          metrics = service.compound_metrics
+
+          render_success(metrics: metrics)
+        end
+
+        # GET /api/v1/ai/learning/learnings
+        def learnings
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
+          results = service.list_learnings(
+            status: params[:status] || "active",
+            category: params[:category],
+            scope: params[:scope],
+            min_importance: params[:min_importance]&.to_f,
+            team_id: params[:team_id],
+            query: params[:query],
+            limit: params[:limit]&.to_i || 50
+          )
+
+          render_success(
+            learnings: results.map { |l| l.respond_to?(:learning_summary) ? l.learning_summary : l }
+          )
+        end
+
+        # POST /api/v1/ai/learning/reinforce/:id
+        def reinforce
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
+          learning = service.reinforce_learning(params[:id])
+
+          if learning
+            render_success(learning: learning.learning_summary)
+          else
+            render_error("Learning not found", status: :not_found)
+          end
+        end
+
+        # POST /api/v1/ai/learning/promote
+        def promote
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
+          count = service.promote_cross_team
+
+          render_success(promoted_count: count)
+        end
+
+        # POST /api/v1/ai/learning/compound_maintenance (internal, called by worker)
+        def compound_maintenance
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
+
+          maintenance_result = service.decay_and_consolidate
+          promotion_count = service.promote_cross_team
+
+          render_success(
+            maintenance: maintenance_result,
+            promoted: promotion_count
+          )
+        end
+
         private
 
         def validate_permissions
           case action_name
           when "recommendations", "agent_trends", "cache_metrics"
             require_permission("ai.analytics.read")
+          when "compound_metrics", "learnings"
+            require_permission("ai.analytics.read")
           when "apply_recommendation", "dismiss_recommendation"
+            require_permission("ai.analytics.manage")
+          when "reinforce", "promote", "compound_maintenance"
             require_permission("ai.analytics.manage")
           end
         end

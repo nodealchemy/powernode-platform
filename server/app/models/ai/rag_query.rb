@@ -4,6 +4,8 @@ module Ai
   class RagQuery < ApplicationRecord
     self.table_name = "ai_rag_queries"
 
+    has_neighbors :query_embedding
+
     # Associations
     belongs_to :account
     belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase"

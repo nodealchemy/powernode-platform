@@ -8,7 +8,7 @@ import {
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
   FlaskConical, ShoppingBag, Boxes, RotateCcw, MessagesSquare,
   Globe, Container, Coins, Database, Route, Receipt, GitFork,
-  Network, Layers, Lock, Rocket, HeartPulse
+  Network, Layers, Lock, Rocket, HeartPulse, Lightbulb
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -103,24 +103,6 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Create and manage AI agents',
           permissions: ['ai.agents.read'],
           order: 2
-        },
-        {
-          id: 'ai-agent-teams',
-          name: 'Agent Teams',
-          href: '/app/ai/agent-teams',
-          icon: Users,
-          description: 'CrewAI-style multi-agent team orchestration',
-          permissions: ['ai.agents.read'],
-          order: 3
-        },
-        {
-          id: 'ai-agent-cards',
-          name: 'Agent Cards',
-          href: '/app/ai/agent-cards',
-          icon: Bot,
-          description: 'A2A Agent Cards for agent discovery',
-          permissions: ['ai.agents.read'],
-          order: 5
         },
         {
           id: 'ai-a2a-tasks',
@@ -329,6 +311,15 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Advanced multi-agent team orchestration',
           permissions: ['ai.teams.read'],
           order: 20
+        },
+        {
+          id: 'ai-learning',
+          name: 'Learning',
+          href: '/app/ai/learning',
+          icon: Lightbulb,
+          description: 'Compound learning from agent executions',
+          permissions: ['ai.analytics.read'],
+          order: 21
         }
       ],
       permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.skills.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.prompt_templates.read', 'mcp.servers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.rag.read', 'ai.model_router.read', 'ai.billing.read'],

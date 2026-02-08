@@ -5,6 +5,8 @@ module Ai
     # ==================== Concerns ====================
     include Auditable
 
+    has_neighbors :embedding
+
     # ==================== Constants ====================
     ENTRY_TYPES = %w[fact memory preference knowledge tool_result observation insight].freeze
     SOURCE_TYPES = %w[user_input agent_output workflow import api system].freeze
@@ -131,19 +133,16 @@ module Ai
       (base_score * confidence_factor * recency_factor).round(4)
     end
 
-    # Semantic similarity search using embeddings
+    # Semantic similarity search using neighbor gem (cosine distance via pgvector)
     def self.semantic_search(query_embedding, agent_id: nil, memory_type: nil, limit: 10, threshold: 0.7)
       return none unless embedding_column_exists?
 
-      scope = active.with_embedding
+      scope = active
       scope = scope.by_agent(agent_id) if agent_id
       scope = scope.by_memory_type(memory_type) if memory_type
 
-      # Use pgvector's cosine distance operator
-      scope.select("*")
-           .select(sanitize_sql_array(["1 - (embedding <=> ?) AS similarity", query_embedding.to_s]))
-           .where("1 - (embedding <=> ?) >= ?", query_embedding.to_s, threshold)
-           .order(Arel.sql("similarity DESC"))
+      scope.nearest_neighbors(:embedding, query_embedding, distance: "cosine")
+           .where("neighbor_distance <= ?", 1.0 - threshold)
            .limit(limit)
     end
 

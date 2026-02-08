@@ -187,11 +187,13 @@ RSpec.describe Ai::ReviewWorkflowService, type: :service do
 
     let(:review) do
       instance_double(Ai::TaskReview,
+        id: SecureRandom.uuid,
         status: 'in_progress',
         review_mode: 'blocking',
         team_task: mock_task,
         rejection_reason: nil,
-        revision_count: 1
+        revision_count: 1,
+        findings: nil
       )
     end
 

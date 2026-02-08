@@ -10,10 +10,11 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_08_180003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
+  enable_extension "vector"
 
   create_table "account_delegations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
@@ -800,6 +801,52 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
     t.check_constraint "status::text = ANY (ARRAY['generating'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'expired'::character varying::text])", name: "check_report_status"
   end
 
+  create_table "ai_compound_learnings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.integer "access_count", default: 0, null: false
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_team_id"
+    t.jsonb "applicable_domains", default: []
+    t.string "category", null: false
+    t.decimal "confidence_score", precision: 5, scale: 4, default: "0.5", null: false
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.decimal "decay_rate", precision: 5, scale: 4, default: "0.003"
+    t.decimal "effectiveness_score", precision: 5, scale: 4
+    t.vector "embedding", limit: 1536
+    t.datetime "expires_at"
+    t.string "extraction_method"
+    t.decimal "importance_score", precision: 5, scale: 4, default: "0.5", null: false
+    t.integer "injection_count", default: 0, null: false
+    t.datetime "last_injected_at"
+    t.jsonb "metadata", default: {}
+    t.integer "negative_outcome_count", default: 0, null: false
+    t.integer "positive_outcome_count", default: 0, null: false
+    t.datetime "promoted_at"
+    t.string "scope", default: "team", null: false
+    t.uuid "source_agent_id"
+    t.uuid "source_execution_id"
+    t.boolean "source_execution_successful"
+    t.string "status", default: "active", null: false
+    t.uuid "superseded_by_id"
+    t.jsonb "tags", default: [], null: false
+    t.string "title", limit: 255
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "category"], name: "index_ai_compound_learnings_on_account_id_and_category"
+    t.index ["account_id", "scope"], name: "index_ai_compound_learnings_on_account_id_and_scope"
+    t.index ["account_id", "status"], name: "index_ai_compound_learnings_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_compound_learnings_on_account_id"
+    t.index ["ai_agent_team_id", "category"], name: "index_ai_compound_learnings_on_ai_agent_team_id_and_category"
+    t.index ["ai_agent_team_id"], name: "index_ai_compound_learnings_on_ai_agent_team_id"
+    t.index ["applicable_domains"], name: "index_ai_compound_learnings_on_applicable_domains", using: :gin
+    t.index ["effectiveness_score"], name: "index_ai_compound_learnings_on_effectiveness_score"
+    t.index ["embedding"], name: "idx_compound_learnings_embedding", opclass: :vector_cosine_ops, using: :hnsw
+    t.index ["importance_score"], name: "index_ai_compound_learnings_on_importance_score"
+    t.index ["source_agent_id"], name: "index_ai_compound_learnings_on_source_agent_id"
+    t.index ["source_execution_id"], name: "index_ai_compound_learnings_on_source_execution_id"
+    t.index ["superseded_by_id"], name: "index_ai_compound_learnings_on_superseded_by_id"
+    t.index ["tags"], name: "index_ai_compound_learnings_on_tags", using: :gin
+  end
+
   create_table "ai_context_access_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "access_type"
     t.uuid "account_id", null: false
@@ -843,6 +890,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
     t.datetime "created_at", null: false
     t.uuid "created_by_user_id"
     t.decimal "decay_rate", precision: 5, scale: 4, default: "0.0"
+    t.vector "embedding", limit: 1536
     t.string "entry_key", null: false
     t.string "entry_type"
     t.datetime "expires_at"
@@ -866,6 +914,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
     t.index ["confidence_score"], name: "index_ai_context_entries_on_confidence_score"
     t.index ["context_tags"], name: "index_ai_context_entries_on_context_tags", using: :gin
     t.index ["created_by_user_id"], name: "index_ai_context_entries_on_created_by_user_id"
+    t.index ["embedding"], name: "idx_context_entries_embedding", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["entry_type"], name: "index_ai_context_entries_on_entry_type"
     t.index ["expires_at"], name: "index_ai_context_entries_on_expires_at"
     t.index ["importance_score"], name: "index_ai_context_entries_on_importance_score"
@@ -1352,7 +1401,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
     t.datetime "created_at", null: false
     t.uuid "document_id", null: false
     t.datetime "embedded_at"
-    t.jsonb "embedding", default: []
+    t.vector "embedding", limit: 1536
     t.string "embedding_model"
     t.integer "end_offset"
     t.uuid "knowledge_base_id", null: false
@@ -1364,6 +1413,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
     t.datetime "updated_at", null: false
     t.index ["document_id", "sequence_number"], name: "index_ai_document_chunks_on_document_id_and_sequence_number", unique: true
     t.index ["document_id"], name: "index_ai_document_chunks_on_document_id"
+    t.index ["embedding"], name: "idx_document_chunks_embedding", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["knowledge_base_id", "created_at"], name: "index_ai_document_chunks_on_knowledge_base_id_and_created_at"
     t.index ["knowledge_base_id"], name: "index_ai_document_chunks_on_knowledge_base_id"
   end
@@ -2180,7 +2230,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
     t.index ["priority_order"], name: "index_ai_providers_on_priority_order"
     t.index ["provider_type", "is_active"], name: "index_ai_providers_on_provider_type_and_is_active"
     t.index ["provider_type"], name: "index_ai_providers_on_provider_type"
-    t.index ["slug"], name: "index_ai_providers_on_slug", unique: true
+    t.index ["slug", "account_id"], name: "index_ai_providers_on_slug_and_account_id", unique: true
     t.index ["supported_models"], name: "index_ai_providers_on_supported_models", using: :gin
   end
 
@@ -2249,7 +2299,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
     t.jsonb "filters", default: {}
     t.uuid "knowledge_base_id", null: false
     t.jsonb "metadata", default: {}
-    t.jsonb "query_embedding", default: []
+    t.vector "query_embedding", limit: 1536
     t.float "query_latency_ms"
     t.text "query_text", null: false
     t.string "retrieval_strategy", default: "similarity"
@@ -2265,6 +2315,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
     t.index ["account_id"], name: "index_ai_rag_queries_on_account_id"
     t.index ["knowledge_base_id", "created_at"], name: "index_ai_rag_queries_on_knowledge_base_id_and_created_at"
     t.index ["knowledge_base_id"], name: "index_ai_rag_queries_on_knowledge_base_id"
+    t.index ["query_embedding"], name: "idx_rag_queries_embedding", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["status"], name: "index_ai_rag_queries_on_status"
     t.index ["user_id"], name: "index_ai_rag_queries_on_user_id"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "check_rag_query_status"
@@ -2745,6 +2796,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
     t.uuid "account_id", null: false
     t.uuid "agent_team_id", null: false
     t.datetime "completed_at"
+    t.string "control_signal"
     t.datetime "created_at", null: false
     t.integer "duration_ms"
     t.string "execution_id", null: false
@@ -2753,7 +2805,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
     t.jsonb "metadata", default: {}
     t.text "objective"
     t.jsonb "output_result", default: {}
+    t.datetime "paused_at"
     t.jsonb "performance_metrics", default: {}
+    t.jsonb "redirect_instructions", default: {}
+    t.integer "resume_count", default: 0
     t.jsonb "shared_memory", default: {}
     t.datetime "started_at"
     t.string "status", default: "pending", null: false
@@ -2770,6 +2825,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
     t.index ["account_id"], name: "index_ai_team_executions_on_account_id"
     t.index ["agent_team_id", "created_at"], name: "index_ai_team_executions_on_agent_team_id_and_created_at"
     t.index ["agent_team_id"], name: "index_ai_team_executions_on_agent_team_id"
+    t.index ["control_signal"], name: "index_ai_team_executions_on_control_signal"
     t.index ["execution_id"], name: "index_ai_team_executions_on_execution_id", unique: true
     t.index ["started_at"], name: "index_ai_team_executions_on_started_at"
     t.index ["triggered_by_id"], name: "index_ai_team_executions_on_triggered_by_id"
@@ -8612,6 +8668,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_100001) do
   add_foreign_key "ai_compliance_policies", "users", column: "created_by_id"
   add_foreign_key "ai_compliance_reports", "accounts"
   add_foreign_key "ai_compliance_reports", "users", column: "generated_by_id"
+  add_foreign_key "ai_compound_learnings", "accounts"
+  add_foreign_key "ai_compound_learnings", "ai_agent_teams"
+  add_foreign_key "ai_compound_learnings", "ai_agents", column: "source_agent_id"
+  add_foreign_key "ai_compound_learnings", "ai_compound_learnings", column: "superseded_by_id"
+  add_foreign_key "ai_compound_learnings", "ai_team_executions", column: "source_execution_id"
   add_foreign_key "ai_context_access_logs", "accounts"
   add_foreign_key "ai_context_access_logs", "ai_agents"
   add_foreign_key "ai_context_access_logs", "ai_context_entries"

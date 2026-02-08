@@ -23,7 +23,7 @@ module Ai
         used_chars = 0
 
         # Determine which memory types to include
-        types = include_types || %w[factual working experiential trajectories shared_learnings]
+        types = include_types || %w[factual working experiential trajectories shared_learnings compound_learnings]
 
         # 1. Always include critical facts first (highest priority)
         if types.include?("factual")
@@ -72,6 +72,17 @@ module Ai
           used_chars += learnings_chars
         end
 
+        # 6. Include compound learnings from the learning loop
+        if types.include?("compound_learnings") && (query.present? || task.present?)
+          search_query = query || extract_task_query(task)
+          compound_context, compound_chars = inject_compound_learnings(
+            budget_chars - used_chars,
+            search_query
+          )
+          context_parts << compound_context if compound_context.present?
+          used_chars += compound_chars
+        end
+
         {
           context: context_parts.join("\n\n"),
           token_estimate: (used_chars / CHARS_PER_TOKEN.to_f).ceil,
@@ -80,7 +91,8 @@ module Ai
             working: context_parts.count { |p| p.start_with?("## Current State") },
             experiential: context_parts.count { |p| p.start_with?("## Relevant Experience") },
             trajectories: context_parts.count { |p| p.start_with?("## Past Trajectories") },
-            shared_learnings: context_parts.count { |p| p.start_with?("## Shared Learnings") }
+            shared_learnings: context_parts.count { |p| p.start_with?("## Shared Learnings") },
+            compound_learnings: context_parts.count { |p| p.start_with?("## Compound Learnings") }
           }
         }
       end
@@ -212,6 +224,29 @@ module Ai
       rescue StandardError => e
         Rails.logger.warn("[ContextInjector] Shared learnings injection failed: #{e.message}")
         [ nil, 0 ]
+      end
+
+      def inject_compound_learnings(char_budget, query)
+        return [nil, 0] if query.blank?
+
+        service = Ai::Learning::CompoundLearningService.new(account: @account)
+        result = service.build_compound_context(
+          agent: @agent,
+          task_description: query,
+          token_budget: char_budget / CHARS_PER_TOKEN
+        )
+
+        context_text = result[:context]
+        return [nil, 0] if context_text.blank?
+
+        if context_text.length > char_budget
+          context_text = context_text.truncate(char_budget)
+        end
+
+        [context_text, context_text.length]
+      rescue StandardError => e
+        Rails.logger.warn("[ContextInjector] Compound learnings injection failed: #{e.message}")
+        [nil, 0]
       end
 
       def inject_experiential_memory(char_budget, query)

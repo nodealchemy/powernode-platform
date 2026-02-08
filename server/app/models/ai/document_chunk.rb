@@ -4,6 +4,8 @@ module Ai
   class DocumentChunk < ApplicationRecord
     self.table_name = "ai_document_chunks"
 
+    has_neighbors :embedding
+
     # Associations
     belongs_to :document, class_name: "Ai::Document"
     belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase"
@@ -41,20 +43,16 @@ module Ai
       content.truncate(max_length)
     end
 
-    # Calculate similarity with another embedding (cosine similarity)
+    # Calculate cosine similarity with another embedding using pgvector via neighbor gem
     def similarity_with(other_embedding)
       return 0.0 if embedding.blank? || other_embedding.blank?
 
-      emb = embedding.is_a?(Array) ? embedding : JSON.parse(embedding.to_json)
-      other = other_embedding.is_a?(Array) ? other_embedding : JSON.parse(other_embedding.to_json)
+      result = self.class.where(id: id)
+        .nearest_neighbors(:embedding, other_embedding, distance: "cosine")
+        .first
+      return 0.0 unless result
 
-      dot_product = emb.zip(other).sum { |a, b| a * b }
-      magnitude_a = Math.sqrt(emb.sum { |x| x**2 })
-      magnitude_b = Math.sqrt(other.sum { |x| x**2 })
-
-      return 0.0 if magnitude_a.zero? || magnitude_b.zero?
-
-      dot_product / (magnitude_a * magnitude_b)
+      1.0 - (result.neighbor_distance || 1.0)
     end
   end
 end

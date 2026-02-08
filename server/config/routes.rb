@@ -1809,6 +1809,7 @@ Rails.application.routes.draw do
             get :statistics
             post :setup_defaults
             post :test_all
+            post :sync_all
           end
 
           # Nested credentials (replaces ai_provider_credentials)
@@ -2196,6 +2197,16 @@ Rails.application.routes.draw do
             # Team members management
             post "members", to: "agent_teams#add_member"
             delete "members/:member_id", to: "agent_teams#remove_member"
+          end
+
+          # Team execution history and controls
+          resources :executions, only: [:index, :show], controller: "agent_team_executions" do
+            member do
+              post :cancel
+              post :pause
+              post :resume
+              post :retry, action: :retry_execution
+            end
           end
 
           collection do
@@ -2745,6 +2756,11 @@ Rails.application.routes.draw do
           post "recommendations/:id/dismiss", action: :dismiss_recommendation
           get "agent_trends", action: :agent_trends
           get "cache_metrics", action: :cache_metrics
+          get "compound_metrics", action: :compound_metrics
+          get "learnings", action: :learnings
+          post "reinforce/:id", action: :reinforce
+          post "promote", action: :promote
+          post "compound_maintenance", action: :compound_maintenance
         end
       end
 

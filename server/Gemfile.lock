@@ -316,6 +316,8 @@ GEM
     multi_xml (0.8.1)
       bigdecimal (>= 3.1, < 5)
     multipart-post (2.4.1)
+    neighbor (0.6.0)
+      activerecord (>= 7.1)
     net-http (0.9.1)
       uri (>= 0.11.1)
     net-imap (0.6.2)
@@ -368,7 +370,6 @@ GEM
     pg (1.6.3-x86_64-darwin)
     pg (1.6.3-x86_64-linux)
     pg (1.6.3-x86_64-linux-musl)
-    pgvector (0.3.2)
     pp (0.6.3)
       prettyprint
     prawn (2.5.0)
@@ -637,10 +638,10 @@ DEPENDENCIES
   marcel (~> 1.0)
   mini_magick (~> 5.0)
   money-rails
+  neighbor
   parallel_tests
   paypal-sdk-rest
   pg (~> 1.1)
-  pgvector
   prawn
   prawn-table
   puma (>= 5.0)

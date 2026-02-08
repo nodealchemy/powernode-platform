@@ -19,6 +19,8 @@ module Ai
     has_many :members, class_name: "Ai::AgentTeamMember", foreign_key: "ai_agent_team_id", dependent: :destroy
     has_many :agents, class_name: "Ai::Agent", through: :members, source: :agent
     has_many :task_reviews, class_name: "Ai::TaskReview", through: :members
+    has_many :team_executions, class_name: "Ai::TeamExecution", foreign_key: "agent_team_id", dependent: :destroy
+    has_many :compound_learnings, class_name: "Ai::CompoundLearning", foreign_key: "ai_agent_team_id", dependent: :nullify
 
     # ==========================================
     # Validations
