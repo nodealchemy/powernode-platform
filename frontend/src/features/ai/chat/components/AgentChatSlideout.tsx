@@ -69,7 +69,7 @@ export const AgentChatSlideout: React.FC<AgentChatSlideoutProps> = ({
 
       {/* Slide-out panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-[400px] bg-theme-background border-l border-theme shadow-xl z-50 flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-full w-[560px] bg-theme-background border-l border-theme shadow-xl z-50 flex flex-col transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
