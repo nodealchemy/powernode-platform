@@ -210,6 +210,66 @@ class MemoryApiService extends BaseApiService {
       limit: limit || 10,
     });
   }
+
+  // ===================================================================
+  // Memory Pool Operations
+  // ===================================================================
+
+  /**
+   * Get all memory pools
+   * GET /api/v1/ai/memory_pools
+   */
+  async getMemoryPools(): Promise<PaginatedResponse<Record<string, unknown>>> {
+    return this.get<PaginatedResponse<Record<string, unknown>>>(`${this.baseNamespace}/memory_pools`);
+  }
+
+  /**
+   * Create a memory pool
+   * POST /api/v1/ai/memory_pools
+   */
+  async createMemoryPool(params: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${this.baseNamespace}/memory_pools`, params);
+  }
+
+  /**
+   * Update a memory pool
+   * PATCH /api/v1/ai/memory_pools/:poolId
+   */
+  async updateMemoryPool(poolId: string, params: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.patch<Record<string, unknown>>(`${this.baseNamespace}/memory_pools/${poolId}`, params);
+  }
+
+  /**
+   * Delete a memory pool
+   * DELETE /api/v1/ai/memory_pools/:poolId
+   */
+  async deleteMemoryPool(poolId: string): Promise<{ message: string }> {
+    return this.delete<{ message: string }>(`${this.baseNamespace}/memory_pools/${poolId}`);
+  }
+
+  /**
+   * Read data from a pool by key
+   * GET /api/v1/ai/memory_pools/:poolId/data/:key
+   */
+  async readPoolData(poolId: string, key: string): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${this.baseNamespace}/memory_pools/${poolId}/data/${key}`);
+  }
+
+  /**
+   * Write data to a pool
+   * POST /api/v1/ai/memory_pools/:poolId/data
+   */
+  async writePoolData(poolId: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${this.baseNamespace}/memory_pools/${poolId}/data`, data);
+  }
+
+  /**
+   * Query a pool
+   * POST /api/v1/ai/memory_pools/:poolId/query
+   */
+  async queryPool(poolId: string, query: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${this.baseNamespace}/memory_pools/${poolId}/query`, query);
+  }
 }
 
 // Export singleton instance

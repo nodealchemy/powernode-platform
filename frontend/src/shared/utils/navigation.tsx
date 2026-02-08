@@ -120,7 +120,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Bot,
           description: 'A2A Agent Cards for agent discovery',
           permissions: ['ai.agents.read'],
-          order: 4
+          order: 5
         },
         {
           id: 'ai-a2a-tasks',

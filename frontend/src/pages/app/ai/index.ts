@@ -18,3 +18,4 @@ export { AIDebugPage } from './AIDebugPage';
 export { default as AgentTeamsPage } from './AgentTeamsPage';
 export { AgentCardsPage } from './AgentCardsPage';
 export { A2aTasksPage } from './A2aTasksPage';
+export { AgentDetailPage } from './AgentDetailPage';

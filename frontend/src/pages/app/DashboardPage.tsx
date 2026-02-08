@@ -85,6 +85,7 @@ import SandboxPage from './ai/SandboxPage';
 import DevOpsTemplatesPage from './ai/DevOpsTemplatesPage';
 import { AgentCardsPage } from './ai/AgentCardsPage';
 import { A2aTasksPage } from './ai/A2aTasksPage';
+import { AgentDetailPage } from './ai/AgentDetailPage';
 import { WorkflowDetailPage } from './ai/WorkflowDetailPage';
 import { WorkflowImportPage } from './ai/WorkflowImportPage';
 import { WorkflowMonitoringPage } from './ai/WorkflowMonitoringPage';
@@ -610,6 +611,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/workflows/:id" element={<WorkflowDetailPage />} />
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
+        <Route path="/ai/agents/:agentId" element={<AgentDetailPage />} />
         <Route path="/ai/agent-teams" element={<AgentTeamsPage />} />
         <Route path="/ai/contexts" element={<ContextsPage />} />
         <Route path="/ai/knowledge" element={<Navigate to="/app/ai/contexts" replace />} />

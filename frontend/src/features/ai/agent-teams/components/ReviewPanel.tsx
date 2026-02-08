@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import teamsApi from '@/shared/services/ai/TeamsApiService';
 import type { TaskReview } from '@/shared/services/ai/TeamsApiService';
+import { DiffViewer } from '@/features/ai/code-review/components/DiffViewer';
 
 interface ReviewPanelProps {
   review: TaskReview;
@@ -239,6 +240,17 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
               Reject
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Code Review Diff */}
+      {(review as TaskReview & { diff_analysis?: Record<string, unknown>; code_suggestions?: unknown[] }).diff_analysis && (
+        <div className="px-4 py-3 border-b border-theme">
+          <h4 className="text-xs font-medium text-theme-secondary mb-2">Code Review</h4>
+          <DiffViewer
+            reviewId={review.review_id}
+            diffAnalysis={(review as TaskReview & { diff_analysis?: { files: { path: string; lines: { type: 'add' | 'remove' | 'context'; content: string; lineNumber: number }[] }[] } }).diff_analysis!}
+          />
         </div>
       )}
 

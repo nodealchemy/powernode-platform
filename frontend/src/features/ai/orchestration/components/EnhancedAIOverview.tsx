@@ -21,6 +21,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Progress } from '@/shared/components/ui/Progress';
 import { Badge } from '@/shared/components/ui/Badge';
 import { RealTimeActivityFeed } from './RealTimeActivityFeed';
+import { TeamActivityCard } from './TeamActivityCard';
 import { useAIOrchestrationMonitor, resetAIOrchestrationMonitor } from '../services/aiOrchestrationMonitor';
 
 export interface EnhancedAIOverviewHandle {
@@ -241,7 +242,7 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
         providers = [
           { id: '1', name: 'OpenAI', is_active: true, health_status: 'healthy' },
           { id: '2', name: 'Anthropic', is_active: true, health_status: 'healthy' },
-          { id: '3', name: 'Local Ollama', is_active: false, health_status: 'degraded' }
+          { id: '3', name: 'Ollama', is_active: false, health_status: 'degraded' }
         ];
       }
       const activeProviders = providers.filter((p) => p.is_active);
@@ -644,6 +645,11 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Team Activity */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <TeamActivityCard />
       </div>
 
       {/* Enhanced Quick Actions */}

@@ -48,7 +48,7 @@ export const AIOverviewPage: React.FC = () => {
       ]}
       actions={[
         refreshAction,
-        {
+{
           id: 'live-updates',
           label: isLiveUpdates ? 'Live' : 'Paused',
           onClick: handleToggleLiveUpdates,

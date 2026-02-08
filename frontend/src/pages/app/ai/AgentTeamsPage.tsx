@@ -1,10 +1,11 @@
 // Agent Teams Page - Main page for managing multi-agent teams
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, Filter } from 'lucide-react';
+import { Plus, Users, Filter, Server } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TeamCard } from '@/features/ai/agent-teams/components/TeamCard';
 import { TeamBuilderModal } from '@/features/ai/agent-teams/components/TeamBuilderModal';
 import { TeamExecutionMonitor } from '@/features/ai/agent-teams/components/TeamExecutionMonitor';
+import { DevOpsTeamTemplates } from '@/features/ai/agent-teams/components/DevOpsTeamTemplates';
 import {
   agentTeamsApi,
   AgentTeam,
@@ -55,6 +56,7 @@ const AgentTeamsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [executingTeamId, setExecutingTeamId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'teams' | 'devops'>('teams');
 
   // WebSocket for real-time agent team updates
   useAiOrchestrationWebSocket({
@@ -219,6 +221,42 @@ const AgentTeamsPage: React.FC = () => {
         }
       ]}
     >
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 border-b border-theme">
+        <button
+          type="button"
+          onClick={() => setActiveTab('teams')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'teams'
+              ? 'border-theme-primary text-theme-primary'
+              : 'border-transparent text-theme-secondary hover:text-theme-primary'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <Users size={16} />
+            Teams
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('devops')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'devops'
+              ? 'border-theme-primary text-theme-primary'
+              : 'border-transparent text-theme-secondary hover:text-theme-primary'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <Server size={16} />
+            DevOps Templates
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'devops' ? (
+        <DevOpsTeamTemplates />
+      ) : (
+      <>
       {/* Filters */}
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="flex items-center gap-2">
@@ -230,7 +268,7 @@ const AgentTeamsPage: React.FC = () => {
             id="status-filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-1 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
           >
             <option value="all">All</option>
             <option value="active">Active</option>
@@ -247,7 +285,7 @@ const AgentTeamsPage: React.FC = () => {
             id="type-filter"
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-1 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
           >
             <option value="all">All</option>
             <option value="hierarchical">Hierarchical</option>
@@ -299,6 +337,9 @@ const AgentTeamsPage: React.FC = () => {
             />
           ))}
         </div>
+      )}
+
+      </>
       )}
 
       {/* Team Builder Modal */}

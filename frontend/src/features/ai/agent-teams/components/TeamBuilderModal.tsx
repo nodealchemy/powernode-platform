@@ -7,6 +7,8 @@ import { AgentTeam, CreateTeamParams, UpdateTeamParams } from '../services/agent
 import { CompositionHealthBanner } from './CompositionHealthBanner';
 import { RoleProfileSelector } from './RoleProfileSelector';
 import { ReviewConfigSection, ReviewConfig } from './ReviewConfigSection';
+import { TeamAutonomyConfig, AutonomyConfig } from './TeamAutonomyConfig';
+import { CompositionOptimizer } from './CompositionOptimizer';
 import type { RoleProfile } from '@/shared/services/ai/TeamsApiService';
 
 interface TeamBuilderModalProps {
@@ -41,6 +43,14 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reviewConfig, setReviewConfig] = useState<ReviewConfig>(DEFAULT_REVIEW_CONFIG);
   const [, setSelectedProfile] = useState<RoleProfile | null>(null);
+  const [autonomyConfig, setAutonomyConfig] = useState<AutonomyConfig>({
+    allow_agent_creation: false,
+    allow_cross_team_operations: false,
+    require_human_approval: true,
+    max_agents_per_team: 20,
+    autonomy_level: 'supervised',
+    resource_limits: {}
+  });
 
   useEffect(() => {
     if (team) {
@@ -76,7 +86,8 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
         ...formData,
         team_config: {
           ...(formData.team_config || {}),
-          review_config: { ...reviewConfig }
+          review_config: { ...reviewConfig },
+          autonomy_config: { ...autonomyConfig }
         }
       };
       await onSave(saveData);
@@ -223,6 +234,17 @@ export const TeamBuilderModal: React.FC<TeamBuilderModalProps> = ({
           onApplyProfile={handleApplyProfile}
           onCustomize={handleCustomizeProfile}
         />
+
+        {/* Autonomy Configuration */}
+        <TeamAutonomyConfig
+          config={autonomyConfig}
+          onUpdate={setAutonomyConfig}
+        />
+
+        {/* Composition Optimizer - shown when editing */}
+        {team?.id && (
+          <CompositionOptimizer teamId={team.id} />
+        )}
 
         {/* Review Configuration */}
         <ReviewConfigSection

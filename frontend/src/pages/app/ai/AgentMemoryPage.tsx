@@ -1,12 +1,78 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Brain, Database } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { MemoryViewer } from '@/features/ai/context/components/MemoryViewer';
 import { EntryEditor } from '@/features/ai/context/components/EntryEditor';
 import { contextApi } from '@/features/ai/context/services/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { memoryApiService } from '@/shared/services/ai/MemoryApiService';
 import type { AiContextEntry, AiAgentSummary, AiPersistentContextSummary } from '@/features/ai/context/types';
+
+interface MemoryPool {
+  id: string;
+  name: string;
+  pool_type: string;
+  entry_count: number;
+  created_at: string;
+}
+
+function MemoryPoolsTab() {
+  const [pools, setPools] = useState<MemoryPool[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const result = await memoryApiService.getMemoryPools();
+        setPools((result.items || []) as unknown as MemoryPool[]);
+      } catch {
+        // Silently handle
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-theme-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (pools.length === 0) {
+    return (
+      <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
+        <Database size={48} className="mx-auto text-theme-secondary mb-4" />
+        <h3 className="text-lg font-semibold text-theme-primary mb-2">No Memory Pools</h3>
+        <p className="text-theme-secondary">
+          Shared memory pools will appear here once created
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {pools.map(pool => (
+        <div key={pool.id} className="bg-theme-surface border border-theme rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Database className="h-4 w-4 text-theme-primary" />
+            <h4 className="text-sm font-semibold text-theme-primary">{pool.name}</h4>
+          </div>
+          <div className="text-xs text-theme-secondary space-y-1">
+            <p>Type: {pool.pool_type}</p>
+            <p>Entries: {pool.entry_count}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function AgentMemoryPage() {
   const { agentId } = useParams<{ agentId: string }>();
@@ -27,6 +93,7 @@ export function AgentMemoryPage() {
   const [editingEntry, setEditingEntry] = useState<AiContextEntry | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<'agent' | 'pools'>('agent');
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
@@ -170,6 +237,41 @@ export function AgentMemoryPage() {
         },
       ]}
     >
+      {/* Memory Tabs */}
+      <div className="flex gap-1 mb-6 border-b border-theme">
+        <button
+          type="button"
+          onClick={() => setActiveTab('agent')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'agent'
+              ? 'border-theme-primary text-theme-primary'
+              : 'border-transparent text-theme-secondary hover:text-theme-primary'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <Brain size={16} />
+            Agent Memory
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('pools')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'pools'
+              ? 'border-theme-primary text-theme-primary'
+              : 'border-transparent text-theme-secondary hover:text-theme-primary'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <Database size={16} />
+            Memory Pools
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'pools' ? (
+        <MemoryPoolsTab />
+      ) : (
       <div className="space-y-6">
         {/* Context Info */}
         {context && (
@@ -203,6 +305,7 @@ export function AgentMemoryPage() {
           onAddEntry={() => setIsCreating(true)}
         />
       </div>
+      )}
     </PageContainer>
   );
 }

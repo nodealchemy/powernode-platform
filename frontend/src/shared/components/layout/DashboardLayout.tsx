@@ -6,6 +6,7 @@ import { toggleSidebar } from '@/shared/services/slices/uiSlice';
 import { Sidebar, Header } from '../navigation';
 import { NavigationProvider } from '@/shared/hooks/NavigationContext';
 import { ImpersonationBanner } from '@/features/admin/components/ImpersonationBanner';
+import { FloatingChatWidget } from '@/features/ai/chat/components/FloatingChatWidget';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -40,6 +41,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </div>
           </main>
         </div>
+
+        <FloatingChatWidget />
       </div>
     </NavigationProvider>
   );
