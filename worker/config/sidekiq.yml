@@ -201,3 +201,10 @@
     class: Docker::EventCleanupJob
     queue: maintenance
     description: 'Clean up old acknowledged Docker events'
+
+  # AI Memory Pool cleanup - daily at 3:30 AM UTC
+  ai_memory_pool_cleanup:
+    cron: '30 3 * * *'
+    class: AiMemoryPoolCleanupJob
+    queue: ai_orchestration
+    description: 'Clean up expired AI memory pools'
