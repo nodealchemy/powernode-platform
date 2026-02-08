@@ -104,6 +104,70 @@ export interface AutonomyConfigResponse {
   merge_approval_required: boolean;
 }
 
+export interface TeamExecution {
+  id: string;
+  execution_id: string;
+  status: string;
+  objective?: string;
+  started_at?: string;
+  completed_at?: string;
+  duration_ms?: number;
+  tasks_total: number;
+  tasks_completed: number;
+  tasks_failed: number;
+  total_tokens_used?: number;
+  total_cost_usd?: number;
+  control_signal?: string | null;
+  termination_reason?: string;
+  triggered_by?: { id: string; name: string };
+  created_at: string;
+}
+
+export interface MemberCost {
+  agent_id: string;
+  agent_name: string;
+  tokens_used: number;
+  cost_usd: number;
+  duration_ms: number;
+  status: string;
+}
+
+export interface TeamExecutionDetail extends TeamExecution {
+  input_context?: Record<string, unknown>;
+  output_result?: Record<string, unknown>;
+  total_tokens_used?: number;
+  total_cost_usd?: number;
+  messages_exchanged?: number;
+  control_signal?: string | null;
+  paused_at?: string | null;
+  resume_count?: number;
+  per_member_costs?: MemberCost[];
+  tasks: Array<{
+    id: string;
+    title?: string;
+    status: string;
+    assigned_to?: string;
+    created_at: string;
+    completed_at?: string;
+  }>;
+  messages: Array<{
+    id: string;
+    content?: string;
+    sender?: string;
+    created_at: string;
+  }>;
+}
+
+export interface TeamExecutionsResponse {
+  data: TeamExecution[];
+  meta: {
+    total: number;
+    page: number;
+    per_page: number;
+    total_pages: number;
+  };
+}
+
 export const agentTeamsApi = {
   // List all teams
   async getTeams(filters?: { status?: string; team_type?: string }): Promise<AgentTeam[]> {
@@ -204,5 +268,41 @@ export const agentTeamsApi = {
   // Bind infrastructure to team
   async bindInfrastructure(teamId: string, hostIds: string[], clusterIds: string[]): Promise<void> {
     await api.post(`/ai/agent_teams/${teamId}/bind_infrastructure`, { host_ids: hostIds, cluster_ids: clusterIds });
+  },
+
+  // Get execution history for a team
+  async getExecutions(teamId: string, params?: { page?: number; per_page?: number; status?: string }): Promise<TeamExecutionsResponse> {
+    const response = await api.get(`/ai/agent_teams/${teamId}/executions`, { params });
+    return { data: response.data.data, meta: response.data.meta };
+  },
+
+  // Get single execution detail
+  async getExecution(teamId: string, executionId: string): Promise<TeamExecutionDetail> {
+    const response = await api.get(`/ai/agent_teams/${teamId}/executions/${executionId}`);
+    return response.data.data;
+  },
+
+  // Cancel an execution
+  async cancelExecution(teamId: string, executionId: string): Promise<{ status: string; execution_id: string }> {
+    const response = await api.post(`/ai/agent_teams/${teamId}/executions/${executionId}/cancel`);
+    return response.data.data;
+  },
+
+  // Pause an execution
+  async pauseExecution(teamId: string, executionId: string): Promise<{ status: string; execution_id: string }> {
+    const response = await api.post(`/ai/agent_teams/${teamId}/executions/${executionId}/pause`);
+    return response.data.data;
+  },
+
+  // Resume a paused execution
+  async resumeExecution(teamId: string, executionId: string): Promise<{ status: string; execution_id: string }> {
+    const response = await api.post(`/ai/agent_teams/${teamId}/executions/${executionId}/resume`);
+    return response.data.data;
+  },
+
+  // Retry a failed/completed execution
+  async retryExecution(teamId: string, executionId: string): Promise<{ status: string; original_execution_id: string }> {
+    const response = await api.post(`/ai/agent_teams/${teamId}/executions/${executionId}/retry`);
+    return response.data.data;
   }
 };

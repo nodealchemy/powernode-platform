@@ -125,12 +125,15 @@ module Api
 
         # POST /api/v1/ai/agent_teams/:id/execute
         def execute
+          input_hash = params[:input].present? ? params[:input].permit!.to_h : {}
+          context_hash = params[:context].present? ? params[:context].permit!.to_h : {}
+
           # Queue team execution job
           job = ::Ai::AgentTeamExecutionJob.perform_async(
             team_id: @team.id,
             user_id: current_user.id,
-            input: params[:input] || {},
-            context: params[:context] || {}
+            input: input_hash,
+            context: context_hash
           )
 
           jid = job.try(:provider_job_id) || job.try(:job_id) || job.to_s

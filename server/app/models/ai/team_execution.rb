@@ -8,7 +8,7 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :agent_team, class_name: "AiAgentTeam"
+    belongs_to :agent_team, class_name: "Ai::AgentTeam"
     belongs_to :triggered_by, class_name: "User", optional: true
 
     has_many :tasks, class_name: "Ai::TeamTask", foreign_key: :team_execution_id, dependent: :destroy
