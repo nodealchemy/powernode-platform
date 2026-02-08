@@ -3,11 +3,14 @@ import { Zap, AlertTriangle, CheckCircle, TrendingUp, Loader2 } from 'lucide-rea
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { agentTeamsApi } from '../services/agentTeamsApi';
 
-interface OptimizationResult {
-  skill_coverage: number;
-  gaps: string[];
-  redundancies: string[];
-  recommendations: { agent_type: string; reason: string }[];
+interface CompositionHealth {
+  status: string;
+  member_count: number;
+  lead_count: number;
+  worker_count: number;
+  workers_per_lead: number;
+  warnings: string[];
+  recommendations: string[];
 }
 
 interface CompositionOptimizerProps {
@@ -15,23 +18,24 @@ interface CompositionOptimizerProps {
 }
 
 export const CompositionOptimizer: React.FC<CompositionOptimizerProps> = ({ teamId }) => {
-  const [data, setData] = useState<OptimizationResult | null>(null);
+  const [data, setData] = useState<CompositionHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [optimizing, setOptimizing] = useState(false);
   const { confirm, ConfirmationDialog } = useConfirmation();
 
+  const fetchHealth = async () => {
+    try {
+      const result = await agentTeamsApi.getCompositionHealth(teamId);
+      setData(result);
+    } catch {
+      // Silently handle
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const result = await agentTeamsApi.optimizeTeam(teamId);
-        setData(result);
-      } catch {
-        // Silently handle
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    fetchHealth();
   }, [teamId]);
 
   const handleAutoOptimize = () => {
@@ -43,8 +47,8 @@ export const CompositionOptimizer: React.FC<CompositionOptimizerProps> = ({ team
       onConfirm: async () => {
         setOptimizing(true);
         try {
-          const result = await agentTeamsApi.optimizeTeam(teamId);
-          setData(result);
+          await agentTeamsApi.optimizeTeam(teamId);
+          await fetchHealth();
         } catch {
           // Error handled by API
         } finally {
@@ -64,14 +68,15 @@ export const CompositionOptimizer: React.FC<CompositionOptimizerProps> = ({ team
 
   if (!data) return null;
 
-  const coveragePercent = Math.round(data.skill_coverage * 100);
+  const statusColor = data.status === 'healthy' ? 'text-theme-success' : data.status === 'warning' ? 'text-theme-warning' : 'text-theme-danger';
 
   return (
     <div className="bg-theme-surface border border-theme rounded-lg p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-theme-primary" />
-          <h4 className="text-sm font-semibold text-theme-primary">Composition Optimizer</h4>
+          <h4 className="text-sm font-semibold text-theme-primary">Composition Health</h4>
+          <span className={`text-xs font-medium capitalize ${statusColor}`}>{data.status}</span>
         </div>
         <button
           type="button"
@@ -84,50 +89,31 @@ export const CompositionOptimizer: React.FC<CompositionOptimizerProps> = ({ team
         </button>
       </div>
 
-      {/* Skill Coverage Bar */}
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-theme-secondary">Skill Coverage</span>
-          <span className={`text-xs font-medium ${
-            coveragePercent >= 80 ? 'text-theme-success' : coveragePercent >= 50 ? 'text-theme-warning' : 'text-theme-danger'
-          }`}>
-            {coveragePercent}%
-          </span>
+      {/* Team Stats */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="text-center p-2 bg-theme-primary/5 rounded">
+          <div className="text-lg font-semibold text-theme-primary">{data.member_count}</div>
+          <div className="text-xs text-theme-secondary">Members</div>
         </div>
-        <div className="w-full bg-theme-accent rounded-full h-2">
-          <div
-            className={`h-2 rounded-full transition-all ${
-              coveragePercent >= 80 ? 'bg-theme-success' : coveragePercent >= 50 ? 'bg-theme-warning' : 'bg-theme-danger-solid'
-            }`}
-            style={{ width: `${coveragePercent}%` }}
-          />
+        <div className="text-center p-2 bg-theme-primary/5 rounded">
+          <div className="text-lg font-semibold text-theme-primary">{data.lead_count}</div>
+          <div className="text-xs text-theme-secondary">Leads</div>
+        </div>
+        <div className="text-center p-2 bg-theme-primary/5 rounded">
+          <div className="text-lg font-semibold text-theme-primary">{data.workers_per_lead}:1</div>
+          <div className="text-xs text-theme-secondary">Worker Ratio</div>
         </div>
       </div>
 
-      {/* Gaps */}
-      {data.gaps.length > 0 && (
+      {/* Warnings */}
+      {data.warnings.length > 0 && (
         <div>
-          <h5 className="text-xs font-medium text-theme-secondary mb-1">Skill Gaps</h5>
+          <h5 className="text-xs font-medium text-theme-secondary mb-1">Warnings</h5>
           <div className="space-y-1">
-            {data.gaps.map((gap, idx) => (
+            {data.warnings.map((warning, idx) => (
               <div key={idx} className="flex items-center gap-2 text-xs">
                 <AlertTriangle className="h-3 w-3 text-theme-warning flex-shrink-0" />
-                <span className="text-theme-primary">{gap}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Redundancies */}
-      {data.redundancies.length > 0 && (
-        <div>
-          <h5 className="text-xs font-medium text-theme-secondary mb-1">Redundancies</h5>
-          <div className="space-y-1">
-            {data.redundancies.map((r, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-xs">
-                <AlertTriangle className="h-3 w-3 text-theme-info flex-shrink-0" />
-                <span className="text-theme-secondary">{r}</span>
+                <span className="text-theme-primary">{warning}</span>
               </div>
             ))}
           </div>
@@ -138,14 +124,11 @@ export const CompositionOptimizer: React.FC<CompositionOptimizerProps> = ({ team
       {data.recommendations.length > 0 && (
         <div>
           <h5 className="text-xs font-medium text-theme-secondary mb-1">Recommendations</h5>
-          <div className="space-y-2">
+          <div className="space-y-1">
             {data.recommendations.map((rec, idx) => (
-              <div key={idx} className="p-2 bg-theme-primary/5 border border-theme rounded-md">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-3 w-3 text-theme-success flex-shrink-0" />
-                  <span className="text-xs font-medium text-theme-primary">{rec.agent_type}</span>
-                </div>
-                <p className="text-xs text-theme-secondary mt-1 ml-5">{rec.reason}</p>
+              <div key={idx} className="flex items-center gap-2 text-xs">
+                <CheckCircle className="h-3 w-3 text-theme-success flex-shrink-0" />
+                <span className="text-theme-primary">{rec}</span>
               </div>
             ))}
           </div>

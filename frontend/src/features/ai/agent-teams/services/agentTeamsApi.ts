@@ -157,13 +157,22 @@ export const agentTeamsApi = {
     return response.data.data;
   },
 
-  // Optimize team composition
-  async optimizeTeam(teamId: string): Promise<{
-    skill_coverage: number;
-    gaps: string[];
-    redundancies: string[];
-    recommendations: { agent_type: string; reason: string }[];
+  // Get team composition health analysis
+  async getCompositionHealth(teamId: string): Promise<{
+    status: string;
+    member_count: number;
+    lead_count: number;
+    worker_count: number;
+    workers_per_lead: number;
+    warnings: string[];
+    recommendations: string[];
   }> {
+    const response = await api.get(`/ai/teams/${teamId}/composition_health`);
+    return response.data.data;
+  },
+
+  // Trigger async team optimization
+  async optimizeTeam(teamId: string): Promise<{ message: string; team_id: string }> {
     const response = await api.post(`/ai/agent_teams/${teamId}/optimize`);
     return response.data.data;
   },
