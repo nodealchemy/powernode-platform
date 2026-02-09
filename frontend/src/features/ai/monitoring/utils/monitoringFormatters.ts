@@ -1,3 +1,6 @@
+import React from 'react';
+import { HeartPulse, Plug, Bot, Workflow, MessageSquare, Bell, BarChart3, Lightbulb } from 'lucide-react';
+
 /**
  * Get color class for health score
  */
@@ -35,16 +38,21 @@ export const formatLastUpdate = (date: Date | null): string => {
 /**
  * Tab definitions for AI Monitoring
  */
-export const MONITORING_TABS = [
-  { id: 'overview', label: 'System Health', icon: '🏥', path: '/' },
-  { id: 'providers', label: 'Providers', icon: '🔌', path: '/providers' },
-  { id: 'agents', label: 'Agents', icon: '🤖', path: '/agents' },
-  { id: 'workflows', label: 'Workflows', icon: '⚡', path: '/workflows' },
-  { id: 'conversations', label: 'Conversations', icon: '💬', path: '/conversations' },
-  { id: 'alerts', label: 'Alerts', icon: '🔔', path: '/alerts' },
-  { id: 'analytics', label: 'Analytics', icon: '📊', path: '/analytics' },
-  { id: 'learning', label: 'Learning', icon: '💡', path: '/learning' }
-] as const;
+export const MONITORING_TABS: ReadonlyArray<{
+  id: 'overview' | 'providers' | 'agents' | 'workflows' | 'conversations' | 'alerts' | 'analytics' | 'learning';
+  label: string;
+  icon: React.ReactNode;
+  path: string;
+}> = [
+  { id: 'overview', label: 'System Health', icon: React.createElement(HeartPulse, { size: 16 }), path: '/' },
+  { id: 'providers', label: 'Providers', icon: React.createElement(Plug, { size: 16 }), path: '/providers' },
+  { id: 'agents', label: 'Agents', icon: React.createElement(Bot, { size: 16 }), path: '/agents' },
+  { id: 'workflows', label: 'Workflows', icon: React.createElement(Workflow, { size: 16 }), path: '/workflows' },
+  { id: 'conversations', label: 'Conversations', icon: React.createElement(MessageSquare, { size: 16 }), path: '/conversations' },
+  { id: 'alerts', label: 'Alerts', icon: React.createElement(Bell, { size: 16 }), path: '/alerts' },
+  { id: 'analytics', label: 'Analytics', icon: React.createElement(BarChart3, { size: 16 }), path: '/analytics' },
+  { id: 'learning', label: 'Learning', icon: React.createElement(Lightbulb, { size: 16 }), path: '/learning' },
+];
 
 export type MonitoringTabId = typeof MONITORING_TABS[number]['id'];
 

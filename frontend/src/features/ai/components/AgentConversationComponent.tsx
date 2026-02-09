@@ -36,11 +36,13 @@ type ConversationInput = AiConversation | ConversationBase;
 interface AgentConversationComponentProps {
   conversation: ConversationInput;
   onConversationUpdate?: (conversation: ConversationInput) => void;
+  onNewMessage?: (message: AiMessage) => void;
 }
 
 export const AgentConversationComponent: React.FC<AgentConversationComponentProps> = ({
   conversation,
-  onConversationUpdate: _onConversationUpdate
+  onConversationUpdate: _onConversationUpdate,
+  onNewMessage
 }) => {
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,6 +188,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
               return newMessages;
             }
           });
+          onNewMessage?.(data.message);
           // Auto-scroll will trigger via useEffect when messages.length changes
         }
         break;

@@ -47,7 +47,7 @@ export const TabsList: React.FC<TabsListProps> = ({
   className = '' 
 }) => {
   return (
-    <div className={`flex border-b border-theme-border bg-theme-surface ${className}`}>
+    <div className={`flex space-x-4 sm:space-x-6 lg:space-x-8 border-b border-theme ${className}`}>
       {children}
     </div>
   );
@@ -79,10 +79,10 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
       onClick={() => setActiveTab(value)}
       className={`
         px-4 py-2 font-medium text-sm transition-colors duration-200
-        border-b-2 whitespace-nowrap
-        ${isActive 
-          ? 'border-theme-interactive-primary text-theme-interactive-primary bg-theme-surface-selected' 
-          : 'border-transparent text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover'
+        border-b-2 -mb-px whitespace-nowrap
+        ${isActive
+          ? 'border-theme-interactive-primary text-theme-interactive-primary'
+          : 'border-transparent text-theme-muted hover:text-theme-primary hover:border-theme-border'
         }
         ${className}
       `.replace(/\s+/g, ' ').trim()}

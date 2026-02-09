@@ -7,6 +7,9 @@ import {
   Wifi,
   WifiOff,
   GitFork,
+  ListChecks,
+  Repeat,
+  TrendingUp,
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
@@ -398,12 +401,17 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="iterations">Iterations</TabsTrigger>
-            <TabsTrigger value="progress">Progress</TabsTrigger>
-            <TabsTrigger value="schedule" className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              Schedule
+            <TabsTrigger value="tasks">
+              <span className="flex items-center gap-2"><ListChecks className="w-4 h-4" />Tasks</span>
+            </TabsTrigger>
+            <TabsTrigger value="iterations">
+              <span className="flex items-center gap-2"><Repeat className="w-4 h-4" />Iterations</span>
+            </TabsTrigger>
+            <TabsTrigger value="progress">
+              <span className="flex items-center gap-2"><TrendingUp className="w-4 h-4" />Progress</span>
+            </TabsTrigger>
+            <TabsTrigger value="schedule">
+              <span className="flex items-center gap-2"><Calendar className="w-4 h-4" />Schedule</span>
             </TabsTrigger>
           </TabsList>
 

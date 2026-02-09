@@ -93,22 +93,22 @@ export const ClusterDashboardPage: React.FC = () => {
         </div>
 
         <SwarmStatsCards
-          nodeCount={health?.node_health.total ?? 0}
-          nodesReady={health?.node_health.ready ?? 0}
-          serviceCount={health?.service_health.total ?? 0}
-          servicesHealthy={health?.service_health.healthy ?? 0}
-          avgHealth={health?.service_health.avg_health_percentage ?? 0}
-          criticalEvents={health?.recent_events.critical ?? 0}
-          warningEvents={health?.recent_events.warning ?? 0}
+          nodeCount={health?.node_health?.total ?? 0}
+          nodesReady={health?.node_health?.ready ?? 0}
+          serviceCount={health?.service_health?.total ?? 0}
+          servicesHealthy={health?.service_health?.healthy ?? 0}
+          avgHealth={health?.service_health?.avg_health_percentage ?? 0}
+          criticalEvents={health?.recent_events?.critical ?? 0}
+          warningEvents={health?.recent_events?.warning ?? 0}
           isLoading={healthLoading}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Button variant="secondary" onClick={() => navigate(`/app/devops/swarm/${clusterId}/nodes`)} className="justify-start p-4">
-            Manage Nodes ({health?.node_health.total ?? 0})
+            Manage Nodes ({health?.node_health?.total ?? 0})
           </Button>
           <Button variant="secondary" onClick={() => navigate('/app/devops/swarm/services')} className="justify-start p-4">
-            View Services ({health?.service_health.total ?? 0})
+            View Services ({health?.service_health?.total ?? 0})
           </Button>
           <Button variant="secondary" onClick={() => navigate('/app/devops/swarm/stacks')} className="justify-start p-4">
             View Stacks

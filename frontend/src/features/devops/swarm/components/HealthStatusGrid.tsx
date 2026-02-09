@@ -23,7 +23,7 @@ export const HealthStatusGrid: React.FC<HealthStatusGridProps> = ({ healthData, 
       {healthData.map((health) => {
         const clusterName = clusterNames?.find((c) => c.id === health.cluster_id)?.name || health.cluster_id;
         const statusColor = swarmApi.getClusterStatusColor(health.status);
-        const hasAlerts = health.alerts.length > 0;
+        const hasAlerts = (health.alerts?.length ?? 0) > 0;
 
         return (
           <Card key={health.cluster_id} variant="default" padding="lg">
@@ -36,16 +36,16 @@ export const HealthStatusGrid: React.FC<HealthStatusGridProps> = ({ healthData, 
 
             <div className="grid grid-cols-3 gap-3 mb-4">
               <div className="text-center p-2 rounded bg-theme-surface">
-                <p className="text-lg font-bold text-theme-primary">{health.node_health.ready}/{health.node_health.total}</p>
+                <p className="text-lg font-bold text-theme-primary">{health.node_health?.ready ?? 0}/{health.node_health?.total ?? 0}</p>
                 <p className="text-xs text-theme-tertiary">Nodes Ready</p>
               </div>
               <div className="text-center p-2 rounded bg-theme-surface">
-                <p className="text-lg font-bold text-theme-primary">{health.service_health.healthy}/{health.service_health.total}</p>
+                <p className="text-lg font-bold text-theme-primary">{health.service_health?.healthy ?? 0}/{health.service_health?.total ?? 0}</p>
                 <p className="text-xs text-theme-tertiary">Services Healthy</p>
               </div>
               <div className="text-center p-2 rounded bg-theme-surface">
-                <p className={`text-lg font-bold ${swarmApi.getHealthPercentageColor(health.service_health.avg_health_percentage)}`}>
-                  {Math.round(health.service_health.avg_health_percentage)}%
+                <p className={`text-lg font-bold ${swarmApi.getHealthPercentageColor(health.service_health?.avg_health_percentage ?? 0)}`}>
+                  {Math.round(health.service_health?.avg_health_percentage ?? 0)}%
                 </p>
                 <p className="text-xs text-theme-tertiary">Avg Health</p>
               </div>
@@ -53,33 +53,33 @@ export const HealthStatusGrid: React.FC<HealthStatusGridProps> = ({ healthData, 
 
             <div className="flex items-center gap-4 mb-3 text-xs">
               <span className="text-theme-secondary">
-                Managers: <span className="font-semibold text-theme-primary">{health.node_health.managers}</span>
+                Managers: <span className="font-semibold text-theme-primary">{health.node_health?.managers ?? 0}</span>
               </span>
               <span className="text-theme-secondary">
-                Workers: <span className="font-semibold text-theme-primary">{health.node_health.workers}</span>
+                Workers: <span className="font-semibold text-theme-primary">{health.node_health?.workers ?? 0}</span>
               </span>
-              {health.node_health.down > 0 && (
+              {(health.node_health?.down ?? 0) > 0 && (
                 <span className="text-theme-error font-semibold">
-                  {health.node_health.down} down
+                  {health.node_health?.down} down
                 </span>
               )}
             </div>
 
-            {(health.recent_events.critical > 0 || health.recent_events.warning > 0) && (
+            {((health.recent_events?.critical ?? 0) > 0 || (health.recent_events?.warning ?? 0) > 0) && (
               <div className="flex items-center gap-3 mb-3 text-xs">
-                {health.recent_events.critical > 0 && (
+                {(health.recent_events?.critical ?? 0) > 0 && (
                   <span className="px-2 py-0.5 rounded bg-theme-error bg-opacity-10 text-theme-error font-medium">
-                    {health.recent_events.critical} critical
+                    {health.recent_events?.critical} critical
                   </span>
                 )}
-                {health.recent_events.warning > 0 && (
+                {(health.recent_events?.warning ?? 0) > 0 && (
                   <span className="px-2 py-0.5 rounded bg-theme-warning bg-opacity-10 text-theme-warning font-medium">
-                    {health.recent_events.warning} warnings
+                    {health.recent_events?.warning} warnings
                   </span>
                 )}
-                {health.recent_events.unacknowledged > 0 && (
+                {(health.recent_events?.unacknowledged ?? 0) > 0 && (
                   <span className="text-theme-tertiary">
-                    {health.recent_events.unacknowledged} unacknowledged
+                    {health.recent_events?.unacknowledged} unacknowledged
                   </span>
                 )}
               </div>
@@ -87,13 +87,13 @@ export const HealthStatusGrid: React.FC<HealthStatusGridProps> = ({ healthData, 
 
             {hasAlerts && (
               <div className="border-t border-theme pt-3 space-y-1">
-                {health.alerts.slice(0, 3).map((alert, i) => (
+                {health.alerts?.slice(0, 3).map((alert, i) => (
                   <div key={i} className={`text-xs px-2 py-1 rounded ${swarmApi.getEventSeverityColor(alert.severity)}`}>
                     {alert.message}
                   </div>
                 ))}
-                {health.alerts.length > 3 && (
-                  <p className="text-xs text-theme-tertiary">+{health.alerts.length - 3} more alerts</p>
+                {(health.alerts?.length ?? 0) > 3 && (
+                  <p className="text-xs text-theme-tertiary">+{health.alerts!.length - 3} more alerts</p>
                 )}
               </div>
             )}

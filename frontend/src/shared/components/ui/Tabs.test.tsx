@@ -150,7 +150,7 @@ describe('Tabs', () => {
       renderTabs();
 
       const tabsList = screen.getByText('Tab 1').closest('div');
-      expect(tabsList).toHaveClass('flex', 'border-b', 'border-theme-border', 'bg-theme-surface');
+      expect(tabsList).toHaveClass('flex', 'border-b', 'border-theme');
     });
 
     it('applies custom className', () => {

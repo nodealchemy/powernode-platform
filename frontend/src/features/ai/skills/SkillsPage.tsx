@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { skillsApi } from './services/skillsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
+import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { SkillCard } from './components/SkillCard';
 import { SkillDetailPanel } from './components/SkillDetailPanel';
 import { SkillEditor } from './components/SkillEditor';
@@ -118,23 +119,17 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
       </div>
 
       {/* Category Tabs */}
-      <div className="border-b border-theme overflow-x-auto">
-        <nav className="flex gap-4 min-w-max">
-          {ALL_CATEGORIES.map((cat) => (
-            <button
-              key={cat.value}
-              onClick={() => setSelectedCategory(cat.value)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                selectedCategory === cat.value
-                  ? 'border-theme-primary text-theme-primary'
-                  : 'border-transparent text-theme-secondary hover:text-theme-primary'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <TabContainer
+        tabs={ALL_CATEGORIES.map((cat) => ({
+          id: cat.value || 'all',
+          label: cat.label,
+        }))}
+        activeTab={selectedCategory || 'all'}
+        onTabChange={(tabId) => setSelectedCategory(tabId === 'all' ? '' : tabId)}
+        variant="underline"
+        size="sm"
+        compact
+      />
 
       {/* Skills Grid */}
       {loading ? (
