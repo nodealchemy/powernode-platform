@@ -306,12 +306,12 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
   );
 };
 
-const PromptsPageContent: React.FC = () => {
+export const PromptsContent: React.FC = () => {
   const { confirm, ConfirmationDialog } = useConfirmation();
   const {
     templates,
     loading,
-    refresh,
+    refresh: _refresh,
     createTemplate,
     updateTemplate,
     deleteTemplate,
@@ -359,6 +359,114 @@ const PromptsPageContent: React.FC = () => {
     }
   };
 
+  return (
+    <div className="space-y-6">
+      {/* Editor */}
+      {(showEditor || editingTemplate) && (
+        <TemplateEditor
+          template={editingTemplate || undefined}
+          onSubmit={handleSubmit}
+          onCancel={() => {
+            setShowEditor(false);
+            setEditingTemplate(null);
+          }}
+        />
+      )}
+
+      {/* Category Filter */}
+      {!showEditor && !editingTemplate && (
+        <>
+          <div className="flex justify-end mb-4">
+            <Button
+              onClick={() => {
+                setEditingTemplate(null);
+                setShowEditor(true);
+              }}
+              variant="primary"
+              size="sm"
+            >
+              <Plus className="w-4 h-4 mr-1" /> Create Template
+            </Button>
+          </div>
+
+          <TabContainer
+            tabs={[
+              { id: 'all', label: 'All', icon: <LayoutGrid className="w-4 h-4" /> },
+              { id: 'general', label: 'General', icon: <Globe className="w-4 h-4" /> },
+              { id: 'agent', label: 'Agent', icon: <Bot className="w-4 h-4" /> },
+              { id: 'workflow', label: 'Workflow', icon: <GitBranch className="w-4 h-4" /> },
+              { id: 'review', label: 'Review', icon: <Search className="w-4 h-4" /> },
+              { id: 'implement', label: 'Implement', icon: <Code className="w-4 h-4" /> },
+              { id: 'security', label: 'Security', icon: <Shield className="w-4 h-4" /> },
+              { id: 'deploy', label: 'Deploy', icon: <Rocket className="w-4 h-4" /> },
+              { id: 'docs', label: 'Docs', icon: <FileText className="w-4 h-4" /> },
+              { id: 'custom', label: 'Custom', icon: <Puzzle className="w-4 h-4" /> },
+            ]}
+            activeTab={categoryFilter}
+            onTabChange={(tabId) => setCategoryFilter(tabId as PromptCategory | 'all')}
+            variant="underline"
+            size="sm"
+            compact
+            className="mb-6"
+          />
+
+          {/* Template List */}
+          {loading ? (
+            <LoadingSpinner className="py-12" />
+          ) : filteredTemplates.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-theme-secondary">No prompt templates found.</p>
+              <Button
+                onClick={() => setShowEditor(true)}
+                variant="primary"
+                className="mt-4"
+              >
+                Create your first template
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredTemplates.map((template) => (
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  onEdit={() => setEditingTemplate(template)}
+                  onPreview={() => {
+                    setPreviewingTemplate(template);
+                    setPreview(null);
+                  }}
+                  onDuplicate={() => duplicateTemplate(template.id)}
+                  onDelete={() => handleDelete(template.id)}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Preview Modal */}
+      {previewingTemplate && (
+        <PreviewModal
+          template={previewingTemplate}
+          preview={preview}
+          onClose={() => {
+            setPreviewingTemplate(null);
+            setPreview(null);
+          }}
+          onPreview={handlePreview}
+        />
+      )}
+      {ConfirmationDialog}
+    </div>
+  );
+};
+
+const PromptsPageContent: React.FC = () => {
+  const {
+    loading,
+    refresh,
+  } = usePromptTemplates();
+
   const { refreshAction } = useRefreshAction({
     onRefresh: refresh,
     loading,
@@ -372,16 +480,6 @@ const PromptsPageContent: React.FC = () => {
 
   const actions = [
     refreshAction,
-    {
-      id: 'create',
-      label: 'Create Template',
-      onClick: () => {
-        setEditingTemplate(null);
-        setShowEditor(true);
-      },
-      variant: 'primary' as const,
-      icon: Plus
-    }
   ];
 
   return (
@@ -391,91 +489,7 @@ const PromptsPageContent: React.FC = () => {
       breadcrumbs={breadcrumbs}
       actions={actions}
     >
-      <div className="space-y-6">
-        {/* Editor */}
-        {(showEditor || editingTemplate) && (
-          <TemplateEditor
-            template={editingTemplate || undefined}
-            onSubmit={handleSubmit}
-            onCancel={() => {
-              setShowEditor(false);
-              setEditingTemplate(null);
-            }}
-          />
-        )}
-
-        {/* Category Filter */}
-        {!showEditor && !editingTemplate && (
-          <>
-            <TabContainer
-              tabs={[
-                { id: 'all', label: 'All', icon: <LayoutGrid className="w-4 h-4" /> },
-                { id: 'general', label: 'General', icon: <Globe className="w-4 h-4" /> },
-                { id: 'agent', label: 'Agent', icon: <Bot className="w-4 h-4" /> },
-                { id: 'workflow', label: 'Workflow', icon: <GitBranch className="w-4 h-4" /> },
-                { id: 'review', label: 'Review', icon: <Search className="w-4 h-4" /> },
-                { id: 'implement', label: 'Implement', icon: <Code className="w-4 h-4" /> },
-                { id: 'security', label: 'Security', icon: <Shield className="w-4 h-4" /> },
-                { id: 'deploy', label: 'Deploy', icon: <Rocket className="w-4 h-4" /> },
-                { id: 'docs', label: 'Docs', icon: <FileText className="w-4 h-4" /> },
-                { id: 'custom', label: 'Custom', icon: <Puzzle className="w-4 h-4" /> },
-              ]}
-              activeTab={categoryFilter}
-              onTabChange={(tabId) => setCategoryFilter(tabId as PromptCategory | 'all')}
-              variant="underline"
-              size="sm"
-              compact
-              className="mb-6"
-            />
-
-            {/* Template List */}
-            {loading ? (
-              <LoadingSpinner className="py-12" />
-            ) : filteredTemplates.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-theme-secondary">No prompt templates found.</p>
-                <Button
-                  onClick={() => setShowEditor(true)}
-                  variant="primary"
-                  className="mt-4"
-                >
-                  Create your first template
-                </Button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredTemplates.map((template) => (
-                  <TemplateCard
-                    key={template.id}
-                    template={template}
-                    onEdit={() => setEditingTemplate(template)}
-                    onPreview={() => {
-                      setPreviewingTemplate(template);
-                      setPreview(null);
-                    }}
-                    onDuplicate={() => duplicateTemplate(template.id)}
-                    onDelete={() => handleDelete(template.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Preview Modal */}
-        {previewingTemplate && (
-          <PreviewModal
-            template={previewingTemplate}
-            preview={preview}
-            onClose={() => {
-              setPreviewingTemplate(null);
-              setPreview(null);
-            }}
-            onPreview={handlePreview}
-          />
-        )}
-      </div>
-      {ConfirmationDialog}
+      <PromptsContent />
     </PageContainer>
   );
 };

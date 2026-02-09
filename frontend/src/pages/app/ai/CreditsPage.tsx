@@ -1,7 +1,7 @@
 // Credits Management Page - Prepaid AI Credit System
 import React, { useState, useEffect } from 'react';
 import {
-  Plus, Coins, ArrowRightLeft, ShoppingCart,
+  Coins, ArrowRightLeft, ShoppingCart,
   Search, Filter, DollarSign, TrendingUp, Store, Check, X
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
@@ -9,7 +9,6 @@ import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
-import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import {
   creditsApi,
   CreditBalance,
@@ -45,7 +44,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'overview' | 'purchase' | 'transactions' | 'transfers' | 'reseller';
 
-const CreditsPage: React.FC = () => {
+export const CreditsContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [balance, setBalance] = useState<CreditBalance | null>(null);
@@ -182,17 +181,6 @@ const CreditsPage: React.FC = () => {
     }
   };
 
-  const { refreshAction } = useRefreshAction({
-    onRefresh: loadData,
-    loading,
-  });
-
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'AI', href: '/app/ai' },
-    { label: 'Credits' }
-  ];
-
   const tabs = [
     { id: 'overview' as TabType, label: 'Overview', icon: Coins },
     { id: 'purchase' as TabType, label: 'Purchase', icon: ShoppingCart },
@@ -206,21 +194,7 @@ const CreditsPage: React.FC = () => {
     : transactions.filter(t => t.transaction_type === typeFilter);
 
   return (
-    <PageContainer
-      title="Credits Management"
-      description="Manage prepaid AI credits, purchases, transfers, and usage analytics"
-      breadcrumbs={breadcrumbs}
-      actions={[
-        refreshAction,
-        {
-          id: 'purchase-credits',
-          label: 'Purchase Credits',
-          onClick: () => setActiveTab('purchase'),
-          icon: Plus,
-          variant: 'primary' as const
-        }
-      ]}
-    >
+    <div className="space-y-6">
       {/* Balance Card */}
       {balance && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -565,6 +539,24 @@ const CreditsPage: React.FC = () => {
           )}
         </>
       )}
+    </div>
+  );
+};
+
+const CreditsPage: React.FC = () => {
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'AI', href: '/app/ai' },
+    { label: 'Credits' }
+  ];
+
+  return (
+    <PageContainer
+      title="Credits Management"
+      description="Manage prepaid AI credits, purchases, transfers, and usage analytics"
+      breadcrumbs={breadcrumbs}
+    >
+      <CreditsContent />
     </PageContainer>
   );
 };

@@ -1,19 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Play,
-  Pause,
-  Square,
   Settings,
   RotateCcw,
-  Zap,
-  FastForward,
   Calendar,
   Wifi,
   WifiOff,
   GitFork,
 } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Card, CardContent } from '@/shared/components/ui/Card';
@@ -32,7 +27,6 @@ import { RalphLoopScheduleStatus } from '../components/RalphLoopScheduleStatus';
 import { RalphLoopScheduleConfig } from '../components/RalphLoopScheduleConfig';
 import { RalphLiveExecutionPanel } from '../components/RalphLiveExecutionPanel';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
-import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { cn } from '@/shared/utils/cn';
 import { useRalphLoopExecutionWebSocket, RalphLoopExecutionUpdate } from '../hooks/useRalphLoopExecutionWebSocket';
 import type {
@@ -59,7 +53,11 @@ const statusConfig: Record<RalphLoopStatus, {
   cancelled: { variant: 'outline', label: 'Cancelled' },
 };
 
-export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
+interface RalphLoopsContentProps {
+  refreshKey?: number;
+}
+
+export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey: externalRefreshKey }) => {
   const navigate = useNavigate();
   const [selectedLoop, setSelectedLoop] = useState<RalphLoop | null>(null);
   const [loading, setLoading] = useState(false);
@@ -69,6 +67,13 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
   const [showScheduleConfigModal, setShowScheduleConfigModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (externalRefreshKey && externalRefreshKey > 0) {
+      setRefreshKey(k => k + 1);
+    }
+  }, [externalRefreshKey]);
+
   const [editedTasks, setEditedTasks] = useState<PrdTask[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [settingsForm, setSettingsForm] = useState({
@@ -79,7 +84,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
     default_agent_id: '',
   });
   const [settingsLoading, setSettingsLoading] = useState(false);
-  const [settingsAgents, setSettingsAgents] = useState<{ id: string; name: string }[]>([]);
+  const [settingsAgents] = useState<{ id: string; name: string }[]>([]);
   const [liveIterations, setLiveIterations] = useState<RalphIteration[]>([]);
   const { showNotification } = useNotification();
 
@@ -166,94 +171,6 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
     loadLoop(loopId);
   };
 
-  const handleBack = () => {
-    setSelectedLoop(null);
-    setActiveTab('tasks');
-    setEditedTasks([]);
-    setLiveIterations([]);
-  };
-
-  const handleStart = async () => {
-    if (!selectedLoop) return;
-    try {
-      await ralphLoopsApi.startLoop(selectedLoop.id);
-      loadLoop(selectedLoop.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start loop');
-    }
-  };
-
-  const handlePause = async () => {
-    if (!selectedLoop) return;
-    try {
-      await ralphLoopsApi.pauseLoop(selectedLoop.id);
-      loadLoop(selectedLoop.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to pause loop');
-    }
-  };
-
-  const handleResume = async () => {
-    if (!selectedLoop) return;
-    try {
-      await ralphLoopsApi.resumeLoop(selectedLoop.id);
-      loadLoop(selectedLoop.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to resume loop');
-    }
-  };
-
-  const handleCancel = async () => {
-    if (!selectedLoop) return;
-    try {
-      await ralphLoopsApi.cancelLoop(selectedLoop.id);
-      loadLoop(selectedLoop.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel loop');
-    }
-  };
-
-  const handleReset = async () => {
-    if (!selectedLoop) return;
-    try {
-      await ralphLoopsApi.resetLoop(selectedLoop.id);
-      showNotification('Loop reset successfully', 'success');
-      loadLoop(selectedLoop.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reset loop');
-    }
-  };
-
-  const handleRunIteration = async () => {
-    if (!selectedLoop) return;
-    try {
-      await ralphLoopsApi.runIteration(selectedLoop.id);
-      loadLoop(selectedLoop.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to run iteration');
-    }
-  };
-
-  const handleRunAll = async () => {
-    if (!selectedLoop) return;
-    try {
-      await ralphLoopsApi.runAll(selectedLoop.id);
-      loadLoop(selectedLoop.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start Run All');
-    }
-  };
-
-  const handleStopRunAll = async () => {
-    if (!selectedLoop) return;
-    try {
-      await ralphLoopsApi.stopRunAll(selectedLoop.id);
-      loadLoop(selectedLoop.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to stop Run All');
-    }
-  };
-
   const handleSavePrd = async (tasksToSave?: PrdTask[]) => {
     if (!selectedLoop) return;
     const tasks = tasksToSave ?? editedTasks;
@@ -337,21 +254,6 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
     }
   }, [selectedLoop, showNotification]);
 
-  const handleOpenSettings = useCallback(() => {
-    if (!selectedLoop) return;
-    setSettingsForm({
-      name: selectedLoop.name,
-      description: selectedLoop.description || '',
-      max_iterations: selectedLoop.max_iterations,
-      repository_url: selectedLoop.repository_url || '',
-      default_agent_id: selectedLoop.default_agent_id || '',
-    });
-    agentsApi.getAgents({ per_page: 100 }).then((res) => {
-      setSettingsAgents((res.items || []).map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
-    }).catch(() => {});
-    setShowSettingsModal(true);
-  }, [selectedLoop]);
-
   const handleSaveSettings = useCallback(async () => {
     if (!selectedLoop) return;
     try {
@@ -373,152 +275,11 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
     }
   }, [selectedLoop, settingsForm, showNotification]);
 
-  // Build breadcrumbs based on current view
-  const getBreadcrumbs = () => {
-    const base = [
-      { label: 'Dashboard', href: '/app' },
-      { label: 'AI', href: '/app/ai' },
-    ];
-
-    if (selectedLoop) {
-      return [
-        ...base,
-        { label: 'Ralph Loops', href: '/app/ai/ralph-loops' },
-        { label: selectedLoop.name },
-      ];
-    }
-    return [...base, { label: 'Ralph Loops' }];
-  };
-
-  // Build actions based on current view
-  const getActions = (): PageAction[] => {
-    if (selectedLoop) {
-      const actions: PageAction[] = [
-        {
-          id: 'back',
-          label: 'Back to List',
-          onClick: handleBack,
-          variant: 'secondary',
-        },
-      ];
-
-      const canStart = selectedLoop.status === 'pending';
-      const isRunning = selectedLoop.status === 'running';
-      const isPaused = selectedLoop.status === 'paused';
-      const canRunIteration = selectedLoop.status === 'running';
-      const canReset = ['cancelled', 'completed', 'failed'].includes(selectedLoop.status);
-      const runAllActive = !!selectedLoop.configuration?.run_all_active;
-
-      if (canReset) {
-        actions.push({
-          id: 'reset',
-          label: 'Reset',
-          onClick: handleReset,
-          variant: 'outline',
-          icon: RotateCcw,
-        });
-      }
-      if (canStart) {
-        actions.push({
-          id: 'start',
-          label: 'Start Loop',
-          onClick: handleStart,
-          variant: 'primary',
-          icon: Play,
-        });
-      }
-      if (isRunning) {
-        actions.push({
-          id: 'pause',
-          label: 'Pause',
-          onClick: handlePause,
-          variant: 'outline',
-          icon: Pause,
-        });
-      }
-      if (isPaused) {
-        actions.push({
-          id: 'resume',
-          label: 'Resume',
-          onClick: handleResume,
-          variant: 'primary',
-          icon: Play,
-        });
-        actions.push({
-          id: 'cancel',
-          label: 'Cancel',
-          onClick: handleCancel,
-          variant: 'outline',
-          icon: Square,
-        });
-      }
-      if (canRunIteration) {
-        if (runAllActive) {
-          actions.push({
-            id: 'stop-run-all',
-            label: 'Stop Run All',
-            onClick: handleStopRunAll,
-            variant: 'outline',
-            icon: Square,
-          });
-        } else {
-          actions.push({
-            id: 'run-one',
-            label: 'Run One',
-            onClick: handleRunIteration,
-            variant: 'outline',
-            icon: Zap,
-          });
-          actions.push({
-            id: 'run-all',
-            label: 'Run All',
-            onClick: handleRunAll,
-            variant: 'primary',
-            icon: FastForward,
-          });
-        }
-      }
-      actions.push({
-        id: 'settings',
-        label: 'Settings',
-        onClick: handleOpenSettings,
-        variant: 'secondary',
-        icon: Settings,
-      });
-
-      return actions;
-    }
-    return [];
-  };
-
-  // Get page info based on current view
-  const getPageInfo = () => {
-    if (selectedLoop) {
-      const status = statusConfig[selectedLoop.status] || statusConfig.pending;
-      return {
-        title: selectedLoop.name,
-        description: selectedLoop.description || `${status.label} · ${selectedLoop.default_agent_name || 'No Agent'}`,
-      };
-    }
-    return {
-      title: 'Ralph Loops',
-      description: 'Autonomous AI-driven iterative development loops',
-    };
-  };
-
-  const pageInfo = getPageInfo();
-
   if (loading && !selectedLoop) {
     return (
-      <PageContainer
-        title="Ralph Loops"
-        description="Loading..."
-        breadcrumbs={getBreadcrumbs()}
-      >
-        <div className="flex items-center justify-center p-8">
-          <Loading size="lg" />
-        </div>
-      </PageContainer>
+      <div className="flex items-center justify-center p-8">
+        <Loading size="lg" />
+      </div>
     );
   }
 
@@ -530,12 +291,7 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
       : 0;
 
     return (
-      <PageContainer
-        title={pageInfo.title}
-        description={pageInfo.description}
-        breadcrumbs={getBreadcrumbs()}
-        actions={getActions()}
-      >
+      <div className="space-y-6">
         {/* Status Badge */}
         <div className="flex items-center gap-3 mb-4">
           <Badge variant={status.variant}>
@@ -794,17 +550,12 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
             </div>
           </div>
         </Modal>
-      </PageContainer>
+      </div>
     );
   }
 
   return (
-    <PageContainer
-      title={pageInfo.title}
-      description={pageInfo.description}
-      breadcrumbs={getBreadcrumbs()}
-      actions={getActions()}
-    >
+    <div className="space-y-6">
       <RalphLoopList
         key={refreshKey}
         onSelectLoop={handleSelectLoop}
@@ -816,6 +567,22 @@ export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
         onClose={() => setShowCreateDialog(false)}
         onCreated={handleLoopCreated}
       />
+    </div>
+  );
+};
+
+export const RalphLoopsPage: React.FC<RalphLoopsPageProps> = () => {
+  return (
+    <PageContainer
+      title="Ralph Loops"
+      description="Autonomous AI-driven iterative development loops"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'Ralph Loops' },
+      ]}
+    >
+      <RalphLoopsContent />
     </PageContainer>
   );
 };

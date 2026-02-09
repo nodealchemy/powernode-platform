@@ -1,7 +1,7 @@
 // RAG Knowledge Base Page - Knowledge-Augmented Agents
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Plus, FileText, Search, Database, Upload,
+  FileText, Search, Database, Upload,
   Trash2, Play, Link, BarChart3, MessageSquare, RefreshCw
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
@@ -46,7 +46,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'knowledge-bases' | 'documents' | 'query' | 'connectors' | 'analytics';
 
-const RagPage: React.FC = () => {
+export const RagContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('knowledge-bases');
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
@@ -227,18 +227,7 @@ const RagPage: React.FC = () => {
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
-  const { refreshAction } = useRefreshAction({
-    onRefresh: loadData,
-    loading,
-  });
-
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'AI', href: '/app/ai' },
-    { label: 'Knowledge Bases' }
-  ];
-
-  const tabs = [
+  const ragTabs = [
     { id: 'knowledge-bases' as TabType, label: 'Knowledge Bases', icon: Database },
     { id: 'documents' as TabType, label: 'Documents', icon: FileText },
     { id: 'query' as TabType, label: 'Query', icon: Search },
@@ -247,21 +236,7 @@ const RagPage: React.FC = () => {
   ];
 
   return (
-    <PageContainer
-      title="RAG Knowledge Bases"
-      description="Manage knowledge bases, documents, embeddings, and retrieval-augmented generation"
-      breadcrumbs={breadcrumbs}
-      actions={[
-        refreshAction,
-        {
-          id: 'create-kb',
-          label: 'Create Knowledge Base',
-          onClick: () => setShowCreateModal(true),
-          icon: Plus,
-          variant: 'primary' as const
-        }
-      ]}
-    >
+    <div>
       {/* KB Selector */}
       {knowledgeBases.length > 0 && (
         <div className="flex items-center gap-4 mb-6 p-4 bg-theme-surface border border-theme rounded-lg">
@@ -292,7 +267,7 @@ const RagPage: React.FC = () => {
       {/* Tabs */}
       <div className="border-b border-theme mb-6">
         <nav className="flex gap-4">
-          {tabs.map(tab => (
+          {ragTabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -648,6 +623,30 @@ const RagPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+};
+
+const RagPage: React.FC = () => {
+  const [loading, setLoading] = useState(false);
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: async () => { setLoading(true); setLoading(false); },
+    loading,
+  });
+
+  return (
+    <PageContainer
+      title="RAG Knowledge Bases"
+      description="Manage knowledge bases, documents, embeddings, and retrieval-augmented generation"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'Knowledge Bases' }
+      ]}
+      actions={[refreshAction]}
+    >
+      <RagContent />
     </PageContainer>
   );
 };

@@ -13,7 +13,7 @@ class Ai::ExecutionResourceAggregatorService
 
     types.each do |type|
       resources.concat(send("collect_#{type}", filters))
-    rescue NoMethodError
+    rescue StandardError
       next
     end
 
@@ -27,7 +27,7 @@ class Ai::ExecutionResourceAggregatorService
       count = send("collect_#{type}", filters).count
       result[type.to_sym] = count
       result[:total] += count
-    rescue NoMethodError
+    rescue StandardError
       result[type.to_sym] = 0
     end
     result
@@ -62,7 +62,7 @@ class Ai::ExecutionResourceAggregatorService
 
   def collect_git_branch(filters)
     scope = Ai::Worktree.joins(:worktree_session)
-                        .where(worktree_sessions: { account_id: @account.id })
+                        .where(ai_worktree_sessions: { account_id: @account.id })
     scope = apply_worktree_filters(scope, filters)
 
     scope.map do |wt|
@@ -94,14 +94,14 @@ class Ai::ExecutionResourceAggregatorService
       build_resource(
         resource_type: "git_merge",
         name: "#{op.source_branch} → #{op.target_branch}",
-        description: "Merge via #{op.merge_strategy} strategy",
+        description: "Merge via #{op.strategy} strategy",
         status: op.status,
         source_type: "Ai::MergeOperation",
         source_id: op.id,
         source_label: "Merge Operation",
         pull_request_url: op.pull_request_url,
         created_at: op.created_at,
-        metadata: { strategy: op.merge_strategy, conflict_count: op.conflict_count }
+        metadata: { strategy: op.strategy, conflict_count: op.conflict_count }
       )
     end
   end

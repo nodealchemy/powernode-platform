@@ -15,20 +15,20 @@ export function ResourceFilterBar({ filters, onFilterChange, onClear }: Resource
   return (
     <div className="flex flex-wrap items-center gap-3 mb-4">
       <div className="relative flex-1 min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-text-tertiary" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-tertiary" />
         <input
           type="text"
           placeholder="Search resources..."
           value={filters.search || ''}
           onChange={(e) => onFilterChange({ search: e.target.value || undefined })}
-          className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-theme-border bg-theme-bg-primary text-theme-text-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+          className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-theme bg-theme-surface text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
         />
       </div>
 
       <select
         value={filters.status || ''}
         onChange={(e) => onFilterChange({ status: e.target.value || undefined })}
-        className="px-3 py-2 text-sm rounded-lg border border-theme-border bg-theme-bg-primary text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+        className="px-3 py-2 text-sm rounded-lg border border-theme bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
       >
         <option value="">All Statuses</option>
         <option value="completed">Completed</option>
@@ -42,20 +42,20 @@ export function ResourceFilterBar({ filters, onFilterChange, onClear }: Resource
         type="date"
         value={filters.start_date || ''}
         onChange={(e) => onFilterChange({ start_date: e.target.value || undefined })}
-        className="px-3 py-2 text-sm rounded-lg border border-theme-border bg-theme-bg-primary text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+        className="px-3 py-2 text-sm rounded-lg border border-theme bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
       />
 
       <input
         type="date"
         value={filters.end_date || ''}
         onChange={(e) => onFilterChange({ end_date: e.target.value || undefined })}
-        className="px-3 py-2 text-sm rounded-lg border border-theme-border bg-theme-bg-primary text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+        className="px-3 py-2 text-sm rounded-lg border border-theme bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
       />
 
       {hasFilters && (
         <button
           onClick={onClear}
-          className="inline-flex items-center gap-1 px-3 py-2 text-sm text-theme-text-secondary hover:text-theme-text-primary transition-colors"
+          className="inline-flex items-center gap-1 px-3 py-2 text-sm text-theme-secondary hover:text-theme-primary transition-colors"
         >
           <X className="w-4 h-4" />
           Clear

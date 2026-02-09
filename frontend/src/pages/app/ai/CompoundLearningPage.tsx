@@ -8,6 +8,41 @@ import { LearningsList } from '@/features/ai/learning/components/LearningsList';
 
 type TabType = 'metrics' | 'learnings';
 
+// Extracted content component (everything inside PageContainer) for embedding in tabbed pages
+export const CompoundLearningContent: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<TabType>('metrics');
+  const [refreshKey, _setRefreshKey] = useState(0);
+
+  const tabs = [
+    { id: 'metrics' as const, label: 'Metrics' },
+    { id: 'learnings' as const, label: 'All Learnings' },
+  ];
+
+  return (
+    <>
+      <div className="flex gap-1 mb-6 border-b border-theme-border">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.id
+                ? 'border-theme-primary text-theme-primary'
+                : 'border-transparent text-theme-muted hover:text-theme-secondary'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <div key={refreshKey}>
+        {activeTab === 'metrics' && <CompoundMetricsDashboard />}
+        {activeTab === 'learnings' && <LearningsList />}
+      </div>
+    </>
+  );
+};
+
 const CompoundLearningPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('metrics');
   const [refreshKey, setRefreshKey] = useState(0);

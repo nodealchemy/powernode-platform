@@ -10,7 +10,6 @@ import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
-import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import {
   outcomeBillingApi,
   OutcomeDefinition,
@@ -46,7 +45,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'definitions' | 'contracts' | 'records' | 'violations' | 'performance' | 'summary';
 
-const OutcomeBillingPage: React.FC = () => {
+export const OutcomeBillingContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('definitions');
   const [definitions, setDefinitions] = useState<OutcomeDefinition[]>([]);
@@ -221,17 +220,6 @@ const OutcomeBillingPage: React.FC = () => {
     }
   };
 
-  const { refreshAction } = useRefreshAction({
-    onRefresh: loadData,
-    loading,
-  });
-
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'AI', href: '/app/ai' },
-    { label: 'Outcome Billing' }
-  ];
-
   const tabs = [
     { id: 'definitions' as TabType, label: 'Definitions', icon: FileText },
     { id: 'contracts' as TabType, label: 'Contracts', icon: Shield },
@@ -242,21 +230,7 @@ const OutcomeBillingPage: React.FC = () => {
   ];
 
   return (
-    <PageContainer
-      title="Outcome Billing"
-      description="Success-based AI billing, SLA contracts, and violation management"
-      breadcrumbs={breadcrumbs}
-      actions={[
-        refreshAction,
-        {
-          id: 'create-definition',
-          label: 'Create Definition',
-          onClick: () => setShowCreateDefModal(true),
-          icon: Plus,
-          variant: 'primary' as const
-        }
-      ]}
-    >
+    <div className="space-y-6">
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -909,6 +883,24 @@ const OutcomeBillingPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+};
+
+const OutcomeBillingPage: React.FC = () => {
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/app' },
+    { label: 'AI', href: '/app/ai' },
+    { label: 'Outcome Billing' }
+  ];
+
+  return (
+    <PageContainer
+      title="Outcome Billing"
+      description="Success-based AI billing, SLA contracts, and violation management"
+      breadcrumbs={breadcrumbs}
+    >
+      <OutcomeBillingContent />
     </PageContainer>
   );
 };

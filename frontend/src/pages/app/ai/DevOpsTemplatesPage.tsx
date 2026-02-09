@@ -44,7 +44,12 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'templates' | 'installations' | 'executions' | 'risks' | 'reviews' | 'analytics';
 
-const DevOpsTemplatesPage: React.FC = () => {
+// Extracted content component (without PageContainer) for embedding in other pages
+export const TemplatesContent: React.FC = () => {
+  return <DevOpsTemplatesInner standalone={false} />;
+};
+
+const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone }) => {
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('templates');
   const [templates, setTemplates] = useState<DevopsTemplate[]>([]);
@@ -250,32 +255,8 @@ const DevOpsTemplatesPage: React.FC = () => {
     { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 }
   ];
 
-  return (
-    <PageContainer
-      title="DevOps AI Templates"
-      description="Pre-built AI workflow templates for DevOps pipelines, code review, and deployment validation"
-      breadcrumbs={breadcrumbs}
-      actions={[
-        {
-          label: 'Refresh',
-          onClick: () => loadData(),
-          icon: RefreshCw,
-          variant: 'secondary' as const
-        },
-        {
-          label: 'New Execution',
-          onClick: () => {},
-          icon: Play,
-          variant: 'secondary' as const
-        },
-        {
-          label: 'Create Template',
-          onClick: () => setCreateModal(true),
-          icon: Plus,
-          variant: 'primary' as const
-        }
-      ]}
-    >
+  const innerContent = (
+    <>
       {/* Analytics Summary */}
       {analytics && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -939,8 +920,46 @@ const DevOpsTemplatesPage: React.FC = () => {
       />
 
       {ConfirmationDialog}
+    </>
+  );
+
+  if (!standalone) {
+    return innerContent;
+  }
+
+  return (
+    <PageContainer
+      title="DevOps AI Templates"
+      description="Pre-built AI workflow templates for DevOps pipelines, code review, and deployment validation"
+      breadcrumbs={breadcrumbs}
+      actions={[
+        {
+          label: 'Refresh',
+          onClick: () => loadData(),
+          icon: RefreshCw,
+          variant: 'secondary' as const
+        },
+        {
+          label: 'New Execution',
+          onClick: () => {},
+          icon: Play,
+          variant: 'secondary' as const
+        },
+        {
+          label: 'Create Template',
+          onClick: () => setCreateModal(true),
+          icon: Plus,
+          variant: 'primary' as const
+        }
+      ]}
+    >
+      {innerContent}
     </PageContainer>
   );
+};
+
+const DevOpsTemplatesPage: React.FC = () => {
+  return <DevOpsTemplatesInner standalone={true} />;
 };
 
 export default DevOpsTemplatesPage;

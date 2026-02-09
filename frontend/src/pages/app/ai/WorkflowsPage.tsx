@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import {
   Play,
   Plus,
@@ -23,9 +23,12 @@ import {
   Hash,
   FileText,
   Activity,
-  FileStack
+  FileStack,
+  Boxes
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
+import { TemplatesContent } from '@/pages/app/ai/DevOpsTemplatesPage';
 import { DataTable } from '@/shared/components/ui/DataTable';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -44,8 +47,14 @@ import { WorkflowBuilderModal } from '@/shared/components/workflow/WorkflowBuild
 import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 import { logger } from '@/shared/utils/logger';
 
+const workflowTabs = [
+  { id: 'workflows', label: 'Workflows', icon: <Workflow size={16} />, path: '/' },
+  { id: 'templates', label: 'Templates', icon: <Boxes size={16} />, path: '/templates' },
+];
+
 export const WorkflowsPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
@@ -98,6 +107,20 @@ export const WorkflowsPage: React.FC = () => {
     onRefresh: () => loadWorkflows(pagination.current_page, perPage),
     loading,
   });
+
+  // Tab routing
+  const getActiveTab = () => {
+    const path = location.pathname;
+    if (path.includes('/workflows/templates')) return 'templates';
+    return 'workflows';
+  };
+
+  const [activeTab, setActiveTab] = useState(getActiveTab());
+
+  useEffect(() => {
+    const newTab = getActiveTab();
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
 
   // Load workflows function with useCallback for optimization
   const loadWorkflows = useCallback(async (page = 1, perPage = 25, skipLoading = false) => {
@@ -544,6 +567,36 @@ export const WorkflowsPage: React.FC = () => {
     }
   ];
 
+  // Context-aware page actions
+  const pageActions = [
+    refreshAction,
+    ...(activeTab === 'workflows' ? [
+      {
+        id: 'monitoring',
+        label: 'Monitoring',
+        onClick: () => navigate('/app/ai/monitoring/workflows'),
+        icon: Activity,
+        variant: 'outline' as const
+      },
+      ...(canCreateWorkflows ? [
+        {
+          id: 'import-workflow',
+          label: 'Import',
+          onClick: () => navigate('/app/ai/workflows/import'),
+          icon: Upload,
+          variant: 'outline' as const
+        },
+        {
+          id: 'create-workflow',
+          label: 'Create Workflow',
+          onClick: () => setIsCreateModalOpen(true),
+          icon: Plus,
+          variant: 'primary' as const
+        }
+      ] : [])
+    ] : [])
+  ];
+
   return (
     <AiErrorBoundary>
       <PageContainer
@@ -554,198 +607,188 @@ export const WorkflowsPage: React.FC = () => {
           { label: 'AI', href: '/app/ai' },
           { label: 'Workflows' }
         ]}
-        actions={[
-          refreshAction,
-          {
-            id: 'monitoring',
-            label: 'Monitoring',
-            onClick: () => navigate('/app/ai/monitoring/workflows'),
-            icon: Activity,
-            variant: 'outline'
-          },
-          ...(canCreateWorkflows ? [
-            {
-              id: 'import-workflow',
-              label: 'Import',
-              onClick: () => navigate('/app/ai/workflows/import'),
-              icon: Upload,
-              variant: 'outline' as const
-            },
-            {
-              id: 'create-workflow',
-              label: 'Create Workflow',
-              onClick: () => setIsCreateModalOpen(true),
-              icon: Plus,
-              variant: 'primary' as const
-            }
-          ] : [])
-        ]}
+        actions={pageActions}
     >
-      <div className="space-y-4">
-        {/* Search and Controls */}
-        <div className="space-y-4">
-          {/* Search Bar */}
-          <div className="w-full">
-            <SearchInput
-              placeholder="Search workflows by name or description..."
-              value={searchQuery}
-              onChange={handleSearch}
-              className="w-full"
+      <TabContainer
+        tabs={workflowTabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        basePath="/app/ai/workflows"
+        variant="underline"
+        className="mb-6"
+      >
+        <TabPanel tabId="workflows" activeTab={activeTab}>
+          <div className="space-y-4">
+            {/* Search and Controls */}
+            <div className="space-y-4">
+              {/* Search Bar */}
+              <div className="w-full">
+                <SearchInput
+                  placeholder="Search workflows by name or description..."
+                  value={searchQuery}
+                  onChange={handleSearch}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Filters and Sorting on Same Line */}
+              <div className="flex flex-wrap items-center gap-4">
+                {/* Sort Controls */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-theme-muted shrink-0">
+                    <ArrowUpDown className="h-4 w-4" />
+                    <span>Sort:</span>
+                  </div>
+                  <EnhancedSelect
+                    placeholder="Choose field"
+                    value={sortBy}
+                    onChange={(value) => setSortBy(value || 'created_at')}
+                    options={[
+                      { value: 'name', label: 'Name', icon: FileText },
+                      { value: 'created_at', label: 'Created', icon: Calendar },
+                      { value: 'updated_at', label: 'Updated', icon: Calendar },
+                      { value: 'status', label: 'Status', icon: CheckCircle },
+                      { value: 'creator', label: 'Creator', icon: User },
+                      { value: 'version', label: 'Version', icon: Hash }
+                    ]}
+                    className="w-32"
+                  />
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium border border-theme rounded-md bg-theme-surface hover:bg-theme-surface-elevated transition-colors min-w-fit"
+                    title={`Currently: ${getSortLabel(sortBy, sortOrder)}`}
+                  >
+                    {sortOrder === 'asc' ? (
+                      <SortAsc className="h-4 w-4 text-theme-interactive-primary" />
+                    ) : (
+                      <SortDesc className="h-4 w-4 text-theme-interactive-primary" />
+                    )}
+                    <span className="hidden sm:inline text-theme-primary">
+                      {sortOrder === 'asc' ? 'A→Z' : 'Z→A'}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Type Filter - Workflows vs Templates */}
+                <div className="flex items-center gap-1 bg-theme-surface border border-theme rounded-lg p-1">
+                  <button
+                    onClick={() => setTypeFilter('all')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      typeFilter === 'all'
+                        ? 'bg-theme-interactive-primary text-theme-on-primary'
+                        : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setTypeFilter('workflows')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                      typeFilter === 'workflows'
+                        ? 'bg-theme-interactive-primary text-theme-on-primary'
+                        : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
+                    }`}
+                  >
+                    <Workflow className="h-3.5 w-3.5" />
+                    Workflows
+                  </button>
+                  <button
+                    onClick={() => setTypeFilter('templates')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                      typeFilter === 'templates'
+                        ? 'bg-theme-interactive-primary text-theme-on-primary'
+                        : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
+                    }`}
+                  >
+                    <FileStack className="h-3.5 w-3.5" />
+                    Templates
+                  </button>
+                </div>
+
+                {/* Filter Controls */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-theme-muted shrink-0">
+                    <Filter className="h-4 w-4" />
+                    <span>Filter:</span>
+                  </div>
+                  <EnhancedSelect
+                    placeholder="All Statuses"
+                    value={filters.status || ''}
+                    onChange={(value) => handleFilterChange('status', value || undefined)}
+                    options={[
+                      { value: '', label: 'All Statuses' },
+                      { value: 'draft', label: 'Draft' },
+                      { value: 'active', label: 'Active' },
+                      { value: 'inactive', label: 'Inactive' },
+                      { value: 'paused', label: 'Paused' },
+                      { value: 'archived', label: 'Archived' }
+                    ]}
+                    className="w-32"
+                  />
+                  <EnhancedSelect
+                    placeholder="All Visibility"
+                    value={filters.visibility || ''}
+                    onChange={(value) => handleFilterChange('visibility', value || undefined)}
+                    options={[
+                      { value: '', label: 'All Visibility' },
+                      { value: 'private', label: 'Private' },
+                      { value: 'account', label: 'Account' },
+                      { value: 'public', label: 'Public' }
+                    ]}
+                    className="w-32"
+                  />
+                </div>
+
+                {/* Current Sort Display */}
+                {(sortBy !== 'created_at' || sortOrder !== 'desc') && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-theme-interactive-primary/10 border border-theme-interactive-primary/20 rounded-md text-sm">
+                    <div className="flex items-center gap-1.5 text-theme-interactive-primary">
+                      {React.createElement(getSortIcon(sortBy), { className: "h-4 w-4" })}
+                      <span className="font-medium">
+                        Sorted by {getSortLabel(sortBy, sortOrder)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSortBy('created_at');
+                        setSortOrder('desc');
+                      }}
+                      className="text-theme-muted hover:text-theme-primary transition-colors"
+                      title="Reset to default sort"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Data Table */}
+            <DataTable
+              columns={columns}
+              data={workflows || []}
+              loading={loading}
+              pagination={pagination}
+              onPageChange={(page) => loadWorkflows(page, perPage)}
+              emptyState={{
+                icon: Play,
+                title: 'No workflows found',
+                description: canCreateWorkflows
+                  ? 'Get started by creating your first AI workflow.'
+                  : 'No workflows have been created yet.',
+                action: canCreateWorkflows ? {
+                  label: 'Create Workflow',
+                  onClick: () => setIsCreateModalOpen(true)
+                } : undefined
+              }}
             />
           </div>
+        </TabPanel>
 
-          {/* Filters and Sorting on Same Line */}
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Sort Controls */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-sm font-medium text-theme-muted shrink-0">
-                <ArrowUpDown className="h-4 w-4" />
-                <span>Sort:</span>
-              </div>
-              <EnhancedSelect
-                placeholder="Choose field"
-                value={sortBy}
-                onChange={(value) => setSortBy(value || 'created_at')}
-                options={[
-                  { value: 'name', label: 'Name', icon: FileText },
-                  { value: 'created_at', label: 'Created', icon: Calendar },
-                  { value: 'updated_at', label: 'Updated', icon: Calendar },
-                  { value: 'status', label: 'Status', icon: CheckCircle },
-                  { value: 'creator', label: 'Creator', icon: User },
-                  { value: 'version', label: 'Version', icon: Hash }
-                ]}
-                className="w-32"
-              />
-              <button
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium border border-theme rounded-md bg-theme-surface hover:bg-theme-surface-elevated transition-colors min-w-fit"
-                title={`Currently: ${getSortLabel(sortBy, sortOrder)}`}
-              >
-                {sortOrder === 'asc' ? (
-                  <SortAsc className="h-4 w-4 text-theme-interactive-primary" />
-                ) : (
-                  <SortDesc className="h-4 w-4 text-theme-interactive-primary" />
-                )}
-                <span className="hidden sm:inline text-theme-primary">
-                  {sortOrder === 'asc' ? 'A→Z' : 'Z→A'}
-                </span>
-              </button>
-            </div>
-
-            {/* Type Filter - Workflows vs Templates */}
-            <div className="flex items-center gap-1 bg-theme-surface border border-theme rounded-lg p-1">
-              <button
-                onClick={() => setTypeFilter('all')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  typeFilter === 'all'
-                    ? 'bg-theme-interactive-primary text-theme-on-primary'
-                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setTypeFilter('workflows')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
-                  typeFilter === 'workflows'
-                    ? 'bg-theme-interactive-primary text-theme-on-primary'
-                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
-                }`}
-              >
-                <Workflow className="h-3.5 w-3.5" />
-                Workflows
-              </button>
-              <button
-                onClick={() => setTypeFilter('templates')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
-                  typeFilter === 'templates'
-                    ? 'bg-theme-interactive-primary text-theme-on-primary'
-                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
-                }`}
-              >
-                <FileStack className="h-3.5 w-3.5" />
-                Templates
-              </button>
-            </div>
-
-            {/* Filter Controls */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-sm font-medium text-theme-muted shrink-0">
-                <Filter className="h-4 w-4" />
-                <span>Filter:</span>
-              </div>
-              <EnhancedSelect
-                placeholder="All Statuses"
-                value={filters.status || ''}
-                onChange={(value) => handleFilterChange('status', value || undefined)}
-                options={[
-                  { value: '', label: 'All Statuses' },
-                  { value: 'draft', label: 'Draft' },
-                  { value: 'active', label: 'Active' },
-                  { value: 'inactive', label: 'Inactive' },
-                  { value: 'paused', label: 'Paused' },
-                  { value: 'archived', label: 'Archived' }
-                ]}
-                className="w-32"
-              />
-              <EnhancedSelect
-                placeholder="All Visibility"
-                value={filters.visibility || ''}
-                onChange={(value) => handleFilterChange('visibility', value || undefined)}
-                options={[
-                  { value: '', label: 'All Visibility' },
-                  { value: 'private', label: 'Private' },
-                  { value: 'account', label: 'Account' },
-                  { value: 'public', label: 'Public' }
-                ]}
-                className="w-32"
-              />
-            </div>
-
-            {/* Current Sort Display */}
-            {(sortBy !== 'created_at' || sortOrder !== 'desc') && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-theme-interactive-primary/10 border border-theme-interactive-primary/20 rounded-md text-sm">
-                <div className="flex items-center gap-1.5 text-theme-interactive-primary">
-                  {React.createElement(getSortIcon(sortBy), { className: "h-4 w-4" })}
-                  <span className="font-medium">
-                    Sorted by {getSortLabel(sortBy, sortOrder)}
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    setSortBy('created_at');
-                    setSortOrder('desc');
-                  }}
-                  className="text-theme-muted hover:text-theme-primary transition-colors"
-                  title="Reset to default sort"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Data Table */}
-        <DataTable
-          columns={columns}
-          data={workflows || []}
-          loading={loading}
-          pagination={pagination}
-          onPageChange={(page) => loadWorkflows(page, perPage)}
-          emptyState={{
-            icon: Play,
-            title: 'No workflows found',
-            description: canCreateWorkflows 
-              ? 'Get started by creating your first AI workflow.'
-              : 'No workflows have been created yet.',
-            action: canCreateWorkflows ? {
-              label: 'Create Workflow',
-              onClick: () => setIsCreateModalOpen(true)
-            } : undefined
-          }}
-        />
-      </div>
+        <TabPanel tabId="templates" activeTab={activeTab}>
+          <TemplatesContent />
+        </TabPanel>
+      </TabContainer>
 
       {/* Create Workflow Modal */}
       <WorkflowCreateModal

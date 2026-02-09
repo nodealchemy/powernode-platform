@@ -41,7 +41,9 @@ export const MONITORING_TABS = [
   { id: 'agents', label: 'Agents', icon: '🤖', path: '/agents' },
   { id: 'workflows', label: 'Workflows', icon: '⚡', path: '/workflows' },
   { id: 'conversations', label: 'Conversations', icon: '💬', path: '/conversations' },
-  { id: 'alerts', label: 'Alerts', icon: '🔔', path: '/alerts' }
+  { id: 'alerts', label: 'Alerts', icon: '🔔', path: '/alerts' },
+  { id: 'analytics', label: 'Analytics', icon: '📊', path: '/analytics' },
+  { id: 'learning', label: 'Learning', icon: '💡', path: '/learning' }
 ] as const;
 
 export type MonitoringTabId = typeof MONITORING_TABS[number]['id'];

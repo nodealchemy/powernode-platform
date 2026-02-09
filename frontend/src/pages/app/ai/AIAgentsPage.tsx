@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Plus, LayoutDashboard, Brain, Users, CreditCard, ArrowLeft,
+  Plus, LayoutDashboard, Brain, Users, CreditCard, ArrowLeft, ShoppingBag, Globe,
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
@@ -15,6 +15,8 @@ import { AgentsOverviewTab } from '@/features/ai/agents/components/tabs/AgentsOv
 import { AgentsListTab } from '@/features/ai/agents/components/tabs/AgentsListTab';
 import { TeamsTab } from '@/features/ai/agents/components/tabs/TeamsTab';
 import { CardsTab } from '@/features/ai/agents/components/tabs/CardsTab';
+import { AgentMarketplaceContent } from '@/pages/app/ai/AgentMarketplacePage';
+import { CommunityAgentsContent } from '@/features/ai/community-agents/pages/CommunityAgentsPage';
 import { useAgentsList } from '@/features/ai/agents/hooks/useAgentsList';
 import { useTeamsList } from '@/features/ai/agents/hooks/useTeamsList';
 import { useAgentCards } from '@/features/ai/agents/hooks/useAgentCards';
@@ -29,6 +31,8 @@ const tabs = [
   { id: 'agents', label: 'Agents', icon: <Brain size={16} />, path: '/list' },
   { id: 'teams', label: 'Teams', icon: <Users size={16} />, path: '/teams' },
   { id: 'cards', label: 'Cards', icon: <CreditCard size={16} />, path: '/cards' },
+  { id: 'marketplace', label: 'Marketplace', icon: <ShoppingBag size={16} />, path: '/marketplace' },
+  { id: 'community', label: 'Community', icon: <Globe size={16} />, path: '/community' },
 ];
 
 export const AIAgentsPage: React.FC = () => {
@@ -52,6 +56,8 @@ export const AIAgentsPage: React.FC = () => {
   // Tab routing
   const getActiveTab = () => {
     const path = location.pathname;
+    if (path.includes('/agents/marketplace')) return 'marketplace';
+    if (path.includes('/agents/community')) return 'community';
     if (path.includes('/agents/list')) return 'agents';
     if (path.includes('/agents/teams')) return 'teams';
     if (path.includes('/agents/cards')) return 'cards';
@@ -216,6 +222,14 @@ export const AIAgentsPage: React.FC = () => {
             onCancelCard={agentCards.handleCardCancel}
             onBackToList={agentCards.handleBackToCardList}
           />
+        </TabPanel>
+
+        <TabPanel tabId="marketplace" activeTab={activeTab}>
+          <AgentMarketplaceContent />
+        </TabPanel>
+
+        <TabPanel tabId="community" activeTab={activeTab}>
+          <CommunityAgentsContent />
         </TabPanel>
 
         <TabPanel tabId="teams" activeTab={activeTab}>

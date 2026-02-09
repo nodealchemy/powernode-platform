@@ -86,4 +86,46 @@ export const CommunityAgentsPage: React.FC<CommunityAgentsPageProps> = ({
   );
 };
 
+// Extracted content component (everything inside PageContainer) for embedding in tabbed pages
+export const CommunityAgentsContent: React.FC<CommunityAgentsPageProps> = ({
+  onInvokeAgent,
+  onViewAgentDetails,
+  onCreateFederationPartner,
+  onViewPartnerDetails,
+}) => {
+  const [activeTab, setActiveTab] = useState('discover');
+  const [refreshKey, _setRefreshKey] = useState(0);
+
+  return (
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <TabsList>
+        <TabsTrigger value="discover" className="flex items-center gap-2">
+          <Globe className="w-4 h-4" />
+          Discover
+        </TabsTrigger>
+        <TabsTrigger value="federation" className="flex items-center gap-2">
+          <Users className="w-4 h-4" />
+          Federation
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="discover" className="mt-4">
+        <AgentDiscovery
+          key={`discover-${refreshKey}`}
+          onSelectAgent={onViewAgentDetails}
+          onInvokeAgent={onInvokeAgent}
+        />
+      </TabsContent>
+
+      <TabsContent value="federation" className="mt-4">
+        <FederationPartnerList
+          key={`federation-${refreshKey}`}
+          onSelectPartner={onViewPartnerDetails}
+          onCreatePartner={onCreateFederationPartner}
+        />
+      </TabsContent>
+    </Tabs>
+  );
+};
+
 export default CommunityAgentsPage;

@@ -27,7 +27,7 @@ const STATUS_STYLES: Record<string, string> = {
   running: 'bg-theme-info/10 text-theme-info',
   failed: 'bg-theme-danger/10 text-theme-danger',
   pending: 'bg-theme-warning/10 text-theme-warning',
-  available: 'bg-theme-bg-secondary text-theme-text-secondary',
+  available: 'bg-theme-surface text-theme-secondary',
   approved: 'bg-theme-success/10 text-theme-success',
   rejected: 'bg-theme-danger/10 text-theme-danger',
 };
@@ -38,12 +38,12 @@ export function ResourceCard({ resource, onClick }: ResourceCardProps) {
   return (
     <div
       onClick={() => onClick(resource)}
-      className="p-4 rounded-lg border border-theme-border bg-theme-bg-primary hover:bg-theme-bg-secondary transition-colors cursor-pointer"
+      className="p-4 rounded-lg border border-theme bg-theme-surface hover:bg-theme-surface-hover transition-colors cursor-pointer"
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 text-theme-text-tertiary" />
-          <span className="text-xs font-medium text-theme-text-tertiary uppercase">
+          <Icon className="w-4 h-4 text-theme-tertiary" />
+          <span className="text-xs font-medium text-theme-tertiary uppercase">
             {resource.resource_type.replace('_', ' ')}
           </span>
         </div>
@@ -52,18 +52,18 @@ export function ResourceCard({ resource, onClick }: ResourceCardProps) {
         </span>
       </div>
 
-      <h3 className="text-sm font-semibold text-theme-text-primary mb-1 truncate">
+      <h3 className="text-sm font-semibold text-theme-primary mb-1 truncate">
         {resource.name}
       </h3>
 
       {resource.description && (
-        <p className="text-xs text-theme-text-secondary mb-2 line-clamp-2">
+        <p className="text-xs text-theme-secondary mb-2 line-clamp-2">
           {resource.description}
         </p>
       )}
 
       {resource.preview && (
-        <div className="text-xs text-theme-text-tertiary bg-theme-bg-tertiary rounded p-2 mb-2 line-clamp-3 font-mono">
+        <div className="text-xs text-theme-tertiary bg-theme-background-secondary rounded p-2 mb-2 line-clamp-3 font-mono">
           {resource.preview}
         </div>
       )}
@@ -72,7 +72,7 @@ export function ResourceCard({ resource, onClick }: ResourceCardProps) {
         <div className="flex items-center gap-2">
           <ResourceSourceLink sourceType={resource.source_type} sourceId={resource.source_id} />
           {resource.agent_name && (
-            <span className="text-xs text-theme-text-tertiary">
+            <span className="text-xs text-theme-tertiary">
               by {resource.agent_name}
             </span>
           )}
@@ -89,7 +89,7 @@ export function ResourceCard({ resource, onClick }: ResourceCardProps) {
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           )}
-          <span className="text-xs text-theme-text-tertiary">
+          <span className="text-xs text-theme-tertiary">
             {new Date(resource.created_at).toLocaleDateString()}
           </span>
         </div>

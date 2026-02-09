@@ -1,7 +1,7 @@
 // Model Router Page - Intelligent AI Request Routing
 import React, { useState, useEffect } from 'react';
 import {
-  Plus, Route, Search, BarChart3, Zap,
+  Route, Search, BarChart3, Zap,
   TrendingUp, ToggleLeft, ToggleRight, Lightbulb, Play
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
@@ -10,7 +10,6 @@ import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
-import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import {
   modelRouterApi,
   RoutingRule,
@@ -48,7 +47,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'rules' | 'decisions' | 'analytics' | 'optimization';
 
-const ModelRouterPage: React.FC = () => {
+export const ModelRouterContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('rules');
   const [rules, setRules] = useState<RoutingRule[]>([]);
@@ -196,17 +195,6 @@ const ModelRouterPage: React.FC = () => {
     }
   };
 
-  const { refreshAction } = useRefreshAction({
-    onRefresh: loadData,
-    loading,
-  });
-
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'AI', href: '/app/ai' },
-    { label: 'Model Router' }
-  ];
-
   const tabs = [
     { id: 'rules' as TabType, label: 'Rules', icon: Route },
     { id: 'decisions' as TabType, label: 'Decisions', icon: Zap },
@@ -215,21 +203,7 @@ const ModelRouterPage: React.FC = () => {
   ];
 
   return (
-    <PageContainer
-      title="Model Router"
-      description="Intelligent AI request routing, cost optimization, and provider selection"
-      breadcrumbs={breadcrumbs}
-      actions={[
-        refreshAction,
-        {
-          id: 'create-rule',
-          label: 'Create Rule',
-          onClick: () => setShowCreateModal(true),
-          icon: Plus,
-          variant: 'primary' as const
-        }
-      ]}
-    >
+    <>
       {/* Statistics Summary */}
       {statistics && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -558,6 +532,22 @@ const ModelRouterPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+    </>
+  );
+};
+
+const ModelRouterPage: React.FC = () => {
+  return (
+    <PageContainer
+      title="Model Router"
+      description="Intelligent AI request routing, cost optimization, and provider selection"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'Model Router' }
+      ]}
+    >
+      <ModelRouterContent />
     </PageContainer>
   );
 };

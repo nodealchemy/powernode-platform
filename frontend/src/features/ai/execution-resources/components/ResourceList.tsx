@@ -24,7 +24,7 @@ const TYPE_ICONS: Record<ResourceType, React.ElementType> = {
 export function ResourceList({ resources, onResourceClick }: ResourceListProps) {
   if (resources.length === 0) {
     return (
-      <div className="text-center py-12 text-theme-text-tertiary">
+      <div className="text-center py-12 text-theme-tertiary">
         No resources found
       </div>
     );
@@ -34,14 +34,14 @@ export function ResourceList({ resources, onResourceClick }: ResourceListProps) 
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-theme-border">
-            <th className="text-left py-3 px-4 text-theme-text-secondary font-medium">Type</th>
-            <th className="text-left py-3 px-4 text-theme-text-secondary font-medium">Name</th>
-            <th className="text-left py-3 px-4 text-theme-text-secondary font-medium">Source</th>
-            <th className="text-left py-3 px-4 text-theme-text-secondary font-medium">Agent</th>
-            <th className="text-left py-3 px-4 text-theme-text-secondary font-medium">Status</th>
-            <th className="text-left py-3 px-4 text-theme-text-secondary font-medium">Created</th>
-            <th className="text-left py-3 px-4 text-theme-text-secondary font-medium"></th>
+          <tr className="border-b border-theme">
+            <th className="text-left py-3 px-4 text-theme-secondary font-medium">Type</th>
+            <th className="text-left py-3 px-4 text-theme-secondary font-medium">Name</th>
+            <th className="text-left py-3 px-4 text-theme-secondary font-medium">Source</th>
+            <th className="text-left py-3 px-4 text-theme-secondary font-medium">Agent</th>
+            <th className="text-left py-3 px-4 text-theme-secondary font-medium">Status</th>
+            <th className="text-left py-3 px-4 text-theme-secondary font-medium">Created</th>
+            <th className="text-left py-3 px-4 text-theme-secondary font-medium"></th>
           </tr>
         </thead>
         <tbody>
@@ -51,31 +51,31 @@ export function ResourceList({ resources, onResourceClick }: ResourceListProps) 
               <tr
                 key={`${resource.resource_type}-${resource.id}`}
                 onClick={() => onResourceClick(resource)}
-                className="border-b border-theme-border hover:bg-theme-bg-secondary cursor-pointer transition-colors"
+                className="border-b border-theme hover:bg-theme-surface-hover cursor-pointer transition-colors"
               >
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-2">
-                    <Icon className="w-4 h-4 text-theme-text-tertiary" />
-                    <span className="text-xs text-theme-text-tertiary capitalize">
+                    <Icon className="w-4 h-4 text-theme-tertiary" />
+                    <span className="text-xs text-theme-tertiary capitalize">
                       {resource.resource_type.replace('_', ' ')}
                     </span>
                   </div>
                 </td>
-                <td className="py-3 px-4 text-theme-text-primary font-medium truncate max-w-[200px]">
+                <td className="py-3 px-4 text-theme-primary font-medium truncate max-w-[200px]">
                   {resource.name}
                 </td>
-                <td className="py-3 px-4 text-theme-text-secondary text-xs">
+                <td className="py-3 px-4 text-theme-secondary text-xs">
                   {resource.source_label}
                 </td>
-                <td className="py-3 px-4 text-theme-text-secondary text-xs">
+                <td className="py-3 px-4 text-theme-secondary text-xs">
                   {resource.agent_name || '-'}
                 </td>
                 <td className="py-3 px-4">
-                  <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-theme-bg-secondary text-theme-text-secondary">
+                  <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-theme-surface text-theme-secondary">
                     {resource.status}
                   </span>
                 </td>
-                <td className="py-3 px-4 text-theme-text-tertiary text-xs">
+                <td className="py-3 px-4 text-theme-tertiary text-xs">
                   {new Date(resource.created_at).toLocaleDateString()}
                 </td>
                 <td className="py-3 px-4">

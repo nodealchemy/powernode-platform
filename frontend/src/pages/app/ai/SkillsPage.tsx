@@ -3,6 +3,15 @@ import { PageContainer, type PageAction } from '@/shared/components/layout/PageC
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { SkillsPage as SkillsComponent } from '@/features/ai/skills/SkillsPage';
 
+export const SkillsContent: React.FC = () => {
+  usePageWebSocket({
+    pageType: 'ai',
+    onDataUpdate: () => {},
+  });
+
+  return <SkillsComponent />;
+};
+
 export const SkillsPage: React.FC = () => {
   const [actions, setActions] = useState<PageAction[]>([]);
 

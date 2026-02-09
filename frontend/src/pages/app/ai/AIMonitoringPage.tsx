@@ -42,6 +42,8 @@ import { AlertManagementCenter } from '@/features/ai/monitoring/components/Alert
 import { ResourceUtilizationChart } from '@/features/ai/monitoring/components/ResourceUtilizationChart';
 import { WorkflowMonitoringPanel } from '@/features/ai/monitoring/components/WorkflowMonitoringPanel';
 import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
+import { WorkflowAnalyticsContent } from '@/pages/app/ai/WorkflowAnalyticsPage';
+import { CompoundLearningContent } from '@/pages/app/ai/CompoundLearningPage';
 
 export const AIMonitoringPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -583,6 +585,14 @@ export const AIMonitoringPage: React.FC = () => {
               timeRange={timeRange}
               onRefresh={refreshAllData}
             />
+          </TabPanel>
+
+          <TabPanel tabId="analytics" activeTab={activeTab}>
+            <WorkflowAnalyticsContent />
+          </TabPanel>
+
+          <TabPanel tabId="learning" activeTab={activeTab}>
+            <CompoundLearningContent />
           </TabPanel>
 
           <TabPanel tabId="alerts" activeTab={activeTab}>

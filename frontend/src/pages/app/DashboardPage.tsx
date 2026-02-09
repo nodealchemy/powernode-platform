@@ -67,65 +67,39 @@ import { AdminImpersonationPage } from '@/pages/app/admin/AdminImpersonationPage
 // Test page
 import { TestWebSocket } from '@/pages/app/TestWebSocket';
 
-// AI Pages - Standalone navigation (no longer using AIOrchestrationPage wrapper)
+// AI Pages - Primary navigation
 import { AIOverviewPage } from './ai/AIOverviewPage';
-// AIProvidersPage moved to Connections - route redirects to connections/ai
 import { AIAgentsPage } from './ai/AIAgentsPage';
 import { WorkflowsPage } from './ai/WorkflowsPage';
 import { AIConversationsPage } from './ai/AIConversationsPage';
-import { WorkflowAnalyticsPage } from './ai/WorkflowAnalyticsPage';
 import { AIMonitoringPage } from './ai/AIMonitoringPage';
-import { McpBrowserPage } from './ai/McpBrowserPage';
-// AI Sub-pages
-import { CreateWorkflowPage, AIDebugPage } from './ai';
-import AgentMarketplacePage from './ai/AgentMarketplacePage';
 import GovernancePage from './ai/GovernancePage';
 import SandboxPage from './ai/SandboxPage';
-import DevOpsTemplatesPage from './ai/DevOpsTemplatesPage';
-// AgentCardsPage consolidated into AIAgentsPage as a tab
-import { A2aTasksPage } from './ai/A2aTasksPage';
+
+// AI Pages - New tabbed wrappers
+import { ExecutionPage } from './ai/ExecutionPage';
+import { KnowledgePage } from './ai/KnowledgePage';
+import { InfrastructurePage } from './ai/InfrastructurePage';
+import { AiBillingPage } from './ai/AiBillingPage';
+
+// AI Sub-pages
+import { CreateWorkflowPage, AIDebugPage } from './ai';
 import { AgentDetailPage } from './ai/AgentDetailPage';
 import { WorkflowDetailPage } from './ai/WorkflowDetailPage';
 import { WorkflowImportPage } from './ai/WorkflowImportPage';
 import { WorkflowMonitoringPage } from './ai/WorkflowMonitoringPage';
 import { WorkflowValidationStatisticsPage } from './ai/WorkflowValidationStatisticsPage';
 import { AIAnalyticsPage } from './ai/AIAnalyticsPage';
-
-// AI Context Pages
 import { AgentMemoryPage } from './ai/AgentMemoryPage';
-import { ContextsPage } from './ai/ContextsPage';
 import { ContextDetailPage } from './ai/ContextDetailPage';
-
-// Prompt Templates
-import { PromptsPage } from '@/features/ai/prompts/pages/PromptsPage';
-
-// Ralph Loops (Autonomous AI Agent Loops)
-import { RalphLoopsPage } from '@/features/ai/ralph-loops/pages/RalphLoopsPage';
-
-// Agent Chat Page (Full-page chat experience)
 import { AgentChatPage } from '@/pages/app/ai/AgentChatPage';
-
-// Chat Channels (Multi-platform chat gateway)
 import { ChatChannelsPage } from '@/features/ai/chat-channels/pages/ChatChannelsPage';
 
-// Community Agents (Public agent registry and federation)
-import { CommunityAgentsPage } from '@/features/ai/community-agents/pages/CommunityAgentsPage';
-
-// Parallel Execution (Git worktree-based parallel agents)
-import { ParallelExecutionPage } from '@/features/ai/parallel-execution/pages/ParallelExecutionPage';
-
-// Publisher Dashboard (AI template marketplace publisher)
+// AI Hidden pages (no nav, still accessible)
 import { PublisherDashboard } from '@/features/ai/publisher/pages/PublisherDashboard';
-
-// Self-Healing & Learning
 import { SelfHealingDashboard } from '@/features/ai/self-healing/SelfHealingDashboard';
 import { RecommendationsDashboard } from '@/features/ai/learning/RecommendationsDashboard';
 import { TrajectoryInsights } from '@/features/ai/learning/TrajectoryInsights';
-import CompoundLearningPage from './ai/CompoundLearningPage';
-import ExecutionResourcesPage from './ai/ExecutionResourcesPage';
-
-// AI Skills
-import { SkillsPage as AISkillsPage } from './ai/SkillsPage';
 
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
@@ -155,12 +129,8 @@ import { DockerVolumesPage } from '@/features/devops/docker/pages/DockerVolumesP
 import { DockerActivitiesPage } from '@/features/devops/docker/pages/DockerActivitiesPage';
 import { DockerHealthPage } from '@/features/devops/docker/pages/DockerHealthPage';
 
-// AI Feature Pages (full implementations in pages/app/ai/)
+// AI Feature Pages (standalone)
 import TeamsPage from './ai/TeamsPage';
-import CreditsPage from './ai/CreditsPage';
-import RagPage from './ai/RagPage';
-import OutcomeBillingPage from './ai/OutcomeBillingPage';
-import ModelRouterPage from './ai/ModelRouterPage';
 
 // Integration Pages
 // IntegrationsMarketplacePage deprecated - now redirects to marketplace?types=integration
@@ -591,59 +561,42 @@ const DashboardPage: React.FC = () => {
         <Route path="/business/customers" element={<CustomersPage />} />
         <Route path="/account/billing/*" element={<BillingPage />} />
         
-        {/* AI Pages - Standalone navigation */}
+        {/* AI Pages - Primary navigation */}
         <Route path="/ai" element={<AIOverviewPage />} />
-        <Route path="/ai/providers" element={<AIProvidersPage />} />
-        <Route path="/ai/providers/new" element={<AIProvidersPage />} />
-        <Route path="/ai/providers/:id" element={<AIProvidersPage />} />
         <Route path="/ai/agents/:agentId/chat" element={<AgentChatPage />} />
-        <Route path="/ai/agents/list" element={<AIAgentsPage />} />
-        <Route path="/ai/agents/teams" element={<AIAgentsPage />} />
-        <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
-        <Route path="/ai/agents" element={<AIAgentsPage />} />
-        <Route path="/ai/workflows" element={<WorkflowsPage />} />
-        <Route path="/ai/conversations" element={<AIConversationsPage />} />
-        <Route path="/ai/analytics" element={<WorkflowAnalyticsPage />} />
-        <Route path="/ai/monitoring/*" element={<AIMonitoringPage />} />
-        <Route path="/ai/mcp" element={<McpBrowserPage />} />
-
-        {/* AI Sub-pages (detail/utility routes) */}
+        <Route path="/ai/agents/:agentId/memory" element={<AgentMemoryPage />} />
+        <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
+        <Route path="/ai/agents/*" element={<AIAgentsPage />} />
+        <Route path="/ai/teams" element={<TeamsPage />} />
         <Route path="/ai/workflows/new" element={<CreateWorkflowPage />} />
         <Route path="/ai/workflows/import" element={<WorkflowImportPage />} />
         <Route path="/ai/workflows/monitoring" element={<WorkflowMonitoringPage />} />
         <Route path="/ai/workflows/validation-stats" element={<WorkflowValidationStatisticsPage />} />
+        <Route path="/ai/workflows/templates" element={<WorkflowsPage />} />
         <Route path="/ai/workflows/:id" element={<WorkflowDetailPage />} />
-        <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
-        <Route path="/ai/debug" element={<AIDebugPage />} />
-        <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
-        <Route path="/ai/contexts" element={<ContextsPage />} />
-        <Route path="/ai/knowledge" element={<Navigate to="/app/ai/contexts" replace />} />
-        <Route path="/ai/contexts/:id" element={<ContextDetailPage />} />
-        <Route path="/ai/agents/:agentId/memory" element={<AgentMemoryPage />} />
-        <Route path="/ai/prompts" element={<PromptsPage />} />
-        <Route path="/ai/agent-marketplace" element={<AgentMarketplacePage />} />
+        <Route path="/ai/workflows/*" element={<WorkflowsPage />} />
+        <Route path="/ai/conversations" element={<AIConversationsPage />} />
+        <Route path="/ai/chat-channels" element={<ChatChannelsPage />} />
         <Route path="/ai/governance" element={<GovernancePage />} />
         <Route path="/ai/sandbox" element={<SandboxPage />} />
-        <Route path="/ai/devops-templates" element={<DevOpsTemplatesPage />} />
-        {/* Agent Cards consolidated into AIAgentsPage /agents/cards tab */}
-        <Route path="/ai/a2a-tasks" element={<A2aTasksPage />} />
-        <Route path="/ai/ralph-loops" element={<RalphLoopsPage />} />
-        <Route path="/ai/chat-channels" element={<ChatChannelsPage />} />
-        <Route path="/ai/community" element={<CommunityAgentsPage />} />
-        <Route path="/ai/parallel-execution" element={<ParallelExecutionPage />} />
-        <Route path="/ai/resources" element={<ExecutionResourcesPage />} />
+
+        {/* AI Pages - Tabbed wrappers */}
+        <Route path="/ai/execution/*" element={<ExecutionPage />} />
+        <Route path="/ai/knowledge/contexts/:id" element={<ContextDetailPage />} />
+        <Route path="/ai/knowledge/*" element={<KnowledgePage />} />
+        <Route path="/ai/infrastructure/providers/new" element={<AIProvidersPage />} />
+        <Route path="/ai/infrastructure/providers/:id" element={<AIProvidersPage />} />
+        <Route path="/ai/infrastructure/*" element={<InfrastructurePage />} />
+        <Route path="/ai/billing/*" element={<AiBillingPage />} />
+        <Route path="/ai/monitoring/*" element={<AIMonitoringPage />} />
+
+        {/* AI Pages - Hidden (no nav, still accessible) */}
         <Route path="/ai/publisher" element={<PublisherDashboard />} />
         <Route path="/ai/self-healing" element={<SelfHealingDashboard />} />
         <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
         <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
-        <Route path="/ai/learning" element={<CompoundLearningPage />} />
-
-        <Route path="/ai/credits" element={<CreditsPage />} />
-        <Route path="/ai/rag" element={<RagPage />} />
-        <Route path="/ai/model-router" element={<ModelRouterPage />} />
-        <Route path="/ai/outcome-billing" element={<OutcomeBillingPage />} />
-        <Route path="/ai/teams" element={<TeamsPage />} />
-        <Route path="/ai/skills" element={<AISkillsPage />} />
+        <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
+        <Route path="/ai/debug" element={<AIDebugPage />} />
         <Route path="/ai/plugins" element={<Navigate to="/app/marketplace?types=plugin" replace />} />
 
         {/* Core Pages */}

@@ -6,9 +6,10 @@ import {
   HardDrive, Workflow, Server, GitBranch, FolderGit2,
   Puzzle, BookOpen, UserCog, Key, Shield, FileCode,
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
-  FlaskConical, ShoppingBag, Boxes, RotateCcw, MessagesSquare,
-  Globe, Container, Coins, Database, Route, Receipt, GitFork,
-  Network, Layers, Lock, Rocket, HeartPulse, Lightbulb, FolderOutput
+  FlaskConical, Boxes, MessagesSquare,
+  Container, Coins, Database,
+  Network, Layers, Lock, Rocket, HeartPulse,
+  Play
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -105,68 +106,13 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 2
         },
         {
-          id: 'ai-a2a-tasks',
-          name: 'A2A Tasks',
-          href: '/app/ai/a2a-tasks',
-          icon: Activity,
-          description: 'Monitor agent-to-agent communication tasks',
-          permissions: ['ai.agents.read'],
-          order: 5
-        },
-        {
-          id: 'ai-ralph-loops',
-          name: 'Ralph Loops',
-          href: '/app/ai/ralph-loops',
-          icon: RotateCcw,
-          description: 'Autonomous AI agent loops for iterative task execution',
-          permissions: ['ai.agents.read'],
-          order: 6
-        },
-        {
-          id: 'ai-parallel-execution',
-          name: 'Parallel Execution',
-          href: '/app/ai/parallel-execution',
-          icon: GitFork,
-          description: 'Parallel agent execution with git worktrees',
-          permissions: ['ai.agents.read'],
-          order: 7
-        },
-        {
-          id: 'ai-resources',
-          name: 'Resources',
-          href: '/app/ai/resources',
-          icon: FolderOutput,
-          description: 'Browse execution-produced resources and artifacts',
-          permissions: ['ai.agents.read'],
-          order: 8
-        },
-        {
-          id: 'ai-chat-channels',
-          name: 'Chat Channels',
-          href: '/app/ai/chat-channels',
-          icon: MessagesSquare,
-          description: 'Multi-platform chat gateway (WhatsApp, Telegram, Discord, Slack)',
-          permissions: ['ai.agents.read'],
-          order: 7
-        },
-        {
-          id: 'ai-community',
-          name: 'Community Agents',
-          href: '/app/ai/community',
-          icon: Globe,
-          description: 'Public agent registry and federation partners',
-          permissions: ['ai.agents.read'],
-          order: 8
-        },
-
-        {
-          id: 'ai-conversations',
-          name: 'Conversations',
-          href: '/app/ai/conversations',
-          icon: MessageSquare,
-          description: 'AI-powered conversations',
-          permissions: ['ai.conversations.read'],
-          order: 10
+          id: 'ai-teams',
+          name: 'Teams',
+          href: '/app/ai/teams',
+          icon: Users,
+          description: 'Advanced multi-agent team orchestration',
+          permissions: ['ai.teams.read'],
+          order: 3
         },
         {
           id: 'ai-workflows',
@@ -175,51 +121,51 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Workflow,
           description: 'Visual AI orchestration and flow builder',
           permissions: ['ai.workflows.read'],
+          order: 4
+        },
+        {
+          id: 'ai-conversations',
+          name: 'Conversations',
+          href: '/app/ai/conversations',
+          icon: MessageSquare,
+          description: 'AI-powered conversations',
+          permissions: ['ai.conversations.read'],
           order: 5
         },
         {
-          id: 'ai-skills',
-          name: 'Skills',
-          href: '/app/ai/skills',
-          icon: Puzzle,
-          description: 'Domain-specific skill bundles with commands and MCP connectors',
-          permissions: ['ai.skills.read'],
+          id: 'ai-execution',
+          name: 'Execution',
+          href: '/app/ai/execution',
+          icon: Play,
+          description: 'Monitor and manage active AI agent execution',
+          permissions: ['ai.agents.read'],
           order: 6
         },
         {
-          id: 'ai-prompts',
-          name: 'Prompts',
-          href: '/app/ai/prompts',
-          icon: MessageSquare,
-          description: 'Reusable prompt templates for AI workflows',
-          permissions: ['ai.prompt_templates.read'],
-          order: 7
-        },
-        {
-          id: 'ai-contexts',
-          name: 'Contexts',
-          href: '/app/ai/contexts',
+          id: 'ai-knowledge',
+          name: 'Knowledge',
+          href: '/app/ai/knowledge',
           icon: BookOpen,
-          description: 'Persistent contexts and memory for AI agents',
+          description: 'Manage agent knowledge, prompts, skills, and document bases',
           permissions: ['ai.context.read'],
           order: 7
         },
         {
-          id: 'ai-providers',
-          name: 'Providers',
-          href: '/app/ai/providers',
-          icon: Brain,
-          description: 'OpenAI, Anthropic, and other AI providers',
-          permissions: ['ai.providers.read'],
+          id: 'ai-chat-channels',
+          name: 'Chat Channels',
+          href: '/app/ai/chat-channels',
+          icon: MessagesSquare,
+          description: 'Multi-platform chat gateway',
+          permissions: ['ai.agents.read'],
           order: 8
         },
         {
-          id: 'ai-mcp',
-          name: 'MCP Servers',
-          href: '/app/ai/mcp',
+          id: 'ai-infrastructure',
+          name: 'Infrastructure',
+          href: '/app/ai/infrastructure',
           icon: Server,
-          description: 'Model Context Protocol servers and tools',
-          permissions: ['mcp.servers.read'],
+          description: 'Configure AI providers, MCP servers, and model routing',
+          permissions: ['ai.providers.read'],
           order: 9
         },
         {
@@ -232,21 +178,21 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 10
         },
         {
-          id: 'ai-analytics',
-          name: 'AI Analytics',
-          href: '/app/ai/analytics',
-          icon: BarChart3,
-          description: 'AI performance, usage insights, and monitoring',
-          permissions: ['ai.analytics.read'],
-          order: 11
-        },
-        {
           id: 'ai-governance',
           name: 'Governance',
           href: '/app/ai/governance',
           icon: ShieldCheck,
           description: 'AI governance policies and compliance',
           permissions: ['ai.workflows.read'],
+          order: 11
+        },
+        {
+          id: 'ai-billing',
+          name: 'Billing',
+          href: '/app/ai/billing',
+          icon: Coins,
+          description: 'Manage AI credits and outcome-based billing',
+          permissions: ['ai.credits.read'],
           order: 12
         },
         {
@@ -257,81 +203,9 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Test and experiment with AI capabilities',
           permissions: ['ai.agents.read'],
           order: 13
-        },
-        {
-          id: 'ai-agent-marketplace',
-          name: 'Agent Marketplace',
-          href: '/app/ai/agent-marketplace',
-          icon: ShoppingBag,
-          description: 'Browse and install pre-built AI agents',
-          permissions: ['ai.agents.read'],
-          order: 14
-        },
-        {
-          id: 'ai-devops-templates',
-          name: 'DevOps Templates',
-          href: '/app/ai/devops-templates',
-          icon: Boxes,
-          description: 'AI workflow templates for DevOps automation',
-          permissions: ['ai.workflows.read'],
-          order: 15
-        },
-        {
-          id: 'ai-credits',
-          name: 'Credits',
-          href: '/app/ai/credits',
-          icon: Coins,
-          description: 'Manage prepaid AI credits and usage',
-          permissions: ['ai.credits.read'],
-          order: 16
-        },
-        {
-          id: 'ai-rag',
-          name: 'Knowledge Bases',
-          href: '/app/ai/rag',
-          icon: Database,
-          description: 'RAG knowledge bases and document management',
-          permissions: ['ai.rag.read'],
-          order: 17
-        },
-        {
-          id: 'ai-model-router',
-          name: 'Model Router',
-          href: '/app/ai/model-router',
-          icon: Route,
-          description: 'Intelligent AI request routing and cost optimization',
-          permissions: ['ai.model_router.read'],
-          order: 18
-        },
-        {
-          id: 'ai-billing',
-          name: 'Outcome Billing',
-          href: '/app/ai/outcome-billing',
-          icon: Receipt,
-          description: 'Success-based AI billing and SLA contracts',
-          permissions: ['ai.billing.read'],
-          order: 19
-        },
-        {
-          id: 'ai-teams',
-          name: 'Teams',
-          href: '/app/ai/teams',
-          icon: Users,
-          description: 'Advanced multi-agent team orchestration',
-          permissions: ['ai.teams.read'],
-          order: 20
-        },
-        {
-          id: 'ai-learning',
-          name: 'Learning',
-          href: '/app/ai/learning',
-          icon: Lightbulb,
-          description: 'Compound learning from agent executions',
-          permissions: ['ai.analytics.read'],
-          order: 21
         }
       ],
-      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.skills.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.prompt_templates.read', 'mcp.servers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.rag.read', 'ai.model_router.read', 'ai.billing.read'],
+      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.teams.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10

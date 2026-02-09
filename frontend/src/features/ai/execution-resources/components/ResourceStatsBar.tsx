@@ -29,8 +29,8 @@ export function ResourceStatsBar({ counts, activeType, onTypeClick }: ResourceSt
         onClick={() => onTypeClick(undefined)}
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
           !activeType
-            ? 'bg-theme-primary text-white'
-            : 'bg-theme-bg-secondary text-theme-text-secondary hover:bg-theme-bg-tertiary'
+            ? 'bg-theme-interactive-primary text-white'
+            : 'bg-theme-surface text-theme-secondary hover:bg-theme-surface-hover'
         }`}
       >
         All ({counts.total || 0})
@@ -46,8 +46,8 @@ export function ResourceStatsBar({ counts, activeType, onTypeClick }: ResourceSt
               onClick={() => onTypeClick(activeType === type ? undefined : type)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 activeType === type
-                  ? 'bg-theme-primary text-white'
-                  : 'bg-theme-bg-secondary text-theme-text-secondary hover:bg-theme-bg-tertiary'
+                  ? 'bg-theme-interactive-primary text-white'
+                  : 'bg-theme-surface text-theme-secondary hover:bg-theme-surface-hover'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
