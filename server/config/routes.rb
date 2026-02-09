@@ -2315,6 +2315,24 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # API REFERENCE - Filterable API specification for agents
+        # ===================================================================
+        scope :api_reference, controller: "api_reference" do
+          get "/", action: :index
+          get "/search", action: :search
+          get "/:section", action: :show
+        end
+
+        # ===================================================================
+        # EXECUTION RESOURCES - Unified resource browsing
+        # ===================================================================
+        scope :execution_resources, controller: "execution_resources" do
+          get "/", action: :index
+          get "/counts", action: :counts
+          get "/:resource_type/:id", action: :show
+        end
+
+        # ===================================================================
         # WORKTREE SESSIONS - Parallel execution with git worktrees
         # ===================================================================
         resources :worktree_sessions, only: [:index, :show, :create] do

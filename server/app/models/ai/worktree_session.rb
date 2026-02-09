@@ -21,6 +21,7 @@ module Ai
     has_many :worktrees, class_name: "Ai::Worktree", foreign_key: "worktree_session_id", dependent: :destroy
     has_many :merge_operations, class_name: "Ai::MergeOperation", foreign_key: "worktree_session_id", dependent: :destroy
     has_many :file_locks, class_name: "Ai::FileLock", foreign_key: "worktree_session_id", dependent: :destroy
+    has_many :runner_dispatches, class_name: "Ai::RunnerDispatch", foreign_key: "worktree_session_id", dependent: :destroy
 
     # ==========================================
     # Validations

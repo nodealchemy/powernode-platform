@@ -19,6 +19,7 @@ module Ai
     belongs_to :assignee, polymorphic: true, optional: true
     has_many :merge_operations, class_name: "Ai::MergeOperation", foreign_key: "worktree_id", dependent: :destroy
     has_many :file_locks, class_name: "Ai::FileLock", foreign_key: "worktree_id", dependent: :destroy
+    has_one :runner_dispatch, class_name: "Ai::RunnerDispatch", foreign_key: "worktree_id"
 
     # ==========================================
     # Validations

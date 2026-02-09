@@ -195,6 +195,12 @@ class Ai::AgentTeamOrchestrator
       }
     )
 
+    # Runner-based execution (opt-in via team_config)
+    if team.team_config&.dig("runner_execution") && result[:success]
+      session = Ai::WorktreeSession.find(result.dig(:session, :id))
+      dispatch_to_runners(session, members)
+    end
+
     {
       success: result[:success],
       output: result,
@@ -576,6 +582,7 @@ class Ai::AgentTeamOrchestrator
     end
 
     compound_learning_extract(status)
+    persist_to_team_memory(result) if status == "completed"
   end
 
   def extract_learnings_from_task(task_result, agent_id: nil)
@@ -619,6 +626,40 @@ class Ai::AgentTeamOrchestrator
     @logger.info "[TeamOrchestrator] Extracted #{count} compound learnings" if count.positive?
   rescue StandardError => e
     @logger.warn "[TeamOrchestrator] Compound learning extraction failed: #{e.message}"
+  end
+
+  def dispatch_to_runners(session, members)
+    dispatch_service = Ai::RunnerDispatchService.new(account: team.account, session: session)
+    required_labels = team.team_config&.dig("runner_labels") || []
+
+    session.worktrees.where(status: "ready").each do |worktree|
+      runner = dispatch_service.select_runner(required_labels: required_labels)
+      next unless runner
+
+      member = members.find { |m| m.ai_agent_id == worktree.ai_agent_id }
+      task_input = { input: @team_context[:original_input], role: member&.role, capabilities: member&.capabilities }
+
+      dispatch_service.dispatch(worktree: worktree, task_input: task_input, runner: runner)
+    end
+
+    Ai::RunnerDispatchPollJob.perform_later(session.id)
+  rescue StandardError => e
+    @logger.error "[TeamOrchestrator] Runner dispatch failed: #{e.message}"
+  end
+
+  def persist_to_team_memory(execution_result)
+    permanent_pool = Ai::MemoryPool.find_by(team_id: team.id, persist_across_executions: true)
+    return unless permanent_pool && @workflow_run
+
+    permanent_pool.data["executions"] ||= {}
+    permanent_pool.data["executions"][@workflow_run.run_id] = {
+      status: @workflow_run.status,
+      output: execution_result,
+      completed_at: @workflow_run.completed_at&.iso8601
+    }
+    permanent_pool.save!
+  rescue StandardError => e
+    @logger.warn "[TeamOrchestrator] Memory persistence failed: #{e.message}"
   end
 
   def run_review_if_configured(task_result)

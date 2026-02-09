@@ -8,7 +8,7 @@ import {
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
   FlaskConical, ShoppingBag, Boxes, RotateCcw, MessagesSquare,
   Globe, Container, Coins, Database, Route, Receipt, GitFork,
-  Network, Layers, Lock, Rocket, HeartPulse, Lightbulb
+  Network, Layers, Lock, Rocket, HeartPulse, Lightbulb, FolderOutput
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -130,6 +130,15 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Parallel agent execution with git worktrees',
           permissions: ['ai.agents.read'],
           order: 7
+        },
+        {
+          id: 'ai-resources',
+          name: 'Resources',
+          href: '/app/ai/resources',
+          icon: FolderOutput,
+          description: 'Browse execution-produced resources and artifacts',
+          permissions: ['ai.agents.read'],
+          order: 8
         },
         {
           id: 'ai-chat-channels',
