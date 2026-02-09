@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_08_180003) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -2587,6 +2587,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_180003) do
     t.index ["selected_provider_id"], name: "index_ai_routing_decisions_on_selected_provider_id"
     t.index ["strategy_used", "outcome"], name: "index_ai_routing_decisions_on_strategy_used_and_outcome"
     t.index ["workflow_run_id"], name: "index_ai_routing_decisions_on_workflow_run_id"
+  end
+
+  create_table "ai_runner_dispatches", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.datetime "dispatched_at"
+    t.integer "duration_ms"
+    t.uuid "git_repository_id"
+    t.uuid "git_runner_id"
+    t.jsonb "input_params", default: {}
+    t.text "logs"
+    t.jsonb "output_result", default: {}
+    t.jsonb "runner_labels", default: []
+    t.string "status", default: "pending"
+    t.datetime "updated_at", null: false
+    t.string "workflow_run_id"
+    t.string "workflow_url"
+    t.uuid "worktree_id"
+    t.uuid "worktree_session_id"
+    t.index ["account_id"], name: "index_ai_runner_dispatches_on_account_id"
+    t.index ["git_repository_id"], name: "index_ai_runner_dispatches_on_git_repository_id"
+    t.index ["git_runner_id"], name: "index_ai_runner_dispatches_on_git_runner_id"
+    t.index ["worktree_id"], name: "index_ai_runner_dispatches_on_worktree_id"
+    t.index ["worktree_session_id"], name: "index_ai_runner_dispatches_on_worktree_session_id"
   end
 
   create_table "ai_sandboxes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -8811,6 +8836,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_180003) do
   add_foreign_key "ai_routing_decisions", "ai_model_routing_rules", column: "routing_rule_id"
   add_foreign_key "ai_routing_decisions", "ai_providers", column: "selected_provider_id"
   add_foreign_key "ai_routing_decisions", "ai_workflow_runs", column: "workflow_run_id"
+  add_foreign_key "ai_runner_dispatches", "ai_worktree_sessions", column: "worktree_session_id"
+  add_foreign_key "ai_runner_dispatches", "ai_worktrees", column: "worktree_id"
+  add_foreign_key "ai_runner_dispatches", "git_repositories"
+  add_foreign_key "ai_runner_dispatches", "git_runners"
   add_foreign_key "ai_sandboxes", "accounts"
   add_foreign_key "ai_sandboxes", "users", column: "created_by_id"
   add_foreign_key "ai_shared_context_pools", "ai_workflow_runs", on_delete: :cascade

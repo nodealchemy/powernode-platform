@@ -116,6 +116,7 @@ class McpChannel < ApplicationCable::Channel
 
       # Add user context to execution options
       execution_options = {
+        user: current_user,
         user_id: current_user.id,
         connection_id: @connection_id,
         channel: "mcp_channel"
@@ -292,6 +293,9 @@ class McpChannel < ApplicationCable::Channel
       user_agent: connection.try(:request)&.headers&.[]("User-Agent") || "Test Client",
       ip_address: connection.try(:request)&.remote_ip || "127.0.0.1"
     })
+
+    # Register platform tools for MCP discovery
+    Ai::Tools::McpPlatformToolRegistrar.register_all!(account: current_user.account)
 
     @logger.debug "[MCP_CHANNEL] MCP connection initialized: #{@connection_id}"
   end

@@ -204,7 +204,19 @@ module Mcp
 
       @logger.info "[MCP] Permission check passed for tool #{tool_id}"
     else
-      @logger.warn "[MCP] Skipping permission check - tool or user not found"
+      # No McpTool DB record — fall back to manifest-based permission check
+      if user && tool_manifest["required_permissions"].present?
+        required_perms = Array(tool_manifest["required_permissions"])
+        user_perms = user.respond_to?(:permission_names) ? user.permission_names : []
+        missing = required_perms - user_perms
+        if missing.any?
+          @logger.warn "[MCP] Permission denied for #{tool_id}: missing #{missing.join(', ')}"
+          raise PermissionDeniedError, "Permission denied: missing #{missing.join(', ')}"
+        end
+      elsif user.nil?
+        @logger.warn "[MCP] No user context for tool #{tool_id} — denying execution"
+        raise PermissionDeniedError, "Authentication required for tool execution"
+      end
     end
 
     # Validate input parameters
@@ -434,6 +446,14 @@ module Mcp
       workflow = @account.ai_workflows.find(workflow_id)
       executor = McpWorkflowExecutor.new(workflow: workflow, account: @account)
       executor.execute(params)
+    when "platform_tool"
+      Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+        "platform.#{tool_manifest['name']}",
+        params: params,
+        account: @account,
+        user: context[:options]&.dig(:user),
+        agent_id: context[:user_id]
+      )
     else
       raise ProtocolError, "Unknown tool type: #{tool_type}"
     end
