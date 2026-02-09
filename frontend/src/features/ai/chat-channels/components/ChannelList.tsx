@@ -19,6 +19,7 @@ import type { ChatChannelSummary, ChatPlatform, ChannelFilters } from '@/shared/
 interface ChannelListProps {
   onSelectChannel?: (channel: ChatChannelSummary) => void;
   onCreateChannel?: () => void;
+  onSettingsChannel?: (channel: ChatChannelSummary) => void;
   className?: string;
 }
 
@@ -42,6 +43,7 @@ const statusOptions = [
 export const ChannelList: React.FC<ChannelListProps> = ({
   onSelectChannel,
   onCreateChannel,
+  onSettingsChannel,
   className,
 }) => {
   const [channels, setChannels] = useState<ChatChannelSummary[]>([]);
@@ -195,7 +197,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
               onSelect={onSelectChannel}
               onConnect={handleConnect}
               onDisconnect={handleDisconnect}
-              onSettings={onSelectChannel}
+              onSettings={onSettingsChannel}
             />
           ))}
         </div>
