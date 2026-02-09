@@ -312,6 +312,11 @@ class Ai::AgentTeamOrchestrator
   end
 
   def submit_member_task(member, input)
+    # Check if team has Swarm infrastructure bindings for containerized execution
+    if swarm_bound? && member.agent.mcp_metadata&.dig("container_execution")
+      return submit_containerized_task(member, input)
+    end
+
     # Get or create agent card for the member's agent
     agent_card = find_or_create_agent_card(member.agent)
 
@@ -660,6 +665,77 @@ class Ai::AgentTeamOrchestrator
     permanent_pool.save!
   rescue StandardError => e
     @logger.warn "[TeamOrchestrator] Memory persistence failed: #{e.message}"
+  end
+
+  # ==========================================
+  # Container Deployment Methods
+  # ==========================================
+
+  # Check if team has Swarm infrastructure bindings
+  def swarm_bound?
+    @swarm_bound ||= Ai::AgentConnection.exists?(
+      account_id: team.account_id,
+      connection_type: "infrastructure",
+      source_type: "Ai::AgentTeam",
+      source_id: team.id,
+      target_type: "Devops::SwarmCluster",
+      status: "active"
+    )
+  end
+
+  # Submit a task to a containerized agent instead of via A2A
+  def submit_containerized_task(member, input)
+    deployment_service = Ai::ContainerAgentDeploymentService.new(account: team.account)
+
+    # Generate a synthetic conversation ID for this team execution task
+    conversation_id = "team-#{team.id}-member-#{member.id}-#{SecureRandom.hex(4)}"
+
+    instance = deployment_service.deploy_agent_session(
+      agent: member.agent,
+      conversation_id: conversation_id,
+      user: user
+    )
+
+    @logger.info "[TeamOrchestrator] Containerized task submitted for #{member.agent_name} " \
+                 "(container: #{instance.execution_id})"
+
+    # Create a lightweight A2A task to track the container execution
+    agent_card = find_or_create_agent_card(member.agent)
+    task = @a2a_service.submit_task(
+      from_agent: nil,
+      to_agent_card: agent_card,
+      message: build_task_message(member, input),
+      metadata: {
+        team_id: team.id,
+        member_id: member.id,
+        role: member.role,
+        capabilities: member.capabilities,
+        container_execution_id: instance.execution_id,
+        containerized: true
+      }
+    )
+
+    # Link A2A task to container instance
+    instance.update!(a2a_task_id: task.id) if task.respond_to?(:id)
+
+    task
+  rescue Ai::ContainerAgentDeploymentService::DeploymentError => e
+    @logger.error "[TeamOrchestrator] Container deployment failed for #{member.agent_name}: #{e.message}"
+    # Fall back to standard A2A execution
+    @logger.info "[TeamOrchestrator] Falling back to A2A execution for #{member.agent_name}"
+    agent_card = find_or_create_agent_card(member.agent)
+    @a2a_service.submit_task(
+      from_agent: nil,
+      to_agent_card: agent_card,
+      message: build_task_message(member, input),
+      metadata: {
+        team_id: team.id,
+        member_id: member.id,
+        role: member.role,
+        capabilities: member.capabilities,
+        container_fallback: true
+      }
+    )
   end
 
   def run_review_if_configured(task_result)

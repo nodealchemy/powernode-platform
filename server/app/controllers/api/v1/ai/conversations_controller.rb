@@ -9,6 +9,7 @@ module Api
         include AuditLogging
 
         before_action :set_conversation, only: [ :show, :update, :destroy, :archive, :unarchive, :duplicate, :stats ]
+        before_action :set_agent_for_nested, only: [ :active ]
         before_action :validate_permissions
 
         # =============================================================================
@@ -28,6 +29,17 @@ module Api
             conversations: conversations.map { |c| serialize_conversation(c) },
             pagination: pagination_data(conversations)
           })
+        end
+
+        # GET /api/v1/ai/agents/:agent_id/conversations/active
+        def active
+          conversations = @agent.conversations
+                                .where(status: "active")
+                                .where(user_id: current_user.id)
+                                .order(last_activity_at: :desc)
+                                .limit(1)
+
+          render_success(data: conversations.map { |c| serialize_conversation_detail(c) })
         end
 
         # POST /api/v1/ai/agents/:agent_id/conversations
@@ -197,6 +209,28 @@ module Api
             content_metadata: message_params[:metadata] || {}
           )
 
+          # Check for active container instance — route through bridge if present
+          bridge = ::Ai::ContainerChatBridgeService.new(account: current_user.account)
+          if bridge.has_active_container?(conversation.id)
+            bridge_result = bridge.route_message_to_container(
+              conversation_id: conversation.id,
+              message: { content: content, role: "user" }
+            )
+
+            if bridge_result[:routed]
+              return render_success({
+                user_message: serialize_message(user_message),
+                assistant_message: nil,
+                container_routed: true,
+                container_execution_id: bridge_result[:container_execution_id],
+                conversation: {
+                  id: conversation.id,
+                  message_count: conversation.reload.message_count
+                }
+              })
+            end
+          end
+
           # Build conversation history for AI
           messages_for_ai = build_messages_for_ai(conversation, agent)
 
@@ -326,6 +360,12 @@ module Api
         # RESOURCE LOADING
         # =============================================================================
 
+        def set_agent_for_nested
+          @agent = current_user.account.ai_agents.find(params[:agent_id])
+        rescue ActiveRecord::RecordNotFound
+          render_error("Agent not found", status: :not_found)
+        end
+
         def set_conversation
           # Try to find by id first (primary key), then by conversation_id (UUID field)
           @conversation = current_user.account.ai_conversations
@@ -346,7 +386,7 @@ module Api
 
         def validate_permissions
           case action_name
-          when "index", "show", "stats", "messages"
+          when "index", "show", "stats", "messages", "active"
             require_permission("ai.conversations.read")
           when "create", "duplicate", "send_message"
             require_permission("ai.conversations.create")
@@ -381,9 +421,73 @@ module Api
         def build_messages_for_ai(conversation, agent)
           messages = []
 
-          # Add system prompt from agent if available
-          if agent.system_prompt.present?
-            messages << { role: "system", content: agent.system_prompt }
+          # Build enriched system prompt with all available context
+          system_parts = []
+
+          # 1. Agent base system prompt
+          system_parts << agent.system_prompt if agent.system_prompt.present?
+
+          # 2. Enabled skill system prompts and tool descriptions
+          active_skills = agent.skills.joins(:agent_skills)
+                               .where(ai_agent_skills: { is_active: true })
+                               .where(status: "active")
+          if active_skills.any?
+            skill_lines = active_skills.filter_map do |skill|
+              next unless skill.system_prompt.present? || skill.commands.present?
+              parts = []
+              parts << skill.system_prompt if skill.system_prompt.present?
+              if skill.commands.present?
+                cmds = skill.commands.map { |c| "- #{c['name']}: #{c['description']}" }.join("\n")
+                parts << "Available commands:\n#{cmds}"
+              end
+              "### #{skill.name}\n#{parts.join("\n")}"
+            end
+            if skill_lines.any?
+              system_parts << "## Skills & Tools\n#{skill_lines.join("\n\n")}"
+            end
+          end
+
+          # 3. MCP tool capabilities
+          if agent.mcp_tool_manifest.present?
+            capabilities = agent.mcp_tool_manifest["capabilities"]
+            if capabilities.is_a?(Array) && capabilities.any?
+              system_parts << "## Capabilities\nYou have access to: #{capabilities.join(', ')}"
+            end
+          end
+
+          # 4. Agent persistent memory
+          begin
+            memories = Ai::ContextPersistenceService.get_relevant_memories(agent: agent, limit: 10)
+            if memories.present? && memories.any?
+              memory_lines = memories.map do |entry|
+                "- #{entry.entry_key}: #{entry.content_text.presence || entry.content.to_s.truncate(200)}"
+              end
+              system_parts << "## Shared Memory\n#{memory_lines.join("\n")}"
+            end
+          rescue StandardError => e
+            Rails.logger.debug("[CONVERSATIONS] Memory retrieval skipped: #{e.message}")
+          end
+
+          # 5. Compound learnings (feature-flagged)
+          begin
+            last_user_msg = conversation.messages.where(role: "user").ordered.last
+            if last_user_msg
+              learning_service = Ai::Learning::CompoundLearningService.new(account: agent.account)
+              result = learning_service.build_compound_context(
+                agent: agent,
+                task_description: last_user_msg.content,
+                token_budget: 1000
+              )
+              system_parts << result[:context] if result[:context].present?
+            end
+          rescue StandardError => e
+            Rails.logger.debug("[CONVERSATIONS] Compound learning injection skipped: #{e.message}")
+          end
+
+          # Combine into system message
+          combined_system = system_parts.join("\n\n")
+          if combined_system.present?
+            messages << { role: "system", content: combined_system }
           end
 
           # Add conversation history (limit to last 20 messages for context window)

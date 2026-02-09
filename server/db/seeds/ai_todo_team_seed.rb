@@ -569,6 +569,203 @@ agents.each_value do |agent|
 end
 
 # ---------------------------------------------------------------------------
+# MCP Server Connections
+# ---------------------------------------------------------------------------
+mcp_connections_created = 0
+
+# Look up MCP servers by name for this account
+filesystem_mcp = McpServer.find_by(account: admin_account, name: 'Filesystem MCP')
+database_mcp   = McpServer.find_by(account: admin_account, name: 'Database MCP')
+web_fetch_mcp  = McpServer.find_by(account: admin_account, name: 'Web Fetch MCP')
+
+mcp_assignments = {
+  'Todo Team Lead'          => [filesystem_mcp, web_fetch_mcp],
+  'Todo Backend Developer'  => [filesystem_mcp, database_mcp],
+  'Todo Frontend Developer' => [filesystem_mcp, web_fetch_mcp],
+  'Todo QA Engineer'        => [filesystem_mcp, database_mcp],
+  'Todo DevOps & Docs'      => [filesystem_mcp, web_fetch_mcp]
+}
+
+mcp_assignments.each do |agent_name, mcp_servers|
+  agent = agents[agent_name]
+  next unless agent
+
+  mcp_servers.compact.each do |mcp_server|
+    Ai::AgentConnection.find_or_create_by!(
+      account: admin_account,
+      connection_type: 'mcp_tool_usage',
+      source_type: 'Ai::Agent',
+      source_id: agent.id,
+      target_type: 'McpServer',
+      target_id: mcp_server.id
+    ) do |c|
+      c.status = 'active'
+      c.strength = 0.9
+      c.metadata = { 'server_name' => mcp_server.name, 'auto_assigned' => true }
+    end
+    mcp_connections_created += 1
+  end
+end
+
+if mcp_connections_created.positive?
+  puts "  ✅ MCP Server Connections: #{mcp_connections_created}"
+else
+  puts "  ⚠️  MCP servers not found — skipping MCP connections"
+end
+
+# ---------------------------------------------------------------------------
+# Skills Assignment
+# ---------------------------------------------------------------------------
+skills_assigned = 0
+
+skill_assignments = {
+  'Todo Team Lead'          => %w[productivity product-management],
+  'Todo Backend Developer'  => %w[productivity data],
+  'Todo Frontend Developer' => %w[productivity],
+  'Todo QA Engineer'        => %w[productivity],
+  'Todo DevOps & Docs'      => %w[product-management]
+}
+
+skill_assignments.each do |agent_name, slugs|
+  agent = agents[agent_name]
+  next unless agent
+
+  slugs.each do |slug|
+    skill = Ai::Skill.find_by(slug: slug, status: 'active')
+    next unless skill
+
+    Ai::AgentSkill.find_or_create_by!(
+      ai_agent_id: agent.id,
+      ai_skill_id: skill.id
+    ) do |as|
+      as.is_active = true
+      as.priority = 0
+    end
+    skills_assigned += 1
+  end
+end
+
+if skills_assigned.positive?
+  puts "  ✅ Skills Assigned: #{skills_assigned}"
+else
+  puts "  ⚠️  No matching skills found — skipping skill assignments"
+end
+
+# ---------------------------------------------------------------------------
+# Infrastructure Bindings
+# ---------------------------------------------------------------------------
+infra_connections_created = 0
+
+swarm_cluster = Devops::SwarmCluster.find_by(account: admin_account, status: 'connected')
+docker_host   = Devops::DockerHost.find_by(account: admin_account) if defined?(Devops::DockerHost)
+
+[swarm_cluster, docker_host].compact.each do |infra|
+  Ai::AgentConnection.find_or_create_by!(
+    account: admin_account,
+    connection_type: 'infrastructure',
+    source_type: 'Ai::AgentTeam',
+    source_id: team.id,
+    target_type: infra.class.name,
+    target_id: infra.id
+  ) do |c|
+    c.status = 'active'
+    c.strength = 1.0
+    c.metadata = { 'name' => infra.name, 'binding_type' => 'team_infra' }
+  end
+  infra_connections_created += 1
+end
+
+if infra_connections_created.positive?
+  puts "  ✅ Infrastructure Bindings: #{infra_connections_created}"
+else
+  puts "  ⚠️  No infrastructure found — skipping bindings"
+end
+
+# ---------------------------------------------------------------------------
+# Role Profile Application
+# ---------------------------------------------------------------------------
+profiles_applied = 0
+
+profile_mapping = {
+  'Todo Team Lead'          => 'lead',
+  'Todo QA Engineer'        => 'reviewer',
+  'Todo DevOps & Docs'      => 'documentation_expert'
+}
+
+profile_mapping.each do |agent_name, role_type|
+  agent = agents[agent_name]
+  next unless agent
+
+  profile = Ai::RoleProfile.system_profiles.find_by(role_type: role_type)
+  next unless profile
+
+  team_role = Ai::TeamRole.find_by(agent_team: team, ai_agent_id: agent.id)
+  if team_role
+    team_role.update!(
+      metadata: (team_role.metadata || {}).merge(
+        'role_profile_id' => profile.id,
+        'role_profile_slug' => profile.slug
+      )
+    )
+    profiles_applied += 1
+  end
+end
+
+if profiles_applied.positive?
+  puts "  ✅ Role Profiles Applied: #{profiles_applied}"
+else
+  puts "  ⚠️  No matching role profiles — skipping"
+end
+
+# ---------------------------------------------------------------------------
+# Example Container Instance (completed, for demonstration)
+# ---------------------------------------------------------------------------
+chat_template = Devops::ContainerTemplate.find_by(name: 'Autonomous Chat Agent', status: 'active')
+lead_agent = agents['Todo Team Lead']
+
+if chat_template && lead_agent && swarm_cluster
+  Devops::ContainerInstance.find_or_create_by!(
+    account: admin_account,
+    execution_id: "exec-todo-lead-demo"
+  ) do |ci|
+    ci.template = chat_template
+    ci.triggered_by = admin_user
+    ci.image_name = chat_template.image_name
+    ci.image_tag = chat_template.image_tag
+    ci.status = 'completed'
+    ci.exit_code = '0'
+    ci.timeout_seconds = chat_template.timeout_seconds
+    ci.sandbox_enabled = true
+    ci.started_at = 2.hours.ago
+    ci.completed_at = 1.hour.ago
+    ci.duration_ms = 3_600_000
+    ci.input_parameters = {
+      'agent_id' => lead_agent.id,
+      'agent_name' => lead_agent.name,
+      'conversation_id' => 'demo-conversation',
+      'system_prompt' => lead_agent.mcp_metadata&.dig('system_prompt')&.truncate(200),
+      'model' => 'claude-sonnet-4-20250514',
+      'cluster_name' => swarm_cluster.name,
+      'template_name' => chat_template.name,
+      'chat_enabled' => true
+    }
+    ci.output_data = {
+      'messages_processed' => 42,
+      'tokens_used' => 15_320,
+      'session_duration_ms' => 3_600_000,
+      'exit_reason' => 'completed'
+    }
+    ci.environment_variables = {
+      'AGENT_ID' => lead_agent.id,
+      'CONVERSATION_ID' => 'demo-conversation',
+      'PLATFORM_CALLBACK_URL' => 'http://backend:3000/api/v1/ai/agent_containers/callback'
+    }
+    ci.runner_labels = %w[powernode-ai-agent chat-agent]
+  end
+  puts "  ✅ Example Container Instance: exec-todo-lead-demo (completed)"
+end
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 puts "\n📊 AI Todo App Team Summary:"
@@ -578,5 +775,9 @@ puts "   Roles: #{roles_created}"
 puts "   Members: #{members_created}"
 puts "   Channels: #{channels_created}"
 puts "   Memory Pool: #{memory_pool.name}"
-puts "   Connections: #{connections_created}"
+puts "   Memory Connections: #{connections_created}"
+puts "   MCP Connections: #{mcp_connections_created}"
+puts "   Skills Assigned: #{skills_assigned}"
+puts "   Infrastructure Bindings: #{infra_connections_created}"
+puts "   Role Profiles Applied: #{profiles_applied}"
 puts "✅ AI Todo App Team seeding completed!"

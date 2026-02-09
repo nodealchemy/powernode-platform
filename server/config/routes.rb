@@ -1778,7 +1778,6 @@ Rails.application.routes.draw do
 
             collection do
               get :active
-              post :start_conversation
             end
 
             # Nested messages
@@ -2763,6 +2762,19 @@ Rails.application.routes.draw do
           get "remediation_logs", action: :remediation_logs
           get "health_summary", action: :health_summary
           get "correlations", action: :correlations
+        end
+
+        # ===================================================================
+        # AGENT CONTAINERS - Containerized agent lifecycle + chat bridge
+        # ===================================================================
+        resources :agent_containers, only: [:show, :destroy] do
+          member do
+            post :launch
+            get :status
+          end
+          collection do
+            post :callback
+          end
         end
 
         # ===================================================================

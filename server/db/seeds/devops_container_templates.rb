@@ -320,4 +320,45 @@ Devops::ContainerTemplate.find_or_create_by!(name: "Log Analyzer with AI", accou
   t.labels = { "runner" => "powernode-ai-agent", "type" => "analysis" }
 end
 
+# Template 11: Autonomous Chat Agent
+Devops::ContainerTemplate.find_or_create_by!(name: "Autonomous Chat Agent", account_id: nil) do |t|
+  t.description = "Long-lived containerized agent for chat conversations. Supports WebSocket bidirectional communication, MCP sidecar injection, and heartbeat health reporting. Designed for container-per-session pattern."
+  t.image_name = "python"
+  t.image_tag = "3.12-slim"
+  t.category = "ai-agent"
+  t.visibility = "public"
+  t.status = "active"
+  t.timeout_seconds = 1800
+  t.memory_mb = 2048
+  t.cpu_millicores = 1000
+  t.sandbox_mode = true
+  t.network_access = true
+  t.allowed_egress_domains = ["api.openai.com", "api.anthropic.com", "api.x.ai"]
+  t.environment_variables = {
+    "PYTHONUNBUFFERED" => "1",
+    "HEARTBEAT_INTERVAL_SECONDS" => "30"
+  }
+  t.input_schema = {
+    "agent_id" => { "type" => "string", "required" => true, "description" => "Platform agent UUID" },
+    "conversation_id" => { "type" => "string", "required" => true, "description" => "Conversation UUID this container serves" },
+    "system_prompt" => { "type" => "string", "description" => "Agent system prompt" },
+    "model" => { "type" => "string", "default" => "claude-sonnet-4-20250514", "description" => "AI model to use" },
+    "provider_api_key" => { "type" => "string", "description" => "API key for the AI provider" },
+    "mcp_servers" => { "type" => "array", "description" => "MCP server configurations to inject as sidecars" },
+    "platform_callback_url" => { "type" => "string", "description" => "URL for sending responses back to the platform" },
+    "heartbeat_interval_seconds" => { "type" => "integer", "default" => 30, "description" => "Interval for health heartbeat reports" }
+  }
+  t.output_schema = {
+    "messages_processed" => { "type" => "integer" },
+    "tokens_used" => { "type" => "integer" },
+    "session_duration_ms" => { "type" => "integer" },
+    "exit_reason" => { "type" => "string", "enum" => ["completed", "timeout", "error", "terminated"] }
+  }
+  t.labels = {
+    "runner" => "powernode-ai-agent",
+    "type" => "chat-agent",
+    "powernode.chat_enabled" => "true"
+  }
+end
+
 puts "  ✅ Created #{Devops::ContainerTemplate.system_templates.count} system container templates"
