@@ -587,6 +587,7 @@ const DashboardPage: React.FC = () => {
 
         {/* AI Pages - Tabbed wrappers */}
         <Route path="/ai/execution/*" element={<ExecutionPage />} />
+        <Route path="/ai/contexts/:id" element={<ContextDetailPage />} />
         <Route path="/ai/knowledge/contexts/:id" element={<ContextDetailPage />} />
         <Route path="/ai/knowledge/*" element={<KnowledgePage />} />
         <Route path="/ai/infrastructure/providers/new" element={<AIProvidersPage />} />

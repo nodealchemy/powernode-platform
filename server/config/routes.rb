@@ -2015,11 +2015,11 @@ Rails.application.routes.draw do
             post :unarchive
             get :export
             post :clone
+            get :stats
           end
 
           collection do
             post :import
-            get :stats
           end
 
           # Nested entries

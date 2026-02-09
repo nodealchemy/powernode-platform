@@ -142,18 +142,160 @@ export interface TeamTemplate {
   default_config?: Record<string, unknown>;
 }
 
-export interface TeamAnalytics {
+// Analytics sub-interfaces
+export interface AnalyticsOverview {
   total_executions: number;
   completed_executions: number;
   failed_executions: number;
-  avg_duration_ms: number | null;
+  cancelled_executions: number;
+  active_executions: number;
+  success_rate: number;
   total_tasks: number;
   completed_tasks: number;
+  failed_tasks: number;
   total_messages: number;
   total_tokens_used: number;
   total_cost_usd: number;
   executions_by_day: Record<string, number>;
+  cost_by_day: Record<string, number>;
+}
+
+export interface TopExecution {
+  id: string;
+  execution_id: string;
+  objective: string | null;
+  duration_ms: number | null;
+  tasks_total: number;
+  created_at: string;
+}
+
+export interface TopCostExecution {
+  id: string;
+  execution_id: string;
+  objective: string | null;
+  cost_usd: number;
+  tokens: number;
+  created_at: string;
+}
+
+export interface AnalyticsPerformance {
+  avg_duration_ms: number | null;
+  median_duration_ms: number | null;
+  p95_duration_ms: number | null;
+  min_duration_ms: number | null;
+  max_duration_ms: number | null;
+  avg_tasks_per_execution: number;
+  avg_messages_per_execution: number;
+  throughput_per_day: number;
+  status_breakdown: Record<string, number>;
+  termination_reasons: Record<string, number>;
+  duration_by_day: Record<string, number>;
+  slowest_executions: TopExecution[];
+}
+
+export interface AnalyticsCost {
+  total_cost_usd: number;
+  total_tokens: number;
+  avg_cost_per_execution: number;
+  avg_tokens_per_execution: number;
+  cost_by_day: Record<string, number>;
+  tokens_by_day: Record<string, number>;
+  cost_by_status: Record<string, number>;
+  tokens_by_status: Record<string, number>;
+  top_cost_executions: TopCostExecution[];
+  cost_per_task: number;
+  cost_per_message: number;
+}
+
+export interface RoleStat {
+  role_id: string;
+  role_name: string;
+  role_type: string;
+  agent_name: string | null;
+  tasks_total: number;
+  tasks_completed: number;
+  tasks_failed: number;
   success_rate: number;
+  avg_duration_ms: number | null;
+  total_tokens: number;
+  total_cost_usd: number;
+  messages_sent: number;
+  messages_received: number;
+  tools_used: Record<string, number>;
+  avg_retries: number;
+}
+
+export interface AnalyticsAgents {
+  role_stats: RoleStat[];
+  task_type_distribution: Record<string, number>;
+  workload_by_role: Record<string, number>;
+  unassigned_tasks: number;
+  top_tools: Record<string, number>;
+}
+
+export interface RoleInteraction {
+  from: string;
+  to: string;
+  count: number;
+}
+
+export interface AnalyticsCommunication {
+  total_messages: number;
+  message_type_distribution: Record<string, number>;
+  priority_distribution: Record<string, number>;
+  escalation_count: number;
+  escalation_rate: number;
+  questions_asked: number;
+  questions_answered: number;
+  pending_responses: number;
+  response_rate: number;
+  avg_response_time_seconds: number;
+  messages_by_day: Record<string, number>;
+  role_interactions: RoleInteraction[];
+  broadcasts_count: number;
+  high_priority_count: number;
+}
+
+export interface LearningMetrics {
+  total_learnings: number;
+  by_category: Record<string, number>;
+  by_extraction_method: Record<string, number>;
+  avg_importance: number;
+  avg_confidence: number;
+  avg_effectiveness: number;
+  total_injections: number;
+  positive_outcomes: number;
+  negative_outcomes: number;
+  injection_success_rate: number;
+  high_importance_count: number;
+}
+
+export interface AnalyticsQuality {
+  total_reviews: number;
+  approved_count: number;
+  rejected_count: number;
+  revision_requested_count: number;
+  pending_count: number;
+  approval_rate: number;
+  avg_quality_score: number;
+  quality_score_distribution: Record<string, number>;
+  avg_review_duration_ms: number;
+  avg_revision_count: number;
+  review_mode_breakdown: Record<string, number>;
+  findings_by_severity: Record<string, number>;
+  findings_by_category: Record<string, number>;
+  learning: LearningMetrics;
+}
+
+export interface TeamAnalytics {
+  period_days: number;
+  generated_at: string;
+  overview: AnalyticsOverview;
+  performance: AnalyticsPerformance;
+  cost: AnalyticsCost;
+  agents: AnalyticsAgents;
+  communication: AnalyticsCommunication;
+  quality: AnalyticsQuality;
 }
 
 export interface TeamFilters extends QueryFilters {

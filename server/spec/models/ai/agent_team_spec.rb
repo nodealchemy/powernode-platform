@@ -10,6 +10,10 @@ RSpec.describe Ai::AgentTeam, type: :model do
     it { should belong_to(:account) }
     it { should have_many(:members).dependent(:destroy) }
     it { should have_many(:agents).through(:members) }
+    it { should have_many(:ai_team_roles).dependent(:destroy) }
+    it { should have_many(:ai_team_channels).dependent(:destroy) }
+    it { should have_many(:team_executions).dependent(:destroy) }
+    it { should have_many(:compound_learnings).dependent(:nullify) }
   end
 
   # ==========================================

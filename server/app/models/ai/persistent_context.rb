@@ -83,6 +83,10 @@ module Ai
       )
     end
 
+    def public_read?
+      access_control.dig("public_read") == true || access_control.dig("public") == true
+    end
+
     def accessible_by?(accessor_id, accessor_type: :user)
       return true if access_control.dig("public") == true
 

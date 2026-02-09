@@ -394,7 +394,7 @@ export function ContextDetailPage() {
                             {contextApi.formatImportanceScore(entry.importance_score)}
                           </span>
                           <span>{entry.access_count} accesses</span>
-                          {entry.tags.length > 0 && (
+                          {entry.tags?.length > 0 && (
                             <span>{entry.tags.slice(0, 3).join(', ')}</span>
                           )}
                         </div>

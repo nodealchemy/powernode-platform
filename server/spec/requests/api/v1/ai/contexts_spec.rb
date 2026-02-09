@@ -416,21 +416,45 @@ RSpec.describe 'Api::V1::Ai::Contexts', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/contexts/stats' do
+  describe 'GET /api/v1/ai/contexts/:id/stats' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
-
-    before do
-      create_context.call
-    end
+    let(:context_record) { create_context.call }
 
     context 'with ai.context.read permission' do
-      it 'returns context statistics' do
-        get '/api/v1/ai/contexts/stats', headers: headers
+      it 'returns per-context statistics' do
+        get "/api/v1/ai/contexts/#{context_record.id}/stats", headers: headers
 
         expect_success_response
         data = json_response_data
 
         expect(data).to have_key('stats')
+        expect(data['stats']).to include(
+          'total_entries',
+          'entries_by_type',
+          'data_size_bytes',
+          'avg_importance_score',
+          'access_count_total',
+          'entries_with_embeddings',
+          'recent_accesses'
+        )
+      end
+    end
+
+    context 'when context does not exist' do
+      it 'returns not found error' do
+        get '/api/v1/ai/contexts/nonexistent-id/stats', headers: headers
+
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+
+    context 'without permission' do
+      let(:headers) { auth_headers_for(regular_user) }
+
+      it 'returns forbidden error' do
+        get "/api/v1/ai/contexts/#{context_record.id}/stats", headers: headers
+
+        expect(response).to have_http_status(:forbidden)
       end
     end
   end

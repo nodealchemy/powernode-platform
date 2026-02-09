@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Users, UserCog, MessageSquare, Play, Pause, Square,
-  BarChart3, Copy, ArrowRightLeft, ListTodo, Hash, Trash2
+  BarChart3, Copy, ArrowRightLeft, ListTodo, Hash, Trash2, BookOpen
 } from 'lucide-react';
+import TeamAnalyticsDashboard from '@/features/ai/agent-teams/components/TeamAnalyticsDashboard';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useDispatch } from 'react-redux';
@@ -11,6 +12,7 @@ import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
 import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import {
   teamsApi,
   Team,
@@ -22,6 +24,7 @@ import {
   TeamTemplate,
   TeamAnalytics
 } from '@/shared/services/ai/TeamsApiService';
+import { ContextBrowser } from '@/features/ai/context/components/ContextBrowser';
 
 // Type guard for API errors
 interface ApiErrorResponse {
@@ -46,9 +49,10 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-type TabType = 'teams' | 'roles' | 'channels' | 'executions' | 'tasks' | 'messages' | 'templates' | 'analytics';
+type TabType = 'teams' | 'roles' | 'channels' | 'executions' | 'tasks' | 'messages' | 'templates' | 'knowledge' | 'analytics';
 
 const TeamsPage: React.FC = () => {
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('teams');
   const [teams, setTeams] = useState<Team[]>([]);
@@ -62,6 +66,9 @@ const TeamsPage: React.FC = () => {
   const [teamAnalytics, setTeamAnalytics] = useState<TeamAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedExecution, setSelectedExecution] = useState<TeamExecution | null>(null);
+
+  // Analytics period
+  const [periodDays, setPeriodDays] = useState(30);
 
   // Create team modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -93,7 +100,7 @@ const TeamsPage: React.FC = () => {
         teamsApi.listRoles(teamId),
         teamsApi.listChannels(teamId),
         teamsApi.listExecutions(teamId),
-        teamsApi.getTeamAnalytics(teamId).catch(() => null)
+        teamsApi.getTeamAnalytics(teamId, periodDays).catch(() => null)
       ]);
       setRoles(rolesRes.roles || []);
       setChannels(channelsRes.channels || []);
@@ -105,7 +112,7 @@ const TeamsPage: React.FC = () => {
         message: getErrorMessage(error, 'Failed to load team details')
       }));
     }
-  }, [dispatch]);
+  }, [dispatch, periodDays]);
 
   useEffect(() => {
     if (selectedTeam) {
@@ -154,17 +161,26 @@ const TeamsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteTeam = async (teamId: string) => {
-    try {
-      await teamsApi.deleteTeam(teamId);
-      dispatch(addNotification({ type: 'success', message: 'Team deleted' }));
-      setTeams(teams.filter(t => t.id !== teamId));
-      if (selectedTeam?.id === teamId) {
-        setSelectedTeam(teams.find(t => t.id !== teamId) || null);
-      }
-    } catch (error) {
-      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to delete team') }));
-    }
+  const handleDeleteTeam = (teamId: string) => {
+    const teamName = teams.find(t => t.id === teamId)?.name || 'this team';
+    confirm({
+      title: 'Delete Team',
+      message: `Are you sure you want to delete "${teamName}"? This will permanently remove all roles, channels, and execution history.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await teamsApi.deleteTeam(teamId);
+          dispatch(addNotification({ type: 'success', message: 'Team deleted' }));
+          setTeams(teams.filter(t => t.id !== teamId));
+          if (selectedTeam?.id === teamId) {
+            setSelectedTeam(teams.find(t => t.id !== teamId) || null);
+          }
+        } catch (error) {
+          dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to delete team') }));
+        }
+      },
+    });
   };
 
   const handleStartExecution = async () => {
@@ -252,6 +268,7 @@ const TeamsPage: React.FC = () => {
     { id: 'tasks' as TabType, label: 'Tasks', icon: ListTodo },
     { id: 'messages' as TabType, label: 'Messages', icon: MessageSquare },
     { id: 'templates' as TabType, label: 'Templates', icon: Copy },
+    { id: 'knowledge' as TabType, label: 'Knowledge', icon: BookOpen },
     { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 }
   ];
 
@@ -517,7 +534,7 @@ const TeamsPage: React.FC = () => {
                       {execution.tasks_failed > 0 && <span className="text-theme-danger">{execution.tasks_failed} failed</span>}
                       <span>{execution.messages_exchanged} messages</span>
                       <span>{execution.total_tokens_used.toLocaleString()} tokens</span>
-                      {execution.total_cost_usd > 0 && <span>${execution.total_cost_usd.toFixed(4)}</span>}
+                      {Number(execution.total_cost_usd) > 0 && <span>${Number(execution.total_cost_usd).toFixed(4)}</span>}
                       {execution.duration_ms && <span>{(execution.duration_ms / 1000).toFixed(1)}s</span>}
                     </div>
                   </div>
@@ -642,6 +659,48 @@ const TeamsPage: React.FC = () => {
             </div>
           )}
 
+          {/* Knowledge Tab */}
+          {activeTab === 'knowledge' && (
+            <div className="space-y-4">
+              {!selectedTeam ? (
+                <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
+                  <p className="text-theme-secondary">Select a team to view knowledge</p>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <BookOpen size={18} className="text-theme-secondary" />
+                    <h3 className="text-lg font-medium text-theme-primary">Team Contexts</h3>
+                    <span className="text-sm text-theme-secondary">
+                      Contexts scoped to agents in this team
+                    </span>
+                  </div>
+                  {roles.filter(r => r.agent_id).length === 0 ? (
+                    <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
+                      <BookOpen size={48} className="mx-auto text-theme-secondary mb-4" />
+                      <h3 className="text-lg font-semibold text-theme-primary mb-2">No agent contexts</h3>
+                      <p className="text-theme-secondary">Assign agents to team roles to see their knowledge contexts here</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {roles.filter(r => r.agent_id).map(role => (
+                        <div key={role.id}>
+                          <h4 className="text-sm font-medium text-theme-secondary mb-2">
+                            {role.agent_name || role.role_name} — {role.role_type}
+                          </h4>
+                          <ContextBrowser
+                            filters={{ ai_agent_id: role.agent_id! }}
+                            linkToDetail
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Analytics Tab */}
           {activeTab === 'analytics' && (
             <div className="space-y-4">
@@ -656,18 +715,10 @@ const TeamsPage: React.FC = () => {
                   <p className="text-theme-secondary">Analytics will appear once the team has completed executions</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {Object.entries(teamAnalytics).filter(([, value]) => typeof value === 'number' || typeof value === 'string').slice(0, 9).map(([key, value]) => (
-                    <div key={key} className="bg-theme-surface border border-theme rounded-lg p-4">
-                      <p className="text-sm text-theme-secondary">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
-                      <p className="text-2xl font-bold text-theme-primary">
-                        {typeof value === 'number'
-                          ? (key.includes('usd') || key.includes('cost') ? `$${value.toFixed(2)}` : value.toLocaleString())
-                          : String(value)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <TeamAnalyticsDashboard
+                  analytics={teamAnalytics}
+                  onPeriodChange={setPeriodDays}
+                />
               )}
             </div>
           )}
@@ -757,6 +808,8 @@ const TeamsPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {ConfirmationDialog}
     </PageContainer>
   );
 };

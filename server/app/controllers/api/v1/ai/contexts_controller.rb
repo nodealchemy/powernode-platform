@@ -5,7 +5,7 @@ module Api
     module Ai
       class ContextsController < ApplicationController
         before_action :authenticate_request
-        before_action :set_context, only: [ :show, :update, :destroy, :search, :archive, :unarchive, :export, :clone ]
+        before_action :set_context, only: [ :show, :update, :destroy, :search, :archive, :unarchive, :export, :clone, :stats ]
 
         # GET /api/v1/ai/contexts
         def index
@@ -171,14 +171,23 @@ module Api
           render_error("Invalid import data format", status: :unprocessable_content)
         end
 
-        # GET /api/v1/ai/contexts/stats
+        # GET /api/v1/ai/contexts/:id/stats
         def stats
           authorize_action!("ai.context.read")
           return if performed?
 
-          stats = ::Ai::MemoryManagementService.memory_stats(account: current_account)
-
-          render_success({ stats: stats })
+          entries = @context.context_entries
+          render_success({
+            stats: {
+              total_entries: entries.count,
+              entries_by_type: entries.group(:entry_type).count,
+              data_size_bytes: entries.sum("COALESCE(octet_length(content::text), 0)"),
+              avg_importance_score: entries.average(:importance_score)&.to_f&.round(2) || 0,
+              access_count_total: entries.sum(:access_count),
+              entries_with_embeddings: entries.where.not(embedding: nil).count,
+              recent_accesses: entries.where("last_accessed_at >= ?", 7.days.ago).count
+            }
+          })
         end
 
         private

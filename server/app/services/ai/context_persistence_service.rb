@@ -428,6 +428,9 @@ class Ai::ContextPersistenceService
       accessor_id = accessor.is_a?(Hash) ? accessor[:id] : accessor.id
       accessor_type = accessor.is_a?(Hash) ? accessor[:type] : accessor.class.name.underscore
 
+      # Account members can always read their own account's contexts
+      return true if accessor_type == "user" && accessor.respond_to?(:account_id) && accessor.account_id == context.account_id
+
       readers = access["readers"] || []
       readers.any? { |r| r["type"] == accessor_type && r["id"] == accessor_id }
     end
