@@ -37,7 +37,7 @@ module Api
 
           render_success(
             teams: teams.map { |t| serialize_team(t) },
-            total_count: teams.total_count
+            total_count: teams.respond_to?(:total_count) ? teams.total_count : teams.count
           )
         end
 
@@ -128,7 +128,7 @@ module Api
 
           render_success(
             executions: executions.map { |e| serialize_execution(e) },
-            total_count: executions.total_count
+            total_count: executions.respond_to?(:total_count) ? executions.total_count : executions.count
           )
         end
 
@@ -258,7 +258,7 @@ module Api
 
           render_success(
             templates: templates.map { |t| serialize_template(t) },
-            total_count: templates.total_count
+            total_count: templates.respond_to?(:total_count) ? templates.total_count : templates.count
           )
         end
 

@@ -24,7 +24,7 @@ module Api
 
           render_success(
             knowledge_bases: bases.map { |kb| serialize_knowledge_base(kb) },
-            total_count: bases.total_count
+            total_count: bases.respond_to?(:total_count) ? bases.total_count : bases.size
           )
         end
 
@@ -61,7 +61,7 @@ module Api
 
           render_success(
             documents: docs.map { |d| serialize_document(d) },
-            total_count: docs.total_count
+            total_count: docs.respond_to?(:total_count) ? docs.total_count : docs.size
           )
         end
 
@@ -115,7 +115,7 @@ module Api
 
           render_success(
             queries: queries.map { |q| serialize_query(q) },
-            total_count: queries.total_count
+            total_count: queries.respond_to?(:total_count) ? queries.total_count : queries.size
           )
         end
 
