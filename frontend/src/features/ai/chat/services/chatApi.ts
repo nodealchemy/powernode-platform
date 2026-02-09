@@ -26,18 +26,18 @@ export const chatApi = {
       /* no active conversation */
     }
     // Create new one
-    const response = await apiClient.post(`/ai/agents/${agentId}/conversations/start_conversation`, {
-      title: 'Chat Session'
+    const response = await apiClient.post(`/ai/agents/${agentId}/conversations`, {
+      conversation: { title: 'Chat Session' }
     });
-    return response.data?.data;
+    return response.data?.data?.conversation;
   },
 
   sendMessage: async (agentId: string, conversationId: string, content: string): Promise<ChatMessage> => {
     const response = await apiClient.post(
       `/ai/agents/${agentId}/conversations/${conversationId}/send_message`,
-      { content }
+      { message: { content } }
     );
-    return response.data?.data;
+    return response.data?.data?.assistant_message;
   },
 
   getHistory: async (agentId: string, conversationId: string): Promise<ChatMessage[]> => {
