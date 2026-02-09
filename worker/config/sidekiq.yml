@@ -229,3 +229,17 @@
     class: AiCompoundLearningMaintenanceJob
     queue: ai_orchestration
     description: 'Decay stale compound learnings and promote cross-team knowledge'
+
+  # Chat session cleanup - idle/close stale sessions every 6 hours
+  chat_session_cleanup:
+    cron: '0 */6 * * *'
+    class: ChatSessionCleanupJob
+    queue: maintenance
+    description: 'Clean up stale chat sessions (idle active, close old idle)'
+
+  # AI team message cleanup - remove old messages daily at 4 AM UTC
+  ai_team_message_cleanup:
+    cron: '0 4 * * *'
+    class: AiTeamMessageCleanupJob
+    queue: ai_orchestration
+    description: 'Clean up old AI team messages based on channel retention policy'
