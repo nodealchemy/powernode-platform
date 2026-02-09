@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X, LayoutGrid, Globe, Bot, GitBranch, Search, Code, Shield, Rocket, FileText, Puzzle } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
@@ -8,6 +8,7 @@ import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { usePromptTemplates } from '../hooks/usePromptTemplates';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import type {
   PromptTemplate,
   PromptCategory,
@@ -306,18 +307,33 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
   );
 };
 
-export const PromptsContent: React.FC = () => {
+interface PromptsContentProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const PromptsContent: React.FC<PromptsContentProps> = ({ onActionsReady }) => {
   const { confirm, ConfirmationDialog } = useConfirmation();
   const {
     templates,
     loading,
-    refresh: _refresh,
+    refresh,
     createTemplate,
     updateTemplate,
     deleteTemplate,
     duplicateTemplate,
     previewTemplate,
   } = usePromptTemplates();
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: refresh,
+    loading,
+  });
+
+  useEffect(() => {
+    if (onActionsReady) {
+      onActionsReady([refreshAction]);
+    }
+  }, [onActionsReady, refreshAction]);
 
   const [categoryFilter, setCategoryFilter] = useState<PromptCategory | 'all'>('all');
   const [showEditor, setShowEditor] = useState(false);

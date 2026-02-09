@@ -1,11 +1,12 @@
 // RAG Knowledge Base Page - Knowledge-Augmented Agents
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  FileText, Search, Database, Upload,
-  Trash2, Play, Link, BarChart3, MessageSquare, RefreshCw
+  FileText, Search, Database, Upload, Pencil,
+  Trash2, Play, Link, BarChart3, MessageSquare, RefreshCw, Plus
 } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { Modal } from '@/shared/components/ui/Modal';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
@@ -46,7 +47,12 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'knowledge-bases' | 'documents' | 'query' | 'connectors' | 'analytics';
 
-export const RagContent: React.FC = () => {
+interface RagContentProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('knowledge-bases');
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
@@ -60,15 +66,36 @@ export const RagContent: React.FC = () => {
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [queryLoading, setQueryLoading] = useState(false);
 
-  // Create KB modal
+  // Editing KB state
+  const [editingKb, setEditingKb] = useState<KnowledgeBase | null>(null);
+
+  // Create/Edit KB modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newKbName, setNewKbName] = useState('');
   const [newKbDescription, setNewKbDescription] = useState('');
+
+  // Connector modal
+  const [showConnectorModal, setShowConnectorModal] = useState(false);
+  const [newConnectorName, setNewConnectorName] = useState('');
+  const [newConnectorType, setNewConnectorType] = useState<string>('notion');
+  const [newConnectorFrequency, setNewConnectorFrequency] = useState<string>('daily');
+
 
   // Create document modal
   const [showDocModal, setShowDocModal] = useState(false);
   const [newDocName, setNewDocName] = useState('');
   const [newDocContent, setNewDocContent] = useState('');
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: async () => { await loadData(); },
+    loading,
+  });
+
+  useEffect(() => {
+    if (onActionsReady) {
+      onActionsReady([refreshAction]);
+    }
+  }, [onActionsReady, refreshAction]);
 
   usePageWebSocket({
     pageType: 'ai',
@@ -143,17 +170,26 @@ export const RagContent: React.FC = () => {
     }
   };
 
-  const handleDeleteKb = async (kbId: string) => {
-    try {
-      await ragApi.deleteKnowledgeBase(kbId);
-      dispatch(addNotification({ type: 'success', message: 'Knowledge base deleted' }));
-      setKnowledgeBases(knowledgeBases.filter(kb => kb.id !== kbId));
-      if (selectedKb?.id === kbId) {
-        setSelectedKb(knowledgeBases.find(kb => kb.id !== kbId) || null);
-      }
-    } catch (error) {
-      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to delete knowledge base') }));
-    }
+  const handleDeleteKb = (kbId: string) => {
+    const kbName = knowledgeBases.find(kb => kb.id === kbId)?.name || 'this knowledge base';
+    confirm({
+      title: 'Delete Knowledge Base',
+      message: `Are you sure you want to delete "${kbName}"? This will permanently remove all documents and embeddings.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await ragApi.deleteKnowledgeBase(kbId);
+          dispatch(addNotification({ type: 'success', message: 'Knowledge base deleted' }));
+          setKnowledgeBases(knowledgeBases.filter(kb => kb.id !== kbId));
+          if (selectedKb?.id === kbId) {
+            setSelectedKb(knowledgeBases.find(kb => kb.id !== kbId) || null);
+          }
+        } catch (error) {
+          dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to delete knowledge base') }));
+        }
+      },
+    });
   };
 
   const handleCreateDoc = async () => {
@@ -195,6 +231,71 @@ export const RagContent: React.FC = () => {
       dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Query failed') }));
     } finally {
       setQueryLoading(false);
+    }
+  };
+
+  const handleDeleteDoc = (docId: string) => {
+    if (!selectedKb) return;
+    const docName = documents.find(d => d.id === docId)?.name || 'this document';
+    confirm({
+      title: 'Delete Document',
+      message: `Are you sure you want to delete "${docName}"? This will remove the document and all its embeddings.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await ragApi.deleteDocument(selectedKb!.id, docId);
+          dispatch(addNotification({ type: 'success', message: 'Document deleted' }));
+          setDocuments(documents.filter(d => d.id !== docId));
+        } catch (error) {
+          dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to delete document') }));
+        }
+      },
+    });
+  };
+
+  const handleEditKb = (kb: KnowledgeBase) => {
+    setEditingKb(kb);
+    setNewKbName(kb.name);
+    setNewKbDescription(kb.description || '');
+    setShowCreateModal(true);
+  };
+
+  const handleUpdateKb = async () => {
+    if (!editingKb || !newKbName.trim()) return;
+    try {
+      const updated = await ragApi.updateKnowledgeBase(editingKb.id, {
+        name: newKbName,
+        description: newKbDescription || undefined,
+      });
+      dispatch(addNotification({ type: 'success', message: 'Knowledge base updated' }));
+      setKnowledgeBases(knowledgeBases.map(kb => kb.id === updated.id ? updated : kb));
+      if (selectedKb?.id === updated.id) setSelectedKb(updated);
+      setShowCreateModal(false);
+      setEditingKb(null);
+      setNewKbName('');
+      setNewKbDescription('');
+    } catch (error) {
+      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to update knowledge base') }));
+    }
+  };
+
+  const handleCreateConnector = async () => {
+    if (!selectedKb || !newConnectorName.trim()) return;
+    try {
+      const connector = await ragApi.createConnector(selectedKb.id, {
+        name: newConnectorName,
+        connector_type: newConnectorType,
+        sync_frequency: newConnectorFrequency,
+      });
+      dispatch(addNotification({ type: 'success', message: 'Connector created' }));
+      setConnectors([...connectors, connector]);
+      setShowConnectorModal(false);
+      setNewConnectorName('');
+      setNewConnectorType('notion');
+      setNewConnectorFrequency('daily');
+    } catch (error) {
+      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to create connector') }));
     }
   };
 
@@ -319,6 +420,12 @@ export const RagContent: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-1 text-xs rounded ${getStatusColor(kb.status)}`}>{kb.status}</span>
                           <button
+                            onClick={(e) => { e.stopPropagation(); handleEditKb(kb); }}
+                            className="text-theme-secondary hover:text-theme-primary transition-colors"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteKb(kb.id); }}
                             className="text-theme-secondary hover:text-theme-danger transition-colors"
                           >
@@ -384,6 +491,12 @@ export const RagContent: React.FC = () => {
                               <Play size={14} className="mr-1" /> Process
                             </button>
                           )}
+                          <button
+                            onClick={() => handleDeleteDoc(doc.id)}
+                            className="text-theme-secondary hover:text-theme-danger transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       </div>
                       <div className="flex gap-4 text-xs text-theme-secondary">
@@ -490,12 +603,18 @@ export const RagContent: React.FC = () => {
                   <Link size={48} className="mx-auto text-theme-secondary mb-4" />
                   <h3 className="text-lg font-semibold text-theme-primary mb-2">No connectors</h3>
                   <p className="text-theme-secondary mb-6">Connect external data sources to your knowledge base</p>
-                  <button className="btn-theme btn-theme-primary">
+                  <button onClick={() => setShowConnectorModal(true)} className="btn-theme btn-theme-primary">
                     Add Connector
                   </button>
                 </div>
               ) : (
-                connectors.map(connector => (
+                <>
+                <div className="flex justify-end mb-4">
+                  <button onClick={() => setShowConnectorModal(true)} className="btn-theme btn-theme-secondary btn-theme-sm">
+                    <Plus size={14} className="mr-1 inline" /> Add Connector
+                  </button>
+                </div>
+                {connectors.map(connector => (
                   <div key={connector.id} className="bg-theme-surface border border-theme rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
@@ -515,7 +634,8 @@ export const RagContent: React.FC = () => {
                       {connector.last_sync_at && <span>Last sync: {new Date(connector.last_sync_at).toLocaleString()}</span>}
                     </div>
                   </div>
-                ))
+                ))}
+                </>
               )}
             </div>
           )}
@@ -548,17 +668,19 @@ export const RagContent: React.FC = () => {
         </>
       )}
 
-      {/* Create KB Modal */}
+      {/* Create/Edit KB Modal */}
       <Modal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        title="Create Knowledge Base"
+        onClose={() => { setShowCreateModal(false); setEditingKb(null); setNewKbName(''); setNewKbDescription(''); }}
+        title={editingKb ? 'Edit Knowledge Base' : 'Create Knowledge Base'}
         maxWidth="md"
         icon={<Database />}
         footer={
           <div className="flex justify-end gap-3">
-            <button onClick={() => setShowCreateModal(false)} className="btn-theme btn-theme-secondary">Cancel</button>
-            <button onClick={handleCreateKb} disabled={!newKbName.trim()} className="btn-theme btn-theme-primary">Create</button>
+            <button onClick={() => { setShowCreateModal(false); setEditingKb(null); setNewKbName(''); setNewKbDescription(''); }} className="btn-theme btn-theme-secondary">Cancel</button>
+            <button onClick={editingKb ? handleUpdateKb : handleCreateKb} disabled={!newKbName.trim()} className="btn-theme btn-theme-primary">
+              {editingKb ? 'Update' : 'Create'}
+            </button>
           </div>
         }
       >
@@ -623,17 +745,77 @@ export const RagContent: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Create Connector Modal */}
+      <Modal
+        isOpen={showConnectorModal}
+        onClose={() => { setShowConnectorModal(false); setNewConnectorName(''); }}
+        title="Add Data Connector"
+        maxWidth="md"
+        icon={<Link />}
+        footer={
+          <div className="flex justify-end gap-3">
+            <button onClick={() => { setShowConnectorModal(false); setNewConnectorName(''); }} className="btn-theme btn-theme-secondary">Cancel</button>
+            <button onClick={handleCreateConnector} disabled={!newConnectorName.trim()} className="btn-theme btn-theme-primary">Create</button>
+          </div>
+        }
+      >
+        <div className="space-y-4 p-4">
+          <div>
+            <label className="block text-sm font-medium text-theme-primary mb-1">Name</label>
+            <input
+              type="text"
+              value={newConnectorName}
+              onChange={(e) => setNewConnectorName(e.target.value)}
+              placeholder="Connector name"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-theme-primary mb-1">Connector Type</label>
+            <select
+              value={newConnectorType}
+              onChange={(e) => setNewConnectorType(e.target.value)}
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+            >
+              <option value="notion">Notion</option>
+              <option value="confluence">Confluence</option>
+              <option value="google_drive">Google Drive</option>
+              <option value="dropbox">Dropbox</option>
+              <option value="github">GitHub</option>
+              <option value="s3">Amazon S3</option>
+              <option value="database">Database</option>
+              <option value="api">API</option>
+              <option value="web_scraper">Web Scraper</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-theme-primary mb-1">Sync Frequency</label>
+            <select
+              value={newConnectorFrequency}
+              onChange={(e) => setNewConnectorFrequency(e.target.value)}
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+            >
+              <option value="manual">Manual</option>
+              <option value="hourly">Hourly</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </div>
+        </div>
+      </Modal>
+
+      {ConfirmationDialog}
     </div>
   );
 };
 
 const RagPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
+  const [actions, setActions] = useState<PageAction[]>([]);
 
-  const { refreshAction } = useRefreshAction({
-    onRefresh: async () => { setLoading(true); setLoading(false); },
-    loading,
-  });
+  const handleActionsReady = useCallback((newActions: PageAction[]) => {
+    setActions(newActions);
+  }, []);
 
   return (
     <PageContainer
@@ -644,9 +826,9 @@ const RagPage: React.FC = () => {
         { label: 'AI', href: '/app/ai' },
         { label: 'Knowledge Bases' }
       ]}
-      actions={[refreshAction]}
+      actions={actions}
     >
-      <RagContent />
+      <RagContent onActionsReady={handleActionsReady} />
     </PageContainer>
   );
 };

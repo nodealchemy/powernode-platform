@@ -3,13 +3,17 @@ import { PageContainer, type PageAction } from '@/shared/components/layout/PageC
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { SkillsPage as SkillsComponent } from '@/features/ai/skills/SkillsPage';
 
-export const SkillsContent: React.FC = () => {
+interface SkillsContentProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const SkillsContent: React.FC<SkillsContentProps> = ({ onActionsReady }) => {
   usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {},
   });
 
-  return <SkillsComponent />;
+  return <SkillsComponent onActionsReady={onActionsReady} />;
 };
 
 export const SkillsPage: React.FC = () => {

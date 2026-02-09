@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Bot, MessageSquare, Brain, ArrowLeft } from 'lucide-react';
+import { Bot, MessageSquare, Brain, ArrowLeft, BookOpen } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -8,11 +8,13 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { agentsApi } from '@/shared/services/ai';
 import { AgentConnectionsGraph } from '@/features/ai/agents/components/AgentConnectionsGraph';
+import { ContextBrowser } from '@/features/ai/context/components/ContextBrowser';
 import type { AiAgent } from '@/shared/types/ai';
 
 const tabs = [
   { id: 'overview', label: 'Overview', path: '/' },
   { id: 'connections', label: 'Connections', path: '/connections' },
+  { id: 'knowledge', label: 'Knowledge', path: '/knowledge' },
 ];
 
 export const AgentDetailPage: React.FC = () => {
@@ -24,6 +26,7 @@ export const AgentDetailPage: React.FC = () => {
 
   const getActiveTab = () => {
     if (location.pathname.includes('/connections')) return 'connections';
+    if (location.pathname.includes('/knowledge')) return 'knowledge';
     return 'overview';
   };
 
@@ -168,6 +171,21 @@ export const AgentDetailPage: React.FC = () => {
 
         <TabPanel tabId="connections" activeTab={activeTab}>
           {agentId && <AgentConnectionsGraph agentId={agentId} />}
+        </TabPanel>
+
+        <TabPanel tabId="knowledge" activeTab={activeTab}>
+          {agentId && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <BookOpen size={18} className="text-theme-secondary" />
+                <h3 className="text-lg font-medium text-theme-primary">Agent Knowledge & Contexts</h3>
+              </div>
+              <ContextBrowser
+                filters={{ ai_agent_id: agentId }}
+                linkToDetail
+              />
+            </div>
+          )}
         </TabPanel>
       </TabContainer>
     </PageContainer>

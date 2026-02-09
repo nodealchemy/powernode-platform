@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { BookOpen, MessageSquare, Puzzle, Database } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { ContextsContent } from '@/pages/app/ai/ContextsPage';
 import { PromptsContent } from '@/features/ai/prompts/pages/PromptsPage';
@@ -17,6 +17,7 @@ const tabs = [
 
 export const KnowledgePage: React.FC = () => {
   const location = useLocation();
+  const [actions, setActions] = useState<PageAction[]>([]);
 
   const getActiveTab = () => {
     const path = location.pathname;
@@ -32,6 +33,15 @@ export const KnowledgePage: React.FC = () => {
     const newTab = getActiveTab();
     if (newTab !== activeTab) setActiveTab(newTab);
   }, [location.pathname]);
+
+  // Clear actions on tab change so stale actions don't persist
+  useEffect(() => {
+    setActions([]);
+  }, [activeTab]);
+
+  const handleActionsReady = useCallback((newActions: PageAction[]) => {
+    setActions(newActions);
+  }, []);
 
   const getBreadcrumbs = () => {
     const base: Array<{ label: string; href?: string }> = [
@@ -53,6 +63,7 @@ export const KnowledgePage: React.FC = () => {
       title="Knowledge"
       description="Manage agent knowledge, prompts, skills, and document bases"
       breadcrumbs={getBreadcrumbs()}
+      actions={actions}
     >
       <TabContainer
         tabs={tabs}
@@ -63,16 +74,16 @@ export const KnowledgePage: React.FC = () => {
         className="mb-6"
       >
         <TabPanel tabId="contexts" activeTab={activeTab}>
-          <ContextsContent />
+          <ContextsContent onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="prompts" activeTab={activeTab}>
-          <PromptsContent />
+          <PromptsContent onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="skills" activeTab={activeTab}>
-          <SkillsContent />
+          <SkillsContent onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="rag" activeTab={activeTab}>
-          <RagContent />
+          <RagContent onActionsReady={handleActionsReady} />
         </TabPanel>
       </TabContainer>
     </PageContainer>

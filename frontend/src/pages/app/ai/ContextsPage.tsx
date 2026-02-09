@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { ContextBrowser } from '@/features/ai/context/components/ContextBrowser';
 import { SearchResults } from '@/features/ai/context/components/SearchResults';
 import { contextApi } from '@/features/ai/context/services/contextApi';
@@ -12,7 +12,11 @@ import { Select } from '@/shared/components/ui/Select';
 import { Button } from '@/shared/components/ui/Button';
 import type { ContextFormData } from '@/features/ai/context/types';
 
-export const ContextsContent: React.FC = () => {
+interface ContextsContentProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const ContextsContent: React.FC<ContextsContentProps> = ({ onActionsReady }) => {
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
   const [activeTab, setActiveTab] = useState<'browse' | 'search' | 'create'>('browse');
@@ -26,11 +30,25 @@ export const ContextsContent: React.FC = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const handleRefresh = useCallback(() => {
+    setRefreshKey(k => k + 1);
+  }, []);
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: handleRefresh,
+  });
+
+  useEffect(() => {
+    if (onActionsReady) {
+      onActionsReady([refreshAction]);
+    }
+  }, [onActionsReady, refreshAction]);
+
   // WebSocket for real-time updates
   usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
-      // Trigger data refresh if needed
+      setRefreshKey(k => k + 1);
     }
   });
 
@@ -221,15 +239,11 @@ export const ContextsContent: React.FC = () => {
 };
 
 export function ContextsPage() {
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [actions, setActions] = useState<PageAction[]>([]);
 
-  const { refreshAction } = useRefreshAction({
-    onRefresh: async () => {
-      setIsRefreshing(true);
-      setIsRefreshing(false);
-    },
-    loading: isRefreshing,
-  });
+  const handleActionsReady = useCallback((newActions: PageAction[]) => {
+    setActions(newActions);
+  }, []);
 
   return (
     <PageContainer
@@ -240,11 +254,9 @@ export function ContextsPage() {
         { label: 'AI', href: '/app/ai' },
         { label: 'Contexts' },
       ]}
-      actions={[
-        refreshAction,
-      ]}
+      actions={actions}
     >
-      <ContextsContent />
+      <ContextsContent onActionsReady={handleActionsReady} />
     </PageContainer>
   );
 }
