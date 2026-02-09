@@ -129,14 +129,99 @@ module Api
 
         # GET /api/v1/chat/channels/:id/metrics
         def metrics
+          sessions = @channel.sessions
+          messages = @channel.messages
+
+          # Basic counts
+          total_sessions = sessions.count
+          active_sessions = sessions.active.count
+          total_messages = messages.count
+          messages_today = messages.where("chat_messages.created_at >= ?", Time.current.beginning_of_day).count
+
+          # Response time: average time between inbound and next outbound message in same session
+          avg_response_time_result = ActiveRecord::Base.connection.execute(
+            ActiveRecord::Base.sanitize_sql_array([
+              <<~SQL,
+                SELECT AVG(response_time_ms) as avg_response_time
+                FROM (
+                  SELECT EXTRACT(EPOCH FROM (outbound.created_at - inbound.created_at)) * 1000 AS response_time_ms
+                  FROM chat_messages inbound
+                  JOIN chat_messages outbound ON outbound.session_id = inbound.session_id
+                    AND outbound.direction = 'outbound'
+                    AND outbound.created_at > inbound.created_at
+                    AND outbound.created_at = (
+                      SELECT MIN(o2.created_at)
+                      FROM chat_messages o2
+                      WHERE o2.session_id = inbound.session_id
+                        AND o2.direction = 'outbound'
+                        AND o2.created_at > inbound.created_at
+                    )
+                  WHERE inbound.direction = 'inbound'
+                    AND inbound.session_id IN (SELECT id FROM chat_sessions WHERE channel_id = ?)
+                ) response_times
+              SQL
+              @channel.id
+            ])
+          )
+          avg_response_time_ms = avg_response_time_result.first&.dig("avg_response_time")&.to_f&.round(2)
+
+          # Resolution rate: closed sessions / total sessions
+          closed_sessions = sessions.closed.count
+          resolution_rate = total_sessions > 0 ? (closed_sessions.to_f / total_sessions * 100).round(2) : 0.0
+
+          # Messages per hour (last 24h)
+          messages_last_24h = messages.where("chat_messages.created_at >= ?", 24.hours.ago).count
+          messages_per_hour = (messages_last_24h / 24.0).round(2)
+
+          # Average session duration (closed sessions only)
+          avg_duration_result = sessions.closed
+            .where.not(closed_at: nil)
+            .average("EXTRACT(EPOCH FROM (closed_at - chat_sessions.created_at)) * 1000")
+          avg_session_duration_ms = avg_duration_result&.to_f&.round(2)
+
+          # Error rate: failed messages / total outbound messages
+          outbound_count = messages.outbound.count
+          failed_count = messages.failed.count
+          error_rate = outbound_count > 0 ? (failed_count.to_f / outbound_count * 100).round(2) : 0.0
+
+          # Last message
+          last_message_at = messages.maximum(:created_at)
+
           render_success(
             metrics: {
-              total_sessions: @channel.sessions.count,
-              active_sessions: @channel.sessions.active.count,
-              total_messages: @channel.messages.count,
-              messages_today: @channel.messages.where("chat_messages.created_at >= ?", Time.current.beginning_of_day).count,
+              total_sessions: total_sessions,
+              active_sessions: active_sessions,
+              total_messages: total_messages,
+              messages_today: messages_today,
+              avg_response_time_ms: avg_response_time_ms,
+              resolution_rate: resolution_rate,
+              messages_per_hour: messages_per_hour,
+              avg_session_duration_ms: avg_session_duration_ms,
+              error_rate: error_rate,
+              last_message_at: last_message_at,
               status: @channel.status
             }
+          )
+        end
+
+        # POST /api/v1/chat/channels/cleanup_sessions
+        def cleanup_sessions
+          channels_processed = 0
+          total_idled = 0
+          total_closed = 0
+
+          current_user.account.chat_channels.find_each do |channel|
+            manager = ::Chat::SessionManager.new(channel)
+            result = manager.cleanup_stale_sessions
+            total_idled += result[:idled]
+            total_closed += result[:closed]
+            channels_processed += 1
+          end
+
+          render_success(
+            channels_processed: channels_processed,
+            total_idled: total_idled,
+            total_closed: total_closed
           )
         end
 
