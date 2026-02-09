@@ -111,4 +111,76 @@ RSpec.describe Chat::Channel, type: :model do
       expect(details).to include(:id, :name, :platform, :status, :rate_limit_per_minute)
     end
   end
+
+  describe 'has_many :messages through :sessions' do
+    let(:channel) { create(:chat_channel) }
+    let!(:session) { create(:chat_session, channel: channel) }
+    let!(:message) { create(:chat_message, session: session) }
+
+    it 'accesses messages through sessions' do
+      expect(channel.messages).to include(message)
+    end
+  end
+
+  describe '#regenerate_webhook_token!' do
+    let(:channel) { create(:chat_channel) }
+
+    it 'generates a new webhook token' do
+      old_token = channel.webhook_token
+      channel.regenerate_webhook_token!
+      expect(channel.reload.webhook_token).not_to eq(old_token)
+      expect(channel.webhook_token).to be_present
+    end
+  end
+
+  describe '#rate_limited?' do
+    let(:channel) { create(:chat_channel, rate_limit_per_minute: 5) }
+
+    it 'returns false when under limit' do
+      Rails.cache.write(channel.rate_limit_key, 3, expires_in: 1.minute)
+      expect(channel.rate_limited?).to be false
+    end
+
+    it 'returns true when at or above limit' do
+      Rails.cache.write(channel.rate_limit_key, 5, expires_in: 1.minute)
+      expect(channel.rate_limited?).to be true
+    end
+  end
+
+  describe '#find_or_create_session' do
+    let(:channel) { create(:chat_channel, :with_default_agent) }
+
+    it 'creates a new session for unknown user' do
+      session = channel.find_or_create_session(platform_user_id: 'new_user_123', platform_username: 'NewUser')
+      expect(session).to be_persisted
+      expect(session.platform_user_id).to eq('new_user_123')
+      expect(session.assigned_agent).to eq(channel.default_agent)
+    end
+
+    it 'returns existing session for known user' do
+      existing = channel.find_or_create_session(platform_user_id: 'existing_user')
+      found = channel.find_or_create_session(platform_user_id: 'existing_user')
+      expect(found.id).to eq(existing.id)
+    end
+  end
+
+  describe '#user_blacklisted?' do
+    let(:channel) { create(:chat_channel) }
+
+    it 'returns false for non-blacklisted user' do
+      expect(channel.user_blacklisted?('good_user')).to be false
+    end
+
+    it 'returns true for channel-blacklisted user' do
+      create(:chat_blacklist, :channel_specific, channel: channel, account: channel.account,
+             platform_user_id: 'bad_user')
+      expect(channel.user_blacklisted?('bad_user')).to be true
+    end
+
+    it 'returns false for expired blacklist' do
+      create(:chat_blacklist, :channel_specific, :expired, channel: channel, account: channel.account,
+             platform_user_id: 'temp_user')
+      expect(channel.user_blacklisted?('temp_user')).to be false
+    end
+  end
 end

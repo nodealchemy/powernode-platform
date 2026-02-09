@@ -39,7 +39,7 @@ jest.mock('@/shared/components/ui/Button', () => ({
 
 // Mock child components
 jest.mock('../components/ChannelList', () => ({
-  ChannelList: ({ onSelectChannel, onCreateChannel }: any) => (
+  ChannelList: ({ onSelectChannel, onSettingsChannel }: any) => (
     <div data-testid="channel-list">
       <button
         data-testid="select-channel-btn"
@@ -54,8 +54,18 @@ jest.mock('../components/ChannelList', () => ({
       >
         Select Channel
       </button>
-      <button data-testid="create-channel-btn" onClick={onCreateChannel}>
-        Create Channel
+      <button
+        data-testid="settings-channel-btn"
+        onClick={() =>
+          onSettingsChannel({
+            id: 'channel-1',
+            name: 'Test Channel',
+            platform: 'telegram',
+            status: 'connected',
+          })
+        }
+      >
+        Open Settings
       </button>
     </div>
   ),
@@ -73,6 +83,25 @@ jest.mock('../components/ChannelSessions', () => ({
 jest.mock('../components/ChannelMetrics', () => ({
   ChannelMetrics: ({ channelId }: any) => (
     <div data-testid="channel-metrics">Metrics for {channelId}</div>
+  ),
+}));
+
+jest.mock('../components/SessionTransferModal', () => ({
+  SessionTransferModal: ({ isOpen }: any) =>
+    isOpen ? <div data-testid="transfer-modal">Transfer Modal</div> : null,
+}));
+
+jest.mock('../components/ChannelSettingsModal', () => ({
+  ChannelSettingsModal: ({ isOpen, channelId }: any) =>
+    isOpen ? <div data-testid="settings-modal">Settings for {channelId}</div> : null,
+}));
+
+jest.mock('../components/SessionMessages', () => ({
+  SessionMessages: ({ sessionId, onBack }: any) => (
+    <div data-testid="session-messages">
+      Messages for {sessionId}
+      <button onClick={onBack}>Back</button>
+    </div>
   ),
 }));
 
@@ -174,19 +203,19 @@ describe('ChatChannelsPage', () => {
     });
   });
 
-  describe('Callbacks', () => {
-    it('calls onCreateChannel when create button is clicked', () => {
-      const onCreateChannel = jest.fn();
-      renderComponent({ onCreateChannel });
+  describe('Settings Modal', () => {
+    it('opens settings modal from channel list', async () => {
+      renderComponent();
 
-      fireEvent.click(screen.getByTestId('create-channel-btn'));
+      fireEvent.click(screen.getByTestId('settings-channel-btn'));
 
-      expect(onCreateChannel).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(screen.getByTestId('settings-modal')).toBeInTheDocument();
+      });
     });
 
-    it('calls onConfigureChannel when settings button is clicked', async () => {
-      const onConfigureChannel = jest.fn();
-      renderComponent({ onConfigureChannel });
+    it('opens settings modal from channel detail view', async () => {
+      renderComponent();
 
       // Select a channel first
       fireEvent.click(screen.getByTestId('select-channel-btn'));
@@ -197,13 +226,9 @@ describe('ChatChannelsPage', () => {
 
       fireEvent.click(screen.getByText('Settings'));
 
-      expect(onConfigureChannel).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'channel-1',
-          name: 'Test Channel',
-          platform: 'telegram',
-        })
-      );
+      await waitFor(() => {
+        expect(screen.getByTestId('settings-modal')).toBeInTheDocument();
+      });
     });
   });
 });

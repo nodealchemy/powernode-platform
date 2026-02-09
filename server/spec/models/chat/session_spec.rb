@@ -135,4 +135,109 @@ RSpec.describe Chat::Session, type: :model do
       expect(summary).to include(:id, :platform_user_id, :status, :message_count)
     end
   end
+
+  describe '#activate!' do
+    let(:session) { create(:chat_session, :idle) }
+
+    it 'changes status to active' do
+      session.activate!
+      expect(session.reload.status).to eq('active')
+    end
+  end
+
+  describe '#mark_idle!' do
+    let(:session) { create(:chat_session, :active) }
+
+    it 'changes status to idle when active' do
+      session.mark_idle!
+      expect(session.reload.status).to eq('idle')
+    end
+
+    it 'does not change status when not active' do
+      closed_session = create(:chat_session, :closed)
+      closed_session.mark_idle!
+      expect(closed_session.reload.status).to eq('closed')
+    end
+  end
+
+  describe '#block!' do
+    let(:session) { create(:chat_session, :active) }
+
+    it 'changes status to blocked' do
+      session.block!(reason: 'spam')
+      expect(session.reload.status).to eq('blocked')
+      expect(session.user_metadata['block_reason']).to eq('spam')
+    end
+  end
+
+  describe '#reopen!' do
+    it 'changes closed session to active' do
+      session = create(:chat_session, :closed)
+      session.reopen!
+      expect(session.reload.status).to eq('active')
+    end
+
+    it 'returns false when session is blocked' do
+      session = create(:chat_session, :blocked)
+      expect(session.reopen!).to be false
+      expect(session.reload.status).to eq('blocked')
+    end
+  end
+
+  describe '#add_inbound_message' do
+    let(:session) { create(:chat_session) }
+
+    it 'creates an inbound message with sanitized content' do
+      message = session.add_inbound_message(content: 'Hello')
+      expect(message).to be_persisted
+      expect(message.direction).to eq('inbound')
+      expect(message.delivery_status).to eq('delivered')
+      expect(message.sanitized_content).to include('Hello')
+    end
+
+    it 'increments message_count' do
+      expect { session.add_inbound_message(content: 'Test') }.to change { session.reload.message_count }.by(1)
+    end
+  end
+
+  describe '#add_outbound_message' do
+    let(:session) { create(:chat_session) }
+
+    it 'creates an outbound message' do
+      message = session.add_outbound_message(content: 'Reply')
+      expect(message).to be_persisted
+      expect(message.direction).to eq('outbound')
+      expect(message.delivery_status).to eq('pending')
+    end
+
+    it 'increments message_count' do
+      expect { session.add_outbound_message(content: 'Reply') }.to change { session.reload.message_count }.by(1)
+    end
+  end
+
+  describe '#transfer_to_agent!' do
+    let(:session) { create(:chat_session, :with_agent) }
+    let(:new_agent) { create(:ai_agent, account: session.channel.account) }
+
+    it 'updates assigned agent' do
+      session.transfer_to_agent!(new_agent)
+      expect(session.reload.assigned_agent).to eq(new_agent)
+    end
+
+    it 'increments agent_handoff_count' do
+      expect { session.transfer_to_agent!(new_agent) }.to change { session.reload.agent_handoff_count }.by(1)
+    end
+  end
+
+  describe 'context window management' do
+    let(:session) { create(:chat_session) }
+
+    it 'updates context_window when adding messages' do
+      session.add_inbound_message(content: 'User message')
+      session.reload
+      messages = session.context_window['messages']
+      expect(messages).to be_present
+      expect(messages.last['role']).to eq('user')
+    end
+  end
 end

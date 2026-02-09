@@ -115,4 +115,70 @@ RSpec.describe Chat::Message, type: :model do
       expect(message.platform_metadata['error']).to eq('Delivery error')
     end
   end
+
+  describe '#mark_sent!' do
+    let(:message) { create(:chat_message, :pending) }
+
+    it 'changes delivery status to sent' do
+      message.mark_sent!('plat_msg_123')
+      expect(message.reload.delivery_status).to eq('sent')
+      expect(message.sent_at).to be_present
+      expect(message.platform_message_id).to eq('plat_msg_123')
+    end
+
+    it 'works without platform_message_id' do
+      message.mark_sent!
+      expect(message.reload.delivery_status).to eq('sent')
+    end
+  end
+
+  describe '#display_content' do
+    it 'returns content for text messages' do
+      message = build(:chat_message, :text, content: 'Hello world')
+      expect(message.display_content).to eq('Hello world')
+    end
+
+    it 'returns formatted string for image messages' do
+      message = build(:chat_message, :image)
+      expect(message.display_content).to match(/\[Image:/)
+    end
+
+    it 'returns formatted string for audio messages' do
+      message = build(:chat_message, :audio)
+      expect(message.display_content).to match(/\[Audio:/)
+    end
+
+    it 'returns sticker placeholder for sticker type' do
+      message = build(:chat_message, message_type: 'sticker', content: 'sticker')
+      expect(message.display_content).to eq('[Sticker]')
+    end
+  end
+
+  describe '#content_for_ai' do
+    it 'returns sanitized_content when present' do
+      message = build(:chat_message, content: 'raw', sanitized_content: 'sanitized')
+      expect(message.content_for_ai).to eq('sanitized')
+    end
+
+    it 'falls back to content when sanitized_content is nil' do
+      message = build(:chat_message, content: 'raw', sanitized_content: nil)
+      expect(message.content_for_ai).to eq('raw')
+    end
+  end
+
+  describe '#to_a2a_message' do
+    it 'returns user role for inbound messages' do
+      message = build(:chat_message, :inbound, content: 'Hello')
+      a2a = message.to_a2a_message
+      expect(a2a[:role]).to eq('user')
+      expect(a2a[:parts]).to be_an(Array)
+      expect(a2a[:parts].first[:type]).to eq('text')
+    end
+
+    it 'returns assistant role for outbound messages' do
+      message = build(:chat_message, :outbound, content: 'Hi there')
+      a2a = message.to_a2a_message
+      expect(a2a[:role]).to eq('assistant')
+    end
+  end
 end
