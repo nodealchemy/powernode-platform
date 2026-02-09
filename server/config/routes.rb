@@ -554,6 +554,7 @@ Rails.application.routes.draw do
 
           collection do
             get :platforms
+            post :cleanup_sessions
           end
         end
 
@@ -2148,6 +2149,9 @@ Rails.application.routes.draw do
           post "/executions/:execution_id/messages", action: :send_message
           post "/executions/:execution_id/messages/:id/reply", action: :reply_to_message
 
+          # Cleanup
+          post "/cleanup_messages", action: :cleanup_messages
+
           # Teams
           get "/", action: :index
           get "/:id", action: :show
@@ -2166,6 +2170,9 @@ Rails.application.routes.draw do
           # Channels
           get "/:team_id/channels", action: :list_channels
           post "/:team_id/channels", action: :create_channel
+          get "/:team_id/channels/:id", action: :show_channel
+          patch "/:team_id/channels/:id", action: :update_channel
+          delete "/:team_id/channels/:id", action: :delete_channel
 
           # Executions (team-specific)
           get "/:team_id/executions", action: :list_executions

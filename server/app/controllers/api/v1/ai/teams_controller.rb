@@ -13,7 +13,7 @@ module Api
         before_action :set_team, only: %i[
           show update destroy
           list_roles create_role update_role delete_role assign_agent_to_role apply_role_profile
-          list_channels create_channel
+          list_channels create_channel show_channel update_channel delete_channel
           list_executions
           analytics
           composition_health
@@ -116,6 +116,45 @@ module Api
         def create_channel
           channel = @team_service.create_channel(@team.id, channel_params)
           render_success(serialize_channel(channel), status: :created)
+        end
+
+        # GET /api/v1/ai/teams/:team_id/channels/:id
+        def show_channel
+          channel = @team_service.get_channel(@team.id, params[:id])
+          render_success(serialize_channel(channel))
+        end
+
+        # PATCH /api/v1/ai/teams/:team_id/channels/:id
+        def update_channel
+          channel = @team_service.update_channel(@team.id, params[:id], channel_params)
+          render_success(serialize_channel(channel))
+        end
+
+        # DELETE /api/v1/ai/teams/:team_id/channels/:id
+        def delete_channel
+          @team_service.delete_channel(@team.id, params[:id])
+          render_success(message: "Channel deleted successfully")
+        end
+
+        # POST /api/v1/ai/teams/cleanup_messages
+        def cleanup_messages
+          channels_processed = 0
+          messages_deleted = 0
+
+          current_user.account.ai_agent_teams.find_each do |team|
+            team.ai_team_channels.where.not(message_retention_hours: nil).find_each do |channel|
+              count_before = channel.messages.count
+              channel.cleanup_old_messages!
+              count_after = channel.messages.count
+              messages_deleted += (count_before - count_after)
+              channels_processed += 1
+            end
+          end
+
+          render_success(
+            channels_processed: channels_processed,
+            messages_deleted: messages_deleted
+          )
         end
 
         # ============================================================================
@@ -447,10 +486,13 @@ module Api
         end
 
         def channel_params
-          params.permit(
+          params.require(:channel).permit(
             :name, :channel_type, :description, :is_persistent,
-            :message_retention_hours, participant_roles: [],
-            message_schema: {}, routing_rules: {}
+            :message_retention_hours,
+            participant_roles: [],
+            message_schema: {},
+            routing_rules: {},
+            metadata: {}
           )
         end
 
@@ -585,7 +627,12 @@ module Api
             is_persistent: channel.is_persistent,
             message_retention_hours: channel.message_retention_hours,
             participant_roles: channel.participant_roles,
-            message_count: channel.message_count
+            message_count: channel.message_count,
+            routing_rules: channel.routing_rules,
+            message_schema: channel.message_schema,
+            metadata: channel.metadata,
+            created_at: channel.created_at,
+            updated_at: channel.updated_at
           }
         end
 
@@ -664,7 +711,12 @@ module Api
             priority: message.priority,
             requires_response: message.requires_response,
             responded_at: message.responded_at,
-            created_at: message.created_at
+            created_at: message.created_at,
+            structured_content: message.structured_content,
+            attachments: message.attachments,
+            read_at: message.read_at,
+            in_reply_to_id: message.in_reply_to_id,
+            reply_count: message.replies.count
           }
         end
 

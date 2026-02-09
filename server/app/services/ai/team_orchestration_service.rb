@@ -259,6 +259,12 @@ module Ai
     def create_channel(team_id, params)
       team = get_team(team_id)
 
+      if params[:participant_roles].present?
+        params[:participant_roles].each do |role_id|
+          team.ai_team_roles.find(role_id)  # Raises RecordNotFound if invalid
+        end
+      end
+
       Ai::TeamChannel.create!(
         agent_team: team,
         name: params[:name],
@@ -270,6 +276,42 @@ module Ai
         message_retention_hours: params[:message_retention_hours],
         routing_rules: params[:routing_rules] || {}
       )
+    end
+
+    def get_channel(team_id, channel_id)
+      team = get_team(team_id)
+      team.ai_team_channels.find(channel_id)
+    end
+
+    def update_channel(team_id, channel_id, params)
+      team = get_team(team_id)
+      channel = team.ai_team_channels.find(channel_id)
+
+      if params[:participant_roles].present?
+        params[:participant_roles].each do |role_id|
+          team.ai_team_roles.find(role_id)
+        end
+      end
+
+      channel.update!(
+        name: params[:name] || channel.name,
+        channel_type: params[:channel_type] || channel.channel_type,
+        description: params.key?(:description) ? params[:description] : channel.description,
+        participant_roles: params.key?(:participant_roles) ? params[:participant_roles] : channel.participant_roles,
+        message_schema: params.key?(:message_schema) ? params[:message_schema] : channel.message_schema,
+        is_persistent: params.key?(:is_persistent) ? params[:is_persistent] : channel.is_persistent,
+        message_retention_hours: params.key?(:message_retention_hours) ? params[:message_retention_hours] : channel.message_retention_hours,
+        routing_rules: params.key?(:routing_rules) ? params[:routing_rules] : channel.routing_rules
+      )
+
+      channel
+    end
+
+    def delete_channel(team_id, channel_id)
+      team = get_team(team_id)
+      channel = team.ai_team_channels.find(channel_id)
+      channel.destroy!
+      channel
     end
 
     # ============================================================================
@@ -418,9 +460,9 @@ module Ai
       execution = get_execution(execution_id)
 
       # Enforce authority on message direction
-      if params[:from_role_id].present? && params[:to_role_id].present?
-        from_role = execution.agent_team.ai_team_roles.find_by(id: params[:from_role_id])
-        to_role = execution.agent_team.ai_team_roles.find_by(id: params[:to_role_id])
+      if params[:from_role_id].present? || params[:to_role_id].present?
+        from_role = params[:from_role_id].present? ? execution.agent_team.ai_team_roles.find(params[:from_role_id]) : nil
+        to_role = params[:to_role_id].present? ? execution.agent_team.ai_team_roles.find(params[:to_role_id]) : nil
         if from_role && to_role
           authority_for(execution.agent_team).authorize_message!(from_role, to_role, params[:message_type])
         end
