@@ -14,8 +14,8 @@ function JsonNode({ label, value, depth = 0 }: { label: string; value: unknown; 
   if (value === null || value === undefined) {
     return (
       <div className="flex items-center gap-1" style={{ paddingLeft: `${depth * 16}px` }}>
-        <span className="text-theme-text-tertiary">{label}:</span>
-        <span className="text-theme-text-tertiary italic">null</span>
+        <span className="text-theme-tertiary">{label}:</span>
+        <span className="text-theme-tertiary italic">null</span>
       </div>
     );
   }
@@ -24,8 +24,8 @@ function JsonNode({ label, value, depth = 0 }: { label: string; value: unknown; 
     const urls = value.match(URL_REGEX);
     return (
       <div className="flex items-start gap-1" style={{ paddingLeft: `${depth * 16}px` }}>
-        <span className="text-theme-text-tertiary shrink-0">{label}:</span>
-        <span className="text-theme-text-primary break-all">
+        <span className="text-theme-tertiary shrink-0">{label}:</span>
+        <span className="text-theme-primary break-all">
           {urls ? (
             <a href={urls[0]} target="_blank" rel="noopener noreferrer" className="text-theme-primary hover:underline inline-flex items-center gap-0.5">
               {value}
@@ -42,8 +42,8 @@ function JsonNode({ label, value, depth = 0 }: { label: string; value: unknown; 
   if (typeof value === 'number' || typeof value === 'boolean') {
     return (
       <div className="flex items-center gap-1" style={{ paddingLeft: `${depth * 16}px` }}>
-        <span className="text-theme-text-tertiary">{label}:</span>
-        <span className="text-theme-text-primary">{String(value)}</span>
+        <span className="text-theme-tertiary">{label}:</span>
+        <span className="text-theme-primary">{String(value)}</span>
       </div>
     );
   }
@@ -57,11 +57,11 @@ function JsonNode({ label, value, depth = 0 }: { label: string; value: unknown; 
       <div style={{ paddingLeft: `${depth * 16}px` }}>
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 text-theme-text-secondary hover:text-theme-text-primary transition-colors"
+          className="flex items-center gap-1 text-theme-secondary hover:text-theme-primary transition-colors"
         >
           {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-          <span className="text-theme-text-tertiary">{label}</span>
-          <span className="text-xs text-theme-text-tertiary">
+          <span className="text-theme-tertiary">{label}</span>
+          <span className="text-xs text-theme-tertiary">
             {Array.isArray(value) ? `[${entries.length}]` : `{${entries.length}}`}
           </span>
         </button>
@@ -89,13 +89,13 @@ export function OutputViewer({ data }: OutputViewerProps) {
       <div className="flex justify-end">
         <button
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-theme-text-secondary hover:text-theme-text-primary transition-colors"
+          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-theme-secondary hover:text-theme-primary transition-colors"
         >
           {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-      <div className="rounded-lg border border-theme-border p-3 bg-theme-bg-tertiary text-xs font-mono space-y-0.5">
+      <div className="rounded-lg border border-theme p-3 bg-theme-surface text-xs font-mono space-y-0.5">
         {Object.entries(data as Record<string, unknown>).map(([key, value]) => (
           <JsonNode key={key} label={key} value={value} />
         ))}

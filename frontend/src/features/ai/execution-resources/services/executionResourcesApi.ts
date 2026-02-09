@@ -1,5 +1,5 @@
 import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
-import type { ExecutionResource, ResourceCounts, ResourceFilters } from '../types';
+import type { ExecutionResource, ResourceDetail, ResourceCounts, ResourceFilters } from '../types';
 
 class ExecutionResourcesApiService extends BaseApiService {
   private resource = 'execution_resources';
@@ -16,9 +16,9 @@ class ExecutionResourcesApiService extends BaseApiService {
     return this.get<{ counts: ResourceCounts }>(path);
   }
 
-  async getResourceDetail(resourceType: string, id: string): Promise<{ resource: ExecutionResource }> {
+  async getResourceDetail(resourceType: string, id: string): Promise<{ resource: ResourceDetail }> {
     const path = this.buildPath(this.resource) + `/${resourceType}/${id}`;
-    return this.get<{ resource: ExecutionResource }>(path);
+    return this.get<{ resource: ResourceDetail }>(path);
   }
 }
 

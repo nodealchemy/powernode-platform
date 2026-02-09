@@ -1,10 +1,8 @@
 import React from 'react';
-import { ExternalLink } from 'lucide-react';
-import type { ExecutionResource } from '../types';
-
-interface SharedMemoryDetailProps {
-  resource: ExecutionResource;
-}
+import { ExternalLink, Database, Clock, Shield, User } from 'lucide-react';
+import type { ResourceDetailProps } from '../types';
+import { DetailSection, StatCard, formatBytes, formatTimestamp } from './DetailSection';
+import { OutputViewer } from './OutputViewer';
 
 const URL_REGEX = /https?:\/\/[^\s"'<>]+/g;
 
@@ -34,22 +32,51 @@ function autoLinkUrls(text: string): React.ReactNode[] {
   return result;
 }
 
-export function SharedMemoryDetail({ resource }: SharedMemoryDetailProps) {
-  const previewText = resource.preview || '{}';
-  let parsed: Record<string, unknown> = {};
-
-  try {
-    parsed = JSON.parse(previewText);
-  } catch {
-    // Not JSON, display as text
-  }
-
-  const entries = Object.entries(parsed);
+export function SharedMemoryDetail({ resource }: ResourceDetailProps) {
+  const data = resource.full_data || {};
+  const entries = Object.entries(data);
 
   return (
     <div className="space-y-4">
-      <div className="text-sm text-theme-text-secondary">
-        Pool: {resource.source_label}
+      {/* Pool info */}
+      <div className="grid grid-cols-2 gap-2">
+        <StatCard label="Pool Type" value={resource.pool_type} icon={<Database className="w-3.5 h-3.5" />} />
+        <StatCard label="Scope" value={resource.scope} />
+        <StatCard label="Size" value={formatBytes(resource.data_size_bytes)} />
+        <StatCard label="Version" value={resource.version} />
+      </div>
+
+      {/* Metadata */}
+      <div className="flex flex-wrap gap-3 text-sm">
+        {resource.persist_across_executions && (
+          <span className="px-2 py-0.5 rounded text-xs bg-theme-info/10 text-theme-info">Persistent</span>
+        )}
+        {resource.owner_agent_name && (
+          <div className="flex items-center gap-1.5">
+            <User className="w-3.5 h-3.5 text-theme-tertiary" />
+            <span className="text-theme-secondary">Owner:</span>
+            <span className="text-theme-primary">{resource.owner_agent_name}</span>
+          </div>
+        )}
+        {resource.team_name && (
+          <span className="text-theme-secondary">Team: <span className="text-theme-primary">{resource.team_name}</span></span>
+        )}
+      </div>
+
+      {/* Timestamps */}
+      <div className="flex flex-wrap gap-4 text-xs text-theme-tertiary">
+        {resource.last_accessed_at && (
+          <div className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            Last accessed: {formatTimestamp(resource.last_accessed_at)}
+          </div>
+        )}
+        {resource.expires_at && (
+          <div className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            Expires: {formatTimestamp(resource.expires_at)}
+          </div>
+        )}
       </div>
 
       {resource.url && (
@@ -64,29 +91,38 @@ export function SharedMemoryDetail({ resource }: SharedMemoryDetailProps) {
         </a>
       )}
 
-      {entries.length > 0 ? (
-        <div className="space-y-2">
-          {entries.map(([key, value]) => (
-            <div key={key} className="p-3 rounded-lg border border-theme-border">
-              <div className="text-xs font-medium text-theme-text-tertiary mb-1">{key}</div>
-              <div className="text-sm text-theme-text-primary font-mono whitespace-pre-wrap break-all">
-                {typeof value === 'string'
-                  ? autoLinkUrls(value)
-                  : JSON.stringify(value, null, 2)}
+      {/* Data */}
+      <DetailSection title={`Data (${entries.length} entries)`} defaultOpen>
+        {entries.length > 0 ? (
+          <div className="space-y-2">
+            {entries.map(([key, value]) => (
+              <div key={key} className="p-3 rounded-lg border border-theme">
+                <div className="text-xs font-medium text-theme-tertiary mb-1">{key}</div>
+                <div className="text-sm text-theme-primary font-mono whitespace-pre-wrap break-all">
+                  {typeof value === 'string'
+                    ? autoLinkUrls(value)
+                    : JSON.stringify(value, null, 2)}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="p-3 rounded-lg bg-theme-bg-tertiary font-mono text-xs text-theme-text-primary whitespace-pre-wrap">
-          {autoLinkUrls(previewText)}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-theme-tertiary italic">No data entries</div>
+        )}
+      </DetailSection>
+
+      {/* Access control */}
+      {resource.access_control && Object.keys(resource.access_control).length > 0 && (
+        <DetailSection title="Access Control" icon={<Shield className="w-4 h-4" />} defaultOpen={false}>
+          <OutputViewer data={resource.access_control} />
+        </DetailSection>
       )}
 
-      {resource.metadata && (
-        <div className="text-xs text-theme-text-tertiary">
-          Version: {(resource.metadata as Record<string, unknown>).version as string || 'N/A'}
-        </div>
+      {/* Retention policy */}
+      {resource.retention_policy && Object.keys(resource.retention_policy).length > 0 && (
+        <DetailSection title="Retention Policy" defaultOpen={false}>
+          <OutputViewer data={resource.retention_policy} />
+        </DetailSection>
       )}
     </div>
   );

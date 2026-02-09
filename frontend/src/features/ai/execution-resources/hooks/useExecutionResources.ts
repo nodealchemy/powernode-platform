@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { executionResourcesApi } from '../services/executionResourcesApi';
-import type { ExecutionResource, ResourceCounts, ResourceFilters } from '../types';
+import type { ExecutionResource, ResourceDetail, ResourceCounts, ResourceFilters } from '../types';
 
 interface UseExecutionResourcesOptions {
   teamId?: string;
@@ -33,6 +33,8 @@ export function useExecutionResources(options: UseExecutionResourcesOptions = {}
     per_page: 25,
   });
   const [selectedResource, setSelectedResource] = useState<ExecutionResource | null>(null);
+  const [detailResource, setDetailResource] = useState<ResourceDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const fetchResources = useCallback(async () => {
     setLoading(true);
@@ -82,8 +84,22 @@ export function useExecutionResources(options: UseExecutionResourcesOptions = {}
     setFiltersState(prev => ({ ...prev, page }));
   }, []);
 
-  const selectResource = useCallback((resource: ExecutionResource | null) => {
+  const selectResource = useCallback(async (resource: ExecutionResource | null) => {
     setSelectedResource(resource);
+    if (resource) {
+      setDetailLoading(true);
+      setDetailResource(null);
+      try {
+        const result = await executionResourcesApi.getResourceDetail(resource.resource_type, resource.source_id);
+        setDetailResource(result.resource);
+      } catch {
+        setDetailResource(null);
+      } finally {
+        setDetailLoading(false);
+      }
+    } else {
+      setDetailResource(null);
+    }
   }, []);
 
   const refreshResources = useCallback(() => {
@@ -98,6 +114,8 @@ export function useExecutionResources(options: UseExecutionResourcesOptions = {}
     filters,
     pagination,
     selectedResource,
+    detailResource,
+    detailLoading,
     setFilters,
     clearFilters,
     setPage,
