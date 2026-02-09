@@ -38,15 +38,16 @@ module Api
 
         # GET /api/v1/ai/execution_resources/:resource_type/:id
         def show
-          service = ::Ai::ExecutionResourceAggregatorService.new(account: current_user.account)
-          resources = service.aggregate(type: params[:resource_type])
-          resource = resources.find { |r| r[:source_id].to_s == params[:id] }
+          service = ::Ai::ExecutionResourceDetailService.new(account: current_user.account)
+          resource = service.fetch(params[:resource_type], params[:id])
 
           if resource
             render_success(resource: resource)
           else
             render_error("Resource not found", status: :not_found)
           end
+        rescue ActiveRecord::RecordNotFound
+          render_error("Resource not found", status: :not_found)
         end
 
         private
