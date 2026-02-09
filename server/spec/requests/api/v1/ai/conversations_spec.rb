@@ -324,4 +324,220 @@ RSpec.describe 'Api::V1::Ai::Conversations', type: :request do
       end
     end
   end
+
+  describe 'POST /api/v1/ai/agents/:agent_id/conversations/:id/send_message' do
+    let(:headers) { auth_headers_for(user_with_create_permission) }
+    let(:agent) { create(:ai_agent, account: account) }
+    let(:conversation) { create(:ai_conversation, account: account, user: user_with_create_permission, agent: agent, status: 'active') }
+
+    before do
+      # Stub the provider credential and client
+      credential = instance_double('ProviderCredential', is_active: true)
+      allow_any_instance_of(Ai::Provider).to receive_message_chain(:provider_credentials, :where, :first).and_return(credential)
+
+      client = instance_double(Ai::ProviderClientService)
+      allow(Ai::ProviderClientService).to receive(:new).and_return(client)
+      allow(client).to receive(:send_message).and_return({
+        success: true,
+        response: {
+          content: 'AI response text',
+          choices: [{ message: { content: 'AI response text' }, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 50, completion_tokens: 30, total_tokens: 80 }
+        }
+      })
+
+      # Stub container bridge to not route
+      bridge = instance_double(Ai::ContainerChatBridgeService, has_active_container?: false)
+      allow(Ai::ContainerChatBridgeService).to receive(:new).and_return(bridge)
+    end
+
+    context 'with valid message' do
+      it 'creates user message and AI response' do
+        post "/api/v1/ai/agents/#{agent.id}/conversations/#{conversation.id}/send_message",
+             params: { message: { content: 'Hello AI' } },
+             headers: headers,
+             as: :json
+
+        expect_success_response
+        data = json_response_data
+
+        expect(data['user_message']).to be_present
+        expect(data['user_message']['role']).to eq('user')
+        expect(data['user_message']['content']).to eq('Hello AI')
+        expect(data['assistant_message']).to be_present
+        expect(data['assistant_message']['role']).to eq('assistant')
+        expect(data['conversation']).to include('id', 'message_count')
+        expect(data['conversation']['total_tokens']).to be_present
+        expect(data['conversation']['total_cost']).to be_present
+      end
+    end
+
+    context 'with blank content' do
+      it 'returns unprocessable content error' do
+        post "/api/v1/ai/agents/#{agent.id}/conversations/#{conversation.id}/send_message",
+             params: { message: { content: '' } },
+             headers: headers,
+             as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['error']).to include('Message content cannot be blank')
+      end
+    end
+
+    context 'when conversation is not active' do
+      let(:conversation) { create(:ai_conversation, account: account, user: user_with_create_permission, agent: agent, status: 'completed') }
+
+      it 'returns unprocessable content error' do
+        post "/api/v1/ai/agents/#{agent.id}/conversations/#{conversation.id}/send_message",
+             params: { message: { content: 'Hello' } },
+             headers: headers,
+             as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['error']).to include('Conversation is not active')
+      end
+    end
+
+    context 'when agent is not found' do
+      it 'returns not found error' do
+        post "/api/v1/ai/agents/nonexistent-id/conversations/#{conversation.id}/send_message",
+             params: { message: { content: 'Hello' } },
+             headers: headers,
+             as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(json_response['error']).to include('Agent or conversation not found')
+      end
+    end
+
+    context 'when message is routed to container' do
+      before do
+        bridge = instance_double(Ai::ContainerChatBridgeService,
+                                 has_active_container?: true)
+        allow(bridge).to receive(:route_message_to_container).and_return({
+          routed: true,
+          container_execution_id: 'exec-123',
+          container_status: 'running'
+        })
+        allow(Ai::ContainerChatBridgeService).to receive(:new).and_return(bridge)
+      end
+
+      it 'returns container_routed response' do
+        post "/api/v1/ai/agents/#{agent.id}/conversations/#{conversation.id}/send_message",
+             params: { message: { content: 'Hello container' } },
+             headers: headers,
+             as: :json
+
+        expect_success_response
+        data = json_response_data
+
+        expect(data['container_routed']).to be true
+        expect(data['container_execution_id']).to eq('exec-123')
+        expect(data['user_message']).to be_present
+        expect(data['assistant_message']).to be_nil
+      end
+    end
+
+    context 'when AI response fails' do
+      before do
+        client = instance_double(Ai::ProviderClientService)
+        allow(Ai::ProviderClientService).to receive(:new).and_return(client)
+        allow(client).to receive(:send_message).and_return({
+          success: false,
+          error: 'Provider error'
+        })
+      end
+
+      it 'returns partial content with user message and error' do
+        post "/api/v1/ai/agents/#{agent.id}/conversations/#{conversation.id}/send_message",
+             params: { message: { content: 'Hello AI' } },
+             headers: headers,
+             as: :json
+
+        expect(response).to have_http_status(:partial_content)
+        data = json_response_data
+
+        expect(data['user_message']).to be_present
+        expect(data['assistant_message']).to be_nil
+        expect(data['error']).to eq('Provider error')
+      end
+    end
+
+    context 'without ai.conversations.create permission' do
+      let(:headers) { auth_headers_for(regular_user) }
+
+      it 'returns forbidden error' do
+        post "/api/v1/ai/agents/#{agent.id}/conversations/#{conversation.id}/send_message",
+             params: { message: { content: 'Hello' } },
+             headers: headers,
+             as: :json
+
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+  end
+
+  describe 'GET /api/v1/ai/agents/:agent_id/conversations/:id/messages' do
+    let(:headers) { auth_headers_for(user_with_read_permission) }
+    let(:agent) { create(:ai_agent, account: account) }
+    let(:conversation) { create(:ai_conversation, :with_messages, account: account, user: user_with_read_permission, agent: agent) }
+
+    context 'with ai.conversations.read permission' do
+      it 'returns paginated messages list' do
+        get "/api/v1/ai/agents/#{agent.id}/conversations/#{conversation.id}/messages",
+            headers: headers,
+            as: :json
+
+        expect_success_response
+        data = json_response_data
+
+        expect(data['messages']).to be_an(Array)
+        expect(data['messages'].length).to be >= 1
+        expect(data['pagination']).to include('current_page', 'total_pages', 'total_count')
+      end
+
+      it 'returns message details' do
+        get "/api/v1/ai/agents/#{agent.id}/conversations/#{conversation.id}/messages",
+            headers: headers,
+            as: :json
+
+        data = json_response_data
+        first_message = data['messages'].first
+
+        expect(first_message).to include('id', 'role', 'content')
+      end
+    end
+
+    context 'when agent or conversation is not found' do
+      it 'returns not found for nonexistent agent' do
+        get "/api/v1/ai/agents/nonexistent-id/conversations/#{conversation.id}/messages",
+            headers: headers,
+            as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(json_response['error']).to include('Agent or conversation not found')
+      end
+
+      it 'returns not found for nonexistent conversation' do
+        get "/api/v1/ai/agents/#{agent.id}/conversations/nonexistent-id/messages",
+            headers: headers,
+            as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(json_response['error']).to include('Agent or conversation not found')
+      end
+    end
+
+    context 'without ai.conversations.read permission' do
+      let(:headers) { auth_headers_for(regular_user) }
+
+      it 'returns forbidden error' do
+        get "/api/v1/ai/agents/#{agent.id}/conversations/#{conversation.id}/messages",
+            headers: headers,
+            as: :json
+
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+  end
 end
