@@ -6,6 +6,7 @@ import { EditVendorModal } from '../EditVendorModal';
 jest.mock('lucide-react', () => ({
   X: () => <span data-testid="icon-x" />,
   Edit: () => <span data-testid="icon-edit" />,
+  AlertTriangle: () => <span data-testid="icon-alert-triangle" />,
 }));
 
 // Mock Button component

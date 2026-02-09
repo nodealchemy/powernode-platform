@@ -21,7 +21,7 @@ class MockResizeObserver {
   observe = mockObserve;
   unobserve = jest.fn();
   disconnect = mockDisconnect;
-  constructor(cb: ResizeObserverCallback) {
+  constructor(_cb: ResizeObserverCallback) {
     // store callback if needed
   }
 }

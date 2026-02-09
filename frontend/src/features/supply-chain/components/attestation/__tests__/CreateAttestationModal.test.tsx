@@ -15,6 +15,7 @@ jest.mock('@/shared/components/ui/Button', () => ({
 jest.mock('lucide-react', () => ({
   X: () => <div data-testid="icon-x">X</div>,
   FileSignature: () => <div data-testid="icon-file-signature">FileSignature</div>,
+  AlertTriangle: () => <div data-testid="icon-alert-triangle">AlertTriangle</div>,
 }));
 
 describe('CreateAttestationModal', () => {
@@ -301,7 +302,9 @@ describe('CreateAttestationModal', () => {
       await userEvent.click(createButton);
 
       const errorElement = screen.getByText('Subject name is required');
-      expect(errorElement.closest('div')).toHaveClass('bg-theme-error/10');
+      // ErrorAlert wraps the message in a container with bg-theme-error and bg-opacity-10
+      const alertContainer = errorElement.closest('.bg-theme-error');
+      expect(alertContainer).toBeInTheDocument();
     });
 
     it('shows API error message when onCreate fails', async () => {

@@ -17,6 +17,7 @@ jest.mock('lucide-react', () => ({
   Eye: () => <span data-testid="icon-eye" />,
   EyeOff: () => <span data-testid="icon-eye-off" />,
   AlertCircle: () => <span data-testid="icon-alert" />,
+  AlertTriangle: () => <span data-testid="icon-alert-triangle" />,
 }));
 
 const mockUseGitCredentials = useGitCredentials as jest.MockedFunction<

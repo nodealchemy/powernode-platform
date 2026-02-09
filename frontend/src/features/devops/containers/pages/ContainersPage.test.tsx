@@ -33,21 +33,26 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
   }),
 }));
 
-// Mock UI components
-jest.mock('@/shared/components/ui/Tabs', () => ({
-  Tabs: ({ children, value, onValueChange: _onValueChange }: any) => (
-    <div data-testid="tabs" data-value={value}>
+// Mock TabContainer layout component - render all panels unconditionally for testing
+jest.mock('@/shared/components/layout/TabContainer', () => ({
+  TabContainer: ({ children, tabs, activeTab, onTabChange }: any) => (
+    <div data-testid="tabs" data-value={activeTab}>
+      <div data-testid="tabs-list">
+        {tabs?.map((tab: any) => (
+          <button
+            key={tab.id}
+            data-testid={`tab-trigger-${tab.id}`}
+            onClick={() => onTabChange?.(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
       {children}
     </div>
   ),
-  TabsList: ({ children }: any) => <div data-testid="tabs-list">{children}</div>,
-  TabsTrigger: ({ children, value, onClick }: any) => (
-    <button data-testid={`tab-trigger-${value}`} onClick={() => onClick?.(value)}>
-      {children}
-    </button>
-  ),
-  TabsContent: ({ children, value, className }: any) => (
-    <div data-testid={`tab-content-${value}`} className={className}>
+  TabPanel: ({ children, tabId, className }: any) => (
+    <div data-testid={`tab-content-${tabId}`} className={className}>
       {children}
     </div>
   ),

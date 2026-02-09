@@ -6,6 +6,7 @@ import { AddVendorModal } from '../AddVendorModal';
 jest.mock('lucide-react', () => ({
   X: () => <span data-testid="icon-x" />,
   Building2: () => <span data-testid="icon-building" />,
+  AlertTriangle: () => <span data-testid="icon-alert-triangle" />,
 }));
 
 // Mock Button component
