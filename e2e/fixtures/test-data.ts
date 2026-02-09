@@ -181,6 +181,7 @@ export const API_ENDPOINTS = {
   taskReviews: '/api/v1/ai/teams/reviews',
   ralphLoops: '/api/v1/ai/ralph_loops',
   worktreeSessions: '/api/v1/ai/worktree_sessions',
+  agentContainers: '/api/v1/ai/agent_containers',
 };
 
 /**
@@ -217,4 +218,5 @@ export const ROUTES = {
   selfHealing: '/app/ai/self-healing',
   learningRecommendations: '/app/ai/learning/recommendations',
   learningInsights: '/app/ai/learning/insights',
+  chatDetached: '/chat/detached',
 };
