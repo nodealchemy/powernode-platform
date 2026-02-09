@@ -45,8 +45,8 @@ export const TrajectoryInsights: React.FC = () => {
     try {
       setLoading(true);
       const [trendsRes, cacheRes] = await Promise.all([
-        apiClient.get('/api/v1/ai/learning/agent_trends'),
-        apiClient.get('/api/v1/ai/learning/cache_metrics'),
+        apiClient.get('/ai/learning/agent_trends'),
+        apiClient.get('/ai/learning/cache_metrics'),
       ]);
       setAgentTrends(trendsRes.data?.trends || []);
       setCacheMetrics(cacheRes.data?.metrics || null);

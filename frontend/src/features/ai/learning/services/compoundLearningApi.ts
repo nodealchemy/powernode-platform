@@ -49,7 +49,7 @@ export interface LearningFilters {
 }
 
 export const fetchCompoundMetrics = async (): Promise<CompoundMetrics> => {
-  const response = await apiClient.get('/api/v1/ai/learning/compound_metrics');
+  const response = await apiClient.get('/ai/learning/compound_metrics');
   return response.data?.metrics;
 };
 
@@ -63,16 +63,16 @@ export const fetchLearnings = async (filters: LearningFilters = {}): Promise<Com
   if (filters.query) params.set('query', filters.query);
   if (filters.limit) params.set('limit', filters.limit.toString());
 
-  const response = await apiClient.get(`/api/v1/ai/learning/learnings?${params.toString()}`);
+  const response = await apiClient.get(`/ai/learning/learnings?${params.toString()}`);
   return response.data?.learnings || [];
 };
 
 export const reinforceLearning = async (id: string): Promise<CompoundLearning> => {
-  const response = await apiClient.post(`/api/v1/ai/learning/reinforce/${id}`);
+  const response = await apiClient.post(`/ai/learning/reinforce/${id}`);
   return response.data?.learning;
 };
 
 export const promoteCrossTeam = async (): Promise<number> => {
-  const response = await apiClient.post('/api/v1/ai/learning/promote');
+  const response = await apiClient.post('/ai/learning/promote');
   return response.data?.promoted_count || 0;
 };

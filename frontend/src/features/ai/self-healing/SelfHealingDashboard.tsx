@@ -46,9 +46,9 @@ export const SelfHealingDashboard: React.FC = () => {
     try {
       setLoading(true);
       const [logsRes, healthRes, correlationsRes] = await Promise.all([
-        apiClient.get('/api/v1/ai/self_healing/remediation_logs'),
-        apiClient.get('/api/v1/ai/self_healing/health_summary'),
-        apiClient.get('/api/v1/ai/self_healing/correlations'),
+        apiClient.get('/ai/self_healing/remediation_logs'),
+        apiClient.get('/ai/self_healing/health_summary'),
+        apiClient.get('/ai/self_healing/correlations'),
       ]);
 
       setRemediationLogs(logsRes.data?.remediation_logs || []);

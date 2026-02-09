@@ -81,19 +81,19 @@ export interface PrivacyDashboard {
 export const privacyApi = {
   // Get privacy dashboard overview
   getDashboard: async (): Promise<PrivacyDashboard> => {
-    const response = await apiClient.get('/api/v1/privacy/dashboard');
+    const response = await apiClient.get('/privacy/dashboard');
     return response.data;
   },
 
   // Get consent preferences
   getConsents: async (): Promise<{ consents: ConsentPreferences; consent_types: Record<string, unknown> }> => {
-    const response = await apiClient.get('/api/v1/privacy/consents');
+    const response = await apiClient.get('/privacy/consents');
     return response.data;
   },
 
   // Update consent preferences
   updateConsents: async (consents: Partial<Record<string, boolean>>): Promise<{ consents: ConsentPreferences }> => {
-    const response = await apiClient.put('/api/v1/privacy/consents', consents);
+    const response = await apiClient.put('/privacy/consents', consents);
     return response.data;
   },
 
@@ -103,19 +103,19 @@ export const privacyApi = {
     export_type?: 'full' | 'partial';
     include_data_types?: string[];
   }): Promise<DataExportRequest> => {
-    const response = await apiClient.post('/api/v1/privacy/export', options);
+    const response = await apiClient.post('/privacy/export', options);
     return response.data.request;
   },
 
   // Get export requests
   getExportRequests: async (): Promise<DataExportRequest[]> => {
-    const response = await apiClient.get('/api/v1/privacy/exports');
+    const response = await apiClient.get('/privacy/exports');
     return response.data.requests;
   },
 
   // Download export
   downloadExport: async (id: string, token: string): Promise<Blob> => {
-    const response = await apiClient.get(`/api/v1/privacy/exports/${id}/download?token=${token}`, {
+    const response = await apiClient.get(`/privacy/exports/${id}/download?token=${token}`, {
       responseType: 'blob',
     });
     return response.data;
@@ -127,19 +127,19 @@ export const privacyApi = {
     reason?: string;
     data_types_to_delete?: string[];
   }): Promise<DataDeletionRequest> => {
-    const response = await apiClient.post('/api/v1/privacy/deletion', options);
+    const response = await apiClient.post('/privacy/deletion', options);
     return response.data.request;
   },
 
   // Get deletion request status
   getDeletionStatus: async (): Promise<DataDeletionRequest | null> => {
-    const response = await apiClient.get('/api/v1/privacy/deletion');
+    const response = await apiClient.get('/privacy/deletion');
     return response.data.request;
   },
 
   // Cancel deletion request
   cancelDeletion: async (id: string, reason?: string): Promise<DataDeletionRequest> => {
-    const response = await apiClient.delete(`/api/v1/privacy/deletion/${id}`, {
+    const response = await apiClient.delete(`/privacy/deletion/${id}`, {
       data: { reason },
     });
     return response.data.request;
@@ -151,25 +151,25 @@ export const privacyApi = {
     accepted: TermsAcceptance[];
     missing: string[];
   }> => {
-    const response = await apiClient.get('/api/v1/privacy/terms');
+    const response = await apiClient.get('/privacy/terms');
     return response.data;
   },
 
   // Accept terms
   acceptTerms: async (documentType: string, version?: string): Promise<unknown> => {
-    const response = await apiClient.post(`/api/v1/privacy/terms/${documentType}/accept`, { version });
+    const response = await apiClient.post(`/privacy/terms/${documentType}/accept`, { version });
     return response.data;
   },
 
   // Get cookie preferences
   getCookiePreferences: async (): Promise<CookiePreferences> => {
-    const response = await apiClient.get('/api/v1/privacy/cookies');
+    const response = await apiClient.get('/privacy/cookies');
     return response.data.preferences;
   },
 
   // Update cookie preferences
   updateCookiePreferences: async (preferences: Partial<CookiePreferences>): Promise<CookiePreferences> => {
-    const response = await apiClient.put('/api/v1/privacy/cookies', preferences);
+    const response = await apiClient.put('/privacy/cookies', preferences);
     return response.data.preferences;
   },
 };

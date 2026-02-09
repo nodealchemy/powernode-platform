@@ -36,7 +36,7 @@ export const RecommendationsDashboard: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/api/v1/ai/learning/recommendations');
+      const response = await apiClient.get('/ai/learning/recommendations');
       setRecommendations(response.data?.recommendations || []);
     } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to load recommendations' });
@@ -51,7 +51,7 @@ export const RecommendationsDashboard: React.FC = () => {
 
   const applyRecommendation = async (id: string) => {
     try {
-      await apiClient.post(`/api/v1/ai/learning/recommendations/${id}/apply`);
+      await apiClient.post(`/ai/learning/recommendations/${id}/apply`);
       addNotification({ type: 'success', message: 'Recommendation applied' });
       loadData();
     } catch (_error) {
@@ -61,7 +61,7 @@ export const RecommendationsDashboard: React.FC = () => {
 
   const dismissRecommendation = async (id: string) => {
     try {
-      await apiClient.post(`/api/v1/ai/learning/recommendations/${id}/dismiss`);
+      await apiClient.post(`/ai/learning/recommendations/${id}/dismiss`);
       loadData();
     } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to dismiss recommendation' });
