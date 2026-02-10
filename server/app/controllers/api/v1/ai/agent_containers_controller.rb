@@ -38,7 +38,7 @@ module Api
         # POST /api/v1/ai/agent_containers/:id/launch
         # Manually launch a container for an agent
         def launch
-          if @container_instance.active?
+          if @container_instance.status.in?(%w[running provisioning])
             return render_error("Container is already active", status: :conflict)
           end
 
@@ -103,13 +103,13 @@ module Api
           deployment = ::Ai::ContainerAgentDeploymentService.new(account: current_account)
           status_data = deployment.get_session_status(container_instance: @container_instance)
 
-          render_success(status: status_data)
+          render_success({ status: status_data })
         end
 
         private
 
         def set_container_instance
-          @container_instance = current_account.container_instances.find(params[:id])
+          @container_instance = current_account.devops_container_instances.find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Container instance not found", status: :not_found)
         end

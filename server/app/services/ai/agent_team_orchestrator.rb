@@ -514,10 +514,12 @@ class Ai::AgentTeamOrchestrator
 
   def create_team_execution_pool
     pool_service = Ai::Memory::MemoryPoolService.new(account: team.account)
-    @execution_pool = pool_service.create_team_execution_pool(
-      team_execution: @workflow_run,
-      team: team
-    )
+    @execution_pool = ActiveRecord::Base.transaction(requires_new: true) do
+      pool_service.create_team_execution_pool(
+        team_execution: @workflow_run,
+        team: team
+      )
+    end
     @logger.info "[TeamOrchestrator] Created team execution memory pool: #{@execution_pool.pool_id}"
   rescue StandardError => e
     @logger.warn "[TeamOrchestrator] Failed to create execution memory pool: #{e.message}"

@@ -66,6 +66,8 @@ module Ai
                    "provisioning on #{cluster.name}"
 
       instance
+    rescue DeploymentError
+      raise
     rescue StandardError => e
       @logger.error "[ContainerAgentDeployment] Deployment failed: #{e.message}"
       instance&.fail!(e.message) if instance&.persisted? && instance&.active?
@@ -118,7 +120,7 @@ module Ai
     # @param conversation_id [String]
     # @return [ActiveRecord::Relation]
     def active_sessions_for_conversation(conversation_id)
-      @account.container_instances
+      @account.devops_container_instances
               .active
               .where("input_parameters->>'conversation_id' = ?", conversation_id)
     end

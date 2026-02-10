@@ -173,18 +173,12 @@ module Devops
       def sync_containers(host, docker_containers)
         remote_ids = docker_containers.map { |c| c["Id"] }
 
-        # Remove imported containers that no longer exist on the host
+        # Remove containers that no longer exist on the host
         host.docker_containers.where.not(docker_container_id: remote_ids).destroy_all
 
-        # Only update already-imported containers (do not create new ones)
-        imported_ids = host.docker_containers.pluck(:docker_container_id)
-
+        # Upsert all containers from remote
         docker_containers.each do |dc|
-          next unless imported_ids.include?(dc["Id"])
-
-          container = host.docker_containers.find_by(docker_container_id: dc["Id"])
-          next unless container
-
+          container = host.docker_containers.find_or_initialize_by(docker_container_id: dc["Id"])
           update_container_from_docker(container, dc)
         end
       end
@@ -192,18 +186,12 @@ module Devops
       def sync_images(host, docker_images)
         remote_ids = docker_images.map { |i| i["Id"] }
 
-        # Remove imported images that no longer exist on the host
+        # Remove images that no longer exist on the host
         host.docker_images.where.not(docker_image_id: remote_ids).destroy_all
 
-        # Only update already-imported images (do not create new ones)
-        imported_ids = host.docker_images.pluck(:docker_image_id)
-
+        # Upsert all images from remote
         docker_images.each do |di|
-          next unless imported_ids.include?(di["Id"])
-
-          image = host.docker_images.find_by(docker_image_id: di["Id"])
-          next unless image
-
+          image = host.docker_images.find_or_initialize_by(docker_image_id: di["Id"])
           update_image_from_docker(image, di)
         end
       end

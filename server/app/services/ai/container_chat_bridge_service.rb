@@ -122,7 +122,7 @@ module Ai
     private
 
     def find_active_instance(conversation_id)
-      @account.container_instances
+      @account.devops_container_instances
               .active
               .where("input_parameters->>'conversation_id' = ?", conversation_id.to_s)
               .order(created_at: :desc)
