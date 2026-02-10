@@ -393,8 +393,8 @@ module Ai
         pool = ensure_ralph_learning_pool
         return unless pool
 
-        learning_service = Ai::Memory::SharedLearningService.new(account: account)
-        count = learning_service.process_completed_task(
+        storage = Ai::Memory::StorageService.new(account: account)
+        count = storage.process_completed_task(
           pool: pool,
           output: output,
           agent_id: ralph_loop.default_agent&.id
@@ -426,8 +426,8 @@ module Ai
       end
 
       def inject_shared_learnings(task)
-        learning_service = Ai::Memory::SharedLearningService.new(account: account)
-        context = learning_service.build_learning_context(
+        storage = Ai::Memory::StorageService.new(account: account)
+        context = storage.build_learning_context(
           query: task.description,
           max_chars: 1500
         )

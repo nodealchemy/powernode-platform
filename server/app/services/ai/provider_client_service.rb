@@ -7,11 +7,9 @@ class Ai::ProviderClientService
   class ValidationError < StandardError; end
 
   # Default pricing when no DB pricing is available (per 1K tokens)
-  DEFAULT_PRICING = { prompt: 0.003, completion: 0.015 }.freeze
+  DEFAULT_PRICING = { prompt: 0.002, completion: 0.008, cached: 0.0005 }.freeze
 
   VALID_ROLES = %w[system user assistant function tool].freeze
-  CIRCUIT_BREAKER_THRESHOLD = 5
-  CIRCUIT_BREAKER_TIMEOUT = 60 # seconds
   HEALTH_CHECK_CACHE_TTL = 10.minutes
 
   attr_reader :provider, :credential, :credentials_data
@@ -22,6 +20,7 @@ class Ai::ProviderClientService
     @credentials_data = credential.credentials
     @circuit_breaker = Ai::ProviderCircuitBreakerService.new(@provider)
     @rate_limit_tracker = {}
+    @consecutive_failures = 0
     @usage_metrics = {
       total_requests: 0,
       failed_requests: 0,
@@ -32,7 +31,6 @@ class Ai::ProviderClientService
       avg_response_time: 0.0,
       success_rate: 100.0
     }
-    @consecutive_failures = 0
     setup_client_options
   end
 
@@ -55,10 +53,13 @@ class Ai::ProviderClientService
   rescue Ai::ProviderCircuitBreakerService::CircuitBreakerOpenError => e
     {
       success: false,
-      error: "Provider #{provider.name} is temporarily unavailable",
+      error: "Circuit breaker is open for provider #{provider.name}",
+      error_type: "circuit_breaker_open",
       status_code: 503,
       provider: provider.name,
-      circuit_breaker_open: true
+      circuit_breaker_open: true,
+      circuit_breaker_state: "open",
+      retry_after: calculate_backoff_time
     }
   end
 
@@ -77,10 +78,13 @@ class Ai::ProviderClientService
   rescue Ai::ProviderCircuitBreakerService::CircuitBreakerOpenError => e
     {
       success: false,
-      error: "Provider #{provider.name} is temporarily unavailable",
+      error: "Circuit breaker is open for provider #{provider.name}",
+      error_type: "circuit_breaker_open",
       status_code: 503,
       provider: provider.name,
-      circuit_breaker_open: true
+      circuit_breaker_open: true,
+      circuit_breaker_state: "open",
+      retry_after: calculate_backoff_time
     }
   end
 
@@ -120,90 +124,78 @@ class Ai::ProviderClientService
   def send_message(messages, options = {})
     validate_message_format(messages)
 
-    # Check circuit breaker state
-    if circuit_breaker_open?
-      return {
-        success: false,
-        error: "Circuit breaker is open - provider temporarily unavailable",
-        error_type: "circuit_breaker_open",
-        retry_after: calculate_circuit_breaker_timeout,
-        circuit_breaker_state: "open"
-      }
-    end
-
     model_name = options[:model] || default_model_for_capability("text_generation")
-    start_time = Time.current
 
-    begin
-      result = case provider.provider_type
-      when "openai"
-                 openai_send_message(messages, model_name, **options)
-      when "anthropic"
-                 anthropic_send_message(messages, model_name, **options)
-      when "ollama"
-                 ollama_send_message(messages, model_name, **options)
-      else
-                 capability_not_supported("send_message")
+    @circuit_breaker.call do
+      start_time = Time.current
+
+      begin
+        result = case provider.provider_type
+        when "openai"
+                   openai_send_message(messages, model_name, **options)
+        when "anthropic"
+                   anthropic_send_message(messages, model_name, **options)
+        when "ollama"
+                   ollama_send_message(messages, model_name, **options)
+        else
+                   capability_not_supported("send_message")
+        end
+
+        response_time_ms = ((Time.current - start_time) * 1000).round
+        track_usage(result[:response] || {}, response_time_ms, result[:success])
+
+        if result[:success]
+          usage = extract_usage(result[:response])
+          result.merge(
+            metadata: {
+              tokens_used: usage[:total_tokens],
+              usage: usage,
+              response_time_ms: response_time_ms,
+              model_used: model_name,
+              stream_enabled: options[:stream] || false,
+              parameters_used: options.except(:model)
+            }
+          )
+        else
+          result.merge(
+            retry_after: extract_retry_after(result),
+            retry_recommended: result[:error_type] == "server_error"
+          )
+        end
+      rescue Net::OpenTimeout, Net::ReadTimeout, Timeout::Error => e
+        response_time_ms = ((Time.current - start_time) * 1000).round
+        track_usage({}, response_time_ms, false)
+
+        {
+          success: false,
+          error: "Request timeout: #{e.message}",
+          error_type: "network_error",
+          retry_after: calculate_backoff_time,
+          retry_recommended: true
+        }
+      rescue JSON::ParserError => e
+        response_time_ms = ((Time.current - start_time) * 1000).round
+        track_usage({}, response_time_ms, false)
+
+        {
+          success: false,
+          error: "Failed to parse response: #{e.message}",
+          error_type: "parse_error",
+          retry_recommended: false
+        }
       end
-
-      response_time_ms = ((Time.current - start_time) * 1000).round
-      track_usage(result[:response] || {}, response_time_ms, result[:success])
-
-      if result[:success]
-        @consecutive_failures = 0
-        usage = extract_usage(result[:response])
-        result.merge(
-          metadata: {
-            tokens_used: usage[:total_tokens],
-            usage: usage,
-            response_time_ms: response_time_ms,
-            model_used: model_name,
-            stream_enabled: options[:stream] || false,
-            parameters_used: options.except(:model)
-          }
-        )
-      else
-        @consecutive_failures += 1
-        check_circuit_breaker_threshold
-        result.merge(
-          retry_after: extract_retry_after(result),
-          retry_recommended: result[:error_type] == "server_error"
-        )
-      end
-    rescue Net::OpenTimeout, Net::ReadTimeout, Timeout::Error => e
-      response_time_ms = ((Time.current - start_time) * 1000).round
-      @consecutive_failures += 1
-      check_circuit_breaker_threshold
-      track_usage({}, response_time_ms, false)
-
-      {
-        success: false,
-        error: "Request timeout: #{e.message}",
-        error_type: "network_error",
-        retry_after: calculate_backoff_time,
-        retry_recommended: true
-      }
-    rescue JSON::ParserError => e
-      response_time_ms = ((Time.current - start_time) * 1000).round
-      track_usage({}, response_time_ms, false)
-
-      {
-        success: false,
-        error: "Failed to parse response: #{e.message}",
-        error_type: "parse_error",
-        retry_recommended: false
-      }
-    rescue StandardError => e
-      response_time_ms = ((Time.current - start_time) * 1000).round
-      track_usage({}, response_time_ms, false)
-
-      {
-        success: false,
-        error: "Request failed: #{e.message}",
-        error_type: "unknown_error",
-        retry_recommended: true
-      }
     end
+  rescue Ai::ProviderCircuitBreakerService::CircuitBreakerOpenError => e
+    {
+      success: false,
+      error: "Circuit breaker is open for provider #{provider.name}",
+      error_type: "circuit_breaker_open",
+      status_code: 503,
+      provider: provider.name,
+      circuit_breaker_open: true,
+      circuit_breaker_state: "open",
+      retry_after: calculate_backoff_time
+    }
   end
 
   # Perform a health check on the AI provider (cached for 10 minutes)
@@ -230,7 +222,7 @@ class Ai::ProviderClientService
         response_time_ms: response_time,
         last_checked_at: Time.current.iso8601,
         error_rate: calculate_error_rate,
-        circuit_breaker_state: circuit_breaker_state,
+        circuit_breaker_state: @circuit_breaker.circuit_state,
         last_error: result[:success] ? nil : result[:error]
       }
 
@@ -245,7 +237,7 @@ class Ai::ProviderClientService
         response_time_ms: ((Time.current - start_time) * 1000).round,
         last_checked_at: Time.current.iso8601,
         error_rate: calculate_error_rate,
-        circuit_breaker_state: circuit_breaker_state,
+        circuit_breaker_state: @circuit_breaker.circuit_state,
         last_error: e.message
       }
 
@@ -301,6 +293,7 @@ class Ai::ProviderClientService
     @usage_metrics[:total_requests] += 1
     @usage_metrics[:failed_requests] += 1 unless success
     @usage_metrics[:total_response_time] += response_time_ms
+    success ? @consecutive_failures = 0 : @consecutive_failures += 1
     @usage_metrics[:avg_response_time] = @usage_metrics[:total_response_time].to_f / @usage_metrics[:total_requests]
 
     if success && response_data[:usage]
@@ -316,27 +309,39 @@ class Ai::ProviderClientService
   end
 
   # Estimate the cost of a request using DB-stored pricing from provider's supported_models
-  # @param tokens_used [Hash] Hash with prompt_tokens and completion_tokens
+  # @param tokens_used [Hash] Hash with prompt_tokens, completion_tokens, and optional cached_tokens
   # @param model [String] Model name
   # @return [BigDecimal] Estimated cost in USD
   def estimate_cost(tokens_used, model)
     pricing = lookup_model_pricing(model) || DEFAULT_PRICING
     prompt_tokens = tokens_used[:prompt_tokens] || tokens_used["prompt_tokens"] || 0
     completion_tokens = tokens_used[:completion_tokens] || tokens_used["completion_tokens"] || 0
+    cached_tokens = tokens_used[:cached_tokens] || tokens_used["cached_tokens"] || 0
 
     (BigDecimal(prompt_tokens.to_s) / 1000 * BigDecimal(pricing[:prompt].to_s)) +
-      (BigDecimal(completion_tokens.to_s) / 1000 * BigDecimal(pricing[:completion].to_s))
+      (BigDecimal(completion_tokens.to_s) / 1000 * BigDecimal(pricing[:completion].to_s)) +
+      (BigDecimal(cached_tokens.to_s) / 1000 * BigDecimal((pricing[:cached] || 0).to_s))
   end
 
-  # Look up model pricing from the provider's supported_models JSONB column
+  # Look up model pricing, delegating to the authoritative ProviderManagementService
   def lookup_model_pricing(model_name)
+    mgmt_pricing = Ai::ProviderManagementService.model_pricing_for(model_name)
+    if mgmt_pricing
+      return {
+        prompt: mgmt_pricing["input"].to_f,
+        completion: mgmt_pricing["output"].to_f,
+        cached: mgmt_pricing["cached_input"].to_f
+      }
+    end
+
+    # Fallback to provider's supported_models JSONB column
     return nil unless provider&.supported_models.is_a?(Array)
 
     model_info = provider.get_model_info(model_name)
     cost = model_info&.dig("cost_per_1k_tokens")
     return nil unless cost.is_a?(Hash)
 
-    { prompt: cost["input"].to_f, completion: cost["output"].to_f }
+    { prompt: cost["input"].to_f, completion: cost["output"].to_f, cached: (cost["cached_input"] || 0).to_f }
   end
 
   # Calculate exponential backoff time
@@ -348,43 +353,6 @@ class Ai::ProviderClientService
 
     delay = [ base_delay * (2 ** @consecutive_failures) * jitter, max_delay ].min
     delay.ceil
-  end
-
-  # Check if circuit breaker should be opened
-  def check_circuit_breaker_threshold
-    if @consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD
-      @circuit_breaker_opened_at = Time.current
-    end
-  end
-
-  # Check if circuit breaker is open
-  # @return [Boolean]
-  def circuit_breaker_open?
-    return false unless @circuit_breaker_opened_at
-
-    # Auto-recover after timeout
-    if Time.current - @circuit_breaker_opened_at > CIRCUIT_BREAKER_TIMEOUT
-      @circuit_breaker_opened_at = nil
-      @consecutive_failures = 0
-      return false
-    end
-
-    true
-  end
-
-  # Get circuit breaker state
-  # @return [String]
-  def circuit_breaker_state
-    circuit_breaker_open? ? "open" : "closed"
-  end
-
-  # Calculate remaining timeout for circuit breaker
-  # @return [Integer]
-  def calculate_circuit_breaker_timeout
-    return 0 unless @circuit_breaker_opened_at
-
-    remaining = CIRCUIT_BREAKER_TIMEOUT - (Time.current - @circuit_breaker_opened_at)
-    [ remaining.ceil, 0 ].max
   end
 
   # Calculate error rate
@@ -520,6 +488,15 @@ class Ai::ProviderClientService
     case response.code
     when 200, 201
       parsed = response.parsed_response
+      unless parsed.is_a?(Hash)
+        return {
+          success: false,
+          error: "Malformed response from provider",
+          error_type: "parse_error",
+          status_code: response.code,
+          provider: provider.name
+        }
+      end
       {
         success: true,
         response: parsed.deep_symbolize_keys,

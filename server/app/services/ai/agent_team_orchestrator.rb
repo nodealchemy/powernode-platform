@@ -513,9 +513,9 @@ class Ai::AgentTeamOrchestrator
   end
 
   def create_team_execution_pool
-    pool_service = Ai::Memory::MemoryPoolService.new(account: team.account)
+    storage = Ai::Memory::StorageService.new(account: team.account)
     @execution_pool = ActiveRecord::Base.transaction(requires_new: true) do
-      pool_service.create_team_execution_pool(
+      storage.create_team_execution_pool(
         team_execution: @workflow_run,
         team: team
       )
@@ -595,8 +595,8 @@ class Ai::AgentTeamOrchestrator
   def extract_learnings_from_task(task_result, agent_id: nil)
     return unless @execution_pool && task_result.is_a?(Hash)
 
-    learning_service = Ai::Memory::SharedLearningService.new(account: team.account)
-    count = learning_service.process_completed_task(
+    storage = Ai::Memory::StorageService.new(account: team.account)
+    count = storage.process_completed_task(
       pool: @execution_pool,
       output: task_result[:output],
       agent_id: agent_id
@@ -609,8 +609,8 @@ class Ai::AgentTeamOrchestrator
   def promote_learnings_to_global
     return unless @execution_pool
 
-    learning_service = Ai::Memory::SharedLearningService.new(account: team.account)
-    promoted = learning_service.promote_to_global(execution_pool: @execution_pool)
+    storage = Ai::Memory::StorageService.new(account: team.account)
+    promoted = storage.promote_to_global(execution_pool: @execution_pool)
     @logger.info "[TeamOrchestrator] Promoted #{promoted} learnings to global pool" if promoted.positive?
   rescue StandardError => e
     @logger.warn "[TeamOrchestrator] Learning promotion failed: #{e.message}"

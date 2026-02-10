@@ -593,20 +593,24 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
   # =============================================================================
 
   describe 'GET #insights' do
+    let(:cached_insights) do
+      {
+        performance_insights: {},
+        cost_insights: {},
+        usage_insights: {},
+        recommendations: []
+      }
+    end
+
     before do
-      allow_any_instance_of(Ai::AnalyticsInsightsService).to receive(:generate_insights).and_return({
-        cost_insights: [],
-        performance_insights: [],
-        usage_insights: []
-      })
+      allow(Rails.cache).to receive(:fetch).and_call_original
+      allow(Rails.cache).to receive(:fetch).with(/ai:analytics:insights/, any_args).and_return(cached_insights)
     end
 
     context 'with valid permissions' do
       before { sign_in analytics_read_user }
 
       it 'returns AI-generated insights' do
-        expect_any_instance_of(Ai::AnalyticsInsightsService).to receive(:generate_insights)
-
         get :insights
 
         expect(response).to have_http_status(:success)

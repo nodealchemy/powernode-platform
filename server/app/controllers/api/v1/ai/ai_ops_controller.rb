@@ -26,8 +26,8 @@ module Api
 
         # GET /api/v1/ai/aiops/dashboard
         def dashboard
-          service = ::Ai::AiOpsMetricsService.new(account: current_user.account)
-          dashboard_data = service.dashboard(time_range: @time_range)
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
+          dashboard_data = service.aiops_dashboard(ops_time_range: @time_range)
 
           render_success({
             dashboard: dashboard_data,
@@ -37,7 +37,7 @@ module Api
 
         # GET /api/v1/ai/aiops/health
         def health
-          service = ::Ai::AiOpsMetricsService.new(account: current_user.account)
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
           health_data = service.system_health
 
           render_success({
@@ -48,7 +48,7 @@ module Api
 
         # GET /api/v1/ai/aiops/overview
         def overview
-          service = ::Ai::AiOpsMetricsService.new(account: current_user.account)
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
           time_range = params[:time_range]&.to_i&.seconds || 1.hour
 
           overview_data = service.system_overview(time_range)
@@ -65,8 +65,8 @@ module Api
 
         # GET /api/v1/ai/aiops/providers
         def providers
-          service = ::Ai::AiOpsMetricsService.new(account: current_user.account)
-          provider_data = service.provider_metrics(@time_range)
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
+          provider_data = service.ops_provider_metrics(@time_range)
 
           render_success({
             providers: provider_data,
@@ -103,10 +103,10 @@ module Api
 
         # GET /api/v1/ai/aiops/providers/comparison
         def provider_comparison
-          service = ::Ai::AiOpsMetricsService.new(account: current_user.account)
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
           time_range = params[:time_range]&.to_i&.seconds || 1.hour
 
-          comparison = service.provider_comparison(time_range: time_range)
+          comparison = service.ops_provider_comparison(ops_time_range: time_range)
 
           render_success({
             comparison: comparison,
@@ -120,8 +120,8 @@ module Api
 
         # GET /api/v1/ai/aiops/workflows
         def workflows
-          service = ::Ai::AiOpsMetricsService.new(account: current_user.account)
-          workflow_data = service.workflow_metrics(@time_range)
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
+          workflow_data = service.ops_workflow_metrics(@time_range)
 
           render_success({
             workflows: workflow_data,
@@ -135,8 +135,8 @@ module Api
 
         # GET /api/v1/ai/aiops/agents
         def agents
-          service = ::Ai::AiOpsMetricsService.new(account: current_user.account)
-          agent_data = service.agent_metrics(@time_range)
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
+          agent_data = service.ops_agent_metrics(@time_range)
 
           render_success({
             agents: agent_data,
@@ -150,8 +150,8 @@ module Api
 
         # GET /api/v1/ai/aiops/cost_analysis
         def cost_analysis
-          service = ::Ai::AiOpsMetricsService.new(account: current_user.account)
-          cost_data = service.cost_analysis(@time_range)
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
+          cost_data = service.ops_cost_analysis(@time_range)
 
           render_success({
             cost_analysis: cost_data,
@@ -165,7 +165,7 @@ module Api
 
         # GET /api/v1/ai/aiops/alerts
         def alerts
-          service = ::Ai::AiOpsMetricsService.new(account: current_user.account)
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
           alerts_data = service.active_alerts
 
           render_success({
@@ -181,7 +181,7 @@ module Api
 
         # GET /api/v1/ai/aiops/circuit_breakers
         def circuit_breakers
-          service = ::Ai::AiOpsMetricsService.new(account: current_user.account)
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
           cb_status = service.circuit_breaker_status
 
           render_success({
@@ -196,8 +196,8 @@ module Api
 
         # GET /api/v1/ai/aiops/real_time
         def real_time
-          service = ::Ai::AiOpsMetricsService.new(account: current_user.account)
-          real_time_data = service.real_time_metrics
+          service = ::Ai::Analytics::DashboardService.new(account: current_user.account)
+          real_time_data = service.aiops_real_time_metrics
 
           render_success(real_time_data)
         end
@@ -210,7 +210,7 @@ module Api
           account = current_worker&.account || current_user.account
           provider = account.ai_providers.find(params[:provider_id])
 
-          service = ::Ai::AiOpsMetricsService.new(account: account)
+          service = ::Ai::Analytics::DashboardService.new(account: account)
           service.record_execution_metrics(
             provider: provider,
             execution_data: metrics_params

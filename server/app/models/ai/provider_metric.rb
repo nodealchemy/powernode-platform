@@ -58,18 +58,18 @@ module Ai
     # INSTANCE METHODS
     # ==========================================================================
 
-    # Calculate success rate
+    # Calculate success rate (0.0 to 1.0 ratio)
     def calculate_success_rate
-      return 100.0 if request_count.zero?
+      return 1.0 if request_count.zero?
 
-      (success_count.to_f / request_count * 100).round(4)
+      (success_count.to_f / request_count).round(4)
     end
 
-    # Calculate error rate
+    # Calculate error rate (0.0 to 1.0 ratio)
     def calculate_error_rate
       return 0.0 if request_count.zero?
 
-      (failure_count.to_f / request_count * 100).round(4)
+      (failure_count.to_f / request_count).round(4)
     end
 
     # Calculate average cost per request

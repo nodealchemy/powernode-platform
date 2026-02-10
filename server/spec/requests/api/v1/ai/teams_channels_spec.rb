@@ -6,10 +6,17 @@ RSpec.describe 'Api::V1::Ai::Teams - Channels', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, permissions: [ 'ai.teams.read', 'ai.teams.write' ]) }
   let(:headers) { auth_headers_for(user) }
-  let(:team_service) { instance_double(Ai::TeamOrchestrationService) }
+
+  let(:crud_service) { instance_double(Ai::Teams::CrudService) }
+  let(:config_service) { instance_double(Ai::Teams::ConfigurationService) }
+  let(:execution_service) { instance_double(Ai::Teams::ExecutionService) }
+  let(:analytics_service) { instance_double(Ai::Teams::AnalyticsService) }
 
   before do
-    allow(Ai::TeamOrchestrationService).to receive(:new).and_return(team_service)
+    allow(Ai::Teams::CrudService).to receive(:new).and_return(crud_service)
+    allow(Ai::Teams::ConfigurationService).to receive(:new).and_return(config_service)
+    allow(Ai::Teams::ExecutionService).to receive(:new).and_return(execution_service)
+    allow(Ai::Teams::AnalyticsService).to receive(:new).and_return(analytics_service)
   end
 
   let(:channel_double) do
@@ -56,8 +63,8 @@ RSpec.describe 'Api::V1::Ai::Teams - Channels', type: :request do
 
   describe 'GET /api/v1/ai/teams/:team_id/channels' do
     it 'returns list of channels' do
-      allow(team_service).to receive(:get_team).and_return(double(id: 't-123'))
-      allow(team_service).to receive(:list_channels).and_return([channel_double])
+      allow(crud_service).to receive(:get_team).and_return(double(id: 't-123'))
+      allow(config_service).to receive(:list_channels).and_return([channel_double])
 
       get '/api/v1/ai/teams/t-123/channels', headers: headers, as: :json
 
@@ -75,8 +82,8 @@ RSpec.describe 'Api::V1::Ai::Teams - Channels', type: :request do
 
   describe 'GET /api/v1/ai/teams/:team_id/channels/:id' do
     it 'returns single channel with full serialization' do
-      allow(team_service).to receive(:get_team).and_return(double(id: 't-123'))
-      allow(team_service).to receive(:get_channel).and_return(channel_double)
+      allow(crud_service).to receive(:get_team).and_return(double(id: 't-123'))
+      allow(config_service).to receive(:get_channel).and_return(channel_double)
 
       get '/api/v1/ai/teams/t-123/channels/ch-123', headers: headers, as: :json
 
@@ -91,8 +98,8 @@ RSpec.describe 'Api::V1::Ai::Teams - Channels', type: :request do
     end
 
     it 'returns 404 for non-existent channel' do
-      allow(team_service).to receive(:get_team).and_return(double(id: 't-123'))
-      allow(team_service).to receive(:get_channel).and_raise(
+      allow(crud_service).to receive(:get_team).and_return(double(id: 't-123'))
+      allow(config_service).to receive(:get_channel).and_raise(
         ActiveRecord::RecordNotFound.new("Couldn't find channel", 'Ai::TeamChannel')
       )
 
@@ -104,8 +111,8 @@ RSpec.describe 'Api::V1::Ai::Teams - Channels', type: :request do
 
   describe 'POST /api/v1/ai/teams/:team_id/channels' do
     it 'creates channel and returns 201' do
-      allow(team_service).to receive(:get_team).and_return(double(id: 't-123'))
-      allow(team_service).to receive(:create_channel).and_return(channel_double)
+      allow(crud_service).to receive(:get_team).and_return(double(id: 't-123'))
+      allow(config_service).to receive(:create_channel).and_return(channel_double)
 
       post '/api/v1/ai/teams/t-123/channels',
            params: { channel: { name: 'General', channel_type: 'broadcast' } },
@@ -120,8 +127,8 @@ RSpec.describe 'Api::V1::Ai::Teams - Channels', type: :request do
 
   describe 'PATCH /api/v1/ai/teams/:team_id/channels/:id' do
     it 'updates channel' do
-      allow(team_service).to receive(:get_team).and_return(double(id: 't-123'))
-      allow(team_service).to receive(:update_channel).and_return(channel_double)
+      allow(crud_service).to receive(:get_team).and_return(double(id: 't-123'))
+      allow(config_service).to receive(:update_channel).and_return(channel_double)
 
       patch '/api/v1/ai/teams/t-123/channels/ch-123',
             params: { channel: { name: 'Updated' } },
@@ -136,8 +143,8 @@ RSpec.describe 'Api::V1::Ai::Teams - Channels', type: :request do
 
   describe 'DELETE /api/v1/ai/teams/:team_id/channels/:id' do
     it 'deletes channel' do
-      allow(team_service).to receive(:get_team).and_return(double(id: 't-123'))
-      allow(team_service).to receive(:delete_channel).and_return(true)
+      allow(crud_service).to receive(:get_team).and_return(double(id: 't-123'))
+      allow(config_service).to receive(:delete_channel).and_return(true)
 
       delete '/api/v1/ai/teams/t-123/channels/ch-123', headers: headers, as: :json
 
@@ -164,8 +171,8 @@ RSpec.describe 'Api::V1::Ai::Teams - Channels', type: :request do
   describe 'message serialization' do
     it 'includes all enhanced fields' do
       execution_double = double(id: 'ex-123')
-      allow(team_service).to receive(:get_execution).and_return(execution_double)
-      allow(team_service).to receive(:get_messages).and_return([message_double])
+      allow(execution_service).to receive(:get_execution).and_return(execution_double)
+      allow(execution_service).to receive(:get_messages).and_return([message_double])
 
       get '/api/v1/ai/teams/executions/ex-123/messages', headers: headers, as: :json
 

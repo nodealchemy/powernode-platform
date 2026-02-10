@@ -229,7 +229,7 @@ module Api
 
           return if credential.nil? # Error already rendered
 
-          test_service = ::Ai::ProviderTestService.new(credential)
+          test_service = ::Ai::ProviderManagementService.new(credential)
           # Use test_with_details_simple for flat response format expected by controller
           test_result = test_service.test_with_details_simple
 
@@ -428,7 +428,7 @@ module Api
             result = { id: provider.id, name: provider.name, provider_type: provider.provider_type }
 
             begin
-              test_service = ::Ai::ProviderTestService.new(provider)
+              test_service = ::Ai::ProviderManagementService.new(provider)
               test_result = test_service.test_provider_connection
 
               result[:success] = test_result[:success]
@@ -521,7 +521,7 @@ module Api
 
         # POST /api/v1/ai/providers/:provider_id/credentials/:credential_id/test
         def credential_test
-          test_service = ::Ai::ProviderTestService.new(@credential)
+          test_service = ::Ai::ProviderManagementService.new(@credential)
           # Use test_with_details_simple for flat response format expected by controller
           test_result = test_service.test_with_details_simple
 

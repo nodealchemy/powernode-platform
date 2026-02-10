@@ -12,6 +12,7 @@ module Ai
     has_many :document_chunks, class_name: "Ai::DocumentChunk", foreign_key: :knowledge_base_id, dependent: :destroy
     has_many :rag_queries, class_name: "Ai::RagQuery", foreign_key: :knowledge_base_id, dependent: :destroy
     has_many :data_connectors, class_name: "Ai::DataConnector", foreign_key: :knowledge_base_id, dependent: :destroy
+    has_many :knowledge_graph_nodes, class_name: "Ai::KnowledgeGraphNode", foreign_key: :knowledge_base_id, dependent: :nullify
 
     # Validations
     validates :name, presence: true

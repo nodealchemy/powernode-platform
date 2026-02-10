@@ -55,7 +55,7 @@ module Api
           end
 
           def service
-            @service ||= ::Ai::Intelligence::NotificationIntelligenceService.new(account: current_account)
+            @service ||= ::Ai::Intelligence::OpsIntelligenceService.new(account: current_account)
           end
         end
       end

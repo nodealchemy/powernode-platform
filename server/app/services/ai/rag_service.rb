@@ -161,6 +161,13 @@ module Ai
 
     def query(knowledge_base_id, params, user: nil)
       kb = get_knowledge_base(knowledge_base_id)
+
+      # Delegate to hybrid search if mode specified
+      search_mode = params[:search_mode]&.to_s
+      if search_mode.present? && %w[hybrid graph keyword].include?(search_mode)
+        return hybrid_query(kb, params, user: user)
+      end
+
       start_time = Time.current
 
       # Create query record
@@ -275,6 +282,36 @@ module Ai
     end
 
     private
+
+    def hybrid_query(kb, params, user: nil)
+      hybrid_service = Ai::Rag::HybridSearchService.new(account)
+
+      result = hybrid_service.search(
+        query: params[:query],
+        mode: params[:search_mode] || :hybrid,
+        top_k: params[:top_k] || 10,
+        knowledge_base_id: kb.id
+      )
+
+      # Optionally rerank
+      if params[:enable_reranking]
+        reranking_service = Ai::Rag::RerankingService.new(account)
+        result[:results] = reranking_service.rerank(
+          query: params[:query],
+          results: result[:results]
+        )
+      end
+
+      kb.record_query!
+
+      {
+        query: params[:query],
+        search_mode: params[:search_mode],
+        results: result[:results],
+        total_retrieved: result[:results].size,
+        metadata: result[:metadata]
+      }
+    end
 
     def chunk_content(content, strategy, chunk_size, overlap)
       return [] if content.blank?

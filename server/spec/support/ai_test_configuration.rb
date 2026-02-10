@@ -157,7 +157,7 @@ RSpec.configure do |config|
       .and_return(success_response)
 
     # Mock provider testing service
-    allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+    allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
       .and_return({ success: true, response_time_ms: 800 })
 
     # Mock cost calculation

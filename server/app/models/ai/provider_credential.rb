@@ -97,7 +97,7 @@ module Ai
 
       begin
         # This would be implemented by the AI provider service
-        Ai::ProviderTestService.new(self).test_connection
+        Ai::ProviderManagementService.new(self).test_connection
       rescue StandardError => e
         record_failure!(e.message)
         false

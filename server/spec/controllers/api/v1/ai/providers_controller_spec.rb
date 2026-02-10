@@ -402,7 +402,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
     before do
       # Controller now uses test_with_details_simple for flat response format
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple).and_return({
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details_simple).and_return({
         success: true,
         response_time_ms: 150.5,
         message: 'Connection successful'
@@ -440,7 +440,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
       it 'updates credential status on failure' do
         # Controller now uses test_with_details_simple for flat response format
-        allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple).and_return({
+        allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details_simple).and_return({
           success: false,
           error: 'Connection failed'
         })
@@ -981,7 +981,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
     before do
       # Controller now uses test_with_details_simple for flat response format
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple).and_return({
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details_simple).and_return({
         success: true,
         response_time_ms: 120.3,
         message: 'Test successful'
@@ -1008,7 +1008,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
       it 'updates credential status on failure' do
         # Controller now uses test_with_details_simple for flat response format
-        allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple).and_return({
+        allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details_simple).and_return({
           success: false,
           error: 'Authentication failed'
         })

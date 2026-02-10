@@ -2,13 +2,8 @@
 
 module Ai
   module Intelligence
-    class SupplyChainAnalysisService
+    class SupplyChainAnalysisService < BaseIntelligenceService
       SEVERITY_WEIGHTS = { "critical" => 10, "high" => 7, "medium" => 4, "low" => 1, "none" => 0, "unknown" => 0 }.freeze
-
-      def initialize(account:)
-        @account = account
-        @logger = Rails.logger
-      end
 
       # AI-powered vulnerability triage with context-aware scoring
       def triage_vulnerabilities(sbom_id:)
@@ -304,21 +299,6 @@ module Ai
         { critical: counts["critical"] || 0, high: counts["high"] || 0, medium: counts["medium"] || 0, low: counts["low"] || 0 }
       end
 
-      def audit_action(action, resource_type, resource_id, context: {})
-        Ai::ComplianceAuditEntry.log!(account: @account, action_type: "ai_intelligence_#{action}", resource_type: resource_type, resource_id: resource_id, outcome: "success", description: "AI Intelligence: #{action.humanize}", context: context)
-      rescue StandardError => e
-        @logger.warn("Failed to log audit entry for #{action}: #{e.message}")
-      end
-
-      def success_response(**data) = { success: true }.merge(data)
-
-      def error_response(method_name, exception)
-        @logger.error("[Ai::Intelligence::SupplyChainAnalysisService##{method_name}] #{exception.message}")
-        @logger.error(exception.backtrace&.first(5)&.join("\n"))
-        { success: false, error: exception.message }
-      end
-
-      def error_hash(message) = { success: false, error: message }
     end
   end
 end

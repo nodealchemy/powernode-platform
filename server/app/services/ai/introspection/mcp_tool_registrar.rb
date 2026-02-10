@@ -215,7 +215,7 @@ module Ai
         end
 
         def metrics_service(account)
-          Ai::AiOpsMetricsService.new(account: account)
+          Ai::Analytics::DashboardService.new(account: account)
         end
 
         def health_service(account)

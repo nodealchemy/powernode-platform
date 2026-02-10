@@ -8,17 +8,23 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
 
   let(:headers) { auth_headers_for(user) }
 
-  let(:team_service) { instance_double(Ai::TeamOrchestrationService) }
+  let(:crud_service) { instance_double(Ai::Teams::CrudService) }
+  let(:config_service) { instance_double(Ai::Teams::ConfigurationService) }
+  let(:execution_service) { instance_double(Ai::Teams::ExecutionService) }
+  let(:analytics_service) { instance_double(Ai::Teams::AnalyticsService) }
 
   before do
-    allow(Ai::TeamOrchestrationService).to receive(:new).and_return(team_service)
+    allow(Ai::Teams::CrudService).to receive(:new).and_return(crud_service)
+    allow(Ai::Teams::ConfigurationService).to receive(:new).and_return(config_service)
+    allow(Ai::Teams::ExecutionService).to receive(:new).and_return(execution_service)
+    allow(Ai::Teams::AnalyticsService).to receive(:new).and_return(analytics_service)
   end
 
   describe 'GET /api/v1/ai/teams' do
     context 'with valid authentication' do
       it 'returns list of teams' do
         teams = double(total_count: 2, map: [])
-        allow(team_service).to receive(:list_teams).and_return(teams)
+        allow(crud_service).to receive(:list_teams).and_return(teams)
 
         get '/api/v1/ai/teams', headers: headers, as: :json
 
@@ -55,7 +61,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
+      allow(crud_service).to receive(:get_team).and_return(team)
     end
 
     context 'with valid authentication' do
@@ -94,22 +100,22 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
 
     context 'with valid authentication' do
       it 'creates a new team' do
-        allow(team_service).to receive(:create_team).and_return(created_team)
+        allow(crud_service).to receive(:create_team).and_return(created_team)
 
         post '/api/v1/ai/teams', params: valid_params, headers: headers, as: :json
 
         expect(response).to have_http_status(:created)
-        expect(team_service).to have_received(:create_team)
+        expect(crud_service).to have_received(:create_team)
           .with(hash_including(name: 'Test Team'), user: user)
       end
 
       it 'creates team from template' do
-        allow(team_service).to receive(:create_team_from_template).and_return(created_team)
+        allow(crud_service).to receive(:create_team_from_template).and_return(created_team)
 
         post '/api/v1/ai/teams', params: { template_id: 'tmpl123', name: 'Test Team' }, headers: headers, as: :json
 
         expect(response).to have_http_status(:created)
-        expect(team_service).to have_received(:create_team_from_template)
+        expect(crud_service).to have_received(:create_team_from_template)
       end
     end
   end
@@ -132,8 +138,8 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     let(:update_params) { { name: 'Updated Team' } }
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
-      allow(team_service).to receive(:update_team).and_return(team)
+      allow(crud_service).to receive(:get_team).and_return(team)
+      allow(crud_service).to receive(:update_team).and_return(team)
     end
 
     context 'with valid authentication' do
@@ -141,7 +147,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
         patch '/api/v1/ai/teams/t123', params: update_params, headers: headers, as: :json
 
         expect_success_response
-        expect(team_service).to have_received(:update_team).with('t123', hash_including(name: 'Updated Team'))
+        expect(crud_service).to have_received(:update_team).with('t123', hash_including(name: 'Updated Team'))
       end
     end
   end
@@ -150,8 +156,8 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     let(:team) { double(id: 't123') }
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
-      allow(team_service).to receive(:delete_team).and_return(true)
+      allow(crud_service).to receive(:get_team).and_return(team)
+      allow(crud_service).to receive(:delete_team).and_return(true)
     end
 
     context 'with valid authentication' do
@@ -159,7 +165,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
         delete '/api/v1/ai/teams/t123', headers: headers, as: :json
 
         expect_success_response
-        expect(team_service).to have_received(:delete_team).with('t123')
+        expect(crud_service).to have_received(:delete_team).with('t123')
       end
     end
   end
@@ -168,13 +174,13 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     let(:team) { double(id: 't123') }
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
+      allow(crud_service).to receive(:get_team).and_return(team)
     end
 
     context 'with valid authentication' do
       it 'returns list of roles' do
         roles = []
-        allow(team_service).to receive(:list_roles).and_return(roles)
+        allow(config_service).to receive(:list_roles).and_return(roles)
 
         get '/api/v1/ai/teams/t123/roles', headers: headers, as: :json
 
@@ -215,17 +221,17 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
+      allow(crud_service).to receive(:get_team).and_return(team)
     end
 
     context 'with valid authentication' do
       it 'creates a new role' do
-        allow(team_service).to receive(:create_role).and_return(created_role)
+        allow(config_service).to receive(:create_role).and_return(created_role)
 
         post '/api/v1/ai/teams/t123/roles', params: valid_params, headers: headers, as: :json
 
         expect(response).to have_http_status(:created)
-        expect(team_service).to have_received(:create_role)
+        expect(config_service).to have_received(:create_role)
       end
     end
   end
@@ -253,8 +259,8 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
-      allow(team_service).to receive(:update_role).and_return(role)
+      allow(crud_service).to receive(:get_team).and_return(team)
+      allow(config_service).to receive(:update_role).and_return(role)
     end
 
     context 'with valid authentication' do
@@ -262,7 +268,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
         patch '/api/v1/ai/teams/t123/roles/r123', params: { role_name: 'Senior Dev' }, headers: headers, as: :json
 
         expect_success_response
-        expect(team_service).to have_received(:update_role)
+        expect(config_service).to have_received(:update_role)
       end
     end
   end
@@ -271,8 +277,8 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     let(:team) { double(id: 't123') }
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
-      allow(team_service).to receive(:delete_role).and_return(true)
+      allow(crud_service).to receive(:get_team).and_return(team)
+      allow(config_service).to receive(:delete_role).and_return(true)
     end
 
     context 'with valid authentication' do
@@ -280,7 +286,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
         delete '/api/v1/ai/teams/t123/roles/r123', headers: headers, as: :json
 
         expect_success_response
-        expect(team_service).to have_received(:delete_role).with('t123', 'r123')
+        expect(config_service).to have_received(:delete_role).with('t123', 'r123')
       end
     end
   end
@@ -308,8 +314,8 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
-      allow(team_service).to receive(:assign_agent_to_role).and_return(role)
+      allow(crud_service).to receive(:get_team).and_return(team)
+      allow(config_service).to receive(:assign_agent_to_role).and_return(role)
     end
 
     context 'with valid authentication' do
@@ -318,7 +324,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
              params: { agent_id: 'a123' }, headers: headers, as: :json
 
         expect_success_response
-        expect(team_service).to have_received(:assign_agent_to_role).with('t123', 'r123', 'a123')
+        expect(config_service).to have_received(:assign_agent_to_role).with('t123', 'r123', 'a123')
       end
     end
   end
@@ -327,13 +333,13 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     let(:team) { double(id: 't123') }
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
+      allow(crud_service).to receive(:get_team).and_return(team)
     end
 
     context 'with valid authentication' do
       it 'returns list of channels' do
         channels = []
-        allow(team_service).to receive(:list_channels).and_return(channels)
+        allow(config_service).to receive(:list_channels).and_return(channels)
 
         get '/api/v1/ai/teams/t123/channels', headers: headers, as: :json
 
@@ -371,17 +377,17 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
+      allow(crud_service).to receive(:get_team).and_return(team)
     end
 
     context 'with valid authentication' do
       it 'creates a new channel' do
-        allow(team_service).to receive(:create_channel).and_return(created_channel)
+        allow(config_service).to receive(:create_channel).and_return(created_channel)
 
         post '/api/v1/ai/teams/t123/channels', params: { channel: valid_params }, headers: headers, as: :json
 
         expect(response).to have_http_status(:created)
-        expect(team_service).to have_received(:create_channel)
+        expect(config_service).to have_received(:create_channel)
       end
     end
   end
@@ -390,13 +396,13 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     let(:team) { double(id: 't123') }
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
+      allow(crud_service).to receive(:get_team).and_return(team)
     end
 
     context 'with valid authentication' do
       it 'returns list of executions' do
         executions = double(total_count: 5, map: [])
-        allow(team_service).to receive(:list_executions).and_return(executions)
+        allow(execution_service).to receive(:list_executions).and_return(executions)
 
         get '/api/v1/ai/teams/t123/executions', headers: headers, as: :json
 
@@ -442,17 +448,17 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
+      allow(crud_service).to receive(:get_team).and_return(team)
     end
 
     context 'with valid authentication' do
       it 'starts a new execution' do
-        allow(team_service).to receive(:start_execution).and_return(created_execution)
+        allow(execution_service).to receive(:start_execution).and_return(created_execution)
 
         post '/api/v1/ai/teams/t123/executions', params: valid_params, headers: headers, as: :json
 
         expect(response).to have_http_status(:created)
-        expect(team_service).to have_received(:start_execution)
+        expect(execution_service).to have_received(:start_execution)
       end
     end
   end
@@ -484,7 +490,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_execution).and_return(execution)
+      allow(execution_service).to receive(:get_execution).and_return(execution)
     end
 
     context 'with valid authentication' do
@@ -520,8 +526,8 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_execution).and_return(execution)
-      allow(team_service).to receive(:pause_execution).and_return(execution)
+      allow(execution_service).to receive(:get_execution).and_return(execution)
+      allow(execution_service).to receive(:pause_execution).and_return(execution)
     end
 
     context 'with valid authentication' do
@@ -529,7 +535,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
         post '/api/v1/ai/teams/executions/e123/pause', headers: headers, as: :json
 
         expect_success_response
-        expect(team_service).to have_received(:pause_execution).with('e123')
+        expect(execution_service).to have_received(:pause_execution).with('e123')
       end
     end
   end
@@ -556,8 +562,8 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_execution).and_return(execution)
-      allow(team_service).to receive(:resume_execution).and_return(execution)
+      allow(execution_service).to receive(:get_execution).and_return(execution)
+      allow(execution_service).to receive(:resume_execution).and_return(execution)
     end
 
     context 'with valid authentication' do
@@ -565,7 +571,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
         post '/api/v1/ai/teams/executions/e123/resume', headers: headers, as: :json
 
         expect_success_response
-        expect(team_service).to have_received(:resume_execution).with('e123')
+        expect(execution_service).to have_received(:resume_execution).with('e123')
       end
     end
   end
@@ -592,8 +598,8 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_execution).and_return(execution)
-      allow(team_service).to receive(:cancel_execution).and_return(execution)
+      allow(execution_service).to receive(:get_execution).and_return(execution)
+      allow(execution_service).to receive(:cancel_execution).and_return(execution)
     end
 
     context 'with valid authentication' do
@@ -602,7 +608,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
              params: { reason: 'User requested' }, headers: headers, as: :json
 
         expect_success_response
-        expect(team_service).to have_received(:cancel_execution).with('e123', reason: 'User requested')
+        expect(execution_service).to have_received(:cancel_execution).with('e123', reason: 'User requested')
       end
     end
   end
@@ -629,8 +635,8 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_execution).and_return(execution)
-      allow(team_service).to receive(:complete_execution).and_return(execution)
+      allow(execution_service).to receive(:get_execution).and_return(execution)
+      allow(execution_service).to receive(:complete_execution).and_return(execution)
     end
 
     context 'with valid authentication' do
@@ -639,7 +645,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
              params: { result: { success: true } }, headers: headers, as: :json
 
         expect_success_response
-        expect(team_service).to have_received(:complete_execution)
+        expect(execution_service).to have_received(:complete_execution)
       end
     end
   end
@@ -648,18 +654,18 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     let(:execution) { double(id: 'e123') }
 
     before do
-      allow(team_service).to receive(:get_execution).and_return(execution)
+      allow(execution_service).to receive(:get_execution).and_return(execution)
     end
 
     context 'with valid authentication' do
       it 'returns detailed execution information' do
         details = { tasks: [], messages: [] }
-        allow(team_service).to receive(:get_execution_details).and_return(details)
+        allow(analytics_service).to receive(:get_execution_details).and_return(details)
 
         get '/api/v1/ai/teams/executions/e123/details', headers: headers, as: :json
 
         expect_success_response
-        expect(team_service).to have_received(:get_execution_details).with('e123')
+        expect(analytics_service).to have_received(:get_execution_details).with('e123')
       end
     end
   end
@@ -669,7 +675,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     let(:execution) { double(id: 'e123', tasks: tasks_relation) }
 
     before do
-      allow(team_service).to receive(:get_execution).and_return(execution)
+      allow(execution_service).to receive(:get_execution).and_return(execution)
       allow(tasks_relation).to receive(:includes).with(:assigned_role, :assigned_agent).and_return([])
     end
 
@@ -713,17 +719,17 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     end
 
     before do
-      allow(team_service).to receive(:get_execution).and_return(execution)
+      allow(execution_service).to receive(:get_execution).and_return(execution)
     end
 
     context 'with valid authentication' do
       it 'creates a new task' do
-        allow(team_service).to receive(:create_task).and_return(created_task)
+        allow(execution_service).to receive(:create_task).and_return(created_task)
 
         post '/api/v1/ai/teams/executions/e123/tasks', params: valid_params, headers: headers, as: :json
 
         expect(response).to have_http_status(:created)
-        expect(team_service).to have_received(:create_task)
+        expect(execution_service).to have_received(:create_task)
       end
     end
   end
@@ -732,7 +738,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     context 'with valid authentication' do
       it 'returns list of templates' do
         templates = double(total_count: 3, map: [])
-        allow(team_service).to receive(:list_templates).and_return(templates)
+        allow(config_service).to receive(:list_templates).and_return(templates)
 
         get '/api/v1/ai/teams/templates', headers: headers, as: :json
 
@@ -748,18 +754,18 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
     let(:team) { double(id: 't123') }
 
     before do
-      allow(team_service).to receive(:get_team).and_return(team)
+      allow(crud_service).to receive(:get_team).and_return(team)
     end
 
     context 'with valid authentication' do
       it 'returns team analytics' do
         analytics = { total_executions: 10, success_rate: 0.9 }
-        allow(team_service).to receive(:get_team_analytics).and_return(analytics)
+        allow(analytics_service).to receive(:get_team_analytics).and_return(analytics)
 
         get '/api/v1/ai/teams/t123/analytics', headers: headers, as: :json
 
         expect_success_response
-        expect(team_service).to have_received(:get_team_analytics).with('t123', period_days: 30)
+        expect(analytics_service).to have_received(:get_team_analytics).with('t123', period_days: 30)
       end
     end
   end

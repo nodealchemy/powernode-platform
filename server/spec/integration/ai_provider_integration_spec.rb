@@ -99,7 +99,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
     end
 
     it 'handles credential test failures' do
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: false, error: 'Invalid API key' })
 
       post "/api/v1/ai/providers/#{provider.id}/credentials", params: {
@@ -147,7 +147,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
 
     before do
       # Create credentials for each provider using correct hash format
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 1000 })
 
       [ ollama, openai, anthropic ].each_with_index do |provider, idx|

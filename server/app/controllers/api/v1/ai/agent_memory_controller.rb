@@ -173,7 +173,7 @@ module Api
             )
           end
 
-          health = ::Ai::MemoryManagementService.context_health(context: context)
+          health = ::Ai::Memory::MaintenanceService.new(account: current_account).context_health(context: context)
 
           render_success(
             stats: health.merge(
@@ -202,7 +202,7 @@ module Api
             agent: @agent
           )
 
-          result = ::Ai::MemoryManagementService.sync_context(
+          result = ::Ai::Memory::MaintenanceService.new(account: current_account).sync_context(
             from_context: source_context,
             to_context: target_context,
             entry_types: params[:entry_types],

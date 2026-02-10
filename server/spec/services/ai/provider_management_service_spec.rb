@@ -65,7 +65,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     end
 
     it 'creates provider credential' do
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 1500 })
 
       credential = described_class.create_provider_credential(
@@ -83,7 +83,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     end
 
     it 'stores encrypted credentials' do
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: true })
 
       credential = described_class.create_provider_credential(
@@ -97,8 +97,8 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     end
 
     it 'tests credential after creation' do
-      test_service = instance_double(Ai::ProviderTestService)
-      allow(Ai::ProviderTestService).to receive(:new).and_return(test_service)
+      test_service = instance_double(Ai::ProviderManagementService)
+      allow(Ai::ProviderManagementService).to receive(:new).and_return(test_service)
       # Service now uses test_with_details_simple for flat response format
       allow(test_service).to receive(:test_with_details_simple).and_return({ success: true })
 
@@ -208,7 +208,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     let!(:other_account_credential) { create(:ai_provider_credential) }
 
     it 'tests all credentials for the account' do
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 1000 })
 
       results = described_class.test_all_credentials(account)
@@ -220,7 +220,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     end
 
     it 'includes credential information in results' do
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 1500 })
 
       results = described_class.test_all_credentials(account)
@@ -237,7 +237,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
     it 'handles test failures gracefully' do
       # Service now uses test_with_details_simple for flat response format
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details_simple)
         .and_return({ success: false, error: 'Connection timeout' })
 
       results = described_class.test_all_credentials(account)
@@ -249,7 +249,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
     it 'does not test credentials from other accounts' do
       # Service now uses test_with_details_simple for flat response format
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details_simple)
         .and_return({ success: true })
 
       results = described_class.test_all_credentials(account)
@@ -424,7 +424,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
     it 'handles network errors during credential testing gracefully' do
       openai_provider = create(:ai_provider, :openai)
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_raise(StandardError.new('Network error'))
 
       # Credential should still be created, but with failure recorded

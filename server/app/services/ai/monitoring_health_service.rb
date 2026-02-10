@@ -200,7 +200,7 @@ module Ai
     end
 
     def circuit_breaker_summary
-      ::Ai::WorkflowCircuitBreakerManager.health_summary
+      ::Ai::CircuitBreakerRegistry.health_summary
     end
 
     # =============================================================================

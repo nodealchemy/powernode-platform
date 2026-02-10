@@ -26,12 +26,12 @@ module Api
 
         # GET /api/v1/ai/roi/dashboard
         def dashboard
-          service = ::Ai::RoiAnalyticsService.new(
+          service = ::Ai::Analytics::CostAnalysisService.new(
             account: current_user.account,
             hourly_rate: params[:hourly_rate]&.to_f || 75.0
           )
 
-          dashboard_data = service.dashboard(period: @time_range)
+          dashboard_data = service.roi_dashboard(period: @time_range)
 
           render_success({
             dashboard: dashboard_data,
@@ -43,10 +43,10 @@ module Api
 
         # GET /api/v1/ai/roi/summary
         def summary
-          service = ::Ai::RoiAnalyticsService.new(account: current_user.account)
+          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
           period = params[:period]&.to_i&.days || 30.days
 
-          summary_data = service.summary_metrics(period)
+          summary_data = service.roi_summary_metrics(period)
 
           render_success({
             summary: summary_data,
@@ -60,7 +60,7 @@ module Api
 
         # GET /api/v1/ai/roi/trends
         def trends
-          service = ::Ai::RoiAnalyticsService.new(account: current_user.account)
+          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
           trends_data = service.roi_trends(@time_range)
 
           render_success({
@@ -71,10 +71,10 @@ module Api
 
         # GET /api/v1/ai/roi/daily_metrics
         def daily_metrics
-          service = ::Ai::RoiAnalyticsService.new(account: current_user.account)
+          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
           days = params[:days]&.to_i || 30
 
-          metrics = service.daily_metrics(days: days)
+          metrics = service.roi_daily_metrics(days: days)
 
           render_success({
             metrics: metrics,
@@ -88,7 +88,7 @@ module Api
 
         # GET /api/v1/ai/roi/by_workflow
         def by_workflow
-          service = ::Ai::RoiAnalyticsService.new(account: current_user.account)
+          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
           workflow_data = service.roi_by_workflow(@time_range)
 
           render_success({
@@ -99,7 +99,7 @@ module Api
 
         # GET /api/v1/ai/roi/by_agent
         def by_agent
-          service = ::Ai::RoiAnalyticsService.new(account: current_user.account)
+          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
           agent_data = service.roi_by_agent(@time_range)
 
           render_success({
@@ -110,8 +110,8 @@ module Api
 
         # GET /api/v1/ai/roi/by_provider
         def by_provider
-          service = ::Ai::RoiAnalyticsService.new(account: current_user.account)
-          provider_data = service.cost_by_provider(@time_range)
+          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
+          provider_data = service.roi_cost_by_provider(@time_range)
 
           render_success({
             providers: provider_data,
@@ -252,10 +252,10 @@ module Api
 
         # GET /api/v1/ai/roi/projections
         def projections
-          service = ::Ai::RoiAnalyticsService.new(account: current_user.account)
+          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
           period = params[:period]&.to_i&.days || 30.days
 
-          projection_data = service.projections(period)
+          projection_data = service.roi_projections(period)
 
           if projection_data
             render_success({
@@ -276,10 +276,10 @@ module Api
 
         # GET /api/v1/ai/roi/recommendations
         def recommendations
-          service = ::Ai::RoiAnalyticsService.new(account: current_user.account)
+          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
           period = params[:period]&.to_i&.days || 30.days
 
-          recommendations_data = service.recommendations(period)
+          recommendations_data = service.roi_recommendations(period)
 
           render_success({
             recommendations: recommendations_data,
@@ -293,12 +293,12 @@ module Api
 
         # GET /api/v1/ai/roi/compare
         def compare
-          service = ::Ai::RoiAnalyticsService.new(account: current_user.account)
+          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
 
           current_period = params[:current_period]&.to_i&.days || 30.days
           previous_period = params[:previous_period]&.to_i&.days || 30.days
 
-          comparison = service.compare_periods(
+          comparison = service.roi_compare_periods(
             current_period: current_period,
             previous_period: previous_period
           )
@@ -315,11 +315,11 @@ module Api
 
         # POST /api/v1/ai/roi/calculate
         def calculate
-          service = ::Ai::RoiAnalyticsService.new(account: current_user.account)
+          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
 
           if params[:date].present?
             date = Date.parse(params[:date])
-            metric = service.calculate_for_date(date: date)
+            metric = service.roi_calculate_for_date(date: date)
 
             render_success({
               metric: metric.summary,
@@ -329,7 +329,7 @@ module Api
             start_date = Date.parse(params[:start_date])
             end_date = Date.parse(params[:end_date])
 
-            metrics = service.calculate_for_range(start_date: start_date, end_date: end_date)
+            metrics = service.roi_calculate_for_range(start_date: start_date, end_date: end_date)
 
             render_success({
               metrics_calculated: metrics.count,
@@ -341,7 +341,7 @@ module Api
             })
           else
             # Default to today
-            metric = service.calculate_for_date(date: Date.current)
+            metric = service.roi_calculate_for_date(date: Date.current)
 
             render_success({
               metric: metric.summary,
@@ -356,12 +356,12 @@ module Api
 
         # POST /api/v1/ai/roi/aggregate
         def aggregate
-          service = ::Ai::RoiAnalyticsService.new(account: current_user.account)
+          service = ::Ai::Analytics::CostAnalysisService.new(account: current_user.account)
 
           period_type = params[:period_type] || "weekly"
           period_date = params[:period_date].present? ? Date.parse(params[:period_date]) : Date.current
 
-          result = service.aggregate_metrics(period_type: period_type, period_date: period_date)
+          result = service.roi_aggregate_metrics(period_type: period_type, period_date: period_date)
 
           if result
             render_success({

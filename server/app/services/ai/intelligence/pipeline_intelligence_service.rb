@@ -2,7 +2,7 @@
 
 module Ai
   module Intelligence
-    class PipelineIntelligenceService
+    class PipelineIntelligenceService < BaseIntelligenceService
       FAILURE_PATTERNS = {
         timeout: /timeout|timed out|deadline exceeded/i,
         oom: /out of memory|oom|killed|cannot allocate/i,
@@ -63,11 +63,6 @@ module Ai
       }.freeze
 
       PARALLELIZABLE_TYPES = %w[run_tests vulnerability_scan sbom_generate compliance_export].freeze
-
-      def initialize(account:)
-        @account = account
-        @logger = Rails.logger
-      end
 
       # Analyze a failed pipeline run - root cause + suggested fixes
       def analyze_failure(pipeline_run_id:)
@@ -396,22 +391,6 @@ module Ai
       end
 
       def account_pipelines = Devops::Pipeline.where(account: @account)
-
-      def audit_action(action, resource_type, resource_id, context: {})
-        Ai::ComplianceAuditEntry.log!(account: @account, action_type: "ai_intelligence_#{action}", resource_type: resource_type, resource_id: resource_id, outcome: "success", description: "AI Intelligence: #{action.humanize}", context: context)
-      rescue StandardError => e
-        @logger.warn("Failed to log audit entry for #{action}: #{e.message}")
-      end
-
-      def success_response(**data) = { success: true }.merge(data)
-
-      def error_response(method_name, exception)
-        @logger.error("[Ai::Intelligence::PipelineIntelligenceService##{method_name}] #{exception.message}")
-        @logger.error(exception.backtrace&.first(5)&.join("\n"))
-        { success: false, error: exception.message }
-      end
-
-      def error_hash(message) = { success: false, error: message }
     end
   end
 end

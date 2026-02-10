@@ -359,30 +359,35 @@ RSpec.describe Ai::ProviderClientService, type: :service do
     let(:service) { described_class.new(openai_credential) }
 
     before do
+      # Use timeouts to trigger actual exceptions that propagate through
+      # the circuit breaker (HTTP 500 responses are handled gracefully
+      # inside the call block and don't count as circuit breaker failures)
       stub_request(:post, 'https://api.openai.com/v1/chat/completions')
-        .to_return(status: 500, body: '{"error": "Server error"}')
+        .to_timeout
 
-      # Simulate multiple failures to trigger circuit breaker
+      # Simulate multiple failures to trigger circuit breaker (threshold = 5)
       5.times do
-        service.send_message([ { role: 'user', content: 'test' } ], { model: 'gpt-3.5-turbo' })
+        service.generate_text('test', model: 'gpt-3.5-turbo')
+      rescue StandardError
+        nil
       end
     end
 
     it 'opens circuit after multiple failures' do
-      # Circuit breaker is open when @circuit_breaker_opened_at is set
-      expect(service.instance_variable_get(:@circuit_breaker_opened_at)).to be_present
+      cb = service.instance_variable_get(:@circuit_breaker)
+      expect(cb.circuit_stats[:state]).to eq('open')
     end
 
     it 'blocks requests when circuit is open' do
-      result = service.send_message([ { role: 'user', content: 'test' } ], { model: 'gpt-3.5-turbo' })
+      result = service.generate_text('test', model: 'gpt-3.5-turbo')
 
       expect(result[:success]).to be false
       expect(result[:error]).to include('Circuit breaker is open')
-      expect(result[:error_type]).to eq('circuit_breaker_open')
+      expect(result[:circuit_breaker_open]).to be true
     end
 
     it 'includes retry information when circuit is open' do
-      result = service.send_message([ { role: 'user', content: 'test' } ], { model: 'gpt-3.5-turbo' })
+      result = service.generate_text('test', model: 'gpt-3.5-turbo')
 
       expect(result[:retry_after]).to be > 0
       expect(result[:circuit_breaker_state]).to eq('open')

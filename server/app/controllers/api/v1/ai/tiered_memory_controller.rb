@@ -86,8 +86,8 @@ module Api
 
         # POST /api/v1/ai/memory/consolidate
         def consolidate_all
-          consolidation = ::Ai::Memory::ConsolidationService.new(account: current_account)
-          result = consolidation.run_pipeline
+          maintenance = ::Ai::Memory::MaintenanceService.new(account: current_account)
+          result = maintenance.run_consolidation_pipeline
 
           render_success(data: result)
         rescue StandardError => e
@@ -96,8 +96,8 @@ module Api
 
         # POST /api/v1/ai/memory/decay
         def decay_all
-          decay = ::Ai::Memory::DecayService.new(account: current_account)
-          result = decay.run_pipeline
+          maintenance = ::Ai::Memory::MaintenanceService.new(account: current_account)
+          result = maintenance.run_decay_pipeline
 
           render_success(data: result)
         rescue StandardError => e

@@ -184,8 +184,8 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   describe 'GET /api/v1/ai/monitoring/circuit_breakers' do
     context 'with proper permissions' do
       it 'returns all circuit breaker states' do
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:all_states).and_return([])
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:health_summary)
+        allow(Ai::CircuitBreakerRegistry).to receive(:all_states).and_return([])
+        allow(Ai::CircuitBreakerRegistry).to receive(:health_summary)
           .and_return({ total: 10, healthy: 8, unhealthy: 2 })
 
         get '/api/v1/ai/monitoring/circuit_breakers', headers: headers, as: :json
@@ -201,8 +201,8 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   describe 'GET /api/v1/ai/monitoring/circuit_breakers/:service_name' do
     context 'with proper permissions' do
       it 'returns specific circuit breaker state' do
-        breaker = double('CircuitBreaker', stats: { state: 'closed', failure_count: 0 })
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_breaker).and_return(breaker)
+        breaker = double('CircuitBreaker', circuit_stats: { state: 'closed', failure_count: 0 })
+        allow(Ai::CircuitBreakerRegistry).to receive(:get_breaker).and_return(breaker)
 
         get '/api/v1/ai/monitoring/circuit_breakers/test_service', headers: headers, as: :json
 
@@ -213,7 +213,7 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
       end
 
       it 'returns error for non-existent breaker' do
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_breaker).and_return(nil)
+        allow(Ai::CircuitBreakerRegistry).to receive(:get_breaker).and_return(nil)
 
         get '/api/v1/ai/monitoring/circuit_breakers/nonexistent', headers: headers, as: :json
 
@@ -225,8 +225,8 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   describe 'POST /api/v1/ai/monitoring/circuit_breakers/:service_name/reset' do
     context 'with proper permissions' do
       it 'resets the circuit breaker' do
-        breaker = double('CircuitBreaker', reset!: true, stats: { state: 'closed' })
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_or_create_breaker)
+        breaker = double('CircuitBreaker', reset_circuit!: true, circuit_stats: { state: 'closed' })
+        allow(Ai::CircuitBreakerRegistry).to receive(:get_or_create_breaker)
           .with('test_service')
           .and_return(breaker)
 
@@ -255,8 +255,8 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   describe 'POST /api/v1/ai/monitoring/circuit_breakers/:service_name/open' do
     context 'with proper permissions' do
       it 'opens the circuit breaker' do
-        breaker = double('CircuitBreaker', open!: true, stats: { state: 'open' })
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_or_create_breaker)
+        breaker = double('CircuitBreaker', force_open!: true, circuit_stats: { state: 'open' })
+        allow(Ai::CircuitBreakerRegistry).to receive(:get_or_create_breaker)
           .with('test_service')
           .and_return(breaker)
 
@@ -273,8 +273,8 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   describe 'POST /api/v1/ai/monitoring/circuit_breakers/:service_name/close' do
     context 'with proper permissions' do
       it 'closes the circuit breaker' do
-        breaker = double('CircuitBreaker', close!: true, stats: { state: 'closed' })
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_or_create_breaker)
+        breaker = double('CircuitBreaker', force_close!: true, circuit_stats: { state: 'closed' })
+        allow(Ai::CircuitBreakerRegistry).to receive(:get_or_create_breaker)
           .with('test_service')
           .and_return(breaker)
 
@@ -291,8 +291,8 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   describe 'POST /api/v1/ai/monitoring/circuit_breakers/reset_all' do
     context 'with proper permissions' do
       it 'resets all circuit breakers' do
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:reset_all!).and_return(true)
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:health_summary)
+        allow(Ai::CircuitBreakerRegistry).to receive(:reset_all!).and_return(true)
+        allow(Ai::CircuitBreakerRegistry).to receive(:health_summary)
           .and_return({ total: 5, healthy: 5, unhealthy: 0 })
 
         post '/api/v1/ai/monitoring/circuit_breakers/reset_all', headers: headers, as: :json
@@ -308,7 +308,7 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   describe 'GET /api/v1/ai/monitoring/circuit_breakers/category/:category' do
     context 'with proper permissions' do
       it 'returns circuit breakers for category' do
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:category_states).and_return([])
+        allow(Ai::CircuitBreakerRegistry).to receive(:category_states).and_return([])
 
         get '/api/v1/ai/monitoring/circuit_breakers/category/providers', headers: headers, as: :json
 
@@ -323,10 +323,10 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   describe 'POST /api/v1/ai/monitoring/circuit_breakers/category/:category/reset' do
     context 'with proper permissions' do
       it 'resets circuit breakers in category' do
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:reset_category!)
+        allow(Ai::CircuitBreakerRegistry).to receive(:reset_category!)
           .with('providers')
           .and_return(true)
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:category_states)
+        allow(Ai::CircuitBreakerRegistry).to receive(:category_states)
           .with('providers')
           .and_return([])
 
@@ -349,8 +349,8 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   describe 'GET /api/v1/ai/monitoring/circuit_breakers/monitor' do
     context 'with proper permissions' do
       it 'returns monitoring data for monitor service' do
-        breaker = double('CircuitBreaker', stats: { state: 'closed', failure_count: 0 })
-        allow(Ai::WorkflowCircuitBreakerManager).to receive(:get_breaker)
+        breaker = double('CircuitBreaker', circuit_stats: { state: 'closed', failure_count: 0 })
+        allow(Ai::CircuitBreakerRegistry).to receive(:get_breaker)
           .with('monitor')
           .and_return(breaker)
 

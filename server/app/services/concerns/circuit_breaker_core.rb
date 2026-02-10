@@ -48,11 +48,17 @@ module CircuitBreakerCore
   #
   # @param resource_id [String] Unique identifier for the protected resource
   # @param service_name [String] Human-readable service name (optional)
-  # @param config [Hash] Configuration overrides
+  # @param config [Hash] Configuration overrides. Supports :storage option (:cache or :redis)
   def setup_circuit_breaker(resource_id:, service_name: nil, config: {})
+    config = config.symbolize_keys
+    @storage_backend = config.delete(:storage) || :cache
+    if @storage_backend == :redis
+      @redis = Redis.new(url: Rails.application.credentials.redis_url || "redis://localhost:6379")
+    end
+
     @resource_id = resource_id
     @service_name = service_name || resource_id
-    @config = DEFAULT_CONFIG.merge(config.symbolize_keys)
+    @config = DEFAULT_CONFIG.merge(config)
     @state_key = build_state_key(resource_id)
     load_circuit_state
   end
@@ -167,10 +173,22 @@ module CircuitBreakerCore
   end
 
   # Load circuit state from storage
-  # Override this in including class for custom storage
+  # Dispatches to cache or Redis based on @storage_backend
   #
   # @return [void]
   def load_circuit_state
+    @storage_backend == :redis ? redis_load_state : cache_load_state
+  end
+
+  # Save circuit state to storage
+  # Dispatches to cache or Redis based on @storage_backend
+  #
+  # @return [void]
+  def save_circuit_state
+    @storage_backend == :redis ? redis_save_state : cache_save_state
+  end
+
+  def cache_load_state
     cached = Rails.cache.read(@state_key)
 
     if cached
@@ -187,11 +205,7 @@ module CircuitBreakerCore
     end
   end
 
-  # Save circuit state to storage
-  # Override this in including class for custom storage
-  #
-  # @return [void]
-  def save_circuit_state
+  def cache_save_state
     Rails.cache.write(@state_key, {
       state: @state,
       failure_count: @failure_count,
@@ -202,6 +216,45 @@ module CircuitBreakerCore
       last_success_time: @last_success_time,
       state_changed_at: @state_changed_at
     }, expires_in: 24.hours)
+  end
+
+  def redis_load_state
+    state_data = @redis.get(@state_key)
+
+    if state_data
+      cached = JSON.parse(state_data, symbolize_names: true)
+      @state = cached[:state] || "closed"
+      @failure_count = cached[:failure_count] || 0
+      @success_count = cached[:success_count] || 0
+      @consecutive_failures = cached[:consecutive_failures] || 0
+      @consecutive_successes = cached[:consecutive_successes] || 0
+      @last_failure_time = cached[:last_failure_time] ? Time.parse(cached[:last_failure_time]) : nil
+      @last_success_time = cached[:last_success_time] ? Time.parse(cached[:last_success_time]) : nil
+      @state_changed_at = cached[:state_changed_at] ? Time.parse(cached[:state_changed_at]) : Time.current
+    else
+      reset_circuit!
+    end
+  rescue JSON::ParserError, StandardError => e
+    Rails.logger.error "[CircuitBreaker:#{@service_name}] Failed to load Redis state: #{e.message}"
+    reset_circuit!
+  end
+
+  def redis_save_state
+    state_data = {
+      state: @state,
+      failure_count: @failure_count,
+      success_count: @success_count,
+      consecutive_failures: @consecutive_failures,
+      consecutive_successes: @consecutive_successes,
+      last_failure_time: @last_failure_time&.iso8601,
+      last_success_time: @last_success_time&.iso8601,
+      state_changed_at: @state_changed_at.iso8601
+    }
+
+    @redis.set(@state_key, state_data.to_json)
+    @redis.expire(@state_key, 24.hours.to_i)
+  rescue StandardError => e
+    Rails.logger.error "[CircuitBreaker:#{@service_name}] Failed to save Redis state: #{e.message}"
   end
 
   # Check if circuit should transition from open to half-open

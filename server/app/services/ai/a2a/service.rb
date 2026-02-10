@@ -464,7 +464,7 @@ module Ai
         # Safely extract output
         output_json = task.output.is_a?(Hash) ? task.output.to_json : task.output.to_s
 
-        Memory::ExperientialMemoryService.new(agent: agent, account: @account).store(
+        Memory::StorageService.new(account: @account, agent: agent).store_experiential(
           content: {
             "task_type" => task_type,
             "input_summary" => input_text&.truncate(200),

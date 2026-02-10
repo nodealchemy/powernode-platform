@@ -119,18 +119,18 @@ module Api
 
         # GET /api/v1/ai/monitoring/circuit_breakers
         def circuit_breakers_index
-          states = ::Ai::WorkflowCircuitBreakerManager.all_states
-          summary = ::Ai::WorkflowCircuitBreakerManager.health_summary
+          states = ::Ai::CircuitBreakerRegistry.all_states
+          summary = ::Ai::CircuitBreakerRegistry.health_summary
 
           render_success(circuit_breakers: states, summary: summary, timestamp: Time.current.iso8601)
         end
 
         # GET /api/v1/ai/monitoring/circuit_breakers/:service_name
         def circuit_breaker_show
-          breaker = ::Ai::WorkflowCircuitBreakerManager.get_breaker(params[:service_name])
+          breaker = ::Ai::CircuitBreakerRegistry.get_breaker(params[:service_name])
 
           if breaker
-            render_success(service_name: params[:service_name], stats: breaker.stats, timestamp: Time.current.iso8601)
+            render_success(service_name: params[:service_name], stats: breaker.circuit_stats, timestamp: Time.current.iso8601)
           else
             render_error("Circuit breaker not found", status: :not_found)
           end
@@ -138,35 +138,35 @@ module Api
 
         # POST /api/v1/ai/monitoring/circuit_breakers/:service_name/reset
         def circuit_breaker_reset
-          breaker = ::Ai::WorkflowCircuitBreakerManager.get_or_create_breaker(params[:service_name])
-          breaker.reset!
+          breaker = ::Ai::CircuitBreakerRegistry.get_or_create_breaker(params[:service_name])
+          breaker.reset_circuit!
 
-          render_success(message: "Circuit breaker reset for #{params[:service_name]}", service_name: params[:service_name], state: breaker.stats)
+          render_success(message: "Circuit breaker reset for #{params[:service_name]}", service_name: params[:service_name], state: breaker.circuit_stats)
           log_audit_event("ai.monitoring.circuit_breaker.reset", current_user.account, service_name: params[:service_name])
         end
 
         # POST /api/v1/ai/monitoring/circuit_breakers/:service_name/open
         def circuit_breaker_open
-          breaker = ::Ai::WorkflowCircuitBreakerManager.get_or_create_breaker(params[:service_name])
-          breaker.open!
+          breaker = ::Ai::CircuitBreakerRegistry.get_or_create_breaker(params[:service_name])
+          breaker.force_open!
 
-          render_success(message: "Circuit breaker opened for #{params[:service_name]}", service_name: params[:service_name], state: breaker.stats)
+          render_success(message: "Circuit breaker opened for #{params[:service_name]}", service_name: params[:service_name], state: breaker.circuit_stats)
           log_audit_event("ai.monitoring.circuit_breaker.open", current_user.account, service_name: params[:service_name])
         end
 
         # POST /api/v1/ai/monitoring/circuit_breakers/:service_name/close
         def circuit_breaker_close
-          breaker = ::Ai::WorkflowCircuitBreakerManager.get_or_create_breaker(params[:service_name])
-          breaker.close!
+          breaker = ::Ai::CircuitBreakerRegistry.get_or_create_breaker(params[:service_name])
+          breaker.force_close!
 
-          render_success(message: "Circuit breaker closed for #{params[:service_name]}", service_name: params[:service_name], state: breaker.stats)
+          render_success(message: "Circuit breaker closed for #{params[:service_name]}", service_name: params[:service_name], state: breaker.circuit_stats)
           log_audit_event("ai.monitoring.circuit_breaker.close", current_user.account, service_name: params[:service_name])
         end
 
         # POST /api/v1/ai/monitoring/circuit_breakers/reset_all
         def circuit_breakers_reset_all
-          ::Ai::WorkflowCircuitBreakerManager.reset_all!
-          summary = ::Ai::WorkflowCircuitBreakerManager.health_summary
+          ::Ai::CircuitBreakerRegistry.reset_all!
+          summary = ::Ai::CircuitBreakerRegistry.health_summary
 
           render_success(message: "All circuit breakers reset", summary: summary, timestamp: Time.current.iso8601)
           log_audit_event("ai.monitoring.circuit_breakers.reset_all", current_user.account)
@@ -174,15 +174,15 @@ module Api
 
         # GET /api/v1/ai/monitoring/circuit_breakers/category/:category
         def circuit_breakers_category
-          states = ::Ai::WorkflowCircuitBreakerManager.category_states(params[:category])
+          states = ::Ai::CircuitBreakerRegistry.category_states(params[:category])
 
           render_success(category: params[:category], circuit_breakers: states, count: states.length, timestamp: Time.current.iso8601)
         end
 
         # POST /api/v1/ai/monitoring/circuit_breakers/category/:category/reset
         def circuit_breakers_category_reset
-          ::Ai::WorkflowCircuitBreakerManager.reset_category!(params[:category])
-          states = ::Ai::WorkflowCircuitBreakerManager.category_states(params[:category])
+          ::Ai::CircuitBreakerRegistry.reset_category!(params[:category])
+          states = ::Ai::CircuitBreakerRegistry.category_states(params[:category])
 
           render_success(message: "Circuit breakers reset for category: #{params[:category]}", category: params[:category], circuit_breakers: states)
           log_audit_event("ai.monitoring.circuit_breakers.category_reset", current_user.account, category: params[:category])
@@ -190,7 +190,7 @@ module Api
 
         # GET /api/v1/ai/monitoring/circuit_breakers/monitor
         def circuit_breakers_monitor
-          summary = ::Ai::WorkflowCircuitBreakerManager.monitor_and_alert
+          summary = ::Ai::CircuitBreakerRegistry.monitor_and_alert
 
           render_success(monitored_at: Time.current.iso8601, summary: summary, alerts_triggered: summary[:unhealthy] > 0 || summary[:degraded] > 0)
         end

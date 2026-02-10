@@ -2,14 +2,9 @@
 
 module Ai
   module Intelligence
-    class RevenueIntelligenceService
+    class RevenueIntelligenceService < BaseIntelligenceService
       HEALTH_STATUSES = %w[critical at_risk needs_attention healthy thriving].freeze
       RISK_TIERS = %w[critical high medium low minimal].freeze
-
-      def initialize(account:)
-        @account = account
-        @logger = Rails.logger
-      end
 
       # Analyze revenue data and generate actionable insights
       def generate_insights(period_days: 30)
@@ -308,21 +303,6 @@ module Ai
 
       def revenue_snapshots = RevenueSnapshot.for_account(@account)
 
-      def audit_action(action, resource_type, resource_id, context: {})
-        Ai::ComplianceAuditEntry.log!(account: @account, action_type: "ai_intelligence_#{action}", resource_type: resource_type, resource_id: resource_id, outcome: "success", description: "AI Intelligence: #{action.humanize}", context: context)
-      rescue StandardError => e
-        @logger.warn("Failed to log audit entry for #{action}: #{e.message}")
-      end
-
-      def success_response(**data) = { success: true }.merge(data)
-
-      def error_response(method_name, exception)
-        @logger.error("[Ai::Intelligence::RevenueIntelligenceService##{method_name}] #{exception.message}")
-        @logger.error(exception.backtrace&.first(5)&.join("\n"))
-        { success: false, error: exception.message }
-      end
-
-      def error_hash(message) = { success: false, error: message }
     end
   end
 end

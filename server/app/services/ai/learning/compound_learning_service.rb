@@ -30,8 +30,8 @@ module Ai
         # 1. Marker-based extraction (backward compat with SharedLearningService)
         if successful && execution.respond_to?(:output_result)
           output = execution.output_result
-          marker_service = Ai::Memory::SharedLearningService.new(account: @account)
-          markers = marker_service.extract_learnings_from_output(output: output)
+          storage = Ai::Memory::StorageService.new(account: @account)
+          markers = storage.extract_learnings_from_output(output: output)
           markers.each do |m|
             learnings << m.merge(
               extraction_method: "marker",

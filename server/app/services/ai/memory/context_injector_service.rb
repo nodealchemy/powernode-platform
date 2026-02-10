@@ -12,8 +12,7 @@ module Ai
       def initialize(agent:, account:)
         @agent = agent
         @account = account
-        @factual_service = FactualMemoryService.new(agent: agent, account: account)
-        @experiential_service = ExperientialMemoryService.new(agent: agent, account: account)
+        @storage_service = StorageService.new(account: account, agent: agent)
       end
 
       # Build optimized context for LLM injection
@@ -122,7 +121,7 @@ module Ai
       private
 
       def inject_factual_memory(char_budget, task)
-        facts = @factual_service.all(limit: 50)
+        facts = @storage_service.all_facts(limit: 50)
         return [ nil, 0 ] if facts.empty?
 
         # Sort by importance and recency
@@ -212,8 +211,8 @@ module Ai
       def inject_shared_learnings(char_budget, query)
         return [ nil, 0 ] if query.blank?
 
-        learning_service = Ai::Memory::SharedLearningService.new(account: @account)
-        context_text = learning_service.build_learning_context(
+        storage = Ai::Memory::StorageService.new(account: @account)
+        context_text = storage.build_learning_context(
           query: query,
           max_chars: char_budget
         )
@@ -253,7 +252,7 @@ module Ai
         return [ nil, 0 ] if query.blank?
 
         # Search for relevant experiences
-        experiences = @experiential_service.search(query, limit: 10, threshold: 0.6)
+        experiences = @storage_service.search_experiential(query, limit: 10, threshold: 0.6)
         return [ nil, 0 ] if experiences.empty?
 
         context_lines = [ "## Relevant Experience" ]

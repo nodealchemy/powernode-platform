@@ -33,7 +33,7 @@ module Api
 
         # GET /api/v1/ai/teams
         def index
-          teams = @team_service.list_teams(filter_params)
+          teams = @crud_service.list_teams(filter_params)
 
           render_success(
             teams: teams.map { |t| serialize_team(t) },
@@ -49,22 +49,22 @@ module Api
         # POST /api/v1/ai/teams
         def create
           team = if params[:template_id].present?
-                   @team_service.create_team_from_template(params[:template_id], name: params[:name], user: current_user)
+                   @crud_service.create_team_from_template(params[:template_id], name: params[:name], user: current_user)
           else
-                   @team_service.create_team(team_params, user: current_user)
+                   @crud_service.create_team(team_params, user: current_user)
           end
           render_success(serialize_team(team), status: :created)
         end
 
         # PATCH /api/v1/ai/teams/:id
         def update
-          team = @team_service.update_team(@team.id, team_params)
+          team = @crud_service.update_team(@team.id, team_params)
           render_success(serialize_team(team))
         end
 
         # DELETE /api/v1/ai/teams/:id
         def destroy
-          @team_service.delete_team(@team.id)
+          @crud_service.delete_team(@team.id)
           render_success(success: true)
         end
 
@@ -74,31 +74,31 @@ module Api
 
         # GET /api/v1/ai/teams/:team_id/roles
         def list_roles
-          roles = @team_service.list_roles(@team.id)
+          roles = @config_service.list_roles(@team.id)
           render_success(roles: roles.map { |r| serialize_role(r) })
         end
 
         # POST /api/v1/ai/teams/:team_id/roles
         def create_role
-          role = @team_service.create_role(@team.id, role_params)
+          role = @config_service.create_role(@team.id, role_params)
           render_success(serialize_role(role), status: :created)
         end
 
         # PATCH /api/v1/ai/teams/:team_id/roles/:id
         def update_role
-          role = @team_service.update_role(@team.id, params[:id], role_params)
+          role = @config_service.update_role(@team.id, params[:id], role_params)
           render_success(serialize_role(role))
         end
 
         # DELETE /api/v1/ai/teams/:team_id/roles/:id
         def delete_role
-          @team_service.delete_role(@team.id, params[:id])
+          @config_service.delete_role(@team.id, params[:id])
           render_success(success: true)
         end
 
         # POST /api/v1/ai/teams/:team_id/roles/:id/assign_agent
         def assign_agent_to_role
-          role = @team_service.assign_agent_to_role(@team.id, params[:id], params[:agent_id])
+          role = @config_service.assign_agent_to_role(@team.id, params[:id], params[:agent_id])
           render_success(serialize_role(role))
         end
 
@@ -108,31 +108,31 @@ module Api
 
         # GET /api/v1/ai/teams/:team_id/channels
         def list_channels
-          channels = @team_service.list_channels(@team.id)
+          channels = @config_service.list_channels(@team.id)
           render_success(channels: channels.map { |c| serialize_channel(c) })
         end
 
         # POST /api/v1/ai/teams/:team_id/channels
         def create_channel
-          channel = @team_service.create_channel(@team.id, channel_params)
+          channel = @config_service.create_channel(@team.id, channel_params)
           render_success(serialize_channel(channel), status: :created)
         end
 
         # GET /api/v1/ai/teams/:team_id/channels/:id
         def show_channel
-          channel = @team_service.get_channel(@team.id, params[:id])
+          channel = @config_service.get_channel(@team.id, params[:id])
           render_success(serialize_channel(channel))
         end
 
         # PATCH /api/v1/ai/teams/:team_id/channels/:id
         def update_channel
-          channel = @team_service.update_channel(@team.id, params[:id], channel_params)
+          channel = @config_service.update_channel(@team.id, params[:id], channel_params)
           render_success(serialize_channel(channel))
         end
 
         # DELETE /api/v1/ai/teams/:team_id/channels/:id
         def delete_channel
-          @team_service.delete_channel(@team.id, params[:id])
+          @config_service.delete_channel(@team.id, params[:id])
           render_success(message: "Channel deleted successfully")
         end
 
@@ -163,7 +163,7 @@ module Api
 
         # GET /api/v1/ai/teams/:team_id/executions
         def list_executions
-          executions = @team_service.list_executions(@team.id, filter_params)
+          executions = @execution_service.list_executions(@team.id, filter_params)
 
           render_success(
             executions: executions.map { |e| serialize_execution(e) },
@@ -173,8 +173,8 @@ module Api
 
         # POST /api/v1/ai/teams/:team_id/executions
         def start_execution
-          team = @team_service.get_team(params[:team_id])
-          execution = @team_service.start_execution(team.id, execution_params, user: current_user)
+          team = @crud_service.get_team(params[:team_id])
+          execution = @execution_service.start_execution(team.id, execution_params, user: current_user)
           render_success(serialize_execution(execution, detailed: true), status: :created)
         end
 
@@ -185,31 +185,31 @@ module Api
 
         # POST /api/v1/ai/teams/executions/:id/pause
         def pause_execution
-          execution = @team_service.pause_execution(@execution.id)
+          execution = @execution_service.pause_execution(@execution.id)
           render_success(serialize_execution(execution))
         end
 
         # POST /api/v1/ai/teams/executions/:id/resume
         def resume_execution
-          execution = @team_service.resume_execution(@execution.id)
+          execution = @execution_service.resume_execution(@execution.id)
           render_success(serialize_execution(execution))
         end
 
         # POST /api/v1/ai/teams/executions/:id/cancel
         def cancel_execution
-          execution = @team_service.cancel_execution(@execution.id, reason: params[:reason])
+          execution = @execution_service.cancel_execution(@execution.id, reason: params[:reason])
           render_success(serialize_execution(execution))
         end
 
         # POST /api/v1/ai/teams/executions/:id/complete
         def complete_execution
-          execution = @team_service.complete_execution(@execution.id, params[:result] || {})
+          execution = @execution_service.complete_execution(@execution.id, params[:result] || {})
           render_success(serialize_execution(execution))
         end
 
         # GET /api/v1/ai/teams/executions/:id/details
         def execution_details
-          details = @team_service.get_execution_details(@execution.id)
+          details = @analytics_service.get_execution_details(@execution.id)
           render_success(details)
         end
 
@@ -225,43 +225,43 @@ module Api
 
         # POST /api/v1/ai/teams/executions/:execution_id/tasks
         def create_task
-          task = @team_service.create_task(@execution.id, task_params)
+          task = @execution_service.create_task(@execution.id, task_params)
           render_success(serialize_task(task), status: :created)
         end
 
         # GET /api/v1/ai/teams/executions/:execution_id/tasks/:id
         def show_task
-          task = @team_service.get_task(@execution.id, params[:id])
+          task = @execution_service.get_task(@execution.id, params[:id])
           render_success(serialize_task(task, detailed: true))
         end
 
         # POST /api/v1/ai/teams/executions/:execution_id/tasks/:id/assign
         def assign_task
-          task = @team_service.assign_task(@execution.id, params[:id], role_id: params[:role_id], agent_id: params[:agent_id])
+          task = @execution_service.assign_task(@execution.id, params[:id], role_id: params[:role_id], agent_id: params[:agent_id])
           render_success(serialize_task(task))
         end
 
         # POST /api/v1/ai/teams/executions/:execution_id/tasks/:id/start
         def start_task
-          task = @team_service.start_task(@execution.id, params[:id])
+          task = @execution_service.start_task(@execution.id, params[:id])
           render_success(serialize_task(task))
         end
 
         # POST /api/v1/ai/teams/executions/:execution_id/tasks/:id/complete
         def complete_task
-          task = @team_service.complete_task(@execution.id, params[:id], output: params[:output] || {})
+          task = @execution_service.complete_task(@execution.id, params[:id], output: params[:output] || {})
           render_success(serialize_task(task))
         end
 
         # POST /api/v1/ai/teams/executions/:execution_id/tasks/:id/fail
         def fail_task
-          task = @team_service.fail_task(@execution.id, params[:id], reason: params[:reason])
+          task = @execution_service.fail_task(@execution.id, params[:id], reason: params[:reason])
           render_success(serialize_task(task))
         end
 
         # POST /api/v1/ai/teams/executions/:execution_id/tasks/:id/delegate
         def delegate_task
-          new_task = @team_service.delegate_task(@execution.id, params[:id], to_role_id: params[:to_role_id], to_agent_id: params[:to_agent_id])
+          new_task = @execution_service.delegate_task(@execution.id, params[:id], to_role_id: params[:to_role_id], to_agent_id: params[:to_agent_id])
           render_success(serialize_task(new_task))
         end
 
@@ -271,19 +271,19 @@ module Api
 
         # GET /api/v1/ai/teams/executions/:execution_id/messages
         def list_messages
-          messages = @team_service.get_messages(@execution.id, message_filter_params)
+          messages = @execution_service.get_messages(@execution.id, message_filter_params)
           render_success(messages: messages.map { |m| serialize_message(m) })
         end
 
         # POST /api/v1/ai/teams/executions/:execution_id/messages
         def send_message
-          message = @team_service.send_message(@execution.id, message_params)
+          message = @execution_service.send_message(@execution.id, message_params)
           render_success(serialize_message(message), status: :created)
         end
 
         # POST /api/v1/ai/teams/executions/:execution_id/messages/:id/reply
         def reply_to_message
-          reply = @team_service.reply_to_message(@execution.id, params[:id], reply_params)
+          reply = @execution_service.reply_to_message(@execution.id, params[:id], reply_params)
           render_success(serialize_message(reply))
         end
 
@@ -293,7 +293,7 @@ module Api
 
         # GET /api/v1/ai/teams/templates
         def list_templates
-          templates = @team_service.list_templates(template_filter_params)
+          templates = @config_service.list_templates(template_filter_params)
 
           render_success(
             templates: templates.map { |t| serialize_template(t) },
@@ -303,19 +303,19 @@ module Api
 
         # GET /api/v1/ai/teams/templates/:id
         def show_template
-          template = @team_service.get_template(params[:id])
+          template = @config_service.get_template(params[:id])
           render_success(serialize_template(template, detailed: true))
         end
 
         # POST /api/v1/ai/teams/templates
         def create_template
-          template = @team_service.create_template(template_params, user: current_user)
+          template = @config_service.create_template(template_params, user: current_user)
           render_success(serialize_template(template), status: :created)
         end
 
         # POST /api/v1/ai/teams/templates/:id/publish
         def publish_template
-          template = @team_service.publish_template(params[:id])
+          template = @config_service.publish_template(params[:id])
           render_success(serialize_template(template))
         end
 
@@ -326,7 +326,7 @@ module Api
         # GET /api/v1/ai/teams/:team_id/analytics
         def analytics
           period_days = params[:period_days]&.to_i || 30
-          analytics = @team_service.get_team_analytics(@team.id, period_days: period_days)
+          analytics = @analytics_service.get_team_analytics(@team.id, period_days: period_days)
           render_success(analytics)
         end
 
@@ -336,7 +336,7 @@ module Api
 
         # GET /api/v1/ai/teams/:team_id/composition_health
         def composition_health
-          health = @team_service.composition_health(@team.id)
+          health = @crud_service.composition_health(@team.id)
           render_success(health)
         end
 
@@ -346,19 +346,19 @@ module Api
 
         # GET /api/v1/ai/teams/role_profiles
         def list_role_profiles
-          profiles = @team_service.list_role_profiles(role_profile_filter_params)
+          profiles = @crud_service.list_role_profiles(role_profile_filter_params)
           render_success(role_profiles: profiles.map { |p| serialize_role_profile(p) })
         end
 
         # GET /api/v1/ai/teams/role_profiles/:id
         def show_role_profile
-          profile = @team_service.get_role_profile(params[:id])
+          profile = @crud_service.get_role_profile(params[:id])
           render_success(serialize_role_profile(profile))
         end
 
         # POST /api/v1/ai/teams/:team_id/roles/:id/apply_profile
         def apply_role_profile
-          role = @team_service.apply_role_profile(@team.id, params[:id], params[:profile_id])
+          role = @crud_service.apply_role_profile(@team.id, params[:id], params[:profile_id])
           render_success(serialize_role(role))
         end
 
@@ -368,19 +368,19 @@ module Api
 
         # GET /api/v1/ai/teams/trajectories
         def list_trajectories
-          trajectories = @team_service.list_trajectories(trajectory_filter_params)
+          trajectories = @crud_service.list_trajectories(trajectory_filter_params)
           render_success(trajectories: trajectories.map { |t| serialize_trajectory(t) })
         end
 
         # GET /api/v1/ai/teams/trajectories/:id
         def show_trajectory
-          trajectory = @team_service.get_trajectory(params[:id])
+          trajectory = @crud_service.get_trajectory(params[:id])
           render_success(serialize_trajectory(trajectory, detailed: true))
         end
 
         # GET /api/v1/ai/teams/trajectories/search
         def search_trajectories
-          trajectories = @team_service.search_trajectories(
+          trajectories = @crud_service.search_trajectories(
             params[:query],
             trajectory_filter_params
           )
@@ -393,20 +393,20 @@ module Api
 
         # GET /api/v1/ai/teams/executions/:execution_id/tasks/:task_id/reviews
         def list_task_reviews
-          task = @team_service.get_task(@execution.id, params[:task_id])
-          reviews = @team_service.list_task_reviews(task.id)
+          task = @execution_service.get_task(@execution.id, params[:task_id])
+          reviews = @crud_service.list_task_reviews(task.id)
           render_success(reviews: reviews.map { |r| serialize_review(r) })
         end
 
         # GET /api/v1/ai/teams/reviews/:id
         def show_review
-          review = @team_service.get_task_review(params[:id])
+          review = @crud_service.get_task_review(params[:id])
           render_success(serialize_review(review))
         end
 
         # POST /api/v1/ai/teams/reviews/:id/process
         def process_review
-          review = @team_service.process_review(
+          review = @crud_service.process_review(
             params[:id],
             action: params[:action_type],
             notes: params[:notes]
@@ -444,22 +444,25 @@ module Api
 
         # PUT /api/v1/ai/teams/:team_id/review_config
         def update_review_config
-          team = @team_service.configure_team_review(@team.id, review_config_params.to_h)
+          team = @crud_service.configure_team_review(@team.id, review_config_params.to_h)
           render_success(serialize_team(team, detailed: true))
         end
 
         private
 
         def set_team_service
-          @team_service = ::Ai::TeamOrchestrationService.new(current_account)
+          @crud_service = ::Ai::Teams::CrudService.new(account: current_account)
+          @config_service = ::Ai::Teams::ConfigurationService.new(account: current_account)
+          @execution_service = ::Ai::Teams::ExecutionService.new(account: current_account)
+          @analytics_service = ::Ai::Teams::AnalyticsService.new(account: current_account)
         end
 
         def set_team
-          @team = @team_service.get_team(params[:team_id] || params[:id])
+          @team = @crud_service.get_team(params[:team_id] || params[:id])
         end
 
         def set_execution
-          @execution = @team_service.get_execution(params[:execution_id] || params[:id])
+          @execution = @execution_service.get_execution(params[:execution_id] || params[:id])
         end
 
         def filter_params

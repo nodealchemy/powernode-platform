@@ -57,6 +57,11 @@ class Account < ApplicationRecord
   has_many :ai_rag_queries, class_name: "Ai::RagQuery", dependent: :destroy
   has_many :ai_data_connectors, class_name: "Ai::DataConnector", dependent: :destroy
 
+  # AI Knowledge Graph associations (Phase 5 - Knowledge Graphs + Hybrid RAG)
+  has_many :ai_knowledge_graph_nodes, class_name: "Ai::KnowledgeGraphNode", dependent: :destroy
+  has_many :ai_knowledge_graph_edges, class_name: "Ai::KnowledgeGraphEdge", dependent: :destroy
+  has_many :ai_hybrid_search_results, class_name: "Ai::HybridSearchResult", dependent: :destroy
+
   # AI Multi-Agent Team associations (Phase 3 - Team Orchestration)
   has_many :ai_team_roles, class_name: "Ai::TeamRole", dependent: :destroy
   has_many :ai_team_executions, class_name: "Ai::TeamExecution", dependent: :destroy

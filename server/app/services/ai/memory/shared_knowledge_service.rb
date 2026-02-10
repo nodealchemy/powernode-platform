@@ -5,7 +5,7 @@ module Ai
     # Shared Knowledge Service - Manages SharedKnowledge entries with semantic search
     # and ACL-based access control. Uses pgvector for similarity search and deduplication.
     #
-    # Unlike SharedLearningService (which uses MemoryPool), this service operates
+    # Unlike StorageService shared learning methods (which use MemoryPool), this service operates
     # directly on the Ai::SharedKnowledge model with vector embeddings.
     class SharedKnowledgeService
       SIMILARITY_THRESHOLD = 0.85

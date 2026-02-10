@@ -29,12 +29,12 @@ module AiTestHelpers
     end
 
     def mock_successful_provider_test
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 1200 })
     end
 
     def mock_failed_provider_test(error_message = 'Connection failed')
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: false, error: error_message })
     end
 

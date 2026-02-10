@@ -101,13 +101,8 @@ module Api
 
         # GET /api/v1/ai/analytics/insights
         def insights
-          analytics_service = ::Ai::AnalyticsInsightsService.new(
-            account: account_for_analytics,
-            time_range: @time_range
-          )
-
           render_success({
-            insights: analytics_service.generate_insights,
+            insights: generate_aggregated_insights,
             generated_at: Time.current.iso8601,
             time_range: time_range_info
           })
@@ -397,6 +392,26 @@ module Api
             period: params[:time_range] || "30d",
             seconds: @time_range.to_i
           }
+        end
+
+        # =============================================================================
+        # INSIGHTS (aggregated from multiple services)
+        # =============================================================================
+
+        def generate_aggregated_insights
+          cache_key = "ai:analytics:insights:#{account_for_analytics&.id}:#{@time_range.to_i}"
+
+          Rails.cache.fetch(cache_key, expires_in: 1.hour) do
+            {
+              performance_insights: performance_service.analyze_performance_trends,
+              cost_insights: cost_service.full_analysis.slice(:cost_trend, :optimization_potential, :anomalies),
+              usage_insights: {
+                summary: dashboard_service.generate_summary_metrics,
+                trends: dashboard_service.generate_trend_data
+              },
+              recommendations: generate_optimization_recommendations
+            }
+          end
         end
 
         # =============================================================================

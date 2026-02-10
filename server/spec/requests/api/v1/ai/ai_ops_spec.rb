@@ -9,10 +9,10 @@ RSpec.describe 'Api::V1::Ai::AiOps', type: :request do
   let(:regular_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(user) }
 
-  let(:service) { instance_double('Ai::AiOpsMetricsService') }
+  let(:service) { instance_double('Ai::Analytics::DashboardService') }
 
   before do
-    allow(Ai::AiOpsMetricsService).to receive(:new).and_return(service)
+    allow(Ai::Analytics::DashboardService).to receive(:new).and_return(service)
   end
 
   describe 'GET /api/v1/ai/aiops/dashboard' do
@@ -26,7 +26,7 @@ RSpec.describe 'Api::V1::Ai::AiOps', type: :request do
     end
 
     before do
-      allow(service).to receive(:dashboard).and_return(dashboard_data)
+      allow(service).to receive(:aiops_dashboard).and_return(dashboard_data)
     end
 
     context 'with ai.aiops.read permission' do
@@ -118,7 +118,7 @@ RSpec.describe 'Api::V1::Ai::AiOps', type: :request do
     end
 
     before do
-      allow(service).to receive(:provider_metrics).and_return(provider_data)
+      allow(service).to receive(:ops_provider_metrics).and_return(provider_data)
     end
 
     context 'with permission' do
@@ -187,7 +187,7 @@ RSpec.describe 'Api::V1::Ai::AiOps', type: :request do
     end
 
     before do
-      allow(service).to receive(:provider_comparison).and_return(comparison_data)
+      allow(service).to receive(:ops_provider_comparison).and_return(comparison_data)
     end
 
     context 'with permission' do
@@ -211,7 +211,7 @@ RSpec.describe 'Api::V1::Ai::AiOps', type: :request do
     end
 
     before do
-      allow(service).to receive(:workflow_metrics).and_return(workflow_data)
+      allow(service).to receive(:ops_workflow_metrics).and_return(workflow_data)
     end
 
     context 'with permission' do
@@ -235,7 +235,7 @@ RSpec.describe 'Api::V1::Ai::AiOps', type: :request do
     end
 
     before do
-      allow(service).to receive(:agent_metrics).and_return(agent_data)
+      allow(service).to receive(:ops_agent_metrics).and_return(agent_data)
     end
 
     context 'with permission' do
@@ -261,7 +261,7 @@ RSpec.describe 'Api::V1::Ai::AiOps', type: :request do
     end
 
     before do
-      allow(service).to receive(:cost_analysis).and_return(cost_data)
+      allow(service).to receive(:ops_cost_analysis).and_return(cost_data)
     end
 
     context 'with permission' do
@@ -336,7 +336,7 @@ RSpec.describe 'Api::V1::Ai::AiOps', type: :request do
     end
 
     before do
-      allow(service).to receive(:real_time_metrics).and_return(real_time_data)
+      allow(service).to receive(:aiops_real_time_metrics).and_return(real_time_data)
     end
 
     context 'with permission' do

@@ -219,7 +219,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
   describe 'Provider Testing Flow' do
     it 'tests provider connectivity' do
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 150 })
 
       post "/api/v1/ai/providers/#{openai_provider.id}/credentials/#{openai_credential.id}/test"

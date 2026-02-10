@@ -7,14 +7,13 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
   let(:agent) { create(:ai_agent, account: account) }
   let(:service) { described_class.new(agent: agent, account: account) }
 
-  let(:factual_service) { Ai::Memory::FactualMemoryService.new(agent: agent, account: account) }
-  let(:experiential_service) { Ai::Memory::ExperientialMemoryService.new(agent: agent, account: account) }
+  let(:storage_service) { Ai::Memory::StorageService.new(account: account, agent: agent) }
 
   describe '#build_context' do
     context 'with factual memories' do
       before do
-        factual_service.store(key: 'user_name', value: 'Alice')
-        factual_service.store(key: 'user_preference', value: 'dark mode')
+        storage_service.store_fact(key: 'user_name', value: 'Alice')
+        storage_service.store_fact(key: 'user_preference', value: 'dark mode')
       end
 
       it 'includes factual memories in context' do
@@ -40,8 +39,8 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
 
     context 'with experiential memories and query' do
       before do
-        experiential_service.store(content: 'User prefers concise responses')
-        experiential_service.store(content: 'Task completed with good feedback')
+        storage_service.store_experiential(content: 'User prefers concise responses')
+        storage_service.store_experiential(content: 'Task completed with good feedback')
       end
 
       it 'includes experiential memories for relevant query' do
@@ -55,7 +54,7 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
       before do
         # Store many facts to test budget limiting
         20.times do |i|
-          factual_service.store(key: "fact_#{i}", value: "value_#{i}" * 50)
+          storage_service.store_fact(key: "fact_#{i}", value: "value_#{i}" * 50)
         end
       end
 
@@ -68,8 +67,8 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
 
     context 'with all memory types' do
       before do
-        factual_service.store(key: 'fact', value: 'fact_value')
-        experiential_service.store(content: 'Experience content')
+        storage_service.store_fact(key: 'fact', value: 'fact_value')
+        storage_service.store_experiential(content: 'Experience content')
       end
 
       it 'includes all memory types' do
@@ -94,8 +93,8 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
 
   describe '#build_query_context' do
     before do
-      factual_service.store(key: 'relevant_fact', value: 'relevant_value')
-      experiential_service.store(content: 'Relevant experience')
+      storage_service.store_fact(key: 'relevant_fact', value: 'relevant_value')
+      storage_service.store_experiential(content: 'Relevant experience')
     end
 
     it 'builds context focused on query' do
@@ -114,7 +113,7 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
 
   describe '#build_minimal_context' do
     before do
-      factual_service.store(key: 'critical_fact', value: 'critical_value')
+      storage_service.store_fact(key: 'critical_fact', value: 'critical_value')
     end
 
     it 'returns only factual memories' do
@@ -132,8 +131,8 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
 
   describe '#preview_context' do
     before do
-      factual_service.store(key: 'fact1', value: 'value1')
-      factual_service.store(key: 'fact2', value: 'value2')
+      storage_service.store_fact(key: 'fact1', value: 'value1')
+      storage_service.store_fact(key: 'fact2', value: 'value2')
     end
 
     it 'returns truncated preview' do
@@ -158,8 +157,8 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
   describe 'memory prioritization' do
     before do
       # Create facts with different importance
-      factual_service.store(key: 'high_priority', value: 'important')
-      factual_service.store(key: 'low_priority', value: 'less important')
+      storage_service.store_fact(key: 'high_priority', value: 'important')
+      storage_service.store_fact(key: 'low_priority', value: 'less important')
     end
 
     it 'prioritizes high importance memories' do
@@ -178,7 +177,7 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
 
     before do
       working_service.store_task_state({ 'step' => 1, 'status' => 'processing' })
-      factual_service.store(key: 'user_name', value: 'Test User')
+      storage_service.store_fact(key: 'user_name', value: 'Test User')
     end
 
     it 'includes working memory when task is provided' do

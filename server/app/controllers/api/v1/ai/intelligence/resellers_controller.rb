@@ -55,7 +55,7 @@ module Api
           end
 
           def service
-            @service ||= ::Ai::Intelligence::ResellerIntelligenceService.new(account: current_account)
+            @service ||= ::Ai::Intelligence::PlatformIntelligenceService.new(account: current_account)
           end
         end
       end

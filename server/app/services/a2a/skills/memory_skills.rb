@@ -14,19 +14,21 @@ module A2a
         agent = find_agent(input["agent_id"])
         memory_type = input["memory_type"] || "factual"
 
-        memory_service = case memory_type
-        when "experiential"
-                           Memory::ExperientialMemoryService.new(agent: agent, account: @account)
-        when "procedural"
-                           Memory::ProceduralMemoryService.new(agent: agent, account: @account)
-        else
-                           Memory::FactualMemoryService.new(agent: agent, account: @account)
-        end
+        storage = Memory::StorageService.new(account: @account, agent: agent)
 
-        memory = memory_service.store(
-          content: input["content"],
-          context: input["context"] || {}
-        )
+        memory = case memory_type
+        when "experiential"
+                   storage.store_experiential(
+                     content: input["content"],
+                     context: input["context"] || {}
+                   )
+        else
+                   storage.store_fact(
+                     key: input["key"] || "fact_#{Time.current.to_i}",
+                     value: input["content"],
+                     metadata: input["context"] || {}
+                   )
+        end
 
         {
           output: {

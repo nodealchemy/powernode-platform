@@ -207,10 +207,8 @@ RSpec.describe 'Api::V1::Ai::Analytics', type: :request do
     end
 
     before do
-      allow(Ai::AnalyticsInsightsService).to receive(:new).and_return(
-        instance_double('Ai::AnalyticsInsightsService',
-                        generate_insights: insights_data)
-      )
+      allow(Rails.cache).to receive(:fetch).and_call_original
+      allow(Rails.cache).to receive(:fetch).with(/ai:analytics:insights/, any_args).and_return(insights_data)
     end
 
     context 'with permission' do

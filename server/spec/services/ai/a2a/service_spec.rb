@@ -12,11 +12,12 @@ RSpec.describe Ai::A2a::Service, type: :service do
       def self.perform_later(*args); end
     end)
 
-    # Stub Memory module if not already defined
-    unless defined?(Memory::ExperientialMemoryService)
-      stub_const('Memory::ExperientialMemoryService', Class.new do
+    # Stub Memory StorageService if not already defined
+    unless defined?(Memory::StorageService)
+      stub_const('Memory::StorageService', Class.new do
         def initialize(**args); end
-        def store(**args); end
+        def store_experiential(**args); end
+        def store_fact(**args); end
       end)
     end
   end

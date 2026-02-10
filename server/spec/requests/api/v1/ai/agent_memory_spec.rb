@@ -329,7 +329,7 @@ RSpec.describe 'Api::V1::Ai::AgentMemory', type: :request do
       before do
         allow(Ai::ContextPersistenceService).to receive(:get_agent_memory)
           .and_return(test_context)
-        allow(Ai::MemoryManagementService).to receive(:context_health)
+        allow_any_instance_of(Ai::Memory::MaintenanceService).to receive(:context_health)
           .and_return(entry_count: 10, avg_importance: 0.7)
       end
 
@@ -382,7 +382,7 @@ RSpec.describe 'Api::V1::Ai::AgentMemory', type: :request do
       allow(Ai::PersistentContext).to receive(:find_by).and_return(source_context)
       allow(Ai::ContextPersistenceService).to receive(:get_agent_memory)
         .and_return(test_context)
-      allow(Ai::MemoryManagementService).to receive(:sync_context)
+      allow_any_instance_of(Ai::Memory::MaintenanceService).to receive(:sync_context)
         .and_return({ synced: 5 })
     end
 

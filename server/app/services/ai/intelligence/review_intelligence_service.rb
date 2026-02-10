@@ -2,7 +2,7 @@
 
 module Ai
   module Intelligence
-    class ReviewIntelligenceService
+    class ReviewIntelligenceService < BaseIntelligenceService
       POSITIVE_WORDS = %w[
         great excellent amazing wonderful fantastic good love best perfect awesome
         helpful reliable fast efficient intuitive easy smooth solid impressive stellar
@@ -20,11 +20,6 @@ module Ai
         /(.)\1{5,}/,
         /https?:\/\/[^\s]+\.(xyz|tk|ml|ga|cf)/i
       ].freeze
-
-      def initialize(account:)
-        @account = account
-        @logger = Rails.logger
-      end
 
       # Analyze review text for sentiment
       def sentiment_analysis(review_id:)
@@ -221,15 +216,6 @@ module Ai
         end
       end
 
-      def success_response(**data) = { success: true }.merge(data)
-
-      def error_hash(message) = { success: false, error: message }
-
-      def error_response(method_name, exception)
-        @logger.error("[Ai::Intelligence::ReviewIntelligenceService##{method_name}] #{exception.message}")
-        @logger.error(exception.backtrace&.first(5)&.join("\n"))
-        { success: false, error: exception.message }
-      end
     end
   end
 end
