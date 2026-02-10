@@ -121,7 +121,6 @@ group :development, :test do
   # Testing framework
   gem "rspec-rails"
   gem "factory_bot_rails"
-  gem "parallel_tests"
 
   # Static analysis for security vulnerabilities [https://brakemanscanner.org/]
   gem "brakeman", require: false
@@ -161,6 +160,23 @@ gem "sentry-rails", "~> 5.17"
 
 # Application performance monitoring (optional)
 gem "skylight", "~> 6.0", require: false
+
+# ===================================================================
+# OPENTELEMETRY - Distributed Tracing & Observability
+# Enable with: OTEL_ENABLED=true, then `bundle install --with opentelemetry`
+# ===================================================================
+
+group :opentelemetry, optional: true do
+  gem "opentelemetry-sdk", "~> 1.4"
+  gem "opentelemetry-exporter-otlp", "~> 0.28"
+  gem "opentelemetry-instrumentation-rails", "~> 0.31"
+  gem "opentelemetry-instrumentation-active_record", "~> 0.7"
+  gem "opentelemetry-instrumentation-net_http", "~> 0.22"
+  gem "opentelemetry-instrumentation-redis", "~> 0.25"
+  gem "opentelemetry-instrumentation-rack", "~> 0.24"
+  gem "opentelemetry-instrumentation-action_pack", "~> 0.9"
+  gem "opentelemetry-instrumentation-pg", "~> 0.29"
+end
 
 # OpenAPI/Swagger documentation
 gem "rswag-api", "~> 2.13"

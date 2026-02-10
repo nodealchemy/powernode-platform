@@ -70,29 +70,29 @@ RSpec.configure do |config|
     # Under parallel_tests, databases are already clean (parallel:prepare runs
     # db:purge + db:schema:load) and permissions are seeded by parallel:seed_permissions.
     # Skip the heavy truncation to avoid PG::OutOfMemory from max_locks_per_transaction.
-    if ENV.key?('PARALLEL_TEST_GROUPS')
-      require Rails.root.join('config', 'permissions')
-      Role.sync_from_config!
-    else
-      # Use a PostgreSQL advisory lock to serialize suite startup across processes.
-      # This prevents deadlocks when multiple rspec processes start concurrently
-      # and both try to TRUNCATE the same tables.
-      conn = ActiveRecord::Base.connection
-      lock_key = 42
-      conn.execute("SELECT pg_advisory_lock(#{lock_key})")
-      begin
-        DatabaseCleaner.clean_with(:truncation, except: %w[ar_internal_metadata schema_migrations])
-
-        # Load permissions configuration
-        require Rails.root.join('config', 'permissions')
-
-        # Sync all roles from the Permissions module configuration
-        # This ensures all standardized roles exist in test database
-        Role.sync_from_config!
-      ensure
-        conn.execute("SELECT pg_advisory_unlock(#{lock_key})")
+    # Use deletion instead of truncation for initial cleanup.
+    # TRUNCATE requires AccessExclusiveLock which deadlocks with
+    # AccessShareLock held by concurrent rspec processes running tests.
+    # DELETE only needs RowExclusiveLock, avoiding deadlocks entirely.
+    retries = 0
+    begin
+      DatabaseCleaner.clean_with(:deletion, except: %w[ar_internal_metadata schema_migrations])
+    rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout => e
+      retries += 1
+      if retries <= 3
+        sleep(retries * 2)
+        retry
+      else
+        raise
       end
     end
+
+    # Load permissions configuration
+    require Rails.root.join('config', 'permissions')
+
+    # Sync all roles from the Permissions module configuration
+    # This ensures all standardized roles exist in test database
+    Role.sync_from_config!
   end
 
   # Only use DatabaseCleaner for tests tagged with truncation: true
