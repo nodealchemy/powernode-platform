@@ -19,24 +19,22 @@ Rails.application.routes.draw do
     get "agent-card.json", to: "well_known#agent_card"
   end
 
-  # A2A JSON-RPC 2.0 endpoint
-  post "/a2a", to: "a2a#handle"
-  get "/a2a", to: "a2a#info"
-  post "/a2a/stream", to: "a2a#stream"
-
-  # Health check endpoints (global, outside API namespace)
-  get :health, to: "health#index"
-  get "health/detailed", to: "health#detailed"
-  get "health/ready", to: "health#ready"
-  get "health/live", to: "health#live"
 
   # API Routes
   namespace :api do
     # BaaS API routes are in enterprise/server/config/routes.rb (enterprise only)
 
     namespace :v1 do
-      # Health check endpoint for load balancers
-      get :health, to: proc { [ 200, {}, [ { status: "ok" }.to_json ] ] }
+      # A2A JSON-RPC 2.0 protocol endpoint
+      post "/a2a", to: "a2a#handle"
+      get "/a2a", to: "a2a#info"
+      post "/a2a/stream", to: "a2a#stream"
+
+      # Health check endpoints
+      get :health, to: "health#index"
+      get "health/detailed", to: "health#detailed"
+      get "health/ready", to: "health#ready"
+      get "health/live", to: "health#live"
 
       # Worker test endpoints
       post "worker/ping", to: "worker_test#ping"
@@ -924,6 +922,11 @@ Rails.application.routes.draw do
 
       # Webhook sync endpoints (service-to-service)
       namespace :webhooks do
+        # External webhook receivers (inbound from providers)
+        post "stripe", to: "stripe#handle"
+        post "paypal", to: "paypal#handle"
+        post "git/:provider_type", to: "git#handle"
+
         namespace :stripe_sync, path: "stripe" do
           post :invoice_paid
           post :invoice_failed
@@ -3283,12 +3286,6 @@ Rails.application.routes.draw do
     end
   end
 
-  # Webhook endpoints (outside of API versioning and auth)
-  namespace :webhooks do
-    post "stripe", to: "stripe#handle"
-    post "paypal", to: "paypal#handle"
-    post "git/:provider_type", to: "git#handle"
-  end
 
   # ActionCable WebSocket endpoint
   mount ActionCable.server => "/cable"
