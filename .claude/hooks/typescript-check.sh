@@ -7,18 +7,23 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // 
 
 # Only check .ts/.tsx files
 [[ "$FILE_PATH" != *.ts && "$FILE_PATH" != *.tsx ]] && exit 0
-# Only check frontend source files
+# Only check core frontend source files (not enterprise submodule)
 [[ "$FILE_PATH" != *frontend/src/* ]] && exit 0
+[[ "$FILE_PATH" == *enterprise/frontend/* ]] && exit 0
 [[ ! -f "$FILE_PATH" ]] && exit 0
 # Skip test/spec files — type errors there are less critical
 BASENAME=$(basename "$FILE_PATH")
 [[ "$BASENAME" == *".test."* || "$BASENAME" == *".spec."* ]] && exit 0
 
-# Find frontend directory
+# Find frontend directory — always use the core frontend
 FRONTEND_DIR=$(echo "$FILE_PATH" | sed 's|/frontend/src/.*|/frontend|')
 [[ ! -d "$FRONTEND_DIR" ]] && exit 0
 
-OUTPUT=$(cd "$FRONTEND_DIR" && npx tsc --noEmit 2>&1)
+# Use project-local tsc, not npx (avoids npx resolution failures)
+TSC="$FRONTEND_DIR/node_modules/.bin/tsc"
+[[ ! -x "$TSC" ]] && exit 0
+
+OUTPUT=$(cd "$FRONTEND_DIR" && "$TSC" --noEmit 2>&1)
 EXIT_CODE=$?
 
 if [[ $EXIT_CODE -ne 0 ]]; then
