@@ -394,27 +394,42 @@ unless blog_workflow_template
         {
           'edge_id' => 'start_to_research',
           'source_node_id' => 'start',
-          'target_node_id' => 'topic_research'
+          'target_node_id' => 'topic_research',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'research_to_content',
           'source_node_id' => 'topic_research',
-          'target_node_id' => 'content_generation'
+          'target_node_id' => 'content_generation',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'content_to_seo',
           'source_node_id' => 'content_generation',
-          'target_node_id' => 'seo_optimization'
+          'target_node_id' => 'seo_optimization',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'seo_to_quality',
           'source_node_id' => 'seo_optimization',
-          'target_node_id' => 'quality_check'
+          'target_node_id' => 'quality_check',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'quality_to_publish',
           'source_node_id' => 'quality_check',
           'target_node_id' => 'publish_webhook',
+          'source_handle' => 'true',
+          'target_handle' => 'input',
+          'edge_type' => 'default',
           'condition_type' => 'path',
           'condition_value' => 'true'
         },
@@ -422,18 +437,27 @@ unless blog_workflow_template
           'edge_id' => 'quality_to_revision',
           'source_node_id' => 'quality_check',
           'target_node_id' => 'revision_needed',
+          'source_handle' => 'false',
+          'target_handle' => 'input',
+          'edge_type' => 'default',
           'condition_type' => 'path',
           'condition_value' => 'false'
         },
         {
           'edge_id' => 'publish_to_end',
           'source_node_id' => 'publish_webhook',
-          'target_node_id' => 'end'
+          'target_node_id' => 'end',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'revision_to_end',
           'source_node_id' => 'revision_needed',
-          'target_node_id' => 'end'
+          'target_node_id' => 'end',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         }
       ],
       'variables' => [
@@ -638,42 +662,66 @@ unless code_review_template
         {
           'edge_id' => 'start_to_quality',
           'source_node_id' => 'start',
-          'target_node_id' => 'code_analysis'
+          'target_node_id' => 'code_analysis',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'start_to_security',
           'source_node_id' => 'start',
-          'target_node_id' => 'security_analysis'
+          'target_node_id' => 'security_analysis',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'start_to_performance',
           'source_node_id' => 'start',
-          'target_node_id' => 'performance_analysis'
+          'target_node_id' => 'performance_analysis',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'quality_to_consolidate',
           'source_node_id' => 'code_analysis',
-          'target_node_id' => 'consolidate_results'
+          'target_node_id' => 'consolidate_results',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'security_to_consolidate',
           'source_node_id' => 'security_analysis',
-          'target_node_id' => 'consolidate_results'
+          'target_node_id' => 'consolidate_results',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'performance_to_consolidate',
           'source_node_id' => 'performance_analysis',
-          'target_node_id' => 'consolidate_results'
+          'target_node_id' => 'consolidate_results',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'consolidate_to_approval',
           'source_node_id' => 'consolidate_results',
-          'target_node_id' => 'approval_check'
+          'target_node_id' => 'approval_check',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'approval_to_approve',
           'source_node_id' => 'approval_check',
           'target_node_id' => 'approve_webhook',
+          'source_handle' => 'true',
+          'target_handle' => 'input',
+          'edge_type' => 'default',
           'condition_type' => 'path',
           'condition_value' => 'true'
         },
@@ -681,18 +729,27 @@ unless code_review_template
           'edge_id' => 'approval_to_changes',
           'source_node_id' => 'approval_check',
           'target_node_id' => 'request_changes_webhook',
+          'source_handle' => 'false',
+          'target_handle' => 'input',
+          'edge_type' => 'default',
           'condition_type' => 'path',
           'condition_value' => 'false'
         },
         {
           'edge_id' => 'approve_to_end',
           'source_node_id' => 'approve_webhook',
-          'target_node_id' => 'end'
+          'target_node_id' => 'end',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'changes_to_end',
           'source_node_id' => 'request_changes_webhook',
-          'target_node_id' => 'end'
+          'target_node_id' => 'end',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         }
       ]
     }
@@ -830,6 +887,9 @@ unless blog_workflow
     edge_id: 'start_to_research',
     source_node_id: 'start_node',
     target_node_id: 'topic_research',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default',
     metadata: { 'transition_type' => 'automatic' }
   )
 
@@ -837,6 +897,9 @@ unless blog_workflow
     edge_id: 'research_to_content',
     source_node_id: 'topic_research',
     target_node_id: 'content_generation',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default',
     metadata: { 'transition_type' => 'automatic' }
   )
 
@@ -844,6 +907,9 @@ unless blog_workflow
     edge_id: 'content_to_seo',
     source_node_id: 'content_generation',
     target_node_id: 'seo_optimization',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default',
     metadata: { 'transition_type' => 'automatic' }
   )
 
@@ -851,6 +917,9 @@ unless blog_workflow
     edge_id: 'seo_to_end',
     source_node_id: 'seo_optimization',
     target_node_id: 'end_node',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default',
     metadata: { 'transition_type' => 'automatic' }
   )
 
@@ -982,25 +1051,37 @@ unless data_analysis_workflow
   data_analysis_workflow.edges.create!(
     edge_id: 'start_to_validation',
     source_node_id: 'start_node',
-    target_node_id: 'data_validation'
+    target_node_id: 'data_validation',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default'
   )
 
   data_analysis_workflow.edges.create!(
     edge_id: 'validation_to_trends',
     source_node_id: 'data_validation',
-    target_node_id: 'trend_analysis'
+    target_node_id: 'trend_analysis',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default'
   )
 
   data_analysis_workflow.edges.create!(
     edge_id: 'trends_to_insights',
     source_node_id: 'trend_analysis',
-    target_node_id: 'insights_generation'
+    target_node_id: 'insights_generation',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default'
   )
 
   data_analysis_workflow.edges.create!(
     edge_id: 'insights_to_end',
     source_node_id: 'insights_generation',
-    target_node_id: 'end_node'
+    target_node_id: 'end_node',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default'
   )
 end
 
@@ -1480,29 +1561,44 @@ unless customer_support_workflow
     {
       edge_id: 'trigger_to_sentiment',
       source_node_id: 'support_trigger',
-      target_node_id: 'sentiment_analysis'
+      target_node_id: 'sentiment_analysis',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'trigger_to_intent',
       source_node_id: 'support_trigger',
-      target_node_id: 'intent_classification'
+      target_node_id: 'intent_classification',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Both analyses to routing
     {
       edge_id: 'sentiment_to_routing',
       source_node_id: 'sentiment_analysis',
-      target_node_id: 'request_routing'
+      target_node_id: 'request_routing',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'intent_to_routing',
       source_node_id: 'intent_classification',
-      target_node_id: 'request_routing'
+      target_node_id: 'request_routing',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
-    # Routing to different paths
+    # Routing to different paths (condition node outputs)
     {
       edge_id: 'routing_to_human',
       source_node_id: 'request_routing',
       target_node_id: 'human_escalation',
+      source_handle: 'true',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'routing_decision == "critical_urgent"'
       }
@@ -1511,6 +1607,9 @@ unless customer_support_workflow
       edge_id: 'routing_to_kb',
       source_node_id: 'request_routing',
       target_node_id: 'kb_lookup',
+      source_handle: 'false',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'routing_decision == "technical_issue"'
       }
@@ -1519,6 +1618,9 @@ unless customer_support_workflow
       edge_id: 'routing_to_auto',
       source_node_id: 'request_routing',
       target_node_id: 'auto_response',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'routing_decision == "standard_support"'
       }
@@ -1527,25 +1629,37 @@ unless customer_support_workflow
     {
       edge_id: 'kb_to_auto',
       source_node_id: 'kb_lookup',
-      target_node_id: 'auto_response'
+      target_node_id: 'auto_response',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Auto response to validation
     {
       edge_id: 'auto_to_validation',
       source_node_id: 'auto_response',
-      target_node_id: 'response_validation'
+      target_node_id: 'response_validation',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Human approval to dispatch (if approved)
     {
       edge_id: 'human_to_dispatch',
       source_node_id: 'human_escalation',
-      target_node_id: 'response_dispatch'
+      target_node_id: 'response_dispatch',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Validation to dispatch
     {
       edge_id: 'validation_to_dispatch',
       source_node_id: 'response_validation',
-      target_node_id: 'response_dispatch'
+      target_node_id: 'response_dispatch',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     }
   ])
 
@@ -1852,6 +1966,7 @@ unless ecommerce_workflow
     name: 'Generate Confirmation',
     description: 'Create personalized order confirmation',
     position: { 'x' => 1350, 'y' => 350 },
+    is_end_node: true,
     configuration: {
       'agent_id' => blog_generator_agent.id,
       'prompt_template' => 'Generate a personalized order confirmation email for:\n\nCustomer: {{customer_email}}\nOrder ID: {{order_id}}\nItems: {{order_items}}\nTotal: ${{order_amount}}\nShipping: {{shipping_method}}\nEstimated delivery: {{estimated_delivery}}\n\nInclude:\n1. Warm, professional greeting\n2. Order summary with item details\n3. Payment confirmation\n4. Shipping information\n5. Tracking information (when available)\n6. Customer service contact info\n7. Thank you message',
@@ -1872,29 +1987,44 @@ unless ecommerce_workflow
     {
       edge_id: 'trigger_to_inventory',
       source_node_id: 'order_received',
-      target_node_id: 'inventory_check'
+      target_node_id: 'inventory_check',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'trigger_to_fraud',
       source_node_id: 'order_received',
-      target_node_id: 'fraud_detection'
+      target_node_id: 'fraud_detection',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Both checks to validation
     {
       edge_id: 'inventory_to_validation',
       source_node_id: 'inventory_check',
-      target_node_id: 'order_validation'
+      target_node_id: 'order_validation',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'fraud_to_validation',
       source_node_id: 'fraud_detection',
-      target_node_id: 'order_validation'
+      target_node_id: 'order_validation',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
-    # Validation outcomes
+    # Validation outcomes (condition node outputs)
     {
       edge_id: 'validation_to_decline',
       source_node_id: 'order_validation',
       target_node_id: 'decline_order',
+      source_handle: 'true',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'validation_result == "fraud_detected"'
       }
@@ -1903,6 +2033,9 @@ unless ecommerce_workflow
       edge_id: 'validation_to_review',
       source_node_id: 'order_validation',
       target_node_id: 'manual_review',
+      source_handle: 'false',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'validation_result == "insufficient_stock"'
       }
@@ -1911,6 +2044,9 @@ unless ecommerce_workflow
       edge_id: 'validation_to_payment',
       source_node_id: 'order_validation',
       target_node_id: 'payment_processing',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'validation_result == "order_approved"'
       }
@@ -1919,19 +2055,28 @@ unless ecommerce_workflow
     {
       edge_id: 'review_to_payment',
       source_node_id: 'manual_review',
-      target_node_id: 'payment_processing'
+      target_node_id: 'payment_processing',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Payment to fulfillment
     {
       edge_id: 'payment_to_fulfillment',
       source_node_id: 'payment_processing',
-      target_node_id: 'fulfillment_prep'
+      target_node_id: 'fulfillment_prep',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Fulfillment to confirmation
     {
       edge_id: 'fulfillment_to_confirmation',
       source_node_id: 'fulfillment_prep',
-      target_node_id: 'order_confirmation'
+      target_node_id: 'order_confirmation',
+      source_handle: 'exit',
+      target_handle: 'input',
+      edge_type: 'default'
     }
   ])
 end
@@ -2117,32 +2262,50 @@ unless marketing_workflow
     {
       edge_id: 'ingestion_to_performance',
       source_node_id: 'data_ingestion',
-      target_node_id: 'performance_analysis'
+      target_node_id: 'performance_analysis',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'ingestion_to_ab',
       source_node_id: 'data_ingestion',
-      target_node_id: 'ab_test_analysis'
+      target_node_id: 'ab_test_analysis',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'performance_to_optimization',
       source_node_id: 'performance_analysis',
-      target_node_id: 'optimization_recommendations'
+      target_node_id: 'optimization_recommendations',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'ab_to_optimization',
       source_node_id: 'ab_test_analysis',
-      target_node_id: 'optimization_recommendations'
+      target_node_id: 'optimization_recommendations',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'optimization_to_auto',
       source_node_id: 'optimization_recommendations',
-      target_node_id: 'auto_implementation'
+      target_node_id: 'auto_implementation',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'auto_to_updates',
       source_node_id: 'auto_implementation',
       target_node_id: 'campaign_updates',
+      source_handle: 'true',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'implementation_decision == "safe_auto_implement"'
       }
@@ -2151,6 +2314,9 @@ unless marketing_workflow
       edge_id: 'auto_to_manual',
       source_node_id: 'auto_implementation',
       target_node_id: 'manual_approval_marketing',
+      source_handle: 'false',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'implementation_decision == "default"'
       }
@@ -2158,12 +2324,18 @@ unless marketing_workflow
     {
       edge_id: 'manual_to_updates',
       source_node_id: 'manual_approval_marketing',
-      target_node_id: 'campaign_updates'
+      target_node_id: 'campaign_updates',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'updates_to_report',
       source_node_id: 'campaign_updates',
-      target_node_id: 'performance_report'
+      target_node_id: 'performance_report',
+      source_handle: 'exit',
+      target_handle: 'input',
+      edge_type: 'default'
     }
   ])
 end
@@ -2209,8 +2381,8 @@ unless blog_workflow.workflow_runs.exists?(status: 'completed')
 
   # Create node executions for the blog run
   blog_workflow.workflow_nodes.each_with_index do |node, index|
-    blog_run.ai_workflow_node_executions.create!(
-      ai_workflow_node: node,
+    blog_run.workflow_node_executions.create!(
+      node: node,
       execution_id: "exec_#{SecureRandom.hex(6)}",
       node_id: node.node_id,
       node_type: node.node_type,
@@ -2261,8 +2433,8 @@ unless data_analysis_workflow.workflow_runs.exists?(status: 'running')
   data_analysis_workflow.workflow_nodes.limit(2).each_with_index do |node, index|
     status = index == 0 ? 'completed' : 'running'
 
-    analysis_run.ai_workflow_node_executions.create!(
-      ai_workflow_node: node,
+    analysis_run.workflow_node_executions.create!(
+      node: node,
       execution_id: "exec_#{SecureRandom.hex(6)}",
       node_id: node.node_id,
       node_type: node.node_type,
@@ -2281,36 +2453,7 @@ unless data_analysis_workflow.workflow_runs.exists?(status: 'running')
   end
 end
 
-# 9. Create Sample Template Installations
-puts "\n📦 Creating Template Installations..."
-
-# Install blog template for admin account
-unless admin_account.ai_workflow_template_installations.exists?(ai_workflow_template: blog_workflow_template)
-  puts "💾 Installing blog template..."
-
-  admin_account.ai_workflow_template_installations.create!(
-    ai_workflow_template: blog_workflow_template,
-    ai_workflow: blog_workflow,
-    installed_by_user: admin_user,
-    installation_id: "install_#{SecureRandom.hex(8)}",
-    template_version: '1.0.0',
-    customizations: {
-      'default_word_count' => 1500,
-      'preferred_agent' => blog_generator_agent.id,
-      'auto_seo_optimize' => true
-    },
-    variable_mappings: {
-      'topic' => 'blog_topic',
-      'word_count' => 'default_word_count',
-      'author' => 'author_name'
-    },
-    auto_update: false,
-    metadata: {
-      'installation_notes' => 'Configured for daily tech blog generation with Ollama integration',
-      'installation_date' => Time.current.iso8601
-    }
-  )
-end
+# 9. Template installations (deprecated — ai_workflow_template_installations removed)
 
 puts "\n✅ AI Workflow System seeded successfully!"
 
@@ -2323,7 +2466,7 @@ puts "📋 Workflow Templates: #{Ai::WorkflowTemplate.count}"
 puts "🔄 Workflows: #{admin_account.ai_workflows.count}"
 puts "⏰ Schedules: #{Ai::WorkflowSchedule.where(ai_workflow_id: admin_account.ai_workflows.pluck(:id)).count}"
 puts "🎯 Triggers: #{Ai::WorkflowTrigger.where(ai_workflow_id: admin_account.ai_workflows.pluck(:id)).count}"
-puts "📦 Template Installations: #{admin_account.ai_workflow_template_installations.count}"
+puts "📋 Workflow Templates: #{Ai::WorkflowTemplate.count}"
 
 puts "\n🚀 Ready to test workflows!"
 puts "\nSample workflow execution:"
