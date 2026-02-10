@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { store } from './index';
-import { refreshAccessToken, clearAuth, stopImpersonation } from './slices/authSlice';
+import { store } from '@/shared/services/index';
+import { refreshAccessToken, clearAuth, stopImpersonation } from '@/shared/services/slices/authSlice';
 import { logger } from '@/shared/utils/logger';
 
 // Get environment variable with Vite/CRA/Jest compatibility

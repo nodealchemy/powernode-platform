@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Badge } from '../ui/Badge';
+import { Badge } from '@/shared/components/ui/Badge';
 
 export interface Tab {
   id: string;

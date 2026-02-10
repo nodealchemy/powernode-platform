@@ -1,4 +1,4 @@
-import type { HandlePosition, HandlePositions } from '../../nodes/DynamicNodeHandles';
+import type { HandlePosition, HandlePositions } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 import type { AiAgent } from '@/shared/types/ai';
 
 // Node configuration state

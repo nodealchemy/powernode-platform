@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { User } from '@/shared/services/slices/authSlice';
-import { WebSocketStatusIndicator } from '../ui/WebSocketStatusIndicator';
-import { ThemeToggle } from '../ui/ThemeToggle';
+import { WebSocketStatusIndicator } from '@/shared/components/ui/WebSocketStatusIndicator';
+import { ThemeToggle } from '@/shared/components/ui/ThemeToggle';
 import { PERMISSIONS } from '@/shared/constants/permissions';
 import { getUserInitials } from '@/shared/utils/userUtils';
 

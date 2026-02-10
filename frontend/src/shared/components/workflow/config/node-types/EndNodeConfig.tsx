@@ -1,7 +1,7 @@
 import React from 'react';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
-import type { NodeTypeConfigProps } from './types';
+import type { NodeTypeConfigProps } from '@/shared/components/workflow/config/node-types/types';
 
 export const EndNodeConfig: React.FC<NodeTypeConfigProps> = ({
   config,

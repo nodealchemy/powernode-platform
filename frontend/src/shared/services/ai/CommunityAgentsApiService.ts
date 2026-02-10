@@ -1,4 +1,4 @@
-import { BaseApiService, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 import type {
   CommunityAgent,
   CommunityAgentSummary,
@@ -17,7 +17,7 @@ import type {
   FederationPartnerFilters,
   FederatedAgent,
   VerifyFederationKeyResponse,
-} from './types/community-types';
+} from '@/shared/services/ai/types/community-types';
 
 /**
  * CommunityAgentsApiService - Community Agents API Client

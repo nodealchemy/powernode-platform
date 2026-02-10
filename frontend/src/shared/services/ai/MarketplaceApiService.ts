@@ -1,5 +1,5 @@
-import { BaseApiService, QueryFilters, PaginatedResponse } from './BaseApiService';
-import type { WorkflowTemplate } from '../../types/workflow';
+import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
+import type { WorkflowTemplate } from '@/shared/types/workflow';
 
 /**
  * MarketplaceApiService - Marketplace Controller API Client

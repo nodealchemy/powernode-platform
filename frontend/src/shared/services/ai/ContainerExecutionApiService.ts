@@ -1,4 +1,4 @@
-import { BaseApiService, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 import type {
   ContainerInstance,
   ContainerInstanceSummary,
@@ -15,7 +15,7 @@ import type {
   UsageHistory,
   OverageInfo,
   ContainerStats,
-} from './types/container-types';
+} from '@/shared/services/ai/types/container-types';
 
 /**
  * ContainerExecutionApiService - Container Orchestration API Client

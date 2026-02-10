@@ -4,9 +4,9 @@ import { Textarea } from '@/shared/components/ui/Textarea';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Variable } from 'lucide-react';
 import type { WorkflowVariable } from '@/shared/hooks/useWorkflowVariables';
-import { ArrayOfObjectsField } from './schema-fields/ArrayOfObjectsField';
-import { AdditionalPropertiesField } from './schema-fields/AdditionalPropertiesField';
-import { VariableAutocomplete } from './schema-fields/VariableAutocomplete';
+import { ArrayOfObjectsField } from '@/shared/components/workflow/config/schema-fields/ArrayOfObjectsField';
+import { AdditionalPropertiesField } from '@/shared/components/workflow/config/schema-fields/AdditionalPropertiesField';
+import { VariableAutocomplete } from '@/shared/components/workflow/config/schema-fields/VariableAutocomplete';
 
 export interface JsonSchemaProperty {
   type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';

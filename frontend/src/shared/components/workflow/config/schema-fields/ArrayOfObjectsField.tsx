@@ -1,9 +1,9 @@
 import React, { useCallback } from 'react';
 import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-import type { JsonSchemaProperty } from '../JsonSchemaForm';
+import type { JsonSchemaProperty } from '@/shared/components/workflow/config/JsonSchemaForm';
 import type { WorkflowVariable } from '@/shared/hooks/useWorkflowVariables';
-import { SortableArrayItem } from './SortableArrayItem';
+import { SortableArrayItem } from '@/shared/components/workflow/config/schema-fields/SortableArrayItem';
 
 interface ArrayOfObjectsFieldProps {
   name: string;

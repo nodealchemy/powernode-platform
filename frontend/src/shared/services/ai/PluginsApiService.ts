@@ -1,7 +1,7 @@
 // Plugin API Service
 // Platform-agnostic plugin management service
 
-import { BaseApiService, QueryFilters } from './BaseApiService';
+import { BaseApiService, QueryFilters } from '@/shared/services/ai/BaseApiService';
 import type {
   PluginMarketplace,
   Plugin,

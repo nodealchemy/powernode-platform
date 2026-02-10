@@ -1,5 +1,5 @@
-import { User } from '../services/slices/authSlice';
-import { PERMISSIONS, Permission } from '../constants/permissions';
+import { User } from '@/shared/services/slices/authSlice';
+import { PERMISSIONS, Permission } from '@/shared/constants/permissions';
 
 /**
  * Check if a user has specific permissions using the new permission-based system

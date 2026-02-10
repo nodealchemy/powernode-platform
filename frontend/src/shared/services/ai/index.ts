@@ -32,41 +32,41 @@
 
 // Base service and types
 // Import all service instances for local use
-import { workflowsApi } from './WorkflowsApiService';
-import { agentsApi } from './AgentsApiService';
-import { providersApi } from './ProvidersApiService';
-import { monitoringApi } from './MonitoringApiService';
-import { analyticsApi } from './AnalyticsApiService';
-import { marketplaceApi } from './MarketplaceApiService';
-import { pluginsApi } from './PluginsApiService';
-import { validationApi } from './ValidationApiService';
-import { conversationsApi } from './ConversationsApiService';
-import { modelRouterApi } from './ModelRouterApiService';
-import { aiOpsApi } from './AiOpsApiService';
-import { roiApi } from './RoiApiService';
-import { creditsApi } from './CreditsApiService';
-import { mcpHostingApi } from './McpHostingApiService';
-import { outcomeBillingApi } from './OutcomeBillingApiService';
-import { ragApi } from './RagApiService';
-import { teamsApi } from './TeamsApiService';
-import { agentMarketplaceApi } from './AgentMarketplaceApiService';
-import { governanceApi } from './GovernanceApiService';
-import { devopsApi } from './DevopsApiService';
-import { sandboxApi } from './SandboxApiService';
-import { agentCardsApiService } from './AgentCardsApiService';
-import { a2aTasksApiService } from './A2aTasksApiService';
-import { memoryApiService } from './MemoryApiService';
-import { chatChannelsApi } from './ChatChannelsApiService';
-import { communityAgentsApi } from './CommunityAgentsApiService';
-import { containerExecutionApi } from './ContainerExecutionApiService';
-import { ralphLoopsApi } from './RalphLoopsApiService';
+import { workflowsApi } from '@/shared/services/ai/WorkflowsApiService';
+import { agentsApi } from '@/shared/services/ai/AgentsApiService';
+import { providersApi } from '@/shared/services/ai/ProvidersApiService';
+import { monitoringApi } from '@/shared/services/ai/MonitoringApiService';
+import { analyticsApi } from '@/shared/services/ai/AnalyticsApiService';
+import { marketplaceApi } from '@/shared/services/ai/MarketplaceApiService';
+import { pluginsApi } from '@/shared/services/ai/PluginsApiService';
+import { validationApi } from '@/shared/services/ai/ValidationApiService';
+import { conversationsApi } from '@/shared/services/ai/ConversationsApiService';
+import { modelRouterApi } from '@/shared/services/ai/ModelRouterApiService';
+import { aiOpsApi } from '@/shared/services/ai/AiOpsApiService';
+import { roiApi } from '@/shared/services/ai/RoiApiService';
+import { creditsApi } from '@/shared/services/ai/CreditsApiService';
+import { mcpHostingApi } from '@/shared/services/ai/McpHostingApiService';
+import { outcomeBillingApi } from '@/shared/services/ai/OutcomeBillingApiService';
+import { ragApi } from '@/shared/services/ai/RagApiService';
+import { teamsApi } from '@/shared/services/ai/TeamsApiService';
+import { agentMarketplaceApi } from '@/shared/services/ai/AgentMarketplaceApiService';
+import { governanceApi } from '@/shared/services/ai/GovernanceApiService';
+import { devopsApi } from '@/shared/services/ai/DevopsApiService';
+import { sandboxApi } from '@/shared/services/ai/SandboxApiService';
+import { agentCardsApiService } from '@/shared/services/ai/AgentCardsApiService';
+import { a2aTasksApiService } from '@/shared/services/ai/A2aTasksApiService';
+import { memoryApiService } from '@/shared/services/ai/MemoryApiService';
+import { chatChannelsApi } from '@/shared/services/ai/ChatChannelsApiService';
+import { communityAgentsApi } from '@/shared/services/ai/CommunityAgentsApiService';
+import { containerExecutionApi } from '@/shared/services/ai/ContainerExecutionApiService';
+import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
 
-export { BaseApiService } from './BaseApiService';
+export { BaseApiService } from '@/shared/services/ai/BaseApiService';
 export type {
   ApiResponse,
   PaginatedResponse,
   QueryFilters,
-} from './BaseApiService';
+} from '@/shared/services/ai/BaseApiService';
 
 // Re-export Workflows service
 export { workflowsApi };
@@ -78,7 +78,7 @@ export type {
   WorkflowStatistics,
   WorkflowValidationResult,
   WorkflowRunMetrics,
-} from './types/workflow-api-types';
+} from '@/shared/services/ai/types/workflow-api-types';
 
 // Re-export Agents service
 export { agentsApi };
@@ -93,7 +93,7 @@ export type {
   AgentType,
   SendMessageRequest,
   SendMessageResponse,
-} from './types/agent-api-types';
+} from '@/shared/services/ai/types/agent-api-types';
 
 // Re-export Conversations service (global conversations)
 export { conversationsApi };
@@ -104,7 +104,7 @@ export type {
   UpdateConversationRequest,
   ConversationDetail,
   ConversationBase,
-} from './ConversationsApiService';
+} from '@/shared/services/ai/ConversationsApiService';
 
 // Re-export Providers service
 export { providersApi };
@@ -116,7 +116,7 @@ export type {
   UsageSummary,
   ProviderStatistics,
   ConnectionTestResult,
-} from './ProvidersApiService';
+} from '@/shared/services/ai/ProvidersApiService';
 
 // Re-export Monitoring service
 export { monitoringApi };
@@ -126,7 +126,7 @@ export type {
   MetricsData,
   CircuitBreaker,
   Alert,
-} from './MonitoringApiService';
+} from '@/shared/services/ai/MonitoringApiService';
 
 // Re-export Analytics service
 export { analyticsApi };
@@ -144,7 +144,7 @@ export type {
   CreateReportRequest,
   ScheduleReportRequest,
   ExportRequest,
-} from './AnalyticsApiService';
+} from '@/shared/services/ai/AnalyticsApiService';
 
 // Re-export Marketplace service
 export { marketplaceApi };
@@ -162,7 +162,7 @@ export type {
   PublishWorkflowRequest,
   CompareRequest,
   UpdateCheck,
-} from './MarketplaceApiService';
+} from '@/shared/services/ai/MarketplaceApiService';
 
 // Re-export Plugins service
 export { pluginsApi };
@@ -202,7 +202,7 @@ export type {
   OptimizationRecommendation,
   CostOptimizationLog,
   OptimizationStats,
-} from './ModelRouterApiService';
+} from '@/shared/services/ai/ModelRouterApiService';
 
 // Re-export AIOps service (Phase 1 - Real-Time Operations)
 export { aiOpsApi };
@@ -222,7 +222,7 @@ export type {
   CircuitBreakerStatus,
   RealTimeMetrics,
   RecordMetricsRequest,
-} from './AiOpsApiService';
+} from '@/shared/services/ai/AiOpsApiService';
 
 // Re-export ROI service (Phase 1 - ROI Tracking)
 export { roiApi };
@@ -243,7 +243,7 @@ export type {
   RoiProjections,
   RoiRecommendation,
   PeriodComparison,
-} from './RoiApiService';
+} from '@/shared/services/ai/RoiApiService';
 
 // Re-export Credits service (Phase 2 - Credit System)
 export { creditsApi };
@@ -256,7 +256,7 @@ export type {
   UsageAnalytics,
   OperationCost,
   ResellerStats,
-} from './CreditsApiService';
+} from '@/shared/services/ai/CreditsApiService';
 
 // Re-export MCP Hosting service (Phase 2 - MCP Hosting)
 export { mcpHostingApi };
@@ -268,7 +268,7 @@ export type {
   McpServerSubscription,
   McpMarketplaceListing,
   ServerCreateParams,
-} from './McpHostingApiService';
+} from '@/shared/services/ai/McpHostingApiService';
 
 // Re-export Outcome Billing service (Phase 2 - Outcome Billing)
 export { outcomeBillingApi };
@@ -279,7 +279,7 @@ export type {
   SlaViolation,
   BillingSummary,
   SlaPerformance,
-} from './OutcomeBillingApiService';
+} from '@/shared/services/ai/OutcomeBillingApiService';
 
 // Re-export RAG service (Phase 3 - Knowledge-Augmented Agents)
 export { ragApi };
@@ -291,7 +291,7 @@ export type {
   RetrievedChunk,
   DataConnector,
   RagAnalytics,
-} from './RagApiService';
+} from '@/shared/services/ai/RagApiService';
 
 // Re-export Teams service (Phase 3 - Multi-Agent Team Orchestration)
 export { teamsApi };
@@ -304,7 +304,7 @@ export type {
   TeamMessage,
   TeamTemplate,
   TeamAnalytics,
-} from './TeamsApiService';
+} from '@/shared/services/ai/TeamsApiService';
 
 // Re-export Agent Marketplace service (Phase 4 - Pre-Built Vertical AI Agents)
 export { agentMarketplaceApi };
@@ -316,7 +316,7 @@ export type {
   Publisher,
   PublisherAnalytics,
   TemplateFilters as AgentTemplateFilters,
-} from './AgentMarketplaceApiService';
+} from '@/shared/services/ai/AgentMarketplaceApiService';
 
 // Re-export Governance service (Phase 4 - AI Workflow Governance & Compliance)
 export { governanceApi };
@@ -331,7 +331,7 @@ export type {
   AuditEntry,
   ComplianceSummary,
   PolicyEvaluationResult,
-} from './GovernanceApiService';
+} from '@/shared/services/ai/GovernanceApiService';
 
 // Re-export DevOps service (Phase 4 - AI Pipeline Templates for CI/CD)
 export { devopsApi };
@@ -342,7 +342,7 @@ export type {
   DeploymentRisk,
   CodeReview,
   DevopsAnalytics,
-} from './DevopsApiService';
+} from '@/shared/services/ai/DevopsApiService';
 
 // Re-export Sandbox service (Phase 4 - Enterprise AI Agent Sandbox & Testing)
 export { sandboxApi };
@@ -356,7 +356,7 @@ export type {
   AbTest,
   AbTestResults,
   SandboxAnalytics,
-} from './SandboxApiService';
+} from '@/shared/services/ai/SandboxApiService';
 
 // Re-export A2A Agent Cards service
 export { agentCardsApiService };
@@ -380,7 +380,7 @@ export type {
   AgentAuthentication,
   AgentCapabilities,
   AgentSkill,
-} from './types/a2a-types';
+} from '@/shared/services/ai/types/a2a-types';
 
 // Re-export A2A Tasks service
 export { a2aTasksApiService };
@@ -411,7 +411,7 @@ export type {
   MemoryGraph,
   MemoryGraphNode,
   MemoryGraphEdge,
-} from './types/memory-types';
+} from '@/shared/services/ai/types/memory-types';
 
 // Re-export Chat Channels service (AI Agent Community Platform)
 export { chatChannelsApi };
@@ -438,7 +438,7 @@ export type {
   ChannelMetrics,
   SessionStats,
   PlatformInfo,
-} from './types/chat-types';
+} from '@/shared/services/ai/types/chat-types';
 
 // Re-export Community Agents service (AI Agent Community Platform)
 export { communityAgentsApi };
@@ -468,7 +468,7 @@ export type {
   FederationPartnerFilters,
   FederatedAgent,
   VerifyFederationKeyResponse,
-} from './types/community-types';
+} from '@/shared/services/ai/types/community-types';
 
 // Re-export Container Execution service (AI Agent Community Platform)
 export { containerExecutionApi };
@@ -495,7 +495,7 @@ export type {
   UsageHistory,
   OverageInfo,
   ContainerStats,
-} from './types/container-types';
+} from '@/shared/services/ai/types/container-types';
 
 // Re-export Ralph Loops service (Autonomous AI Agent Loops)
 export { ralphLoopsApi };
@@ -518,7 +518,7 @@ export type {
   ParsePrdRequest,
   RalphStatistics,
   RalphProgress,
-} from './types/ralph-types';
+} from '@/shared/services/ai/types/ralph-types';
 
 /**
  * Convenience object for accessing all API services

@@ -1,9 +1,9 @@
 import React from 'react';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
-import { McpToolConfigPanel } from '../McpToolConfigPanel';
-import { McpResourceConfigPanel } from '../McpResourceConfigPanel';
-import { McpPromptConfigPanel } from '../McpPromptConfigPanel';
-import type { NodeTypeConfigProps } from './types';
+import { McpToolConfigPanel } from '@/shared/components/workflow/config/McpToolConfigPanel';
+import { McpResourceConfigPanel } from '@/shared/components/workflow/config/McpResourceConfigPanel';
+import { McpPromptConfigPanel } from '@/shared/components/workflow/config/McpPromptConfigPanel';
+import type { NodeTypeConfigProps } from '@/shared/components/workflow/config/node-types/types';
 
 export const McpOperationConfig: React.FC<NodeTypeConfigProps> = ({
   config,

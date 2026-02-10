@@ -20,10 +20,10 @@ import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { agentsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import type { AiAgent } from '@/shared/types/ai';
-import type { HandlePosition, HandlePositions } from './nodes/DynamicNodeHandles';
-import { getHandleIdsForNodeType, getDefaultHandlePositions } from './nodes/DynamicNodeHandles';
-import { getNodeTypeConfig, positionOptions } from './config/node-types';
-import type { NodeConfiguration } from './config/node-types';
+import type { HandlePosition, HandlePositions } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { getHandleIdsForNodeType, getDefaultHandlePositions } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { getNodeTypeConfig, positionOptions } from '@/shared/components/workflow/config/node-types';
+import type { NodeConfiguration } from '@/shared/components/workflow/config/node-types';
 
 // Define the workflow node data structure
 export interface WorkflowNodeData {

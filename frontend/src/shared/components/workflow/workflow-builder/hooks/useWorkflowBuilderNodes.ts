@@ -3,8 +3,8 @@
 import { useCallback, useRef } from 'react';
 import { Node } from '@xyflow/react';
 import { AiWorkflow, AiWorkflowNode } from '@/shared/types/workflow';
-import { migrateHandleId, generateUniqueEdgeId } from '../utils';
-import { getDefaultHandlePositions, type HandlePositions } from '../../nodes/DynamicNodeHandles';
+import { migrateHandleId, generateUniqueEdgeId } from '@/shared/components/workflow/workflow-builder/utils';
+import { getDefaultHandlePositions, type HandlePositions } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 
 // Extended node type that may have position object from ReactFlow format
 interface ExtendedWorkflowNode extends AiWorkflowNode {

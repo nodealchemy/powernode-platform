@@ -1,4 +1,4 @@
-import { BaseApiService } from './BaseApiService';
+import { BaseApiService } from '@/shared/services/ai/BaseApiService';
 import type {
   McpServerRawResponse,
   McpToolRawResponse,
@@ -16,7 +16,7 @@ import type {
   CreateMcpServerRequest,
   UpdateMcpServerRequest,
   ExecutionHistoryOptions
-} from './types/mcp-api-types';
+} from '@/shared/services/ai/types/mcp-api-types';
 
 /**
  * API service for MCP (Model Context Protocol) operations
@@ -842,4 +842,4 @@ class McpApiService extends BaseApiService {
 export const mcpApi = new McpApiService();
 
 // Re-export types for convenience
-export type { McpServerOAuthStatus } from './types/mcp-api-types';
+export type { McpServerOAuthStatus } from '@/shared/services/ai/types/mcp-api-types';

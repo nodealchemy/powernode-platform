@@ -1,4 +1,4 @@
-import { BaseApiService, QueryFilters } from './BaseApiService';
+import { BaseApiService, QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 /**
  * AiOpsApiService - Real-Time AI Operations Dashboard API Client

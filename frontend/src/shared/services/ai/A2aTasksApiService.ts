@@ -1,4 +1,4 @@
-import { BaseApiService, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 import type {
   A2aTask,
   A2aTaskFilters,
@@ -7,7 +7,7 @@ import type {
   A2aTaskJson,
   A2aTaskEventsResponse,
   A2aArtifact,
-} from './types/a2a-types';
+} from '@/shared/services/ai/types/a2a-types';
 
 /**
  * A2aTasksApiService - A2A Tasks API Client

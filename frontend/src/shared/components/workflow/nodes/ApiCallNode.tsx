@@ -1,9 +1,9 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { Globe } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
-import { NodeActionsMenu } from '../NodeActionsMenu';
-import { useWorkflowContext } from '../WorkflowContext';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { NodeActionsMenu } from '@/shared/components/workflow/NodeActionsMenu';
+import { useWorkflowContext } from '@/shared/components/workflow/WorkflowContext';
 import { ApiCallNode as ApiCallNodeType } from '@/shared/types/workflow';
 
 export const ApiCallNode: React.FC<NodeProps<ApiCallNodeType>> = ({

@@ -3,11 +3,11 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Input } from '@/shared/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
-import { McpServerSelector } from './McpServerSelector';
-import { McpToolSelector } from './McpToolSelector';
-import { JsonSchemaForm } from './JsonSchemaForm';
+import { McpServerSelector } from '@/shared/components/workflow/config/McpServerSelector';
+import { McpToolSelector } from '@/shared/components/workflow/config/McpToolSelector';
+import { JsonSchemaForm } from '@/shared/components/workflow/config/JsonSchemaForm';
 import { Textarea } from '@/shared/components/ui/Textarea';
-import { useSchemaValidation } from './validation/useSchemaValidation';
+import { useSchemaValidation } from '@/shared/components/workflow/config/validation/useSchemaValidation';
 import type { McpToolForWorkflowBuilder } from '@/shared/types/workflow';
 
 interface McpToolConfigPanelProps {

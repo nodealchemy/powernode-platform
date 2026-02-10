@@ -5,7 +5,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
-import { WorkflowBuilderProvider } from './WorkflowBuilder';
+import { WorkflowBuilderProvider } from '@/shared/components/workflow/WorkflowBuilder';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { workflowsApi } from '@/shared/services/ai';

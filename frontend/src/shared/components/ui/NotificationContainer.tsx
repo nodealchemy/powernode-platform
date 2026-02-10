@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { removeNotification } from '@/shared/services/slices/uiSlice';
-import { EnhancedNotification } from './EnhancedNotification';
+import { EnhancedNotification } from '@/shared/components/ui/EnhancedNotification';
 
 export const NotificationContainer: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();

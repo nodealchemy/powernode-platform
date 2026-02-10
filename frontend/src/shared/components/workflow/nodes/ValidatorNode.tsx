@@ -1,9 +1,9 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { CheckCircle } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
-import { NodeActionsMenu } from '../NodeActionsMenu';
-import { useWorkflowContext } from '../WorkflowContext';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { NodeActionsMenu } from '@/shared/components/workflow/NodeActionsMenu';
+import { useWorkflowContext } from '@/shared/components/workflow/WorkflowContext';
 import { ValidatorNode as ValidatorNodeType } from '@/shared/types/workflow';
 
 export const ValidatorNode: React.FC<NodeProps<ValidatorNodeType>> = ({

@@ -1,4 +1,4 @@
-import { BaseApiService } from './BaseApiService';
+import { BaseApiService } from '@/shared/services/ai/BaseApiService';
 
 /**
  * MonitoringApiService - Monitoring Controller API Client

@@ -1,4 +1,4 @@
-import { BaseApiService, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 import type {
   AgentCard,
   AgentCardFilters,
@@ -6,7 +6,7 @@ import type {
   UpdateAgentCardRequest,
   A2aAgentCardJson,
   DiscoverAgentsResponse,
-} from './types/a2a-types';
+} from '@/shared/services/ai/types/a2a-types';
 
 /**
  * AgentCardsApiService - A2A Agent Cards API Client

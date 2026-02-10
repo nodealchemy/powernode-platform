@@ -1,5 +1,5 @@
 import { useState, useCallback, ChangeEvent, FormEvent } from 'react';
-import { useNotifications } from './useNotifications';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export interface FormValidationRule {
   required?: boolean;

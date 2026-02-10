@@ -1,5 +1,5 @@
 import { useSelector } from 'react-redux';
-import { RootState } from '../services';
+import { RootState } from '@/shared/services';
 
 /**
  * Hook for checking user permissions

@@ -1,10 +1,10 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { RefreshCw, Play, Pause, Square, Clock, BookOpen, ListTodo, Brain } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
-import { NodeActionsMenu } from '../NodeActionsMenu';
-import { useWorkflowContext } from '../WorkflowContext';
-import { NodeStatusBadge } from '../ExecutionOverlay';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { NodeActionsMenu } from '@/shared/components/workflow/NodeActionsMenu';
+import { useWorkflowContext } from '@/shared/components/workflow/WorkflowContext';
+import { NodeStatusBadge } from '@/shared/components/workflow/ExecutionOverlay';
 import { RalphLoopNode as RalphLoopNodeType } from '@/shared/types/workflow';
 
 const operationLabels: Record<string, string> = {

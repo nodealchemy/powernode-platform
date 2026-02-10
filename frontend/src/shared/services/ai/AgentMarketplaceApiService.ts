@@ -9,7 +9,7 @@
  * - Publisher revenue share: 70-85% to creators
  */
 
-import { BaseApiService, PaginatedResponse, QueryFilters } from './BaseApiService';
+import { BaseApiService, PaginatedResponse, QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 // Types
 export interface AgentTemplate {

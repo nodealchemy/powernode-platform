@@ -2,7 +2,7 @@ import React from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { useTheme } from '@/shared/hooks/ThemeContext';
-import { Button } from './Button';
+import { Button } from '@/shared/components/ui/Button';
 import { Moon, Sun } from 'lucide-react';
 
 interface ThemeToggleProps {

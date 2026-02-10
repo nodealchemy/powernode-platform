@@ -1,5 +1,5 @@
-import { BaseApiService, QueryFilters, PaginatedResponse } from './BaseApiService';
-import type { AiProvider, AiProviderCredential } from '../../types/ai';
+import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
+import type { AiProvider, AiProviderCredential } from '@/shared/types/ai';
 
 /**
  * ProvidersApiService - Providers Controller API Client

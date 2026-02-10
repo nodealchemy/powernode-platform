@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Home } from 'lucide-react';
-import { SharedBreadcrumbs } from '../ui/SharedBreadcrumbs';
+import { SharedBreadcrumbs } from '@/shared/components/ui/SharedBreadcrumbs';
 import { useBreadcrumb } from '@/shared/hooks/BreadcrumbContext';
 
 export interface BreadcrumbItem {

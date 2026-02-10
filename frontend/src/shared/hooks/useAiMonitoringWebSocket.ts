@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
 
 // Monitoring event types
 type MonitoringEventType =

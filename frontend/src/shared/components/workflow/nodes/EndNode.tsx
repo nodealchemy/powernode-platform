@@ -2,7 +2,7 @@ import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { CheckCircle, XCircle, Settings, OctagonX } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 import { EndNode as EndNodeType, EndNodeData } from '@/shared/types/workflow';
 
 export const EndNode: React.FC<NodeProps<EndNodeType>> = ({ data = {} as EndNodeData, selected }) => {

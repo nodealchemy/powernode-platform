@@ -3,7 +3,7 @@ import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { toggleSidebar } from '@/shared/services/slices/uiSlice';
-import { Sidebar, Header } from '../navigation';
+import { Sidebar, Header } from '@/shared/components/navigation';
 import { NavigationProvider } from '@/shared/hooks/NavigationContext';
 import { ImpersonationBanner } from '@/features/admin/components/ImpersonationBanner';
 import { ChatWindowProvider } from '@/features/ai/chat/context/ChatWindowContext';

@@ -1,4 +1,4 @@
-import { BaseApiService, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 import type {
   RalphLoop,
   RalphLoopSummary,
@@ -18,7 +18,7 @@ import type {
   PauseScheduleResponse,
   ResumeScheduleResponse,
   RegenerateWebhookTokenResponse,
-} from './types/ralph-types';
+} from '@/shared/services/ai/types/ralph-types';
 
 /**
  * RalphLoopsApiService - Ralph Loops API Client

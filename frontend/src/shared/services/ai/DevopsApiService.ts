@@ -9,7 +9,7 @@
  * - Enterprise template library: $199/mo
  */
 
-import { BaseApiService, PaginatedResponse, QueryFilters } from './BaseApiService';
+import { BaseApiService, PaginatedResponse, QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 // Types
 export interface DevopsTemplate {

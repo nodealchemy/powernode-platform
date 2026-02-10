@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
 
 export interface RetryStatusUpdate {
   type: 'node_retry_scheduled' | 'node_retry_started' | 'node_retry_completed' | 'node_retry_failed' | 'retries_exhausted';

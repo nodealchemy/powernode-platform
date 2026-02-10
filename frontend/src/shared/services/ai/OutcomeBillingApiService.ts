@@ -4,7 +4,7 @@
  * Handles outcome definitions, SLA contracts, billing records, and violations.
  */
 
-import { BaseApiService, QueryFilters } from './BaseApiService';
+import { BaseApiService, QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 // ============================================================================
 // Types

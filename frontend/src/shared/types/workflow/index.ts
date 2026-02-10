@@ -16,7 +16,7 @@ export type {
   WorkflowTemplate,
   WorkflowFilters,
   WorkflowExecutionFilters,
-} from './core';
+} from '@/shared/types/workflow/core';
 
 // Node configuration types
 export type {
@@ -34,7 +34,7 @@ export type {
   RalphLoopOperation,
   RalphLoopSchedulingMode,
   RalphLoopNodeConfiguration,
-} from './configuration';
+} from '@/shared/types/workflow/configuration';
 
 // Node data types
 export type {
@@ -101,14 +101,14 @@ export type {
   DevopsGetLogsNode,
   RalphLoopNode,
   WorkflowNode,
-} from './nodes';
+} from '@/shared/types/workflow/nodes';
 
 // Execution types
 export type {
   AiWorkflowRun,
   AiWorkflowNodeExecution,
   WorkflowExecutionStats,
-} from './execution';
+} from '@/shared/types/workflow/execution';
 
 // Monitoring types
 export type {
@@ -119,7 +119,7 @@ export type {
   MetricsUpdateMessage,
   CircuitBreakerMessage,
   AIOrchestrationMessage,
-} from './monitoring';
+} from '@/shared/types/workflow/monitoring';
 
 // Validation types
 export type {
@@ -127,4 +127,4 @@ export type {
   ValidationIssue,
   WorkflowValidationResult,
   ValidationRule,
-} from './validation';
+} from '@/shared/types/workflow/validation';

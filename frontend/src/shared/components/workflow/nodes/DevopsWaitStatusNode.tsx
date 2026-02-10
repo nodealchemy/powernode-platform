@@ -1,9 +1,9 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { Timer, CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
-import { NodeActionsMenu } from '../NodeActionsMenu';
-import { useWorkflowContext } from '../WorkflowContext';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { NodeActionsMenu } from '@/shared/components/workflow/NodeActionsMenu';
+import { useWorkflowContext } from '@/shared/components/workflow/WorkflowContext';
 import { DevopsWaitStatusNode as DevopsWaitStatusNodeType } from '@/shared/types/workflow';
 
 export const DevopsWaitStatusNode: React.FC<NodeProps<DevopsWaitStatusNodeType>> = ({

@@ -1,2 +1,2 @@
 // Re-export all workflow types from modular structure
-export * from './workflow/index';
+export * from '@/shared/types/workflow/index';

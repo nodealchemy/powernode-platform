@@ -23,8 +23,8 @@ import { autoArrangeNodes, getLayoutOptions } from '@/shared/utils/workflowLayou
 import { useWorkflowHistory } from '@/shared/hooks/useWorkflowHistory';
 import { useWorkflowExecution } from '@/shared/hooks/useWorkflowExecution';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
-import { HistoryControls } from './HistoryControls';
-import { ExecutionStats } from './ExecutionOverlay';
+import { HistoryControls } from '@/shared/components/workflow/HistoryControls';
+import { ExecutionStats } from '@/shared/components/workflow/ExecutionOverlay';
 
 // Import extracted constants and utilities
 import {
@@ -35,15 +35,15 @@ import {
   migrateHandleId,
   calculateOptimalSide,
   snapToGridPosition as snapToGridUtil
-} from './workflow-builder';
-import { getDefaultHandlePositions, type HandlePositions } from './nodes/DynamicNodeHandles';
+} from '@/shared/components/workflow/workflow-builder';
+import { getDefaultHandlePositions, type HandlePositions } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 
 // Components
-import { NodePalette } from './NodePalette';
-import { NodeConfigPanel } from './NodeConfigPanel';
-import { WorkflowToolbar } from './WorkflowToolbar';
-import { NodeOperationsChat } from './NodeOperationsChat';
-import { WorkflowProvider } from './WorkflowContext';
+import { NodePalette } from '@/shared/components/workflow/NodePalette';
+import { NodeConfigPanel } from '@/shared/components/workflow/NodeConfigPanel';
+import { WorkflowToolbar } from '@/shared/components/workflow/WorkflowToolbar';
+import { NodeOperationsChat } from '@/shared/components/workflow/NodeOperationsChat';
+import { WorkflowProvider } from '@/shared/components/workflow/WorkflowContext';
 
 import { AiWorkflow, AiWorkflowNode, BaseWorkflowNodeData, NodeExecutionStatus } from '@/shared/types/workflow';
 import { AiAgent } from '@/shared/types/ai';

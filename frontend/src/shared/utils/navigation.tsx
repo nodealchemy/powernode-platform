@@ -11,7 +11,7 @@ import {
   Network, Layers, Lock, Rocket, HeartPulse,
   Play
 } from 'lucide-react';
-import { NavigationConfig } from '../types/navigation';
+import { NavigationConfig } from '@/shared/types/navigation';
 
 export const defaultNavigationConfig: NavigationConfig = {
   items: [

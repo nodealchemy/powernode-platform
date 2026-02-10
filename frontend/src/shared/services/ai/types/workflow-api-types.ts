@@ -1,4 +1,4 @@
-import type { QueryFilters } from '../BaseApiService';
+import type { QueryFilters } from '@/shared/services/ai/BaseApiService';
 import type {
   AiWorkflow,
   AiWorkflowRun,
@@ -7,7 +7,7 @@ import type {
   AiWorkflowNode,
   AiWorkflowEdge,
   WorkflowTemplate
-} from '../../../types/workflow';
+} from '@/shared/types/workflow';
 
 // Re-export workflow types for convenience
 export type { AiWorkflow, AiWorkflowRun, AiWorkflowNodeExecution, AiWorkflowTrigger, AiWorkflowNode, AiWorkflowEdge, WorkflowTemplate };

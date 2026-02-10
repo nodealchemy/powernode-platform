@@ -2,7 +2,7 @@
  * Workflow execution types - runtime execution tracking
  */
 
-import type { WorkflowRunStatus } from './core';
+import type { WorkflowRunStatus } from '@/shared/types/workflow/core';
 
 export interface AiWorkflowRun {
   id?: string;

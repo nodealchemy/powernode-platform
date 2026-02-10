@@ -1,7 +1,7 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { UserCheck } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 import { HumanApprovalNode as HumanApprovalNodeType } from '@/shared/types/workflow';
 
 export const HumanApprovalNode: React.FC<NodeProps<HumanApprovalNodeType>> = ({

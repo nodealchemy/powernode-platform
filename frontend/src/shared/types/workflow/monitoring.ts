@@ -2,8 +2,8 @@
  * Workflow monitoring types - real-time updates and health monitoring
  */
 
-import type { WorkflowRunStatus } from './core';
-import type { AiWorkflowRun, AiWorkflowNodeExecution } from './execution';
+import type { WorkflowRunStatus } from '@/shared/types/workflow/core';
+import type { AiWorkflowRun, AiWorkflowNodeExecution } from '@/shared/types/workflow/execution';
 
 export interface WorkflowMonitoringData {
   type: string;

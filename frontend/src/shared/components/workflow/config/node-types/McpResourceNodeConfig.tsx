@@ -1,6 +1,6 @@
 import React from 'react';
-import { McpResourceConfigPanel } from '../McpResourceConfigPanel';
-import type { NodeTypeConfigProps } from './types';
+import { McpResourceConfigPanel } from '@/shared/components/workflow/config/McpResourceConfigPanel';
+import type { NodeTypeConfigProps } from '@/shared/components/workflow/config/node-types/types';
 
 export const McpResourceNodeConfig: React.FC<NodeTypeConfigProps> = ({
   config,

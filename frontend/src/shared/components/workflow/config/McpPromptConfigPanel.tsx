@@ -3,8 +3,8 @@ import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Input } from '@/shared/components/ui/Input';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
-import { McpServerSelector } from './McpServerSelector';
-import { McpPromptSelector } from './McpPromptSelector';
+import { McpServerSelector } from '@/shared/components/workflow/config/McpServerSelector';
+import { McpPromptSelector } from '@/shared/components/workflow/config/McpPromptSelector';
 import type { McpPromptForWorkflowBuilder } from '@/shared/types/workflow';
 
 interface McpPromptConfigPanelProps {

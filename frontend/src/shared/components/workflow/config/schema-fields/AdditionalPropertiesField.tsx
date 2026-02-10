@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
-import type { JsonSchemaProperty } from '../JsonSchemaForm';
+import type { JsonSchemaProperty } from '@/shared/components/workflow/config/JsonSchemaForm';
 import type { WorkflowVariable } from '@/shared/hooks/useWorkflowVariables';
 
 interface AdditionalPropertiesFieldProps {

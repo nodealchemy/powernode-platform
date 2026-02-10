@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { type NodeExecutionState } from '@/shared/components/workflow/ExecutionOverlay';
 
 interface WorkflowExecutionMessage {

@@ -4,7 +4,7 @@
  * Handles credit balance, purchases, transfers, and usage tracking.
  */
 
-import { BaseApiService, QueryFilters } from './BaseApiService';
+import { BaseApiService, QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 // ============================================================================
 // Types

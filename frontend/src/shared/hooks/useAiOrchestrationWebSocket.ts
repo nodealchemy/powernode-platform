@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect } from 'react';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
 
 // AI Orchestration event types
 type WorkflowEventType =

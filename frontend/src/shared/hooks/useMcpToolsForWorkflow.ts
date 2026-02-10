@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useMcpServersForWorkflow } from './useMcpServersForWorkflow';
+import { useMcpServersForWorkflow } from '@/shared/hooks/useMcpServersForWorkflow';
 import {
   McpToolForWorkflowBuilder,
   McpResourceForWorkflowBuilder,

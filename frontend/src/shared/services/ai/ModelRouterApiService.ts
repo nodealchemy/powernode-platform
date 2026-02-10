@@ -1,4 +1,4 @@
-import { BaseApiService, QueryFilters, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 
 /**
  * ModelRouterApiService - Intelligent AI Request Routing API Client

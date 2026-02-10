@@ -2,7 +2,7 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import { NavigationSection as NavSection } from '@/shared/types/navigation';
-import { NavigationItem } from './NavigationItem';
+import { NavigationItem } from '@/shared/components/navigation/NavigationItem';
 import { useNavigation } from '@/shared/hooks/NavigationContext';
 
 interface NavigationSectionProps {

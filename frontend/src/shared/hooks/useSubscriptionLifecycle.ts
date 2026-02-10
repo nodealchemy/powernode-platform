@@ -1,9 +1,9 @@
 import { useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
-import { fetchSubscriptions, setCurrentSubscription } from '../services/slices/subscriptionSlice';
+import { fetchSubscriptions, setCurrentSubscription } from '@/shared/services/slices/subscriptionSlice';
 import { Subscription } from '@/shared/types';
-import { useSubscriptionWebSocket } from './useSubscriptionWebSocket';
+import { useSubscriptionWebSocket } from '@/shared/hooks/useSubscriptionWebSocket';
 
 export interface SubscriptionLifecycleHook {
   refreshSubscriptions: () => Promise<void>;

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect } from 'react';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
 
 interface AnalyticsWebSocketOptions {
   onAnalyticsUpdate?: (data: unknown) => void;

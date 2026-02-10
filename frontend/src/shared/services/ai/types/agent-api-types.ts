@@ -5,7 +5,7 @@
  * Extracted from AgentsApiService.ts for better modularity.
  */
 
-import type { QueryFilters } from '../BaseApiService';
+import type { QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 // ===================================================================
 // Filter Types

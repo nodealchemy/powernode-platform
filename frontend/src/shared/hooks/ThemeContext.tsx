@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { settingsApi } from '../services/settings/settingsApi';
+import { settingsApi } from '@/shared/services/settings/settingsApi';
 
 type Theme = 'light' | 'dark';
 

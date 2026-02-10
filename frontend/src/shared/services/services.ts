@@ -2,30 +2,30 @@
 export { api } from '@/shared/services/api';
 
 // Account services
-export * from './account/impersonationApi';
-export * from './account/invitationsApi';
-export * from './account/twoFactorApi';
+export * from '@/shared/services/account/impersonationApi';
+export * from '@/shared/services/account/invitationsApi';
+export * from '@/shared/services/account/twoFactorApi';
 
 // Billing services
-export * from './billing/invoicesApi';
-export * from './billing/paymentMethodsApi';
-export * from './billing/planFeaturesApi';
-export * from './billing/subscriptionHistoryApi';
+export * from '@/shared/services/billing/invoicesApi';
+export * from '@/shared/services/billing/paymentMethodsApi';
+export * from '@/shared/services/billing/planFeaturesApi';
+export * from '@/shared/services/billing/subscriptionHistoryApi';
 
 // Settings services
-export * from './settings/emailSettingsApi';
-export * from './settings/settingsApi';
+export * from '@/shared/services/settings/emailSettingsApi';
+export * from '@/shared/services/settings/settingsApi';
 
 // Admin services
-export * from './admin/maintenanceApi';
+export * from '@/shared/services/admin/maintenanceApi';
 
 // System services
-export * from './system/performanceApi';
-export * from './system/versionApi';
-export * from './system/serviceApi';
+export * from '@/shared/services/system/performanceApi';
+export * from '@/shared/services/system/versionApi';
+export * from '@/shared/services/system/serviceApi';
 
 // Business services
-export * from './business/customersApi';
+export * from '@/shared/services/business/customersApi';
 
 // Content services
-export * from './content/knowledgeBaseApi';
+export * from '@/shared/services/content/knowledgeBaseApi';

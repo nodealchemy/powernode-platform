@@ -1,7 +1,7 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { FileText } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 import { PromptTemplateNode as PromptTemplateNodeType } from '@/shared/types/workflow';
 
 export const PromptTemplateNode: React.FC<NodeProps<PromptTemplateNodeType>> = ({

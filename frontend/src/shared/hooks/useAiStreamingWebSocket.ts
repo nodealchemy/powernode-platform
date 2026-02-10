@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
 
 // Streaming event types
 export type StreamEventType = 'stream_start' | 'token' | 'stream_end' | 'stream_error';

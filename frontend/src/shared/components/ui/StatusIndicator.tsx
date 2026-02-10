@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge } from './Badge';
+import { Badge } from '@/shared/components/ui/Badge';
 
 export interface StatusIndicatorProps {
   status: 'active' | 'inactive' | 'pending' | 'error' | 'warning' | 'success' | 'loading';

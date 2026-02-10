@@ -4,7 +4,7 @@
  * Handles team management, roles, channels, executions, tasks, messages, and templates.
  */
 
-import { BaseApiService, QueryFilters } from './BaseApiService';
+import { BaseApiService, QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 // ============================================================================
 // Types

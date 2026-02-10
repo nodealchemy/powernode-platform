@@ -1,9 +1,9 @@
 // Workflow builder utilities and constants
-export { NODE_TYPES, type NodeTypeKey } from './nodeTypes';
-export { EDGE_TYPES, DEFAULT_EDGE_OPTIONS } from './edgeTypes';
+export { NODE_TYPES, type NodeTypeKey } from '@/shared/components/workflow/workflow-builder/nodeTypes';
+export { EDGE_TYPES, DEFAULT_EDGE_OPTIONS } from '@/shared/components/workflow/workflow-builder/edgeTypes';
 export {
   generateUniqueEdgeId,
   migrateHandleId,
   calculateOptimalSide,
   snapToGridPosition
-} from './utils';
+} from '@/shared/components/workflow/workflow-builder/utils';

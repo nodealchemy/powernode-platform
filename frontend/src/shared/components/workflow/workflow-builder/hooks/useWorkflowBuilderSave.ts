@@ -2,8 +2,8 @@
 
 import { useCallback } from 'react';
 import { Node, Edge } from '@xyflow/react';
-import { migrateHandleId } from '../utils';
-import { getDefaultHandlePositions } from '../../nodes/DynamicNodeHandles';
+import { migrateHandleId } from '@/shared/components/workflow/workflow-builder/utils';
+import { getDefaultHandlePositions } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 
 interface UseWorkflowBuilderSaveOptions {
   nodes: Node[];

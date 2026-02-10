@@ -2,7 +2,7 @@ import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { Play, Settings, Globe, Clock, Link } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 import { StartNode as StartNodeType } from '@/shared/types/workflow';
 
 export const StartNode: React.FC<NodeProps<StartNodeType>> = ({ data, selected }) => {

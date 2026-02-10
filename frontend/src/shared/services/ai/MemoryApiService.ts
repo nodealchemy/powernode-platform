@@ -1,4 +1,4 @@
-import { BaseApiService, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 import type {
   MemoryEntry,
   MemoryFilters,
@@ -9,7 +9,7 @@ import type {
   ContextInjectionRequest,
   ContextInjectionResponse,
   MemoryStatsResponse,
-} from './types/memory-types';
+} from '@/shared/services/ai/types/memory-types';
 
 /**
  * MemoryApiService - Agent Memory API Client

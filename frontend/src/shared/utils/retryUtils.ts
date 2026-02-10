@@ -6,7 +6,7 @@
  * or temporary service unavailability.
  */
 
-import { handleApiError, isRecoverableError, ErrorCodes, ApiError } from '../services/errorHandler';
+import { handleApiError, isRecoverableError, ErrorCodes, ApiError } from '@/shared/services/errorHandler';
 
 /**
  * Configuration for retry behavior

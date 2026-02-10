@@ -1,5 +1,5 @@
 // Billing services barrel export
-export * from './invoicesApi';
-export * from './paymentMethodsApi';
-export * from './planFeaturesApi';
-export * from './subscriptionHistoryApi';
+export * from '@/shared/services/billing/invoicesApi';
+export * from '@/shared/services/billing/paymentMethodsApi';
+export * from '@/shared/services/billing/planFeaturesApi';
+export * from '@/shared/services/billing/subscriptionHistoryApi';

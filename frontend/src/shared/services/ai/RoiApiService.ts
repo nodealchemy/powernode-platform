@@ -1,4 +1,4 @@
-import { BaseApiService, QueryFilters, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 
 /**
  * RoiApiService - Workflow Revenue Analytics & ROI Tracking API Client

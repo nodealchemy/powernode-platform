@@ -3,9 +3,9 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect } 
 import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { NavigationContext, NavigationConfig, MenuState, NavigationTheme } from '../types/navigation';
-import { hasAccess } from '../utils/permissionUtils';
-import { defaultNavigationConfig, adminNavigationOverrides } from '../utils/navigation';
+import { NavigationContext, NavigationConfig, MenuState, NavigationTheme } from '@/shared/types/navigation';
+import { hasAccess } from '@/shared/utils/permissionUtils';
+import { defaultNavigationConfig, adminNavigationOverrides } from '@/shared/utils/navigation';
 
 // Menu state reducer
 type MenuAction =

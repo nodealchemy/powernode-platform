@@ -8,7 +8,7 @@
  * - Dedicated compliance officer support: $2,000/mo
  */
 
-import { BaseApiService, PaginatedResponse, QueryFilters } from './BaseApiService';
+import { BaseApiService, PaginatedResponse, QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 // Types
 export interface CompliancePolicy {

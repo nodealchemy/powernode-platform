@@ -1,9 +1,9 @@
 // Rebuilt Sidebar Component
 import React, { useCallback, useEffect, useRef } from 'react';
-import { NavigationItem } from './NavigationItem';
-import { NavigationSection } from './NavigationSection';
+import { NavigationItem } from '@/shared/components/navigation/NavigationItem';
+import { NavigationSection } from '@/shared/components/navigation/NavigationSection';
 import { useNavigation } from '@/shared/hooks/NavigationContext';
-import { VersionDisplay } from '../ui/VersionDisplay';
+import { VersionDisplay } from '@/shared/components/ui/VersionDisplay';
 import { settingsApi } from '@/shared/services/settings/settingsApi';
 
 interface SidebarProps {

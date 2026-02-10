@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useSelector, shallowEqual } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { LoadingSpinner } from './LoadingSpinner';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;

@@ -1,10 +1,10 @@
-import { BaseApiService, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 import type {
   AiAgent,
   AiAgentExecution,
   AiConversation,
   AiMessage
-} from '../../types/ai';
+} from '@/shared/types/ai';
 import type {
   AgentFilters,
   AgentExecutionFilters,
@@ -16,7 +16,7 @@ import type {
   AgentType,
   SendMessageResponse,
   AiAgentSkill,
-} from './types/agent-api-types';
+} from '@/shared/services/ai/types/agent-api-types';
 
 /**
  * AgentsApiService - Agents Controller API Client

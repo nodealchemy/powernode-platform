@@ -14,7 +14,7 @@ export {
   throttle,
   batchUpdates,
   scheduleSequentialUpdates
-} from './performance-utils';
+} from '@/shared/utils/workflow/performance-utils';
 
 // Graph utilities
 export {
@@ -23,7 +23,7 @@ export {
   getNodeExecutionLevels,
   formatNodeType,
   getNodeTypeVariant
-} from './graph-utils';
+} from '@/shared/utils/workflow/graph-utils';
 
 // Edge validation utilities
 export {
@@ -31,11 +31,11 @@ export {
   validateWorkflowEdges,
   getMaxOutgoingConnections,
   getMaxIncomingConnections
-} from './edge-validation-utils';
+} from '@/shared/utils/workflow/edge-validation-utils';
 
 // Types
 export type {
   EdgeValidationResult,
   NodeForValidation,
   EdgeForValidation
-} from './edge-validation-utils';
+} from '@/shared/utils/workflow/edge-validation-utils';

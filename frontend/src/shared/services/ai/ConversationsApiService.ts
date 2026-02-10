@@ -1,5 +1,5 @@
-import { BaseApiService, QueryFilters, PaginatedResponse } from './BaseApiService';
-import type { AiMessage } from '../../types/ai';
+import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
+import type { AiMessage } from '@/shared/types/ai';
 
 /**
  * ConversationsApiService - Global Conversations Controller API Client

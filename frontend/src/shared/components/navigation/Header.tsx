@@ -1,8 +1,8 @@
 // Rebuilt Header Component
 import React from 'react';
-import { UserMenu } from './UserMenu';
-import { WebSocketStatusIndicator } from '../ui/WebSocketStatusIndicator';
-import { ThemeToggle } from '../ui/ThemeToggle';
+import { UserMenu } from '@/shared/components/navigation/UserMenu';
+import { WebSocketStatusIndicator } from '@/shared/components/ui/WebSocketStatusIndicator';
+import { ThemeToggle } from '@/shared/components/ui/ThemeToggle';
 import { AccountSwitcher } from '@/features/account/switcher';
 import { NotificationBell } from '@/features/account/notifications';
 

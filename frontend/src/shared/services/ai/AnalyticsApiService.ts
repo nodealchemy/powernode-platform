@@ -1,4 +1,4 @@
-import { BaseApiService, QueryFilters, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 
 /**
  * AnalyticsApiService - Analytics Controller API Client

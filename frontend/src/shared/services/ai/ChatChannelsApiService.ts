@@ -1,4 +1,4 @@
-import { BaseApiService, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 import type {
   ChatChannel,
   ChatChannelSummary,
@@ -15,7 +15,7 @@ import type {
   ChannelMetrics,
   SessionStats,
   PlatformInfo,
-} from './types/chat-types';
+} from '@/shared/services/ai/types/chat-types';
 
 /**
  * ChatChannelsApiService - Chat Gateway API Client

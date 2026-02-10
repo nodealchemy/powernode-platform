@@ -1,6 +1,6 @@
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '@/shared/services';
-import { addNotification } from '../services/slices/uiSlice';
+import { addNotification } from '@/shared/services/slices/uiSlice';
 
 type NotificationType = 'success' | 'error' | 'warning' | 'info';
 

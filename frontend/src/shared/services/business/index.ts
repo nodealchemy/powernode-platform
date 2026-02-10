@@ -1,1 +1,1 @@
-export * from './customersApi';
+export * from '@/shared/services/business/customersApi';

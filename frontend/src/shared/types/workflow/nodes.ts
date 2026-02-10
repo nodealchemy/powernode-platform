@@ -3,8 +3,8 @@
  */
 
 import type { Node } from '@xyflow/react';
-import type { HandlePositions } from './core';
-import type { KbArticleNodeConfiguration, McpOperationNodeConfiguration, PageNodeConfiguration, RalphLoopNodeConfiguration } from './configuration';
+import type { HandlePositions } from '@/shared/types/workflow/core';
+import type { KbArticleNodeConfiguration, McpOperationNodeConfiguration, PageNodeConfiguration, RalphLoopNodeConfiguration } from '@/shared/types/workflow/configuration';
 
 // ===== NODE DATA TYPES FOR REACTFLOW =====
 // Type-safe data interfaces for ReactFlow node components

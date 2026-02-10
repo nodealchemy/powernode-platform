@@ -4,7 +4,7 @@
  * Handles knowledge bases, documents, embeddings, queries, and data connectors.
  */
 
-import { BaseApiService, QueryFilters } from './BaseApiService';
+import { BaseApiService, QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 // ============================================================================
 // Types
