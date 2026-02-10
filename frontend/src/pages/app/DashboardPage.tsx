@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
@@ -7,6 +7,7 @@ import { paymentGatewaysApi } from '@/features/business/payment-gateways/service
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { MetricCard } from '@/shared/components/ui/Card';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 
 // Import all dashboard pages
 import { ReportsPage } from './business/ReportsPage';
@@ -60,8 +61,6 @@ import { GitProvidersPage } from './devops/GitProvidersPage';
 import { RepositoriesPage } from './devops/RepositoriesPage';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
-import { AdminImpersonationPage } from '@/pages/app/admin/AdminImpersonationPage';
-
 // AI Pages - Primary navigation
 import { AIOverviewPage } from './ai/AIOverviewPage';
 import { AIAgentsPage } from './ai/AIAgentsPage';
@@ -91,7 +90,6 @@ import { AgentChatPage } from '@/pages/app/ai/AgentChatPage';
 import { ChatChannelsPage } from '@/features/ai/chat-channels/pages/ChatChannelsPage';
 
 // AI Hidden pages (no nav, still accessible)
-import { PublisherDashboard } from '@/features/ai/publisher/pages/PublisherDashboard';
 import { SelfHealingDashboard } from '@/features/ai/self-healing/SelfHealingDashboard';
 import { RecommendationsDashboard } from '@/features/ai/learning/RecommendationsDashboard';
 import { TrajectoryInsights } from '@/features/ai/learning/TrajectoryInsights';
@@ -606,7 +604,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/security" element={<SecurityDashboardPage />} />
 
         {/* AI Pages - Hidden (no nav, still accessible) */}
-        <Route path="/ai/publisher" element={<PublisherDashboard />} />
         <Route path="/ai/self-healing" element={<SelfHealingDashboard />} />
         <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
         <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
@@ -732,9 +729,21 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/roles" element={<AdminRolesPage />} />
         <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
-        <Route path="/admin/impersonation" element={<AdminImpersonationPage />} />
         <Route path="/system/workers/*" element={<SystemWorkersPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
+
+        {/* Enterprise routes (dynamically registered via featureRegistry) */}
+        {featureRegistry.getRoutes().map((route) => (
+          <Route
+            key={route.path}
+            path={route.path}
+            element={
+              <Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}>
+                <route.component />
+              </Suspense>
+            }
+          />
+        ))}
       </Routes>
     </DashboardLayout>
   );

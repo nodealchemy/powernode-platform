@@ -16,9 +16,6 @@ export * from './aiops';
 // ROI analytics
 export * from './roi';
 
-// Publisher/marketplace
-export * from './publisher';
-
 // A2A tasks
 export * from './a2a-tasks';
 

@@ -4,9 +4,6 @@
  * Business analytics, billing, plans, subscriptions, and reseller functionality
  */
 
-// Reseller partner management
-export * from './reseller';
-
 // Usage tracking and reporting
 export * from './usage';
 
