@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { plansApi } from '@/features/business/plans/services/plansApi';
@@ -48,7 +48,6 @@ import { AdminRolesPage } from '@/pages/app/admin/AdminRolesPage';
 import { WorkersPage as SystemWorkersPage } from '@/pages/app/system/WorkersPage';
 import { ServicesPage } from '@/pages/app/system/ServicesPage';
 import StorageProvidersPage from '@/pages/app/system/StorageProvidersPage';
-// GitProvidersPage moved to Connections - route redirects to connections/git
 
 // CI/CD Pages (used in System section for runners)
 import {
@@ -61,11 +60,7 @@ import { GitProvidersPage } from './devops/GitProvidersPage';
 import { RepositoriesPage } from './devops/RepositoriesPage';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
-// AdminPluginsPage deprecated - now redirects to admin/marketplace
 import { AdminImpersonationPage } from '@/pages/app/admin/AdminImpersonationPage';
-
-// Test page
-import { TestWebSocket } from '@/pages/app/TestWebSocket';
 
 // AI Pages - Primary navigation
 import { AIOverviewPage } from './ai/AIOverviewPage';
@@ -107,6 +102,7 @@ import { AutonomyDashboardPage } from '@/features/ai/autonomy';
 import { MemoryExplorerPage } from '@/features/ai/memory';
 import CompoundLearningPage from './ai/CompoundLearningPage';
 import { AuditDashboardPage } from '@/features/ai/audit';
+import { SecurityDashboardPage } from '@/features/ai/security';
 
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
@@ -140,7 +136,6 @@ import { DockerHealthPage } from '@/features/devops/docker/pages/DockerHealthPag
 import TeamsPage from './ai/TeamsPage';
 
 // Integration Pages
-// IntegrationsMarketplacePage deprecated - now redirects to marketplace?types=integration
 import {
   IntegrationsPage,
   IntegrationDetailPage,
@@ -571,7 +566,6 @@ const DashboardPage: React.FC = () => {
         {/* AI Pages - Primary navigation */}
         <Route path="/ai" element={<AIOverviewPage />} />
         <Route path="/ai/agents/list" element={<AIAgentsPage />} />
-        <Route path="/ai/agents/teams" element={<AIAgentsPage />} />
         <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
         <Route path="/ai/agents/marketplace" element={<AIAgentsPage />} />
         <Route path="/ai/agents/community" element={<AIAgentsPage />} />
@@ -609,6 +603,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/memory" element={<MemoryExplorerPage />} />
         <Route path="/ai/learning" element={<CompoundLearningPage />} />
         <Route path="/ai/audit" element={<AuditDashboardPage />} />
+        <Route path="/ai/security" element={<SecurityDashboardPage />} />
 
         {/* AI Pages - Hidden (no nav, still accessible) */}
         <Route path="/ai/publisher" element={<PublisherDashboard />} />
@@ -617,7 +612,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
-        <Route path="/ai/plugins" element={<Navigate to="/app/marketplace?types=plugin" replace />} />
 
         {/* Core Pages */}
         <Route path="/content/pages" element={<PagesPage />} />
@@ -738,19 +732,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/roles" element={<AdminRolesPage />} />
         <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
-        <Route path="/admin/marketplace/apps/:id/edit" element={<Navigate to="/app/admin/marketplace" replace />} />
-        {/* Legacy: redirect to consolidated marketplace admin with plugin filter */}
-        <Route path="/admin/plugins" element={<Navigate to="/app/admin/marketplace?types=plugin" replace />} />
         <Route path="/admin/impersonation" element={<AdminImpersonationPage />} />
         <Route path="/system/workers/*" element={<SystemWorkersPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
-        <Route path="/admin" element={<Navigate to="/app/admin/settings" replace />} />
-        
-        {/* Redirect old admin settings to new services page */}
-        <Route path="/admin/settings/reverse-proxy" element={<Navigate to="/app/system/services" replace />} />
-        
-        {/* Test route */}
-        <Route path="/test-websocket" element={<TestWebSocket />} />
       </Routes>
     </DashboardLayout>
   );

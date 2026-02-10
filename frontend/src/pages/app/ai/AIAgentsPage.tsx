@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Plus, LayoutDashboard, Brain, Users, CreditCard, ArrowLeft, ShoppingBag, Globe,
+  Plus, LayoutDashboard, Brain, CreditCard, ArrowLeft, ShoppingBag, Globe,
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
@@ -13,7 +13,6 @@ import { ConversationContinueModal } from '@/features/ai/conversations/component
 import { ConversationCreateModal } from '@/features/ai/conversations/components/ConversationCreateModal';
 import { AgentsOverviewTab } from '@/features/ai/agents/components/tabs/AgentsOverviewTab';
 import { AgentsListTab } from '@/features/ai/agents/components/tabs/AgentsListTab';
-import { TeamsTab } from '@/features/ai/agents/components/tabs/TeamsTab';
 import { CardsTab } from '@/features/ai/agents/components/tabs/CardsTab';
 import { AgentMarketplaceContent } from '@/pages/app/ai/AgentMarketplacePage';
 import { CommunityAgentsContent } from '@/features/ai/community-agents/pages/CommunityAgentsPage';
@@ -29,7 +28,6 @@ import type { AiAgent } from '@/shared/types/ai';
 const tabs = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={16} />, path: '/' },
   { id: 'agents', label: 'Agents', icon: <Brain size={16} />, path: '/list' },
-  { id: 'teams', label: 'Teams', icon: <Users size={16} />, path: '/teams' },
   { id: 'cards', label: 'Cards', icon: <CreditCard size={16} />, path: '/cards' },
   { id: 'marketplace', label: 'Marketplace', icon: <ShoppingBag size={16} />, path: '/marketplace' },
   { id: 'community', label: 'Community', icon: <Globe size={16} />, path: '/community' },
@@ -59,7 +57,6 @@ export const AIAgentsPage: React.FC = () => {
     if (path.includes('/agents/marketplace')) return 'marketplace';
     if (path.includes('/agents/community')) return 'community';
     if (path.includes('/agents/list')) return 'agents';
-    if (path.includes('/agents/teams')) return 'teams';
     if (path.includes('/agents/cards')) return 'cards';
     return 'overview';
   };
@@ -232,30 +229,6 @@ export const AIAgentsPage: React.FC = () => {
           <CommunityAgentsContent />
         </TabPanel>
 
-        <TabPanel tabId="teams" activeTab={activeTab}>
-          <TeamsTab
-            filteredTeams={teamsList.filteredTeams}
-            teamsLoading={teamsList.teamsLoading}
-            statusFilter={teamsList.statusFilter}
-            onStatusFilterChange={teamsList.setStatusFilter}
-            typeFilter={teamsList.typeFilter}
-            onTypeFilterChange={teamsList.setTypeFilter}
-            teamSearchQuery={teamsList.teamSearchQuery}
-            onSearchChange={teamsList.setTeamSearchQuery}
-            teamViewMode={teamsList.teamViewMode}
-            onViewModeChange={teamsList.setTeamViewMode}
-            expandedTeamId={teamsList.expandedTeamId}
-            executingTeamIds={teamsList.executingTeamIds}
-            onOpenBuilder={() => teamsList.setIsBuilderOpen(true)}
-            onToggleExpand={teamsList.handleToggleExpand}
-            onDeleteTeam={teamsList.handleDeleteTeam}
-            onRequestExecute={teamsList.handleRequestExecute}
-            onExecuteTeam={teamsList.handleExecuteTeam}
-            onExecutionComplete={teamsList.handleExecutionComplete}
-            onDismissMonitor={teamsList.handleDismissMonitor}
-            onTeamUpdated={teamsList.loadTeams}
-          />
-        </TabPanel>
       </TabContainer>
 
       {/* Team Builder Modal */}

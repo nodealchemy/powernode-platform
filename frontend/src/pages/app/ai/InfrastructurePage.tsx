@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Brain, Server, Route } from 'lucide-react';
+import { Brain, Server, Route, AppWindow } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { AiProvidersPage as AiProvidersComponent } from '@/features/ai/providers/components/AiProvidersPage';
 import { McpBrowserContent } from '@/pages/app/ai/McpBrowserPage';
 import { ModelRouterContent } from '@/pages/app/ai/ModelRouterPage';
+import { McpAppsContent } from '@/features/ai/mcp-apps';
 
 const tabs = [
   { id: 'providers', label: 'Providers', icon: <Brain size={16} />, path: '/' },
   { id: 'mcp', label: 'MCP Servers', icon: <Server size={16} />, path: '/mcp' },
   { id: 'model-router', label: 'Model Router', icon: <Route size={16} />, path: '/model-router' },
+  { id: 'mcp-apps', label: 'MCP Apps', icon: <AppWindow size={16} />, path: '/mcp-apps' },
 ];
 
 export const InfrastructurePage: React.FC = () => {
@@ -20,6 +22,7 @@ export const InfrastructurePage: React.FC = () => {
     const path = location.pathname;
     if (path.includes('/infrastructure/mcp')) return 'mcp';
     if (path.includes('/infrastructure/model-router')) return 'model-router';
+    if (path.includes('/infrastructure/mcp-apps')) return 'mcp-apps';
     return 'providers';
   };
 
@@ -67,6 +70,9 @@ export const InfrastructurePage: React.FC = () => {
         </TabPanel>
         <TabPanel tabId="model-router" activeTab={activeTab}>
           <ModelRouterContent />
+        </TabPanel>
+        <TabPanel tabId="mcp-apps" activeTab={activeTab}>
+          <McpAppsContent />
         </TabPanel>
       </TabContainer>
     </PageContainer>

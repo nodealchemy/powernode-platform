@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { RotateCcw, Activity, GitFork, FolderOutput } from 'lucide-react';
+import { RotateCcw, Activity, GitFork, FolderOutput, Radio } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
@@ -8,12 +8,14 @@ import { RalphLoopsContent } from '@/features/ai/ralph-loops/pages/RalphLoopsPag
 import { A2aTasksContent } from '@/pages/app/ai/A2aTasksPage';
 import { ParallelExecutionContent } from '@/features/ai/parallel-execution/pages/ParallelExecutionPage';
 import { ExecutionResourcesContent } from '@/pages/app/ai/ExecutionResourcesPage';
+import { AguiContent } from '@/features/ai/agui';
 
 const tabs = [
   { id: 'ralph-loops', label: 'Ralph Loops', icon: <RotateCcw size={16} />, path: '/' },
   { id: 'a2a-tasks', label: 'A2A Tasks', icon: <Activity size={16} />, path: '/a2a-tasks' },
   { id: 'parallel', label: 'Parallel', icon: <GitFork size={16} />, path: '/parallel' },
   { id: 'resources', label: 'Resources', icon: <FolderOutput size={16} />, path: '/resources' },
+  { id: 'agui', label: 'AG-UI', icon: <Radio size={16} />, path: '/agui' },
 ];
 
 export const ExecutionPage: React.FC = () => {
@@ -24,6 +26,7 @@ export const ExecutionPage: React.FC = () => {
     if (path.includes('/execution/a2a-tasks')) return 'a2a-tasks';
     if (path.includes('/execution/parallel')) return 'parallel';
     if (path.includes('/execution/resources')) return 'resources';
+    if (path.includes('/execution/agui')) return 'agui';
     return 'ralph-loops';
   };
 
@@ -84,6 +87,9 @@ export const ExecutionPage: React.FC = () => {
         </TabPanel>
         <TabPanel tabId="resources" activeTab={activeTab}>
           <ExecutionResourcesContent refreshKey={refreshKey} />
+        </TabPanel>
+        <TabPanel tabId="agui" activeTab={activeTab}>
+          <AguiContent />
         </TabPanel>
       </TabContainer>
     </PageContainer>
